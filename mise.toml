@@ -1,2 +1,10 @@
 [tools]
 jq = "latest"
+
+[tasks.build]
+run = "bash -n lib/tfui.sh"
+description = "Syntax check the library"
+
+[tasks.test]
+run = "bash tests/tfui-test.sh"
+description = "Run test suite"

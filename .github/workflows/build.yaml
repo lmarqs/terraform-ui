@@ -1,0 +1,17 @@
+name: Build
+
+on:
+  workflow_call:
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Environment
+        uses: ./.github/actions/prepare-env
+
+      - name: Build
+        run: mise run build

@@ -1,0 +1,20 @@
+name: Test
+
+on:
+  workflow_call:
+
+jobs:
+  main:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Environment
+        uses: ./.github/actions/prepare-env
+
+      - name: Test
+        run: mise run test

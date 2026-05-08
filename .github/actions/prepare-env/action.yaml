@@ -1,0 +1,9 @@
+name: prepare_env
+
+runs:
+  using: composite
+  steps:
+    - name: Install Mise
+      uses: jdx/mise-action@v2
+      with:
+        cache: true

@@ -1,0 +1,26 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+    branches:
+      - main
+
+jobs:
+  build:
+    uses: ./.github/workflows/build.yaml
+
+  test:
+    uses: ./.github/workflows/test.yaml
+    needs: build
+
+  release:
+    uses: ./.github/workflows/release.yaml
+    needs: test
+    permissions:
+      contents: write
