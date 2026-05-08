@@ -46,21 +46,28 @@ Formula/          — homebrew formula
 
 ```bash
 # Syntax check
-bash -n lib/tfui.sh
+mise run build
 
-# Run tests
-bash tests/tfui-test.sh
+# Install BATS helper libraries (auto-runs before test)
+mise run setup
+
+# Run tests (BATS, outputs JUnit XML to reports/)
+mise run test
+
+# Run a single test file
+bats tests/format.bats
 ```
 
 ## Development Workflow
 
 1. Edit `lib/tfui.sh`
-2. Run `bash tests/tfui-test.sh` to verify
+2. Run `mise run test` to verify
 3. Keep public API stable (`tfui_init`, `tfui_plan`, `tfui_confirm`, `tfui_apply`)
 
 ## Important Notes
 
 - Never break the public API signature without a major version bump
 - All internal functions/vars use `_tfui_` or `_TFUI_` prefix to avoid collisions when sourced
-- The test suite uses mocked terraform — no real infra calls
+- The test suite uses BATS with mocked terraform — no real infra calls
 - fd3 is the UI channel; render functions write there, never to stdout/stderr
+- Tests that invoke UI functions use `3>/dev/null` or `3>"$tmpfile"` to avoid conflicts with BATS's internal fd3 (TAP output)
