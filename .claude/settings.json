@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bash -n lib/tfui.sh)",
+      "Bash(bash tests/tfui-test.sh)"
+    ]
+  }
+}
