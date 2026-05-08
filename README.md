@@ -18,7 +18,7 @@ Provides spinner, elapsed timer, progress bar, and tree-view diff output — all
 ### curl
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/lmarqs/terraform-ui/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/lmarqs/terraform-ui/main/scripts/install.sh | bash
 ```
 
 ### Basher
