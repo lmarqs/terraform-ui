@@ -1,0 +1,11 @@
+FROM kcov/kcov
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    jq \
+  && rm -rf /var/lib/apt/lists/*
+
+COPY --from=bats/bats:1.11.1 /opt/bats/ /opt/bats/
+ENV PATH="/opt/bats/bin:$PATH"
+
+WORKDIR /app
+ENTRYPOINT ["kcov", "--include-path=/app/lib", "/app/coverage", "bats", "tests/"]
