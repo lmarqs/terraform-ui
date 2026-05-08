@@ -1,5 +1,5 @@
 [tools]
-jq = "latest"
+jq = "1"
 
 [tasks.build]
 run = "bash -n lib/tfui.sh"
