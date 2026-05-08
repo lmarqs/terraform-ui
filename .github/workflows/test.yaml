@@ -18,3 +18,33 @@ jobs:
 
       - name: Test
         run: mise run test
+
+      - name: Test Report
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Tests (${{ matrix.os }})
+          path: reports/*.xml
+          reporter: java-junit
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Environment
+        uses: ./.github/actions/prepare-env
+
+      - name: Install kcov
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y kcov
+
+      - name: Coverage
+        run: mise run coverage
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          directory: coverage
