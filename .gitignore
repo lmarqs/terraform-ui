@@ -1,2 +1,7 @@
 *.out
 *.tmp
+reports/
+coverage/
+tests/test_helper/bats-support/
+tests/test_helper/bats-assert/
+tests/test_helper/bats-file/

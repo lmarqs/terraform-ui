@@ -1,10 +1,29 @@
 [tools]
 jq = "1"
+bats = "1"
+
+[tasks.setup]
+run = """
+#!/usr/bin/env bash
+dir="tests/test_helper"
+for lib in bats-support bats-assert bats-file; do
+  [ -d "$dir/$lib" ] || git clone --depth 1 "https://github.com/bats-core/$lib.git" "$dir/$lib"
+done
+"""
+description = "Install BATS helper libraries"
 
 [tasks.build]
 run = "bash -n lib/tfui.sh"
 description = "Syntax check the library"
 
 [tasks.test]
-run = "bash tests/tfui-test.sh"
+depends = ["setup"]
+run = "mkdir -p reports && bats tests/ --report-formatter junit --output ./reports"
 description = "Run test suite"
+
+[tasks.coverage]
+run = """
+docker build -f Dockerfile.coverage -t tfui-coverage . && \
+docker run --rm -v "$PWD/lib:/app/lib" -v "$PWD/tests:/app/tests" -v "$PWD/coverage:/app/coverage" tfui-coverage
+"""
+description = "Run tests with kcov coverage via Docker (outputs to coverage/)"
