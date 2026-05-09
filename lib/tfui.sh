@@ -876,3 +876,147 @@ _tfui_render_plan_json() {
     end
   ' "$plan_file"
 }
+
+# -- Noise Reduction ----------------------------------------------------------
+
+# @description Detect phantom changes where before == after in plan JSON.
+# Phantom changes are updates where terraform reports a change but the
+# before and after values are semantically identical (ignoring null vs missing
+# fields and array ordering differences in tags).
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @return stdout - JSON object with phantom_changes count, real_changes count,
+#   and phantom_resources array
+# @note False positives: computed fields that serialize differently but are
+#   functionally equivalent (e.g., "" vs null). False negatives: fields where
+#   ordering matters semantically but jq sorts them as equal.
+_tfui_filter_phantom_changes() {
+  local plan_file="$1"
+  jq '
+    # Helper: recursively remove null values and sort arrays for comparison
+    def normalize:
+      if type == "object" then
+        to_entries
+        | map(select(.value != null))
+        | map(.value |= normalize)
+        | sort_by(.key)
+        | from_entries
+      elif type == "array" then
+        map(normalize) | sort_by(tojson)
+      else
+        .
+      end;
+
+    [.resource_changes // [] | .[] | select(.change.actions == ["update"])] as $updates |
+    ($updates | map(
+      select((.change.before | normalize) == (.change.after | normalize))
+    )) as $phantoms |
+    ($updates | map(
+      select((.change.before | normalize) != (.change.after | normalize))
+    )) as $real |
+    {
+      phantom_changes: ($phantoms | length),
+      real_changes: ($real | length),
+      phantom_resources: [($phantoms | .[] | .address)]
+    }
+  ' "$plan_file"
+}
+
+# @description Group resource changes by module path from resource addresses.
+# Extracts the module path prefix from each resource address.
+# Nested modules are fully preserved (e.g., module.vpc.module.subnets).
+# Resources without a module prefix are grouped under "root".
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @return stdout - JSON object with by_module key containing grouped changes
+#   with summary counts (add, change, destroy) and changes array per module.
+_tfui_group_by_module() {
+  local plan_file="$1"
+  jq '
+    # Extract module path from a resource address.
+    # "module.vpc.module.sub.aws_instance.x" -> "module.vpc.module.sub"
+    # "aws_instance.x" -> "root"
+    def module_path:
+      # Split into segments by ".", rebuild module prefix
+      split(".") as $parts |
+      # Find the last "module" keyword index that starts a module.X pair
+      [range(0; $parts | length) | select($parts[.] == "module")] as $mod_indices |
+      if ($mod_indices | length) == 0 then
+        "root"
+      else
+        # Each module segment consumes two parts: "module" + name
+        # Find where the resource type starts (first segment after all module pairs)
+        ($mod_indices | last) as $last_mod |
+        # Module path is everything up to and including $last_mod + 1
+        $parts[0:$last_mod + 2] | join(".")
+      end;
+
+    [.resource_changes // [] | .[] | select(.change.actions != ["no-op"] and .change.actions != ["read"])] |
+    group_by(.address | module_path) |
+    map({
+      module: (.[0].address | module_path),
+      summary: {
+        add: [.[] | select(.change.actions == ["create"])] | length,
+        change: [.[] | select(.change.actions == ["update"])] | length,
+        destroy: [.[] | select(.change.actions == ["delete"])] | length
+      },
+      changes: .
+    }) |
+    { by_module: (map({(.module): {summary, changes}}) | add // {}) }
+  ' "$plan_file"
+}
+
+# @description Render a human-readable grouped tree view organized by module.
+# Resources are grouped under their module path with per-module summaries.
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @return stdout - Formatted grouped tree view
+_tfui_render_grouped_plan_tree() {
+  local plan_file="$1"
+  jq -r '
+    # Extract module path from a resource address
+    def module_path:
+      split(".") as $parts |
+      [range(0; $parts | length) | select($parts[.] == "module")] as $mod_indices |
+      if ($mod_indices | length) == 0 then
+        "root"
+      else
+        ($mod_indices | last) as $last_mod |
+        $parts[0:$last_mod + 2] | join(".")
+      end;
+
+    def action_symbol:
+      if .change.actions == ["create"] then "+"
+      elif .change.actions == ["delete"] then "-"
+      elif .change.actions == ["update"] then "~"
+      elif (.change.actions | sort) == ["create", "delete"] then "-/+"
+      else "?"
+      end;
+
+    def change_count_label:
+      .summary as $s |
+      ([$s.add, $s.change, $s.destroy] | add) as $total |
+      ([
+        (if $s.add > 0 then "\($s.add) to add" else empty end),
+        (if $s.change > 0 then "\($s.change) to change" else empty end),
+        (if $s.destroy > 0 then "\($s.destroy) to destroy" else empty end)
+      ] | join(", "));
+
+    [.resource_changes // [] | .[] | select(.change.actions != ["no-op"] and .change.actions != ["read"])] |
+    if length == 0 then
+      "No changes. Infrastructure is up-to-date."
+    else
+      group_by(.address | module_path) |
+      sort_by(.[0].address | module_path) |
+      map(
+        (.[0].address | module_path) as $mod |
+        {
+          add: [.[] | select(.change.actions == ["create"])] | length,
+          change: [.[] | select(.change.actions == ["update"])] | length,
+          destroy: [.[] | select(.change.actions == ["delete"])] | length
+        } as $summary |
+        ([$summary.add, $summary.change, $summary.destroy] | add) as $total |
+        ({summary: $summary} | change_count_label) as $label |
+        "\($mod) (\($label))\n" +
+        (map("  \(action_symbol) \(.address)") | sort | join("\n"))
+      ) | join("\n")
+    end
+  ' "$plan_file"
+}

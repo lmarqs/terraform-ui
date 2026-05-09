@@ -153,25 +153,66 @@ Additional commands: `tfui version`, `tfui help`.
 | `tfui_confirm <file> [--auto-approve]` | Check for changes, optionally prompt user |
 | `tfui_apply <file> <msg> [args]` | Apply the saved plan |
 
-### UI Modes
+### Usage Modes
 
-| Mode | Strategy | Description |
-|------|----------|-------------|
-| `auto` | *(detected)* | Rich if terminal available, plain otherwise |
-| `rich` | progress | Two-line UI: spinner + progress bar |
-| `simple` | spinner | One-line spinner with elapsed time |
-| `plain` | silent | No UI output, tree-view on stdout |
-| `agent` | agent | No UI output, structured JSON on stdout |
+terraform-ui adapts its output to who — or what — is consuming it. Use `--mode <mode>` to select the appropriate strategy.
 
-### Agent Mode
+#### `auto` (default)
 
-Use `--mode agent` when terraform-ui is consumed by AI agents, MCP tools, or automation that needs structured data instead of human-readable text.
+Detects whether a terminal is available. Uses `rich` if yes, `plain` otherwise. Best for scripts that might run interactively or in CI.
+
+```bash
+tfui plan --dir ./modules/vpc
+```
+
+#### `rich`
+
+Two-line animated UI with spinner, elapsed timer, and progress bar. Best for interactive terminal use on large modules where you want visual feedback during long waits.
+
+```bash
+tfui plan --dir ./modules/vpc --mode rich
+```
+
+```
+⠋ Planning (12s)
+  Progress: 8/20 [████████████░░░░░░░░] 40%
+```
+
+#### `simple`
+
+One-line spinner with elapsed time. Best for constrained terminals, tmux panes, or when the progress bar is too noisy.
+
+```bash
+tfui plan --dir ./modules/vpc --mode simple
+```
+
+```
+⠋ Planning (47s)
+```
+
+#### `plain`
+
+No terminal UI at all. Runs silently and outputs the tree-view diff to stdout. Best for CI pipelines, log capture, and scripted automation where ANSI escape codes would corrupt output.
+
+```bash
+tfui plan --dir ./modules/vpc --mode plain
+```
+
+```
++ aws_instance.web
+~ aws_security_group.allow_tls
+- aws_iam_role.old_role
+
+Plan: 1 to add, 1 to change, 1 to destroy.
+```
+
+#### `agent`
+
+No terminal UI. Outputs structured JSON with risk classification to stdout. Best for AI agents, MCP tools, and programmatic consumers that need machine-readable data with safety hints.
 
 ```bash
 tfui plan --dir ./modules/vpc --mode agent
 ```
-
-Output:
 
 ```json
 {
@@ -197,6 +238,56 @@ Each change includes a `risk` classification based on resource type and action:
 | `low` | Create operations on non-critical resources |
 
 The plan-level `risk_level` is the maximum across all changes. `destructive` is `true` if any change is a delete or replace.
+
+### Noise Reduction
+
+terraform-ui includes two noise reduction features for cleaner plan output:
+
+**Phantom change detection** — identifies "updates" where nothing actually changed (tag ordering, computed defaults, provider normalization):
+
+```bash
+source lib/tfui.sh
+_tfui_filter_phantom_changes "$plan_json_file"
+```
+
+```json
+{
+  "phantom_changes": 13,
+  "real_changes": 2,
+  "phantom_resources": ["aws_security_group.default", "aws_route_table.main"]
+}
+```
+
+**Module-level grouping** — groups flat resource lists by module path for better signal:
+
+```bash
+_tfui_group_by_module "$plan_json_file"
+```
+
+```json
+{
+  "by_module": {
+    "module.vpc": { "summary": { "add": 0, "change": 3, "destroy": 0 }, "changes": [...] },
+    "root": { "summary": { "add": 1, "change": 0, "destroy": 1 }, "changes": [...] }
+  }
+}
+```
+
+Human-readable grouped output:
+
+```bash
+_tfui_render_grouped_plan_tree "$plan_json_file"
+```
+
+```
+module.vpc (3 to change)
+  ~ aws_route_table.private
+  ~ aws_subnet.private[0]
+  ~ aws_subnet.private[1]
+root (1 to add, 1 to destroy)
+  + aws_instance.web
+  - aws_iam_role.old_role
+```
 
 ### File Descriptors
 
