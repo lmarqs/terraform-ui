@@ -338,12 +338,17 @@ func (e *Plugin) SelectedResource() sdk.Resource {
 
 // InspectSelected loads detailed info about the selected resource.
 func (e *Plugin) InspectSelected() tea.Cmd {
+	if e.status == StatusLoading {
+		return nil
+	}
 	r := e.SelectedResource()
 	if r.Address == "" {
 		e.log.Debug("state.inspect.skip", "reason", "empty address", "selected", e.selected, "filtered", len(e.filtered))
 		return nil
 	}
 	e.log.Debug("state.inspect.start", "address", r.Address)
+	e.status = StatusLoading
+	e.errMsg = "Loading " + r.Address + "..."
 	return e.loadDetail(r.Address)
 }
 
@@ -357,7 +362,11 @@ func (e *Plugin) View(width, height int) string {
 
 	case StatusLoading:
 		title := sdk.StyleTitle.Render("State Browser")
-		loading := sdk.StyleFaintItalic.Render("Loading terraform state...")
+		msg := "Loading terraform state..."
+		if e.errMsg != "" {
+			msg = e.errMsg
+		}
+		loading := sdk.StyleFaintItalic.Render(msg)
 		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
