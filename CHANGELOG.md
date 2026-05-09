@@ -1,3 +1,10 @@
+# [0.39.0](https://github.com/lmarqs/terraform-ui/compare/v0.38.0...v0.39.0) (2026-05-09)
+
+
+### Features
+
+* phantom change detection and module-level grouping ([#7](https://github.com/lmarqs/terraform-ui/issues/7)) ([69af1b1](https://github.com/lmarqs/terraform-ui/commit/69af1b1f33da8a3a8d1e5089a5e9aa0642fbd918))
+
 # [0.38.0](https://github.com/lmarqs/terraform-ui/compare/v0.37.0...v0.38.0) (2026-05-09)
 
 
