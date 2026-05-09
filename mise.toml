@@ -23,6 +23,7 @@ run = "mkdir -p reports && bats tests/ --report-formatter junit --output ./repor
 description = "Run test suite"
 
 [tasks.coverage]
+depends = ["setup"]
 run = """
 docker build -f Dockerfile.coverage -t tfui-coverage . && \
 docker run --rm -v "$PWD/lib:/app/lib" -v "$PWD/tests:/app/tests" -v "$PWD/coverage:/app/coverage" tfui-coverage

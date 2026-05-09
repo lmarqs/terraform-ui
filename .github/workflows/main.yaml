@@ -18,6 +18,9 @@ jobs:
   test:
     uses: ./.github/workflows/test.yaml
     needs: build
+    permissions:
+      checks: write
+      contents: read
 
   release:
     uses: ./.github/workflows/release.yaml

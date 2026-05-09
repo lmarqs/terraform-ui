@@ -6,9 +6,12 @@ on:
 jobs:
   main:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      checks: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -26,6 +29,7 @@ jobs:
           name: Tests (${{ matrix.os }})
           path: reports/*.xml
           reporter: java-junit
+          fail-on-empty: 'false'
 
   coverage:
     runs-on: ubuntu-latest
@@ -36,15 +40,11 @@ jobs:
       - name: Prepare Environment
         uses: ./.github/actions/prepare-env
 
-      - name: Install kcov
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y kcov
-
       - name: Coverage
         run: mise run coverage
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
+        if: always()
         with:
           directory: coverage
