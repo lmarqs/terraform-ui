@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"io"
+	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -26,8 +28,10 @@ func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) {
 func (m *mockService) Show(_ context.Context, _ string) (string, error) {
 	return m.showResult, m.showErr
 }
-func (m *mockService) Workspace(_ context.Context) (string, error)       { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) { return []string{"default"}, nil }
+func (m *mockService) Workspace(_ context.Context) (string, error) { return "default", nil }
+func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
+	return []string{"default"}, nil
+}
 
 func TestNew(t *testing.T) {
 	svc := &mockService{}
@@ -70,6 +74,7 @@ func TestInit(t *testing.T) {
 		Dir:       "/tmp",
 		Workspace: "default",
 		Service:   svc,
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 
 	cmd := p.Init(ctx)
@@ -90,7 +95,7 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 	}
 	svc := &mockService{stateListResult: resources}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
 	cmd := p.Init(ctx)
 	msg := cmd()
@@ -110,7 +115,7 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 func TestInitCmdReturnsError(t *testing.T) {
 	svc := &mockService{stateListErr: errors.New("state error")}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
 	cmd := p.Init(ctx)
 	msg := cmd()

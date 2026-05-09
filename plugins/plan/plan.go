@@ -3,10 +3,11 @@ package plan
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -29,6 +30,7 @@ type PlanResultMsg struct {
 // Plugin implements the plan review feature.
 type Plugin struct {
 	svc      sdk.Service
+	log      *slog.Logger
 	status   Status
 	summary  *sdk.PlanSummary
 	errMsg   string
@@ -42,6 +44,7 @@ func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		expanded: make(map[int]bool),
 		svc:      svc,
+		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 
@@ -70,12 +73,13 @@ func (e *Plugin) SetTargets(targets []string) {
 // Init initializes the plugin with shared context and triggers a plan.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
+	e.log = ctx.Logger
 	e.status = StatusLoading
 	e.summary = nil
 	e.errMsg = ""
 	e.selected = 0
 	e.expanded = make(map[int]bool)
-	logging.Logger().Debug("plan.start", "targets", e.targets)
+	e.log.Debug("plan.start", "targets", e.targets)
 	return e.runPlan()
 }
 
@@ -105,7 +109,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
-			logging.Logger().Debug("plan.error", "error", msg.Err.Error())
+			e.log.Debug("plan.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
 			e.summary = msg.Summary
@@ -113,7 +117,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			if msg.Summary != nil {
 				changes = len(msg.Summary.Changes)
 			}
-			logging.Logger().Debug("plan.complete", "changes", changes)
+			e.log.Debug("plan.complete", "changes", changes)
 		}
 		return e, nil
 

@@ -1,8 +1,10 @@
 package sdk
 
+import "log/slog"
+
 // Context provides shared state passed to plugins during initialization.
-// It contains the working directory, active workspace, and the terraform
-// service instance that plugins use to execute operations.
+// It contains the working directory, active workspace, the terraform
+// service instance, and a structured logger for debug output.
 type Context struct {
 	// Dir is the working directory for terraform operations.
 	Dir string
@@ -10,4 +12,7 @@ type Context struct {
 	Workspace string
 	// Service is the terraform service used to run plan, apply, and state operations.
 	Service Service
+	// Logger is the structured logger for debug output. Plugins should use this
+	// instead of the global slog to enable testability (inject a discard or buffer logger).
+	Logger *slog.Logger
 }

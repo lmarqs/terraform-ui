@@ -46,6 +46,7 @@ func (a App) Init() tea.Cmd {
 		Dir:       a.cfg.Dir,
 		Workspace: "default",
 		Service:   a.svc,
+		Logger:    logging.Logger(),
 	}
 	for _, p := range a.registry.All() {
 		if cmd := p.Init(ctx); cmd != nil {

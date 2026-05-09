@@ -3,10 +3,11 @@ package state
 import (
 	"context"
 	"fmt"
+	"io"
+	"log/slog"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -37,6 +38,7 @@ type ResourceDetailMsg struct {
 // Plugin implements the state browser feature.
 type Plugin struct {
 	svc        sdk.Service
+	log      *slog.Logger
 	status     Status
 	resources  []sdk.Resource
 	filtered   []sdk.Resource
@@ -51,6 +53,7 @@ type Plugin struct {
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
+		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 
@@ -73,6 +76,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init initializes the plugin and loads state.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
+	e.log = ctx.Logger
 	e.status = StatusLoading
 	e.resources = nil
 	e.filtered = nil
@@ -120,12 +124,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
-			logging.Logger().Debug("state.load.error", "error", msg.Err.Error())
+			e.log.Debug("state.load.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
-			logging.Logger().Debug("state.load.complete", "resources", len(msg.Resources))
+			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
 		}
 		return e, nil
 
@@ -133,12 +137,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()
 			e.status = StatusDone
-			logging.Logger().Debug("state.inspect.error", "address", msg.Address, "error", msg.Err.Error())
+			e.log.Debug("state.inspect.error", "address", msg.Address, "error", msg.Err.Error())
 		} else {
 			e.detail = msg.Detail
 			e.detailAddr = msg.Address
 			e.status = StatusShowingDetail
-			logging.Logger().Debug("state.inspect", "address", msg.Address)
+			e.log.Debug("state.inspect", "address", msg.Address)
 		}
 		return e, nil
 
@@ -221,7 +225,7 @@ func (e *Plugin) SetFilter(filter string) {
 	e.selected = 0
 	if filter == "" {
 		e.filtered = e.resources
-		logging.Logger().Debug("state.filter", "filter", "", "results", len(e.resources))
+		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
 	lower := strings.ToLower(filter)
@@ -234,7 +238,7 @@ func (e *Plugin) SetFilter(filter string) {
 		}
 	}
 	e.filtered = result
-	logging.Logger().Debug("state.filter", "filter", filter, "results", len(e.filtered))
+	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
 // AppendFilter adds a character to the filter.
