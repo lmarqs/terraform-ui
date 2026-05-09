@@ -585,7 +585,7 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 	var hint string
 	if e.filtering {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter  ←→ pan  ^w wrap(%s)  Esc exit", wrapLabel))
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter (space=AND)  ←→ pan  ^w wrap(%s)  Esc exit", wrapLabel))
 	} else {
 		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  / filter  ^w wrap(%s)  : switch  q back", wrapLabel))
 	}
