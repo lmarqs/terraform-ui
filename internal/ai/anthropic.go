@@ -1,4 +1,4 @@
-// Package ai provides AI-powered features for terraform-ui using Claude (Anthropic).
+// Package ai provides AI-powered features for terraform-ui using Claude via AWS Bedrock.
 // It implements the sdk.AIProvider interface with streaming support for real-time
 // token display in the TUI.
 package ai
@@ -7,36 +7,40 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/bedrock"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// AnthropicProvider implements sdk.AIProvider using the Anthropic Claude API.
+// AnthropicProvider implements sdk.AIProvider using Claude via AWS Bedrock.
 type AnthropicProvider struct {
 	client *anthropic.Client
 	model  string
 }
 
-// NewAnthropicProvider creates a new AI provider using the Anthropic API.
-// If apiKey is empty, it reads from ANTHROPIC_API_KEY environment variable.
+// NewAnthropicProvider creates a new AI provider using Claude via AWS Bedrock.
+// Uses the default AWS credential chain (env vars, shared credentials, IAM role, etc.).
+// The model should be a Bedrock model ID like "us.anthropic.claude-sonnet-4-6-v1".
 func NewAnthropicProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
-	apiKey := cfg.APIKey
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
-	}
-	if apiKey == "" {
-		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
+	opts := []option.RequestOption{
+		bedrock.WithLoadDefaultConfig(context.Background()),
 	}
 
-	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+	// Allow region override via config
+	if cfg.Region != "" {
+		opts = append(opts, option.WithBaseURL(
+			fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com", cfg.Region),
+		))
+	}
+
+	client := anthropic.NewClient(opts...)
 
 	model := cfg.Model
 	if model == "" {
-		model = "claude-sonnet-4-6-20250514"
+		model = "us.anthropic.claude-sonnet-4-6-v1"
 	}
 
 	return &AnthropicProvider{
