@@ -33,8 +33,8 @@ func NewHomeView() HomeView {
 	}
 }
 
-func (v HomeView) Selected() int       { return v.selected }
-func (v HomeView) Items() []MenuItem    { return v.items }
+func (v HomeView) Selected() int          { return v.selected }
+func (v HomeView) Items() []MenuItem      { return v.items }
 func (v HomeView) SelectedItem() MenuItem { return v.items[v.selected] }
 
 func (v HomeView) MoveUp() HomeView {

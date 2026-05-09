@@ -8,10 +8,10 @@ import (
 	"sync"
 	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 )
 
@@ -80,11 +80,11 @@ var spinnerFrames = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧
 
 // spinner manages an animated spinner on stderr.
 type spinner struct {
-	mu      sync.Mutex
-	stop    chan struct{}
-	done    chan struct{}
-	message string
-	start   time.Time
+	mu          sync.Mutex
+	stop        chan struct{}
+	done        chan struct{}
+	message     string
+	start       time.Time
 	showElapsed bool
 }
 

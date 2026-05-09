@@ -133,11 +133,11 @@ func TestGroupByModule(t *testing.T) {
 			},
 			expectedGroups: map[string]ActionSummary{
 				"module.vpc.module.subnets": {Change: 2},
-				"module.vpc":               {Change: 1},
+				"module.vpc":                {Change: 1},
 			},
 			expectedCounts: map[string]int{
 				"module.vpc.module.subnets": 2,
-				"module.vpc":               1,
+				"module.vpc":                1,
 			},
 		},
 		{
