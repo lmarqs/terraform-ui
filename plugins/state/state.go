@@ -420,7 +420,7 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	terms := strings.Fields(filter)
+	terms := strings.Fields(strings.ToLower(filter))
 	type scored struct {
 		resource sdk.Resource
 		score    int

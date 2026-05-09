@@ -615,6 +615,21 @@ func TestSetFilterFzf(t *testing.T) {
 		}
 	})
 
+	t.Run("case insensitive", func(t *testing.T) {
+		p.SetFilter("aurora")
+		lower := len(p.filtered)
+		p.SetFilter("Aurora")
+		upper := len(p.filtered)
+		p.SetFilter("AURORA")
+		allCaps := len(p.filtered)
+		if lower != upper || lower != allCaps {
+			t.Errorf("case mismatch: aurora=%d, Aurora=%d, AURORA=%d", lower, upper, allCaps)
+		}
+		if lower == 0 {
+			t.Error("expected results for 'aurora'")
+		}
+	})
+
 	t.Run("no match", func(t *testing.T) {
 		p.SetFilter("zzz")
 		if len(p.filtered) != 0 {
