@@ -49,7 +49,7 @@ func NewApp(cfg config.Config, svc terraform.Service) App {
 		cfg:            cfg,
 		svc:            svc,
 		activeView:     ViewHome,
-		header:         components.NewHeader(cfg.Dir, "default", 0),
+		header:         components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary, 0),
 		statusBar:      components.NewStatusBar(),
 		homeView:       views.NewHomeView(),
 		stateView:      views.NewStateView(),
@@ -130,7 +130,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case workspaceLoadedMsg:
-		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, 0)
+		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary, 0)
 		return a, nil
 
 	case planResultMsg:
@@ -328,7 +328,7 @@ func (a App) updateModules(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		selected := a.modulesView.SelectedModule()
 		if selected != "" {
 			a.cfg.Dir = selected
-			a.header = components.NewHeader(selected, "default", 0)
+			a.header = components.NewHeader(selected, "default", a.cfg.TerraformBinary, 0)
 			a.activeView = ViewHome
 		}
 	}
