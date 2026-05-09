@@ -30,3 +30,21 @@ jobs:
           path: reports/*.xml
           reporter: java-junit
           fail-on-empty: 'false'
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Prepare Environment
+        uses: ./.github/actions/prepare-env
+
+      - name: Coverage
+        run: mise run coverage:run
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        if: always()
+        with:
+          directory: coverage
