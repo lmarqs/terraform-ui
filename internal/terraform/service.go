@@ -276,6 +276,216 @@ func (s *TerraformService) WorkspaceDelete(ctx context.Context, name string) err
 	return nil
 }
 
+// StateRm removes a resource from state.
+func (s *TerraformService) StateRm(ctx context.Context, address string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "state rm", "dir", s.workingDir, "address", address)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.StateRm(ctx, address); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "state rm", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("removing %q from state: %w", address, err)
+	}
+
+	s.stateCache = nil
+	logging.Logger().Debug("terraform.result", "cmd", "state rm", "duration", time.Since(start).String())
+	return nil
+}
+
+// StateMove moves a resource in state.
+func (s *TerraformService) StateMove(ctx context.Context, source, dest string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "state mv", "dir", s.workingDir, "source", source, "dest", dest)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.StateMv(ctx, source, dest); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "state mv", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("moving %q to %q: %w", source, dest, err)
+	}
+
+	s.stateCache = nil
+	logging.Logger().Debug("terraform.result", "cmd", "state mv", "duration", time.Since(start).String())
+	return nil
+}
+
+// Import imports an existing resource into state.
+func (s *TerraformService) Import(ctx context.Context, address, id string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "import", "dir", s.workingDir, "address", address, "id", id)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.Import(ctx, address, id); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "import", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("importing %q with id %q: %w", address, id, err)
+	}
+
+	s.stateCache = nil
+	logging.Logger().Debug("terraform.result", "cmd", "import", "duration", time.Since(start).String())
+	return nil
+}
+
+// Taint marks a resource for recreation.
+// Note: terraform taint is deprecated in newer versions of Terraform in favor of
+// using -replace with plan/apply. terraform-exec still supports the command.
+func (s *TerraformService) Taint(ctx context.Context, address string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "taint", "dir", s.workingDir, "address", address)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.Taint(ctx, address); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "taint", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("tainting %q: %w", address, err)
+	}
+
+	logging.Logger().Debug("terraform.result", "cmd", "taint", "duration", time.Since(start).String())
+	return nil
+}
+
+// Untaint removes taint from a resource.
+// Note: terraform untaint is deprecated in newer versions of Terraform.
+func (s *TerraformService) Untaint(ctx context.Context, address string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "untaint", "dir", s.workingDir, "address", address)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.Untaint(ctx, address); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "untaint", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("untainting %q: %w", address, err)
+	}
+
+	logging.Logger().Debug("terraform.result", "cmd", "untaint", "duration", time.Since(start).String())
+	return nil
+}
+
+// Validate runs terraform validate.
+func (s *TerraformService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
+	logging.Logger().Debug("terraform.exec", "cmd", "validate", "dir", s.workingDir)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return nil, err
+	}
+
+	validateOutput, err := tf.Validate(ctx)
+	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "validate", "error", err.Error(), "duration", time.Since(start).String())
+		return nil, fmt.Errorf("running terraform validate: %w", err)
+	}
+
+	result := make([]sdk.Diagnostic, 0)
+	if validateOutput != nil {
+		for _, d := range validateOutput.Diagnostics {
+			diag := sdk.Diagnostic{
+				Severity: string(d.Severity),
+				Summary:  d.Summary,
+				Detail:   d.Detail,
+			}
+			if d.Range != nil {
+				diag.File = d.Range.Filename
+				diag.Line = d.Range.Start.Line
+			}
+			result = append(result, diag)
+		}
+	}
+
+	logging.Logger().Debug("terraform.result", "cmd", "validate", "diagnostics", len(result), "duration", time.Since(start).String())
+	return result, nil
+}
+
+// Output returns all terraform outputs.
+func (s *TerraformService) Output(ctx context.Context) (map[string]sdk.OutputValue, error) {
+	logging.Logger().Debug("terraform.exec", "cmd", "output", "dir", s.workingDir)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return nil, err
+	}
+
+	outputs, err := tf.Output(ctx)
+	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "output", "error", err.Error(), "duration", time.Since(start).String())
+		return nil, fmt.Errorf("getting outputs: %w", err)
+	}
+
+	result := make(map[string]sdk.OutputValue)
+	for name, meta := range outputs {
+		var value interface{}
+		if len(meta.Value) > 0 {
+			_ = json.Unmarshal(meta.Value, &value)
+		}
+		result[name] = sdk.OutputValue{
+			Name:      name,
+			Value:     value,
+			Type:      string(meta.Type),
+			Sensitive: meta.Sensitive,
+		}
+	}
+
+	logging.Logger().Debug("terraform.result", "cmd", "output", "count", len(result), "duration", time.Since(start).String())
+	return result, nil
+}
+
+// Refresh refreshes terraform state.
+func (s *TerraformService) Refresh(ctx context.Context) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "refresh", "dir", s.workingDir)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.Refresh(ctx); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "refresh", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("refreshing state: %w", err)
+	}
+
+	s.stateCache = nil
+	logging.Logger().Debug("terraform.result", "cmd", "refresh", "duration", time.Since(start).String())
+	return nil
+}
+
+// Init runs terraform init.
+func (s *TerraformService) Init(ctx context.Context) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "init", "dir", s.workingDir)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.Init(ctx); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "init", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("running terraform init: %w", err)
+	}
+
+	logging.Logger().Debug("terraform.result", "cmd", "init", "duration", time.Since(start).String())
+	return nil
+}
+
 // parsePlan converts a tfjson.Plan into a PlanSummary.
 func parsePlan(plan *tfjson.Plan) *PlanSummary {
 	summary := &PlanSummary{

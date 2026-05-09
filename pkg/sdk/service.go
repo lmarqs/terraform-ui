@@ -34,6 +34,33 @@ type Service interface {
 	// WorkspaceDelete deletes the specified terraform workspace.
 	WorkspaceDelete(ctx context.Context, name string) error
 
+	// StateRm removes a resource from terraform state by address.
+	StateRm(ctx context.Context, address string) error
+
+	// StateMove moves a resource from one address to another in state.
+	StateMove(ctx context.Context, source, dest string) error
+
+	// Import imports an existing infrastructure resource into terraform state.
+	Import(ctx context.Context, address, id string) error
+
+	// Taint marks a resource as tainted, forcing recreation on next apply.
+	Taint(ctx context.Context, address string) error
+
+	// Untaint removes the taint from a resource.
+	Untaint(ctx context.Context, address string) error
+
+	// Validate runs terraform validate and returns diagnostics.
+	Validate(ctx context.Context) ([]Diagnostic, error)
+
+	// Output returns all terraform outputs.
+	Output(ctx context.Context) (map[string]OutputValue, error)
+
+	// Refresh refreshes the state to match real infrastructure.
+	Refresh(ctx context.Context) error
+
+	// Init runs terraform init in the working directory.
+	Init(ctx context.Context) error
+
 	// WithDir returns a new Service instance scoped to the given working directory.
 	WithDir(dir string) Service
 }

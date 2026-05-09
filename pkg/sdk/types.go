@@ -109,3 +109,20 @@ type PhantomResult struct {
 	RealCount        int
 	PhantomAddresses []string
 }
+
+// Diagnostic represents a terraform validation diagnostic (error or warning).
+type Diagnostic struct {
+	Severity string // "error" or "warning"
+	Summary  string
+	Detail   string
+	File     string
+	Line     int
+}
+
+// OutputValue represents a terraform output.
+type OutputValue struct {
+	Name      string
+	Value     interface{}
+	Type      string
+	Sensitive bool
+}
