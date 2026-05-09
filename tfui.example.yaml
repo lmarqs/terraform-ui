@@ -12,9 +12,9 @@ projects:
     # - "envs/*"
     # - "infra/**"
 
-# Extension configuration (map of extension ID → config)
-# All extensions are enabled by default. Only list ones you want to customize.
-extensions:
+# Plugin configuration (map of plugin ID → config)
+# All plugins are enabled by default. Only list ones you want to customize.
+plugins:
   risk:
     enabled: true
     # custom_rules:
@@ -25,6 +25,6 @@ extensions:
     enabled: true
     # auto_approve: false
 
-  # Disable an extension:
+  # Disable a plugin:
   # blastradius:
   #   enabled: false

@@ -1,11 +1,17 @@
-*.out
-*.tmp
+# Build output
 dist/
-node_modules/
-reports/
+*.out
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+
+# Go
+vendor/
+
+# Generated
 coverage/
-tests/helpers/bats-support/
-tests/helpers/bats-assert/
-tests/helpers/bats-file/
-tests/fixtures/**/.terraform/
-tests/fixtures/**/.terraform.lock.hcl

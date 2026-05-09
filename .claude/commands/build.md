@@ -1,12 +1,14 @@
 ---
-allowed-tools: Bash(mise run:*), Bash(bash -n:*)
-description: Syntax check the library (mise run build)
+allowed-tools: Bash(mise run:*)
+description: Build Go binary (mise run build)
 ---
 
 ## Mise task: `build`
 
-Run syntax check with `mise run build`.
+Run `mise run build` to compile the Go binary to `dist/tfui`.
 
-This runs `bash -n lib/tfui.sh` which checks for syntax errors without executing. Always run this after editing the library.
+Runs `fmt` and `lint` first as dependencies.
 
-Related commands: /test-run
+Accepts an optional version argument: `mise run build 1.0.0`
+
+Related commands: /fmt, /lint, /test, /run

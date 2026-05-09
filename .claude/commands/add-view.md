@@ -1,6 +1,6 @@
 ---
 allowed-tools: Bash(find:*), Read, Write, Edit, Bash(go build:*), Bash(go vet:*)
-description: Add a new TUI view to the application
+description: Add a new plugin to the application
 ---
 
 ## Add a new TUI view

@@ -1,73 +1,13 @@
 [tools]
-jq = "1"
-bats = "1"
-terraform = "1.14"
-node = "22"
 go = "1.22"
+terraform = "1.14"
 
-[tasks.setup]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-npm ci
-dir="tests/helpers"
-for lib in bats-support bats-assert bats-file; do
-  [ -d "$dir/$lib" ] || git clone --depth 1 "https://github.com/bats-core/$lib.git" "$dir/$lib"
-done
-"""
-description = "Install dependencies"
-
-[tasks.build]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-version="${1:-$(cat VERSION)}"
-mkdir -p dist
-cp -r bin lib VERSION dist/
-chmod +x dist/bin/tfui
-echo "$version" > dist/VERSION
-tar -czf "dist/tfui-${version}.tar.gz" -C dist bin lib VERSION
-"""
-description = "Package distributable into dist/ (accepts optional version argument)"
-
-[tasks."test:run"]
-depends = ["setup"]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-bash -n lib/tfui.sh
-bash -n bin/tfui
-mkdir -p reports
-bats tests/ --report-formatter junit --output ./reports
-"""
-description = "Syntax check and run test suite"
-
-[tasks.release]
-run = "npm run release"
-description = "Run semantic-release (CI only)"
-
-[tasks."coverage:run"]
-depends = ["setup"]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-docker build -f Dockerfile.coverage -t tfui-coverage .
-docker run --rm \
-  -v "$PWD/lib:/app/lib" \
-  -v "$PWD/tests:/app/tests" \
-  -v "$PWD/coverage:/app/coverage" \
-  tfui-coverage || true
-"""
-description = "Run tests with kcov coverage via Docker (outputs to coverage/)"
-
-# --- Go tasks ---
-
-[tasks."go:fmt"]
-run = "gofmt -w cmd/ internal/"
+[tasks.fmt]
+run = "gofmt -w cmd/ internal/ plugins/"
 description = "Format Go source files"
 
-[tasks."go:build"]
-depends = ["go:fmt", "go:lint"]
+[tasks.build]
+depends = ["fmt", "lint"]
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,15 +16,15 @@ go build -ldflags "-X main.version=${version}" -o dist/tfui ./cmd/tfui
 """
 description = "Build Go binary to dist/tfui (runs fmt + lint first)"
 
-[tasks."go:test"]
+[tasks.test]
 run = "go test ./..."
 description = "Run Go unit tests"
 
-[tasks."go:lint"]
+[tasks.lint]
 run = "go vet ./..."
 description = "Run go vet on all packages"
 
-[tasks."go:coverage"]
+[tasks.coverage]
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
@@ -93,6 +33,10 @@ go tool cover -func=coverage.out
 """
 description = "Run Go tests with coverage report"
 
-[tasks."go:run"]
+[tasks.run]
 run = "go run ./cmd/tfui"
 description = "Run tfui TUI in development mode"
+
+[tasks.release]
+run = "goreleaser release --clean"
+description = "Run goreleaser (CI only)"

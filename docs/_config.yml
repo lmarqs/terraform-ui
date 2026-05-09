@@ -9,11 +9,24 @@ header_pages:
   - index.md
   - getting-started.md
   - configuration.md
+  - extensions/index.md
   - architecture.md
   - risk-analysis.md
   - phantom-changes.md
   - blast-radius.md
   - cli-reference.md
+
+collections:
+  extensions:
+    output: true
+    permalink: /extensions/:name/
+
+defaults:
+  - scope:
+      path: "extensions"
+      type: "extensions"
+    values:
+      layout: extension
 
 plugins:
   - jekyll-seo-tag
