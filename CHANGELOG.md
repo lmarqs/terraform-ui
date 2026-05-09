@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.6 — 2026-05-09
+
+### CI
+
+- commit VERSION back to main after release
+
+### Miscellaneous
+
+- v0.36.5 [skip ci]
+
 ## 0.36.5 — 2026-05-09
 
 ### Documentation
