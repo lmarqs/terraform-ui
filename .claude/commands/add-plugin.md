@@ -42,6 +42,7 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
 
    import (
        tea "github.com/charmbracelet/bubbletea"
+       "github.com/lmarqs/terraform-ui/internal/plugin"
        "github.com/lmarqs/terraform-ui/internal/terraform"
        "github.com/lmarqs/terraform-ui/internal/ui/styles"
    )
@@ -55,32 +56,37 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
        StatusError
    )
 
-   type Extension struct {
+   type Plugin struct {
        svc    terraform.Service
        status Status
        // plugin-specific fields...
    }
 
-   func New() *Extension {
-       return &Extension{}
+   func New(svc terraform.Service) plugin.Plugin {
+       return &Plugin{svc: svc}
    }
 
-   func (e *Extension) Name() string        { return "<Display Name>" }
-   func (e *Extension) Description() string  { return "<one-line description>" }
-   func (e *Extension) KeyBinding() string   { return "<key>" }
-   func (e *Extension) Ready() bool          { return e.status == StatusDone }
+   func (p *Plugin) ID() string          { return "<id>" }
+   func (p *Plugin) Name() string        { return "<Display Name>" }
+   func (p *Plugin) Description() string { return "<one-line description>" }
+   func (p *Plugin) KeyBinding() string  { return "<key>" }
+   func (p *Plugin) Ready() bool         { return p.status == StatusDone }
 
-   func (e *Extension) Init(svc terraform.Service) tea.Cmd {
-       e.svc = svc
+   func (p *Plugin) Configure(cfg map[string]interface{}) error {
        return nil
    }
 
-   func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
-       // handle tea.KeyMsg and custom messages
-       return nil, false
+   func (p *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+       p.svc = ctx.Service
+       return nil
    }
 
-   func (e *Extension) View(width, height int) string {
+   func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+       // handle tea.KeyMsg and custom messages
+       return p, nil
+   }
+
+   func (p *Plugin) View(width, height int) string {
        // use styles.StyleTitle, styles.StylePadded, etc.
        return ""
    }
@@ -127,8 +133,8 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
 
 ### Key patterns
 
-- Plugin types are named `Extension` by convention
-- Constructor is `New()` returning `*Extension`
+- Plugin types are named `Plugin` by convention
+- Constructor is `New(svc terraform.Service)` returning `plugin.Plugin`
 - Use `styles.*` from `internal/ui/styles` for all formatting (never inline lipgloss)
 - Use `strings.Builder` for render loops
 - Async operations return `tea.Cmd` functions that produce custom message types
