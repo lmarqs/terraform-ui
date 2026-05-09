@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -558,35 +559,49 @@ func TestSetFilterFuzzy(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	tests := []struct {
-		filter string
-		want   int
-	}{
-		// Stripped substring: separators removed, contiguous match
-		{"aurora", 3},
-		{"rdscluster", 3},
-		{"rdsclusterinstance", 2},
-		{"clusterthis", 1},
-		{"redis", 1},
-		{"securitygroup", 1},
-		{"elasticache", 1},
-		{"securitygroupweb", 1},
-		// Space-separated AND terms
-		{"aurora cluster", 3},
-		{"aurora instance", 2},
-		{"aurora this 0", 1},
-		{"aurora this 1", 1},
-		{"redis this", 1},
-		// No match
-		{"zzz", 0},
-		{"aurora zzz", 0},
-	}
-	for _, tt := range tests {
-		p.SetFilter(tt.filter)
-		if len(p.filtered) != tt.want {
-			t.Errorf("SetFilter(%q): got %d results, want %d", tt.filter, len(p.filtered), tt.want)
+	// Test that results are non-empty and best match is first
+	t.Run("single term ranking", func(t *testing.T) {
+		p.SetFilter("redis")
+		if len(p.filtered) == 0 {
+			t.Fatal("expected results for 'redis'")
 		}
-	}
+		if !strings.Contains(p.filtered[0].Address, "redis") {
+			t.Errorf("best match for 'redis' should contain 'redis', got %s", p.filtered[0].Address)
+		}
+	})
+
+	t.Run("aurora ranks aurora resources first", func(t *testing.T) {
+		p.SetFilter("aurora")
+		if len(p.filtered) < 3 {
+			t.Fatalf("expected at least 3 results for 'aurora', got %d", len(p.filtered))
+		}
+		for i := 0; i < 3; i++ {
+			if !strings.Contains(p.filtered[i].Address, "aurora") {
+				t.Errorf("top results for 'aurora' should contain 'aurora', got %s", p.filtered[i].Address)
+			}
+		}
+	})
+
+	t.Run("space-separated AND", func(t *testing.T) {
+		p.SetFilter("aurora instance")
+		if len(p.filtered) != 2 {
+			t.Errorf("'aurora instance': got %d results, want 2", len(p.filtered))
+		}
+	})
+
+	t.Run("no match", func(t *testing.T) {
+		p.SetFilter("zzz")
+		if len(p.filtered) != 0 {
+			t.Errorf("'zzz': got %d results, want 0", len(p.filtered))
+		}
+	})
+
+	t.Run("AND no match", func(t *testing.T) {
+		p.SetFilter("aurora zzz")
+		if len(p.filtered) != 0 {
+			t.Errorf("'aurora zzz': got %d results, want 0", len(p.filtered))
+		}
+	})
 }
 
 func TestAppendFilter(t *testing.T) {

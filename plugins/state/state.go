@@ -10,6 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/sahilm/fuzzy"
 )
 
 // Status represents the current state of the state browser plugin.
@@ -387,9 +388,17 @@ func (e *Plugin) maxAddressLen() int {
 	return max
 }
 
+// resourceSearchText returns the searchable text for a resource.
+func resourceSearchText(r sdk.Resource) string {
+	if r.Module != "" {
+		return r.Address + " " + r.Module
+	}
+	return r.Address
+}
+
 // SetFilter sets the filter string and refilters the resource list.
+// Uses sahilm/fuzzy for VS Code-style scored matching with ranking.
 // Space-separated terms use AND logic (each term matched independently).
-// Each term matches as substring on raw text or stripped text (separators removed).
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
@@ -398,48 +407,30 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	terms := strings.Fields(strings.ToLower(filter))
-	var result []sdk.Resource
-	for _, r := range e.resources {
-		text := strings.ToLower(r.Address)
-		if r.Module != "" {
-			text += " " + strings.ToLower(r.Module)
+	terms := strings.Fields(filter)
+	if len(terms) <= 1 {
+		e.filtered = fuzzyMatch(e.resources, filter)
+	} else {
+		candidates := e.resources
+		for _, term := range terms {
+			candidates = fuzzyMatch(candidates, term)
 		}
-		if matchAllTerms(text, terms) {
-			result = append(result, r)
-		}
+		e.filtered = candidates
 	}
-	e.filtered = result
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
-func matchAllTerms(text string, terms []string) bool {
-	for _, term := range terms {
-		if !fuzzyContains(text, term) {
-			return false
-		}
+func fuzzyMatch(resources []sdk.Resource, pattern string) []sdk.Resource {
+	texts := make([]string, len(resources))
+	for i, r := range resources {
+		texts[i] = resourceSearchText(r)
 	}
-	return true
-}
-
-func fuzzyContains(text, pattern string) bool {
-	if strings.Contains(text, pattern) {
-		return true
+	matches := fuzzy.Find(pattern, texts)
+	result := make([]sdk.Resource, len(matches))
+	for i, m := range matches {
+		result[i] = resources[m.Index]
 	}
-	stripped := stripSeparators(text)
-	return strings.Contains(stripped, pattern)
-}
-
-func stripSeparators(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c != '_' && c != '.' && c != ' ' && c != '[' && c != ']' && c != '"' {
-			b.WriteByte(c)
-		}
-	}
-	return b.String()
+	return result
 }
 
 // AppendFilter adds a character to the filter.
