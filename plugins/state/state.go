@@ -235,7 +235,24 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 				e.detailScroll--
 			}
 		case "right":
+			maxLine := 0
+			for _, line := range strings.Split(e.detail, "\n") {
+				if len(line) > maxLine {
+					maxLine = len(line)
+				}
+			}
+			contentWidth := e.viewWidth - 6
+			if contentWidth < 40 {
+				contentWidth = 40
+			}
+			maxScroll := maxLine - contentWidth
+			if maxScroll < 0 {
+				maxScroll = 0
+			}
 			e.detailHScroll += 10
+			if e.detailHScroll > maxScroll {
+				e.detailHScroll = maxScroll
+			}
 		case "left":
 			e.detailHScroll -= 10
 			if e.detailHScroll < 0 {
@@ -399,9 +416,27 @@ func fuzzyContains(text, pattern string) bool {
 	if strings.Contains(text, pattern) {
 		return true
 	}
-	// Strip separators and do substring match
 	stripped := stripSeparators(text)
-	return strings.Contains(stripped, pattern)
+	if strings.Contains(stripped, pattern) {
+		return true
+	}
+	// Subsequence match on stripped text (characters in order, gaps allowed)
+	ti := 0
+	for pi := 0; pi < len(pattern); pi++ {
+		found := false
+		for ti < len(stripped) {
+			if stripped[ti] == pattern[pi] {
+				ti++
+				found = true
+				break
+			}
+			ti++
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
 }
 
 func stripSeparators(s string) string {
@@ -582,6 +617,7 @@ func (e *Plugin) renderResourceRow(r sdk.Resource, hscroll int) string {
 }
 
 func (e *Plugin) renderDetail(width, height int) string {
+	e.viewWidth = width
 	title := sdk.StyleTitle.Render("Resource Detail")
 	address := sdk.StyleKey.Render(e.detailAddr)
 
