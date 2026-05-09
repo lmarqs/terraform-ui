@@ -7,11 +7,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the projects extension.
+// Status represents the current state of the projects plugin.
 type Status int
 
 const (
@@ -37,8 +38,8 @@ type Project struct {
 	AbsPath string
 }
 
-// Extension implements the monorepo project picker feature.
-type Extension struct {
+// Plugin implements the monorepo project picker feature.
+type Plugin struct {
 	svc      terraform.Service
 	cfg      config.Config
 	status   Status
@@ -50,29 +51,37 @@ type Extension struct {
 	filtered []Project
 }
 
-// New creates a new projects extension.
-func New() *Extension {
-	return &Extension{}
+// New creates a new projects plugin.
+func New(svc terraform.Service) plugin.Plugin {
+	return &Plugin{
+		svc: svc,
+	}
 }
 
-func (e *Extension) Name() string        { return "Projects" }
-func (e *Extension) Description() string  { return "Navigate terraform projects in a monorepo" }
-func (e *Extension) KeyBinding() string   { return "m" }
-func (e *Extension) Ready() bool          { return e.status == StatusDone }
-func (e *Extension) Status() Status       { return e.status }
-func (e *Extension) Selected() int        { return e.selected }
-func (e *Extension) Active() int          { return e.active }
-func (e *Extension) Filter() string       { return e.filter }
-func (e *Extension) ProjectCount() int    { return len(e.projects) }
+func (e *Plugin) ID() string          { return "projects" }
+func (e *Plugin) Name() string        { return "Projects" }
+func (e *Plugin) Description() string { return "Navigate terraform projects in a monorepo" }
+func (e *Plugin) KeyBinding() string  { return "m" }
+func (e *Plugin) Ready() bool         { return e.status == StatusDone }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Active() int         { return e.active }
+func (e *Plugin) Filter() string      { return e.filter }
+func (e *Plugin) ProjectCount() int   { return len(e.projects) }
+
+// Configure applies plugin-specific options from config.
+func (e *Plugin) Configure(opts map[string]interface{}) error {
+	return nil
+}
 
 // SetConfig provides the application configuration for project discovery.
-func (e *Extension) SetConfig(cfg config.Config) {
+func (e *Plugin) SetConfig(cfg config.Config) {
 	e.cfg = cfg
 }
 
-// Init initializes the extension and discovers projects.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
-	e.svc = svc
+// Init initializes the plugin and discovers projects.
+func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.projects = nil
 	e.filtered = nil
@@ -84,14 +93,14 @@ func (e *Extension) Init(svc terraform.Service) tea.Cmd {
 }
 
 // Refresh re-discovers projects.
-func (e *Extension) Refresh() tea.Cmd {
+func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.errMsg = ""
 	e.filter = ""
 	return e.discover()
 }
 
-func (e *Extension) discover() tea.Cmd {
+func (e *Plugin) discover() tea.Cmd {
 	cfg := e.cfg
 	return func() tea.Msg {
 		paths, err := cfg.DiscoverProjects()
@@ -112,8 +121,8 @@ func (e *Extension) discover() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProjectsDiscoveredMsg:
 		if msg.Err != nil {
@@ -124,15 +133,16 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 			e.projects = msg.Projects
 			e.filtered = msg.Projects
 		}
-		return nil, true
+		return e, nil
 
 	case tea.KeyMsg:
-		return e.handleKey(msg), true
+		cmd := e.handleKey(msg)
+		return e, cmd
 	}
-	return nil, false
+	return e, nil
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "j", "down":
 		e.MoveDown()
@@ -149,28 +159,27 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 	default:
 		if len(msg.String()) == 1 && msg.String() >= " " && msg.String() != "j" && msg.String() != "k" {
 			// Only append to filter if we're in filter mode
-			// For simplicity, typing any non-navigation char filters
 		}
 	}
 	return nil
 }
 
 // MoveUp moves selection up.
-func (e *Extension) MoveUp() {
+func (e *Plugin) MoveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
 // MoveDown moves selection down.
-func (e *Extension) MoveDown() {
+func (e *Plugin) MoveDown() {
 	if e.selected < len(e.filtered)-1 {
 		e.selected++
 	}
 }
 
 // SelectCurrent marks the currently selected project as active.
-func (e *Extension) SelectCurrent() {
+func (e *Plugin) SelectCurrent() {
 	if e.selected < len(e.filtered) {
 		// Map filtered index back to project index
 		selectedProject := e.filtered[e.selected]
@@ -184,7 +193,7 @@ func (e *Extension) SelectCurrent() {
 }
 
 // ActiveProject returns the currently active project.
-func (e *Extension) ActiveProject() *Project {
+func (e *Plugin) ActiveProject() *Project {
 	if e.active < len(e.projects) {
 		return &e.projects[e.active]
 	}
@@ -192,7 +201,7 @@ func (e *Extension) ActiveProject() *Project {
 }
 
 // SelectedProject returns the currently highlighted project.
-func (e *Extension) SelectedProject() *Project {
+func (e *Plugin) SelectedProject() *Project {
 	if e.selected < len(e.filtered) {
 		return &e.filtered[e.selected]
 	}
@@ -200,7 +209,7 @@ func (e *Extension) SelectedProject() *Project {
 }
 
 // SetFilter sets the filter and refilters the project list.
-func (e *Extension) SetFilter(filter string) {
+func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
 	if filter == "" {
@@ -219,19 +228,19 @@ func (e *Extension) SetFilter(filter string) {
 }
 
 // AppendFilter adds a character to the filter.
-func (e *Extension) AppendFilter(ch string) {
+func (e *Plugin) AppendFilter(ch string) {
 	e.SetFilter(e.filter + ch)
 }
 
 // BackspaceFilter removes the last character from the filter.
-func (e *Extension) BackspaceFilter() {
+func (e *Plugin) BackspaceFilter() {
 	if len(e.filter) > 0 {
 		e.SetFilter(e.filter[:len(e.filter)-1])
 	}
 }
 
-// View renders the projects extension.
-func (e *Extension) View(width, height int) string {
+// View renders the projects plugin.
+func (e *Plugin) View(width, height int) string {
 	title := styles.StyleTitle.Render("Projects")
 
 	switch e.status {
@@ -252,7 +261,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderProjects(width, height int) string {
+func (e *Plugin) renderProjects(width, height int) string {
 	title := styles.StyleTitle.Render("Projects")
 
 	if len(e.projects) == 0 {
@@ -316,7 +325,7 @@ func (e *Extension) renderProjects(width, height int) string {
 	return styles.StylePadded.Render(content)
 }
 
-func (e *Extension) renderProjectRow(project Project, idx int) string {
+func (e *Plugin) renderProjectRow(project Project, idx int) string {
 	// Check if this project is active (map filtered index to real index)
 	isActive := false
 	for i, p := range e.projects {

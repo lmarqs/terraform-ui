@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the plan extension.
+// Status represents the current state of the plan plugin.
 type Status int
 
 const (
@@ -26,8 +27,8 @@ type PlanResultMsg struct {
 	Err     error
 }
 
-// Extension implements the plan review feature.
-type Extension struct {
+// Plugin implements the plan review feature.
+type Plugin struct {
 	svc      terraform.Service
 	status   Status
 	summary  *terraform.PlanSummary
@@ -37,30 +38,39 @@ type Extension struct {
 	expanded map[int]bool
 }
 
-// New creates a new plan extension.
-func New() *Extension {
-	return &Extension{
+// New creates a new plan plugin.
+func New(svc terraform.Service) plugin.Plugin {
+	return &Plugin{
 		expanded: make(map[int]bool),
+		svc:      svc,
 	}
 }
 
-func (e *Extension) Name() string        { return "Plan" }
-func (e *Extension) Description() string  { return "Review terraform plan changes" }
-func (e *Extension) KeyBinding() string   { return "p" }
-func (e *Extension) Ready() bool          { return e.status == StatusDone }
-func (e *Extension) Status() Status       { return e.status }
-func (e *Extension) Selected() int        { return e.selected }
-func (e *Extension) Targets() []string    { return e.targets }
-func (e *Extension) Summary() *terraform.PlanSummary { return e.summary }
+func (e *Plugin) ID() string          { return "plan" }
+func (e *Plugin) Name() string        { return "Plan" }
+func (e *Plugin) Description() string { return "Review terraform plan changes" }
+func (e *Plugin) KeyBinding() string  { return "p" }
+func (e *Plugin) Ready() bool         { return e.status == StatusDone }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Targets() []string   { return e.targets }
+func (e *Plugin) Summary() *terraform.PlanSummary {
+	return e.summary
+}
+
+// Configure applies plugin-specific options from config.
+func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	return nil
+}
 
 // SetTargets configures resource targets for the plan.
-func (e *Extension) SetTargets(targets []string) {
+func (e *Plugin) SetTargets(targets []string) {
 	e.targets = targets
 }
 
-// Init initializes the extension with a terraform service and triggers a plan.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
-	e.svc = svc
+// Init initializes the plugin with shared context and triggers a plan.
+func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.summary = nil
 	e.errMsg = ""
@@ -70,7 +80,7 @@ func (e *Extension) Init(svc terraform.Service) tea.Cmd {
 }
 
 // Refresh re-runs the plan.
-func (e *Extension) Refresh() tea.Cmd {
+func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.summary = nil
 	e.errMsg = ""
@@ -79,7 +89,7 @@ func (e *Extension) Refresh() tea.Cmd {
 	return e.runPlan()
 }
 
-func (e *Extension) runPlan() tea.Cmd {
+func (e *Plugin) runPlan() tea.Cmd {
 	svc := e.svc
 	targets := e.targets
 	return func() tea.Msg {
@@ -88,8 +98,8 @@ func (e *Extension) runPlan() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case PlanResultMsg:
 		if msg.Err != nil {
@@ -99,15 +109,16 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 			e.status = StatusDone
 			e.summary = msg.Summary
 		}
-		return nil, true
+		return e, nil
 
 	case tea.KeyMsg:
-		return e.handleKey(msg), true
+		cmd := e.handleKey(msg)
+		return e, cmd
 	}
-	return nil, false
+	return e, nil
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "j", "down":
 		e.MoveDown()
@@ -128,51 +139,51 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // MoveUp moves selection up.
-func (e *Extension) MoveUp() {
+func (e *Plugin) MoveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
 // MoveDown moves selection down.
-func (e *Extension) MoveDown() {
+func (e *Plugin) MoveDown() {
 	if e.summary != nil && e.selected < len(e.summary.Changes)-1 {
 		e.selected++
 	}
 }
 
 // MoveToStart moves selection to the first item.
-func (e *Extension) MoveToStart() {
+func (e *Plugin) MoveToStart() {
 	e.selected = 0
 }
 
 // MoveToEnd moves selection to the last item.
-func (e *Extension) MoveToEnd() {
+func (e *Plugin) MoveToEnd() {
 	if e.summary != nil && len(e.summary.Changes) > 0 {
 		e.selected = len(e.summary.Changes) - 1
 	}
 }
 
 // ToggleExpand toggles attribute diff expansion for the selected change.
-func (e *Extension) ToggleExpand() {
+func (e *Plugin) ToggleExpand() {
 	e.expanded[e.selected] = !e.expanded[e.selected]
 }
 
 // IsExpanded returns whether a change row is expanded.
-func (e *Extension) IsExpanded(idx int) bool {
+func (e *Plugin) IsExpanded(idx int) bool {
 	return e.expanded[idx]
 }
 
 // SelectedChange returns the currently selected change, if any.
-func (e *Extension) SelectedChange() *terraform.PlanChange {
+func (e *Plugin) SelectedChange() *terraform.PlanChange {
 	if e.summary == nil || e.selected >= len(e.summary.Changes) {
 		return nil
 	}
 	return &e.summary.Changes[e.selected]
 }
 
-// View renders the plan extension.
-func (e *Extension) View(width, height int) string {
+// View renders the plan plugin.
+func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
 		title := styles.StyleTitle.Render("Plan Review")
@@ -198,7 +209,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderResults(width, height int) string {
+func (e *Plugin) renderResults(width, height int) string {
 	title := styles.StyleTitle.Render("Plan Review")
 
 	if e.summary == nil || len(e.summary.Changes) == 0 {
@@ -251,7 +262,7 @@ func (e *Extension) renderResults(width, height int) string {
 	return styles.StylePadded.Render(content)
 }
 
-func (e *Extension) renderChangeRow(change terraform.PlanChange, width int) string {
+func (e *Plugin) renderChangeRow(change terraform.PlanChange, width int) string {
 	symbol := actionSymbol(change.Action)
 	address := change.Resource.Address
 	risk := riskBadge(change.Risk)
@@ -280,7 +291,7 @@ func (e *Extension) renderChangeRow(change terraform.PlanChange, width int) stri
 	return row
 }
 
-func (e *Extension) renderAttributeDiffs(diffs []terraform.AttributeDiff, width int) string {
+func (e *Plugin) renderAttributeDiffs(diffs []terraform.AttributeDiff, width int) string {
 	var b strings.Builder
 	for _, diff := range diffs {
 		key := styles.StyleKey.Render("    " + diff.Key + ":")
@@ -305,7 +316,7 @@ func truncateValue(s string, maxLen int) string {
 	return s
 }
 
-func (e *Extension) renderSummaryLine() string {
+func (e *Plugin) renderSummaryLine() string {
 	s := e.summary
 	parts := []string{}
 	if s.ToCreate > 0 {
@@ -327,7 +338,7 @@ func (e *Extension) renderSummaryLine() string {
 	return "Plan: " + strings.Join(parts, ", ")
 }
 
-func (e *Extension) renderOverallRisk() string {
+func (e *Plugin) renderOverallRisk() string {
 	if e.summary == nil || len(e.summary.Changes) == 0 {
 		return ""
 	}

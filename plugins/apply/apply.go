@@ -6,11 +6,12 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the apply extension.
+// Status represents the current state of the apply plugin.
 type Status int
 
 const (
@@ -30,8 +31,8 @@ type ApplyResultMsg struct {
 // TickMsg is sent during apply for elapsed time tracking.
 type TickMsg time.Time
 
-// Extension implements the terraform apply feature.
-type Extension struct {
+// Plugin implements the terraform apply feature.
+type Plugin struct {
 	svc       terraform.Service
 	status    Status
 	errMsg    string
@@ -41,39 +42,49 @@ type Extension struct {
 	confirmed bool
 }
 
-// New creates a new apply extension.
-func New() *Extension {
-	return &Extension{}
+// New creates a new apply plugin.
+func New(svc terraform.Service) plugin.Plugin {
+	return &Plugin{
+		svc: svc,
+	}
 }
 
-func (e *Extension) Name() string        { return "Apply" }
-func (e *Extension) Description() string  { return "Apply terraform changes to infrastructure" }
-func (e *Extension) KeyBinding() string   { return "a" }
-func (e *Extension) Ready() bool          { return e.status == StatusSuccess }
-func (e *Extension) Status() Status       { return e.status }
-func (e *Extension) Elapsed() time.Duration { return e.elapsed }
-func (e *Extension) IsConfirming() bool   { return e.status == StatusConfirming }
+func (e *Plugin) ID() string          { return "apply" }
+func (e *Plugin) Name() string        { return "Apply" }
+func (e *Plugin) Description() string { return "Apply terraform changes to infrastructure" }
+func (e *Plugin) KeyBinding() string  { return "a" }
+func (e *Plugin) Ready() bool         { return e.status == StatusSuccess }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Elapsed() time.Duration {
+	return e.elapsed
+}
+func (e *Plugin) IsConfirming() bool { return e.status == StatusConfirming }
+
+// Configure applies plugin-specific options from config.
+func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	return nil
+}
 
 // SetTargets configures resource targets for apply.
-func (e *Extension) SetTargets(targets []string) {
+func (e *Plugin) SetTargets(targets []string) {
 	e.targets = targets
 }
 
-// Init initializes the extension with a terraform service.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
-	e.svc = svc
+// Init initializes the plugin with shared context.
+func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+	e.svc = ctx.Service
 	return nil
 }
 
 // RequestApply transitions to the confirmation state.
-func (e *Extension) RequestApply() {
+func (e *Plugin) RequestApply() {
 	e.status = StatusConfirming
 	e.confirmed = false
 	e.errMsg = ""
 }
 
 // Confirm executes the apply after user confirmation.
-func (e *Extension) Confirm() tea.Cmd {
+func (e *Plugin) Confirm() tea.Cmd {
 	e.confirmed = true
 	e.status = StatusRunning
 	e.startTime = time.Now()
@@ -82,12 +93,12 @@ func (e *Extension) Confirm() tea.Cmd {
 }
 
 // Cancel aborts the apply confirmation.
-func (e *Extension) Cancel() {
+func (e *Plugin) Cancel() {
 	e.status = StatusIdle
 	e.confirmed = false
 }
 
-func (e *Extension) runApply() tea.Cmd {
+func (e *Plugin) runApply() tea.Cmd {
 	svc := e.svc
 	targets := e.targets
 	start := e.startTime
@@ -97,14 +108,14 @@ func (e *Extension) runApply() tea.Cmd {
 	}
 }
 
-func (e *Extension) tick() tea.Cmd {
+func (e *Plugin) tick() tea.Cmd {
 	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
 		return TickMsg(t)
 	})
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ApplyResultMsg:
 		e.elapsed = msg.Duration
@@ -114,23 +125,29 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 		} else {
 			e.status = StatusSuccess
 		}
-		return nil, true
+		return e, nil
 
 	case TickMsg:
 		if e.status == StatusRunning {
 			e.elapsed = time.Since(e.startTime)
-			return e.tick(), true
+			return e, e.tick()
 		}
-		return nil, true
+		return e, nil
 
 	case tea.KeyMsg:
-		return e.handleKey(msg), true
+		cmd := e.handleKey(msg)
+		return e, cmd
 	}
-	return nil, false
+	return e, nil
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch e.status {
+	case StatusIdle:
+		switch msg.String() {
+		case "enter":
+			e.RequestApply()
+		}
 	case StatusConfirming:
 		switch msg.String() {
 		case "y", "Y", "enter":
@@ -147,13 +164,13 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// View renders the apply extension.
-func (e *Extension) View(width, height int) string {
+// View renders the apply plugin.
+func (e *Plugin) View(width, height int) string {
 	title := styles.StyleTitle.Render("Apply")
 
 	switch e.status {
 	case StatusIdle:
-		placeholder := styles.StyleFaintItalic.Render("Run plan first, then apply changes here.")
+		placeholder := styles.StyleFaintItalic.Render("Run plan first, then apply changes here.\nPress Enter to start apply.")
 		return styles.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusConfirming:
@@ -182,7 +199,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderConfirmation(width, height int) string {
+func (e *Plugin) renderConfirmation(width, height int) string {
 	title := styles.StyleTitle.Render("Apply")
 
 	warning := styles.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
