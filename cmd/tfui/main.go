@@ -41,6 +41,7 @@ func main() {
 		Short: "Terminal UI for Terraform operations",
 		Long:  "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			cfg.Dir = resolveProjectDir(cfg.Dir)
 			binary := cfg.TerraformBinary()
 			logging.Init(debug, version, cfg.Dir, binary)
 		},

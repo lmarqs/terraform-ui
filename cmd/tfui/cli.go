@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
@@ -200,4 +202,28 @@ func hasErrors(diags []sdk.Diagnostic) bool {
 		}
 	}
 	return false
+}
+
+// resolveProjectDir resolves the --project flag value to a directory.
+// Accepts:
+//   - A directory path: used as-is
+//   - A path to tfui.yaml: uses its parent directory
+//   - A path ending in tfui.yaml that doesn't exist yet: uses parent directory
+func resolveProjectDir(project string) string {
+	if project == "" || project == "." {
+		return "."
+	}
+
+	// If it points to a file (or looks like it points to tfui.yaml), use parent dir
+	base := filepath.Base(project)
+	if strings.EqualFold(base, config.ConfigFileName) {
+		return filepath.Dir(project)
+	}
+
+	// If it's an existing file (not a directory), use parent
+	if info, err := os.Stat(project); err == nil && !info.IsDir() {
+		return filepath.Dir(project)
+	}
+
+	return project
 }
