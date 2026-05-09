@@ -40,6 +40,10 @@ type Activatable interface {
 	Activate() tea.Cmd
 }
 
+// DeactivateMsg is returned by a plugin's Update to signal the app should
+// deactivate it and return to the home screen.
+type DeactivateMsg struct{}
+
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin

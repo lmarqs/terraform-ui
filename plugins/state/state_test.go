@@ -242,28 +242,28 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	// Move down with j
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	// Move down with arrow
+	p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 1 {
-		t.Errorf("after j: selected = %d, want 1", p.selected)
+		t.Errorf("after down: selected = %d, want 1", p.selected)
 	}
 
 	// Move down
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 2 {
-		t.Errorf("after j,j: selected = %d, want 2", p.selected)
+		t.Errorf("after down,down: selected = %d, want 2", p.selected)
 	}
 
 	// Boundary
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 2 {
-		t.Errorf("after j,j,j: selected = %d, want 2 (boundary)", p.selected)
+		t.Errorf("after down,down,down: selected = %d, want 2 (boundary)", p.selected)
 	}
 
-	// Move up with k
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	// Move up with arrow
+	p.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if p.selected != 1 {
-		t.Errorf("after k: selected = %d, want 1", p.selected)
+		t.Errorf("after up: selected = %d, want 1", p.selected)
 	}
 }
 
@@ -278,16 +278,18 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	// G moves to end
+	// :G moves to end (command mode)
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
 	if p.selected != 2 {
-		t.Errorf("after G: selected = %d, want 2", p.selected)
+		t.Errorf("after :G: selected = %d, want 2", p.selected)
 	}
 
-	// g moves to start
+	// :g moves to start
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
 	if p.selected != 0 {
-		t.Errorf("after g: selected = %d, want 0", p.selected)
+		t.Errorf("after :g: selected = %d, want 0", p.selected)
 	}
 }
 
@@ -324,23 +326,27 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 
+	// :r triggers refresh
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after :r in StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
-	// r works in error state too
+	// :r works in error state too
 	p.status = StatusError
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after :r in StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
-	// r does nothing in Loading
+	// :r does nothing in Loading
 	p.status = StatusLoading
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
-		t.Error("after r in StatusLoading: cmd != nil, want nil")
+		t.Error("after :r in StatusLoading: cmd != nil, want nil")
 	}
 }
 
@@ -354,6 +360,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 	}
 	p.filtered = p.resources
 	p.filter = "web"
+	p.filtering = true
 
 	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	if p.filter != "we" {
@@ -855,8 +862,9 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
 	p.filter = "ab"
+	p.filtering = true
 
-	// "delete" key should also work as backspace
+	// "delete" key should also work as backspace in filter mode
 	p.Update(tea.KeyMsg{Type: tea.KeyDelete})
 	if p.filter != "a" {
 		t.Errorf("after delete: filter = %q, want %q", p.filter, "a")

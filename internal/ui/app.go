@@ -85,6 +85,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary, 0)
 		return a, nil
 
+	case sdk.DeactivateMsg:
+		if a.activePlugin != nil {
+			prev := a.activePlugin.ID()
+			a.activePlugin = nil
+			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
+		}
+		return a, nil
+
 	case tea.KeyMsg:
 		return a.handleKey(msg)
 
@@ -124,14 +132,6 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		return a, tea.Quit
-	case "esc":
-		if a.activePlugin != nil {
-			prev := a.activePlugin.ID()
-			a.activePlugin = nil
-			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
-			return a, nil
-		}
-		return a, nil
 	}
 
 	// If a plugin is active, delegate key to it

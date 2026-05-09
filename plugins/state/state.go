@@ -45,6 +45,7 @@ type Plugin struct {
 	filtered      []sdk.Resource
 	filter        string
 	filtering     bool
+	commanding    bool
 	errMsg        string
 	selected      int
 	detail        string
@@ -240,28 +241,38 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 
-	// Normal mode: hotkeys active
+	// Command mode: single key dispatches command
+	if e.commanding {
+		e.commanding = false
+		switch msg.String() {
+		case "r":
+			if e.status == StatusError || e.status == StatusDone {
+				return e.Refresh()
+			}
+		case "g":
+			e.MoveToStart()
+		case "G":
+			e.MoveToEnd()
+		}
+		return nil
+	}
+
+	// Normal mode: safe keys only
 	switch msg.String() {
-	case "j", "down":
+	case "esc":
+		return func() tea.Msg { return sdk.DeactivateMsg{} }
+	case "down":
 		e.MoveDown()
-	case "k", "up":
+	case "up":
 		e.MoveUp()
 	case "enter":
 		return e.InspectSelected()
-	case "r":
-		if e.status == StatusError || e.status == StatusDone {
-			return e.Refresh()
-		}
-	case "G":
-		e.MoveToEnd()
-	case "g":
-		e.MoveToStart()
 	case "/":
 		e.filtering = true
 		e.filter = ""
 		e.filtered = e.resources
-	case "backspace", "ctrl+h", "delete":
-		e.BackspaceFilter()
+	case ":":
+		e.commanding = true
 	}
 	return nil
 }
@@ -389,7 +400,9 @@ func (e *Plugin) renderResources(width, height int) string {
 	title := sdk.StyleTitle.Render("State Browser")
 
 	filterLine := ""
-	if e.filtering {
+	if e.commanding {
+		filterLine = sdk.StyleKey.Render(":") + "█\n\n"
+	} else if e.filtering {
 		filterLine = sdk.StyleKey.Render("/ ") + e.filter + "█\n\n"
 	} else if e.filter != "" {
 		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
@@ -433,10 +446,12 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 
 	var hint string
-	if e.filtering {
-		hint = sdk.StyleFaintItalic.Render("Type to filter  Enter confirm  Esc cancel")
+	if e.commanding {
+		hint = sdk.StyleFaintItalic.Render(": r refresh  g top  G bottom  Esc cancel")
+	} else if e.filtering {
+		hint = sdk.StyleFaintItalic.Render("Type to filter  Esc exit filter")
 	} else {
-		hint = sdk.StyleFaintItalic.Render("j/k navigate  Enter inspect  / filter  r refresh  Esc back")
+		hint = sdk.StyleFaintItalic.Render("↑↓ navigate  Enter inspect  / filter  : command  q back")
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint

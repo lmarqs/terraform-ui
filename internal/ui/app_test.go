@@ -10,6 +10,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // mockPlugin implements plugin.Plugin for app tests.
@@ -195,7 +196,7 @@ func TestApp_HandleKey_PluginActivation(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_EscReturnsToHome(t *testing.T) {
+func TestApp_HandleKey_EscDelegatesToPlugin(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate a plugin first
@@ -207,13 +208,34 @@ func TestApp_HandleKey_EscReturnsToHome(t *testing.T) {
 		t.Fatal("plugin should be active")
 	}
 
-	// Press esc to return
+	// Press esc — delegates to plugin (mock doesn't deactivate)
 	msg = tea.KeyMsg{Type: tea.KeyEsc}
 	model, _ = app.Update(msg)
 	app = model.(App)
 
+	if app.activePlugin == nil {
+		t.Error("esc should delegate to plugin, plugin should still be active")
+	}
+}
+
+func TestApp_DeactivateMsg(t *testing.T) {
+	app := setupTestApp()
+
+	// Activate a plugin first
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
+	model, _ := app.Update(msg)
+	app = model.(App)
+
+	if app.activePlugin == nil {
+		t.Fatal("plugin should be active")
+	}
+
+	// Receive DeactivateMsg
+	model, _ = app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+
 	if app.activePlugin != nil {
-		t.Error("esc should deactivate the plugin")
+		t.Error("DeactivateMsg should deactivate the plugin")
 	}
 }
 
