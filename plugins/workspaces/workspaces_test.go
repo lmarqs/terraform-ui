@@ -72,13 +72,13 @@ func TestInit(t *testing.T) {
 	}
 
 	cmd := p.Init(ctx)
-	if cmd == nil {
-		t.Error("Init() returned nil cmd, want non-nil")
+	if cmd != nil {
+		t.Error("Init() returned nil cmd, should return nil (no auto-load)")
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", pp.status)
+	if pp.status != StatusIdle {
+		t.Errorf("status = %v, want StatusIdle", pp.status)
 	}
 }
 
@@ -90,7 +90,8 @@ func TestInitCmdReturnsWorkspaceListMsg(t *testing.T) {
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc}
 
-	cmd := p.Init(ctx)
+	p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(WorkspaceListMsg)
@@ -108,12 +109,13 @@ func TestInitCmdReturnsWorkspaceListMsg(t *testing.T) {
 	}
 }
 
-func TestInitCmdWorkspaceListError(t *testing.T) {
+func TestActivateCmdWorkspaceListError(t *testing.T) {
 	svc := &mockService{workspaceListErr: errors.New("list error")}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc}
+	p.Init(ctx)
 
-	cmd := p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(WorkspaceListMsg)
@@ -125,15 +127,16 @@ func TestInitCmdWorkspaceListError(t *testing.T) {
 	}
 }
 
-func TestInitCmdWorkspaceError(t *testing.T) {
+func TestActivateCmdWorkspaceError(t *testing.T) {
 	svc := &mockService{
 		workspaceList: []string{"default"},
 		workspaceErr:  errors.New("workspace error"),
 	}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc}
+	p.Init(ctx)
 
-	cmd := p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(WorkspaceListMsg)

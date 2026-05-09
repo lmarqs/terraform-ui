@@ -70,17 +70,26 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin and loads workspaces.
+// Init initializes the plugin with shared context. Does not auto-load.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
-	e.status = StatusLoading
+	e.status = StatusIdle
 	e.workspaces = nil
 	e.current = ""
 	e.errMsg = ""
 	e.selected = 0
 	e.creating = false
 	e.newName = ""
-	return e.loadWorkspaces()
+	return nil
+}
+
+// Activate triggers workspace loading when the user enters the plugin.
+func (e *Plugin) Activate() tea.Cmd {
+	if e.status == StatusIdle || e.status == StatusError {
+		e.status = StatusLoading
+		return e.loadWorkspaces()
+	}
+	return nil
 }
 
 // Refresh reloads the workspace list.

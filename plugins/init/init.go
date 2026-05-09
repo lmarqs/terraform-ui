@@ -71,7 +71,8 @@ func (p *Plugin) Configure(opts map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin and starts filesystem detection.
+// Init initializes the plugin with shared context. Does not auto-detect —
+// detection runs when the user activates the plugin.
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.dir = ctx.Dir
@@ -81,6 +82,12 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.errMsg = ""
 	p.selected = 0
 	p.preview = ""
+	return nil
+}
+
+// Activate triggers filesystem detection when the user enters the plugin.
+func (p *Plugin) Activate() tea.Cmd {
+	p.status = StatusDetecting
 	return p.detect()
 }
 

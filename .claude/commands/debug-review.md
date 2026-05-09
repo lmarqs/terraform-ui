@@ -6,7 +6,7 @@ description: Review debug log from last tfui session
 Find and read the latest debug log:
 
 ```bash
-ls -t ~/.tfui/debug-*.log | head -1
+ls -t ~/.tfui/logs/debug-*.log | head -1
 ```
 
 Then read that file and analyze the session:

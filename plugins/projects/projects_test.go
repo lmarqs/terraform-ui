@@ -74,11 +74,11 @@ func TestInit(t *testing.T) {
 	}
 
 	cmd := p.Init(ctx)
-	if cmd == nil {
-		t.Error("Init() returned nil cmd, want non-nil")
+	if cmd != nil {
+		t.Error("Init() returned nil cmd, should return nil (no auto-load)")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
+	if p.status != StatusIdle {
+		t.Errorf("status = %v, want StatusIdle", p.status)
 	}
 }
 
@@ -89,7 +89,8 @@ func TestInitCmdReturnsProjectsDiscoveredMsg(t *testing.T) {
 	p.cfg = config.Config{Dir: "."}
 
 	ctx := &sdk.Context{Service: svc}
-	cmd := p.Init(ctx)
+	p.Init(ctx)
+	cmd := p.Activate()
 	msg := cmd()
 
 	result, ok := msg.(ProjectsDiscoveredMsg)

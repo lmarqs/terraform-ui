@@ -77,17 +77,26 @@ func (e *Plugin) SetConfig(cfg config.Config) {
 	e.cfg = cfg
 }
 
-// Init initializes the plugin and discovers projects.
+// Init initializes the plugin with shared context. Does not auto-discover.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
-	e.status = StatusLoading
+	e.status = StatusIdle
 	e.projects = nil
 	e.filtered = nil
 	e.filter = ""
 	e.errMsg = ""
 	e.selected = 0
 	e.active = 0
-	return e.discover()
+	return nil
+}
+
+// Activate triggers project discovery when the user enters the plugin.
+func (e *Plugin) Activate() tea.Cmd {
+	if e.status == StatusIdle || e.status == StatusError {
+		e.status = StatusLoading
+		return e.discover()
+	}
+	return nil
 }
 
 // Refresh re-discovers projects.

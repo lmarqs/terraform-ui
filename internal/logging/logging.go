@@ -28,7 +28,7 @@ func Init(debug bool, version, dir, binary string) {
 		return
 	}
 
-	logDir := filepath.Join(home, ".tfui")
+	logDir := filepath.Join(home, ".tfui", "logs")
 	if err := os.MkdirAll(logDir, 0o755); err != nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 		return

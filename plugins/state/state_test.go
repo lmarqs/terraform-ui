@@ -78,13 +78,13 @@ func TestInit(t *testing.T) {
 	}
 
 	cmd := p.Init(ctx)
-	if cmd == nil {
-		t.Error("Init() returned nil cmd, want non-nil")
+	if cmd != nil {
+		t.Error("Init() should return nil cmd (no auto-load)")
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", pp.status)
+	if pp.status != StatusIdle {
+		t.Errorf("status = %v, want StatusIdle", pp.status)
 	}
 }
 
@@ -97,7 +97,8 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
-	cmd := p.Init(ctx)
+	p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(StateListMsg)
@@ -112,12 +113,13 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 	}
 }
 
-func TestInitCmdReturnsError(t *testing.T) {
+func TestActivateCmdReturnsError(t *testing.T) {
 	svc := &mockService{stateListErr: errors.New("state error")}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
 
-	cmd := p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(StateListMsg)

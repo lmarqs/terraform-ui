@@ -73,11 +73,11 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin and loads state.
+// Init initializes the plugin with shared context. Does not auto-load state.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
-	e.status = StatusLoading
+	e.status = StatusIdle
 	e.resources = nil
 	e.filtered = nil
 	e.filter = ""
@@ -85,7 +85,16 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.selected = 0
 	e.detail = ""
 	e.detailAddr = ""
-	return e.loadState()
+	return nil
+}
+
+// Activate triggers state loading when the user enters the plugin.
+func (e *Plugin) Activate() tea.Cmd {
+	if e.status == StatusIdle || e.status == StatusError {
+		e.status = StatusLoading
+		return e.loadState()
+	}
+	return nil
 }
 
 // Refresh reloads the state.
