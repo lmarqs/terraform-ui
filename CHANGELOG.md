@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.5 — 2026-05-09
+
+### Documentation
+
+- use version = "latest" in mise install example
+
+### Miscellaneous
+
+- v0.36.4 [skip ci]
+
 ## 0.36.4 — 2026-05-09
 
 ### Documentation
