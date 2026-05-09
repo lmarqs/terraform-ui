@@ -50,6 +50,7 @@ type Plugin struct {
 	selected      int
 	detail        string
 	detailAddr    string
+	detailScroll  int
 	scopedContext string
 }
 
@@ -204,14 +205,21 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Detail view — esc goes back, shortcuts for actions
+	// Detail view — arrows scroll, esc goes back
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
 		case "esc":
 			e.status = StatusDone
 			e.detail = ""
 			e.detailAddr = ""
+			e.detailScroll = 0
 			e.filtering = true
+		case "down":
+			e.detailScroll++
+		case "up":
+			if e.detailScroll > 0 {
+				e.detailScroll--
+			}
 		}
 		return nil
 	}
@@ -477,20 +485,37 @@ func (e *Plugin) renderDetail(width, height int) string {
 	title := sdk.StyleTitle.Render("Resource Detail")
 	address := sdk.StyleKey.Render(e.detailAddr)
 
-	// Truncate detail to visible area
 	lines := strings.Split(e.detail, "\n")
 	maxLines := height - 6
 	if maxLines < 5 {
 		maxLines = 5
 	}
-	if len(lines) > maxLines {
-		lines = lines[:maxLines]
-		lines = append(lines, sdk.StyleFaint.Render("... (truncated)"))
+
+	// Clamp scroll
+	maxScroll := len(lines) - maxLines
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if e.detailScroll > maxScroll {
+		e.detailScroll = maxScroll
 	}
 
-	detail := strings.Join(lines, "\n")
-	hint := sdk.StyleFaintItalic.Render("Esc back")
+	// Slice visible window
+	endIdx := e.detailScroll + maxLines
+	if endIdx > len(lines) {
+		endIdx = len(lines)
+	}
+	visible := lines[e.detailScroll:endIdx]
 
-	content := title + "\n" + address + "\n\n" + detail + "\n\n" + hint
+	detail := strings.Join(visible, "\n")
+
+	scrollInfo := ""
+	if maxScroll > 0 {
+		scrollInfo = sdk.StyleFaint.Render(fmt.Sprintf(" [%d/%d]", e.detailScroll+1, maxScroll+1))
+	}
+
+	hint := sdk.StyleFaintItalic.Render("↑↓ scroll  Esc back")
+
+	content := title + "\n" + address + scrollInfo + "\n\n" + detail + "\n\n" + hint
 	return sdk.StylePadded.Render(content)
 }
