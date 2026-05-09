@@ -9,7 +9,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  main:
+  unit:
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +34,6 @@ jobs:
           name: Tests (${{ matrix.os }})
           path: reports/*.xml
           reporter: java-junit
-          fail-on-empty: 'false'
 
       - name: Upload Test Report
         if: always()
