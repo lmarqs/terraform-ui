@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
@@ -59,24 +60,31 @@ type Plugin struct {
 }
 
 // New creates a new blast radius plugin.
-func New() *Plugin {
+func New(svc terraform.Service) plugin.Plugin {
 	return &Plugin{
+		svc:      svc,
 		expanded: make(map[int]bool),
 	}
 }
 
+func (e *Plugin) ID() string          { return "blastradius" }
 func (e *Plugin) Name() string        { return "Blast Radius" }
-func (e *Plugin) Description() string  { return "Visualize module-grouped changes with impact scores" }
-func (e *Plugin) KeyBinding() string   { return "b" }
-func (e *Plugin) Ready() bool          { return e.status == StatusReady }
-func (e *Plugin) Status() Status       { return e.status }
-func (e *Plugin) Selected() int        { return e.selected }
-func (e *Plugin) ModuleCount() int     { return len(e.modules) }
-func (e *Plugin) TotalChanges() int    { return e.total }
+func (e *Plugin) Description() string { return "Visualize module-grouped changes with impact scores" }
+func (e *Plugin) KeyBinding() string  { return "b" }
+func (e *Plugin) Ready() bool         { return e.status == StatusReady }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) ModuleCount() int    { return len(e.modules) }
+func (e *Plugin) TotalChanges() int   { return e.total }
 
-// Init initializes the plugin with a terraform service.
-func (e *Plugin) Init(svc terraform.Service) tea.Cmd {
-	e.svc = svc
+// Configure applies plugin-specific options from config.
+func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	return nil
+}
+
+// Init initializes the plugin with shared context.
+func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+	e.svc = ctx.Service
 	return nil
 }
 
@@ -111,15 +119,16 @@ func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 }
 
 // Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (tea.Cmd, bool) {
+func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		return e.handleKey(msg), true
+		e.handleKey(msg)
+		return e, nil
 	}
-	return nil, false
+	return e, nil
 }
 
-func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) {
 	switch msg.String() {
 	case "j", "down":
 		e.MoveDown()
@@ -128,7 +137,6 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "enter", " ":
 		e.ToggleExpand()
 	}
-	return nil
 }
 
 // MoveUp moves selection up.
