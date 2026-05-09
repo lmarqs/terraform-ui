@@ -198,6 +198,56 @@ Each change includes a `risk` classification based on resource type and action:
 
 The plan-level `risk_level` is the maximum across all changes. `destructive` is `true` if any change is a delete or replace.
 
+### Noise Reduction
+
+terraform-ui includes two noise reduction features for cleaner plan output:
+
+**Phantom change detection** — identifies "updates" where nothing actually changed (tag ordering, computed defaults, provider normalization):
+
+```bash
+source lib/tfui.sh
+_tfui_filter_phantom_changes "$plan_json_file"
+```
+
+```json
+{
+  "phantom_changes": 13,
+  "real_changes": 2,
+  "phantom_resources": ["aws_security_group.default", "aws_route_table.main"]
+}
+```
+
+**Module-level grouping** — groups flat resource lists by module path for better signal:
+
+```bash
+_tfui_group_by_module "$plan_json_file"
+```
+
+```json
+{
+  "by_module": {
+    "module.vpc": { "summary": { "add": 0, "change": 3, "destroy": 0 }, "changes": [...] },
+    "root": { "summary": { "add": 1, "change": 0, "destroy": 1 }, "changes": [...] }
+  }
+}
+```
+
+Human-readable grouped output:
+
+```bash
+_tfui_render_grouped_plan_tree "$plan_json_file"
+```
+
+```
+module.vpc (3 to change)
+  ~ aws_route_table.private
+  ~ aws_subnet.private[0]
+  ~ aws_subnet.private[1]
+root (1 to add, 1 to destroy)
+  + aws_instance.web
+  - aws_iam_role.old_role
+```
+
 ### File Descriptors
 
 | FD | Purpose |
