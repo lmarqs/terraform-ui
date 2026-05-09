@@ -585,7 +585,14 @@ func TestSetFilterSubstring(t *testing.T) {
 		// No match
 		{"zzz", 0},
 		{"aurora zzz", 0},
-		{"readonly", 0},
+		// Ignores separators (_, ., [], "")
+		{"readonly", 1},
+		{"readonlyproxy", 0},
+		{"proxyreadonly", 1},
+		{"dbproxy", 1},
+		{"rdscluster", 3},
+		{"clusterinstance", 2},
+		{"memorydbcluster", 1},
 	}
 	for _, tt := range tests {
 		p.SetFilter(tt.filter)

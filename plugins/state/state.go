@@ -415,11 +415,23 @@ func (e *Plugin) SetFilter(filter string) {
 
 func matchAllTerms(text string, terms []string) bool {
 	for _, term := range terms {
-		if !strings.Contains(text, term) {
+		if !strings.Contains(text, term) && !strings.Contains(stripSeparators(text), term) {
 			return false
 		}
 	}
 	return true
+}
+
+func stripSeparators(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c != '_' && c != '.' && c != '[' && c != ']' && c != '"' && c != ' ' {
+			b.WriteByte(c)
+		}
+	}
+	return b.String()
 }
 
 // AppendFilter adds a character to the filter.
