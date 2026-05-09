@@ -186,8 +186,8 @@ Additional commands: `tfui version`, `tfui help`.
 ## Development
 
 ```bash
-mise install              # Install tools (jq, bats, terraform)
-mise run setup            # Install BATS helper libraries
+mise install              # Install tools (jq, bats, terraform, node)
+mise run setup            # Install npm + BATS dependencies
 mise run test:run         # Syntax check + run tests
 mise run build [version]  # Package dist/ (reads VERSION by default)
 mise run coverage:run     # Coverage via Docker + kcov

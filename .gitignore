@@ -1,6 +1,7 @@
 *.out
 *.tmp
 dist/
+node_modules/
 reports/
 coverage/
 tests/helpers/bats-support/

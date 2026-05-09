@@ -2,18 +2,19 @@
 jq = "1"
 bats = "1"
 terraform = "1.14"
-"git-cliff" = "2"
+node = "22"
 
 [tasks.setup]
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
+npm ci
 dir="tests/helpers"
 for lib in bats-support bats-assert bats-file; do
   [ -d "$dir/$lib" ] || git clone --depth 1 "https://github.com/bats-core/$lib.git" "$dir/$lib"
 done
 """
-description = "Install BATS helper libraries"
+description = "Install dependencies"
 
 [tasks.build]
 run = """
@@ -40,9 +41,9 @@ bats tests/ --report-formatter junit --output ./reports
 """
 description = "Syntax check and run test suite"
 
-[tasks.changelog]
-run = "git-cliff --output CHANGELOG.md"
-description = "Generate CHANGELOG.md from conventional commits"
+[tasks.release]
+run = "npm run release"
+description = "Run semantic-release (CI only)"
 
 [tasks."coverage:run"]
 depends = ["setup"]
