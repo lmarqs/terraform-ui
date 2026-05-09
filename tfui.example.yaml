@@ -2,8 +2,7 @@
 # Place this file in your repository root.
 
 # Path to terraform (or tofu) binary (auto-detects if omitted: prefers tofu, falls back to terraform)
-terraform_binary: terraform
-# terraform_binary: tofu    # Use OpenTofu instead of Terraform
+# terraform_binary: tofu
 
 # Project discovery for monorepos (similar to pnpm-workspace.yaml)
 # Define glob patterns to locate independent terraform projects.
@@ -12,3 +11,20 @@ projects:
     - "modules/*"
     # - "envs/*"
     # - "infra/**"
+
+# Extension configuration (map of extension ID → config)
+# All extensions are enabled by default. Only list ones you want to customize.
+extensions:
+  risk:
+    enabled: true
+    # custom_rules:
+    #   - type: "aws_lambda_function"
+    #     level: critical
+
+  apply:
+    enabled: true
+    # auto_approve: false
+
+  # Disable an extension:
+  # blastradius:
+  #   enabled: false

@@ -27,6 +27,24 @@ type Config struct {
 
 	// Projects defines monorepo project discovery (similar to pnpm-workspace.yaml).
 	Projects ProjectsConfig `yaml:"projects"`
+
+	// Extensions is a map of extension ID → extension config.
+	// Extensions not listed are enabled with default settings.
+	Extensions map[string]ExtensionConfig `yaml:"extensions"`
+}
+
+// ExtensionConfig holds per-extension configuration.
+type ExtensionConfig struct {
+	Enabled *bool                  `yaml:"enabled"`
+	Options map[string]interface{} `yaml:",inline"`
+}
+
+// IsEnabled returns whether the extension is enabled (defaults to true).
+func (c ExtensionConfig) IsEnabled() bool {
+	if c.Enabled == nil {
+		return true
+	}
+	return *c.Enabled
 }
 
 // ProjectsConfig defines how to discover terraform projects in a monorepo.
