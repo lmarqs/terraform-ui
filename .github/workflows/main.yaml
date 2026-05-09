@@ -21,9 +21,3 @@ jobs:
     permissions:
       checks: write
       contents: read
-
-  release:
-    uses: ./.github/workflows/release.yaml
-    needs: test
-    permissions:
-      contents: write
