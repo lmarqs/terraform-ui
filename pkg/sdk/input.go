@@ -30,13 +30,13 @@ type InputResponseMsg struct {
 }
 
 // InputConfirm creates a bool confirmation InputRequest.
-// Accepts y/yes/enter(empty) as confirmation, n/esc as rejection.
+// Requires explicit y/yes or n/no — enter alone does nothing.
 func InputConfirm(prompt string, onYes func() tea.Cmd) InputRequest {
 	return InputRequest{
 		Mode:   InputRequestBool,
-		Prompt: prompt + " [y/n]",
+		Prompt: prompt + " (y/n)",
 		Callback: func(answer string) tea.Cmd {
-			if answer == "y" || answer == "yes" || answer == "" {
+			if answer == "y" || answer == "yes" {
 				return onYes()
 			}
 			return nil
