@@ -10,7 +10,9 @@
     ["@semantic-release/github", {
       "assets": [
         {"path": "dist/tfui-*.tar.gz"}
-      ]
+      ],
+      "successComment": false,
+      "failTitle": false
     }],
     ["@semantic-release/git", {
       "assets": ["CHANGELOG.md", "VERSION"],
