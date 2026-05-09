@@ -1,3 +1,10 @@
+# [0.38.0](https://github.com/lmarqs/terraform-ui/compare/v0.37.0...v0.38.0) (2026-05-09)
+
+
+### Features
+
+* add --mode agent for structured JSON plan output ([#2](https://github.com/lmarqs/terraform-ui/issues/2)) ([be3e9d2](https://github.com/lmarqs/terraform-ui/commit/be3e9d2ba779e20f5e1bcf4cbeaa1099d6e9b858))
+
 # [0.37.0](https://github.com/lmarqs/terraform-ui/compare/v0.36.6...v0.37.0) (2026-05-09)
 
 
