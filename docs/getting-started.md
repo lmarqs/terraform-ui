@@ -22,6 +22,16 @@ go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 
 Requires terraform (or tofu) on your `PATH`.
 
+### For contributors
+
+```bash
+git clone https://github.com/lmarqs/terraform-ui.git
+cd terraform-ui
+mise install
+mise run go:build
+./dist/tfui version
+```
+
 ## First Run
 
 Navigate to any directory containing `.tf` files and run:
