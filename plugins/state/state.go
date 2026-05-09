@@ -388,45 +388,27 @@ func (e *Plugin) maxAddressLen() int {
 	return max
 }
 
-// buildSearchTexts returns search strings with the common prefix stripped
-// so fuzzy matching operates on the distinctive suffixes.
+// buildSearchTexts returns short, distinctive search strings for each resource.
+// Uses module name + resource type + resource name, avoiding long shared prefixes
+// that cause false positives in subsequence matching.
 func buildSearchTexts(resources []sdk.Resource) []string {
-	if len(resources) == 0 {
-		return nil
-	}
-	addrs := make([]string, len(resources))
-	for i, r := range resources {
-		addrs[i] = r.Address
-	}
-	// Find longest common prefix
-	prefix := addrs[0]
-	for _, t := range addrs[1:] {
-		for !strings.HasPrefix(t, prefix) {
-			prefix = prefix[:len(prefix)-1]
-			if prefix == "" {
-				break
-			}
-		}
-		if prefix == "" {
-			break
-		}
-	}
-	// Strip to last dot boundary so we don't cut mid-segment
-	if i := strings.LastIndex(prefix, "."); i > 0 {
-		prefix = prefix[:i+1]
-	} else {
-		prefix = ""
-	}
 	texts := make([]string, len(resources))
 	for i, r := range resources {
-		addr := addrs[i]
-		if prefix != "" {
-			addr = addr[len(prefix):]
+		// Use Type.Name as the base (e.g., "aws_rds_cluster.this[0]")
+		base := r.Type
+		if r.Name != "" {
+			base += "." + r.Name
 		}
+		// Prepend the innermost module name for disambiguation
 		if r.Module != "" {
-			texts[i] = addr + " " + r.Module
+			// r.Module is like "module.postgresql_aurora" — extract last segment
+			mod := r.Module
+			if idx := strings.LastIndex(mod, "."); idx >= 0 {
+				mod = mod[idx+1:]
+			}
+			texts[i] = mod + "." + base
 		} else {
-			texts[i] = addr
+			texts[i] = base
 		}
 	}
 	return texts

@@ -504,9 +504,9 @@ func TestSetFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
-		{Address: "aws_instance.web", Type: "aws_instance", Module: ""},
-		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Module: "module.storage"},
-		{Address: "aws_vpc.main", Type: "aws_vpc", Module: ""},
+		{Address: "aws_instance.web", Type: "aws_instance", Name: "web", Module: ""},
+		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data", Module: "module.storage"},
+		{Address: "aws_vpc.main", Type: "aws_vpc", Name: "main", Module: ""},
 	}
 	p.filtered = p.resources
 
@@ -551,11 +551,13 @@ func TestSetFilterFuzzy(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
-		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Module: "module.postgresql_aurora"},
-		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"1\"]", Type: "aws_rds_cluster_instance", Module: "module.postgresql_aurora"},
-		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"2\"]", Type: "aws_rds_cluster_instance", Module: "module.postgresql_aurora"},
-		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group", Module: "module.redis"},
-		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group", Module: ""},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"1\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"2\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group", Name: "this", Module: "module.redis"},
+		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group", Name: "web", Module: ""},
+		{Address: "module.medprev_online_prd.module.memorydb.aws_memorydb_cluster.this", Type: "aws_memorydb_cluster", Name: "this", Module: "module.memorydb"},
+		{Address: "module.medprev_online_prd.module.medprev_chat.aws_lambda_function.handler", Type: "aws_lambda_function", Name: "handler", Module: "module.medprev_chat"},
 	}
 	p.filtered = p.resources
 
@@ -586,6 +588,26 @@ func TestSetFilterFuzzy(t *testing.T) {
 		p.SetFilter("aurora instance")
 		if len(p.filtered) != 2 {
 			t.Errorf("'aurora instance': got %d results, want 2", len(p.filtered))
+		}
+	})
+
+	t.Run("memo ranks memorydb first", func(t *testing.T) {
+		p.SetFilter("memo")
+		if len(p.filtered) == 0 {
+			t.Fatal("expected results for 'memo'")
+		}
+		if !strings.Contains(p.filtered[0].Address, "memorydb") {
+			t.Errorf("best match for 'memo' should be memorydb, got %s", p.filtered[0].Address)
+		}
+	})
+
+	t.Run("auro ranks aurora first", func(t *testing.T) {
+		p.SetFilter("auro")
+		if len(p.filtered) == 0 {
+			t.Fatal("expected results for 'auro'")
+		}
+		if !strings.Contains(p.filtered[0].Address, "aurora") {
+			t.Errorf("best match for 'auro' should contain 'aurora', got %s", p.filtered[0].Address)
 		}
 	})
 
