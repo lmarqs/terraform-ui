@@ -435,9 +435,10 @@ func TestUpdateKeyMsgDetailViewQ(t *testing.T) {
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
 
+	// q no longer exits detail (only esc does), so status stays
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if p.status != StatusDone {
-		t.Errorf("after q in detail: status = %v, want StatusDone", p.status)
+	if p.status != StatusShowingDetail {
+		t.Errorf("after q in detail: status = %v, want StatusShowingDetail (q handled by app)", p.status)
 	}
 }
 

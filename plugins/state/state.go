@@ -131,6 +131,7 @@ func (e *Plugin) Activate() tea.Cmd {
 			}
 		}
 		e.status = StatusLoading
+		e.filtering = true
 		return e.loadState()
 	}
 	return nil
@@ -203,13 +204,14 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Detail view has its own key handling
+	// Detail view — esc goes back, shortcuts for actions
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
-		case "esc", "q":
+		case "esc":
 			e.status = StatusDone
 			e.detail = ""
 			e.detailAddr = ""
+			e.filtering = true
 		}
 		return nil
 	}
@@ -345,7 +347,7 @@ func (e *Plugin) SelectedResource() sdk.Resource {
 	return sdk.Resource{}
 }
 
-// InspectSelected loads detailed info about the selected resource.
+// InspectSelected loads detail for the selected resource (enter = inspect, like k9s).
 func (e *Plugin) InspectSelected() tea.Cmd {
 	if e.status == StatusLoading {
 		return nil
@@ -357,6 +359,7 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	}
 	e.log.Debug("state.inspect.start", "address", r.Address)
 	e.status = StatusLoading
+	e.filtering = false
 	e.errMsg = "Loading " + r.Address + "..."
 	return e.loadDetail(r.Address)
 }
@@ -486,7 +489,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	detail := strings.Join(lines, "\n")
-	hint := sdk.StyleFaintItalic.Render("Esc/q to go back")
+	hint := sdk.StyleFaintItalic.Render("Esc back")
 
 	content := title + "\n" + address + "\n\n" + detail + "\n\n" + hint
 	return sdk.StylePadded.Render(content)
