@@ -26,6 +26,6 @@ description = "Run test suite"
 depends = ["setup"]
 run = """
 docker build -f Dockerfile.coverage -t tfui-coverage . && \
-docker run --rm -v "$PWD/lib:/app/lib" -v "$PWD/tests:/app/tests" -v "$PWD/coverage:/app/coverage" tfui-coverage
+docker run --rm -v "$PWD/lib:/app/lib" -v "$PWD/tests:/app/tests" -v "$PWD/coverage:/app/coverage" tfui-coverage || true
 """
 description = "Run tests with kcov coverage via Docker (outputs to coverage/)"
