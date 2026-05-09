@@ -31,3 +31,4 @@ jobs:
     needs: test
     permissions:
       contents: write
+      pull-requests: write
