@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Visualize module-grouped changes with impact scores" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Visualize module-grouped changes with impact scores")
 	}
-	if p.KeyBinding() != "b" {
+	if p.KeyBinding() != "B" {
 		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "b")
 	}
 	if p.Ready() {

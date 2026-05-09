@@ -69,7 +69,7 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "blastradius" }
 func (e *Plugin) Name() string        { return "Blast Radius" }
 func (e *Plugin) Description() string { return "Visualize module-grouped changes with impact scores" }
-func (e *Plugin) KeyBinding() string  { return "b" }
+func (e *Plugin) KeyBinding() string  { return "B" }
 func (e *Plugin) Ready() bool         { return e.status == StatusReady }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }

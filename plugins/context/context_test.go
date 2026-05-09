@@ -49,7 +49,7 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Select terraform project scope" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Select terraform project scope")
 	}
-	if p.KeyBinding() != "c" {
+	if p.KeyBinding() != "C" {
 		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "c")
 	}
 	if p.Ready() {
