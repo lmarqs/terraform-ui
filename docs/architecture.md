@@ -85,3 +85,18 @@ The TUI follows Bubbletea's Elm architecture:
 - Semantic styles (risk level colors, action colors, dimmed text for phantom changes)
 
 Views import `styles` and reference named styles rather than defining inline styles, keeping visual consistency centralized.
+
+## Development
+
+All commands go through [mise](https://mise.jdx.dev/):
+
+```bash
+mise install              # Install Go, terraform, and other tools
+mise run go:build         # Build binary to dist/tfui
+mise run go:test          # Run unit tests
+mise run go:lint          # Run go vet
+mise run go:coverage      # Test with coverage report
+mise run go:run           # Launch TUI in dev mode
+```
+
+No Makefile — mise tasks are the single entry point for both local development and CI.
