@@ -28,6 +28,8 @@ jobs:
 
   release:
     uses: ./.github/workflows/release.yaml
-    needs: test
+    needs: [build, test]
+    with:
+      version: ${{ needs.build.outputs.version }}
     permissions:
       contents: write

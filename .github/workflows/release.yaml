@@ -2,6 +2,11 @@ name: Release
 
 on:
   workflow_call:
+    inputs:
+      version:
+        description: "Version to release"
+        required: true
+        type: string
 
 env:
   # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
@@ -13,41 +18,32 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Resolve version
-        id: version
-        run: |
-          base_version=$(cat VERSION)
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "tag=v${base_version}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=false" >> "$GITHUB_OUTPUT"
-          else
-            timestamp=$(date -u +%Y%m%d%H%M%S)
-            echo "tag=v${base_version}-rc.${timestamp}" >> "$GITHUB_OUTPUT"
-            echo "prerelease=true" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
 
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          cp artifacts/tfui/tfui.sh release-assets/
+          cp artifacts/test-report-ubuntu-latest/report.xml release-assets/test-report-ubuntu.xml
+          cp artifacts/test-report-macos-latest/report.xml release-assets/test-report-macos.xml
+
       - name: Create release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          tag="v${{ inputs.version }}"
           flags=""
-          if [ "${{ steps.version.outputs.prerelease }}" = "true" ]; then
+          if [[ "$tag" == *"-rc."* ]]; then
             flags="--prerelease"
           else
             flags="--latest"
           fi
 
-          gh release create "${{ steps.version.outputs.tag }}" \
+          gh release create "$tag" \
             $flags \
             --generate-notes \
-            artifacts/tfui/tfui.sh \
-            artifacts/test-report-ubuntu-latest/*.xml \
-            artifacts/test-report-macos-latest/*.xml
+            --repo "${{ github.repository }}" \
+            release-assets/*
