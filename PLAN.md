@@ -178,4 +178,4 @@ mise run go:run       → go run ./cmd/tfui (dev mode)
 
 1. Should the bash library embedding use case (`source lib/tfui.sh`) get a compatibility shim, or is it fully deprecated?
 2. OpenTofu support from day one? (just a `terraform_binary: tofu` config, mostly works already)
-3. Plugin/extension system in the future? (custom risk rules, provider-specific views)
+3. Plugin system in the future? (custom risk rules, provider-specific views)
