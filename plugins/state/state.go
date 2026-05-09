@@ -340,8 +340,10 @@ func (e *Plugin) SelectedResource() sdk.Resource {
 func (e *Plugin) InspectSelected() tea.Cmd {
 	r := e.SelectedResource()
 	if r.Address == "" {
+		e.log.Debug("state.inspect.skip", "reason", "empty address", "selected", e.selected, "filtered", len(e.filtered))
 		return nil
 	}
+	e.log.Debug("state.inspect.start", "address", r.Address)
 	return e.loadDetail(r.Address)
 }
 
