@@ -9,7 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // mockPlugin implements plugin.Plugin for app tests.
