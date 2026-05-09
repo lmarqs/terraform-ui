@@ -49,6 +49,21 @@ tfui apply --dir ./modules/vpc
 
 ## Install
 
+### mise (recommended)
+
+Add to your project's `mise.toml`:
+
+```toml
+[tools]
+"github:lmarqs/terraform-ui" = { version = "0.36.3", exe = "tfui", extract_all = "true", bin_path = "bin" }
+```
+
+Then run:
+
+```bash
+mise install
+```
+
 ### curl
 
 ```bash
@@ -59,13 +74,6 @@ curl -fsSL https://raw.githubusercontent.com/lmarqs/terraform-ui/main/scripts/in
 
 ```bash
 basher install lmarqs/terraform-ui
-```
-
-### Homebrew
-
-```bash
-brew tap lmarqs/terraform-ui
-brew install terraform-ui
 ```
 
 ### Manual

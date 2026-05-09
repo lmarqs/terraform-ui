@@ -131,9 +131,9 @@ main.yaml (orchestrator)
   ├─ build.yaml
   │    ├─ Checkout with full history (fetch-depth: 0)
   │    ├─ Compute next version (git-cliff --bumped-version)
-  │    ├─ mise run build (packages dist/)
+  │    ├─ mise run build (packages dist/ + tarball)
   │    ├─ mise run changelog (generates CHANGELOG.md via git-cliff)
-  │    └─ Upload artifacts (dist/ + CHANGELOG.md)
+  │    └─ Upload artifacts (dist/ + tarball + CHANGELOG.md)
   │
   ├─ test.yaml (needs: build)
   │    ├─ Matrix: ubuntu-latest + macos-latest, fail-fast: false
@@ -142,12 +142,11 @@ main.yaml (orchestrator)
   │    └─ Coverage via Docker + kcov
   │
   └─ release.yaml (needs: test)
-       ├─ Download all artifacts
+       ├─ Download all artifacts (incl. pre-built tarball)
        ├─ Read VERSION from artifact to resolve tag
        │    push to main → vX.Y.Z (official)
        │    PR           → vX.Y.Z-rc.<timestamp> (prerelease)
        ├─ Create git tag via GitHub API
-       ├─ Package tarball: tfui-<version>.tar.gz
        ├─ Create GitHub release (tarball + CHANGELOG.md + test reports)
        └─ Push only: commit CHANGELOG.md back to main (via GitHub API)
 ```
@@ -174,7 +173,7 @@ main.yaml (orchestrator)
 
 - Build is a mise task — runs identically locally and in CI
 - Only build checks out with full history — test uses shallow checkout, release has no checkout
-- Artifact is self-contained (bin/tfui + lib/tfui.sh + VERSION) — release only consumes, never builds
+- Build produces the release tarball (preserving permissions) — release only copies it to assets
 - Release resolves official vs prerelease from event type, not from build
 - Release creates tags and commits files via GitHub API (no git clone needed)
 - Test reports are release assets for traceability
