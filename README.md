@@ -55,7 +55,7 @@ Add to your project's `mise.toml`:
 
 ```toml
 [tools]
-"github:lmarqs/terraform-ui" = { version = "0.36.3", exe = "tfui", extract_all = "true", bin_path = "bin" }
+"github:lmarqs/terraform-ui" = { version = "latest", exe = "tfui", extract_all = "true", bin_path = "bin" }
 ```
 
 Then run:
