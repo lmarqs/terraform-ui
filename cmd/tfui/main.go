@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
 	"github.com/lmarqs/terraform-ui/plugins/blastradius"
+	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	"github.com/lmarqs/terraform-ui/plugins/phantom"
 	"github.com/lmarqs/terraform-ui/plugins/plan"
 	"github.com/lmarqs/terraform-ui/plugins/projects"
@@ -68,6 +70,15 @@ func main() {
 	applyCmd.Flags().StringVar(&cfg.Mode, "mode", "progress", "UI mode: silent, spinner, progress, agent")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
 
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Generate tfui.yaml configuration",
+		Long:  "Detect terraform project patterns and generate a tfui.yaml config file in the working directory.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInit(cfg)
+		},
+	}
+
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version",
@@ -76,7 +87,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(planCmd, applyCmd, versionCmd)
+	rootCmd.AddCommand(planCmd, applyCmd, initCmd, versionCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -97,6 +108,7 @@ func runTUI(cfg config.Config) error {
 	registry.RegisterFactory("workspaces", workspaces.New)
 	registry.RegisterFactory("projects", projects.New)
 	registry.RegisterFactory("blastradius", blastradius.New)
+	registry.RegisterFactory("init", tfuiinit.New)
 
 	// Build plugins from config
 	registry.Build(svc, cfg.Plugins)
@@ -249,6 +261,22 @@ func printAgentJSON(summary *terraform.PlanSummary) error {
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")
 	return enc.Encode(output)
+}
+
+func runInit(cfg config.Config) error {
+	content, err := tfuiinit.GenerateConfig(cfg.Dir)
+	if err != nil {
+		return fmt.Errorf("init failed: %w", err)
+	}
+
+	outPath := filepath.Join(cfg.Dir, "tfui.yaml")
+	if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", outPath, err)
+	}
+
+	fmt.Fprintf(os.Stderr, "Wrote %s\n", outPath)
+	fmt.Print(content)
+	return nil
 }
 
 func runPlan(cfg config.Config) error {
