@@ -197,6 +197,10 @@ tfui_apply() {
 # @return void
 # @side-effect fd3
 _tfui_open_ui_channel() {
+  if (printf '' >&3) 2>/dev/null; then
+    return
+  fi
+
   if [ -t 1 ]; then
     exec 3>&1
   elif (echo "" > /dev/tty) 2>/dev/null; then

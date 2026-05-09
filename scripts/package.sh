@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 # basher metadata
-BINS=""
+BINS="bin/tfui"
 DEPS=""

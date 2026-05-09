@@ -2,12 +2,13 @@
 
 ## Overview
 
-terraform-ui is a standalone pure-bash library that provides animated terminal feedback for `terraform plan` and `terraform apply` operations: spinner, elapsed timer, progress bar, and tree-view diff output.
+terraform-ui is a standalone pure-bash tool that provides animated terminal feedback for `terraform plan` and `terraform apply` operations: spinner, elapsed timer, progress bar, and tree-view diff output.
 
 ## Architecture
 
 ```
-lib/tfui.sh              — the library (source this to use)
+bin/tfui                 — CLI entry point (executable)
+lib/tfui.sh              — the library (source this to embed)
 tests/*.bats             — BATS test suite (split by feature)
 tests/helpers/           — shared test utilities
 tests/fixtures/          — real terraform projects for integration testing
@@ -16,12 +17,61 @@ Dockerfile.coverage      — kcov coverage runner
 .github/workflows/       — CI (build → test → release)
 ```
 
+### Layers
+
+```
+┌─────────────────────────────────────────────┐
+│  CLI  (bin/tfui)                            │
+│  Argument parsing, fd3 setup, dispatch      │
+├─────────────────────────────────────────────┤
+│  Public API  (tfui_*)                       │
+│  init, plan, confirm, apply                 │
+├─────────────────────────────────────────────┤
+│  Orchestration  (_tfui_run*)                │
+│  Strategy resolution, phase sequencing      │
+├─────────────────────────────────────────────┤
+│  Strategies  (_tfui_strategy_*)             │
+│  silent, spinner, progress                  │
+├──────────────────────┬──────────────────────┤
+│  UI Engine           │  Execution           │
+│  (_tfui_ui_*)        │  (_tfui_exec)        │
+│  Animation, layout,  │  Working dir, output │
+│  render, format      │  capture, exit codes │
+├──────────────────────┴──────────────────────┤
+│  Renderer  (_tfui_render_*)                 │
+│  Plan tree view (jq)                        │
+├─────────────────────────────────────────────┤
+│  State  (_tfui_state_*)                     │
+│  Message, timer, output file                │
+├─────────────────────────────────────────────┤
+│  Lifecycle  (_tfui_lifecycle_*)             │
+│  Exit trap, die, cleanup                    │
+└─────────────────────────────────────────────┘
+```
+
+### Layer Responsibilities
+
+| Layer | Prefix | Responsibility |
+|-------|--------|----------------|
+| CLI | `_tfui_cli_*` | Parse args, validate deps, open fd3, dispatch to public API |
+| Public API | `tfui_*` | User-facing contract; composes orchestration and rendering |
+| Orchestration | `_tfui_run*` | Prepare state, resolve strategy, handle errors |
+| Strategies | `_tfui_strategy_*` | Execute commands with a specific UI treatment |
+| UI Engine | `_tfui_ui_*` | Cursor management, animation loop, render to fd3 |
+| Formatters | `_tfui_ui_format_*` | Pure functions returning formatted strings (no side effects) |
+| Renderers | `_tfui_ui_render_*` | Write formatted content at current cursor position (fd3) |
+| Execution | `_tfui_exec` | Run shell commands in working dir, capture output |
+| Output Renderer | `_tfui_render_*` | Parse plan JSON into tree view (stdout) |
+| State | `_tfui_state_*` | Mutate internal variables (_TFUI_*) |
+| Lifecycle | `_tfui_lifecycle_*` | EXIT trap, error handling, temp file cleanup |
+
 ### Design Principles
 
 - Pure bash (3.2+), no compiled dependencies except `jq`
 - Cross-platform: macOS and any Linux distro
-- Designed to be `source`d into caller scripts, not executed directly
+- Two usage modes: CLI (`tfui plan`) or library (`source lib/tfui.sh`)
 - Terminal UI writes to fd3, keeping stdout/stderr free for data and errors
+- CLI pre-opens fd3; library detects and skips if already open
 - All tools managed via mise.toml — no global installs
 
 ### Naming Conventions
@@ -29,6 +79,7 @@ Dockerfile.coverage      — kcov coverage runner
 | Pattern | Role |
 |---------|------|
 | `tfui_*` | Public API |
+| `_tfui_cli_*` | CLI internals |
 | `_tfui_run*` | Orchestration |
 | `_tfui_state_*` | State mutators |
 | `_tfui_lifecycle_*` | Process lifecycle |
@@ -58,9 +109,10 @@ Run a single test file: `bats tests/format.bats`
 
 ## Development Workflow
 
-1. Edit `lib/tfui.sh`
-2. Run `mise run test:run` to verify
-3. Keep public API stable (`tfui_init`, `tfui_plan`, `tfui_confirm`, `tfui_apply`)
+1. Edit `lib/tfui.sh` or `bin/tfui`
+2. Run `mise run build` to syntax-check both
+3. Run `mise run test:run` to verify
+4. Keep public API stable (`tfui_init`, `tfui_plan`, `tfui_confirm`, `tfui_apply`)
 
 ## Testing
 

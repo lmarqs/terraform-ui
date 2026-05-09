@@ -14,8 +14,8 @@ done
 description = "Install BATS helper libraries"
 
 [tasks.build]
-run = "bash -n lib/tfui.sh"
-description = "Syntax check the library"
+run = "bash -n lib/tfui.sh && bash -n bin/tfui"
+description = "Syntax check the library and CLI"
 
 [tasks."test:run"]
 depends = ["setup"]

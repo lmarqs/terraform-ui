@@ -1,0 +1,141 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+_TFUI_CLI_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_TFUI_CLI_VERSION_FILE="${_TFUI_CLI_DIR}/../VERSION"
+_TFUI_CLI_VERSION="dev"
+if [ -f "$_TFUI_CLI_VERSION_FILE" ]; then
+  _TFUI_CLI_VERSION="$(cat "$_TFUI_CLI_VERSION_FILE")"
+fi
+_TFUI_CLI_LIB="${_TFUI_CLI_DIR}/../lib/tfui.sh"
+
+if [ ! -f "$_TFUI_CLI_LIB" ]; then
+  echo "tfui: cannot find lib/tfui.sh (looked at $_TFUI_CLI_LIB)" >&2
+  exit 1
+fi
+
+source "$_TFUI_CLI_LIB"
+
+# -- CLI helpers --------------------------------------------------------------
+
+_tfui_cli_usage() {
+  cat <<'EOF'
+Usage: tfui <command> [options] [-- terraform_args]
+
+Commands:
+  plan      Run terraform plan and display tree view
+  apply     Plan, confirm, and apply changes
+  version   Print version
+  help      Show this help
+
+Options:
+  --dir <path>       Working directory (default: .)
+  --mode <mode>      UI mode: auto, rich, simple, plain (default: auto)
+  --message <msg>    Spinner message
+  --auto-approve     Skip confirmation (apply only)
+  --                 Pass remaining args to terraform
+
+Examples:
+  tfui plan
+  tfui plan --dir ./modules/vpc
+  tfui apply --auto-approve
+  tfui plan -- -target=aws_instance.web
+EOF
+}
+
+_tfui_cli_die() {
+  echo "tfui: $1" >&2
+  exit 1
+}
+
+_tfui_cli_check_deps() {
+  command -v terraform >/dev/null 2>&1 || _tfui_cli_die "terraform not found in PATH"
+  command -v jq >/dev/null 2>&1 || _tfui_cli_die "jq not found in PATH"
+}
+
+_tfui_cli_setup_fd3() {
+  if (echo "" > /dev/tty) 2>/dev/null; then
+    exec 3>/dev/tty
+  else
+    exec 3>/dev/null
+  fi
+}
+
+# -- Subcommands --------------------------------------------------------------
+
+_tfui_cli_plan() {
+  local dir="." mode="auto" message="Planning" tf_args=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir) dir="$2"; shift 2 ;;
+      --mode) mode="$2"; shift 2 ;;
+      --message) message="$2"; shift 2 ;;
+      --) shift; tf_args="$*"; break ;;
+      -*) _tfui_cli_die "unknown option: $1" ;;
+      *) _tfui_cli_die "unexpected argument: $1" ;;
+    esac
+  done
+
+  [ -d "$dir" ] || _tfui_cli_die "directory not found: $dir"
+
+  local plan_file
+  plan_file=$(mktemp)
+  trap 'rm -f "$plan_file"' EXIT
+
+  _tfui_cli_check_deps
+  _tfui_cli_setup_fd3
+  tfui_init "$dir" "$mode"
+  tfui_plan "$message" "$tf_args" --out "$plan_file"
+}
+
+_tfui_cli_apply() {
+  local dir="." mode="auto" message="Planning" auto_approve=false tf_args=""
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir) dir="$2"; shift 2 ;;
+      --mode) mode="$2"; shift 2 ;;
+      --message) message="$2"; shift 2 ;;
+      --auto-approve) auto_approve=true; shift ;;
+      --) shift; tf_args="$*"; break ;;
+      -*) _tfui_cli_die "unknown option: $1" ;;
+      *) _tfui_cli_die "unexpected argument: $1" ;;
+    esac
+  done
+
+  [ -d "$dir" ] || _tfui_cli_die "directory not found: $dir"
+
+  local plan_file
+  plan_file=$(mktemp)
+  trap 'rm -f "$plan_file"' EXIT
+
+  _tfui_cli_check_deps
+  _tfui_cli_setup_fd3
+  tfui_init "$dir" "$mode"
+  tfui_plan "$message" "$tf_args" --out "$plan_file"
+
+  local confirm_args=("$plan_file")
+  if [ "$auto_approve" = "true" ]; then
+    confirm_args+=("--auto-approve")
+  fi
+
+  if tfui_confirm "${confirm_args[@]}"; then
+    tfui_apply "$plan_file" "Applying" "$tf_args"
+  fi
+}
+
+# -- Dispatch -----------------------------------------------------------------
+
+if [ $# -eq 0 ]; then
+  _tfui_cli_usage
+  exit 1
+fi
+
+case "$1" in
+  plan)    shift; _tfui_cli_plan "$@" ;;
+  apply)   shift; _tfui_cli_apply "$@" ;;
+  version) echo "tfui $_TFUI_CLI_VERSION" ;;
+  help)    _tfui_cli_usage ;;
+  *)       _tfui_cli_die "unknown command: $1 (see 'tfui help')" ;;
+esac

@@ -16,8 +16,14 @@ main() {
   mkdir -p "$INSTALL_DIR"
   curl -fsSL "https://github.com/$REPO/archive/refs/tags/$version.tar.gz" | tar -xz --strip-components=1 -C "$INSTALL_DIR"
 
+  mkdir -p "$HOME/.local/bin"
+  ln -sf "$INSTALL_DIR/bin/tfui" "$HOME/.local/bin/tfui"
+
   echo ""
-  echo "Installed! Add this to your script:"
+  echo "Installed! Run directly:"
+  echo "  tfui plan --dir ./my-module"
+  echo ""
+  echo "Or source as a library:"
   echo "  source \"$INSTALL_DIR/lib/tfui.sh\""
 }
 
