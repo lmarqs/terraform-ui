@@ -88,11 +88,11 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active project changed since last activation
+	// Check if the active context changed since last activation
 	if e.session != nil {
 		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
 		if currentContext != e.scopedContext {
-			// Project changed — reset state
+			// Context changed — reset state
 			e.status = StatusIdle
 			e.workspaces = nil
 			e.current = ""
@@ -106,7 +106,7 @@ func (e *Plugin) Activate() tea.Cmd {
 	}
 
 	if e.status == StatusIdle || e.status == StatusError {
-		// Check if there's an active project to scope to
+		// Check if there's an active context to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)

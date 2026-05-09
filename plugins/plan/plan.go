@@ -38,7 +38,7 @@ type Plugin struct {
 	selected      int
 	targets       []string
 	expanded      map[int]bool
-	scopedContext string // tracks which project the service was scoped to
+	scopedContext string // tracks which context the service was scoped to
 }
 
 // New creates a new plan plugin.
@@ -88,11 +88,11 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active project changed since last activation
+	// Check if the active context changed since last activation
 	if e.session != nil {
 		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
 		if currentContext != e.scopedContext {
-			// Project changed — reset state and re-scope
+			// Context changed — reset state and re-scope
 			e.status = StatusIdle
 			e.summary = nil
 			e.errMsg = ""
@@ -106,13 +106,13 @@ func (e *Plugin) Activate() tea.Cmd {
 	}
 
 	if e.status == StatusIdle || e.status == StatusError {
-		// Check if there's an active project to scope to
+		// Check if there's an active context to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyContextCount); ok && count > 1 {
-				// Multi-project mode but no project selected
+				// Multi-context mode but no context selected
 				e.status = StatusError
 				e.errMsg = "Select a context first (press c)"
 				return nil

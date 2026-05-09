@@ -83,13 +83,13 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	return nil
 }
 
-// Activate scopes the service to the active project before apply operations.
+// Activate scopes the service to the active context before apply operations.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active project changed since last activation
+	// Check if the active context changed since last activation
 	if e.session != nil {
 		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
 		if currentContext != e.scopedContext {
-			// Project changed — reset status
+			// Context changed — reset status
 			e.status = StatusIdle
 			e.errMsg = ""
 			e.scopedContext = currentContext
