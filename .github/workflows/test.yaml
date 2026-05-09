@@ -5,6 +5,7 @@ on:
 
 env:
   # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
+  # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
