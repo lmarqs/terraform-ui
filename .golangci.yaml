@@ -1,0 +1,47 @@
+linters:
+  enable:
+    - importas
+    - goimports
+    - govet
+    - errcheck
+    - staticcheck
+    - unused
+
+linters-settings:
+  importas:
+    no-unaliased: false
+    alias:
+      # Plugin imports must use tfui prefix
+      - pkg: github.com/lmarqs/terraform-ui/plugins/apply
+        alias: tfuiapply
+      - pkg: github.com/lmarqs/terraform-ui/plugins/blastradius
+        alias: tfuiblast
+      - pkg: github.com/lmarqs/terraform-ui/plugins/context
+        alias: tfuicontext
+      - pkg: github.com/lmarqs/terraform-ui/plugins/init
+        alias: tfuiinit
+      - pkg: github.com/lmarqs/terraform-ui/plugins/output
+        alias: tfuioutput
+      - pkg: github.com/lmarqs/terraform-ui/plugins/phantom
+        alias: tfuiphantom
+      - pkg: github.com/lmarqs/terraform-ui/plugins/plan
+        alias: tfuiplan
+      - pkg: github.com/lmarqs/terraform-ui/plugins/repl
+        alias: tfuirepl
+      - pkg: github.com/lmarqs/terraform-ui/plugins/risk
+        alias: tfuirisk
+      - pkg: github.com/lmarqs/terraform-ui/plugins/state
+        alias: tfuistate
+      - pkg: github.com/lmarqs/terraform-ui/plugins/validate
+        alias: tfuivalidate
+      - pkg: github.com/lmarqs/terraform-ui/plugins/workspaces
+        alias: tfuiworkspaces
+      # BubbleTea always aliased as tea
+      - pkg: github.com/charmbracelet/bubbletea
+        alias: tea
+
+issues:
+  exclude-dirs:
+    - tests/helpers
+  max-issues-per-linter: 0
+  max-same-issues: 0

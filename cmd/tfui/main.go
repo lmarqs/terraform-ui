@@ -15,18 +15,18 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui"
-	"github.com/lmarqs/terraform-ui/plugins/apply"
-	"github.com/lmarqs/terraform-ui/plugins/blastradius"
+	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
+	tfuiblast "github.com/lmarqs/terraform-ui/plugins/blastradius"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
-	"github.com/lmarqs/terraform-ui/plugins/output"
-	"github.com/lmarqs/terraform-ui/plugins/phantom"
-	"github.com/lmarqs/terraform-ui/plugins/plan"
-	"github.com/lmarqs/terraform-ui/plugins/repl"
-	"github.com/lmarqs/terraform-ui/plugins/risk"
-	"github.com/lmarqs/terraform-ui/plugins/state"
-	"github.com/lmarqs/terraform-ui/plugins/validate"
-	"github.com/lmarqs/terraform-ui/plugins/workspaces"
+	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
+	tfuiphantom "github.com/lmarqs/terraform-ui/plugins/phantom"
+	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
+	tfuirepl "github.com/lmarqs/terraform-ui/plugins/repl"
+	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
+	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
+	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
+	tfuiworkspaces "github.com/lmarqs/terraform-ui/plugins/workspaces"
 	"github.com/spf13/cobra"
 )
 
@@ -104,16 +104,16 @@ func runTUI(cfg config.Config) error {
 	// Create and populate the plugin registry
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("context", tfuicontext.New)
-	registry.RegisterFactory("state", state.New)
-	registry.RegisterFactory("plan", plan.New)
-	registry.RegisterFactory("apply", apply.New)
-	registry.RegisterFactory("workspaces", workspaces.New)
-	registry.RegisterFactory("repl", repl.New)
-	registry.RegisterFactory("output", output.New)
-	registry.RegisterFactory("validate", validate.New)
-	registry.RegisterFactory("risk", risk.New)
-	registry.RegisterFactory("phantom", phantom.New)
-	registry.RegisterFactory("blastradius", blastradius.New)
+	registry.RegisterFactory("state", tfuistate.New)
+	registry.RegisterFactory("plan", tfuiplan.New)
+	registry.RegisterFactory("apply", tfuiapply.New)
+	registry.RegisterFactory("workspaces", tfuiworkspaces.New)
+	registry.RegisterFactory("repl", tfuirepl.New)
+	registry.RegisterFactory("output", tfuioutput.New)
+	registry.RegisterFactory("validate", tfuivalidate.New)
+	registry.RegisterFactory("risk", tfuirisk.New)
+	registry.RegisterFactory("phantom", tfuiphantom.New)
+	registry.RegisterFactory("blastradius", tfuiblast.New)
 	registry.RegisterFactory("init", tfuiinit.New)
 
 	// Build plugins from config
