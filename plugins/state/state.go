@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -119,10 +120,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
+			logging.Logger().Debug("state.load.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
+			logging.Logger().Debug("state.load.complete", "resources", len(msg.Resources))
 		}
 		return e, nil
 
@@ -130,10 +133,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()
 			e.status = StatusDone
+			logging.Logger().Debug("state.inspect.error", "address", msg.Address, "error", msg.Err.Error())
 		} else {
 			e.detail = msg.Detail
 			e.detailAddr = msg.Address
 			e.status = StatusShowingDetail
+			logging.Logger().Debug("state.inspect", "address", msg.Address)
 		}
 		return e, nil
 
@@ -216,6 +221,7 @@ func (e *Plugin) SetFilter(filter string) {
 	e.selected = 0
 	if filter == "" {
 		e.filtered = e.resources
+		logging.Logger().Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
 	lower := strings.ToLower(filter)
@@ -228,6 +234,7 @@ func (e *Plugin) SetFilter(filter string) {
 		}
 	}
 	e.filtered = result
+	logging.Logger().Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
 // AppendFilter adds a character to the filter.

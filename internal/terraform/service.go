@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -44,8 +46,12 @@ func (s *TerraformService) newTerraform() (*tfexec.Terraform, error) {
 
 // Plan runs terraform plan and returns the parsed changes.
 func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSummary, error) {
+	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir, "targets", targets)
+	start := time.Now()
+
 	tf, err := s.newTerraform()
 	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "plan", "error", err.Error(), "duration", time.Since(start).String())
 		return nil, err
 	}
 
@@ -60,11 +66,13 @@ func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSum
 
 	_, err = tf.Plan(ctx, planOpts...)
 	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "plan", "error", err.Error(), "duration", time.Since(start).String())
 		return nil, fmt.Errorf("running terraform plan: %w", err)
 	}
 
 	plan, err := tf.ShowPlanFile(ctx, planFilePath)
 	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "plan", "error", err.Error(), "duration", time.Since(start).String())
 		return nil, fmt.Errorf("reading plan file: %w", err)
 	}
 
@@ -76,13 +84,18 @@ func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSum
 
 	DetectPhantomChanges(summary.Changes)
 
+	logging.Logger().Debug("terraform.result", "cmd", "plan", "changes", len(summary.Changes), "duration", time.Since(start).String())
 	return summary, nil
 }
 
 // Apply runs terraform apply on the saved plan file.
 func (s *TerraformService) Apply(ctx context.Context, targets []string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir, "targets", targets)
+	start := time.Now()
+
 	tf, err := s.newTerraform()
 	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "apply", "error", err.Error(), "duration", time.Since(start).String())
 		return err
 	}
 
@@ -90,9 +103,11 @@ func (s *TerraformService) Apply(ctx context.Context, targets []string) error {
 
 	err = tf.Apply(ctx, tfexec.DirOrPlan(planFilePath))
 	if err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "apply", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("running terraform apply: %w", err)
 	}
 
+	logging.Logger().Debug("terraform.result", "cmd", "apply", "duration", time.Since(start).String())
 	return nil
 }
 

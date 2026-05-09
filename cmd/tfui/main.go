@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui"
@@ -28,16 +29,22 @@ var version = "1.0.0-dev"
 
 func main() {
 	var cfg config.Config
+	var debug bool
 
 	rootCmd := &cobra.Command{
 		Use:   "tfui",
 		Short: "Terminal UI for Terraform operations",
 		Long:  "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			binary := config.DetectBinary(cfg.TerraformBinary)
+			logging.Init(debug, version, cfg.Dir, binary)
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTUI(cfg)
 		},
 	}
 
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging to ~/.tfui/debug.log")
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "dir", ".", "Working directory for terraform operations")
 	rootCmd.PersistentFlags().StringVar(&cfg.TerraformBinary, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
 

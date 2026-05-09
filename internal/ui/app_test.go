@@ -21,26 +21,26 @@ type mockPlugin struct {
 	initCmd    tea.Cmd
 }
 
-func (m *mockPlugin) ID() string                                        { return m.id }
-func (m *mockPlugin) Name() string                                      { return m.name }
-func (m *mockPlugin) Description() string                               { return m.id + " description" }
-func (m *mockPlugin) KeyBinding() string                                { return m.key }
-func (m *mockPlugin) Init(_ *plugin.Context) tea.Cmd                    { return m.initCmd }
-func (m *mockPlugin) Update(_ tea.Msg) (plugin.Plugin, tea.Cmd)         { return m, nil }
-func (m *mockPlugin) View(_, _ int) string                              { return m.viewOutput }
-func (m *mockPlugin) Configure(_ map[string]interface{}) error          { return nil }
-func (m *mockPlugin) Ready() bool                                       { return true }
+func (m *mockPlugin) ID() string                                { return m.id }
+func (m *mockPlugin) Name() string                              { return m.name }
+func (m *mockPlugin) Description() string                       { return m.id + " description" }
+func (m *mockPlugin) KeyBinding() string                        { return m.key }
+func (m *mockPlugin) Init(_ *plugin.Context) tea.Cmd            { return m.initCmd }
+func (m *mockPlugin) Update(_ tea.Msg) (plugin.Plugin, tea.Cmd) { return m, nil }
+func (m *mockPlugin) View(_, _ int) string                      { return m.viewOutput }
+func (m *mockPlugin) Configure(_ map[string]interface{}) error  { return nil }
+func (m *mockPlugin) Ready() bool                               { return true }
 
 // mockService implements terraform.Service with no-op methods for testing.
 type mockService struct {
-	workspace string
+	workspace    string
 	workspaceErr error
 }
 
 func (s *mockService) Plan(_ context.Context, _ []string) (*terraform.PlanSummary, error) {
 	return nil, nil
 }
-func (s *mockService) Apply(_ context.Context, _ []string) error    { return nil }
+func (s *mockService) Apply(_ context.Context, _ []string) error { return nil }
 func (s *mockService) StateList(_ context.Context) ([]terraform.Resource, error) {
 	return nil, nil
 }

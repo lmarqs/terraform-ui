@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -74,6 +75,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.errMsg = ""
 	e.selected = 0
 	e.expanded = make(map[int]bool)
+	logging.Logger().Debug("plan.start", "targets", e.targets)
 	return e.runPlan()
 }
 
@@ -103,9 +105,15 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
+			logging.Logger().Debug("plan.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
 			e.summary = msg.Summary
+			changes := 0
+			if msg.Summary != nil {
+				changes = len(msg.Summary.Changes)
+			}
+			logging.Logger().Debug("plan.complete", "changes", changes)
 		}
 		return e, nil
 

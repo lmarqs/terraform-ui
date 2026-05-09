@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
@@ -99,19 +100,29 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	activeView := "home"
+	if a.activePlugin != nil {
+		activeView = a.activePlugin.ID()
+	}
+	logging.Logger().Debug("key.press", "key", msg.String(), "view", activeView)
+
 	// Global keys
 	switch msg.String() {
 	case "ctrl+c":
 		return a, tea.Quit
 	case "q":
 		if a.activePlugin != nil {
+			prev := a.activePlugin.ID()
 			a.activePlugin = nil
+			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			return a, nil
 		}
 		return a, tea.Quit
 	case "esc":
 		if a.activePlugin != nil {
+			prev := a.activePlugin.ID()
 			a.activePlugin = nil
+			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			return a, nil
 		}
 		return a, nil
@@ -138,12 +149,16 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		item := a.homeView.SelectedItem()
 		if p, ok := a.registry.ByKey(item.Key); ok {
 			a.activePlugin = p
+			logging.Logger().Debug("plugin.activate", "id", p.ID())
+			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
 		}
 		return a, nil
 	default:
 		// Check if key matches a plugin binding
 		if p, ok := a.registry.ByKey(msg.String()); ok {
 			a.activePlugin = p
+			logging.Logger().Debug("plugin.activate", "id", p.ID())
+			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
 			return a, nil
 		}
 	}
