@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.36.1 — 2026-05-09
+
+### CI
+
+- add git-cliff changelog generation and semantic versioning
+
+## 0.36.0 — 2026-05-09
+
+### Documentation
+
+- rewrite README for clarity and add visual examples
+- rewrite README with CLI reference and architecture
+
+## 0.35.0 — 2026-05-09
 
 ### CI
 
@@ -12,11 +25,49 @@
 - only run release on push to main, skip on PRs
 - grant pull-requests write permission to release job
 - replace commit-count versioning with release-please
+
+### Features
+
+- add CLI entry point (bin/tfui)
+
+### Refactor
+
+- build as mise task, move syntax check to test
+
+## 0.34.0 — 2026-05-09
+
+### CI
+
 - add comment explaining Node 24 env var
+
+## 0.33.0 — 2026-05-09
+
+### CI
+
 - add FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 to all workflows
+
+## 0.32.0 — 2026-05-09
+
+### CI
+
 - opt into Node.js 24 for GitHub Actions
+
+## 0.31.0 — 2026-05-09
+
+### CI
+
 - clean up release assets
+
+## 0.30.0 — 2026-05-09
+
+### CI
+
 - publish lib/tfui.sh as build artifact
+
+## 0.29.0 — 2026-05-09
+
+### CI
+
 - publish test and coverage reports as artifacts in releases
 - replace Codecov with GitHub step summary for coverage
 - fix coverage job failures
@@ -29,15 +80,12 @@
 
 ### Documentation
 
-- rewrite README for clarity and add visual examples
-- rewrite README with CLI reference and architecture
 - update CLAUDE.md for BATS test workflow
 - fix install.sh URL path after move to scripts/
 - add project documentation and config
 
 ### Features
 
-- add CLI entry point (bin/tfui)
 - add project slash commands for common workflows
 - add install methods (curl, basher, homebrew)
 - add tfui library
@@ -49,7 +97,6 @@
 
 ### Refactor
 
-- build as mise task, move syntax check to test
 - align mise tasks and slash commands to noun-verb convention
 - rename commands to noun-verb convention
 - rename test_helper to helpers and update references
