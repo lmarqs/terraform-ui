@@ -24,8 +24,8 @@ func TestDefaultConfig(t *testing.T) {
 	if len(cfg.Targets) != 0 {
 		t.Errorf("DefaultConfig().Targets = %v, want empty", cfg.Targets)
 	}
-	if len(cfg.Projects.Paths) != 0 {
-		t.Errorf("DefaultConfig().Projects.Paths = %v, want empty", cfg.Projects.Paths)
+	if len(cfg.Context.Paths) != 0 {
+		t.Errorf("DefaultConfig().Context.Paths = %v, want empty", cfg.Context.Paths)
 	}
 	if cfg.Plugins != nil {
 		t.Errorf("DefaultConfig().Plugins = %v, want nil", cfg.Plugins)
@@ -53,7 +53,7 @@ func TestLoad_ValidConfig(t *testing.T) {
 
 	configContent := `
 terraform_binary: /usr/local/bin/tofu
-projects:
+context:
   paths:
     - "infra/*"
     - "modules/**"
@@ -80,14 +80,14 @@ plugins:
 	if cfg.TerraformBinary != "/usr/local/bin/tofu" {
 		t.Errorf("Load().TerraformBinary = %q, want %q", cfg.TerraformBinary, "/usr/local/bin/tofu")
 	}
-	if len(cfg.Projects.Paths) != 2 {
-		t.Fatalf("Load().Projects.Paths length = %d, want 2", len(cfg.Projects.Paths))
+	if len(cfg.Context.Paths) != 2 {
+		t.Fatalf("Load().Projects.Paths length = %d, want 2", len(cfg.Context.Paths))
 	}
-	if cfg.Projects.Paths[0] != "infra/*" {
-		t.Errorf("Load().Projects.Paths[0] = %q, want %q", cfg.Projects.Paths[0], "infra/*")
+	if cfg.Context.Paths[0] != "infra/*" {
+		t.Errorf("Load().Projects.Paths[0] = %q, want %q", cfg.Context.Paths[0], "infra/*")
 	}
-	if cfg.Projects.Paths[1] != "modules/**" {
-		t.Errorf("Load().Projects.Paths[1] = %q, want %q", cfg.Projects.Paths[1], "modules/**")
+	if cfg.Context.Paths[1] != "modules/**" {
+		t.Errorf("Load().Projects.Paths[1] = %q, want %q", cfg.Context.Paths[1], "modules/**")
 	}
 	if len(cfg.Plugins) != 2 {
 		t.Fatalf("Load().Plugins length = %d, want 2", len(cfg.Plugins))
@@ -140,23 +140,23 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestDiscoverProjects_NoPatterns(t *testing.T) {
+func TestDiscoverContext_NoPatterns(t *testing.T) {
 	cfg := Config{Dir: "/some/dir"}
 
-	projects, err := cfg.DiscoverProjects()
+	projects, err := cfg.DiscoverContext()
 	if err != nil {
-		t.Fatalf("DiscoverProjects() returned error: %v", err)
+		t.Fatalf("DiscoverContext() returned error: %v", err)
 	}
 
 	if len(projects) != 1 {
-		t.Fatalf("DiscoverProjects() length = %d, want 1", len(projects))
+		t.Fatalf("DiscoverContext() length = %d, want 1", len(projects))
 	}
 	if projects[0] != "/some/dir" {
-		t.Errorf("DiscoverProjects()[0] = %q, want %q", projects[0], "/some/dir")
+		t.Errorf("DiscoverContext()[0] = %q, want %q", projects[0], "/some/dir")
 	}
 }
 
-func TestDiscoverProjects_WithPatterns(t *testing.T) {
+func TestDiscoverContext_WithPatterns(t *testing.T) {
 	root := t.TempDir()
 
 	// Create directories with .tf files
@@ -193,29 +193,29 @@ func TestDiscoverProjects_WithPatterns(t *testing.T) {
 
 	cfg := Config{
 		Dir: root,
-		Projects: ProjectsConfig{
+		Context: ContextConfig{
 			Paths: []string{"infra/*"},
 		},
 	}
 
-	projects, err := cfg.DiscoverProjects()
+	projects, err := cfg.DiscoverContext()
 	if err != nil {
-		t.Fatalf("DiscoverProjects() returned error: %v", err)
+		t.Fatalf("DiscoverContext() returned error: %v", err)
 	}
 
 	if len(projects) != 2 {
-		t.Fatalf("DiscoverProjects() length = %d, want 2 (got %v)", len(projects), projects)
+		t.Fatalf("DiscoverContext() length = %d, want 2 (got %v)", len(projects), projects)
 	}
 
 	// Check that returned paths are relative
 	for _, p := range projects {
 		if filepath.IsAbs(p) {
-			t.Errorf("DiscoverProjects() returned absolute path: %q", p)
+			t.Errorf("DiscoverContext() returned absolute path: %q", p)
 		}
 	}
 }
 
-func TestDiscoverProjects_WithTofuFiles(t *testing.T) {
+func TestDiscoverContext_WithTofuFiles(t *testing.T) {
 	root := t.TempDir()
 
 	dir := filepath.Join(root, "modules", "network")
@@ -230,22 +230,22 @@ func TestDiscoverProjects_WithTofuFiles(t *testing.T) {
 
 	cfg := Config{
 		Dir: root,
-		Projects: ProjectsConfig{
+		Context: ContextConfig{
 			Paths: []string{"modules/*"},
 		},
 	}
 
-	projects, err := cfg.DiscoverProjects()
+	projects, err := cfg.DiscoverContext()
 	if err != nil {
-		t.Fatalf("DiscoverProjects() returned error: %v", err)
+		t.Fatalf("DiscoverContext() returned error: %v", err)
 	}
 
 	if len(projects) != 1 {
-		t.Fatalf("DiscoverProjects() length = %d, want 1", len(projects))
+		t.Fatalf("DiscoverContext() length = %d, want 1", len(projects))
 	}
 }
 
-func TestDiscoverProjects_DeduplicatesResults(t *testing.T) {
+func TestDiscoverContext_DeduplicatesResults(t *testing.T) {
 	root := t.TempDir()
 
 	dir := filepath.Join(root, "infra")
@@ -260,40 +260,40 @@ func TestDiscoverProjects_DeduplicatesResults(t *testing.T) {
 
 	cfg := Config{
 		Dir: root,
-		Projects: ProjectsConfig{
+		Context: ContextConfig{
 			// Both patterns match the same directory
 			Paths: []string{"infra", "infra"},
 		},
 	}
 
-	projects, err := cfg.DiscoverProjects()
+	projects, err := cfg.DiscoverContext()
 	if err != nil {
-		t.Fatalf("DiscoverProjects() returned error: %v", err)
+		t.Fatalf("DiscoverContext() returned error: %v", err)
 	}
 
 	if len(projects) != 1 {
-		t.Errorf("DiscoverProjects() should deduplicate, got %d entries: %v", len(projects), projects)
+		t.Errorf("DiscoverContext() should deduplicate, got %d entries: %v", len(projects), projects)
 	}
 }
 
-func TestDiscoverProjects_InvalidGlobPattern(t *testing.T) {
+func TestDiscoverContext_InvalidGlobPattern(t *testing.T) {
 	root := t.TempDir()
 
 	cfg := Config{
 		Dir: root,
-		Projects: ProjectsConfig{
+		Context: ContextConfig{
 			Paths: []string{"[invalid"},
 		},
 	}
 
-	projects, err := cfg.DiscoverProjects()
+	projects, err := cfg.DiscoverContext()
 	if err != nil {
-		t.Fatalf("DiscoverProjects() returned error: %v", err)
+		t.Fatalf("DiscoverContext() returned error: %v", err)
 	}
 
 	// Invalid glob patterns are skipped, resulting in empty list
 	if len(projects) != 0 {
-		t.Errorf("DiscoverProjects() with invalid glob = %v, want empty", projects)
+		t.Errorf("DiscoverContext() with invalid glob = %v, want empty", projects)
 	}
 }
 

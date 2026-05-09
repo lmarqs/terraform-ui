@@ -13,7 +13,7 @@ type Header struct {
 	workspace     string
 	resourceCount int
 	binaryName    string
-	project       string
+	context       string
 }
 
 func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
@@ -21,9 +21,9 @@ func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
 	return Header{dir: dir, workspace: workspace, binaryName: name, resourceCount: resourceCount}
 }
 
-// WithProject returns a copy of the Header with the active project set.
-func (h Header) WithProject(project string) Header {
-	h.project = project
+// WithContext returns a copy of the Header with the active context set.
+func (h Header) WithContext(context string) Header {
+	h.context = context
 	return h
 }
 
@@ -43,10 +43,10 @@ func (h Header) Render(width int) string {
 		h.binaryName,
 	)
 
-	if h.project != "" {
+	if h.context != "" {
 		left += fmt.Sprintf("  %s %s",
-			sdk.StyleKey.Render("project:"),
-			h.project,
+			sdk.StyleKey.Render("context:"),
+			h.context,
 		)
 	}
 

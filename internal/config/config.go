@@ -28,8 +28,8 @@ type Config struct {
 	// Targets is a list of resource targets for plan/apply.
 	Targets []string `yaml:"-"`
 
-	// Projects defines monorepo project discovery (similar to pnpm-workspace.yaml).
-	Projects ProjectsConfig `yaml:"projects"`
+	// Context defines monorepo project discovery (similar to pnpm-workspace.yaml).
+	Context ContextConfig `yaml:"context"`
 
 	// Plugins is a map of plugin ID → plugin config.
 	// Plugins not listed are enabled with default settings.
@@ -53,9 +53,9 @@ func (c PluginConfig) IsEnabled() bool {
 	return *c.Enabled
 }
 
-// ProjectsConfig defines how to discover terraform projects in a monorepo
+// ContextConfig defines how to discover terraform projects in a monorepo
 // by specifying glob patterns that match directories containing .tf files.
-type ProjectsConfig struct {
+type ContextConfig struct {
 	// Paths is a list of glob patterns for module directories.
 	// Example: ["infra/*", "modules/**", "envs/production"]
 	Paths []string `yaml:"paths"`
@@ -120,11 +120,11 @@ func findConfigFile(dir string) string {
 	return ""
 }
 
-// DiscoverProjects returns all terraform project directories matching the glob
-// patterns configured in Projects.Paths. If no patterns are configured, it
+// DiscoverContext returns all terraform project directories matching the glob
+// patterns configured in Context.Paths. If no patterns are configured, it
 // returns only the working directory itself.
-func (c Config) DiscoverProjects() ([]string, error) {
-	if len(c.Projects.Paths) == 0 {
+func (c Config) DiscoverContext() ([]string, error) {
+	if len(c.Context.Paths) == 0 {
 		return []string{c.Dir}, nil
 	}
 
@@ -136,7 +136,7 @@ func (c Config) DiscoverProjects() ([]string, error) {
 	var modules []string
 	seen := make(map[string]bool)
 
-	for _, pattern := range c.Projects.Paths {
+	for _, pattern := range c.Context.Paths {
 		fullPattern := filepath.Join(absDir, pattern)
 		matches, err := filepath.Glob(fullPattern)
 		if err != nil {

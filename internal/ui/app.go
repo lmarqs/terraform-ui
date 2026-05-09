@@ -26,7 +26,7 @@ type App struct {
 	homeView  views.HomeView
 
 	activePlugin  sdk.Plugin // nil = home screen
-	activeProject string     // tracks last known active project for header updates
+	activeContext string     // tracks last known active context for header updates
 }
 
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
@@ -98,7 +98,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
-		a.syncActiveProject()
+		a.syncActiveContext()
 		return a, cmd
 	}
 
@@ -138,7 +138,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
-		a.syncActiveProject()
+		a.syncActiveContext()
 		return a, cmd
 	}
 
@@ -173,15 +173,15 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// syncActiveProject checks if the active project changed in session and updates the header.
-func (a *App) syncActiveProject() {
+// syncActiveContext checks if the active context changed in session and updates the header.
+func (a *App) syncActiveContext() {
 	if a.session == nil {
 		return
 	}
-	if project, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveProject); ok {
-		if project != a.activeProject {
-			a.activeProject = project
-			a.header = a.header.WithProject(project)
+	if ctx, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveContext); ok {
+		if ctx != a.activeContext {
+			a.activeContext = ctx
+			a.header = a.header.WithContext(ctx)
 		}
 	}
 }

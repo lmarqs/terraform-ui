@@ -95,7 +95,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (e *Plugin) Activate() tea.Cmd {
 	// Check if the active project changed since last activation
 	if e.session != nil {
-		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs)
+		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
 		if currentProject != e.scopedProject {
 			// Project changed — reset state
 			e.status = StatusIdle
@@ -116,10 +116,10 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
 		// Check if there's an active project to scope to
 		if e.session != nil {
-			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
+			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedProject = dir
-			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
+			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyContextCount); ok && count > 1 {
 				e.status = StatusError
 				e.errMsg = "Select a project first (press m)"
 				return nil

@@ -112,7 +112,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 func (e *Plugin) discover() tea.Cmd {
 	cfg := e.cfg
 	return func() tea.Msg {
-		paths, err := cfg.DiscoverProjects()
+		paths, err := cfg.DiscoverContext()
 		if err != nil {
 			return ProjectsDiscoveredMsg{Err: err}
 		}
@@ -142,7 +142,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.projects = msg.Projects
 			e.filtered = msg.Projects
 			if e.session != nil {
-				e.session.Set(sdk.SessionKeyProjectCount, len(msg.Projects))
+				e.session.Set(sdk.SessionKeyContextCount, len(msg.Projects))
 			}
 		}
 		return e, nil
@@ -199,8 +199,8 @@ func (e *Plugin) SelectCurrent() {
 			if p.Path == selectedProject.Path {
 				e.active = i
 				if e.session != nil {
-					e.session.Set(sdk.SessionKeyActiveProject, p.Path)
-					e.session.Set(sdk.SessionKeyActiveProjectAbs, p.AbsPath)
+					e.session.Set(sdk.SessionKeyActiveContext, p.Path)
+					e.session.Set(sdk.SessionKeyActiveContextAbs, p.AbsPath)
 				}
 				break
 			}
