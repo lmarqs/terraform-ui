@@ -486,6 +486,25 @@ func (s *TerraformService) Init(ctx context.Context) error {
 	return nil
 }
 
+// ForceUnlock removes a state lock by ID.
+func (s *TerraformService) ForceUnlock(ctx context.Context, lockID string) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "force-unlock", "dir", s.workingDir, "lockID", lockID)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.ForceUnlock(ctx, lockID); err != nil {
+		logging.Logger().Debug("terraform.result", "cmd", "force-unlock", "error", err.Error(), "duration", time.Since(start).String())
+		return fmt.Errorf("force-unlocking state (ID %s): %w", lockID, err)
+	}
+
+	logging.Logger().Debug("terraform.result", "cmd", "force-unlock", "duration", time.Since(start).String())
+	return nil
+}
+
 // parsePlan converts a tfjson.Plan into a PlanSummary.
 func parsePlan(plan *tfjson.Plan) *PlanSummary {
 	summary := &PlanSummary{

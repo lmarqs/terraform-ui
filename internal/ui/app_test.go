@@ -64,9 +64,10 @@ func (s *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { re
 func (s *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
 	return nil, nil
 }
-func (s *mockService) Refresh(_ context.Context) error    { return nil }
-func (s *mockService) Init(_ context.Context) error       { return nil }
-func (s *mockService) WithDir(_ string) terraform.Service { return s }
+func (s *mockService) Refresh(_ context.Context) error               { return nil }
+func (s *mockService) Init(_ context.Context) error                  { return nil }
+func (s *mockService) ForceUnlock(_ context.Context, _ string) error { return nil }
+func (s *mockService) WithDir(_ string) terraform.Service            { return s }
 
 func setupTestApp() App {
 	cfg := config.Config{

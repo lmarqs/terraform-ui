@@ -35,6 +35,7 @@ type Plugin struct {
 	status        Status
 	summary       *sdk.PlanSummary
 	errMsg        string
+	lockInfo      *sdk.StateLock
 	selected      int
 	targets       []string
 	expanded      map[int]bool
@@ -130,6 +131,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.summary = nil
 	e.errMsg = ""
+	e.lockInfo = nil
 	e.selected = 0
 	e.expanded = make(map[int]bool)
 	return e.runPlan()
@@ -151,6 +153,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
+			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("plan.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
@@ -164,6 +167,18 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				e.session.Set(sdk.SessionKeyPlanSummary, msg.Summary)
 				e.session.Set(sdk.SessionKeyResourceCount, len(msg.Summary.Changes))
 			}
+		}
+		return e, nil
+
+	case ForceUnlockResultMsg:
+		if msg.Err != nil {
+			e.errMsg = fmt.Sprintf("Force-unlock failed: %s", msg.Err.Error())
+			e.lockInfo = nil
+			e.log.Debug("plan.force-unlock.error", "error", msg.Err.Error())
+		} else {
+			e.lockInfo = nil
+			e.log.Debug("plan.force-unlock.success")
+			return e, e.Refresh()
 		}
 		return e, nil
 
@@ -189,6 +204,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "a":
 		if e.status == StatusDone && e.summary != nil && len(e.summary.Changes) > 0 {
 			return e.requestApply()
+		}
+	case "u":
+		if e.status == StatusError && e.lockInfo != nil {
+			return e.requestForceUnlock()
 		}
 	case "r":
 		if e.status == StatusError || e.status == StatusDone {
@@ -261,6 +280,11 @@ func (e *Plugin) View(width, height int) string {
 
 	case StatusError:
 		title := sdk.StyleTitle.Render("Plan Review")
+		if e.lockInfo != nil {
+			lockPanel := sdk.FormatLockInfo(e.lockInfo)
+			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  Esc back")
+			return sdk.StylePadded.Render(title + "\n\n" + lockPanel + "\n" + hint)
+		}
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
 		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
@@ -447,6 +471,11 @@ func (e *Plugin) isPinnedAddress(address string) bool {
 	return false
 }
 
+// ForceUnlockResultMsg is sent when a force-unlock operation completes.
+type ForceUnlockResultMsg struct {
+	Err error
+}
+
 // ApplyRequestMsg signals the app to start applying the plan.
 type ApplyRequestMsg struct{}
 
@@ -458,6 +487,30 @@ func (e *Plugin) requestApply() tea.Cmd {
 				func() tea.Cmd {
 					return func() tea.Msg {
 						return ApplyRequestMsg{}
+					}
+				},
+			),
+		}
+	}
+}
+
+func (e *Plugin) requestForceUnlock() tea.Cmd {
+	lockID := e.lockInfo.ID
+	svc := e.svc
+	log := e.log
+	return func() tea.Msg {
+		return sdk.RequestInputMsg{
+			Request: sdk.InputConfirm(
+				fmt.Sprintf("Force-unlock %s? This is dangerous if another operation is running.", lockID),
+				func() tea.Cmd {
+					return func() tea.Msg {
+						err := svc.ForceUnlock(context.Background(), lockID)
+						if err != nil {
+							log.Debug("plan.force-unlock.error", "lockID", lockID, "error", err.Error())
+						} else {
+							log.Debug("plan.force-unlock.success", "lockID", lockID)
+						}
+						return ForceUnlockResultMsg{Err: err}
 					}
 				},
 			),

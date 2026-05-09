@@ -68,10 +68,10 @@ func (a App) Init() tea.Cmd {
 	// Initialize all plugins
 	ctx := &plugin.Context{
 		WorkingDir: a.cfg.WorkingDir(),
-		Workspace: "default",
-		Service:   a.svc,
-		Logger:    logging.Logger(),
-		Session:   a.session,
+		Workspace:  "default",
+		Service:    a.svc,
+		Logger:     logging.Logger(),
+		Session:    a.session,
 	}
 	for _, p := range a.registry.All() {
 		if cmd := p.Init(ctx); cmd != nil {

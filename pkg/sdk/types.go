@@ -3,6 +3,8 @@
 // the Plugin interface, and shared styles.
 package sdk
 
+import "time"
+
 // RiskLevel classifies the risk severity of a planned infrastructure change,
 // ranging from RiskNone (no risk) to RiskCritical (potentially destructive).
 type RiskLevel int
@@ -125,4 +127,19 @@ type OutputValue struct {
 	Value     interface{}
 	Type      string
 	Sensitive bool
+}
+
+// StateLock represents an active terraform state lock.
+type StateLock struct {
+	ID        string
+	Path      string
+	Operation string
+	Who       string
+	Version   string
+	Created   time.Time
+}
+
+// Age returns how old the lock is.
+func (l *StateLock) Age() time.Duration {
+	return time.Since(l.Created)
 }

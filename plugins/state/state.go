@@ -39,6 +39,11 @@ type ResourceDetailMsg struct {
 	Err     error
 }
 
+// ForceUnlockResultMsg is sent when a force-unlock operation completes.
+type ForceUnlockResultMsg struct {
+	Err error
+}
+
 // Plugin implements the state browser feature.
 type Plugin struct {
 	svc           sdk.Service
@@ -50,6 +55,7 @@ type Plugin struct {
 	filter        string
 	filtering     bool
 	errMsg        string
+	lockInfo      *sdk.StateLock
 	selected      int
 	listHScroll   int
 	viewWidth     int
@@ -153,6 +159,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.filter = ""
 	e.filtering = false
 	e.errMsg = ""
+	e.lockInfo = nil
 	e.selected = 0
 	e.detail = ""
 	e.detailAddr = ""
@@ -182,12 +189,25 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
+			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("state.load.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
 			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
+		}
+		return e, nil
+
+	case ForceUnlockResultMsg:
+		if msg.Err != nil {
+			e.errMsg = fmt.Sprintf("Force-unlock failed: %s", msg.Err.Error())
+			e.lockInfo = nil
+			e.log.Debug("state.force-unlock.error", "error", msg.Err.Error())
+		} else {
+			e.lockInfo = nil
+			e.log.Debug("state.force-unlock.success")
+			return e, e.Refresh()
 		}
 		return e, nil
 
@@ -344,6 +364,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.filtering = true
 		e.filter = ""
 		e.filtered = e.resources
+	case "u":
+		if e.status == StatusError && e.lockInfo != nil {
+			return e.requestForceUnlock()
+		}
 	case "r":
 		if e.status == StatusError || e.status == StatusDone {
 			return e.Refresh()
@@ -515,6 +539,11 @@ func (e *Plugin) View(width, height int) string {
 
 	case StatusError:
 		title := sdk.StyleTitle.Render("State Browser")
+		if e.lockInfo != nil {
+			lockPanel := sdk.FormatLockInfo(e.lockInfo)
+			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  Esc back")
+			return sdk.StylePadded.Render(title + "\n\n" + lockPanel + "\n" + hint)
+		}
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
 		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
@@ -788,5 +817,29 @@ func (e *Plugin) requestDelete(address string) tea.Cmd {
 func (e *Plugin) requestEdit(address string) tea.Cmd {
 	return func() tea.Msg {
 		return StateEditMsg{Address: address}
+	}
+}
+
+func (e *Plugin) requestForceUnlock() tea.Cmd {
+	lockID := e.lockInfo.ID
+	svc := e.svc
+	log := e.log
+	return func() tea.Msg {
+		return sdk.RequestInputMsg{
+			Request: sdk.InputConfirm(
+				fmt.Sprintf("Force-unlock %s? This is dangerous if another operation is running.", lockID),
+				func() tea.Cmd {
+					return func() tea.Msg {
+						err := svc.ForceUnlock(context.Background(), lockID)
+						if err != nil {
+							log.Debug("state.force-unlock.error", "lockID", lockID, "error", err.Error())
+						} else {
+							log.Debug("state.force-unlock.success", "lockID", lockID)
+						}
+						return ForceUnlockResultMsg{Err: err}
+					}
+				},
+			),
+		}
 	}
 }

@@ -61,6 +61,9 @@ type Service interface {
 	// Init runs terraform init in the working directory.
 	Init(ctx context.Context) error
 
+	// ForceUnlock removes a state lock by ID.
+	ForceUnlock(ctx context.Context, lockID string) error
+
 	// WithDir returns a new Service instance scoped to the given working directory.
 	WithDir(dir string) Service
 }
