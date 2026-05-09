@@ -131,9 +131,18 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.commandInput = ""
 		case "enter":
 			a.commandMode = false
-			cmd := a.executeCommand(a.commandInput)
+			input := a.commandInput
+			// Auto-complete: if input matches a single plugin, use it
+			if match := a.bestCommandMatch(input); match != "" {
+				input = match
+			}
+			cmd := a.executeCommand(input)
 			a.commandInput = ""
 			return a, cmd
+		case "tab":
+			if match := a.bestCommandMatch(a.commandInput); match != "" {
+				a.commandInput = match
+			}
 		case "backspace", "ctrl+h", "delete":
 			if len(a.commandInput) > 0 {
 				a.commandInput = a.commandInput[:len(a.commandInput)-1]
@@ -231,7 +240,6 @@ func (a *App) executeCommand(input string) tea.Cmd {
 		return nil
 	}
 
-	// Match by plugin ID or name (case-insensitive prefix match)
 	lower := strings.ToLower(input)
 	for _, p := range a.registry.All() {
 		if strings.ToLower(p.ID()) == lower || strings.HasPrefix(strings.ToLower(p.Name()), lower) {
@@ -250,6 +258,47 @@ func (a *App) executeCommand(input string) tea.Cmd {
 		}
 	}
 	return nil
+}
+
+func (a App) bestCommandMatch(input string) string {
+	if input == "" {
+		return ""
+	}
+	lower := strings.ToLower(input)
+	var match string
+	count := 0
+	for _, p := range a.registry.All() {
+		id := strings.ToLower(p.ID())
+		name := strings.ToLower(p.Name())
+		if strings.HasPrefix(id, lower) || strings.HasPrefix(name, lower) {
+			match = p.ID()
+			count++
+		}
+	}
+	if count == 1 {
+		return match
+	}
+	return ""
+}
+
+func (a App) commandMatches() []string {
+	if a.commandInput == "" {
+		var all []string
+		for _, p := range a.registry.All() {
+			all = append(all, p.ID())
+		}
+		return all
+	}
+	lower := strings.ToLower(a.commandInput)
+	var matches []string
+	for _, p := range a.registry.All() {
+		id := strings.ToLower(p.ID())
+		name := strings.ToLower(p.Name())
+		if strings.HasPrefix(id, lower) || strings.HasPrefix(name, lower) {
+			matches = append(matches, p.ID())
+		}
+	}
+	return matches
 }
 
 func (a App) View() string {
@@ -284,7 +333,12 @@ func (a App) View() string {
 			Bold(true).
 			Padding(0, 1).
 			Width(a.width)
-		statusBar = cmdStyle.Render(":" + a.commandInput + "█")
+		matches := a.commandMatches()
+		hint := ""
+		if len(matches) > 0 {
+			hint = "  " + sdk.StyleFaint.Render(strings.Join(matches, " | "))
+		}
+		statusBar = cmdStyle.Render(":" + a.commandInput + "█" + hint)
 	} else {
 		statusBar = a.statusBar.Render(a.width)
 	}
