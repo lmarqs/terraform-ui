@@ -257,11 +257,11 @@ func (e *Plugin) BackspaceFilter() {
 
 // View renders the projects plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Projects")
+	title := sdk.StyleTitle.Render("Context")
 
 	switch e.status {
 	case StatusIdle, StatusLoading:
-		loading := sdk.StyleFaintItalic.Render("Discovering projects...")
+		loading := sdk.StyleFaintItalic.Render("Discovering context...")
 		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
@@ -278,12 +278,12 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderProjects(width, height int) string {
-	title := sdk.StyleTitle.Render("Projects")
+	title := sdk.StyleTitle.Render("Context")
 
 	if len(e.projects) == 0 {
 		placeholder := sdk.StyleFaintItalic.Render(
-			"No projects configured. Add paths to tfui.yaml:\n\n" +
-				"  projects:\n" +
+			"No context configured. Add paths to tfui.yaml:\n\n" +
+				"  context:\n" +
 				"    paths:\n" +
 				"      - \"modules/*\"\n" +
 				"      - \"envs/**\"",
@@ -301,7 +301,7 @@ func (e *Plugin) renderProjects(width, height int) string {
 	}
 
 	if len(e.filtered) == 0 {
-		noMatch := sdk.StyleFaintItalic.Render("No projects match filter.")
+		noMatch := sdk.StyleFaintItalic.Render("No context match filter.")
 		b.WriteString(noMatch)
 	} else {
 		// Calculate visible area
