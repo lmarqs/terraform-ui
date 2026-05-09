@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/editor"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -15,7 +16,8 @@ import (
 type Status int
 
 const (
-	StatusDetecting Status = iota
+	StatusMenu Status = iota
+	StatusDetecting
 	StatusReview
 	StatusConfirm
 	StatusDone
@@ -43,14 +45,17 @@ type WriteCompleteMsg struct {
 
 // Plugin implements the init wizard that generates tfui.yaml interactively.
 type Plugin struct {
-	svc      sdk.Service
-	dir      string
-	status   Status
-	binary   string
-	patterns []DetectedPattern
-	selected int
-	errMsg   string
-	preview  string
+	svc        sdk.Service
+	dir        string
+	status     Status
+	binary     string
+	patterns   []DetectedPattern
+	selected   int
+	errMsg     string
+	preview    string
+	configPath string
+	hasConfig  bool
+	menuItem   int
 }
 
 // New creates a new init plugin.
@@ -76,19 +81,27 @@ func (p *Plugin) Configure(opts map[string]interface{}) error {
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.dir = ctx.WorkingDir
-	p.status = StatusDetecting
+	p.status = StatusMenu
 	p.patterns = nil
 	p.binary = ""
 	p.errMsg = ""
 	p.selected = 0
 	p.preview = ""
+	p.menuItem = 0
+	p.configPath = filepath.Join(p.dir, config.ConfigFileName)
+	_, err := os.Stat(p.configPath)
+	p.hasConfig = err == nil
 	return nil
 }
 
-// Activate triggers filesystem detection when the user enters the plugin.
+// Activate triggers the menu when the user enters the plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	p.status = StatusDetecting
-	return p.detect()
+	p.configPath = filepath.Join(p.dir, config.ConfigFileName)
+	_, err := os.Stat(p.configPath)
+	p.hasConfig = err == nil
+	p.status = StatusMenu
+	p.menuItem = 0
+	return nil
 }
 
 // Update processes messages and returns the updated plugin.
@@ -114,6 +127,12 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return p, nil
 
+	case editor.EditorClosedMsg:
+		_, err := os.Stat(p.configPath)
+		p.hasConfig = err == nil
+		p.status = StatusMenu
+		return p, nil
+
 	case tea.KeyMsg:
 		cmd := p.handleKey(msg)
 		return p, cmd
@@ -123,12 +142,60 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch p.status {
+	case StatusMenu:
+		return p.handleMenuKey(msg)
 	case StatusReview:
 		return p.handleReviewKey(msg)
 	case StatusConfirm:
 		return p.handleConfirmKey(msg)
+	case StatusDone:
+		if msg.String() == "esc" {
+			return func() tea.Msg { return sdk.DeactivateMsg{} }
+		}
+	case StatusError:
+		if msg.String() == "esc" {
+			p.status = StatusMenu
+		}
 	}
 	return nil
+}
+
+func (p *Plugin) handleMenuKey(msg tea.KeyMsg) tea.Cmd {
+	menuLen := 1 // "Init new config"
+	if p.hasConfig {
+		menuLen = 2 // + "Edit existing config"
+	}
+
+	switch msg.String() {
+	case "j", "down":
+		if p.menuItem < menuLen-1 {
+			p.menuItem++
+		}
+	case "k", "up":
+		if p.menuItem > 0 {
+			p.menuItem--
+		}
+	case "enter":
+		if p.menuItem == 0 && p.hasConfig {
+			return p.openEditor()
+		}
+		if (p.menuItem == 1 && p.hasConfig) || (p.menuItem == 0 && !p.hasConfig) {
+			p.status = StatusDetecting
+			return p.detect()
+		}
+	case "e":
+		if p.hasConfig {
+			return p.openEditor()
+		}
+	case "esc":
+		return func() tea.Msg { return sdk.DeactivateMsg{} }
+	}
+	return nil
+}
+
+func (p *Plugin) openEditor() tea.Cmd {
+	loc := editor.SourceLocation{File: p.configPath, Line: 1}
+	return editor.Open(loc)
 }
 
 func (p *Plugin) handleReviewKey(msg tea.KeyMsg) tea.Cmd {
@@ -164,9 +231,12 @@ func (p *Plugin) handleConfirmKey(msg tea.KeyMsg) tea.Cmd {
 
 // View renders the init wizard UI.
 func (p *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Init")
+	title := sdk.StyleTitle.Render("Init / Config")
 
 	switch p.status {
+	case StatusMenu:
+		return p.renderMenu(width, height)
+
 	case StatusDetecting:
 		loading := sdk.StyleFaintItalic.Render("Scanning filesystem for terraform projects...")
 		return sdk.StylePadded.Render(title + "\n\n" + loading)
@@ -188,6 +258,47 @@ func (p *Plugin) View(width, height int) string {
 	default:
 		return ""
 	}
+}
+
+func (p *Plugin) renderMenu(width, height int) string {
+	title := sdk.StyleTitle.Render("Init / Config")
+
+	var b strings.Builder
+
+	if p.hasConfig {
+		configInfo := sdk.StyleSuccess.Render("✓") + " " + sdk.StyleFaint.Render(p.configPath)
+		b.WriteString(configInfo + "\n\n")
+
+		items := []string{
+			"Edit config (open in $EDITOR)",
+			"Re-init (detect patterns and regenerate)",
+		}
+		for i, item := range items {
+			if i == p.menuItem {
+				b.WriteString(sdk.StyleSelected.Width(width - 6).Render(" → " + item))
+			} else {
+				b.WriteString("   " + item)
+			}
+			b.WriteByte('\n')
+		}
+	} else {
+		noConfig := sdk.StyleFaintItalic.Render("No tfui.yaml found in " + p.dir)
+		b.WriteString(noConfig + "\n\n")
+
+		item := "Init new config (detect patterns)"
+		if p.menuItem == 0 {
+			b.WriteString(sdk.StyleSelected.Width(width - 6).Render(" → " + item))
+		} else {
+			b.WriteString("   " + item)
+		}
+		b.WriteByte('\n')
+	}
+
+	editorName := editor.DetectEditor()
+	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("\nEnter select  e edit  Esc back   (editor: %s)", editorName))
+
+	content := title + "\n\n" + b.String() + hint
+	return sdk.StylePadded.Render(content)
 }
 
 func (p *Plugin) renderReview(width, height int) string {
