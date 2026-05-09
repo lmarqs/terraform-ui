@@ -30,13 +30,13 @@ func (r RiskLevel) String() string {
 type Action string
 
 const (
-	ActionCreate            Action = "create"
-	ActionRead              Action = "read"
-	ActionUpdate            Action = "update"
-	ActionDelete            Action = "delete"
-	ActionDeleteThenCreate  Action = "delete-then-create"
-	ActionCreateThenDelete  Action = "create-then-delete"
-	ActionNoOp              Action = "no-op"
+	ActionCreate           Action = "create"
+	ActionRead             Action = "read"
+	ActionUpdate           Action = "update"
+	ActionDelete           Action = "delete"
+	ActionDeleteThenCreate Action = "delete-then-create"
+	ActionCreateThenDelete Action = "create-then-delete"
+	ActionNoOp             Action = "no-op"
 )
 
 // Resource represents a terraform resource in state.
@@ -50,9 +50,9 @@ type Resource struct {
 
 // AttributeDiff represents a change to a single attribute.
 type AttributeDiff struct {
-	Key      string
-	OldValue string
-	NewValue string
+	Key       string
+	OldValue  string
+	NewValue  string
 	Sensitive bool
 	ForcesNew bool
 }
@@ -68,10 +68,10 @@ type PlanChange struct {
 
 // PlanSummary holds aggregate information about a plan.
 type PlanSummary struct {
-	Changes    []PlanChange
-	ToCreate   int
-	ToUpdate   int
-	ToDelete   int
-	ToReplace  int
-	ToRead     int
+	Changes   []PlanChange
+	ToCreate  int
+	ToUpdate  int
+	ToDelete  int
+	ToReplace int
+	ToRead    int
 }

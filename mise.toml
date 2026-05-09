@@ -62,14 +62,19 @@ description = "Run tests with kcov coverage via Docker (outputs to coverage/)"
 
 # --- Go tasks ---
 
+[tasks."go:fmt"]
+run = "gofmt -w cmd/ internal/"
+description = "Format Go source files"
+
 [tasks."go:build"]
+depends = ["go:fmt", "go:lint"]
 run = """
 #!/usr/bin/env bash
 set -euo pipefail
 version="${1:-$(cat VERSION)}"
 go build -ldflags "-X main.version=${version}" -o dist/tfui ./cmd/tfui
 """
-description = "Build Go binary to dist/tfui"
+description = "Build Go binary to dist/tfui (runs fmt + lint first)"
 
 [tasks."go:test"]
 run = "go test ./..."
