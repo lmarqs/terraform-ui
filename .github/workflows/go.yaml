@@ -62,8 +62,15 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Test with coverage
-        run: go test -coverprofile=coverage.out ./...
+      - name: Test with coverage (100% required)
+        run: |
+          go test -coverprofile=coverage.out ./...
+          total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Total coverage: ${total}%"
+          if (( $(echo "$total < 100" | bc -l) )); then
+            echo "::error::Coverage is below 100% (got ${total}%)"
+            exit 1
+          fi
 
       - name: Upload coverage
         if: matrix.os == 'ubuntu-latest' && matrix.terraform == 'terraform'
