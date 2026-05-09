@@ -421,11 +421,40 @@ func (e *Plugin) SetFilter(filter string) {
 func matchAllTerms(text string, terms []string) bool {
 	stripped := stripSeparators(text)
 	for _, term := range terms {
-		if !strings.Contains(stripped, term) {
+		if !segmentMatch(stripped, term) {
 			return false
 		}
 	}
 	return true
+}
+
+// segmentMatch checks if pattern can be found in text as a series of contiguous
+// substrings appearing in order. Greedily matches the longest prefix at each step.
+// "aurorathis" matches "postgresqlauroraawsrdsclusterthis0" because:
+//   "aurora" found at pos 14, then "this" found at pos 28 (after aurora).
+func segmentMatch(text, pattern string) bool {
+	if strings.Contains(text, pattern) {
+		return true
+	}
+	if len(pattern) < 2 {
+		return false
+	}
+	// Try all ways to split pattern into first chunk + remainder
+	// Find the longest prefix of pattern that exists as substring, then recurse
+	for length := len(pattern); length >= 2; length-- {
+		chunk := pattern[:length]
+		idx := strings.Index(text, chunk)
+		if idx >= 0 {
+			if length == len(pattern) {
+				return true
+			}
+			// Continue matching remainder after this chunk
+			if segmentMatch(text[idx+length:], pattern[length:]) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // splitTerms splits a string at letter/digit boundaries.

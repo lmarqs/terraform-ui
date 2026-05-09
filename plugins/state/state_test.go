@@ -601,6 +601,26 @@ func TestSetFilterSubstring(t *testing.T) {
 		{"auro1", 1},
 		{"cluster1", 1},
 		{"cluster2", 1},
+		// Segment skip: chunks matched in order
+		{"aurorathis", 3},
+		{"auroracluster", 3},
+		{"auroraclusterthis", 3},
+		{"aurorainstance", 2},
+		{"auroraproxy", 1},
+		{"redisreplication", 1},
+		// Proxy search patterns
+		{"proxyread", 1},
+		{"proxyreadonly", 1},
+		{"dbproxy", 1},
+		{"dbproxyreadonly", 1},
+		{"aurorareadonly", 1},
+		// Opensearch not matched by aurora/proxy patterns
+		{"opensearch", 1},
+		{"opensearchlegacy", 1},
+		// Multi-segment skips
+		{"redisthis", 1},
+		{"memorydbthis", 1},
+		{"securityweb", 1},
 	}
 	for _, tt := range tests {
 		p.SetFilter(tt.filter)
