@@ -388,12 +388,48 @@ func (e *Plugin) maxAddressLen() int {
 	return max
 }
 
-// resourceSearchText returns the searchable text for a resource.
-func resourceSearchText(r sdk.Resource) string {
-	if r.Module != "" {
-		return r.Address + " " + r.Module
+// buildSearchTexts returns search strings with the common prefix stripped
+// so fuzzy matching operates on the distinctive suffixes.
+func buildSearchTexts(resources []sdk.Resource) []string {
+	if len(resources) == 0 {
+		return nil
 	}
-	return r.Address
+	addrs := make([]string, len(resources))
+	for i, r := range resources {
+		addrs[i] = r.Address
+	}
+	// Find longest common prefix
+	prefix := addrs[0]
+	for _, t := range addrs[1:] {
+		for !strings.HasPrefix(t, prefix) {
+			prefix = prefix[:len(prefix)-1]
+			if prefix == "" {
+				break
+			}
+		}
+		if prefix == "" {
+			break
+		}
+	}
+	// Strip to last dot boundary so we don't cut mid-segment
+	if i := strings.LastIndex(prefix, "."); i > 0 {
+		prefix = prefix[:i+1]
+	} else {
+		prefix = ""
+	}
+	texts := make([]string, len(resources))
+	for i, r := range resources {
+		addr := addrs[i]
+		if prefix != "" {
+			addr = addr[len(prefix):]
+		}
+		if r.Module != "" {
+			texts[i] = addr + " " + r.Module
+		} else {
+			texts[i] = addr
+		}
+	}
+	return texts
 }
 
 // SetFilter sets the filter string and refilters the resource list.
@@ -421,10 +457,7 @@ func (e *Plugin) SetFilter(filter string) {
 }
 
 func fuzzyMatch(resources []sdk.Resource, pattern string) []sdk.Resource {
-	texts := make([]string, len(resources))
-	for i, r := range resources {
-		texts[i] = resourceSearchText(r)
-	}
+	texts := buildSearchTexts(resources)
 	matches := fuzzy.Find(pattern, texts)
 	result := make([]sdk.Resource, len(matches))
 	for i, m := range matches {
