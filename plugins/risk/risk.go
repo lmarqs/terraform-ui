@@ -257,7 +257,7 @@ func (e *Plugin) renderGroupHeader(group RiskGroup) string {
 }
 
 func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
-	symbol := actionSymbol(change.Action)
+	symbol := sdk.ActionSymbol(change.Action)
 	address := change.Resource.Address
 	reason := riskReason(change)
 
@@ -289,17 +289,3 @@ func riskReason(change sdk.PlanChange) string {
 	}
 }
 
-func actionSymbol(action sdk.Action) string {
-	switch action {
-	case sdk.ActionCreate:
-		return sdk.StyleCreate.Render("+")
-	case sdk.ActionUpdate:
-		return sdk.StyleUpdate.Render("~")
-	case sdk.ActionDelete:
-		return sdk.StyleDelete.Render("-")
-	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
-		return sdk.StyleReplace.Render("-/+")
-	default:
-		return " "
-	}
-}

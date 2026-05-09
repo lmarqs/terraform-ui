@@ -510,18 +510,18 @@ func TestTruncate(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := truncate(tt.input, tt.max)
+		got := sdk.Truncate(tt.input, tt.max)
 		if tt.max < 10 {
 			if len(tt.input) <= 10 && got != tt.input {
-				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.max, got, tt.input)
+				t.Errorf("sdk.Truncate(%q, %d) = %q, want %q", tt.input, tt.max, got, tt.input)
 			}
 		} else if len(tt.input) > tt.max {
 			if len(got) != tt.max {
-				t.Errorf("truncate(%q, %d): len = %d, want %d", tt.input, tt.max, len(got), tt.max)
+				t.Errorf("sdk.Truncate(%q, %d): len = %d, want %d", tt.input, tt.max, len(got), tt.max)
 			}
 		} else {
 			if got != tt.input {
-				t.Errorf("truncate(%q, %d) = %q, want %q", tt.input, tt.max, got, tt.input)
+				t.Errorf("sdk.Truncate(%q, %d) = %q, want %q", tt.input, tt.max, got, tt.input)
 			}
 		}
 	}

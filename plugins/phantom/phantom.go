@@ -236,23 +236,14 @@ func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) string {
 			b.WriteString(key + ": " + sdk.StyleFaintItalic.Render("(sensitive)") + "\n")
 			continue
 		}
-		old := truncate(diff.OldValue, width/4)
-		new := truncate(diff.NewValue, width/4)
+		old := sdk.Truncate(diff.OldValue, width/4)
+		new := sdk.Truncate(diff.NewValue, width/4)
 		b.WriteString(key + ": " + sdk.StyleFaint.Render(old+" = "+new) + "\n")
 	}
 	b.WriteByte('\n')
 	return b.String()
 }
 
-func truncate(s string, max int) string {
-	if max < 10 {
-		max = 10
-	}
-	if len(s) > max {
-		return s[:max-3] + "..."
-	}
-	return s
-}
 
 func explainPhantom(change sdk.PlanChange) string {
 	if len(change.AttributeDiffs) == 0 {

@@ -462,9 +462,9 @@ func TestActionSymbol(t *testing.T) {
 	}
 
 	for _, action := range actions {
-		result := actionSymbol(action)
+		result := sdk.ActionSymbol(action)
 		if result == "" && action != sdk.ActionNoOp && action != sdk.ActionRead {
-			t.Errorf("actionSymbol(%q) returned empty", action)
+			t.Errorf("sdk.ActionSymbol(%q) returned empty", action)
 		}
 	}
 }

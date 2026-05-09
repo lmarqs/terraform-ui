@@ -273,14 +273,14 @@ func (e *Plugin) renderModuleRow(mi ModuleImpact, idx int) string {
 func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 	var b strings.Builder
 	for _, change := range mi.Group.Changes {
-		symbol := actionSymbol(change.Action)
+		symbol := sdk.ActionSymbol(change.Action)
 		address := change.Resource.Address
 		// Strip module prefix from address for cleaner display
 		if mi.Group.Module != "root" && strings.HasPrefix(address, mi.Group.Module+".") {
 			address = strings.TrimPrefix(address, mi.Group.Module+".")
 		}
 
-		risk := riskBadge(change.Risk)
+		risk := sdk.RiskBadge(change.Risk)
 		row := fmt.Sprintf("     %s %s", symbol, address)
 		if risk != "" {
 			row += " " + risk
@@ -362,32 +362,3 @@ func sortByImpact(modules []ModuleImpact) {
 	}
 }
 
-func actionSymbol(action sdk.Action) string {
-	switch action {
-	case sdk.ActionCreate:
-		return sdk.StyleCreate.Render("+")
-	case sdk.ActionUpdate:
-		return sdk.StyleUpdate.Render("~")
-	case sdk.ActionDelete:
-		return sdk.StyleDelete.Render("-")
-	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
-		return sdk.StyleReplace.Render("-/+")
-	default:
-		return " "
-	}
-}
-
-func riskBadge(risk sdk.RiskLevel) string {
-	switch risk {
-	case sdk.RiskLow:
-		return sdk.StyleRiskLow.Render("[low]")
-	case sdk.RiskMedium:
-		return sdk.StyleRiskMedium.Render("[medium]")
-	case sdk.RiskHigh:
-		return sdk.StyleRiskHigh.Render("[HIGH]")
-	case sdk.RiskCritical:
-		return sdk.StyleRiskCritical.Render("[CRITICAL]")
-	default:
-		return ""
-	}
-}

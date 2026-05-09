@@ -289,9 +289,9 @@ func (e *Plugin) renderResults(width, height int) string {
 }
 
 func (e *Plugin) renderChangeRow(change sdk.PlanChange, width int) string {
-	symbol := actionSymbol(change.Action)
+	symbol := sdk.ActionSymbol(change.Action)
 	address := change.Resource.Address
-	risk := riskBadge(change.Risk)
+	risk := sdk.RiskBadge(change.Risk)
 
 	if change.IsPhantom {
 		address = sdk.StylePhantom.Render(address)
@@ -325,22 +325,13 @@ func (e *Plugin) renderAttributeDiffs(diffs []sdk.AttributeDiff, width int) stri
 			b.WriteString(key + " " + sdk.StyleFaintItalic.Render("(sensitive)") + "\n")
 			continue
 		}
-		old := sdk.StyleDelete.Render(truncateValue(diff.OldValue, width/3))
-		new := sdk.StyleCreate.Render(truncateValue(diff.NewValue, width/3))
+		old := sdk.StyleDelete.Render(sdk.Truncate(diff.OldValue, width/3))
+		new := sdk.StyleCreate.Render(sdk.Truncate(diff.NewValue, width/3))
 		b.WriteString(key + " " + old + " -> " + new + "\n")
 	}
 	return b.String()
 }
 
-func truncateValue(s string, maxLen int) string {
-	if maxLen < 10 {
-		maxLen = 10
-	}
-	if len(s) > maxLen {
-		return s[:maxLen-3] + "..."
-	}
-	return s
-}
 
 func (e *Plugin) renderSummaryLine() string {
 	s := e.summary
@@ -383,34 +374,3 @@ func (e *Plugin) renderOverallRisk() string {
 	}
 }
 
-func actionSymbol(action sdk.Action) string {
-	switch action {
-	case sdk.ActionCreate:
-		return sdk.StyleCreate.Render("+")
-	case sdk.ActionUpdate:
-		return sdk.StyleUpdate.Render("~")
-	case sdk.ActionDelete:
-		return sdk.StyleDelete.Render("-")
-	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
-		return sdk.StyleReplace.Render("-/+")
-	case sdk.ActionRead:
-		return sdk.StyleFaint.Render("<=")
-	default:
-		return " "
-	}
-}
-
-func riskBadge(risk sdk.RiskLevel) string {
-	switch risk {
-	case sdk.RiskLow:
-		return sdk.StyleRiskLow.Render("[low]")
-	case sdk.RiskMedium:
-		return sdk.StyleRiskMedium.Render("[medium]")
-	case sdk.RiskHigh:
-		return sdk.StyleRiskHigh.Render("[HIGH]")
-	case sdk.RiskCritical:
-		return sdk.StyleRiskCritical.Render("[CRITICAL]")
-	default:
-		return ""
-	}
-}

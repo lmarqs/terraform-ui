@@ -725,9 +725,9 @@ func TestActionSymbol(t *testing.T) {
 	}
 
 	for _, action := range actions {
-		result := actionSymbol(action)
+		result := sdk.ActionSymbol(action)
 		if result == "" && action != sdk.ActionNoOp {
-			t.Errorf("actionSymbol(%q) returned empty", action)
+			t.Errorf("sdk.ActionSymbol(%q) returned empty", action)
 		}
 	}
 }
@@ -745,12 +745,12 @@ func TestRiskBadge(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := riskBadge(tt.risk)
+		result := sdk.RiskBadge(tt.risk)
 		if tt.wantNon && result == "" {
-			t.Errorf("riskBadge(%v): got empty, want non-empty", tt.risk)
+			t.Errorf("sdk.RiskBadge(%v): got empty, want non-empty", tt.risk)
 		}
 		if !tt.wantNon && result != "" {
-			t.Errorf("riskBadge(%v): got %q, want empty", tt.risk, result)
+			t.Errorf("sdk.RiskBadge(%v): got %q, want empty", tt.risk, result)
 		}
 	}
 }

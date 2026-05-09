@@ -761,21 +761,21 @@ func TestTruncateValue(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := truncateValue(tt.input, tt.maxLen)
+		got := sdk.Truncate(tt.input, tt.maxLen)
 		if tt.maxLen < 10 {
 			// maxLen gets raised to 10
 			if len(tt.input) <= 10 {
 				if got != tt.input {
-					t.Errorf("truncateValue(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.input)
+					t.Errorf("sdk.Truncate(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.input)
 				}
 			}
 		} else if len(tt.input) > tt.maxLen {
 			if len(got) != tt.maxLen {
-				t.Errorf("truncateValue(%q, %d): len = %d, want %d", tt.input, tt.maxLen, len(got), tt.maxLen)
+				t.Errorf("sdk.Truncate(%q, %d): len = %d, want %d", tt.input, tt.maxLen, len(got), tt.maxLen)
 			}
 		} else {
 			if got != tt.input {
-				t.Errorf("truncateValue(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.input)
+				t.Errorf("sdk.Truncate(%q, %d) = %q, want %q", tt.input, tt.maxLen, got, tt.input)
 			}
 		}
 	}
@@ -793,11 +793,11 @@ func TestActionSymbol(t *testing.T) {
 	}
 
 	for _, action := range actions {
-		result := actionSymbol(action)
+		result := sdk.ActionSymbol(action)
 		if result == "" {
 			// Only NoOp should return a space
 			if action != sdk.ActionNoOp {
-				t.Errorf("actionSymbol(%q) returned empty, want non-empty", action)
+				t.Errorf("sdk.ActionSymbol(%q) returned empty, want non-empty", action)
 			}
 		}
 	}
@@ -816,12 +816,12 @@ func TestRiskBadge(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := riskBadge(tt.risk)
+		result := sdk.RiskBadge(tt.risk)
 		if tt.wantNon && result == "" {
-			t.Errorf("riskBadge(%v): got empty, want non-empty", tt.risk)
+			t.Errorf("sdk.RiskBadge(%v): got empty, want non-empty", tt.risk)
 		}
 		if !tt.wantNon && result != "" {
-			t.Errorf("riskBadge(%v): got %q, want empty", tt.risk, result)
+			t.Errorf("sdk.RiskBadge(%v): got %q, want empty", tt.risk, result)
 		}
 	}
 }
