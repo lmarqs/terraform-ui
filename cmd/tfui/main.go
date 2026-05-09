@@ -92,6 +92,11 @@ func main() {
 
 	rootCmd.AddCommand(planCmd, applyCmd, initCmd, versionCmd)
 
+	// Plugin CLI commands
+	for _, cmd := range buildPluginCommands(&cfg) {
+		rootCmd.AddCommand(cmd)
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}
