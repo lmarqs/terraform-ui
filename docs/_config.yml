@@ -9,7 +9,7 @@ header_pages:
   - index.md
   - getting-started.md
   - configuration.md
-  - extensions/index.md
+  - plugins/index.md
   - architecture.md
   - risk-analysis.md
   - phantom-changes.md
@@ -17,16 +17,16 @@ header_pages:
   - cli-reference.md
 
 collections:
-  extensions:
+  plugins:
     output: true
-    permalink: /extensions/:name/
+    permalink: /plugins/:name/
 
 defaults:
   - scope:
-      path: "extensions"
-      type: "extensions"
+      path: "plugins"
+      type: "plugins"
     values:
-      layout: extension
+      layout: plugin
 
-plugins:
+jekyll_plugins:
   - jekyll-seo-tag
