@@ -122,15 +122,16 @@ func findConfigFile(dir string) string {
 
 // DiscoverContext returns all terraform project directories matching the glob
 // patterns configured in Context.Paths. If no patterns are configured, it
-// returns only the working directory itself.
+// auto-discovers terraform subdirectories (one level deep). If only the root
+// directory contains terraform files, it returns just the root directory.
 func (c Config) DiscoverContext() ([]string, error) {
-	if len(c.Context.Paths) == 0 {
-		return []string{c.Dir}, nil
-	}
-
 	absDir, err := filepath.Abs(c.Dir)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(c.Context.Paths) == 0 {
+		return c.autoDiscoverContext(absDir)
 	}
 
 	var modules []string
@@ -159,6 +160,36 @@ func (c Config) DiscoverContext() ([]string, error) {
 	}
 
 	return modules, nil
+}
+
+// autoDiscoverContext scans immediate subdirectories for terraform files.
+// If multiple subdirectories contain terraform files, returns all of them.
+// If only the root directory has terraform files, returns just the root.
+func (c Config) autoDiscoverContext(absDir string) ([]string, error) {
+	entries, err := os.ReadDir(absDir)
+	if err != nil {
+		return []string{c.Dir}, nil
+	}
+
+	var subdirs []string
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		if entry.Name()[0] == '.' {
+			continue
+		}
+		subPath := filepath.Join(absDir, entry.Name())
+		if HasTerraformFiles(subPath) {
+			subdirs = append(subdirs, entry.Name())
+		}
+	}
+
+	if len(subdirs) <= 1 {
+		return []string{c.Dir}, nil
+	}
+
+	return subdirs, nil
 }
 
 // DetectBinary returns the terraform binary to use. If configured is non-empty,

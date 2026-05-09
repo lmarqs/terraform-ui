@@ -19,7 +19,7 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [blastradius](blastradius.md) | Blast Radius | `b` | analysis | Visualize module-grouped changes with impact scores |
 | [state](state.md) | State Browser | `s` | navigation | Browse and inspect terraform state resources |
 | [workspaces](workspaces.md) | Workspaces | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
-| [projects](projects.md) | Projects | `m` | navigation | Navigate terraform projects in a monorepo |
+| [context](context.md) | Context | `c` | navigation | Select terraform project scope |
 
 ## Categories
 
@@ -44,7 +44,7 @@ Plugins for navigating terraform state, workspaces, and projects.
 
 - **[State Browser](state.md)** -- inspect managed resources
 - **[Workspaces](workspaces.md)** -- switch and manage workspaces
-- **[Projects](projects.md)** -- monorepo project picker
+- **[Context](context.md)** -- terraform project scope selector
 
 ## Enabling/Disabling Plugins
 

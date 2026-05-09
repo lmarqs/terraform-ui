@@ -140,8 +140,16 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestDiscoverContext_NoPatterns(t *testing.T) {
-	cfg := Config{Dir: "/some/dir"}
+func TestDiscoverContext_NoPatterns_SingleDir(t *testing.T) {
+	root := t.TempDir()
+
+	// Only root has .tf files, no subdirs with terraform
+	err := os.WriteFile(filepath.Join(root, "main.tf"), []byte(""), 0644)
+	if err != nil {
+		t.Fatalf("failed to write .tf file: %v", err)
+	}
+
+	cfg := Config{Dir: root}
 
 	projects, err := cfg.DiscoverContext()
 	if err != nil {
@@ -151,8 +159,77 @@ func TestDiscoverContext_NoPatterns(t *testing.T) {
 	if len(projects) != 1 {
 		t.Fatalf("DiscoverContext() length = %d, want 1", len(projects))
 	}
-	if projects[0] != "/some/dir" {
-		t.Errorf("DiscoverContext()[0] = %q, want %q", projects[0], "/some/dir")
+	if projects[0] != root {
+		t.Errorf("DiscoverContext()[0] = %q, want %q", projects[0], root)
+	}
+}
+
+func TestDiscoverContext_NoPatterns_AutoDiscovers(t *testing.T) {
+	root := t.TempDir()
+
+	// Create multiple subdirs with .tf files
+	for _, name := range []string{"vpc", "ecs", "rds"} {
+		dir := filepath.Join(root, name)
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			t.Fatalf("failed to create dir: %v", err)
+		}
+		err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
+		if err != nil {
+			t.Fatalf("failed to write .tf file: %v", err)
+		}
+	}
+
+	cfg := Config{Dir: root}
+
+	projects, err := cfg.DiscoverContext()
+	if err != nil {
+		t.Fatalf("DiscoverContext() returned error: %v", err)
+	}
+
+	if len(projects) != 3 {
+		t.Fatalf("DiscoverContext() length = %d, want 3 (got %v)", len(projects), projects)
+	}
+
+	// All should be relative names
+	for _, p := range projects {
+		if filepath.IsAbs(p) {
+			t.Errorf("DiscoverContext() returned absolute path: %q", p)
+		}
+	}
+}
+
+func TestDiscoverContext_NoPatterns_IgnoresHiddenDirs(t *testing.T) {
+	root := t.TempDir()
+
+	// Create visible and hidden subdirs
+	for _, name := range []string{"vpc", "ecs", ".terraform"} {
+		dir := filepath.Join(root, name)
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			t.Fatalf("failed to create dir: %v", err)
+		}
+		err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
+		if err != nil {
+			t.Fatalf("failed to write .tf file: %v", err)
+		}
+	}
+
+	cfg := Config{Dir: root}
+
+	projects, err := cfg.DiscoverContext()
+	if err != nil {
+		t.Fatalf("DiscoverContext() returned error: %v", err)
+	}
+
+	if len(projects) != 2 {
+		t.Fatalf("DiscoverContext() length = %d, want 2 (got %v)", len(projects), projects)
+	}
+
+	for _, p := range projects {
+		if p == ".terraform" {
+			t.Error("DiscoverContext() should not include hidden directories")
+		}
 	}
 }
 

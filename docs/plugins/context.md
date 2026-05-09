@@ -1,20 +1,20 @@
 ---
 layout: plugin
-title: Projects
-id: projects
-key: m
-description: Navigate terraform projects in a monorepo
+title: Context
+id: context
+key: c
+description: Select terraform project scope
 category: navigation
 default_enabled: true
 ---
 
 ## Overview
 
-The Projects plugin discovers and lists terraform projects within a monorepo based on glob patterns defined in `tfui.yaml`. You can filter, select, and switch between projects. The active project determines the working directory for all other plugins (plan, apply, state, etc.).
+The Context plugin discovers and lists terraform projects within a monorepo based on glob patterns defined in `tfui.yaml`. You can filter, select, and switch between projects. The active context determines the working directory for all other plugins (plan, apply, state, etc.).
 
 ## Usage
 
-Press `m` to open the Projects view. It scans for projects matching your configured path patterns.
+Press `c` to open the Context view. It scans for projects matching your configured path patterns.
 
 | Key | Action |
 |-----|--------|
@@ -30,10 +30,10 @@ Press `m` to open the Projects view. It scans for projects matching your configu
 ```yaml
 # tfui.yaml
 plugins:
-  projects:
+  context:
     enabled: true
 
-projects:
+context:
   paths:
     - "modules/*"
     - "envs/**"
@@ -43,12 +43,12 @@ projects:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-| `projects.paths` | list | `[]` | Glob patterns for project discovery |
+| `context.paths` | list | `[]` | Glob patterns for project discovery |
 
 ## Screenshots/Output
 
 ```
-Projects
+Context
 
 * envs/production (production)
   envs/staging (staging)
@@ -64,7 +64,7 @@ Enter select  / filter  r refresh  Esc back
 With filter:
 
 ```
-Projects
+Context
 
 filter: net
 
@@ -78,6 +78,6 @@ Enter select  / filter  r refresh  Esc back
 
 ## Related
 
-- [Workspaces](workspaces.md) -- manage workspaces within the active project
-- [State Browser](state.md) -- browse state for the active project
-- [Plan](plan.md) -- plan runs against the active project directory
+- [Workspaces](workspaces.md) -- manage workspaces within the active context
+- [State Browser](state.md) -- browse state for the active context
+- [Plan](plan.md) -- plan runs against the active context directory

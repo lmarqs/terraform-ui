@@ -17,7 +17,7 @@ terraform-ui uses a `tfui.yaml` file for project configuration. Place it in your
 terraform_binary: terraform
 
 # Project discovery for monorepos
-projects:
+context:
   paths:
     - "modules/*"
     - "envs/*"
@@ -33,19 +33,19 @@ Path to the terraform binary. Defaults to `terraform`. Set to `tofu` for OpenTof
 terraform_binary: tofu
 ```
 
-### `projects`
+### `context`
 
 Defines glob patterns to discover independent terraform projects in a monorepo. Each matched directory that contains `.tf` or `.tofu` files is treated as a selectable project.
 
 ```yaml
-projects:
+context:
   paths:
     - "modules/*"        # matches modules/vpc, modules/ecs, etc.
     - "envs/**"          # matches envs/dev, envs/staging/us-east-1, etc.
     - "infra/shared"     # exact path
 ```
 
-When configured, the TUI shows a project selector (`m` key) that lets you switch between terraform roots without leaving the app.
+When configured, the TUI shows a context selector (`c` key) that lets you switch between terraform roots without leaving the app.
 
 ## CLI Flags
 
@@ -63,7 +63,7 @@ tfui plan --target aws_instance.web   # target specific resources
 ### Regional modules (like medprev-cloud-iac)
 
 ```yaml
-projects:
+context:
   paths:
     - "modules/*"
 ```
@@ -73,7 +73,7 @@ Discovers: `modules/global`, `modules/sa-east-1`, `modules/us-east-1`, `modules/
 ### Environment-based (staging/production)
 
 ```yaml
-projects:
+context:
   paths:
     - "envs/*"
 ```
@@ -83,7 +83,7 @@ Discovers: `envs/dev`, `envs/staging`, `envs/production`
 ### Mixed layout
 
 ```yaml
-projects:
+context:
   paths:
     - "infra/*"
     - "services/*/terraform"
