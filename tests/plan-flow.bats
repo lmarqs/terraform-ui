@@ -1,81 +1,89 @@
 #!/usr/bin/env bats
 
 setup() {
-  load 'test_helper/common-setup'
-  load 'test_helper/mock-terraform'
+  load 'helpers/common-setup'
+  load 'helpers/fixtures'
   _common_setup
-  _mock_terraform_setup
-  _TFUI_WORKING_DIR="$BATS_TEST_TMPDIR/workdir"
-  _TFUI_OUTPUT_FILE="$BATS_TEST_TMPDIR/output"
-  mkdir -p "$_TFUI_WORKING_DIR"
-  : > "$_TFUI_OUTPUT_FILE"
-  _TFUI_STRATEGY="_tfui_strategy_silent"
-  _TFUI_UI_LINES="10"
 }
 
-@test "tfui_plan produces correct tree view" {
-  local plan_file="$BATS_TEST_TMPDIR/plan.json"
-  run bash -c '
-    source "'"$PROJECT_ROOT"'/lib/tfui.sh"
-    exec 3>/dev/null
-    PATH="'"$MOCK_DIR"':$PATH"
-    _TFUI_WORKING_DIR="'"$_TFUI_WORKING_DIR"'"
-    _TFUI_OUTPUT_FILE="'"$_TFUI_OUTPUT_FILE"'"
-    _TFUI_STRATEGY="_tfui_strategy_silent"
-    _TFUI_UI_LINES="10"
-    tfui_plan "Planning" --out "'"$plan_file"'"
-  '
-  assert_line --partial "+ module.a.resource_b"
-  assert_line --partial "~ module.a.resource_a"
-  assert_line --partial "- module.b.resource_c"
-  assert_line --partial "Plan: 1 to add, 1 to change, 1 to destroy."
+# -- Plan output scenarios --
+
+@test "given new resources, plan shows + symbols and add count" {
+  _fixture_prepare "create"
+  run _fixture_plan "Planning"
+  assert_line --partial "+ local_file.alpha"
+  assert_line --partial "+ local_file.beta"
+  assert_line --partial "Plan: 2 to add, 0 to change, 0 to destroy."
 }
 
-@test "tfui_confirm detects changes after plan" {
-  local plan_file="$BATS_TEST_TMPDIR/plan.json"
-  bash -c '
-    source "'"$PROJECT_ROOT"'/lib/tfui.sh"
-    exec 3>/dev/null
-    PATH="'"$MOCK_DIR"':$PATH"
-    _TFUI_WORKING_DIR="'"$_TFUI_WORKING_DIR"'"
-    _TFUI_OUTPUT_FILE="'"$_TFUI_OUTPUT_FILE"'"
-    _TFUI_STRATEGY="_tfui_strategy_silent"
-    _TFUI_UI_LINES="10"
-    tfui_plan "Planning" --out "'"$plan_file"'"
-  ' >/dev/null 2>&1
-  tfui_confirm "$plan_file" --auto-approve
+@test "given changed resource, plan shows ~ symbol and change count" {
+  _fixture_prepare "update"
+  run _fixture_plan "Planning"
+  assert_line --partial "~ terraform_data.doc"
+  assert_line --partial "Plan: 0 to add, 1 to change, 0 to destroy."
 }
 
-@test "plan preserves original message" {
-  local plan_file="$BATS_TEST_TMPDIR/plan.json"
-  bash -c '
-    source "'"$PROJECT_ROOT"'/lib/tfui.sh"
-    exec 3>/dev/null
-    PATH="'"$MOCK_DIR"':$PATH"
-    _TFUI_WORKING_DIR="'"$_TFUI_WORKING_DIR"'"
-    _TFUI_OUTPUT_FILE="'"$_TFUI_OUTPUT_FILE"'"
-    _TFUI_STRATEGY="_tfui_strategy_silent"
-    _TFUI_UI_LINES="10"
-    tfui_plan "Planning module: sa-east-1" --out "'"$plan_file"'"
-    echo "$_TFUI_MESSAGE"
-  ' >/dev/null 2>&1
-  # Verify in-process (the subshell above can't export back)
-  # Use silent strategy which doesn't touch fd3
-  tfui_plan "Planning module: sa-east-1" --out "$plan_file" 3>/dev/null 2>/dev/null
+@test "given removed resource, plan shows - symbol and destroy count" {
+  _fixture_prepare "delete"
+  run _fixture_plan "Planning"
+  assert_line --partial "- local_file.to_remove"
+  assert_line --partial "Plan: 0 to add, 0 to change, 1 to destroy."
+}
+
+@test "given renamed resource, plan shows -/+ replace symbol" {
+  _fixture_prepare "replace"
+  run _fixture_plan "Planning"
+  assert_line --partial "-/+ local_file.moved"
+}
+
+@test "given no drift, plan shows up-to-date message" {
+  _fixture_prepare "no-changes"
+  run _fixture_plan "Planning"
+  assert_output --partial "No changes. Infrastructure is up-to-date."
+}
+
+@test "given many resources, plan counts all in summary" {
+  _fixture_prepare "multi-resource"
+  run _fixture_plan "Planning"
+  assert_line --partial "Plan: 5 to add, 0 to change, 0 to destroy."
+}
+
+# -- Confirm scenarios --
+
+@test "confirm returns 0 when plan has changes" {
+  _fixture_prepare "create"
+  _fixture_plan "Planning" >/dev/null
+  tfui_confirm "$PLAN_FILE" --auto-approve
+}
+
+@test "confirm returns 1 when plan has no changes" {
+  _fixture_prepare "no-changes"
+  _fixture_plan "Planning" >/dev/null
+  run tfui_confirm "$PLAN_FILE" --auto-approve
+  [ "$status" -eq 1 ]
+}
+
+# -- Message preservation --
+
+@test "plan preserves the original status message" {
+  _fixture_prepare "create"
+  _fixture_plan "Planning module: sa-east-1" >/dev/null
   [ "$_TFUI_MESSAGE" = "Planning module: sa-east-1" ]
 }
 
-@test "plan with progress strategy produces summary" {
-  local plan_file="$BATS_TEST_TMPDIR/plan.json"
+# -- Progress strategy --
+
+@test "progress strategy tracks resource operations" {
+  _fixture_prepare "multi-resource"
   run bash -c '
     source "'"$PROJECT_ROOT"'/lib/tfui.sh"
     exec 3>/dev/null
-    PATH="'"$MOCK_DIR"':$PATH"
-    _TFUI_WORKING_DIR="'"$_TFUI_WORKING_DIR"'"
-    _TFUI_OUTPUT_FILE="'"$_TFUI_OUTPUT_FILE"'"
+    _TFUI_WORKING_DIR="'"$BATS_TEST_TMPDIR"'/multi-resource"
+    _TFUI_OUTPUT_FILE="'"$BATS_TEST_TMPDIR"'/output"
+    : > "$_TFUI_OUTPUT_FILE"
     _TFUI_STRATEGY="_tfui_strategy_progress"
     _TFUI_UI_LINES="10"
-    tfui_plan "Planning" --out "'"$plan_file"'"
+    tfui_plan "Planning" --out "'"$BATS_TEST_TMPDIR"'/plan.json"
   '
-  assert_line --partial "Plan: 1 to add, 1 to change, 1 to destroy."
+  assert_line --partial "Plan: 5 to add, 0 to change, 0 to destroy."
 }

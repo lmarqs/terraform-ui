@@ -1,26 +1,37 @@
 #!/usr/bin/env bats
 
 setup() {
-  load 'test_helper/common-setup'
-  load 'test_helper/mock-terraform'
+  load 'helpers/common-setup'
+  load 'helpers/fixtures'
   _common_setup
-  _mock_terraform_setup
-  _TFUI_WORKING_DIR="$BATS_TEST_TMPDIR/workdir"
-  _TFUI_OUTPUT_FILE="$BATS_TEST_TMPDIR/output"
-  mkdir -p "$_TFUI_WORKING_DIR"
-  : > "$_TFUI_OUTPUT_FILE"
-  _TFUI_STRATEGY="_tfui_strategy_silent"
-  _TFUI_UI_LINES="10"
 }
 
-@test "tfui_apply completes successfully" {
-  local plan_file="$BATS_TEST_TMPDIR/plan.json"
-  touch "$_TFUI_WORKING_DIR/tfplan.out"
-  tfui_apply "$plan_file" "Applying" 3>/dev/null 2>/dev/null
-  [ "$(head -1 "$_TFUI_OUTPUT_FILE")" = "module.a.resource_b: Creating..." ]
+@test "apply creates the planned files on disk" {
+  _fixture_prepare "create"
+  _fixture_plan "Planning" >/dev/null
+  tfui_apply "$PLAN_FILE" "Applying" 3>/dev/null 2>/dev/null
+
+  [ -f "$FIXTURE_DIR/out/alpha.txt" ]
+  [ -f "$FIXTURE_DIR/out/beta.txt" ]
 }
 
-@test "run_sub propagates failure as exit 1" {
+@test "apply removes files for destroy plan" {
+  _fixture_prepare "delete"
+  _fixture_plan "Planning" >/dev/null
+  tfui_apply "$PLAN_FILE" "Applying" 3>/dev/null 2>/dev/null
+
+  [ ! -f "$FIXTURE_DIR/out/to_remove.txt" ]
+}
+
+@test "apply captures terraform output" {
+  _fixture_prepare "create"
+  _fixture_plan "Planning" >/dev/null
+  tfui_apply "$PLAN_FILE" "Applying" 3>/dev/null 2>/dev/null
+
+  [[ "$(cat "$_TFUI_OUTPUT_FILE")" == *"Creation complete"* ]]
+}
+
+@test "run_sub propagates command failure as exit 1" {
   run bash -c '
     source "'"$PROJECT_ROOT"'/lib/tfui.sh"
     exec 3>/dev/null
