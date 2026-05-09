@@ -221,6 +221,8 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return nil
 		case "enter":
 			return e.InspectSelected()
+		case "/":
+			return nil
 		case "down":
 			e.MoveDown()
 			return nil
