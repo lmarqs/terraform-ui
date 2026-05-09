@@ -161,7 +161,7 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		p.MoveDown()
 	case "k", "up":
 		p.MoveUp()
-	case "enter", " ":
+	case "enter", "i":
 		p.ToggleExpand()
 	case "r":
 		if p.status == StatusError || p.status == StatusDone {
@@ -227,7 +227,7 @@ func (p *Plugin) View(width, height int) string {
 	case StatusError:
 		title := sdk.StyleTitle.Render("Validate")
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
@@ -243,7 +243,7 @@ func (p *Plugin) renderResults(width, height int) string {
 
 	if len(p.diagnostics) == 0 {
 		success := sdk.StyleSuccess.Render("✓ Configuration is valid")
-		hint := sdk.StyleFaintItalic.Render("Press r to re-validate, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to re-validate, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + success + "\n\n" + hint)
 	}
 
@@ -283,7 +283,7 @@ func (p *Plugin) renderResults(width, height int) string {
 	}
 
 	summary := p.renderSummaryLine()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  q back")
 
 	content := title + "\n\n" + b.String() + "\n" + summary + "\n" + hint
 	return sdk.StylePadded.Render(content)

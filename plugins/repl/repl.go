@@ -249,7 +249,7 @@ func (p *Plugin) View(width, height int) string {
 	case StatusError:
 		title := sdk.StyleTitle.Render("Terraform Console (REPL)")
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusReady, StatusEvaluating:
@@ -311,7 +311,7 @@ func (p *Plugin) renderREPL(width, height int) string {
 	}
 
 	// Hint
-	hint := sdk.StyleFaintItalic.Render("Enter evaluate  Up/Down history  Ctrl+C clear  Esc exit")
+	hint := sdk.StyleFaintItalic.Render("Enter evaluate  Up/Down history  Ctrl+C clear  q exit")
 
 	content := title + "\n\n" + b.String() + inputLine + "\n\n" + hint
 	return sdk.StylePadded.Render(content)

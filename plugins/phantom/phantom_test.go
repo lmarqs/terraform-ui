@@ -252,10 +252,10 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 		t.Error("after enter,enter: expanded[0] = true, want false")
 	}
 
-	// Toggle with space
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{' '}})
+	// Toggle with i
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	if !p.expanded[0] {
-		t.Error("after space: expanded[0] = false, want true")
+		t.Error("after i: expanded[0] = false, want true")
 	}
 }
 

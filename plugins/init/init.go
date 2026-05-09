@@ -243,7 +243,7 @@ func (p *Plugin) View(width, height int) string {
 
 	case StatusError:
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusReview:

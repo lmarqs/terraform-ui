@@ -298,7 +298,7 @@ func (e *Plugin) View(width, height int) string {
 
 	case StatusError:
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
@@ -349,7 +349,7 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
 	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
 
-	hint := sdk.StyleFaintItalic.Render("Enter switch  n new  d delete  r refresh  Esc back")
+	hint := sdk.StyleFaintItalic.Render("Enter switch  n new  d delete  r refresh  q back")
 	if e.creating {
 		hint = sdk.StyleFaintItalic.Render("Enter confirm  Esc cancel")
 	}

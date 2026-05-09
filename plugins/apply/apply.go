@@ -230,12 +230,12 @@ func (e *Plugin) View(width, height int) string {
 		elapsed := formatDuration(e.elapsed)
 		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
 		duration := sdk.StyleFaint.Render("Duration: " + elapsed)
-		hint := sdk.StyleFaintItalic.Render("Press Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + success + "\n" + duration + "\n\n" + hint)
 
 	case StatusError:
 		errText := sdk.StyleError.Render("Apply failed: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	default:

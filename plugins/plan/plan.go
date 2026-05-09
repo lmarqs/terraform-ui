@@ -195,7 +195,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.MoveDown()
 	case "k", "up":
 		e.MoveUp()
-	case "enter":
+	case "enter", "i":
 		e.ToggleExpand()
 	case " ":
 		if change := e.SelectedChange(); change != nil {
@@ -282,11 +282,11 @@ func (e *Plugin) View(width, height int) string {
 		title := sdk.StyleTitle.Render("Plan Review")
 		if e.lockInfo != nil {
 			lockPanel := sdk.FormatLockInfo(e.lockInfo)
-			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  Esc back")
+			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  q back")
 			return sdk.StylePadded.Render(title + "\n\n" + lockPanel + "\n" + hint)
 		}
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
@@ -340,7 +340,7 @@ func (e *Plugin) renderResults(width, height int) string {
 
 	summary := e.renderSummaryLine()
 	riskLine := e.renderOverallRisk()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  Space pin  a apply  r refresh  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back")
 
 	content := title + "\n\n" + b.String() + "\n" + summary
 	if riskLine != "" {

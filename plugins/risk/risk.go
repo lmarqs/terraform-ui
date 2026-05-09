@@ -218,7 +218,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 
 	// Statistics
 	stats := e.renderStats()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  q back")
 
 	content := title + "\n\n" + b.String() + stats + "\n" + hint
 	return sdk.StylePadded.Render(content)

@@ -110,7 +110,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) {
 		e.MoveDown()
 	case "k", "up":
 		e.MoveUp()
-	case "enter", " ":
+	case "enter", "i":
 		e.ToggleExpand()
 	}
 }
@@ -204,7 +204,7 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		}
 	}
 
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  q back")
 	content := title + "\n\n" + b.String() + "\n" + hint
 	return sdk.StylePadded.Render(content)
 }

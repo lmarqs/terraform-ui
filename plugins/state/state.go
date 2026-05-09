@@ -145,7 +145,6 @@ func (e *Plugin) Activate() tea.Cmd {
 			}
 		}
 		e.status = StatusLoading
-		e.filtering = true
 		return e.loadState()
 	}
 	return nil
@@ -254,7 +253,6 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			e.detailAddr = ""
 			e.detailScroll = 0
 			e.detailHScroll = 0
-			e.filtering = true
 		case "down":
 			e.detailScroll++
 		case "up":
@@ -329,7 +327,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "esc":
 			e.filtering = false
 			return nil
-		case "enter":
+		case "enter", "i":
 			return e.InspectSelected()
 		case "/":
 			return nil
@@ -358,7 +356,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.MoveDown()
 	case "up":
 		e.MoveUp()
-	case "enter":
+	case "enter", "i":
 		return e.InspectSelected()
 	case "/":
 		e.filtering = true
@@ -534,18 +532,18 @@ func (e *Plugin) View(width, height int) string {
 			msg = e.errMsg
 		}
 		loading := sdk.StyleFaintItalic.Render(msg)
-		hint := sdk.StyleFaintItalic.Render("Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + loading + "\n\n" + hint)
 
 	case StatusError:
 		title := sdk.StyleTitle.Render("State Browser")
 		if e.lockInfo != nil {
 			lockPanel := sdk.FormatLockInfo(e.lockInfo)
-			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  Esc back")
+			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  q back")
 			return sdk.StylePadded.Render(title + "\n\n" + lockPanel + "\n" + hint)
 		}
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusShowingDetail:

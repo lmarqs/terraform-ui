@@ -331,13 +331,13 @@ func (p *Plugin) View(width, height int) string {
 	case StatusLoading:
 		title := sdk.StyleTitle.Render("Outputs")
 		loading := sdk.StyleFaintItalic.Render("Loading terraform outputs...")
-		hint := sdk.StyleFaintItalic.Render("Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + loading + "\n\n" + hint)
 
 	case StatusError:
 		title := sdk.StyleTitle.Render("Outputs")
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
 		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
@@ -404,7 +404,7 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	if p.filtering {
 		hint = sdk.StyleFaintItalic.Render("Type to filter  Esc exit")
 	} else {
-		hint = sdk.StyleFaintItalic.Render("↑↓/jk navigate  / filter  r refresh  Esc back")
+		hint = sdk.StyleFaintItalic.Render("↑↓/jk navigate  / filter  r refresh  q back")
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint

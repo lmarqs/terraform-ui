@@ -155,14 +155,31 @@ func (p *Plugin) View(w, h int) string { /* switch on status */ }
 
 - **`:` command mode**: type plugin name to switch views. Tab autocomplete.
 - **`/` filter mode**: fzf-style fuzzy filter. `esc` exits.
-- **`space` pin**: toggle pin on selected resource. Pinned shown with `*`.
-- **`enter` inspect**: show detail view with expanded values.
+- **`space` pin**: toggle pin on selected resource. Pinned = apply target.
+- **`enter` / `i` inspect**: show detail view with expanded values.
 - **`d` delete**: destructive — triggers confirmation prompt.
 - **`e` edit**: opens $EDITOR at resource's .tf file:line.
 - **`r` refresh**: reload data from terraform.
 - **`ctrl+w` / `w` wrap**: toggle line wrapping.
 - **`←→` pan**: horizontal scroll (10 chars/press).
-- **`esc`** exits current level. **`q`** exits to home.
+- **`q`** exits plugin to home. **`esc`** exits current sub-state (scoped).
+
+### Keybinding Ergonomics
+
+Redundant keybindings exist for keyboard layout accessibility, but hints show only the primary key:
+
+| Action | Primary (shown in hint) | Alias (not shown) | Scope |
+|--------|------------------------|-------------------|-------|
+| Inspect/expand | `Enter` | `i` | All list views |
+| Back to home | `q` | `esc` (when no sub-state) | Global |
+| Exit sub-state | `Esc` | — | Filter, detail, confirm |
+| Pin (apply target) | `Space` | — | Resources/changes |
+
+Rules:
+- `enter`/`i` always means inspect — never overloaded for other actions (e.g., not used as pin toggle)
+- `space` always means pin — never overloaded for expand/inspect
+- `q` shown in hints at plugin top-level; `esc` shown only in sub-state hints
+- Plugins must NOT start in filter mode by default — user opts in with `/`
 
 ### Detail/Inspect View
 
