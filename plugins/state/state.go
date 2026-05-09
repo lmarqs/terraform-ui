@@ -11,7 +11,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the state browser sdk.
+// Status represents the current state of the state browser plugin.
 type Status int
 
 const (
@@ -50,7 +50,7 @@ type Plugin struct {
 	detailAddr string
 }
 
-// New creates a new state browser sdk.
+// New creates a new state browser plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
@@ -138,7 +138,7 @@ func (e *Plugin) loadDetail(address string) tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StateListMsg:
@@ -296,7 +296,7 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	return e.loadDetail(r.Address)
 }
 
-// View renders the state browser sdk.
+// View renders the state browser plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:

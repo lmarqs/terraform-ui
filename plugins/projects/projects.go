@@ -10,7 +10,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the projects sdk.
+// Status represents the current state of the projects plugin.
 type Status int
 
 const (
@@ -50,7 +50,7 @@ type Plugin struct {
 	filtered []Project
 }
 
-// New creates a new projects sdk.
+// New creates a new projects plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
@@ -130,7 +130,7 @@ func (e *Plugin) discover() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProjectsDiscoveredMsg:
@@ -255,7 +255,7 @@ func (e *Plugin) BackspaceFilter() {
 	}
 }
 
-// View renders the projects sdk.
+// View renders the projects plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Projects")
 

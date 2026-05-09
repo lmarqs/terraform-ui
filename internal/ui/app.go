@@ -17,6 +17,7 @@ type App struct {
 	cfg      config.Config
 	svc      sdk.Service
 	registry *plugin.Registry
+	session  *sdk.Session
 	width    int
 	height   int
 
@@ -24,7 +25,8 @@ type App struct {
 	statusBar components.StatusBar
 	homeView  views.HomeView
 
-	activePlugin sdk.Plugin // nil = home screen
+	activePlugin  sdk.Plugin // nil = home screen
+	activeProject string     // tracks last known active project for header updates
 }
 
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
@@ -32,6 +34,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		cfg:       cfg,
 		svc:       svc,
 		registry:  registry,
+		session:   sdk.NewSession(),
 		header:    components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary, 0),
 		statusBar: components.NewStatusBar(),
 		homeView:  views.NewHomeView(registry.All()),
@@ -42,13 +45,12 @@ func (a App) Init() tea.Cmd {
 	cmds := []tea.Cmd{a.loadWorkspace}
 
 	// Initialize all plugins
-	session := sdk.NewSession()
 	ctx := &plugin.Context{
 		Dir:       a.cfg.Dir,
 		Workspace: "default",
 		Service:   a.svc,
 		Logger:    logging.Logger(),
-		Session:   session,
+		Session:   a.session,
 	}
 	for _, p := range a.registry.All() {
 		if cmd := p.Init(ctx); cmd != nil {
@@ -96,6 +98,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
+		a.syncActiveProject()
 		return a, cmd
 	}
 
@@ -135,6 +138,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
+		a.syncActiveProject()
 		return a, cmd
 	}
 
@@ -167,6 +171,19 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return a, nil
+}
+
+// syncActiveProject checks if the active project changed in session and updates the header.
+func (a *App) syncActiveProject() {
+	if a.session == nil {
+		return
+	}
+	if project, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveProject); ok {
+		if project != a.activeProject {
+			a.activeProject = project
+			a.header = a.header.WithProject(project)
+		}
+	}
 }
 
 func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {

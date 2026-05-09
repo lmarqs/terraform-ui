@@ -9,7 +9,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the workspaces sdk.
+// Status represents the current state of the workspaces plugin.
 type Status int
 
 const (
@@ -36,6 +36,7 @@ type WorkspaceSwitchMsg struct {
 // Plugin implements the workspace management feature.
 type Plugin struct {
 	svc        sdk.Service
+	session    *sdk.Session
 	status     Status
 	workspaces []string
 	current    string
@@ -45,7 +46,7 @@ type Plugin struct {
 	creating   bool
 }
 
-// New creates a new workspaces sdk.
+// New creates a new workspaces plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
@@ -73,6 +74,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init initializes the plugin with shared context. Does not auto-load.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
+	e.session = ctx.Session
 	e.status = StatusIdle
 	e.workspaces = nil
 	e.current = ""
@@ -86,6 +88,16 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
+		// Check if there's an active project to scope to
+		if e.session != nil {
+			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
+				e.svc = e.svc.WithDir(dir)
+			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
+				e.status = StatusError
+				e.errMsg = "Select a project first (press m)"
+				return nil
+			}
+		}
 		e.status = StatusLoading
 		return e.loadWorkspaces()
 	}
@@ -116,7 +128,7 @@ func (e *Plugin) loadWorkspaces() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case WorkspaceListMsg:
@@ -256,7 +268,7 @@ func (e *Plugin) DeleteSelected() tea.Cmd {
 	}
 }
 
-// View renders the workspaces sdk.
+// View renders the workspaces plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Workspaces")
 

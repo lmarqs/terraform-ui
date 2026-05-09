@@ -13,11 +13,18 @@ type Header struct {
 	workspace     string
 	resourceCount int
 	binaryName    string
+	project       string
 }
 
 func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
 	name := filepath.Base(binaryPath)
 	return Header{dir: dir, workspace: workspace, binaryName: name, resourceCount: resourceCount}
+}
+
+// WithProject returns a copy of the Header with the active project set.
+func (h Header) WithProject(project string) Header {
+	h.project = project
+	return h
 }
 
 var headerStyle = lipgloss.NewStyle().
@@ -35,6 +42,13 @@ func (h Header) Render(width int) string {
 		sdk.StyleKey.Render("binary:"),
 		h.binaryName,
 	)
+
+	if h.project != "" {
+		left += fmt.Sprintf("  %s %s",
+			sdk.StyleKey.Render("project:"),
+			h.project,
+		)
+	}
 
 	right := fmt.Sprintf("%s %d",
 		sdk.StyleKey.Render("resources:"),

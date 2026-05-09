@@ -29,15 +29,16 @@ type PlanResultMsg struct {
 
 // Plugin implements the plan review feature.
 type Plugin struct {
-	svc      sdk.Service
-	log      *slog.Logger
-	session  *sdk.Session
-	status   Status
-	summary  *sdk.PlanSummary
-	errMsg   string
-	selected int
-	targets  []string
-	expanded map[int]bool
+	svc          sdk.Service
+	log          *slog.Logger
+	session      *sdk.Session
+	status       Status
+	summary      *sdk.PlanSummary
+	errMsg       string
+	selected     int
+	targets      []string
+	expanded     map[int]bool
+	scopedProject string // tracks which project the service was scoped to
 }
 
 // New creates a new plan plugin.
@@ -87,11 +88,29 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
+	// Check if the active project changed since last activation
+	if e.session != nil {
+		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs)
+		if currentProject != e.scopedProject {
+			// Project changed — reset state and re-scope
+			e.status = StatusIdle
+			e.summary = nil
+			e.errMsg = ""
+			e.selected = 0
+			e.expanded = make(map[int]bool)
+			e.scopedProject = currentProject
+			if currentProject != "" {
+				e.svc = e.svc.WithDir(currentProject)
+			}
+		}
+	}
+
 	if e.status == StatusIdle || e.status == StatusError {
 		// Check if there's an active project to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
+				e.scopedProject = dir
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
 				// Multi-project mode but no project selected
 				e.status = StatusError

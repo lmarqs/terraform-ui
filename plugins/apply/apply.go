@@ -9,7 +9,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the apply sdk.
+// Status represents the current state of the apply plugin.
 type Status int
 
 const (
@@ -42,7 +42,7 @@ type Plugin struct {
 	totalResources int
 }
 
-// New creates a new apply sdk.
+// New creates a new apply plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
@@ -146,7 +146,7 @@ func (e *Plugin) tick() tea.Cmd {
 	})
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ApplyResultMsg:
@@ -196,7 +196,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// View renders the apply sdk.
+// View renders the apply plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Apply")
 

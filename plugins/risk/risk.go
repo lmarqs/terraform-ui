@@ -8,7 +8,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the risk sdk.
+// Status represents the current state of the risk plugin.
 type Status int
 
 const (
@@ -32,7 +32,7 @@ type Plugin struct {
 	total    int
 }
 
-// New creates a new risk analysis sdk.
+// New creates a new risk analysis plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
@@ -108,7 +108,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	e.selected = 0
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -151,7 +151,7 @@ func (e *Plugin) totalItems() int {
 	return count
 }
 
-// View renders the risk analysis sdk.
+// View renders the risk analysis plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Risk Analysis")
 

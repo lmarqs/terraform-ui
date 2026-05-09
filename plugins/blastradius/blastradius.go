@@ -2,13 +2,14 @@ package blastradius
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the blast radius sdk.
+// Status represents the current state of the blast radius plugin.
 type Status int
 
 const (
@@ -57,7 +58,7 @@ type Plugin struct {
 	total    int
 }
 
-// New creates a new blast radius sdk.
+// New creates a new blast radius plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc:      svc,
@@ -116,7 +117,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	e.expanded = make(map[int]bool)
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -164,7 +165,7 @@ func (e *Plugin) SelectedModule() *ModuleImpact {
 	return nil
 }
 
-// View renders the blast radius sdk.
+// View renders the blast radius plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Blast Radius")
 
@@ -354,11 +355,8 @@ func calculateImpact(group sdk.ModuleGroup) ImpactScore {
 }
 
 func sortByImpact(modules []ModuleImpact) {
-	// Simple insertion sort (module list is typically small)
-	for i := 1; i < len(modules); i++ {
-		for j := i; j > 0 && modules[j].Score > modules[j-1].Score; j-- {
-			modules[j], modules[j-1] = modules[j-1], modules[j]
-		}
-	}
+	sort.Slice(modules, func(i, j int) bool {
+		return modules[i].Score > modules[j].Score
+	})
 }
 

@@ -8,7 +8,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the phantom sdk.
+// Status represents the current state of the phantom plugin.
 type Status int
 
 const (
@@ -34,7 +34,7 @@ type Plugin struct {
 	real     int
 }
 
-// New creates a new phantom change detection sdk.
+// New creates a new phantom change detection plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc:      svc,
@@ -94,7 +94,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	e.expanded = make(map[int]bool)
 }
 
-// Update processes messages and returns the updated sdk.
+// Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -134,7 +134,7 @@ func (e *Plugin) ToggleExpand() {
 	e.expanded[e.selected] = !e.expanded[e.selected]
 }
 
-// View renders the phantom change detection sdk.
+// View renders the phantom change detection plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Phantom Changes")
 
