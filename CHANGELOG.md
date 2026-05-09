@@ -1,3 +1,10 @@
+# [0.37.0](https://github.com/lmarqs/terraform-ui/compare/v0.36.6...v0.37.0) (2026-05-09)
+
+
+### Features
+
+* replace git-cliff with semantic-release ([42cfc81](https://github.com/lmarqs/terraform-ui/commit/42cfc81b1f36189a87006041ac308a639466ba3a))
+
 # Changelog
 
 ## 0.36.6 — 2026-05-09
@@ -160,4 +167,3 @@
 - migrate all scenarios to BATS test files
 - add BATS framework infrastructure
 - add BDD-style test suite
-
