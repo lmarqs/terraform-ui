@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -547,83 +546,53 @@ func TestSetFilter(t *testing.T) {
 	}
 }
 
-func TestSetFilterFuzzy(t *testing.T) {
+func TestSetFilterSubstring(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Name: "this", Module: "module.postgresql_aurora"},
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"1\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"2\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy.read_only", Type: "aws_db_proxy", Name: "read_only", Module: "module.postgresql_aurora"},
 		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group", Name: "this", Module: "module.redis"},
 		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group", Name: "web", Module: ""},
 		{Address: "module.medprev_online_prd.module.memorydb.aws_memorydb_cluster.this", Type: "aws_memorydb_cluster", Name: "this", Module: "module.memorydb"},
-		{Address: "module.medprev_online_prd.module.medprev_chat.aws_lambda_function.handler", Type: "aws_lambda_function", Name: "handler", Module: "module.medprev_chat"},
+		{Address: "module.medprev_online_prd.aws_opensearch_domain.legacy", Type: "aws_opensearch_domain", Name: "legacy", Module: ""},
 	}
 	p.filtered = p.resources
 
-	// Test that results are non-empty and best match is first
-	t.Run("single term ranking", func(t *testing.T) {
-		p.SetFilter("redis")
-		if len(p.filtered) == 0 {
-			t.Fatal("expected results for 'redis'")
+	tests := []struct {
+		filter string
+		want   int
+	}{
+		// Single term substring on address
+		{"aurora", 4},
+		{"redis", 1},
+		{"memorydb", 1},
+		{"opensearch", 1},
+		{"read_only", 1},
+		{"rds_cluster", 3},
+		{"cluster_instance", 2},
+		// Space-separated AND
+		{"aurora cluster", 3},
+		{"aurora instance", 2},
+		{"aurora proxy", 1},
+		{"aurora read_only", 1},
+		{"aurora this 0", 1},
+		// Case insensitive
+		{"Aurora", 4},
+		{"RDS_CLUSTER", 3},
+		// No match
+		{"zzz", 0},
+		{"aurora zzz", 0},
+		{"readonly", 0},
+	}
+	for _, tt := range tests {
+		p.SetFilter(tt.filter)
+		if len(p.filtered) != tt.want {
+			t.Errorf("SetFilter(%q): got %d results, want %d", tt.filter, len(p.filtered), tt.want)
 		}
-		if !strings.Contains(p.filtered[0].Address, "redis") {
-			t.Errorf("best match for 'redis' should contain 'redis', got %s", p.filtered[0].Address)
-		}
-	})
-
-	t.Run("aurora ranks aurora resources first", func(t *testing.T) {
-		p.SetFilter("aurora")
-		if len(p.filtered) < 3 {
-			t.Fatalf("expected at least 3 results for 'aurora', got %d", len(p.filtered))
-		}
-		for i := 0; i < 3; i++ {
-			if !strings.Contains(p.filtered[i].Address, "aurora") {
-				t.Errorf("top results for 'aurora' should contain 'aurora', got %s", p.filtered[i].Address)
-			}
-		}
-	})
-
-	t.Run("space-separated AND", func(t *testing.T) {
-		p.SetFilter("aurora instance")
-		if len(p.filtered) != 2 {
-			t.Errorf("'aurora instance': got %d results, want 2", len(p.filtered))
-		}
-	})
-
-	t.Run("memo ranks memorydb first", func(t *testing.T) {
-		p.SetFilter("memo")
-		if len(p.filtered) == 0 {
-			t.Fatal("expected results for 'memo'")
-		}
-		if !strings.Contains(p.filtered[0].Address, "memorydb") {
-			t.Errorf("best match for 'memo' should be memorydb, got %s", p.filtered[0].Address)
-		}
-	})
-
-	t.Run("auro ranks aurora first", func(t *testing.T) {
-		p.SetFilter("auro")
-		if len(p.filtered) == 0 {
-			t.Fatal("expected results for 'auro'")
-		}
-		if !strings.Contains(p.filtered[0].Address, "aurora") {
-			t.Errorf("best match for 'auro' should contain 'aurora', got %s", p.filtered[0].Address)
-		}
-	})
-
-	t.Run("no match", func(t *testing.T) {
-		p.SetFilter("zzz")
-		if len(p.filtered) != 0 {
-			t.Errorf("'zzz': got %d results, want 0", len(p.filtered))
-		}
-	})
-
-	t.Run("AND no match", func(t *testing.T) {
-		p.SetFilter("aurora zzz")
-		if len(p.filtered) != 0 {
-			t.Errorf("'aurora zzz': got %d results, want 0", len(p.filtered))
-		}
-	})
+	}
 }
 
 func TestAppendFilter(t *testing.T) {

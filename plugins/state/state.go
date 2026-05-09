@@ -10,7 +10,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/sahilm/fuzzy"
 )
 
 // Status represents the current state of the state browser plugin.
@@ -388,61 +387,9 @@ func (e *Plugin) maxAddressLen() int {
 	return max
 }
 
-// buildSearchTexts returns short, distinctive search strings for each resource.
-// Uses the inner module path + resource type + resource name.
-// Strips the outermost shared module prefix if most resources are nested under it.
-func buildSearchTexts(resources []sdk.Resource) []string {
-	// Find the common module prefix (only if it wraps nested modules)
-	commonPrefix := ""
-	if len(resources) > 10 {
-		// Check if most resources share a module prefix with deeper nesting
-		counts := make(map[string]int)
-		for _, r := range resources {
-			if r.Module != "" && strings.Count(r.Module, "module.") >= 2 {
-				// Extract top module: "module.X.module.Y" -> "module.X"
-				rest := r.Module[len("module."):]
-				if idx := strings.Index(rest, ".module."); idx >= 0 {
-					top := "module." + rest[:idx]
-					counts[top]++
-				}
-			}
-		}
-		for prefix, count := range counts {
-			if count > len(resources)/2 {
-				commonPrefix = prefix + "."
-			}
-		}
-	}
-
-	texts := make([]string, len(resources))
-	for i, r := range resources {
-		base := r.Type
-		if r.Name != "" {
-			base += "." + r.Name
-		}
-		if r.Module != "" {
-			mod := r.Module
-			// Strip the common top-level module prefix
-			if commonPrefix != "" {
-				mod = strings.TrimPrefix(mod, commonPrefix)
-			}
-			// Strip "module." prefixes from remaining segments
-			mod = strings.ReplaceAll(mod, "module.", "")
-			if mod != "" {
-				texts[i] = mod + "." + base
-			} else {
-				texts[i] = base
-			}
-		} else {
-			texts[i] = base
-		}
-	}
-	return texts
-}
-
 // SetFilter sets the filter string and refilters the resource list.
-// Uses sahilm/fuzzy for VS Code-style scored matching with ranking.
-// Space-separated terms use AND logic (each term matched independently).
+// Uses case-insensitive substring matching on the address.
+// Space-separated terms use AND logic (each must match independently).
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
@@ -451,42 +398,28 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	terms := strings.Fields(filter)
-	if len(terms) <= 1 {
-		e.filtered = fuzzyMatch(e.resources, filter)
-	} else {
-		candidates := e.resources
-		for _, term := range terms {
-			candidates = fuzzyMatch(candidates, term)
+	terms := strings.Fields(strings.ToLower(filter))
+	var result []sdk.Resource
+	for _, r := range e.resources {
+		text := strings.ToLower(r.Address)
+		if r.Module != "" {
+			text += " " + strings.ToLower(r.Module)
 		}
-		e.filtered = candidates
+		if matchAllTerms(text, terms) {
+			result = append(result, r)
+		}
 	}
+	e.filtered = result
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
-func fuzzyMatch(resources []sdk.Resource, pattern string) []sdk.Resource {
-	texts := buildSearchTexts(resources)
-	matches := fuzzy.Find(pattern, texts)
-	if len(matches) == 0 {
-		return nil
-	}
-	// If best score is positive, drop matches with negative scores
-	best := matches[0].Score
-	if best > 0 {
-		var result []sdk.Resource
-		for _, m := range matches {
-			if m.Score >= 0 {
-				result = append(result, resources[m.Index])
-			}
+func matchAllTerms(text string, terms []string) bool {
+	for _, term := range terms {
+		if !strings.Contains(text, term) {
+			return false
 		}
-		return result
 	}
-	// All scores negative — keep all (weak matches but still the best available)
-	result := make([]sdk.Resource, len(matches))
-	for i, m := range matches {
-		result[i] = resources[m.Index]
-	}
-	return result
+	return true
 }
 
 // AppendFilter adds a character to the filter.
