@@ -67,7 +67,7 @@ func (a App) Init() tea.Cmd {
 
 	// Initialize all plugins
 	ctx := &plugin.Context{
-		Dir:       a.cfg.WorkingDir(),
+		WorkingDir: a.cfg.WorkingDir(),
 		Workspace: "default",
 		Service:   a.svc,
 		Logger:    logging.Logger(),

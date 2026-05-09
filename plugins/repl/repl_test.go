@@ -39,7 +39,7 @@ func newTestPlugin() *Plugin {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
-		Dir:       "/tmp/test",
+		WorkingDir: "/tmp/test",
 		Workspace: "default",
 		Service:   svc,
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),

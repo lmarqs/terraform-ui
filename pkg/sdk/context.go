@@ -6,8 +6,8 @@ import "log/slog"
 // It contains the working directory, active workspace, the terraform
 // service instance, and a structured logger for debug output.
 type Context struct {
-	// Dir is the working directory for terraform operations.
-	Dir string
+	// WorkingDir is the working directory for terraform operations.
+	WorkingDir string
 	// Workspace is the name of the currently active terraform workspace.
 	Workspace string
 	// Service is the terraform service used to run plan, apply, and state operations.

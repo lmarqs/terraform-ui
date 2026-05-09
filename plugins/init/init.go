@@ -75,7 +75,7 @@ func (p *Plugin) Configure(opts map[string]interface{}) error {
 // detection runs when the user activates the plugin.
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
-	p.dir = ctx.Dir
+	p.dir = ctx.WorkingDir
 	p.status = StatusDetecting
 	p.patterns = nil
 	p.binary = ""

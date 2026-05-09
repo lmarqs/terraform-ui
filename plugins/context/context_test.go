@@ -81,7 +81,7 @@ func TestInit(t *testing.T) {
 	p.cfg = config.Config{Dir: "/tmp"}
 
 	ctx := &sdk.Context{
-		Dir:       "/tmp",
+		WorkingDir: "/tmp",
 		Workspace: "default",
 		Service:   svc,
 	}

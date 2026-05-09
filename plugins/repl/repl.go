@@ -78,7 +78,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
-	p.dir = ctx.Dir
+	p.dir = ctx.WorkingDir
 	p.status = StatusIdle
 	p.history = nil
 	p.input = ""

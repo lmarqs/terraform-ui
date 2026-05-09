@@ -79,7 +79,7 @@ func TestInit(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
-		Dir:       "/tmp",
+		WorkingDir: "/tmp",
 		Workspace: "default",
 		Service:   svc,
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -101,7 +101,7 @@ func TestActivate(t *testing.T) {
 	svc := &mockService{validateResult: nil}
 	p := New(svc)
 	ctx := &sdk.Context{
-		Dir:     "/tmp",
+		WorkingDir: "/tmp",
 		Service: svc,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Session: sdk.NewSession(),

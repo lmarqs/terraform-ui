@@ -68,7 +68,7 @@ func TestInit(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
-		Dir:       "/tmp",
+		WorkingDir: "/tmp",
 		Workspace: "default",
 		Service:   svc,
 	}
