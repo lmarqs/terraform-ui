@@ -68,7 +68,8 @@ func main() {
 }
 
 func runTUI(cfg config.Config) error {
-	app := ui.NewApp(cfg)
+	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
+	app := ui.NewApp(cfg, svc)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
