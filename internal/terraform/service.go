@@ -26,6 +26,7 @@ type Service = sdk.Service
 type TerraformService struct {
 	workingDir string
 	binaryPath string
+	stateCache *tfjson.State
 }
 
 // NewService creates a new TerraformService configured with the given working
@@ -43,6 +44,22 @@ func (s *TerraformService) WithDir(dir string) Service {
 		workingDir: dir,
 		binaryPath: s.binaryPath,
 	}
+}
+
+func (s *TerraformService) loadState(ctx context.Context) (*tfjson.State, error) {
+	if s.stateCache != nil {
+		return s.stateCache, nil
+	}
+	tf, err := s.newTerraform()
+	if err != nil {
+		return nil, err
+	}
+	state, err := tf.Show(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("reading terraform state: %w", err)
+	}
+	s.stateCache = state
+	return state, nil
 }
 
 func (s *TerraformService) newTerraform() (*tfexec.Terraform, error) {
@@ -123,14 +140,10 @@ func (s *TerraformService) Apply(ctx context.Context, targets []string) error {
 
 // StateList returns all resources in the current state.
 func (s *TerraformService) StateList(ctx context.Context) ([]Resource, error) {
-	tf, err := s.newTerraform()
+	s.stateCache = nil
+	state, err := s.loadState(ctx)
 	if err != nil {
 		return nil, err
-	}
-
-	state, err := tf.Show(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("reading terraform state: %w", err)
 	}
 
 	if state == nil || state.Values == nil {
@@ -144,14 +157,9 @@ func (s *TerraformService) StateList(ctx context.Context) ([]Resource, error) {
 // Show returns detailed information about a specific resource.
 // Sensitive attribute values are redacted before returning.
 func (s *TerraformService) Show(ctx context.Context, address string) (string, error) {
-	tf, err := s.newTerraform()
+	state, err := s.loadState(ctx)
 	if err != nil {
 		return "", err
-	}
-
-	state, err := tf.Show(ctx)
-	if err != nil {
-		return "", fmt.Errorf("reading terraform state: %w", err)
 	}
 
 	if state == nil || state.Values == nil {
