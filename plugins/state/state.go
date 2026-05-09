@@ -50,6 +50,7 @@ type Plugin struct {
 	detail        string
 	detailAddr    string
 	detailScroll  int
+	detailHScroll int
 	detailWrap    bool
 	scopedContext string
 }
@@ -205,7 +206,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Detail view — arrows scroll, w toggles wrap, esc goes back
+	// Detail view — arrows scroll, left/right pan, w toggles wrap, esc goes back
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
 		case "esc":
@@ -213,6 +214,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			e.detail = ""
 			e.detailAddr = ""
 			e.detailScroll = 0
+			e.detailHScroll = 0
 			e.filtering = true
 		case "down":
 			e.detailScroll++
@@ -220,9 +222,17 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			if e.detailScroll > 0 {
 				e.detailScroll--
 			}
+		case "right":
+			e.detailHScroll += 10
+		case "left":
+			e.detailHScroll -= 10
+			if e.detailHScroll < 0 {
+				e.detailHScroll = 0
+			}
 		case "w":
 			e.detailWrap = !e.detailWrap
 			e.detailScroll = 0
+			e.detailHScroll = 0
 		}
 		return nil
 	}
@@ -474,6 +484,8 @@ func (e *Plugin) renderDetail(width, height int) string {
 	title := sdk.StyleTitle.Render("Resource Detail")
 	address := sdk.StyleKey.Render(e.detailAddr)
 
+	// Fixed header takes 2 lines (title + address)
+	headerLines := 4
 	contentWidth := width - 6
 	if contentWidth < 40 {
 		contentWidth = 40
@@ -482,9 +494,17 @@ func (e *Plugin) renderDetail(width, height int) string {
 	lines := strings.Split(e.detail, "\n")
 	if e.detailWrap {
 		lines = wrapLines(lines, contentWidth)
+	} else if e.detailHScroll > 0 {
+		for i, line := range lines {
+			if e.detailHScroll < len(line) {
+				lines[i] = line[e.detailHScroll:]
+			} else {
+				lines[i] = ""
+			}
+		}
 	}
 
-	maxLines := height - 6
+	maxLines := height - headerLines - 4
 	if maxLines < 5 {
 		maxLines = 5
 	}
@@ -517,7 +537,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		wrapIndicator = "on"
 	}
 
-	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  w wrap(%s)  Esc back", wrapIndicator))
+	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  w wrap(%s)  Esc back", wrapIndicator))
 
 	content := title + "\n" + address + scrollInfo + "\n\n" + detail + "\n\n" + hint
 	return sdk.StylePadded.Render(content)
