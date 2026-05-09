@@ -31,8 +31,14 @@ run = """
 set -euo pipefail
 go test -coverprofile=coverage.out ./...
 go tool cover -func=coverage.out
+total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+echo "Total coverage: ${total}%"
+if (( $(echo "$total < 100" | bc -l) )); then
+  echo "ERROR: Coverage is below 100% (got ${total}%)"
+  exit 1
+fi
 """
-description = "Run Go tests with coverage report"
+description = "Run Go tests with 100% coverage requirement"
 
 [tasks.run]
 run = "go run ./cmd/tfui"
