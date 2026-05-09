@@ -195,7 +195,6 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		e.log.Debug("state.deleted", "address", msg.Address)
 		return e, e.Refresh()
 
-
 	case ResourceDetailMsg:
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()

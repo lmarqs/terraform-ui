@@ -30,14 +30,14 @@ func (m *mockService) Workspace(_ context.Context) (string, error)      { return
 func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 	return []string{"default"}, nil
 }
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error  { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string) error     { return nil }
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string) error  { return nil }
-func (m *mockService) StateRm(_ context.Context, _ string) error          { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error     { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error        { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error            { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error          { return nil }
+func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error    { return nil }
+func (m *mockService) WorkspaceNew(_ context.Context, _ string) error       { return nil }
+func (m *mockService) WorkspaceDelete(_ context.Context, _ string) error    { return nil }
+func (m *mockService) StateRm(_ context.Context, _ string) error            { return nil }
+func (m *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
+func (m *mockService) Import(_ context.Context, _, _ string) error          { return nil }
+func (m *mockService) Taint(_ context.Context, _ string) error              { return nil }
+func (m *mockService) Untaint(_ context.Context, _ string) error            { return nil }
 func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
 func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
 	return m.outputResult, m.outputErr

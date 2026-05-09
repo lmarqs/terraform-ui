@@ -329,7 +329,7 @@ func detectBinary() string {
 
 func (p *Plugin) Status() Status       { return p.status }
 func (p *Plugin) Input() string        { return p.input }
-func (p *Plugin) History() []replEntry  { return p.history }
+func (p *Plugin) History() []replEntry { return p.history }
 func (p *Plugin) HistoryIdx() int      { return p.historyIdx }
 func (p *Plugin) PastInputs() []string { return p.pastInputs }
 func (p *Plugin) Dir() string          { return p.dir }
