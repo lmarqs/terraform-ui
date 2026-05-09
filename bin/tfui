@@ -25,6 +25,7 @@ Usage: tfui <command> [options] [-- terraform_args]
 Commands:
   plan      Run terraform plan and display tree view
   apply     Plan, confirm, and apply changes
+  diff      Compare current plan against previous plan
   version   Print version
   help      Show this help
 
@@ -33,11 +34,15 @@ Options:
   --mode <mode>      UI mode: auto, rich, simple, plain (default: auto)
   --message <msg>    Spinner message
   --auto-approve     Skip confirmation (apply only)
+  --diff             Show plan-over-plan diff after planning (plan only)
+  --format <fmt>     Diff output format: json, human (default: json)
   --                 Pass remaining args to terraform
 
 Examples:
   tfui plan
   tfui plan --dir ./modules/vpc
+  tfui plan --diff --format human
+  tfui diff --dir ./modules/vpc --format human
   tfui apply --auto-approve
   tfui plan -- -target=aws_instance.web
 EOF
@@ -64,13 +69,15 @@ _tfui_cli_setup_fd3() {
 # -- Subcommands --------------------------------------------------------------
 
 _tfui_cli_plan() {
-  local dir="." mode="auto" message="Planning" tf_args=""
+  local dir="." mode="auto" message="Planning" tf_args="" show_diff=false diff_format="json"
 
   while [ $# -gt 0 ]; do
     case "$1" in
       --dir) dir="$2"; shift 2 ;;
       --mode) mode="$2"; shift 2 ;;
       --message) message="$2"; shift 2 ;;
+      --diff) show_diff=true; shift ;;
+      --format) diff_format="$2"; shift 2 ;;
       --) shift; tf_args="$*"; break ;;
       -*) _tfui_cli_die "unknown option: $1" ;;
       *) _tfui_cli_die "unexpected argument: $1" ;;
@@ -87,6 +94,30 @@ _tfui_cli_plan() {
   _tfui_cli_setup_fd3
   tfui_init "$dir" "$mode"
   tfui_plan "$message" "$tf_args" --out "$plan_file"
+
+  if [ "$show_diff" = "true" ]; then
+    echo ""
+    tfui_diff "$dir" "$diff_format" || true
+  fi
+}
+
+_tfui_cli_diff() {
+  local dir="." format="json"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir) dir="$2"; shift 2 ;;
+      --format) format="$2"; shift 2 ;;
+      -*) _tfui_cli_die "unknown option: $1" ;;
+      *) _tfui_cli_die "unexpected argument: $1" ;;
+    esac
+  done
+
+  [ -d "$dir" ] || _tfui_cli_die "directory not found: $dir"
+
+  command -v jq >/dev/null 2>&1 || _tfui_cli_die "jq not found in PATH"
+
+  tfui_diff "$dir" "$format"
 }
 
 _tfui_cli_apply() {
@@ -135,6 +166,7 @@ fi
 case "$1" in
   plan)    shift; _tfui_cli_plan "$@" ;;
   apply)   shift; _tfui_cli_apply "$@" ;;
+  diff)    shift; _tfui_cli_diff "$@" ;;
   version) echo "tfui $_TFUI_CLI_VERSION" ;;
   help)    _tfui_cli_usage ;;
   *)       _tfui_cli_die "unknown command: $1 (see 'tfui help')" ;;
