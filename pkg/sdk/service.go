@@ -33,4 +33,7 @@ type Service interface {
 
 	// WorkspaceDelete deletes the specified terraform workspace.
 	WorkspaceDelete(ctx context.Context, name string) error
+
+	// WithDir returns a new Service instance scoped to the given working directory.
+	WithDir(dir string) Service
 }

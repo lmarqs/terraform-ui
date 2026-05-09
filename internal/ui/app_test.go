@@ -54,6 +54,7 @@ func (s *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 func (s *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
 func (s *mockService) WorkspaceNew(_ context.Context, _ string) error    { return nil }
 func (s *mockService) WorkspaceDelete(_ context.Context, _ string) error { return nil }
+func (s *mockService) WithDir(_ string) terraform.Service                { return s }
 
 func setupTestApp() App {
 	cfg := config.Config{

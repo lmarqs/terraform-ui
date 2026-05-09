@@ -2,7 +2,7 @@ package components
 
 import (
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 type StatusBar struct{}
@@ -10,16 +10,16 @@ type StatusBar struct{}
 func NewStatusBar() StatusBar { return StatusBar{} }
 
 var statusStyle = lipgloss.NewStyle().
-	Background(styles.ColorBg).
-	Foreground(styles.ColorText).
+	Background(sdk.ColorBg).
+	Foreground(sdk.ColorText).
 	Padding(0, 1)
 
 func (s StatusBar) Render(width int) string {
-	bindings := styles.StyleKey.Render("q") + " quit  " +
-		styles.StyleKey.Render("esc") + " back  " +
-		styles.StyleKey.Render("?") + " help  " +
-		styles.StyleKey.Render("/") + " search  " +
-		styles.StyleKey.Render("↑↓") + " navigate"
+	bindings := sdk.StyleKey.Render("q") + " quit  " +
+		sdk.StyleKey.Render("esc") + " back  " +
+		sdk.StyleKey.Render("?") + " help  " +
+		sdk.StyleKey.Render("/") + " search  " +
+		sdk.StyleKey.Render("↑↓") + " navigate"
 
 	return statusStyle.Width(width).Render(bindings)
 }

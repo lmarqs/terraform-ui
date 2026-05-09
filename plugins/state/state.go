@@ -39,6 +39,7 @@ type ResourceDetailMsg struct {
 type Plugin struct {
 	svc        sdk.Service
 	log        *slog.Logger
+	session    *sdk.Session
 	status     Status
 	resources  []sdk.Resource
 	filtered   []sdk.Resource
@@ -77,6 +78,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
+	e.session = ctx.Session
 	e.status = StatusIdle
 	e.resources = nil
 	e.filtered = nil
@@ -91,6 +93,16 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Activate triggers state loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
+		// Check if there's an active project to scope to
+		if e.session != nil {
+			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
+				e.svc = e.svc.WithDir(dir)
+			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
+				e.status = StatusError
+				e.errMsg = "Select a project first (press m)"
+				return nil
+			}
+		}
 		e.status = StatusLoading
 		return e.loadState()
 	}

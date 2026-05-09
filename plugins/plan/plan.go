@@ -88,6 +88,17 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
+		// Check if there's an active project to scope to
+		if e.session != nil {
+			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
+				e.svc = e.svc.WithDir(dir)
+			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
+				// Multi-project mode but no project selected
+				e.status = StatusError
+				e.errMsg = "Select a project first (press m)"
+				return nil
+			}
+		}
 		e.status = StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
 		return e.runPlan()

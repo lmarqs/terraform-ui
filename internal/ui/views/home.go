@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -58,20 +57,20 @@ func (v HomeView) Render(width, height int) string {
 
 	var b strings.Builder
 	for i, item := range v.items {
-		key := styles.StyleKey.Width(3).Render(fmt.Sprintf("[%s]", item.Key))
+		key := sdk.StyleKey.Width(3).Render(fmt.Sprintf("[%s]", item.Key))
 		label := labelStyle.Render(item.Label)
-		desc := styles.StyleFaint.Render(item.Description)
+		desc := sdk.StyleFaint.Render(item.Description)
 
 		row := fmt.Sprintf("%s %s %s", key, label, desc)
 		if i == v.selected {
-			row = styles.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
 	}
 
-	hint := styles.StyleFaintItalic.Render("Press a key or use j/k + Enter to select an action")
+	hint := sdk.StyleFaintItalic.Render("Press a key or use j/k + Enter to select an action")
 
-	content := styles.StyleTitle.Render("terraform-ui") + "\n\n" + b.String() + "\n" + hint
-	return styles.StylePadded.Render(content)
+	content := sdk.StyleTitle.Render("terraform-ui") + "\n\n" + b.String() + "\n" + hint
+	return sdk.StylePadded.Render(content)
 }

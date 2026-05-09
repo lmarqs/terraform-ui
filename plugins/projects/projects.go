@@ -40,6 +40,7 @@ type Project struct {
 type Plugin struct {
 	svc      sdk.Service
 	cfg      config.Config
+	session  *sdk.Session
 	status   Status
 	projects []Project
 	selected int
@@ -80,6 +81,7 @@ func (e *Plugin) SetConfig(cfg config.Config) {
 // Init initializes the plugin with shared context. Does not auto-discover.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
+	e.session = ctx.Session
 	e.status = StatusIdle
 	e.projects = nil
 	e.filtered = nil
@@ -139,6 +141,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.status = StatusDone
 			e.projects = msg.Projects
 			e.filtered = msg.Projects
+			if e.session != nil {
+				e.session.Set(sdk.SessionKeyProjectCount, len(msg.Projects))
+			}
 		}
 		return e, nil
 
@@ -193,6 +198,10 @@ func (e *Plugin) SelectCurrent() {
 		for i, p := range e.projects {
 			if p.Path == selectedProject.Path {
 				e.active = i
+				if e.session != nil {
+					e.session.Set(sdk.SessionKeyActiveProject, p.Path)
+					e.session.Set(sdk.SessionKeyActiveProjectAbs, p.AbsPath)
+				}
 				break
 			}
 		}

@@ -40,6 +40,7 @@ func (m *mockService) WorkspaceNew(_ context.Context, _ string) error {
 func (m *mockService) WorkspaceDelete(_ context.Context, _ string) error {
 	return m.workspaceDeleteErr
 }
+func (m *mockService) WithDir(_ string) sdk.Service { return m }
 
 func TestNew(t *testing.T) {
 	svc := &mockService{}

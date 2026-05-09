@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 type Header struct {
@@ -21,23 +21,23 @@ func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
 }
 
 var headerStyle = lipgloss.NewStyle().
-	Background(styles.ColorBg).
-	Foreground(styles.ColorText).
+	Background(sdk.ColorBg).
+	Foreground(sdk.ColorText).
 	Bold(true).
 	Padding(0, 1)
 
 func (h Header) Render(width int) string {
 	left := fmt.Sprintf("%s %s  %s %s  %s %s",
-		styles.StyleKey.Render("workspace:"),
+		sdk.StyleKey.Render("workspace:"),
 		h.workspace,
-		styles.StyleKey.Render("dir:"),
+		sdk.StyleKey.Render("dir:"),
 		h.dir,
-		styles.StyleKey.Render("binary:"),
+		sdk.StyleKey.Render("binary:"),
 		h.binaryName,
 	)
 
 	right := fmt.Sprintf("%s %d",
-		styles.StyleKey.Render("resources:"),
+		sdk.StyleKey.Render("resources:"),
 		h.resourceCount,
 	)
 

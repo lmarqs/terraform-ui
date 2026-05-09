@@ -37,6 +37,14 @@ func NewService(workingDir, binaryPath string) *TerraformService {
 	}
 }
 
+// WithDir returns a new TerraformService scoped to the given working directory.
+func (s *TerraformService) WithDir(dir string) Service {
+	return &TerraformService{
+		workingDir: dir,
+		binaryPath: s.binaryPath,
+	}
+}
+
 func (s *TerraformService) newTerraform() (*tfexec.Terraform, error) {
 	tf, err := tfexec.NewTerraform(s.workingDir, s.binaryPath)
 	if err != nil {
