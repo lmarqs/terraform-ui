@@ -3,9 +3,9 @@ package state
 import (
 	"context"
 	"errors"
-	"testing"
 	"io"
 	"log/slog"
+	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"

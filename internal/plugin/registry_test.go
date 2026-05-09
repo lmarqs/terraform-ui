@@ -18,13 +18,13 @@ type mockPlugin struct {
 	ready       bool
 }
 
-func (m *mockPlugin) ID() string                             { return m.id }
-func (m *mockPlugin) Name() string                           { return m.name }
-func (m *mockPlugin) Description() string                    { return m.description }
-func (m *mockPlugin) KeyBinding() string                     { return m.keyBinding }
-func (m *mockPlugin) Init(_ *Context) tea.Cmd                { return nil }
-func (m *mockPlugin) Update(_ tea.Msg) (Plugin, tea.Cmd)     { return m, nil }
-func (m *mockPlugin) View(_, _ int) string                   { return "mock view" }
+func (m *mockPlugin) ID() string                         { return m.id }
+func (m *mockPlugin) Name() string                       { return m.name }
+func (m *mockPlugin) Description() string                { return m.description }
+func (m *mockPlugin) KeyBinding() string                 { return m.keyBinding }
+func (m *mockPlugin) Init(_ *Context) tea.Cmd            { return nil }
+func (m *mockPlugin) Update(_ tea.Msg) (Plugin, tea.Cmd) { return m, nil }
+func (m *mockPlugin) View(_, _ int) string               { return "mock view" }
 func (m *mockPlugin) Configure(cfg map[string]interface{}) error {
 	m.configured = cfg
 	return nil

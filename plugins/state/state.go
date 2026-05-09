@@ -38,7 +38,7 @@ type ResourceDetailMsg struct {
 // Plugin implements the state browser feature.
 type Plugin struct {
 	svc        sdk.Service
-	log      *slog.Logger
+	log        *slog.Logger
 	status     Status
 	resources  []sdk.Resource
 	filtered   []sdk.Resource

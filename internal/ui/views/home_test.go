@@ -16,15 +16,15 @@ type testPlugin struct {
 	keyBinding  string
 }
 
-func (p *testPlugin) ID() string                                        { return p.id }
-func (p *testPlugin) Name() string                                      { return p.name }
-func (p *testPlugin) Description() string                               { return p.description }
-func (p *testPlugin) KeyBinding() string                                { return p.keyBinding }
-func (p *testPlugin) Init(_ *sdk.Context) tea.Cmd                    { return nil }
-func (p *testPlugin) Update(_ tea.Msg) (sdk.Plugin, tea.Cmd)         { return p, nil }
-func (p *testPlugin) View(_, _ int) string                              { return "" }
-func (p *testPlugin) Configure(_ map[string]interface{}) error          { return nil }
-func (p *testPlugin) Ready() bool                                       { return true }
+func (p *testPlugin) ID() string                               { return p.id }
+func (p *testPlugin) Name() string                             { return p.name }
+func (p *testPlugin) Description() string                      { return p.description }
+func (p *testPlugin) KeyBinding() string                       { return p.keyBinding }
+func (p *testPlugin) Init(_ *sdk.Context) tea.Cmd              { return nil }
+func (p *testPlugin) Update(_ tea.Msg) (sdk.Plugin, tea.Cmd)   { return p, nil }
+func (p *testPlugin) View(_, _ int) string                     { return "" }
+func (p *testPlugin) Configure(_ map[string]interface{}) error { return nil }
+func (p *testPlugin) Ready() bool                              { return true }
 
 // Verify testPlugin satisfies the interface at compile time.
 var _ sdk.Plugin = (*testPlugin)(nil)
