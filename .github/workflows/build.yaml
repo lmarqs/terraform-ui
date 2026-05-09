@@ -14,15 +14,32 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Prepare Environment
         uses: ./.github/actions/prepare-env
 
+      - name: Compute next version
+        run: |
+          next=$(git-cliff --bumped-version | sed 's/^v//')
+          echo "$next" > VERSION
+          echo "Next version: $next"
+
       - name: Build
         run: mise run build
+
+      - name: Generate changelog
+        run: git-cliff --tag "v$(cat VERSION)" --output CHANGELOG.md
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: tfui
           path: dist/
+
+      - name: Upload changelog
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: CHANGELOG.md

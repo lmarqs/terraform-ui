@@ -2,6 +2,7 @@
 jq = "1"
 bats = "1"
 terraform = "1.14"
+"git-cliff" = "2"
 
 [tasks.setup]
 run = """
@@ -21,6 +22,7 @@ set -euo pipefail
 version="${1:-$(cat VERSION)}"
 mkdir -p dist
 cp -r bin lib VERSION dist/
+chmod +x dist/bin/tfui
 echo "$version" > dist/VERSION
 """
 description = "Package distributable into dist/ (accepts optional version argument)"
@@ -36,6 +38,10 @@ mkdir -p reports
 bats tests/ --report-formatter junit --output ./reports
 """
 description = "Syntax check and run test suite"
+
+[tasks.changelog]
+run = "git-cliff --output CHANGELOG.md"
+description = "Generate CHANGELOG.md from conventional commits"
 
 [tasks."coverage:run"]
 depends = ["setup"]
