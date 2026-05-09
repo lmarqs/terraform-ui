@@ -12,6 +12,7 @@ on:
       - main
 
 env:
+  # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
