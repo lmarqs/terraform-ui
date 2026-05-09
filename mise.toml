@@ -54,7 +54,7 @@ go test -coverprofile=coverage.out $packages
 go tool cover -func=coverage.out
 total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
 echo "Total coverage: ${total}%"
-if (( $(echo "$total < 90" | bc -l) )); then
+if awk "BEGIN {exit !($total < 90)}"; then
   echo "ERROR: Coverage is below 90% (got ${total}%)"
   exit 1
 fi
