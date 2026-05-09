@@ -1,0 +1,17 @@
+title: terraform-ui
+description: Interactive terminal UI for Terraform operations
+url: https://lmarqs.github.io/terraform-ui
+baseurl: /terraform-ui
+
+theme: minima
+
+header_pages:
+  - index.md
+  - configuration.md
+  - risk-analysis.md
+  - phantom-changes.md
+  - blast-radius.md
+  - cli-reference.md
+
+plugins:
+  - jekyll-seo-tag
