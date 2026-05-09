@@ -5,12 +5,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the risk plugin.
+// Status represents the current state of the risk sdk.
 type Status int
 
 const (
@@ -20,22 +18,22 @@ const (
 
 // RiskGroup holds changes grouped by risk level.
 type RiskGroup struct {
-	Level   terraform.RiskLevel
-	Changes []terraform.PlanChange
+	Level   sdk.RiskLevel
+	Changes []sdk.PlanChange
 }
 
 // Plugin implements the risk analysis feature.
 type Plugin struct {
-	svc      terraform.Service
+	svc      sdk.Service
 	status   Status
 	groups   []RiskGroup
-	overall  terraform.RiskLevel
+	overall  sdk.RiskLevel
 	selected int
 	total    int
 }
 
-// New creates a new risk analysis plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new risk analysis sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
 	}
@@ -48,7 +46,7 @@ func (e *Plugin) KeyBinding() string  { return "R" }
 func (e *Plugin) Ready() bool         { return e.status == StatusReady }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
-func (e *Plugin) Overall() terraform.RiskLevel {
+func (e *Plugin) Overall() sdk.RiskLevel {
 	return e.overall
 }
 
@@ -58,31 +56,31 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 }
 
 // Init initializes the plugin with shared context.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	return nil
 }
 
 // Analyze processes a plan summary and groups changes by risk.
-func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
+func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = StatusReady
 		e.groups = nil
-		e.overall = terraform.RiskNone
+		e.overall = sdk.RiskNone
 		e.total = 0
 		return
 	}
 
-	e.overall = terraform.OverallRisk(summary.Changes)
+	e.overall = sdk.OverallRisk(summary.Changes)
 	e.total = len(summary.Changes)
 
 	// Group changes by risk level (highest first)
-	byLevel := map[terraform.RiskLevel][]terraform.PlanChange{
-		terraform.RiskCritical: {},
-		terraform.RiskHigh:     {},
-		terraform.RiskMedium:   {},
-		terraform.RiskLow:      {},
-		terraform.RiskNone:     {},
+	byLevel := map[sdk.RiskLevel][]sdk.PlanChange{
+		sdk.RiskCritical: {},
+		sdk.RiskHigh:     {},
+		sdk.RiskMedium:   {},
+		sdk.RiskLow:      {},
+		sdk.RiskNone:     {},
 	}
 
 	for _, c := range summary.Changes {
@@ -90,12 +88,12 @@ func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 	}
 
 	e.groups = make([]RiskGroup, 0)
-	levels := []terraform.RiskLevel{
-		terraform.RiskCritical,
-		terraform.RiskHigh,
-		terraform.RiskMedium,
-		terraform.RiskLow,
-		terraform.RiskNone,
+	levels := []sdk.RiskLevel{
+		sdk.RiskCritical,
+		sdk.RiskHigh,
+		sdk.RiskMedium,
+		sdk.RiskLow,
+		sdk.RiskNone,
 	}
 	for _, level := range levels {
 		if len(byLevel[level]) > 0 {
@@ -110,8 +108,8 @@ func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 	e.selected = 0
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		e.handleKey(msg)
@@ -153,14 +151,14 @@ func (e *Plugin) totalItems() int {
 	return count
 }
 
-// View renders the risk analysis plugin.
+// View renders the risk analysis sdk.
 func (e *Plugin) View(width, height int) string {
-	title := styles.StyleTitle.Render("Risk Analysis")
+	title := sdk.StyleTitle.Render("Risk Analysis")
 
 	switch e.status {
 	case StatusIdle:
-		placeholder := styles.StyleFaintItalic.Render("Run a plan first to analyze risk...")
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		placeholder := sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusReady:
 		return e.renderAnalysis(width, height)
@@ -171,11 +169,11 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderAnalysis(width, height int) string {
-	title := styles.StyleTitle.Render("Risk Analysis")
+	title := sdk.StyleTitle.Render("Risk Analysis")
 
 	if len(e.groups) == 0 {
-		noRisk := styles.StyleSuccess.Render("No changes to analyze.")
-		return styles.StylePadded.Render(title + "\n\n" + noRisk)
+		noRisk := sdk.StyleSuccess.Render("No changes to analyze.")
+		return sdk.StylePadded.Render(title + "\n\n" + noRisk)
 	}
 
 	var b strings.Builder
@@ -196,7 +194,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 		header := e.renderGroupHeader(group)
 		if itemIdx < maxVisible {
 			if itemIdx == e.selected {
-				header = styles.StyleSelected.Width(width - 6).Render(header)
+				header = sdk.StyleSelected.Width(width - 6).Render(header)
 			}
 			b.WriteString(header)
 			b.WriteByte('\n')
@@ -209,7 +207,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 			}
 			row := e.renderChangeRow(change)
 			if itemIdx == e.selected {
-				row = styles.StyleSelected.Width(width - 6).Render(row)
+				row = sdk.StyleSelected.Width(width - 6).Render(row)
 			}
 			b.WriteString(row)
 			b.WriteByte('\n')
@@ -220,52 +218,52 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 
 	// Statistics
 	stats := e.renderStats()
-	hint := styles.StyleFaintItalic.Render("j/k navigate  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Esc back")
 
 	content := title + "\n\n" + b.String() + stats + "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
 func (e *Plugin) renderOverallBanner() string {
 	switch e.overall {
-	case terraform.RiskCritical:
-		return styles.StyleRiskCritical.Render("!! CRITICAL RISK DETECTED !!")
-	case terraform.RiskHigh:
-		return styles.StyleRiskHigh.Render("! HIGH RISK DETECTED !")
-	case terraform.RiskMedium:
-		return styles.StyleRiskMedium.Render("Medium risk - review recommended")
-	case terraform.RiskLow:
-		return styles.StyleRiskLow.Render("Low risk - changes look safe")
+	case sdk.RiskCritical:
+		return sdk.StyleRiskCritical.Render("!! CRITICAL RISK DETECTED !!")
+	case sdk.RiskHigh:
+		return sdk.StyleRiskHigh.Render("! HIGH RISK DETECTED !")
+	case sdk.RiskMedium:
+		return sdk.StyleRiskMedium.Render("Medium risk - review recommended")
+	case sdk.RiskLow:
+		return sdk.StyleRiskLow.Render("Low risk - changes look safe")
 	default:
-		return styles.StyleSuccess.Render("No risk detected")
+		return sdk.StyleSuccess.Render("No risk detected")
 	}
 }
 
 func (e *Plugin) renderGroupHeader(group RiskGroup) string {
 	var label string
 	switch group.Level {
-	case terraform.RiskCritical:
-		label = styles.StyleRiskCritical.Render(fmt.Sprintf("CRITICAL (%d)", len(group.Changes)))
-	case terraform.RiskHigh:
-		label = styles.StyleRiskHigh.Render(fmt.Sprintf("HIGH (%d)", len(group.Changes)))
-	case terraform.RiskMedium:
-		label = styles.StyleRiskMedium.Render(fmt.Sprintf("MEDIUM (%d)", len(group.Changes)))
-	case terraform.RiskLow:
-		label = styles.StyleRiskLow.Render(fmt.Sprintf("LOW (%d)", len(group.Changes)))
+	case sdk.RiskCritical:
+		label = sdk.StyleRiskCritical.Render(fmt.Sprintf("CRITICAL (%d)", len(group.Changes)))
+	case sdk.RiskHigh:
+		label = sdk.StyleRiskHigh.Render(fmt.Sprintf("HIGH (%d)", len(group.Changes)))
+	case sdk.RiskMedium:
+		label = sdk.StyleRiskMedium.Render(fmt.Sprintf("MEDIUM (%d)", len(group.Changes)))
+	case sdk.RiskLow:
+		label = sdk.StyleRiskLow.Render(fmt.Sprintf("LOW (%d)", len(group.Changes)))
 	default:
-		label = styles.StyleFaint.Render(fmt.Sprintf("NONE (%d)", len(group.Changes)))
+		label = sdk.StyleFaint.Render(fmt.Sprintf("NONE (%d)", len(group.Changes)))
 	}
 	return "--- " + label + " ---"
 }
 
-func (e *Plugin) renderChangeRow(change terraform.PlanChange) string {
+func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
 	symbol := actionSymbol(change.Action)
 	address := change.Resource.Address
 	reason := riskReason(change)
 
 	row := fmt.Sprintf("   %s %s", symbol, address)
 	if reason != "" {
-		row += "  " + styles.StyleFaint.Render(reason)
+		row += "  " + sdk.StyleFaint.Render(reason)
 	}
 	return row
 }
@@ -275,14 +273,14 @@ func (e *Plugin) renderStats() string {
 	for _, g := range e.groups {
 		parts = append(parts, fmt.Sprintf("%s: %d", g.Level.String(), len(g.Changes)))
 	}
-	return styles.StyleFaint.Render(fmt.Sprintf("Total: %d changes  [%s]", e.total, strings.Join(parts, " | ")))
+	return sdk.StyleFaint.Render(fmt.Sprintf("Total: %d changes  [%s]", e.total, strings.Join(parts, " | ")))
 }
 
-func riskReason(change terraform.PlanChange) string {
+func riskReason(change sdk.PlanChange) string {
 	switch {
-	case change.Action == terraform.ActionDelete || change.Action == terraform.ActionDeleteThenCreate:
+	case change.Action == sdk.ActionDelete || change.Action == sdk.ActionDeleteThenCreate:
 		return "destructive operation"
-	case change.Action == terraform.ActionUpdate && change.Risk >= terraform.RiskHigh:
+	case change.Action == sdk.ActionUpdate && change.Risk >= sdk.RiskHigh:
 		return "modification of critical resource"
 	case change.IsPhantom:
 		return "phantom change (cosmetic only)"
@@ -291,16 +289,16 @@ func riskReason(change terraform.PlanChange) string {
 	}
 }
 
-func actionSymbol(action terraform.Action) string {
+func actionSymbol(action sdk.Action) string {
 	switch action {
-	case terraform.ActionCreate:
-		return styles.StyleCreate.Render("+")
-	case terraform.ActionUpdate:
-		return styles.StyleUpdate.Render("~")
-	case terraform.ActionDelete:
-		return styles.StyleDelete.Render("-")
-	case terraform.ActionDeleteThenCreate, terraform.ActionCreateThenDelete:
-		return styles.StyleReplace.Render("-/+")
+	case sdk.ActionCreate:
+		return sdk.StyleCreate.Render("+")
+	case sdk.ActionUpdate:
+		return sdk.StyleUpdate.Render("~")
+	case sdk.ActionDelete:
+		return sdk.StyleDelete.Render("-")
+	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
+		return sdk.StyleReplace.Render("-/+")
 	default:
 		return " "
 	}

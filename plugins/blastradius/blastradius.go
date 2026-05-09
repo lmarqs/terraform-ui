@@ -5,12 +5,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the blast radius plugin.
+// Status represents the current state of the blast radius sdk.
 type Status int
 
 const (
@@ -45,13 +43,13 @@ func (s ImpactScore) String() string {
 
 // ModuleImpact holds a module group with its calculated impact score.
 type ModuleImpact struct {
-	Group terraform.ModuleGroup
+	Group sdk.ModuleGroup
 	Score ImpactScore
 }
 
 // Plugin implements the blast radius visualization feature.
 type Plugin struct {
-	svc      terraform.Service
+	svc      sdk.Service
 	status   Status
 	modules  []ModuleImpact
 	selected int
@@ -59,8 +57,8 @@ type Plugin struct {
 	total    int
 }
 
-// New creates a new blast radius plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new blast radius sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc:      svc,
 		expanded: make(map[int]bool),
@@ -83,13 +81,13 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 }
 
 // Init initializes the plugin with shared context.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	return nil
 }
 
 // Analyze processes a plan summary, groups by module, and calculates impact scores.
-func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
+func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = StatusReady
 		e.modules = nil
@@ -99,7 +97,7 @@ func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 
 	e.total = len(summary.Changes)
 
-	groups := terraform.GroupByModule(summary.Changes)
+	groups := sdk.GroupByModule(summary.Changes)
 	e.modules = make([]ModuleImpact, 0, len(groups))
 
 	for _, g := range groups {
@@ -118,8 +116,8 @@ func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 	e.expanded = make(map[int]bool)
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		e.handleKey(msg)
@@ -166,14 +164,14 @@ func (e *Plugin) SelectedModule() *ModuleImpact {
 	return nil
 }
 
-// View renders the blast radius plugin.
+// View renders the blast radius sdk.
 func (e *Plugin) View(width, height int) string {
-	title := styles.StyleTitle.Render("Blast Radius")
+	title := sdk.StyleTitle.Render("Blast Radius")
 
 	switch e.status {
 	case StatusIdle:
-		placeholder := styles.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		placeholder := sdk.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusReady:
 		return e.renderBlastRadius(width, height)
@@ -184,11 +182,11 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderBlastRadius(width, height int) string {
-	title := styles.StyleTitle.Render("Blast Radius")
+	title := sdk.StyleTitle.Render("Blast Radius")
 
 	if len(e.modules) == 0 {
-		noChanges := styles.StyleSuccess.Render("No changes. Blast radius is zero.")
-		return styles.StylePadded.Render(title + "\n\n" + noChanges)
+		noChanges := sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
+		return sdk.StylePadded.Render(title + "\n\n" + noChanges)
 	}
 
 	var b strings.Builder
@@ -217,7 +215,7 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 		mi := e.modules[i]
 		row := e.renderModuleRow(mi, i)
 		if i == e.selected {
-			row = styles.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
@@ -228,9 +226,9 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 		}
 	}
 
-	hint := styles.StyleFaintItalic.Render("j/k navigate  Enter expand  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  Esc back")
 	content := title + "\n\n" + b.String() + "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
 func (e *Plugin) renderOverallSummary() string {
@@ -246,13 +244,13 @@ func (e *Plugin) renderOverallSummary() string {
 
 	switch maxImpact {
 	case ImpactCritical:
-		return styles.StyleRiskCritical.Render("CRITICAL BLAST RADIUS") + "  " + styles.StyleFaint.Render(summary)
+		return sdk.StyleRiskCritical.Render("CRITICAL BLAST RADIUS") + "  " + sdk.StyleFaint.Render(summary)
 	case ImpactHigh:
-		return styles.StyleRiskHigh.Render("High blast radius") + "  " + styles.StyleFaint.Render(summary)
+		return sdk.StyleRiskHigh.Render("High blast radius") + "  " + sdk.StyleFaint.Render(summary)
 	case ImpactModerate:
-		return styles.StyleRiskMedium.Render("Moderate blast radius") + "  " + styles.StyleFaint.Render(summary)
+		return sdk.StyleRiskMedium.Render("Moderate blast radius") + "  " + sdk.StyleFaint.Render(summary)
 	default:
-		return styles.StyleRiskLow.Render("Minimal blast radius") + "  " + styles.StyleFaint.Render(summary)
+		return sdk.StyleRiskLow.Render("Minimal blast radius") + "  " + sdk.StyleFaint.Render(summary)
 	}
 }
 
@@ -264,7 +262,7 @@ func (e *Plugin) renderModuleRow(mi ModuleImpact, idx int) string {
 
 	module := mi.Group.Module
 	impactBadge := renderImpactBadge(mi.Score)
-	changeCount := styles.StyleFaint.Render(fmt.Sprintf("(%d changes)", len(mi.Group.Changes)))
+	changeCount := sdk.StyleFaint.Render(fmt.Sprintf("(%d changes)", len(mi.Group.Changes)))
 
 	// Render action summary bar
 	bar := renderActionBar(mi.Group.Summary)
@@ -288,7 +286,7 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 			row += " " + risk
 		}
 		if change.IsPhantom {
-			row += " " + styles.StylePhantom.Render("(phantom)")
+			row += " " + sdk.StylePhantom.Render("(phantom)")
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
@@ -300,55 +298,55 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 func renderImpactBadge(score ImpactScore) string {
 	switch score {
 	case ImpactCritical:
-		return styles.StyleRiskCritical.Render("[CRITICAL]")
+		return sdk.StyleRiskCritical.Render("[CRITICAL]")
 	case ImpactHigh:
-		return styles.StyleRiskHigh.Render("[HIGH]")
+		return sdk.StyleRiskHigh.Render("[HIGH]")
 	case ImpactModerate:
-		return styles.StyleRiskMedium.Render("[moderate]")
+		return sdk.StyleRiskMedium.Render("[moderate]")
 	case ImpactMinimal:
-		return styles.StyleRiskLow.Render("[minimal]")
+		return sdk.StyleRiskLow.Render("[minimal]")
 	default:
 		return ""
 	}
 }
 
-func renderActionBar(summary terraform.ActionSummary) string {
+func renderActionBar(summary sdk.ActionSummary) string {
 	var parts []string
 	if summary.Add > 0 {
-		parts = append(parts, styles.StyleCreate.Render(fmt.Sprintf("+%d", summary.Add)))
+		parts = append(parts, sdk.StyleCreate.Render(fmt.Sprintf("+%d", summary.Add)))
 	}
 	if summary.Change > 0 {
-		parts = append(parts, styles.StyleUpdate.Render(fmt.Sprintf("~%d", summary.Change)))
+		parts = append(parts, sdk.StyleUpdate.Render(fmt.Sprintf("~%d", summary.Change)))
 	}
 	if summary.Destroy > 0 {
-		parts = append(parts, styles.StyleDelete.Render(fmt.Sprintf("-%d", summary.Destroy)))
+		parts = append(parts, sdk.StyleDelete.Render(fmt.Sprintf("-%d", summary.Destroy)))
 	}
 	if summary.Replace > 0 {
-		parts = append(parts, styles.StyleReplace.Render(fmt.Sprintf("-/+%d", summary.Replace)))
+		parts = append(parts, sdk.StyleReplace.Render(fmt.Sprintf("-/+%d", summary.Replace)))
 	}
 	return strings.Join(parts, " ")
 }
 
-func calculateImpact(group terraform.ModuleGroup) ImpactScore {
+func calculateImpact(group sdk.ModuleGroup) ImpactScore {
 	changeCount := len(group.Changes)
-	maxRisk := terraform.RiskNone
+	maxRisk := sdk.RiskNone
 
 	hasDestructive := false
 	for _, c := range group.Changes {
 		if c.Risk > maxRisk {
 			maxRisk = c.Risk
 		}
-		if c.Action == terraform.ActionDelete || c.Action == terraform.ActionDeleteThenCreate || c.Action == terraform.ActionCreateThenDelete {
+		if c.Action == sdk.ActionDelete || c.Action == sdk.ActionDeleteThenCreate || c.Action == sdk.ActionCreateThenDelete {
 			hasDestructive = true
 		}
 	}
 
 	switch {
-	case maxRisk >= terraform.RiskCritical:
+	case maxRisk >= sdk.RiskCritical:
 		return ImpactCritical
-	case maxRisk >= terraform.RiskHigh || (hasDestructive && changeCount >= 3):
+	case maxRisk >= sdk.RiskHigh || (hasDestructive && changeCount >= 3):
 		return ImpactHigh
-	case changeCount >= 3 || maxRisk >= terraform.RiskMedium:
+	case changeCount >= 3 || maxRisk >= sdk.RiskMedium:
 		return ImpactModerate
 	default:
 		return ImpactMinimal
@@ -364,31 +362,31 @@ func sortByImpact(modules []ModuleImpact) {
 	}
 }
 
-func actionSymbol(action terraform.Action) string {
+func actionSymbol(action sdk.Action) string {
 	switch action {
-	case terraform.ActionCreate:
-		return styles.StyleCreate.Render("+")
-	case terraform.ActionUpdate:
-		return styles.StyleUpdate.Render("~")
-	case terraform.ActionDelete:
-		return styles.StyleDelete.Render("-")
-	case terraform.ActionDeleteThenCreate, terraform.ActionCreateThenDelete:
-		return styles.StyleReplace.Render("-/+")
+	case sdk.ActionCreate:
+		return sdk.StyleCreate.Render("+")
+	case sdk.ActionUpdate:
+		return sdk.StyleUpdate.Render("~")
+	case sdk.ActionDelete:
+		return sdk.StyleDelete.Render("-")
+	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
+		return sdk.StyleReplace.Render("-/+")
 	default:
 		return " "
 	}
 }
 
-func riskBadge(risk terraform.RiskLevel) string {
+func riskBadge(risk sdk.RiskLevel) string {
 	switch risk {
-	case terraform.RiskLow:
-		return styles.StyleRiskLow.Render("[low]")
-	case terraform.RiskMedium:
-		return styles.StyleRiskMedium.Render("[medium]")
-	case terraform.RiskHigh:
-		return styles.StyleRiskHigh.Render("[HIGH]")
-	case terraform.RiskCritical:
-		return styles.StyleRiskCritical.Render("[CRITICAL]")
+	case sdk.RiskLow:
+		return sdk.StyleRiskLow.Render("[low]")
+	case sdk.RiskMedium:
+		return sdk.StyleRiskMedium.Render("[medium]")
+	case sdk.RiskHigh:
+		return sdk.StyleRiskHigh.Render("[HIGH]")
+	case sdk.RiskCritical:
+		return sdk.StyleRiskCritical.Render("[CRITICAL]")
 	default:
 		return ""
 	}

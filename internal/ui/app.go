@@ -7,14 +7,14 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 type App struct {
 	cfg      config.Config
-	svc      terraform.Service
+	svc      sdk.Service
 	registry *plugin.Registry
 	width    int
 	height   int
@@ -23,10 +23,10 @@ type App struct {
 	statusBar components.StatusBar
 	homeView  views.HomeView
 
-	activePlugin plugin.Plugin // nil = home screen
+	activePlugin sdk.Plugin // nil = home screen
 }
 
-func NewApp(cfg config.Config, svc terraform.Service, registry *plugin.Registry) App {
+func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	return App{
 		cfg:       cfg,
 		svc:       svc,

@@ -6,14 +6,6 @@ import (
 	"sort"
 )
 
-// PhantomResult holds the outcome of phantom change detection, including counts
-// and the addresses of resources identified as phantom (cosmetic-only) changes.
-type PhantomResult struct {
-	PhantomCount     int
-	RealCount        int
-	PhantomAddresses []string
-}
-
 // DetectPhantomChanges scans update-type changes and marks those whose attribute
 // diffs are semantically equivalent (e.g., JSON reordering) as phantom. It mutates
 // the IsPhantom field on each qualifying change and returns aggregate results.

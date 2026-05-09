@@ -5,11 +5,10 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// testPlugin implements plugin.Plugin for testing NewHomeView.
+// testPlugin implements sdk.Plugin for testing NewHomeView.
 type testPlugin struct {
 	id          string
 	name        string
@@ -21,25 +20,25 @@ func (p *testPlugin) ID() string                                        { return
 func (p *testPlugin) Name() string                                      { return p.name }
 func (p *testPlugin) Description() string                               { return p.description }
 func (p *testPlugin) KeyBinding() string                                { return p.keyBinding }
-func (p *testPlugin) Init(_ *plugin.Context) tea.Cmd                    { return nil }
-func (p *testPlugin) Update(_ tea.Msg) (plugin.Plugin, tea.Cmd)         { return p, nil }
+func (p *testPlugin) Init(_ *sdk.Context) tea.Cmd                    { return nil }
+func (p *testPlugin) Update(_ tea.Msg) (sdk.Plugin, tea.Cmd)         { return p, nil }
 func (p *testPlugin) View(_, _ int) string                              { return "" }
 func (p *testPlugin) Configure(_ map[string]interface{}) error          { return nil }
 func (p *testPlugin) Ready() bool                                       { return true }
 
 // Verify testPlugin satisfies the interface at compile time.
-var _ plugin.Plugin = (*testPlugin)(nil)
+var _ sdk.Plugin = (*testPlugin)(nil)
 
-func makeTestPlugins() []plugin.Plugin {
-	return []plugin.Plugin{
+func makeTestPlugins() []sdk.Plugin {
+	return []sdk.Plugin{
 		&testPlugin{id: "plan", name: "Plan", description: "Run terraform plan", keyBinding: "p"},
 		&testPlugin{id: "apply", name: "Apply", description: "Run terraform apply", keyBinding: "a"},
 		&testPlugin{id: "state", name: "State", description: "Browse state", keyBinding: "s"},
 	}
 }
 
-// Ensure testPlugin doesn't need terraform.Service (satisfies factory pattern).
-var _ plugin.PluginFactory = func(_ terraform.Service) plugin.Plugin {
+// Ensure testPlugin doesn't need sdk.Service (satisfies factory pattern).
+var _ sdk.PluginFactory = func(_ sdk.Service) sdk.Plugin {
 	return &testPlugin{}
 }
 
@@ -76,7 +75,7 @@ func TestNewHomeView_GeneratesMenuItems(t *testing.T) {
 }
 
 func TestNewHomeView_EmptyPlugins(t *testing.T) {
-	view := NewHomeView([]plugin.Plugin{})
+	view := NewHomeView([]sdk.Plugin{})
 
 	items := view.Items()
 	if len(items) != 0 {

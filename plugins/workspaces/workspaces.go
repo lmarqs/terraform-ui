@@ -6,12 +6,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the workspaces plugin.
+// Status represents the current state of the workspaces sdk.
 type Status int
 
 const (
@@ -37,7 +35,7 @@ type WorkspaceSwitchMsg struct {
 
 // Plugin implements the workspace management feature.
 type Plugin struct {
-	svc        terraform.Service
+	svc        sdk.Service
 	status     Status
 	workspaces []string
 	current    string
@@ -47,8 +45,8 @@ type Plugin struct {
 	creating   bool
 }
 
-// New creates a new workspaces plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new workspaces sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
 	}
@@ -73,7 +71,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 }
 
 // Init initializes the plugin and loads workspaces.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.workspaces = nil
@@ -109,8 +107,8 @@ func (e *Plugin) loadWorkspaces() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case WorkspaceListMsg:
 		if msg.Err != nil {
@@ -241,19 +239,19 @@ func (e *Plugin) DeleteSelected() tea.Cmd {
 	return e.Refresh()
 }
 
-// View renders the workspaces plugin.
+// View renders the workspaces sdk.
 func (e *Plugin) View(width, height int) string {
-	title := styles.StyleTitle.Render("Workspaces")
+	title := sdk.StyleTitle.Render("Workspaces")
 
 	switch e.status {
 	case StatusIdle, StatusLoading:
-		loading := styles.StyleFaintItalic.Render("Loading workspaces...")
-		return styles.StylePadded.Render(title + "\n\n" + loading)
+		loading := sdk.StyleFaintItalic.Render("Loading workspaces...")
+		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
-		errText := styles.StyleError.Render("Error: " + e.errMsg)
-		hint := styles.StyleFaintItalic.Render("Press r to retry, Esc to go back")
-		return styles.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		errText := sdk.StyleError.Render("Error: " + e.errMsg)
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
 		return e.renderWorkspaces(width, height)
@@ -264,13 +262,13 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderWorkspaces(width, height int) string {
-	title := styles.StyleTitle.Render("Workspaces")
+	title := sdk.StyleTitle.Render("Workspaces")
 
 	var b strings.Builder
 
 	// Creating new workspace input
 	if e.creating {
-		prompt := styles.StyleKey.Render("New workspace: ") + e.newName + "_"
+		prompt := sdk.StyleKey.Render("New workspace: ") + e.newName + "_"
 		b.WriteString(prompt)
 		b.WriteString("\n\n")
 	}
@@ -294,37 +292,37 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 		ws := e.workspaces[i]
 		row := e.renderWorkspaceRow(ws, i)
 		if i == e.selected {
-			row = styles.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
 	}
 
-	count := styles.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
-	currentInfo := styles.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
+	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
+	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
 
-	hint := styles.StyleFaintItalic.Render("Enter switch  n new  d delete  r refresh  Esc back")
+	hint := sdk.StyleFaintItalic.Render("Enter switch  n new  d delete  r refresh  Esc back")
 	if e.creating {
-		hint = styles.StyleFaintItalic.Render("Enter confirm  Esc cancel")
+		hint = sdk.StyleFaintItalic.Render("Enter confirm  Esc cancel")
 	}
 
 	content := title + "\n\n" + b.String() + "\n" + count + "  " + currentInfo + "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
 func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {
 	indicator := "  "
-	name := styles.StyleFaint.Render(ws)
+	name := sdk.StyleFaint.Render(ws)
 	if ws == e.current {
-		indicator = styles.StyleSuccess.Render("* ")
-		name = styles.StyleKey.Render(ws)
+		indicator = sdk.StyleSuccess.Render("* ")
+		name = sdk.StyleKey.Render(ws)
 	}
 
 	row := fmt.Sprintf("%s%s", indicator, name)
 
 	// Show badge for default workspace
 	if ws == "default" {
-		row += " " + styles.StyleFaint.Render("(default)")
+		row += " " + sdk.StyleFaint.Render("(default)")
 	}
 
 	return row
