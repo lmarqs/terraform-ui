@@ -29,13 +29,13 @@ func Init(debug bool, version, dir, binary string) {
 	}
 
 	logDir := filepath.Join(home, ".tfui", "logs")
-	if err := os.MkdirAll(logDir, 0o755); err != nil {
+	if err := os.MkdirAll(logDir, 0o700); err != nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 		return
 	}
 
 	logPath := filepath.Join(logDir, fmt.Sprintf("debug-%s.log", time.Now().Format("20060102-150405")))
-	f, err := os.Create(logPath)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 		return

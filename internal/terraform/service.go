@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -107,6 +108,7 @@ func (s *TerraformService) Apply(ctx context.Context, targets []string) error {
 		return fmt.Errorf("running terraform apply: %w", err)
 	}
 
+	os.Remove(planFilePath)
 	logging.Logger().Debug("terraform.result", "cmd", "apply", "duration", time.Since(start).String())
 	return nil
 }
@@ -132,6 +134,7 @@ func (s *TerraformService) StateList(ctx context.Context) ([]Resource, error) {
 }
 
 // Show returns detailed information about a specific resource.
+// Sensitive attribute values are redacted before returning.
 func (s *TerraformService) Show(ctx context.Context, address string) (string, error) {
 	tf, err := s.newTerraform()
 	if err != nil {
@@ -152,7 +155,23 @@ func (s *TerraformService) Show(ctx context.Context, address string) (string, er
 		return "", fmt.Errorf("resource %q not found in state", address)
 	}
 
-	output, err := json.MarshalIndent(resource, "", "  ")
+	redacted := redactSensitiveValues(resource.AttributeValues, resource.SensitiveValues)
+
+	display := struct {
+		Address      string                 `json:"address"`
+		Type         string                 `json:"type"`
+		Name         string                 `json:"name"`
+		ProviderName string                 `json:"provider_name"`
+		Values       map[string]interface{} `json:"values"`
+	}{
+		Address:      resource.Address,
+		Type:         resource.Type,
+		Name:         resource.Name,
+		ProviderName: resource.ProviderName,
+		Values:       redacted,
+	}
+
+	output, err := json.MarshalIndent(display, "", "  ")
 	if err != nil {
 		return "", fmt.Errorf("marshaling resource: %w", err)
 	}
