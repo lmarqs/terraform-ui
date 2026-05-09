@@ -3,11 +3,11 @@ package init
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -253,7 +253,7 @@ func (p *Plugin) renderDone(width, height int) string {
 func (p *Plugin) detect() tea.Cmd {
 	dir := p.dir
 	return func() tea.Msg {
-		binary := detectBinary()
+		binary := config.DetectBinary("")
 		patterns := detectPatterns(dir)
 		return DetectionCompleteMsg{
 			Binary:   binary,
@@ -297,13 +297,6 @@ func (p *Plugin) generateYAML() string {
 	return b.String()
 }
 
-// detectBinary checks which terraform binary is available.
-func detectBinary() string {
-	if _, err := exec.LookPath("tofu"); err == nil {
-		return "tofu"
-	}
-	return "terraform"
-}
 
 // detectPatterns scans the directory for common terraform project layouts.
 func detectPatterns(dir string) []DetectedPattern {
@@ -327,7 +320,7 @@ func detectPatterns(dir string) []DetectedPattern {
 			continue
 		}
 		for _, match := range matches {
-			if hasTerraformFiles(match) {
+			if config.HasTerraformFiles(match) {
 				patterns = append(patterns, DetectedPattern{
 					Pattern: candidate,
 					Enabled: true,
@@ -338,7 +331,7 @@ func detectPatterns(dir string) []DetectedPattern {
 	}
 
 	// Check for root-level .tf files
-	if hasTerraformFiles(absDir) {
+	if config.HasTerraformFiles(absDir) {
 		patterns = append(patterns, DetectedPattern{
 			Pattern: ".",
 			Enabled: true,
@@ -348,24 +341,11 @@ func detectPatterns(dir string) []DetectedPattern {
 	return patterns
 }
 
-// hasTerraformFiles checks if a directory contains .tf or .tofu files.
-func hasTerraformFiles(dir string) bool {
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return false
-	}
-	for _, e := range entries {
-		if !e.IsDir() && (filepath.Ext(e.Name()) == ".tf" || filepath.Ext(e.Name()) == ".tofu") {
-			return true
-		}
-	}
-	return false
-}
 
 // GenerateConfig runs the detection logic non-interactively and returns the YAML content.
 // This is used by the CLI subcommand.
 func GenerateConfig(dir string) (string, error) {
-	binary := detectBinary()
+	binary := config.DetectBinary("")
 	patterns := detectPatterns(dir)
 
 	var b strings.Builder

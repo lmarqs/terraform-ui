@@ -147,7 +147,7 @@ func (c Config) DiscoverProjects() ([]string, error) {
 			if seen[match] {
 				continue
 			}
-			if hasTerraformFiles(match) {
+			if HasTerraformFiles(match) {
 				seen[match] = true
 				rel, err := filepath.Rel(absDir, match)
 				if err != nil {
@@ -174,7 +174,8 @@ func DetectBinary(configured string) string {
 	return "terraform"
 }
 
-func hasTerraformFiles(dir string) bool {
+// HasTerraformFiles checks if a directory contains .tf or .tofu files.
+func HasTerraformFiles(dir string) bool {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return false
