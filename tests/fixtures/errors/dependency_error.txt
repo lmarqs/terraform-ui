@@ -1,0 +1,6 @@
+Error: Cycle detected
+
+  on main.tf:1:
+
+Cycle: aws_security_group.a, aws_security_group.b,
+  aws_security_group.a

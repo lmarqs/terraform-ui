@@ -1,0 +1,5 @@
+Error: Error acquiring the state lock
+
+Another terraform process is already running. If you are sure no other
+process is running, you can release the state lock with:
+  terraform force-unlock <LOCK_ID>

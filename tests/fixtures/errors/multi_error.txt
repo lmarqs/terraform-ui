@@ -1,0 +1,21 @@
+Error: Missing required argument
+
+  with aws_instance.web,
+  on main.tf:12, in resource "aws_instance" "web":
+  12: resource "aws_instance" "web" {
+
+The argument "ami" is required, but no definition was found.
+
+Error: Invalid value for variable
+
+  on variables.tf:5, in variable "instance_count":
+  5: variable "instance_count" {
+
+The variable "instance_count" expected a number but got string.
+
+Warning: Deprecated attribute
+
+  on main.tf:20, in resource "aws_instance" "web":
+  20:   security_groups = ["sg-12345"]
+
+Use vpc_security_group_ids instead.

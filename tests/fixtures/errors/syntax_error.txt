@@ -1,0 +1,6 @@
+Error: Invalid expression
+
+  on main.tf:8, in resource "local_file" "example":
+  8:   content = ${ var.name }
+
+An expression is required but no expression was found.
