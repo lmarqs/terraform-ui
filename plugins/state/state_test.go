@@ -371,10 +371,37 @@ func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	// Type a printable character
+	// Enter filter mode with /, then type
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if !p.filtering {
+		t.Fatal("after '/': expected filtering mode")
+	}
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
 	if p.filter != "w" {
 		t.Errorf("after 'w': filter = %q, want %q", p.filter, "w")
+	}
+}
+
+func TestFilterModeBlocksHotkeys(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusDone
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance"},
+		{Address: "aws_rds_instance.db", Type: "aws_rds_instance"},
+	}
+	p.filtered = p.resources
+
+	// Enter filter mode and type 'r' — should filter, not refresh
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	if p.filter != "rds" {
+		t.Errorf("filter = %q, want %q", p.filter, "rds")
+	}
+	if p.status != StatusDone {
+		t.Errorf("status should remain StatusDone, got %v", p.status)
 	}
 }
 
@@ -913,7 +940,9 @@ func TestHandleKeyDefaultPrintable(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	// Printable chars go to filter in default case
+	// Must enter filter mode first with /
+	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
 	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	if p.filter != "a" {
 		t.Errorf("after 'a' via handleKey: filter = %q, want %q", p.filter, "a")

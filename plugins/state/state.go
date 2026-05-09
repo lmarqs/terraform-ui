@@ -44,6 +44,7 @@ type Plugin struct {
 	resources     []sdk.Resource
 	filtered      []sdk.Resource
 	filter        string
+	filtering     bool
 	errMsg        string
 	selected      int
 	detail        string
@@ -67,6 +68,7 @@ func (e *Plugin) Ready() bool         { return e.status == StatusDone || e.statu
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Filter() string      { return e.filter }
+func (e *Plugin) Filtering() bool     { return e.filtering }
 func (e *Plugin) ResourceCount() int  { return len(e.filtered) }
 func (e *Plugin) TotalCount() int     { return len(e.resources) }
 
@@ -84,6 +86,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.resources = nil
 	e.filtered = nil
 	e.filter = ""
+	e.filtering = false
 	e.errMsg = ""
 	e.selected = 0
 	e.detail = ""
@@ -102,6 +105,7 @@ func (e *Plugin) Activate() tea.Cmd {
 			e.resources = nil
 			e.filtered = nil
 			e.filter = ""
+			e.filtering = false
 			e.errMsg = ""
 			e.selected = 0
 			e.detail = ""
@@ -137,6 +141,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.resources = nil
 	e.filtered = nil
 	e.filter = ""
+	e.filtering = false
 	e.errMsg = ""
 	e.selected = 0
 	e.detail = ""
@@ -208,6 +213,27 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
+	// Filter mode: all keys go to filter input
+	if e.filtering {
+		switch msg.String() {
+		case "esc":
+			e.filtering = false
+		case "enter":
+			e.filtering = false
+		case "backspace", "ctrl+h", "delete":
+			e.BackspaceFilter()
+			if e.filter == "" {
+				e.filtering = false
+			}
+		default:
+			if len(msg.String()) == 1 && msg.String() >= " " {
+				e.AppendFilter(msg.String())
+			}
+		}
+		return nil
+	}
+
+	// Normal mode: hotkeys active
 	switch msg.String() {
 	case "j", "down":
 		e.MoveDown()
@@ -224,14 +250,11 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "g":
 		e.MoveToStart()
 	case "/":
-		// Filter mode is handled by character input below
+		e.filtering = true
+		e.filter = ""
+		e.filtered = e.resources
 	case "backspace", "ctrl+h", "delete":
 		e.BackspaceFilter()
-	default:
-		// Single printable characters go to filter
-		if len(msg.String()) == 1 && msg.String() >= " " {
-			e.AppendFilter(msg.String())
-		}
 	}
 	return nil
 }
@@ -347,7 +370,9 @@ func (e *Plugin) renderResources(width, height int) string {
 	title := sdk.StyleTitle.Render("State Browser")
 
 	filterLine := ""
-	if e.filter != "" {
+	if e.filtering {
+		filterLine = sdk.StyleKey.Render("/ ") + e.filter + "█\n\n"
+	} else if e.filter != "" {
 		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
 	}
 
@@ -388,7 +413,12 @@ func (e *Plugin) renderResources(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
 	}
 
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter inspect  / filter  r refresh  Esc back")
+	var hint string
+	if e.filtering {
+		hint = sdk.StyleFaintItalic.Render("Type to filter  Enter confirm  Esc cancel")
+	} else {
+		hint = sdk.StyleFaintItalic.Render("j/k navigate  Enter inspect  / filter  r refresh  Esc back")
+	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
 	return sdk.StylePadded.Render(content)
