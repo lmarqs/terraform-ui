@@ -297,7 +297,6 @@ func (p *Plugin) generateYAML() string {
 	return b.String()
 }
 
-
 // detectPatterns scans the directory for common terraform project layouts.
 func detectPatterns(dir string) []DetectedPattern {
 	absDir, err := filepath.Abs(dir)
@@ -340,7 +339,6 @@ func detectPatterns(dir string) []DetectedPattern {
 
 	return patterns
 }
-
 
 // GenerateConfig runs the detection logic non-interactively and returns the YAML content.
 // This is used by the CLI subcommand.

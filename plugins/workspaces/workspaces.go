@@ -375,4 +375,3 @@ func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {
 
 	return row
 }
-

@@ -1,7 +1,6 @@
 [tools]
 go = "1.22"
 terraform = "1.14"
-node = "22"
 
 [tasks.fmt]
 run = "gofmt -w cmd/ internal/ plugins/"
@@ -17,15 +16,29 @@ go build -ldflags "-X main.version=${version}" -o dist/tfui ./cmd/tfui
 """
 description = "Build Go binary to dist/tfui (runs fmt + lint first)"
 
+[tasks.setup]
+run = "go install gotest.tools/gotestsum@latest"
+description = "Install test dependencies"
+
 [tasks.test]
 run = "go test ./..."
 description = "Run Go unit tests"
+
+[tasks."test:run"]
+depends = ["lint"]
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+mkdir -p reports
+gotestsum --junitfile reports/junit.xml -- ./...
+"""
+description = "Run tests with JUnit XML output (CI)"
 
 [tasks.lint]
 run = "go vet ./..."
 description = "Run go vet on all packages"
 
-[tasks.coverage]
+[tasks."coverage:run"]
 run = """
 #!/usr/bin/env bash
 set -euo pipefail

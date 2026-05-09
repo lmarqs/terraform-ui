@@ -359,4 +359,3 @@ func sortByImpact(modules []ModuleImpact) {
 		return modules[i].Score > modules[j].Score
 	})
 }
-

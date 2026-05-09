@@ -288,4 +288,3 @@ func riskReason(change sdk.PlanChange) string {
 		return ""
 	}
 }
-

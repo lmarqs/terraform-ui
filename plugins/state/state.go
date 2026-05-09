@@ -296,7 +296,6 @@ func (e *Plugin) BackspaceFilter() {
 	}
 }
 
-
 // SelectedResource returns the currently selected resource.
 func (e *Plugin) SelectedResource() sdk.Resource {
 	if e.selected < len(e.filtered) {

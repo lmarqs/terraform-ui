@@ -637,7 +637,6 @@ func TestDeleteSelectedEmpty(t *testing.T) {
 	}
 }
 
-
 func TestRefresh(t *testing.T) {
 	svc := &mockService{
 		workspaceList: []string{"default"},

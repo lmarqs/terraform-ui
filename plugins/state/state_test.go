@@ -556,7 +556,6 @@ func TestBackspaceFilter(t *testing.T) {
 	}
 }
 
-
 func TestSelectedResource(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)

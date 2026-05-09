@@ -244,7 +244,6 @@ func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) string {
 	return b.String()
 }
 
-
 func explainPhantom(change sdk.PlanChange) string {
 	if len(change.AttributeDiffs) == 0 {
 		return "empty diff detected"

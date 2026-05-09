@@ -29,15 +29,15 @@ type PlanResultMsg struct {
 
 // Plugin implements the plan review feature.
 type Plugin struct {
-	svc          sdk.Service
-	log          *slog.Logger
-	session      *sdk.Session
-	status       Status
-	summary      *sdk.PlanSummary
-	errMsg       string
-	selected     int
-	targets      []string
-	expanded     map[int]bool
+	svc           sdk.Service
+	log           *slog.Logger
+	session       *sdk.Session
+	status        Status
+	summary       *sdk.PlanSummary
+	errMsg        string
+	selected      int
+	targets       []string
+	expanded      map[int]bool
 	scopedProject string // tracks which project the service was scoped to
 }
 
@@ -362,7 +362,6 @@ func (e *Plugin) renderAttributeDiffs(diffs []sdk.AttributeDiff, width int) stri
 	return b.String()
 }
 
-
 func (e *Plugin) renderSummaryLine() string {
 	s := e.summary
 	parts := []string{}
@@ -403,4 +402,3 @@ func (e *Plugin) renderOverallRisk() string {
 		return ""
 	}
 }
-
