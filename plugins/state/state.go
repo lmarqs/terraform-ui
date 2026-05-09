@@ -48,7 +48,7 @@ type Plugin struct {
 	selected      int
 	detail        string
 	detailAddr    string
-	scopedProject string
+	scopedContext string
 }
 
 // New creates a new state browser plugin.
@@ -96,7 +96,7 @@ func (e *Plugin) Activate() tea.Cmd {
 	// Check if the active project changed since last activation
 	if e.session != nil {
 		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
-		if currentProject != e.scopedProject {
+		if currentProject != e.scopedContext {
 			// Project changed — reset state
 			e.status = StatusIdle
 			e.resources = nil
@@ -106,7 +106,7 @@ func (e *Plugin) Activate() tea.Cmd {
 			e.selected = 0
 			e.detail = ""
 			e.detailAddr = ""
-			e.scopedProject = currentProject
+			e.scopedContext = currentProject
 			if currentProject != "" {
 				e.svc = e.svc.WithDir(currentProject)
 			}
@@ -118,7 +118,7 @@ func (e *Plugin) Activate() tea.Cmd {
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
-				e.scopedProject = dir
+				e.scopedContext = dir
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyContextCount); ok && count > 1 {
 				e.status = StatusError
 				e.errMsg = "Select a project first (press m)"

@@ -40,7 +40,7 @@ type Plugin struct {
 	elapsed        time.Duration
 	confirmed      bool
 	totalResources int
-	scopedProject  string
+	scopedContext  string
 }
 
 // New creates a new apply plugin.
@@ -88,17 +88,17 @@ func (e *Plugin) Activate() tea.Cmd {
 	// Check if the active project changed since last activation
 	if e.session != nil {
 		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
-		if currentProject != e.scopedProject {
+		if currentProject != e.scopedContext {
 			// Project changed — reset status
 			e.status = StatusIdle
 			e.errMsg = ""
-			e.scopedProject = currentProject
+			e.scopedContext = currentProject
 			if currentProject != "" {
 				e.svc = e.svc.WithDir(currentProject)
 			}
 		}
 
-		if e.scopedProject == "" {
+		if e.scopedContext == "" {
 			if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyContextCount); ok && count > 1 {
 				e.status = StatusError
 				e.errMsg = "Select a project first (press m)"

@@ -38,7 +38,7 @@ type Plugin struct {
 	selected      int
 	targets       []string
 	expanded      map[int]bool
-	scopedProject string // tracks which project the service was scoped to
+	scopedContext string // tracks which project the service was scoped to
 }
 
 // New creates a new plan plugin.
@@ -91,14 +91,14 @@ func (e *Plugin) Activate() tea.Cmd {
 	// Check if the active project changed since last activation
 	if e.session != nil {
 		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
-		if currentProject != e.scopedProject {
+		if currentProject != e.scopedContext {
 			// Project changed — reset state and re-scope
 			e.status = StatusIdle
 			e.summary = nil
 			e.errMsg = ""
 			e.selected = 0
 			e.expanded = make(map[int]bool)
-			e.scopedProject = currentProject
+			e.scopedContext = currentProject
 			if currentProject != "" {
 				e.svc = e.svc.WithDir(currentProject)
 			}
@@ -110,7 +110,7 @@ func (e *Plugin) Activate() tea.Cmd {
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
-				e.scopedProject = dir
+				e.scopedContext = dir
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyContextCount); ok && count > 1 {
 				// Multi-project mode but no project selected
 				e.status = StatusError
