@@ -3,9 +3,9 @@
 _common_setup() {
   PROJECT_ROOT="$(cd "$BATS_TEST_DIRNAME/.." && pwd)"
 
-  load "$PROJECT_ROOT/tests/test_helper/bats-support/load"
-  load "$PROJECT_ROOT/tests/test_helper/bats-assert/load"
-  load "$PROJECT_ROOT/tests/test_helper/bats-file/load"
+  load "$PROJECT_ROOT/tests/helpers/bats-support/load"
+  load "$PROJECT_ROOT/tests/helpers/bats-assert/load"
+  load "$PROJECT_ROOT/tests/helpers/bats-file/load"
 
   source "$PROJECT_ROOT/lib/tfui.sh"
 

@@ -1,11 +1,12 @@
 [tools]
 jq = "1"
 bats = "1"
+terraform = "1.14"
 
 [tasks.setup]
 run = """
 #!/usr/bin/env bash
-dir="tests/test_helper"
+dir="tests/helpers"
 for lib in bats-support bats-assert bats-file; do
   [ -d "$dir/$lib" ] || git clone --depth 1 "https://github.com/bats-core/$lib.git" "$dir/$lib"
 done

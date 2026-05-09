@@ -2,6 +2,8 @@
 *.tmp
 reports/
 coverage/
-tests/test_helper/bats-support/
-tests/test_helper/bats-assert/
-tests/test_helper/bats-file/
+tests/helpers/bats-support/
+tests/helpers/bats-assert/
+tests/helpers/bats-file/
+tests/fixtures/**/.terraform/
+tests/fixtures/**/.terraform.lock.hcl

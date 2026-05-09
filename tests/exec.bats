@@ -1,7 +1,7 @@
 #!/usr/bin/env bats
 
 setup() {
-  load 'test_helper/common-setup'
+  load 'helpers/common-setup'
   _common_setup
   _TFUI_WORKING_DIR="$BATS_TEST_TMPDIR/workdir"
   _TFUI_OUTPUT_FILE="$BATS_TEST_TMPDIR/output"
