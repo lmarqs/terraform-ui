@@ -209,6 +209,17 @@ mise run run             # Run TUI in dev mode
 | `github.com/anthropics/anthropic-sdk-go` | Claude AI (Bedrock + direct) |
 | `gopkg.in/yaml.v3` | YAML config parsing |
 
+## Agents (`.claude/agents/`)
+
+| Agent | Purpose | When to use |
+|-------|---------|-------------|
+| `test-writer` | Generate table-driven tests | New/modified plugin or internal code needing test coverage |
+| `convention-checker` | Audit CLAUDE.md compliance | Before commits, during PR review, after large refactors |
+| `architect` | Design implementation plans | New plugins or cross-cutting features (before coding) |
+| `security-reviewer` | Terraform-specific security audit | PRs touching terraform service, state display, or AI integration |
+
+Agents run in isolation and can be spawned in parallel. Unlike commands, they don't need conversation context and produce self-contained reports.
+
 ## Important Rules
 
 - Plugins import ONLY `pkg/sdk` — never `internal/`
