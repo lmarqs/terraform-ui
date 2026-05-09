@@ -400,9 +400,9 @@ func (e *Plugin) SetFilter(filter string) {
 	}
 	lower := strings.ToLower(filter)
 	rawTerms := strings.Fields(lower)
-	terms := make([]string, len(rawTerms))
-	for i, t := range rawTerms {
-		terms[i] = stripSeparators(t)
+	var terms []string
+	for _, t := range rawTerms {
+		terms = append(terms, splitTerms(stripSeparators(t))...)
 	}
 	var result []sdk.Resource
 	for _, r := range e.resources {
@@ -426,6 +426,26 @@ func matchAllTerms(text string, terms []string) bool {
 		}
 	}
 	return true
+}
+
+// splitTerms splits a string at letter/digit boundaries.
+// "auro1" -> ["auro", "1"], "aurora" -> ["aurora"], "123" -> ["123"]
+func splitTerms(s string) []string {
+	if s == "" {
+		return nil
+	}
+	var terms []string
+	start := 0
+	for i := 1; i < len(s); i++ {
+		prevDigit := s[i-1] >= '0' && s[i-1] <= '9'
+		currDigit := s[i] >= '0' && s[i] <= '9'
+		if prevDigit != currDigit {
+			terms = append(terms, s[start:i])
+			start = i
+		}
+	}
+	terms = append(terms, s[start:])
+	return terms
 }
 
 func stripSeparators(s string) string {

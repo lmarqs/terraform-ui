@@ -593,6 +593,14 @@ func TestSetFilterSubstring(t *testing.T) {
 		{"rdscluster", 3},
 		{"clusterinstance", 2},
 		{"memorydbcluster", 1},
+		// Digit/letter split: "auro1" -> "auro" AND "1"
+		{"aurora0", 1},
+		{"aurora1", 1},
+		{"aurora2", 1},
+		{"auro0", 1},
+		{"auro1", 1},
+		{"cluster1", 1},
+		{"cluster2", 1},
 	}
 	for _, tt := range tests {
 		p.SetFilter(tt.filter)
