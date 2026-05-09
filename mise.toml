@@ -24,6 +24,7 @@ mkdir -p dist
 cp -r bin lib VERSION dist/
 chmod +x dist/bin/tfui
 echo "$version" > dist/VERSION
+tar -czf "dist/tfui-${version}.tar.gz" -C dist bin lib VERSION
 """
 description = "Package distributable into dist/ (accepts optional version argument)"
 

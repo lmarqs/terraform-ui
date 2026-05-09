@@ -36,7 +36,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfui
-          path: dist/
+          path: |
+            dist/bin/
+            dist/lib/
+            dist/VERSION
+
+      - name: Upload tarball
+        uses: actions/upload-artifact@v4
+        with:
+          name: tarball
+          path: dist/tfui-*.tar.gz
 
       - name: Upload changelog
         uses: actions/upload-artifact@v4
