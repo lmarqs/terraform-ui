@@ -51,6 +51,7 @@ type Plugin struct {
 	detail        string
 	detailAddr    string
 	detailScroll  int
+	detailWrap    bool
 	scopedContext string
 }
 
@@ -205,7 +206,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Detail view — arrows scroll, esc goes back
+	// Detail view — arrows scroll, w toggles wrap, esc goes back
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
 		case "esc":
@@ -220,6 +221,9 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			if e.detailScroll > 0 {
 				e.detailScroll--
 			}
+		case "w":
+			e.detailWrap = !e.detailWrap
+			e.detailScroll = 0
 		}
 		return nil
 	}
@@ -485,7 +489,16 @@ func (e *Plugin) renderDetail(width, height int) string {
 	title := sdk.StyleTitle.Render("Resource Detail")
 	address := sdk.StyleKey.Render(e.detailAddr)
 
+	contentWidth := width - 6
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+
 	lines := strings.Split(e.detail, "\n")
+	if e.detailWrap {
+		lines = wrapLines(lines, contentWidth)
+	}
+
 	maxLines := height - 6
 	if maxLines < 5 {
 		maxLines = 5
@@ -514,8 +527,31 @@ func (e *Plugin) renderDetail(width, height int) string {
 		scrollInfo = sdk.StyleFaint.Render(fmt.Sprintf(" [%d/%d]", e.detailScroll+1, maxScroll+1))
 	}
 
-	hint := sdk.StyleFaintItalic.Render("↑↓ scroll  Esc back")
+	wrapIndicator := "off"
+	if e.detailWrap {
+		wrapIndicator = "on"
+	}
+
+	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  w wrap(%s)  Esc back", wrapIndicator))
 
 	content := title + "\n" + address + scrollInfo + "\n\n" + detail + "\n\n" + hint
 	return sdk.StylePadded.Render(content)
+}
+
+func wrapLines(lines []string, width int) []string {
+	var result []string
+	for _, line := range lines {
+		if len(line) <= width {
+			result = append(result, line)
+			continue
+		}
+		for len(line) > width {
+			result = append(result, line[:width])
+			line = line[width:]
+		}
+		if len(line) > 0 {
+			result = append(result, line)
+		}
+	}
+	return result
 }
