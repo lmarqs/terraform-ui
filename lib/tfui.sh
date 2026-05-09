@@ -147,6 +147,7 @@ tfui_plan() {
   _tfui_run "$message" ": Refreshing state\.\.\.|: Reading\.\.\." "terraform plan -out=tfplan.out $extra_args"
   _tfui_run_sub "Rendering" "terraform show -json tfplan.out > '$plan_file'"
   _tfui_render_plan_tree "$plan_file"
+  _tfui_diff_save_summary "$plan_file" "$_TFUI_WORKING_DIR" 2>/dev/null || true
 }
 
 # @description Check if plan has changes and optionally prompt user for confirmation.
@@ -729,4 +730,207 @@ _tfui_render_plan_tree() {
       "Plan: \(map(select(.change.actions == ["create"])) | length) to add, \(map(select(.change.actions == ["update"])) | length) to change, \(map(select(.change.actions == ["delete"])) | length) to destroy."
     end
   ' "$plan_file"
+}
+
+# -- Diff: plan-over-plan comparison -----------------------------------------
+
+_TFUI_DIFF_DIR_NAME=".tfui/plans"
+_TFUI_DIFF_HISTORY_LIMIT="${TFUI_HISTORY_LIMIT:-10}"
+
+# @description Extract a plan summary from plan JSON and save to .tfui/plans/.
+# @param $1 {string} plan_file - Path to the terraform plan JSON
+# @param $2 {string} working_dir - Workspace directory (for .tfui/ location)
+# @return void
+# @side-effect Creates .tfui/plans/<timestamp>.json
+_tfui_diff_save_summary() {
+  local plan_file="$1"
+  local working_dir="$2"
+  local plans_dir="$working_dir/$_TFUI_DIFF_DIR_NAME"
+  local timestamp
+
+  mkdir -p "$plans_dir"
+  timestamp=$(date -u +%Y%m%dT%H%M%S 2>/dev/null || date +%Y%m%dT%H%M%S)
+
+  jq -c '{
+    timestamp: "'"$timestamp"'",
+    creates: [.resource_changes // [] | .[] | select(.change.actions == ["create"]) | .address] | sort,
+    updates: [.resource_changes // [] | .[] | select(.change.actions == ["update"]) | .address] | sort,
+    destroys: [.resource_changes // [] | .[] | select(.change.actions == ["delete"]) | .address] | sort,
+    replaces: [.resource_changes // [] | .[] | select((.change.actions | sort) == ["create", "delete"]) | .address] | sort
+  }' "$plan_file" > "$plans_dir/${timestamp}.json"
+
+  _tfui_diff_cleanup "$plans_dir"
+}
+
+# @description Remove old plan summaries beyond the history limit.
+# @param $1 {string} plans_dir - Path to .tfui/plans/
+# @return void
+# @side-effect Removes old files
+_tfui_diff_cleanup() {
+  local plans_dir="$1"
+  local files
+
+  files=$(ls -1 "$plans_dir"/*.json 2>/dev/null | sort -r | tail -n +"$((_TFUI_DIFF_HISTORY_LIMIT + 1))")
+  if [ -n "$files" ]; then
+    echo "$files" | xargs rm -f
+  fi
+}
+
+# @description Load the two most recent plan summaries.
+# @param $1 {string} plans_dir - Path to .tfui/plans/
+# @return stdout - JSON object with "current" and "previous" keys (null if missing)
+_tfui_diff_load_latest() {
+  local plans_dir="$1"
+  local current="" previous=""
+
+  if [ ! -d "$plans_dir" ]; then
+    echo '{"current":null,"previous":null}'
+    return
+  fi
+
+  # Sort by filename (descending) — filenames are timestamps so this gives chronological order
+  current=$(ls -1 "$plans_dir"/*.json 2>/dev/null | sort -r | head -1)
+  previous=$(ls -1 "$plans_dir"/*.json 2>/dev/null | sort -r | head -2 | tail -1)
+
+  # If there's only one file, previous equals current — treat as no previous
+  if [ "$current" = "$previous" ]; then
+    previous=""
+  fi
+
+  local current_json="null" previous_json="null"
+  if [ -n "$current" ] && [ -f "$current" ]; then
+    current_json=$(cat "$current")
+  fi
+  if [ -n "$previous" ] && [ -f "$previous" ]; then
+    previous_json=$(cat "$previous")
+  fi
+
+  jq -n --argjson current "$current_json" --argjson previous "$previous_json" \
+    '{current: $current, previous: $previous}'
+}
+
+# @description Compute the diff between two plan summaries.
+# @param $1 {string} current_json - Current plan summary JSON
+# @param $2 {string} previous_json - Previous plan summary JSON
+# @return stdout - Diff JSON with delta, summary, and risk_trend
+_tfui_diff_compute() {
+  local current_json="$1"
+  local previous_json="$2"
+
+  jq -n --argjson current "$current_json" --argjson previous "$previous_json" '
+    def array_diff(a; b): [a[] | select(. as $x | b | index($x) | not)];
+
+    {
+      previous_plan: $previous.timestamp,
+      current_plan: $current.timestamp,
+      delta: {
+        new_creates: array_diff($current.creates; $previous.creates),
+        resolved_creates: array_diff($previous.creates; $current.creates),
+        new_updates: array_diff($current.updates; $previous.updates),
+        resolved_updates: array_diff($previous.updates; $current.updates),
+        new_destroys: array_diff($current.destroys; $previous.destroys),
+        resolved_destroys: array_diff($previous.destroys; $current.destroys),
+        new_replaces: array_diff($current.replaces; $previous.replaces),
+        resolved_replaces: array_diff($previous.replaces; $current.replaces)
+      },
+      summary: {
+        before: {
+          add: ($previous.creates | length),
+          change: ($previous.updates | length),
+          destroy: ($previous.destroys | length),
+          replace: ($previous.replaces | length)
+        },
+        after: {
+          add: ($current.creates | length),
+          change: ($current.updates | length),
+          destroy: ($current.destroys | length),
+          replace: ($current.replaces | length)
+        }
+      },
+      risk_trend: (
+        (($previous.destroys | length) * 3 + ($previous.replaces | length) * 2 + ($previous.updates | length)) as $prev_score |
+        (($current.destroys | length) * 3 + ($current.replaces | length) * 2 + ($current.updates | length)) as $curr_score |
+        if $curr_score < $prev_score then "improving"
+        elif $curr_score > $prev_score then "worsening"
+        else "unchanged"
+        end
+      )
+    }
+  '
+}
+
+# @description Render a human-readable diff summary.
+# @param $1 {string} diff_json - Output from _tfui_diff_compute
+# @return stdout - Human-readable diff lines
+_tfui_diff_render_human() {
+  local diff_json="$1"
+
+  jq -r '
+    def time_label:
+      if . == null then "unknown"
+      else .
+      end;
+
+    "Plan diff (current: \(.current_plan | time_label) vs previous: \(.previous_plan | time_label)):" +
+    (
+      ([
+        (.delta.new_creates[]   | "  ++ \(.) (new create)"),
+        (.delta.resolved_creates[] | "  -- \(.) (create resolved)"),
+        (.delta.new_destroys[]  | "  ++ \(.) (new destroy)"),
+        (.delta.resolved_destroys[] | "  -- \(.) (destroy resolved)"),
+        (.delta.new_updates[]   | "  ~+ \(.) (new update)"),
+        (.delta.resolved_updates[] | "  ~- \(.) (update resolved)"),
+        (.delta.new_replaces[]  | "  ++ \(.) (new replace)"),
+        (.delta.resolved_replaces[] | "  -- \(.) (replace resolved)")
+      ] | if length == 0 then ["  (no changes between plans)"] else . end) | join("\n") | "\n" + .
+    ) +
+    "\n  Risk: \(.risk_trend) (before: \(.summary.before.add) add, \(.summary.before.change) change, \(.summary.before.destroy) destroy | after: \(.summary.after.add) add, \(.summary.after.change) change, \(.summary.after.destroy) destroy)"
+  ' <<< "$diff_json"
+}
+
+# -- Public: diff -------------------------------------------------------------
+
+# @description Compare the current plan against the previous plan.
+# @param $1 {string} working_dir - Workspace directory containing .tfui/plans/
+# @param $2 {string} [format] - Output format: "json" or "human" (default: "json")
+# @return stdout - Diff output (JSON or human-readable)
+# @return exit_code - 0 on success, 1 if no previous plan exists
+tfui_diff() {
+  local working_dir="$1"
+  local format="${2:-json}"
+  local plans_dir="$working_dir/$_TFUI_DIFF_DIR_NAME"
+
+  local pair
+  pair=$(_tfui_diff_load_latest "$plans_dir")
+
+  local current previous
+  current=$(jq -c '.current' <<< "$pair")
+  previous=$(jq -c '.previous' <<< "$pair")
+
+  if [ "$current" = "null" ]; then
+    if [ "$format" = "human" ]; then
+      echo "No plan history found. Run 'tfui plan' first."
+    else
+      echo '{"error":"no_plan_history"}'
+    fi
+    return 1
+  fi
+
+  if [ "$previous" = "null" ]; then
+    if [ "$format" = "human" ]; then
+      echo "Only one plan in history. Run 'tfui plan' again after making changes to see a diff."
+    else
+      echo '{"error":"no_previous_plan"}'
+    fi
+    return 1
+  fi
+
+  local diff_result
+  diff_result=$(_tfui_diff_compute "$current" "$previous")
+
+  if [ "$format" = "human" ]; then
+    _tfui_diff_render_human "$diff_result"
+  else
+    echo "$diff_result"
+  fi
 }
