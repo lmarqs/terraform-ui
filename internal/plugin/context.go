@@ -2,9 +2,14 @@ package plugin
 
 import "github.com/lmarqs/terraform-ui/internal/terraform"
 
-// Context provides shared state that plugins can read.
+// Context provides shared state passed to plugins during initialization.
+// It contains the working directory, active workspace, and the terraform
+// service instance that plugins use to execute operations.
 type Context struct {
-	Dir       string
+	// Dir is the working directory for terraform operations.
+	Dir string
+	// Workspace is the name of the currently active terraform workspace.
 	Workspace string
-	Service   terraform.Service
+	// Service is the terraform service used to run plan, apply, and state operations.
+	Service terraform.Service
 }

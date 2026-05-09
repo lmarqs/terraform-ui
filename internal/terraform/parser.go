@@ -1,6 +1,7 @@
 package terraform
 
-// RiskLevel classifies the risk of a planned change.
+// RiskLevel classifies the risk severity of a planned infrastructure change,
+// ranging from RiskNone (no risk) to RiskCritical (potentially destructive).
 type RiskLevel int
 
 const (
@@ -11,6 +12,7 @@ const (
 	RiskCritical
 )
 
+// String returns the lowercase string representation of the risk level.
 func (r RiskLevel) String() string {
 	switch r {
 	case RiskLow:
@@ -26,7 +28,8 @@ func (r RiskLevel) String() string {
 	}
 }
 
-// Action represents the type of change terraform will make.
+// Action represents the type of change terraform will make to a resource
+// (create, update, delete, or replace variants).
 type Action string
 
 const (
@@ -39,7 +42,8 @@ const (
 	ActionNoOp             Action = "no-op"
 )
 
-// Resource represents a terraform resource in state.
+// Resource represents a terraform-managed resource identified by its address,
+// type, logical name, module path, and provider.
 type Resource struct {
 	Address      string
 	Type         string
@@ -48,7 +52,8 @@ type Resource struct {
 	ProviderName string
 }
 
-// AttributeDiff represents a change to a single attribute.
+// AttributeDiff represents a change to a single resource attribute,
+// capturing the old and new values along with sensitivity and force-new flags.
 type AttributeDiff struct {
 	Key       string
 	OldValue  string
@@ -57,7 +62,8 @@ type AttributeDiff struct {
 	ForcesNew bool
 }
 
-// PlanChange represents a single resource change in a plan.
+// PlanChange represents a single resource change in a terraform plan, including
+// the action to be taken, attribute-level diffs, computed risk, and phantom status.
 type PlanChange struct {
 	Resource       Resource
 	Action         Action
@@ -66,7 +72,8 @@ type PlanChange struct {
 	IsPhantom      bool
 }
 
-// PlanSummary holds aggregate information about a plan.
+// PlanSummary holds the full set of resource changes from a terraform plan
+// along with aggregate counts by action type.
 type PlanSummary struct {
 	Changes   []PlanChange
 	ToCreate  int
