@@ -95,6 +95,7 @@ Dockerfile.coverage      — kcov coverage runner
 - `silent` — no UI (plain mode)
 - `spinner` — one-line animated spinner (simple mode)
 - `progress` — two-line: spinner + progress bar (rich mode)
+- `agent` — no UI, structured JSON output (agent mode)
 
 ## Mise Tasks
 
@@ -114,6 +115,7 @@ Run a single test file: `bats tests/format.bats`
 2. Run `mise run test:run` to syntax-check and test
 3. Run `mise run build` to produce dist/
 4. Keep public API stable (`tfui_init`, `tfui_plan`, `tfui_confirm`, `tfui_apply`)
+5. Test agent mode output: `tfui plan --dir tests/fixtures/<name> --mode agent | jq .`
 
 ## Testing
 

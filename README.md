@@ -5,7 +5,7 @@ Animated terminal feedback for `terraform plan` and `terraform apply` — spinne
 **Type:** CLI + embeddable bash library
 **Invocation:** `tfui plan`, `tfui apply`, or `source lib/tfui.sh`
 **Input:** Terraform root module directory
-**Output:** Tree-view diff (stdout), animations (fd3)
+**Output:** Tree-view diff (stdout) or structured JSON (`--mode agent`), animations (fd3)
 **Dependencies:** bash 3.2+, jq, terraform
 
 ## What It Looks Like
@@ -160,7 +160,43 @@ Additional commands: `tfui version`, `tfui help`.
 | `auto` | *(detected)* | Rich if terminal available, plain otherwise |
 | `rich` | progress | Two-line UI: spinner + progress bar |
 | `simple` | spinner | One-line spinner with elapsed time |
-| `plain` | silent | No UI output, captures silently |
+| `plain` | silent | No UI output, tree-view on stdout |
+| `agent` | agent | No UI output, structured JSON on stdout |
+
+### Agent Mode
+
+Use `--mode agent` when terraform-ui is consumed by AI agents, MCP tools, or automation that needs structured data instead of human-readable text.
+
+```bash
+tfui plan --dir ./modules/vpc --mode agent
+```
+
+Output:
+
+```json
+{
+  "has_changes": true,
+  "summary": { "add": 1, "change": 1, "destroy": 1, "replace": 0 },
+  "changes": [
+    { "action": "create", "address": "aws_instance.web", "risk": "low" },
+    { "action": "update", "address": "aws_security_group.allow_tls", "risk": "medium" },
+    { "action": "delete", "address": "aws_iam_role.old_role", "risk": "high" }
+  ],
+  "risk_level": "high",
+  "destructive": true
+}
+```
+
+Each change includes a `risk` classification based on resource type and action:
+
+| Risk | Trigger |
+|------|---------|
+| `critical` | Delete/replace databases, storage, KMS keys |
+| `high` | Delete/replace IAM, networking, compute clusters; update critical resources |
+| `medium` | Update high-risk resources; modify security groups, DNS |
+| `low` | Create operations on non-critical resources |
+
+The plan-level `risk_level` is the maximum across all changes. `destructive` is `true` if any change is a delete or replace.
 
 ### File Descriptors
 
