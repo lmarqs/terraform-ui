@@ -1,6 +1,7 @@
 [tools]
 go = "1.22"
 terraform = "1.14"
+node = "22"
 
 [tasks.fmt]
 run = "gofmt -w cmd/ internal/ plugins/"
