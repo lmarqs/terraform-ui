@@ -159,7 +159,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "esc":
 			e.creating = false
 			e.newName = ""
-		case "backspace":
+		case "backspace", "ctrl+h", "delete":
 			if len(e.newName) > 0 {
 				e.newName = e.newName[:len(e.newName)-1]
 			}

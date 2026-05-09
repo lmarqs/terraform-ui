@@ -175,7 +175,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.MoveToStart()
 	case "/":
 		// Filter mode is handled by character input below
-	case "backspace":
+	case "backspace", "ctrl+h", "delete":
 		e.BackspaceFilter()
 	default:
 		// Single printable characters go to filter
