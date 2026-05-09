@@ -46,22 +46,28 @@ func ClassifyRisk(change *PlanChange) RiskLevel {
 
 	switch change.Action {
 	case ActionDelete, ActionDeleteThenCreate, ActionCreateThenDelete:
-		if criticalTypes[resourceType] || highRiskTypes[resourceType] {
+		if criticalTypes[resourceType] {
+			return RiskCritical
+		}
+		if highRiskTypes[resourceType] {
 			return RiskCritical
 		}
 		if mediumRiskTypes[resourceType] {
 			return RiskHigh
 		}
-		return RiskHigh
+		return RiskMedium
 
 	case ActionUpdate:
-		if criticalTypes[resourceType] || highRiskTypes[resourceType] {
+		if criticalTypes[resourceType] {
+			return RiskHigh
+		}
+		if highRiskTypes[resourceType] {
 			return RiskHigh
 		}
 		if mediumRiskTypes[resourceType] {
 			return RiskMedium
 		}
-		return RiskMedium
+		return RiskLow
 
 	case ActionCreate:
 		if criticalTypes[resourceType] || highRiskTypes[resourceType] {

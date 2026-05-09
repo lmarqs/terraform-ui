@@ -75,14 +75,14 @@ func TestClassifyRisk(t *testing.T) {
 			},
 			expected: RiskHigh,
 		},
-		// Delete actions on unknown resources -> High
+		// Delete actions on unknown resources -> Medium
 		{
-			name: "delete of unknown resource is high",
+			name: "delete of unknown resource is medium",
 			change: PlanChange{
 				Resource: Resource{Type: "local_file"},
 				Action:   ActionDelete,
 			},
-			expected: RiskHigh,
+			expected: RiskMedium,
 		},
 		// Update actions on critical resources -> High
 		{
@@ -119,14 +119,14 @@ func TestClassifyRisk(t *testing.T) {
 			},
 			expected: RiskMedium,
 		},
-		// Update actions on unknown resources -> Medium
+		// Update actions on unknown resources -> Low
 		{
-			name: "update of unknown resource is medium",
+			name: "update of unknown resource is low",
 			change: PlanChange{
 				Resource: Resource{Type: "local_file"},
 				Action:   ActionUpdate,
 			},
-			expected: RiskMedium,
+			expected: RiskLow,
 		},
 		// Create actions on critical resources -> Medium
 		{
