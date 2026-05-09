@@ -15,3 +15,9 @@ jobs:
 
       - name: Build
         run: mise run build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfui
+          path: lib/tfui.sh
