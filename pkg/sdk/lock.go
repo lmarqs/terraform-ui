@@ -8,12 +8,12 @@ import (
 )
 
 var (
-	lockIDRegex        = regexp.MustCompile(`ID:\s+(.+)`)
-	lockPathRegex      = regexp.MustCompile(`Path:\s+(.+)`)
-	lockOperationRegex = regexp.MustCompile(`Operation:\s+(.+)`)
-	lockWhoRegex       = regexp.MustCompile(`Who:\s+(.+)`)
-	lockVersionRegex   = regexp.MustCompile(`Version:\s+(.+)`)
-	lockCreatedRegex   = regexp.MustCompile(`Created:\s+(.+)`)
+	lockIDRegex        = regexp.MustCompile(`(?m)^\s+ID:\s+([0-9a-f-]+)`)
+	lockPathRegex      = regexp.MustCompile(`(?m)^\s+Path:\s+(.+)`)
+	lockOperationRegex = regexp.MustCompile(`(?m)^\s+Operation:\s+(.+)`)
+	lockWhoRegex       = regexp.MustCompile(`(?m)^\s+Who:\s+(.+)`)
+	lockVersionRegex   = regexp.MustCompile(`(?m)^\s+Version:\s+(.+)`)
+	lockCreatedRegex   = regexp.MustCompile(`(?m)^\s+Created:\s+(.+)`)
 )
 
 // ParseLockError extracts lock info from a terraform error message.
