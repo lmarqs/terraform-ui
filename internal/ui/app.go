@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,6 +28,8 @@ type App struct {
 
 	activePlugin  sdk.Plugin // nil = home screen
 	activeContext string     // tracks last known active context for header updates
+	commandMode   bool
+	commandInput  string
 }
 
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
@@ -120,10 +123,39 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	logging.Logger().Debug("key.press", "key", msg.String(), "view", activeView)
 
+	// Command input mode
+	if a.commandMode {
+		switch msg.String() {
+		case "esc":
+			a.commandMode = false
+			a.commandInput = ""
+		case "enter":
+			a.commandMode = false
+			cmd := a.executeCommand(a.commandInput)
+			a.commandInput = ""
+			return a, cmd
+		case "backspace", "ctrl+h", "delete":
+			if len(a.commandInput) > 0 {
+				a.commandInput = a.commandInput[:len(a.commandInput)-1]
+			} else {
+				a.commandMode = false
+			}
+		default:
+			if len(msg.String()) == 1 && msg.String() >= " " {
+				a.commandInput += msg.String()
+			}
+		}
+		return a, nil
+	}
+
 	// Global keys
 	switch msg.String() {
 	case "ctrl+c":
 		return a, tea.Quit
+	case ":":
+		a.commandMode = true
+		a.commandInput = ""
+		return a, nil
 	case "q":
 		if a.activePlugin != nil {
 			prev := a.activePlugin.ID()
@@ -193,6 +225,33 @@ func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
 	return nil
 }
 
+func (a *App) executeCommand(input string) tea.Cmd {
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return nil
+	}
+
+	// Match by plugin ID or name (case-insensitive prefix match)
+	lower := strings.ToLower(input)
+	for _, p := range a.registry.All() {
+		if strings.ToLower(p.ID()) == lower || strings.HasPrefix(strings.ToLower(p.Name()), lower) {
+			prev := ""
+			if a.activePlugin != nil {
+				prev = a.activePlugin.ID()
+			}
+			a.activePlugin = p
+			logging.Logger().Debug("plugin.activate", "id", p.ID())
+			if prev != "" {
+				logging.Logger().Debug("view.transition", "from", prev, "to", p.ID())
+			} else {
+				logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
+			}
+			return a.activatePlugin(p)
+		}
+	}
+	return nil
+}
+
 func (a App) View() string {
 	if a.width == 0 || a.height == 0 {
 		return "Loading..."
@@ -217,7 +276,18 @@ func (a App) View() string {
 		Height(contentHeight)
 	content = contentStyle.Render(content)
 
-	statusBar := a.statusBar.Render(a.width)
+	var statusBar string
+	if a.commandMode {
+		cmdStyle := lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorText).
+			Bold(true).
+			Padding(0, 1).
+			Width(a.width)
+		statusBar = cmdStyle.Render(":" + a.commandInput + "█")
+	} else {
+		statusBar = a.statusBar.Render(a.width)
+	}
 
 	return header + "\n" + content + "\n" + statusBar
 }

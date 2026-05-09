@@ -278,18 +278,16 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	// :G moves to end (command mode)
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	// G moves to end
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
 	if p.selected != 2 {
-		t.Errorf("after :G: selected = %d, want 2", p.selected)
+		t.Errorf("after G: selected = %d, want 2", p.selected)
 	}
 
-	// :g moves to start
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	// g moves to start
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
 	if p.selected != 0 {
-		t.Errorf("after :g: selected = %d, want 0", p.selected)
+		t.Errorf("after g: selected = %d, want 0", p.selected)
 	}
 }
 
@@ -326,27 +324,24 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 
-	// :r triggers refresh
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	// r triggers refresh in normal mode
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after :r in StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
-	// :r works in error state too
+	// r works in error state too
 	p.status = StatusError
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after :r in StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
-	// :r does nothing in Loading
+	// r does nothing in Loading
 	p.status = StatusLoading
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
-		t.Error("after :r in StatusLoading: cmd != nil, want nil")
+		t.Error("after r in StatusLoading: cmd != nil, want nil")
 	}
 }
 

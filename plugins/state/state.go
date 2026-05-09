@@ -45,7 +45,6 @@ type Plugin struct {
 	filtered      []sdk.Resource
 	filter        string
 	filtering     bool
-	commanding    bool
 	errMsg        string
 	selected      int
 	detail        string
@@ -255,23 +254,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	}
 
-	// Command mode: single key dispatches command
-	if e.commanding {
-		e.commanding = false
-		switch msg.String() {
-		case "r":
-			if e.status == StatusError || e.status == StatusDone {
-				return e.Refresh()
-			}
-		case "g":
-			e.MoveToStart()
-		case "G":
-			e.MoveToEnd()
-		}
-		return nil
-	}
-
-	// Normal mode: safe keys only
+	// Normal mode
 	switch msg.String() {
 	case "esc":
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
@@ -285,8 +268,14 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.filtering = true
 		e.filter = ""
 		e.filtered = e.resources
-	case ":":
-		e.commanding = true
+	case "r":
+		if e.status == StatusError || e.status == StatusDone {
+			return e.Refresh()
+		}
+	case "G":
+		e.MoveToEnd()
+	case "g":
+		e.MoveToStart()
 	}
 	return nil
 }
@@ -415,9 +404,7 @@ func (e *Plugin) renderResources(width, height int) string {
 	title := sdk.StyleTitle.Render("State Browser")
 
 	filterLine := ""
-	if e.commanding {
-		filterLine = sdk.StyleKey.Render(":") + "█\n\n"
-	} else if e.filtering {
+	if e.filtering {
 		filterLine = sdk.StyleKey.Render("/ ") + e.filter + "█\n\n"
 	} else if e.filter != "" {
 		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
@@ -461,12 +448,10 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 
 	var hint string
-	if e.commanding {
-		hint = sdk.StyleFaintItalic.Render(": r refresh  g top  G bottom  Esc cancel")
-	} else if e.filtering {
+	if e.filtering {
 		hint = sdk.StyleFaintItalic.Render("Type to filter  Esc exit filter")
 	} else {
-		hint = sdk.StyleFaintItalic.Render("↑↓ navigate  Enter inspect  / filter  : command  q back")
+		hint = sdk.StyleFaintItalic.Render("↑↓ navigate  Enter inspect  / filter  : switch view  q back")
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
