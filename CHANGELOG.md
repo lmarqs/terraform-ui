@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.4 — 2026-05-09
+
+### Documentation
+
+- add mise installation method to README
+
+### Miscellaneous
+
+- v0.36.3 [skip ci]
+
 ## 0.36.3 — 2026-05-09
 
 ### CI
