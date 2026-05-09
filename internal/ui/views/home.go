@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
@@ -19,17 +20,18 @@ type HomeView struct {
 	items    []MenuItem
 }
 
-func NewHomeView() HomeView {
+// NewHomeView creates a home view with menu items generated from the plugin registry.
+func NewHomeView(plugins []plugin.Plugin) HomeView {
+	items := make([]MenuItem, 0, len(plugins))
+	for _, p := range plugins {
+		items = append(items, MenuItem{
+			Key:         p.KeyBinding(),
+			Label:       p.Name(),
+			Description: p.Description(),
+		})
+	}
 	return HomeView{
-		items: []MenuItem{
-			{Key: "p", Label: "Plan", Description: "Run terraform plan and review changes"},
-			{Key: "r", Label: "Risk Analysis", Description: "Classify changes by risk level (critical/high/medium/low)"},
-			{Key: "b", Label: "Blast Radius", Description: "Visualize affected modules and resource dependencies"},
-			{Key: "a", Label: "Apply", Description: "Apply changes with live per-resource progress"},
-			{Key: "s", Label: "State", Description: "Browse and inspect terraform state resources"},
-			{Key: "w", Label: "Workspaces", Description: "List, switch, and manage workspaces"},
-			{Key: "m", Label: "Projects", Description: "Select terraform project in monorepo (from tfui.yaml)"},
-		},
+		items: items,
 	}
 }
 
@@ -68,7 +70,7 @@ func (v HomeView) Render(width, height int) string {
 		b.WriteByte('\n')
 	}
 
-	hint := styles.StyleFaintItalic.Render("Press a key or use ↑↓ + Enter to select an action")
+	hint := styles.StyleFaintItalic.Render("Press a key or use j/k + Enter to select an action")
 
 	content := styles.StyleTitle.Render("terraform-ui") + "\n\n" + b.String() + "\n" + hint
 	return styles.StylePadded.Render(content)

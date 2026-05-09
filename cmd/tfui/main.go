@@ -10,8 +10,17 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui"
+	"github.com/lmarqs/terraform-ui/plugins/apply"
+	"github.com/lmarqs/terraform-ui/plugins/blastradius"
+	"github.com/lmarqs/terraform-ui/plugins/phantom"
+	"github.com/lmarqs/terraform-ui/plugins/plan"
+	"github.com/lmarqs/terraform-ui/plugins/projects"
+	"github.com/lmarqs/terraform-ui/plugins/risk"
+	"github.com/lmarqs/terraform-ui/plugins/state"
+	"github.com/lmarqs/terraform-ui/plugins/workspaces"
 	"github.com/spf13/cobra"
 )
 
@@ -70,7 +79,22 @@ func main() {
 func runTUI(cfg config.Config) error {
 	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
 	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
-	app := ui.NewApp(cfg, svc)
+
+	// Create and populate the plugin registry
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", plan.New)
+	registry.RegisterFactory("risk", risk.New)
+	registry.RegisterFactory("phantom", phantom.New)
+	registry.RegisterFactory("state", state.New)
+	registry.RegisterFactory("apply", apply.New)
+	registry.RegisterFactory("workspaces", workspaces.New)
+	registry.RegisterFactory("projects", projects.New)
+	registry.RegisterFactory("blastradius", blastradius.New)
+
+	// Build plugins from config
+	registry.Build(svc, cfg.Plugins)
+
+	app := ui.NewApp(cfg, svc, registry)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
