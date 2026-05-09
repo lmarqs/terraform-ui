@@ -152,7 +152,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.SelectCurrent()
 	case "/":
 		// Filter mode
-	case "backspace":
+	case "backspace", "ctrl+h", "delete":
 		e.BackspaceFilter()
 	case "r":
 		return e.Refresh()
