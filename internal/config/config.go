@@ -8,7 +8,9 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config holds all configuration for the tfui application.
+// Config holds all configuration for the tfui application, loaded from
+// tfui.yaml and/or CLI flags. It controls working directory, binary path,
+// UI mode, plugin settings, and monorepo project discovery.
 type Config struct {
 	// Dir is the working directory for terraform operations.
 	Dir string `yaml:"-"`
@@ -33,13 +35,16 @@ type Config struct {
 	Plugins map[string]PluginConfig `yaml:"plugins"`
 }
 
-// PluginConfig holds per-plugin configuration.
+// PluginConfig holds per-plugin configuration as declared in tfui.yaml.
+// The Enabled field controls whether the plugin is active; Options holds
+// arbitrary plugin-specific settings.
 type PluginConfig struct {
 	Enabled *bool                  `yaml:"enabled"`
 	Options map[string]interface{} `yaml:",inline"`
 }
 
-// IsEnabled returns whether the plugin is enabled (defaults to true).
+// IsEnabled reports whether the plugin is enabled. If the Enabled field is nil
+// (not explicitly set in config), the plugin defaults to enabled.
 func (c PluginConfig) IsEnabled() bool {
 	if c.Enabled == nil {
 		return true
@@ -47,17 +52,20 @@ func (c PluginConfig) IsEnabled() bool {
 	return *c.Enabled
 }
 
-// ProjectsConfig defines how to discover terraform projects in a monorepo.
+// ProjectsConfig defines how to discover terraform projects in a monorepo
+// by specifying glob patterns that match directories containing .tf files.
 type ProjectsConfig struct {
 	// Paths is a list of glob patterns for module directories.
 	// Example: ["infra/*", "modules/**", "envs/production"]
 	Paths []string `yaml:"paths"`
 }
 
-// ConfigFileName is the name of the config file to look for.
+// ConfigFileName is the expected filename for tfui configuration, searched
+// upward from the working directory.
 const ConfigFileName = "tfui.yaml"
 
-// DefaultConfig returns the default configuration.
+// DefaultConfig returns a Config with sensible defaults: current directory as
+// working dir and "progress" as the UI mode.
 func DefaultConfig() Config {
 	return Config{
 		Dir:  ".",
@@ -65,8 +73,9 @@ func DefaultConfig() Config {
 	}
 }
 
-// Load reads the config file from the given directory or its parents.
-// It walks up the directory tree looking for tfui.yaml (like pnpm-workspace.yaml).
+// Load reads the tfui.yaml configuration file from the given directory or its
+// ancestor directories. It walks up the directory tree until it finds a config
+// file or reaches the filesystem root, similar to how pnpm-workspace.yaml is resolved.
 func Load(dir string) (Config, error) {
 	cfg := DefaultConfig()
 	cfg.Dir = dir
@@ -110,7 +119,9 @@ func findConfigFile(dir string) string {
 	return ""
 }
 
-// DiscoverProjects returns all terraform project directories matching the configured patterns.
+// DiscoverProjects returns all terraform project directories matching the glob
+// patterns configured in Projects.Paths. If no patterns are configured, it
+// returns only the working directory itself.
 func (c Config) DiscoverProjects() ([]string, error) {
 	if len(c.Projects.Paths) == 0 {
 		return []string{c.Dir}, nil
@@ -149,10 +160,9 @@ func (c Config) DiscoverProjects() ([]string, error) {
 	return modules, nil
 }
 
-// DetectBinary returns the terraform binary to use.
-// If the given binary is non-empty, it is returned as-is.
-// Otherwise, it checks if "tofu" is on PATH (preferring OpenTofu),
-// and falls back to "terraform".
+// DetectBinary returns the terraform binary to use. If configured is non-empty,
+// it is returned as-is. Otherwise, it prefers "tofu" (OpenTofu) if available on
+// PATH, falling back to "terraform".
 func DetectBinary(configured string) string {
 	if configured != "" {
 		return configured

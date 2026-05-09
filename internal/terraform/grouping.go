@@ -5,14 +5,15 @@ import (
 	"strings"
 )
 
-// ModuleGroup represents a group of changes belonging to the same module.
+// ModuleGroup represents a set of plan changes that belong to the same terraform
+// module, along with an action summary for quick aggregate display.
 type ModuleGroup struct {
 	Module  string
 	Summary ActionSummary
 	Changes []PlanChange
 }
 
-// ActionSummary holds counts of changes by action type.
+// ActionSummary holds counts of changes grouped by action type within a module.
 type ActionSummary struct {
 	Add     int
 	Change  int
@@ -20,8 +21,8 @@ type ActionSummary struct {
 	Replace int
 }
 
-// GroupByModule groups plan changes by their module path.
-// Groups are sorted alphabetically by module path.
+// GroupByModule groups plan changes by their module path and returns the groups
+// sorted alphabetically. Resources without a module are placed in the "root" group.
 func GroupByModule(changes []PlanChange) []ModuleGroup {
 	groups := make(map[string]*ModuleGroup)
 
@@ -65,10 +66,10 @@ func GroupByModule(changes []PlanChange) []ModuleGroup {
 	return result
 }
 
-// ExtractModule extracts the module path from a resource address.
-// "module.vpc.aws_subnet.main" -> "module.vpc"
-// "module.vpc.module.subnets.aws_subnet.a" -> "module.vpc.module.subnets"
-// "aws_instance.web" -> ""
+// ExtractModule extracts the module path prefix from a resource address.
+// For example: "module.vpc.aws_subnet.main" returns "module.vpc",
+// "module.vpc.module.subnets.aws_subnet.a" returns "module.vpc.module.subnets",
+// and "aws_instance.web" returns "" (root module).
 func ExtractModule(address string) string {
 	parts := strings.Split(address, ".")
 	lastModIdx := -1

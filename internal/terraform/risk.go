@@ -36,7 +36,9 @@ var mediumRiskTypes = map[string]bool{
 	"azurerm_network_security_group": true, "azurerm_dns_zone": true,
 }
 
-// ClassifyRisk assigns a risk level to a plan change based on the action and resource type.
+// ClassifyRisk assigns a risk level to a plan change based on the combination
+// of its action type (create, update, delete, replace) and the criticality of
+// the resource type (e.g., databases and KMS keys are critical).
 func ClassifyRisk(change *PlanChange) RiskLevel {
 	resourceType := change.Resource.Type
 
@@ -70,7 +72,7 @@ func ClassifyRisk(change *PlanChange) RiskLevel {
 	}
 }
 
-// OverallRisk returns the highest risk level across a set of changes.
+// OverallRisk returns the highest risk level found across all changes in the slice.
 func OverallRisk(changes []PlanChange) RiskLevel {
 	max := RiskNone
 	for i := range changes {

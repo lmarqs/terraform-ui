@@ -6,12 +6,17 @@ import (
 	"sort"
 )
 
+// PhantomResult holds the outcome of phantom change detection, including counts
+// and the addresses of resources identified as phantom (cosmetic-only) changes.
 type PhantomResult struct {
 	PhantomCount     int
 	RealCount        int
 	PhantomAddresses []string
 }
 
+// DetectPhantomChanges scans update-type changes and marks those whose attribute
+// diffs are semantically equivalent (e.g., JSON reordering) as phantom. It mutates
+// the IsPhantom field on each qualifying change and returns aggregate results.
 func DetectPhantomChanges(changes []PlanChange) PhantomResult {
 	result := PhantomResult{
 		PhantomAddresses: make([]string, 0),
@@ -34,6 +39,8 @@ func DetectPhantomChanges(changes []PlanChange) PhantomResult {
 	return result
 }
 
+// IsPhantomChange reports whether a single change is phantom by normalizing all
+// attribute diff values as JSON and checking for semantic equality.
 func IsPhantomChange(change *PlanChange) bool {
 	if change.Action != ActionUpdate {
 		return false
@@ -104,6 +111,8 @@ func normalizeValue(v interface{}) interface{} {
 	}
 }
 
+// NormalizedEqual reports whether two values are deeply equal after JSON normalization
+// (sorting map keys and array elements).
 func NormalizedEqual(a, b interface{}) bool {
 	return reflect.DeepEqual(normalizeValue(a), normalizeValue(b))
 }
