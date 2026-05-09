@@ -14,6 +14,7 @@ type Header struct {
 	resourceCount int
 	binaryName    string
 	context       string
+	activeView    string
 }
 
 func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
@@ -24,6 +25,12 @@ func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
 // WithContext returns a copy of the Header with the active context set.
 func (h Header) WithContext(context string) Header {
 	h.context = context
+	return h
+}
+
+// WithActiveView returns a copy of the Header with the active view name.
+func (h Header) WithActiveView(view string) Header {
+	h.activeView = view
 	return h
 }
 
@@ -50,10 +57,15 @@ func (h Header) Render(width int) string {
 		)
 	}
 
-	right := fmt.Sprintf("%s %d",
-		sdk.StyleKey.Render("resources:"),
-		h.resourceCount,
-	)
+	var right string
+	if h.activeView != "" {
+		right = sdk.StyleTitle.Render(h.activeView)
+	} else {
+		right = fmt.Sprintf("%s %d",
+			sdk.StyleKey.Render("resources:"),
+			h.resourceCount,
+		)
+	}
 
 	gap := width - lipgloss.Width(left) - lipgloss.Width(right) - 2
 	if gap < 1 {

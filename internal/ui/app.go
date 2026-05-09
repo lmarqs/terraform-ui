@@ -202,14 +202,15 @@ func (a App) View() string {
 	statusBarHeight := 1
 	contentHeight := a.height - headerHeight - statusBarHeight
 
-	header := a.header.Render(a.width)
-
+	h := a.header
 	var content string
 	if a.activePlugin != nil {
+		h = h.WithActiveView(a.activePlugin.Name())
 		content = a.activePlugin.View(a.width, contentHeight)
 	} else {
 		content = a.homeView.Render(a.width, contentHeight)
 	}
+	header := h.Render(a.width)
 
 	contentStyle := lipgloss.NewStyle().
 		Width(a.width).

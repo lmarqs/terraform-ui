@@ -213,14 +213,13 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	// Filter mode: typing goes to filter, but navigation and enter still work
+	// Filter mode: typing goes to filter, navigation and enter still work
 	if e.filtering {
 		switch msg.String() {
 		case "esc":
 			e.filtering = false
 			return nil
 		case "enter":
-			e.filtering = false
 			return e.InspectSelected()
 		case "down":
 			e.MoveDown()
@@ -230,9 +229,6 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return nil
 		case "backspace", "ctrl+h", "delete":
 			e.BackspaceFilter()
-			if e.filter == "" {
-				e.filtering = false
-			}
 			return nil
 		default:
 			if len(msg.String()) == 1 && msg.String() >= " " {
@@ -367,7 +363,8 @@ func (e *Plugin) View(width, height int) string {
 			msg = e.errMsg
 		}
 		loading := sdk.StyleFaintItalic.Render(msg)
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		hint := sdk.StyleFaintItalic.Render("Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + loading + "\n\n" + hint)
 
 	case StatusError:
 		title := sdk.StyleTitle.Render("State Browser")
