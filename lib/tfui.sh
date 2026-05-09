@@ -706,6 +706,369 @@ _tfui_strategy_progress() {
   return $exit_code
 }
 
+# -- Environment detection ----------------------------------------------------
+
+# Default environment patterns (used when no .tfui-config.json exists)
+_TFUI_ENV_PATTERNS_PRODUCTION="prod production prd"
+_TFUI_ENV_PATTERNS_STAGING="staging stg preprod uat"
+_TFUI_ENV_PATTERNS_DEVELOPMENT="dev development sandbox local"
+
+# Default risk multipliers
+_TFUI_ENV_MULTIPLIER_PRODUCTION="3.0"
+_TFUI_ENV_MULTIPLIER_STAGING="1.5"
+_TFUI_ENV_MULTIPLIER_DEVELOPMENT="0.5"
+_TFUI_ENV_MULTIPLIER_UNKNOWN="1.0"
+
+# @description Load environment patterns from .tfui-config.json if available.
+# @param $1 {string} config_file - Path to config file
+# @return void
+# @side-effect _TFUI_ENV_PATTERNS_*, _TFUI_ENV_MULTIPLIER_*
+_tfui_env_load_config() {
+  local config_file="$1"
+
+  if [ ! -f "$config_file" ]; then
+    return
+  fi
+
+  local patterns
+  patterns=$(jq -r '.environments.production.patterns // [] | join(" ")' "$config_file" 2>/dev/null)
+  if [ -n "$patterns" ]; then
+    _TFUI_ENV_PATTERNS_PRODUCTION="$patterns"
+  fi
+
+  patterns=$(jq -r '.environments.staging.patterns // [] | join(" ")' "$config_file" 2>/dev/null)
+  if [ -n "$patterns" ]; then
+    _TFUI_ENV_PATTERNS_STAGING="$patterns"
+  fi
+
+  patterns=$(jq -r '.environments.development.patterns // [] | join(" ")' "$config_file" 2>/dev/null)
+  if [ -n "$patterns" ]; then
+    _TFUI_ENV_PATTERNS_DEVELOPMENT="$patterns"
+  fi
+
+  local multiplier
+  multiplier=$(jq -r '.environments.production.risk_multiplier // empty' "$config_file" 2>/dev/null)
+  if [ -n "$multiplier" ]; then
+    _TFUI_ENV_MULTIPLIER_PRODUCTION="$multiplier"
+  fi
+
+  multiplier=$(jq -r '.environments.staging.risk_multiplier // empty' "$config_file" 2>/dev/null)
+  if [ -n "$multiplier" ]; then
+    _TFUI_ENV_MULTIPLIER_STAGING="$multiplier"
+  fi
+
+  multiplier=$(jq -r '.environments.development.risk_multiplier // empty' "$config_file" 2>/dev/null)
+  if [ -n "$multiplier" ]; then
+    _TFUI_ENV_MULTIPLIER_DEVELOPMENT="$multiplier"
+  fi
+}
+
+# @description Check if a value matches any pattern for a given environment.
+#   Uses word-boundary matching: pattern must match the entire value or appear
+#   as a complete path segment.
+# @param $1 {string} value - Value to check (lowercased by caller)
+# @param $2 {string} patterns - Space-separated list of patterns
+# @return exit_code - 0 if matches, 1 if not
+_tfui_env_matches_patterns() {
+  local value="$1"
+  local patterns="$2"
+
+  local pattern
+  for pattern in $patterns; do
+    if [ "$value" = "$pattern" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# @description Classify a value into an environment name.
+# @param $1 {string} value - Value to classify (will be lowercased)
+# @return stdout - Environment classification: production, staging, development, or empty
+_tfui_env_classify_value() {
+  local value
+  value=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+
+  if _tfui_env_matches_patterns "$value" "$_TFUI_ENV_PATTERNS_PRODUCTION"; then
+    echo "production"
+  elif _tfui_env_matches_patterns "$value" "$_TFUI_ENV_PATTERNS_STAGING"; then
+    echo "staging"
+  elif _tfui_env_matches_patterns "$value" "$_TFUI_ENV_PATTERNS_DEVELOPMENT"; then
+    echo "development"
+  fi
+}
+
+# @description Detect environment from TFUI_ENVIRONMENT env var.
+# @return stdout - Environment name or empty
+_tfui_env_detect_from_env_var() {
+  if [ -n "${TFUI_ENVIRONMENT:-}" ]; then
+    _tfui_env_classify_value "$TFUI_ENVIRONMENT"
+  fi
+}
+
+# @description Detect environment from .tfui-env file in working directory.
+# @param $1 {string} working_dir - Directory to check
+# @return stdout - Environment name or empty
+_tfui_env_detect_from_file() {
+  local working_dir="$1"
+  local env_file="$working_dir/.tfui-env"
+
+  if [ -f "$env_file" ]; then
+    local content
+    content=$(head -n1 "$env_file" | tr -d '[:space:]')
+    if [ -n "$content" ]; then
+      _tfui_env_classify_value "$content"
+    fi
+  fi
+}
+
+# @description Detect environment from terraform workspace.
+#   Reads .terraform/environment file to avoid subprocess.
+# @param $1 {string} working_dir - Directory to check
+# @return stdout - Environment name or empty
+_tfui_env_detect_from_workspace() {
+  local working_dir="$1"
+  local ws_file="$working_dir/.terraform/environment"
+
+  if [ -f "$ws_file" ]; then
+    local workspace
+    workspace=$(head -n1 "$ws_file" | tr -d '[:space:]')
+    if [ -n "$workspace" ] && [ "$workspace" != "default" ]; then
+      _tfui_env_classify_value "$workspace"
+    fi
+  fi
+}
+
+# @description Detect environment from plan JSON variables.
+# @param $1 {string} plan_file - Path to plan JSON
+# @return stdout - Environment name or empty
+_tfui_env_detect_from_plan_vars() {
+  local plan_file="$1"
+
+  if [ ! -f "$plan_file" ]; then
+    return
+  fi
+
+  local value
+  value=$(jq -r '.variables.environment.value // .variables.env.value // empty' "$plan_file" 2>/dev/null)
+  if [ -n "$value" ]; then
+    _tfui_env_classify_value "$value"
+  fi
+}
+
+# @description Detect environment from working directory path segments.
+# @param $1 {string} working_dir - Directory path to analyze
+# @return stdout - Environment name or empty
+_tfui_env_detect_from_directory() {
+  local working_dir="$1"
+
+  # Split path into segments and check each one
+  local IFS="/"
+  local segment
+  for segment in $working_dir; do
+    if [ -z "$segment" ]; then
+      continue
+    fi
+    local result
+    result=$(_tfui_env_classify_value "$segment")
+    if [ -n "$result" ]; then
+      echo "$result"
+      return
+    fi
+  done
+}
+
+# @description Detect environment from all signals with precedence.
+# @param $1 {string} working_dir - Working directory
+# @param $2 {string} [plan_file] - Optional path to plan JSON
+# @return stdout - JSON object with detection results
+_tfui_detect_environment() {
+  local working_dir="$1"
+  local plan_file="${2:-}"
+
+  # Load config if available
+  if [ -f "$working_dir/.tfui-config.json" ]; then
+    _tfui_env_load_config "$working_dir/.tfui-config.json"
+  fi
+
+  local detected="" confidence="" signal=""
+
+  # Signal 1: TFUI_ENVIRONMENT env var (highest precedence)
+  detected=$(_tfui_env_detect_from_env_var)
+  if [ -n "$detected" ]; then
+    confidence="high"
+    signal="env_var: TFUI_ENVIRONMENT=${TFUI_ENVIRONMENT:-}"
+  fi
+
+  # Signal 2: .tfui-env file
+  if [ -z "$detected" ]; then
+    detected=$(_tfui_env_detect_from_file "$working_dir")
+    if [ -n "$detected" ]; then
+      confidence="high"
+      signal="file: .tfui-env"
+    fi
+  fi
+
+  # Signal 3: Terraform workspace
+  if [ -z "$detected" ]; then
+    detected=$(_tfui_env_detect_from_workspace "$working_dir")
+    if [ -n "$detected" ]; then
+      confidence="high"
+      local ws_name
+      ws_name=$(head -n1 "$working_dir/.terraform/environment" 2>/dev/null | tr -d '[:space:]')
+      signal="workspace: $ws_name"
+    fi
+  fi
+
+  # Signal 4: Plan variables
+  if [ -z "$detected" ] && [ -n "$plan_file" ]; then
+    detected=$(_tfui_env_detect_from_plan_vars "$plan_file")
+    if [ -n "$detected" ]; then
+      confidence="medium"
+      local var_value
+      var_value=$(jq -r '.variables.environment.value // .variables.env.value // empty' "$plan_file" 2>/dev/null)
+      signal="plan_var: $var_value"
+    fi
+  fi
+
+  # Signal 5: Directory path
+  if [ -z "$detected" ]; then
+    detected=$(_tfui_env_detect_from_directory "$working_dir")
+    if [ -n "$detected" ]; then
+      confidence="low"
+      signal="directory: $working_dir"
+    fi
+  fi
+
+  # Default to unknown
+  if [ -z "$detected" ]; then
+    detected="unknown"
+    confidence="none"
+    signal=""
+  fi
+
+  # Get risk multiplier
+  local multiplier
+  multiplier=$(_tfui_env_risk_multiplier "$detected")
+
+  # Build JSON output
+  local signals_json="[]"
+  if [ -n "$signal" ]; then
+    signals_json=$(printf '["%s"]' "$signal")
+  fi
+
+  jq -n \
+    --arg detected "$detected" \
+    --arg confidence "$confidence" \
+    --argjson signals "$signals_json" \
+    --arg multiplier "$multiplier" \
+    '{
+      environment: {
+        detected: $detected,
+        confidence: $confidence,
+        signals: $signals,
+        risk_multiplier: ($multiplier | tonumber)
+      }
+    }'
+}
+
+# @description Get risk multiplier for a given environment.
+# @param $1 {string} environment - Environment name
+# @return stdout - Risk multiplier (decimal string)
+_tfui_env_risk_multiplier() {
+  local environment="$1"
+
+  case "$environment" in
+    production)  echo "$_TFUI_ENV_MULTIPLIER_PRODUCTION" ;;
+    staging)     echo "$_TFUI_ENV_MULTIPLIER_STAGING" ;;
+    development) echo "$_TFUI_ENV_MULTIPLIER_DEVELOPMENT" ;;
+    *)           echo "$_TFUI_ENV_MULTIPLIER_UNKNOWN" ;;
+  esac
+}
+
+# @description Compute base risk level from plan JSON.
+# @param $1 {string} plan_file - Path to plan JSON
+# @return stdout - Base risk level: low, medium, high, or none
+_tfui_compute_base_risk() {
+  local plan_file="$1"
+
+  if [ ! -f "$plan_file" ]; then
+    echo "none"
+    return
+  fi
+
+  jq -r '
+    [.resource_changes // [] | .[] | select(.change.actions != ["no-op"] and .change.actions != ["read"])] |
+    if length == 0 then "none"
+    elif any(.change.actions == ["delete"] or (.change.actions | sort) == ["create", "delete"]) then "high"
+    elif any(.change.actions == ["update"]) then "medium"
+    else "low"
+    end
+  ' "$plan_file"
+}
+
+# @description Compute adjusted risk level from base risk and multiplier.
+# @param $1 {string} base_risk - Base risk level (none, low, medium, high)
+# @param $2 {string} multiplier - Risk multiplier (decimal)
+# @return stdout - Adjusted risk level: none, low, medium, high, critical
+_tfui_compute_adjusted_risk() {
+  local base_risk="$1"
+  local multiplier="$2"
+
+  if [ "$base_risk" = "none" ]; then
+    echo "none"
+    return
+  fi
+
+  # Map base risk to numeric score
+  local base_score
+  case "$base_risk" in
+    low)    base_score=1 ;;
+    medium) base_score=2 ;;
+    high)   base_score=3 ;;
+    *)      base_score=0 ;;
+  esac
+
+  # Compute adjusted score using awk for floating point
+  local adjusted
+  adjusted=$(awk "BEGIN { printf \"%.1f\", $base_score * $multiplier }")
+
+  # Map back to risk level
+  awk "BEGIN {
+    score = $adjusted + 0
+    if (score <= 1.5) print \"low\"
+    else if (score <= 3.0) print \"medium\"
+    else if (score <= 4.5) print \"high\"
+    else print \"critical\"
+  }"
+}
+
+# @description Generate full environment risk report as JSON.
+# @param $1 {string} working_dir - Working directory
+# @param $2 {string} plan_file - Path to plan JSON
+# @return stdout - JSON report with environment, base risk, and adjusted risk
+tfui_env_report() {
+  local working_dir="$1"
+  local plan_file="$2"
+
+  local env_json
+  env_json=$(_tfui_detect_environment "$working_dir" "$plan_file")
+
+  local base_risk
+  base_risk=$(_tfui_compute_base_risk "$plan_file")
+
+  local multiplier
+  multiplier=$(echo "$env_json" | jq -r '.environment.risk_multiplier')
+
+  local adjusted_risk
+  adjusted_risk=$(_tfui_compute_adjusted_risk "$base_risk" "$multiplier")
+
+  echo "$env_json" | jq \
+    --arg base "$base_risk" \
+    --arg adjusted "$adjusted_risk" \
+    '. + { base_risk_level: $base, adjusted_risk_level: $adjusted }'
+}
+
 # -- Renderer -----------------------------------------------------------------
 
 # @description Parse plan JSON and print a tree view of changes.
