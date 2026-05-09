@@ -146,7 +146,12 @@ tfui_plan() {
 
   _tfui_run "$message" ": Refreshing state\.\.\.|: Reading\.\.\." "terraform plan -out=tfplan.out $extra_args"
   _tfui_run_sub "Rendering" "terraform show -json tfplan.out > '$plan_file'"
-  _tfui_render_plan_tree "$plan_file"
+
+  if [ "$_TFUI_STRATEGY" = "_tfui_strategy_agent" ]; then
+    _tfui_render_plan_json "$plan_file"
+  else
+    _tfui_render_plan_tree "$plan_file"
+  fi
 }
 
 # @description Check if plan has changes and optionally prompt user for confirmation.
@@ -229,6 +234,7 @@ _tfui_choose_strategy() {
     rich)    _TFUI_STRATEGY="_tfui_strategy_progress" ;;
     simple)  _TFUI_STRATEGY="_tfui_strategy_spinner" ;;
     plain)   _TFUI_STRATEGY="_tfui_strategy_silent" ;;
+    agent)   _TFUI_STRATEGY="_tfui_strategy_agent" ;;
   esac
 }
 
@@ -299,6 +305,16 @@ _tfui_run_sub() {
   local command="$2"
 
   _tfui_state_clear_output
+
+  if [ "$_TFUI_STRATEGY" = "_tfui_strategy_agent" ] || [ "$_TFUI_STRATEGY" = "_tfui_strategy_silent" ]; then
+    local exit_code=0
+    _tfui_exec "$command" || exit_code=$?
+    if [ $exit_code -ne 0 ]; then
+      _tfui_lifecycle_die
+    fi
+    return
+  fi
+
   _tfui_ui_enable_line $_TFUI_LINE_STATUS
   _tfui_ui_open
   _tfui_ui_animate "$label"
@@ -706,6 +722,18 @@ _tfui_strategy_progress() {
   return $exit_code
 }
 
+# @description Agent strategy: run command silently, no UI output.
+# @param $1 {regex} patterns - Unused (interface compatibility)
+# @param $2 {string} command - Shell command to evaluate
+# @return exit_code - From the executed command
+# @side-effect writes _TFUI_OUTPUT_FILE
+_tfui_strategy_agent() {
+  local patterns="$1"
+  local command="$2"
+
+  _tfui_exec "$command"
+}
+
 # -- Renderer -----------------------------------------------------------------
 
 # @description Parse plan JSON and print a tree view of changes.
@@ -727,6 +755,124 @@ _tfui_render_plan_tree() {
          end) + " " + .address
       ) | sort | join("\n")) + "\n\n" +
       "Plan: \(map(select(.change.actions == ["create"])) | length) to add, \(map(select(.change.actions == ["update"])) | length) to change, \(map(select(.change.actions == ["delete"])) | length) to destroy."
+    end
+  ' "$plan_file"
+}
+
+# @description Parse plan JSON and output structured JSON summary for agent consumption.
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @return stdout - JSON object with has_changes, summary, changes, risk_level, destructive
+_tfui_render_plan_json() {
+  local plan_file="$1"
+  jq '
+    # Risk classification patterns
+    def critical_types:
+      ["aws_db_instance", "aws_rds_cluster", "aws_rds_cluster_instance",
+       "aws_dynamodb_table", "aws_s3_bucket", "aws_efs_file_system",
+       "aws_fsx_lustre_file_system", "aws_fsx_windows_file_system",
+       "aws_redshift_cluster", "aws_elasticache_cluster",
+       "aws_elasticache_replication_group", "aws_docdb_cluster",
+       "aws_neptune_cluster", "aws_kms_key", "aws_kms_alias",
+       "google_sql_database_instance", "google_storage_bucket",
+       "google_kms_key_ring", "google_kms_crypto_key",
+       "azurerm_sql_server", "azurerm_cosmosdb_account",
+       "azurerm_storage_account", "azurerm_key_vault"];
+
+    def high_risk_types:
+      ["aws_iam_role", "aws_iam_policy", "aws_iam_user",
+       "aws_iam_group", "aws_iam_instance_profile",
+       "aws_vpc", "aws_subnet", "aws_route_table",
+       "aws_nat_gateway", "aws_internet_gateway",
+       "aws_eip", "aws_lb", "aws_alb", "aws_elb",
+       "aws_ecs_cluster", "aws_eks_cluster",
+       "aws_lambda_function", "aws_cloudfront_distribution",
+       "google_compute_network", "google_compute_subnetwork",
+       "google_container_cluster", "google_project_iam_member",
+       "azurerm_virtual_network", "azurerm_kubernetes_cluster",
+       "azurerm_role_assignment"];
+
+    def medium_risk_types:
+      ["aws_security_group", "aws_security_group_rule",
+       "aws_network_acl", "aws_route53_record",
+       "aws_cloudwatch_log_group", "aws_sns_topic",
+       "aws_sqs_queue", "aws_ecr_repository",
+       "google_compute_firewall", "google_dns_record_set",
+       "azurerm_network_security_group", "azurerm_dns_zone"];
+
+    def assess_risk(action):
+      .type as $type |
+      if action == "delete" or action == "replace" then
+        if (critical_types | any(. == $type)) then "critical"
+        elif (high_risk_types | any(. == $type)) then "critical"
+        elif (medium_risk_types | any(. == $type)) then "high"
+        else "high"
+        end
+      elif action == "update" then
+        if (critical_types | any(. == $type)) then "high"
+        elif (high_risk_types | any(. == $type)) then "high"
+        elif (medium_risk_types | any(. == $type)) then "medium"
+        else "medium"
+        end
+      elif action == "create" then
+        if (critical_types | any(. == $type)) then "medium"
+        elif (high_risk_types | any(. == $type)) then "medium"
+        else "low"
+        end
+      else "low"
+      end;
+
+    def risk_priority:
+      if . == "critical" then 4
+      elif . == "high" then 3
+      elif . == "medium" then 2
+      elif . == "low" then 1
+      else 0
+      end;
+
+    def action_label:
+      if . == ["create"] then "create"
+      elif . == ["delete"] then "delete"
+      elif . == ["update"] then "update"
+      elif (. | sort) == ["create", "delete"] then "replace"
+      else "unknown"
+      end;
+
+    [.resource_changes // [] | .[] | select(.change.actions != ["no-op"] and .change.actions != ["read"])] |
+    if length == 0 then
+      {
+        has_changes: false,
+        summary: { add: 0, change: 0, destroy: 0, replace: 0 },
+        changes: [],
+        risk_level: "low",
+        destructive: false
+      }
+    else
+      . as $changes |
+      ($changes | map(select(.change.actions == ["create"])) | length) as $add |
+      ($changes | map(select(.change.actions == ["update"])) | length) as $change |
+      ($changes | map(select(.change.actions == ["delete"])) | length) as $destroy |
+      ($changes | map(select((.change.actions | sort) == ["create", "delete"])) | length) as $replace |
+      ($changes | map(
+        (.change.actions | action_label) as $action |
+        {
+          action: $action,
+          address: .address,
+          risk: assess_risk($action)
+        }
+      )) as $classified |
+      ($classified | map(.risk | risk_priority) | max) as $max_risk |
+      (if $max_risk >= 4 then "critical"
+       elif $max_risk >= 3 then "high"
+       elif $max_risk >= 2 then "medium"
+       else "low"
+       end) as $overall_risk |
+      {
+        has_changes: true,
+        summary: { add: $add, change: $change, destroy: $destroy, replace: $replace },
+        changes: $classified,
+        risk_level: $overall_risk,
+        destructive: ($destroy > 0 or $replace > 0)
+      }
     end
   ' "$plan_file"
 }
