@@ -25,9 +25,6 @@ jobs:
       - name: Prepare Environment
         uses: ./.github/actions/prepare-env
 
-      - name: Install dependencies
-        run: mise run setup
-
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

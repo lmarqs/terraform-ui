@@ -7,3 +7,7 @@ runs:
       uses: jdx/mise-action@v2
       with:
         cache: true
+
+    - name: Install dependencies
+      shell: bash
+      run: mise run setup
