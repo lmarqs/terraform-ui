@@ -50,7 +50,7 @@ type Plugin struct {
 	filtered []Project
 }
 
-// New creates a new projects plugin.
+// New creates a new context plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
@@ -73,7 +73,7 @@ func (e *Plugin) Configure(opts map[string]interface{}) error {
 	return nil
 }
 
-// SetConfig provides the application configuration for project discovery.
+// SetConfig provides the application configuration for context discovery.
 func (e *Plugin) SetConfig(cfg config.Config) {
 	e.cfg = cfg
 }
@@ -92,7 +92,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	return nil
 }
 
-// Activate triggers project discovery when the user enters the plugin.
+// Activate triggers context discovery when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
@@ -101,7 +101,7 @@ func (e *Plugin) Activate() tea.Cmd {
 	return nil
 }
 
-// Refresh re-discovers projects.
+// Refresh re-discovers context.
 func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.errMsg = ""
@@ -255,7 +255,7 @@ func (e *Plugin) BackspaceFilter() {
 	}
 }
 
-// View renders the projects plugin.
+// View renders the context plugin.
 func (e *Plugin) View(width, height int) string {
 	title := sdk.StyleTitle.Render("Context")
 
