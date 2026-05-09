@@ -213,24 +213,33 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	// Filter mode: all keys go to filter input
+	// Filter mode: typing goes to filter, but navigation and enter still work
 	if e.filtering {
 		switch msg.String() {
 		case "esc":
 			e.filtering = false
+			return nil
 		case "enter":
 			e.filtering = false
+			return e.InspectSelected()
+		case "j", "down":
+			e.MoveDown()
+			return nil
+		case "k", "up":
+			e.MoveUp()
+			return nil
 		case "backspace", "ctrl+h", "delete":
 			e.BackspaceFilter()
 			if e.filter == "" {
 				e.filtering = false
 			}
+			return nil
 		default:
 			if len(msg.String()) == 1 && msg.String() >= " " {
 				e.AppendFilter(msg.String())
 			}
+			return nil
 		}
-		return nil
 	}
 
 	// Normal mode: hotkeys active
