@@ -50,7 +50,7 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging to ~/.tfui/debug.log")
-	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "dir", ".", "Working directory for terraform operations")
+	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.yaml lives)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
 
 	planCmd := &cobra.Command{

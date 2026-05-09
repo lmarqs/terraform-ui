@@ -156,6 +156,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
+	case "esc":
+		return func() tea.Msg { return sdk.DeactivateMsg{} }
 	case "j", "down":
 		e.MoveDown()
 	case "k", "up":
