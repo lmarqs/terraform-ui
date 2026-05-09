@@ -16,4 +16,4 @@ Key facts:
 - Flow tests use real terraform fixtures from tests/fixtures/
 - JUnit XML reports output to reports/
 
-Related commands: /add-test, /add-fixture, /coverage
+Related commands: /test-add, /fixture-add, /coverage
