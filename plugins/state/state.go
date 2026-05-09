@@ -389,24 +389,50 @@ func (e *Plugin) maxAddressLen() int {
 }
 
 // buildSearchTexts returns short, distinctive search strings for each resource.
-// Uses module name + resource type + resource name, avoiding long shared prefixes
-// that cause false positives in subsequence matching.
+// Uses the inner module path + resource type + resource name.
+// Strips the outermost shared module prefix if most resources are nested under it.
 func buildSearchTexts(resources []sdk.Resource) []string {
+	// Find the common module prefix (only if it wraps nested modules)
+	commonPrefix := ""
+	if len(resources) > 10 {
+		// Check if most resources share a module prefix with deeper nesting
+		counts := make(map[string]int)
+		for _, r := range resources {
+			if r.Module != "" && strings.Count(r.Module, "module.") >= 2 {
+				// Extract top module: "module.X.module.Y" -> "module.X"
+				rest := r.Module[len("module."):]
+				if idx := strings.Index(rest, ".module."); idx >= 0 {
+					top := "module." + rest[:idx]
+					counts[top]++
+				}
+			}
+		}
+		for prefix, count := range counts {
+			if count > len(resources)/2 {
+				commonPrefix = prefix + "."
+			}
+		}
+	}
+
 	texts := make([]string, len(resources))
 	for i, r := range resources {
-		// Use Type.Name as the base (e.g., "aws_rds_cluster.this[0]")
 		base := r.Type
 		if r.Name != "" {
 			base += "." + r.Name
 		}
-		// Prepend the innermost module name for disambiguation
 		if r.Module != "" {
-			// r.Module is like "module.postgresql_aurora" — extract last segment
 			mod := r.Module
-			if idx := strings.LastIndex(mod, "."); idx >= 0 {
-				mod = mod[idx+1:]
+			// Strip the common top-level module prefix
+			if commonPrefix != "" {
+				mod = strings.TrimPrefix(mod, commonPrefix)
 			}
-			texts[i] = mod + "." + base
+			// Strip "module." prefixes from remaining segments
+			mod = strings.ReplaceAll(mod, "module.", "")
+			if mod != "" {
+				texts[i] = mod + "." + base
+			} else {
+				texts[i] = base
+			}
 		} else {
 			texts[i] = base
 		}
@@ -441,6 +467,22 @@ func (e *Plugin) SetFilter(filter string) {
 func fuzzyMatch(resources []sdk.Resource, pattern string) []sdk.Resource {
 	texts := buildSearchTexts(resources)
 	matches := fuzzy.Find(pattern, texts)
+	if len(matches) == 0 {
+		return nil
+	}
+	// If best score is positive, drop matches below 20% of best
+	best := matches[0].Score
+	if best > 0 {
+		threshold := best / 5
+		var result []sdk.Resource
+		for _, m := range matches {
+			if m.Score >= threshold {
+				result = append(result, resources[m.Index])
+			}
+		}
+		return result
+	}
+	// All scores negative — keep all (weak matches but still the best available)
 	result := make([]sdk.Resource, len(matches))
 	for i, m := range matches {
 		result[i] = resources[m.Index]
