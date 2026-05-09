@@ -6,97 +6,153 @@ description: Internal architecture of terraform-ui
 
 # Architecture
 
-terraform-ui is a Go application built with [Bubbletea](https://github.com/charmbracelet/bubbletea) (TUI framework) and [terraform-exec](https://github.com/hashicorp/terraform-exec) (terraform SDK).
+terraform-ui is a Go application built with [Bubbletea](https://github.com/charmbracelet/bubbletea) (TUI framework) and [terraform-exec](https://github.com/hashicorp/terraform-exec) (terraform SDK). Features are modular plugins that depend only on a public SDK package.
+
+## Dependency Direction
+
+```
+plugins/*  ───→  pkg/sdk  ←───  internal/*
+   │                                 │
+   │  (public contract only)         │  (implements sdk interfaces)
+   │                                 │
+   └── never imports internal/ ──────┘
+```
+
+Plugins depend exclusively on `pkg/sdk/`. Internal packages implement the interfaces defined there. This enables future extraction of plugins to separate repositories or gRPC-based external processes.
 
 ## Project Structure
 
 ```
-cmd/tfui/main.go           — Entry point, CLI flag parsing, program setup
+cmd/tfui/main.go           — CLI entry point, plugin registration (thin glue)
+pkg/sdk/                   — Public SDK (the only dependency for plugins)
+  plugin.go                — Plugin interface
+  context.go               — Shared context (service, dir, workspace)
+  types.go                 — Domain types (Action, RiskLevel, Resource, PlanChange)
+  service.go               — Service interface (terraform operations)
+  styles.go                — Style constants for consistent rendering
 internal/
-  config/config.go         — tfui.yaml loading and CLI config merging
+  config/config.go         — tfui.yaml loading, project discovery, OpenTofu detection
+  plugin/registry.go       — Plugin registry (host-side only)
   terraform/
-    service.go             — Service interface + TerraformService (terraform-exec)
-    parser.go              — Plan JSON parsing into typed structs
-    risk.go                — Risk classification engine
-    grouping.go            — Module-level change grouping
-    phantom.go             — Phantom change detection
+    service.go             — TerraformService (implements sdk.Service via terraform-exec)
+    risk.go                — Risk classification (shared logic)
+    phantom.go             — Phantom change detection (shared logic)
+    grouping.go            — Module-level change grouping (shared logic)
   ui/
-    app.go                 — Root Bubbletea model, view routing
-    views/
-      home.go              — Home screen (key dispatch)
-      plan.go              — Plan review (tree navigation)
-      apply.go             — Live apply progress
-      state.go             — State browser
-      workspaces.go        — Workspace management
-      modules.go           — Monorepo project picker
-    components/
-      header.go            — Top bar (title, workspace)
-      statusbar.go         — Bottom bar (keybindings)
-    styles/
-      theme.go             — Lipgloss style definitions
+    app.go                 — Root Bubbletea model, plugin routing
+    styles/theme.go        — Lipgloss style definitions
+    views/home.go          — Home screen (auto-generated from registry)
+    components/            — Header, statusbar
+plugins/
+  plan/                    — Plan review plugin
+  risk/                    — Risk analysis plugin
+  phantom/                 — Phantom change detection plugin
+  blastradius/             — Blast radius visualization plugin
+  state/                   — State browser plugin
+  apply/                   — Apply with confirmation plugin
+  workspaces/              — Workspace management plugin
+  projects/                — Monorepo project picker plugin
+tests/
+  integration/             — CLI integration tests (require terraform)
+  fixtures/                — Real terraform projects for testing
 ```
 
-## How terraform-exec Is Used
+## Plugin System
 
-`internal/terraform/service.go` defines a `Service` interface wrapping terraform operations. `TerraformService` implements it using `hashicorp/terraform-exec`:
+Every feature is a plugin implementing `pkg/sdk.Plugin`:
 
-- `Plan()` — runs `terraform plan -json`, streams output, parses resource changes
-- `Apply()` — runs `terraform apply -auto-approve -json`, streams progress events
-- `StateList()` — runs `terraform state list`
-- `Show()` — runs `terraform state show <address>`
-- `Workspace()` — runs `terraform workspace show`
+```go
+type Plugin interface {
+    ID() string
+    Name() string
+    Description() string
+    KeyBinding() string
+    Init(ctx *Context) tea.Cmd
+    Update(msg tea.Msg) (Plugin, tea.Cmd)
+    View(width, height int) string
+    Configure(cfg map[string]interface{}) error
+    Ready() bool
+}
+```
 
-The service layer is injected into the UI, keeping terraform logic decoupled from rendering.
+Plugins are:
+- **Self-contained** — own view logic, types, messages
+- **Configurable** — per-plugin options in `tfui.yaml`
+- **Independent** — import only `pkg/sdk`, never `internal/`
+- **Testable** — mock the `sdk.Service` interface
+
+## Plugin Loading
+
+Currently: built-in (compiled into the binary). Factories are registered in `cmd/tfui/main.go` and built via the registry with config.
+
+Future (v1.1+): hashicorp/go-plugin for external plugins over gRPC. Third-party plugins as separate binaries communicating via the same `sdk.Plugin` contract serialized over proto.
+
+## Terraform Integration
+
+`internal/terraform/service.go` implements `sdk.Service` using `hashicorp/terraform-exec`:
+
+- `Plan()` — terraform plan → parse JSON → classify risk → detect phantoms
+- `Apply()` — terraform apply on saved plan file
+- `StateList()` — parse state JSON for resource list
+- `Show()` — terraform state show for resource detail
+- `Workspace()` / `WorkspaceList()` — workspace management
+
+OpenTofu is supported via auto-detection (`tofu` preferred if on PATH) or explicit `terraform_binary: tofu` in config.
 
 ## Bubbletea Model/Update/View
-
-The TUI follows Bubbletea's Elm architecture:
 
 ```
 ┌────────────────────────────────────────┐
 │  App (root model)                      │
-│  - routes messages to active view      │
+│  - routes key presses to active plugin │
 │  - handles global keys (q, Esc)        │
 │  - manages window resize               │
 ├────────────────────────────────────────┤
-│  Views (home, plan, apply, state, ...) │
-│  - each implements tea.Model           │
-│  - own Init/Update/View methods        │
-│  - emit commands for async work        │
+│  Plugin (active)                       │
+│  - receives Update() delegation        │
+│  - returns View() for content area     │
+│  - Init() for async data loading       │
 ├────────────────────────────────────────┤
 │  Components (header, statusbar)        │
-│  - shared UI elements                  │
-│  - rendered by views via View()        │
+│  - shared UI chrome                    │
+│  - rendered by App around plugin view  │
 └────────────────────────────────────────┘
 ```
 
-**Model** — `App` holds the active view, config, window dimensions, and shared state (current plan, workspace).
+## Testing Strategy
 
-**Update** — Messages flow through `App.Update()` which delegates to the active view. View transitions happen via custom messages (e.g., `NavigateMsg{View: ViewPlan}`).
+| Layer | Approach | Coverage Target |
+|-------|----------|-----------------|
+| `pkg/sdk` | Type definitions, no logic | N/A |
+| `internal/terraform` (parsers) | Unit tests, mock data | 100% |
+| `internal/terraform` (service calls) | Integration tests (need terraform binary) | Excluded from unit coverage |
+| `internal/plugin` | Unit tests, mock plugins | 100% |
+| `internal/ui` | Unit tests, mock registry | 100% |
+| `plugins/*` | Unit tests, mock service | 100% |
+| `cmd/tfui` | Excluded (thin glue) | N/A |
+| `tests/integration` | Integration (build tag, need terraform) | Behavioral coverage |
 
-**View** — `App.View()` composes the active view's output between the header and status bar using lipgloss for layout.
-
-## How Styles Are Organized
-
-`internal/ui/styles/theme.go` defines all lipgloss styles in one place:
-
-- Color palette constants (adaptive for light/dark terminals)
-- Component styles (borders, padding, alignment)
-- Semantic styles (risk level colors, action colors, dimmed text for phantom changes)
-
-Views import `styles` and reference named styles rather than defining inline styles, keeping visual consistency centralized.
+Coverage enforcement: 100% on all packages except `cmd/` (glue layer) and terraform-exec I/O calls. Pipeline fails if coverage drops.
 
 ## Development
 
-All commands go through [mise](https://mise.jdx.dev/):
-
 ```bash
-mise install              # Install Go, terraform, and other tools
-mise run go:build         # Build binary to dist/tfui
-mise run go:test          # Run unit tests
-mise run go:lint          # Run go vet
-mise run go:coverage      # Test with coverage report
-mise run go:run           # Launch TUI in dev mode
+mise install              # Install Go, terraform, node
+mise run build            # Build (runs fmt + lint first)
+mise run test             # Unit tests
+mise run coverage         # Coverage with 100% enforcement
+mise run test:integration # Integration tests (need terraform)
+mise run run              # Launch TUI in dev mode
 ```
 
-No Makefile — mise tasks are the single entry point for both local development and CI.
+## Key Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| `pkg/sdk` as public contract | Plugins never import internal/. Enables future extraction and gRPC plugins. |
+| Plugin = feature | Every capability is a plugin. Core app is just routing. |
+| Dependency injection | Service interface enables mocking. Plugins receive context, not concrete types. |
+| hashicorp/go-plugin (future) | Third-party plugins as separate binaries over gRPC. Same interface, different transport. |
+| semantic-release + goreleaser | Automatic versioning from commits + cross-platform binary distribution. |
+| 100% coverage (excl cmd/) | Pipeline enforced. Untestable layers kept minimal via DI. |
+| OpenTofu first-class | Auto-detect, configurable. Test matrix includes both. |
