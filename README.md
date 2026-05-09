@@ -64,6 +64,8 @@ Then run:
 mise install
 ```
 
+To pin a specific version, replace `"latest"` with a version number (e.g. `"0.36.4"`). The latest version is in the [`VERSION`](VERSION) file and on the [releases page](https://github.com/lmarqs/terraform-ui/releases).
+
 ### curl
 
 ```bash

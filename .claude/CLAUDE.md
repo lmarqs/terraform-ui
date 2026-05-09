@@ -148,7 +148,7 @@ main.yaml (orchestrator)
        │    PR           → vX.Y.Z-rc.<timestamp> (prerelease)
        ├─ Create git tag via GitHub API
        ├─ Create GitHub release (tarball + CHANGELOG.md + test reports)
-       └─ Push only: commit CHANGELOG.md back to main (via GitHub API)
+       └─ Push only: commit CHANGELOG.md + VERSION back to main (via GitHub API)
 ```
 
 ### Versioning
@@ -157,6 +157,7 @@ main.yaml (orchestrator)
 - git-cliff computes the next version from conventional commits since last tag
   - `feat:` → minor bump, `fix:` → patch bump, `BREAKING CHANGE` → major bump
 - Build writes the computed version into VERSION and embeds it in the artifact
+- Release commits VERSION back to main so the repo always shows the latest released version
 - CLI reads VERSION relative to its install path; local dev defaults to "dev"
 - Tags follow `vX.Y.Z` format, created by release via GitHub API
 - Release commit uses `[skip ci]` to prevent infinite CI loops
