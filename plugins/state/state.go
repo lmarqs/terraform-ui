@@ -470,13 +470,12 @@ func fuzzyMatch(resources []sdk.Resource, pattern string) []sdk.Resource {
 	if len(matches) == 0 {
 		return nil
 	}
-	// If best score is positive, drop matches below 20% of best
+	// If best score is positive, drop matches with negative scores
 	best := matches[0].Score
 	if best > 0 {
-		threshold := best / 5
 		var result []sdk.Resource
 		for _, m := range matches {
-			if m.Score >= threshold {
+			if m.Score >= 0 {
 				result = append(result, resources[m.Index])
 			}
 		}
