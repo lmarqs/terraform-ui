@@ -572,6 +572,62 @@ func TestHasTerraformFiles_NonexistentDir(t *testing.T) {
 	}
 }
 
+func TestWorkingDir_NoBaseDir(t *testing.T) {
+	cfg := Config{Dir: "/project/root"}
+	if cfg.WorkingDir() != "/project/root" {
+		t.Errorf("WorkingDir() = %q, want %q", cfg.WorkingDir(), "/project/root")
+	}
+}
+
+func TestWorkingDir_RelativeBaseDir(t *testing.T) {
+	cfg := Config{Dir: "/project/root", BaseDir: "infra/prod"}
+	if cfg.WorkingDir() != "/project/root/infra/prod" {
+		t.Errorf("WorkingDir() = %q, want %q", cfg.WorkingDir(), "/project/root/infra/prod")
+	}
+}
+
+func TestWorkingDir_AbsoluteBaseDir(t *testing.T) {
+	cfg := Config{Dir: "/project/root", BaseDir: "/other/path"}
+	if cfg.WorkingDir() != "/other/path" {
+		t.Errorf("WorkingDir() = %q, want %q", cfg.WorkingDir(), "/other/path")
+	}
+}
+
+func TestWorkingDir_EmptyDir(t *testing.T) {
+	cfg := Config{Dir: ".", BaseDir: "sub"}
+	if cfg.WorkingDir() != "sub" {
+		t.Errorf("WorkingDir() = %q, want %q", cfg.WorkingDir(), "sub")
+	}
+}
+
+func TestLoad_WithBaseDir(t *testing.T) {
+	dir := t.TempDir()
+
+	configContent := `
+basedir: infra/live
+terraform:
+  bin: tofu
+`
+	err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(configContent), 0644)
+	if err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load() returned error: %v", err)
+	}
+
+	if cfg.BaseDir != "infra/live" {
+		t.Errorf("Load().BaseDir = %q, want %q", cfg.BaseDir, "infra/live")
+	}
+
+	expected := filepath.Join(dir, "infra/live")
+	if cfg.WorkingDir() != expected {
+		t.Errorf("Load().WorkingDir() = %q, want %q", cfg.WorkingDir(), expected)
+	}
+}
+
 func boolPtr(v bool) *bool {
 	return &v
 }

@@ -105,7 +105,7 @@ func main() {
 
 func runTUI(cfg config.Config) error {
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(cfg.Dir, binary)
+	svc := terraform.NewService(cfg.WorkingDir(), binary)
 
 	// Create and populate the plugin registry
 	registry := plugin.NewRegistry()
@@ -293,7 +293,7 @@ func runInit(cfg config.Config) error {
 
 func runPlan(cfg config.Config) error {
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(cfg.Dir, binary)
+	svc := terraform.NewService(cfg.WorkingDir(), binary)
 	ctx := context.Background()
 
 	switch cfg.Mode {
@@ -340,7 +340,7 @@ func runPlan(cfg config.Config) error {
 
 func runApply(cfg config.Config) error {
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(cfg.Dir, binary)
+	svc := terraform.NewService(cfg.WorkingDir(), binary)
 	ctx := context.Background()
 
 	switch cfg.Mode {

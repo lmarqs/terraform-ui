@@ -13,8 +13,13 @@ import (
 // tfui.yaml and/or CLI flags. It controls working directory, binary path,
 // UI mode, plugin settings, and monorepo project discovery.
 type Config struct {
-	// Dir is the working directory for terraform operations.
+	// Dir is the project root directory (where tfui.yaml lives).
 	Dir string `yaml:"-"`
+
+	// BaseDir is an optional override for the terraform working directory,
+	// relative to Dir. Like TypeScript's compilerOptions.rootDir.
+	// If empty, Dir is used as the terraform working directory.
+	BaseDir string `yaml:"basedir"`
 
 	// Workspace is the terraform workspace name.
 	Workspace string `yaml:"-"`
@@ -34,6 +39,18 @@ type Config struct {
 	// Plugins is a map of plugin ID → plugin config.
 	// Plugins not listed are enabled with default settings.
 	Plugins map[string]PluginConfig `yaml:"plugins"`
+}
+
+// WorkingDir returns the resolved terraform working directory.
+// If BaseDir is set, it's resolved relative to Dir. Otherwise Dir is used.
+func (c Config) WorkingDir() string {
+	if c.BaseDir == "" {
+		return c.Dir
+	}
+	if filepath.IsAbs(c.BaseDir) {
+		return c.BaseDir
+	}
+	return filepath.Join(c.Dir, c.BaseDir)
 }
 
 // TerraformConfig holds terraform-specific configuration.

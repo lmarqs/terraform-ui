@@ -1,6 +1,10 @@
 # tfui.yaml — project configuration for terraform-ui
 # Place this file in your repository root.
 
+# Base directory for terraform operations, relative to this file.
+# Like TypeScript's compilerOptions.rootDir — if omitted, uses the directory containing tfui.yaml.
+# basedir: infra/live
+
 # Terraform configuration
 terraform:
   # Path to terraform (or tofu) binary (auto-detects if omitted: prefers tofu, falls back to terraform)

@@ -43,14 +43,19 @@ type App struct {
 }
 
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
-	sourceIndex, _ := terraform.NewSourceIndex(cfg.Dir)
+	workDir := cfg.WorkingDir()
+	sourceIndex, _ := terraform.NewSourceIndex(workDir)
+	header := components.NewHeader(workDir, "default", cfg.TerraformBinary(), 0)
+	if cfg.BaseDir != "" {
+		header = header.WithContext(cfg.BaseDir)
+	}
 	return App{
 		cfg:         cfg,
 		svc:         svc,
 		registry:    registry,
 		session:     sdk.NewSession(),
 		sourceIndex: sourceIndex,
-		header:      components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary(), 0),
+		header:      header,
 		separator:   components.NewSeparator(),
 		statusBar:   components.NewStatusBar(),
 		homeView:    views.NewHomeView(registry.All()),
@@ -62,7 +67,7 @@ func (a App) Init() tea.Cmd {
 
 	// Initialize all plugins
 	ctx := &plugin.Context{
-		Dir:       a.cfg.Dir,
+		Dir:       a.cfg.WorkingDir(),
 		Workspace: "default",
 		Service:   a.svc,
 		Logger:    logging.Logger(),
