@@ -15,7 +15,6 @@ vendor/
 
 # Node (semantic-release only)
 node_modules/
-package-lock.json
 
 # Generated
 coverage/
