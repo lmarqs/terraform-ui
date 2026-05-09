@@ -7,11 +7,13 @@ terraform-ui is a standalone pure-bash library that provides animated terminal f
 ## Architecture
 
 ```
-lib/tfui.sh       — the library (source this to use)
-tests/tfui-test.sh — BDD-style test suite
-install.sh        — curl-pipe-bash installer
-package.sh        — basher metadata
-Formula/          — homebrew formula
+lib/tfui.sh              — the library (source this to use)
+tests/*.bats             — BATS test suite (split by feature)
+tests/helpers/           — shared test utilities
+tests/fixtures/          — real terraform projects for integration testing
+scripts/                 — install.sh, package.sh
+Dockerfile.coverage      — kcov coverage runner
+.github/workflows/       — CI (build → test → release)
 ```
 
 ### Design Principles
@@ -20,6 +22,7 @@ Formula/          — homebrew formula
 - Cross-platform: macOS and any Linux distro
 - Designed to be `source`d into caller scripts, not executed directly
 - Terminal UI writes to fd3, keeping stdout/stderr free for data and errors
+- All tools managed via mise.toml — no global installs
 
 ### Naming Conventions
 
@@ -42,32 +45,49 @@ Formula/          — homebrew formula
 - `spinner` — one-line animated spinner (simple mode)
 - `progress` — two-line: spinner + progress bar (rich mode)
 
-## Commands
+## Mise Tasks
 
 ```bash
-# Syntax check
-mise run build
-
-# Install BATS helper libraries (auto-runs before test)
-mise run setup
-
-# Run tests (BATS, outputs JUnit XML to reports/)
-mise run test
-
-# Run a single test file
-bats tests/format.bats
+mise run setup          # Install BATS helper libraries
+mise run build          # Syntax check lib/tfui.sh
+mise run test:run       # Run test suite (BATS + JUnit XML)
+mise run coverage:run   # Run coverage via Docker + kcov
 ```
+
+Run a single test file: `bats tests/format.bats`
 
 ## Development Workflow
 
 1. Edit `lib/tfui.sh`
-2. Run `mise run test` to verify
+2. Run `mise run test:run` to verify
 3. Keep public API stable (`tfui_init`, `tfui_plan`, `tfui_confirm`, `tfui_apply`)
+
+## Testing
+
+- BATS framework with real terraform fixtures (no mocks)
+- Fixtures in `tests/fixtures/<scenario>/` with pre-seeded `terraform.tfstate`
+- fd3 conflict: never use `exec 3>` in tests — use `3>/dev/null` or `3>"$file"` on function calls
+- Name tests as BDD scenarios: "given X, plan shows Y"
+- Use `_fixture_prepare "name"` + `_fixture_plan "msg"` helpers
+
+## CI Pipeline
+
+- `main.yaml` orchestrates: build → test → release (reusable workflow_call)
+- Test matrix: ubuntu-latest + macos-latest, `fail-fast: false`
+- CI steps call mise tasks — reproducible locally with same commands
+- JUnit reports via `dorny/test-reporter@v1` (needs `checks: write`)
+- Coverage via Docker (Dockerfile.coverage), uploaded to Codecov
+- Only GitHub-specific integrations (test-reporter, codecov) are non-mise steps
+
+## Conventions
+
+- Commits: conventional commits (`feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `chore:`)
+- Mise tasks: noun:verb (`test:run`, `coverage:run`), single-word for simple tasks (`setup`, `build`)
+- Slash commands: noun-verb matching mise tasks (`/test-run`, `/coverage-run`)
+- Terraform: pinned to 1.14, fixtures use `required_version = ">= 1.14"`
 
 ## Important Notes
 
 - Never break the public API signature without a major version bump
 - All internal functions/vars use `_tfui_` or `_TFUI_` prefix to avoid collisions when sourced
-- The test suite uses BATS with mocked terraform — no real infra calls
 - fd3 is the UI channel; render functions write there, never to stdout/stderr
-- Tests that invoke UI functions use `3>/dev/null` or `3>"$tmpfile"` to avoid conflicts with BATS's internal fd3 (TAP output)

@@ -20,7 +20,7 @@ jobs:
         uses: ./.github/actions/prepare-env
 
       - name: Test
-        run: mise run test
+        run: mise run test:run
 
       - name: Test Report
         uses: dorny/test-reporter@v1
@@ -41,7 +41,7 @@ jobs:
         uses: ./.github/actions/prepare-env
 
       - name: Coverage
-        run: mise run coverage
+        run: mise run coverage:run
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4

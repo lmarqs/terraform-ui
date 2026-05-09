@@ -1,11 +1,11 @@
 ---
 allowed-tools: Bash(mise run:*), Bash(bats:*)
-description: Run the test suite (mise run test)
+description: Run the test suite (mise run test:run)
 ---
 
-## Mise task: `test`
+## Mise task: `test:run`
 
-Run the test suite with `mise run test`.
+Run the test suite with `mise run test:run`.
 
 If tests fail, analyze the output and fix the failing tests. Run only the failing file first with `bats tests/<file>.bats` for faster iteration.
 
@@ -16,4 +16,4 @@ Key facts:
 - Flow tests use real terraform fixtures from tests/fixtures/
 - JUnit XML reports output to reports/
 
-Related commands: /test-add, /fixture-add, /coverage
+Related commands: /test-add, /fixture-add, /coverage-run

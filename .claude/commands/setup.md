@@ -15,7 +15,7 @@ mise run setup      # Clone BATS helper libraries into tests/helpers/
 After setup, verify with:
 ```bash
 mise run build      # Syntax check lib/tfui.sh
-mise run test       # Run full test suite
+mise run test:run   # Run full test suite
 ```
 
-Related commands: /test, /coverage
+Related commands: /test-run, /coverage-run

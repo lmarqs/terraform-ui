@@ -17,12 +17,12 @@ description = "Install BATS helper libraries"
 run = "bash -n lib/tfui.sh"
 description = "Syntax check the library"
 
-[tasks.test]
+[tasks."test:run"]
 depends = ["setup"]
 run = "mkdir -p reports && bats tests/ --report-formatter junit --output ./reports"
 description = "Run test suite"
 
-[tasks.coverage]
+[tasks."coverage:run"]
 depends = ["setup"]
 run = """
 docker build -f Dockerfile.coverage -t tfui-coverage . && \
