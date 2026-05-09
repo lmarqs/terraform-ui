@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the state browser extension.
+// Status represents the current state of the state browser plugin.
 type Status int
 
 const (
@@ -34,37 +35,45 @@ type ResourceDetailMsg struct {
 	Err     error
 }
 
-// Extension implements the state browser feature.
-type Extension struct {
-	svc       terraform.Service
-	status    Status
-	resources []terraform.Resource
-	filtered  []terraform.Resource
-	filter    string
-	errMsg    string
-	selected  int
-	detail    string
+// Plugin implements the state browser feature.
+type Plugin struct {
+	svc        terraform.Service
+	status     Status
+	resources  []terraform.Resource
+	filtered   []terraform.Resource
+	filter     string
+	errMsg     string
+	selected   int
+	detail     string
 	detailAddr string
 }
 
-// New creates a new state browser extension.
-func New() *Extension {
-	return &Extension{}
+// New creates a new state browser plugin.
+func New(svc terraform.Service) plugin.Plugin {
+	return &Plugin{
+		svc: svc,
+	}
 }
 
-func (e *Extension) Name() string        { return "State Browser" }
-func (e *Extension) Description() string  { return "Browse and inspect terraform state resources" }
-func (e *Extension) KeyBinding() string   { return "s" }
-func (e *Extension) Ready() bool          { return e.status == StatusDone || e.status == StatusShowingDetail }
-func (e *Extension) Status() Status       { return e.status }
-func (e *Extension) Selected() int        { return e.selected }
-func (e *Extension) Filter() string       { return e.filter }
-func (e *Extension) ResourceCount() int   { return len(e.filtered) }
-func (e *Extension) TotalCount() int      { return len(e.resources) }
+func (e *Plugin) ID() string          { return "state" }
+func (e *Plugin) Name() string        { return "State Browser" }
+func (e *Plugin) Description() string { return "Browse and inspect terraform state resources" }
+func (e *Plugin) KeyBinding() string  { return "s" }
+func (e *Plugin) Ready() bool         { return e.status == StatusDone || e.status == StatusShowingDetail }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Filter() string      { return e.filter }
+func (e *Plugin) ResourceCount() int  { return len(e.filtered) }
+func (e *Plugin) TotalCount() int     { return len(e.resources) }
 
-// Init initializes the extension and loads state.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
-	e.svc = svc
+// Configure applies plugin-specific options from config.
+func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	return nil
+}
+
+// Init initializes the plugin and loads state.
+func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.resources = nil
 	e.filtered = nil
@@ -77,7 +86,7 @@ func (e *Extension) Init(svc terraform.Service) tea.Cmd {
 }
 
 // Refresh reloads the state.
-func (e *Extension) Refresh() tea.Cmd {
+func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.resources = nil
 	e.filtered = nil
@@ -89,7 +98,7 @@ func (e *Extension) Refresh() tea.Cmd {
 	return e.loadState()
 }
 
-func (e *Extension) loadState() tea.Cmd {
+func (e *Plugin) loadState() tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
 		resources, err := svc.StateList(context.Background())
@@ -97,7 +106,7 @@ func (e *Extension) loadState() tea.Cmd {
 	}
 }
 
-func (e *Extension) loadDetail(address string) tea.Cmd {
+func (e *Plugin) loadDetail(address string) tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
 		detail, err := svc.Show(context.Background(), address)
@@ -105,8 +114,8 @@ func (e *Extension) loadDetail(address string) tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StateListMsg:
 		if msg.Err != nil {
@@ -117,7 +126,7 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
 		}
-		return nil, true
+		return e, nil
 
 	case ResourceDetailMsg:
 		if msg.Err != nil {
@@ -128,15 +137,16 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 			e.detailAddr = msg.Address
 			e.status = StatusShowingDetail
 		}
-		return nil, true
+		return e, nil
 
 	case tea.KeyMsg:
-		return e.handleKey(msg), true
+		cmd := e.handleKey(msg)
+		return e, cmd
 	}
-	return nil, false
+	return e, nil
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	// Detail view has its own key handling
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
@@ -177,33 +187,33 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // MoveUp moves selection up.
-func (e *Extension) MoveUp() {
+func (e *Plugin) MoveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
 // MoveDown moves selection down.
-func (e *Extension) MoveDown() {
+func (e *Plugin) MoveDown() {
 	if e.selected < len(e.filtered)-1 {
 		e.selected++
 	}
 }
 
 // MoveToStart moves selection to the first item.
-func (e *Extension) MoveToStart() {
+func (e *Plugin) MoveToStart() {
 	e.selected = 0
 }
 
 // MoveToEnd moves selection to the last item.
-func (e *Extension) MoveToEnd() {
+func (e *Plugin) MoveToEnd() {
 	if len(e.filtered) > 0 {
 		e.selected = len(e.filtered) - 1
 	}
 }
 
 // SetFilter sets the filter string and refilters the resource list.
-func (e *Extension) SetFilter(filter string) {
+func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
 	if filter == "" {
@@ -223,24 +233,24 @@ func (e *Extension) SetFilter(filter string) {
 }
 
 // AppendFilter adds a character to the filter.
-func (e *Extension) AppendFilter(ch string) {
+func (e *Plugin) AppendFilter(ch string) {
 	e.SetFilter(e.filter + ch)
 }
 
 // BackspaceFilter removes the last character from the filter.
-func (e *Extension) BackspaceFilter() {
+func (e *Plugin) BackspaceFilter() {
 	if len(e.filter) > 0 {
 		e.SetFilter(e.filter[:len(e.filter)-1])
 	}
 }
 
 // ClearFilter clears the filter.
-func (e *Extension) ClearFilter() {
+func (e *Plugin) ClearFilter() {
 	e.SetFilter("")
 }
 
 // SelectedResource returns the currently selected resource.
-func (e *Extension) SelectedResource() terraform.Resource {
+func (e *Plugin) SelectedResource() terraform.Resource {
 	if e.selected < len(e.filtered) {
 		return e.filtered[e.selected]
 	}
@@ -248,7 +258,7 @@ func (e *Extension) SelectedResource() terraform.Resource {
 }
 
 // InspectSelected loads detailed info about the selected resource.
-func (e *Extension) InspectSelected() tea.Cmd {
+func (e *Plugin) InspectSelected() tea.Cmd {
 	r := e.SelectedResource()
 	if r.Address == "" {
 		return nil
@@ -256,8 +266,8 @@ func (e *Extension) InspectSelected() tea.Cmd {
 	return e.loadDetail(r.Address)
 }
 
-// View renders the state browser extension.
-func (e *Extension) View(width, height int) string {
+// View renders the state browser plugin.
+func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
 		title := styles.StyleTitle.Render("State Browser")
@@ -286,7 +296,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderResources(width, height int) string {
+func (e *Plugin) renderResources(width, height int) string {
 	title := styles.StyleTitle.Render("State Browser")
 
 	filterLine := ""
@@ -337,7 +347,7 @@ func (e *Extension) renderResources(width, height int) string {
 	return styles.StylePadded.Render(content)
 }
 
-func (e *Extension) renderResourceRow(r terraform.Resource) string {
+func (e *Plugin) renderResourceRow(r terraform.Resource) string {
 	address := r.Address
 	typeInfo := styles.StyleFaint.Render(r.Type)
 
@@ -349,7 +359,7 @@ func (e *Extension) renderResourceRow(r terraform.Resource) string {
 	return row
 }
 
-func (e *Extension) renderDetail(width, height int) string {
+func (e *Plugin) renderDetail(width, height int) string {
 	title := styles.StyleTitle.Render("Resource Detail")
 	address := styles.StyleKey.Render(e.detailAddr)
 

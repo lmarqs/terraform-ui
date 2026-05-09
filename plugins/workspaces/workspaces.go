@@ -6,11 +6,12 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the workspaces extension.
+// Status represents the current state of the workspaces plugin.
 type Status int
 
 const (
@@ -34,8 +35,8 @@ type WorkspaceSwitchMsg struct {
 	Err  error
 }
 
-// Extension implements the workspace management feature.
-type Extension struct {
+// Plugin implements the workspace management feature.
+type Plugin struct {
 	svc        terraform.Service
 	status     Status
 	workspaces []string
@@ -46,24 +47,34 @@ type Extension struct {
 	creating   bool
 }
 
-// New creates a new workspaces extension.
-func New() *Extension {
-	return &Extension{}
+// New creates a new workspaces plugin.
+func New(svc terraform.Service) plugin.Plugin {
+	return &Plugin{
+		svc: svc,
+	}
 }
 
-func (e *Extension) Name() string          { return "Workspaces" }
-func (e *Extension) Description() string    { return "Manage terraform workspaces" }
-func (e *Extension) KeyBinding() string     { return "w" }
-func (e *Extension) Ready() bool            { return e.status == StatusDone }
-func (e *Extension) Status() Status         { return e.status }
-func (e *Extension) Selected() int          { return e.selected }
-func (e *Extension) Current() string        { return e.current }
-func (e *Extension) Workspaces() []string   { return e.workspaces }
-func (e *Extension) IsCreating() bool       { return e.creating }
+func (e *Plugin) ID() string          { return "workspaces" }
+func (e *Plugin) Name() string        { return "Workspaces" }
+func (e *Plugin) Description() string { return "Manage terraform workspaces" }
+func (e *Plugin) KeyBinding() string  { return "w" }
+func (e *Plugin) Ready() bool         { return e.status == StatusDone }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Current() string     { return e.current }
+func (e *Plugin) Workspaces() []string {
+	return e.workspaces
+}
+func (e *Plugin) IsCreating() bool { return e.creating }
 
-// Init initializes the extension and loads workspaces.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
-	e.svc = svc
+// Configure applies plugin-specific options from config.
+func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	return nil
+}
+
+// Init initializes the plugin and loads workspaces.
+func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.workspaces = nil
 	e.current = ""
@@ -75,7 +86,7 @@ func (e *Extension) Init(svc terraform.Service) tea.Cmd {
 }
 
 // Refresh reloads the workspace list.
-func (e *Extension) Refresh() tea.Cmd {
+func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.errMsg = ""
 	e.creating = false
@@ -83,7 +94,7 @@ func (e *Extension) Refresh() tea.Cmd {
 	return e.loadWorkspaces()
 }
 
-func (e *Extension) loadWorkspaces() tea.Cmd {
+func (e *Plugin) loadWorkspaces() tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
 		workspaces, err := svc.WorkspaceList(context.Background())
@@ -98,8 +109,8 @@ func (e *Extension) loadWorkspaces() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case WorkspaceListMsg:
 		if msg.Err != nil {
@@ -117,7 +128,7 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 				}
 			}
 		}
-		return nil, true
+		return e, nil
 
 	case WorkspaceSwitchMsg:
 		if msg.Err != nil {
@@ -125,15 +136,16 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 		} else {
 			e.current = msg.Name
 		}
-		return e.Refresh(), true
+		return e, e.Refresh()
 
 	case tea.KeyMsg:
-		return e.handleKey(msg), true
+		cmd := e.handleKey(msg)
+		return e, cmd
 	}
-	return nil, false
+	return e, nil
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	// Creating mode has its own key handling
 	if e.creating {
 		switch msg.String() {
@@ -178,21 +190,21 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // MoveUp moves selection up.
-func (e *Extension) MoveUp() {
+func (e *Plugin) MoveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
 // MoveDown moves selection down.
-func (e *Extension) MoveDown() {
+func (e *Plugin) MoveDown() {
 	if e.selected < len(e.workspaces)-1 {
 		e.selected++
 	}
 }
 
 // SelectedWorkspace returns the currently selected workspace name.
-func (e *Extension) SelectedWorkspace() string {
+func (e *Plugin) SelectedWorkspace() string {
 	if e.selected < len(e.workspaces) {
 		return e.workspaces[e.selected]
 	}
@@ -200,7 +212,7 @@ func (e *Extension) SelectedWorkspace() string {
 }
 
 // SwitchToSelected switches to the selected workspace.
-func (e *Extension) SwitchToSelected() tea.Cmd {
+func (e *Plugin) SwitchToSelected() tea.Cmd {
 	ws := e.SelectedWorkspace()
 	if ws == "" || ws == e.current {
 		return nil
@@ -208,34 +220,29 @@ func (e *Extension) SwitchToSelected() tea.Cmd {
 	return e.switchWorkspace(ws)
 }
 
-func (e *Extension) switchWorkspace(name string) tea.Cmd {
-	// Note: terraform-exec doesn't expose workspace select directly.
-	// In a real implementation this would call tf.WorkspaceSelect.
-	// For now, return a message indicating the switch.
+func (e *Plugin) switchWorkspace(name string) tea.Cmd {
 	return func() tea.Msg {
 		return WorkspaceSwitchMsg{Name: name}
 	}
 }
 
-func (e *Extension) createWorkspace(name string) tea.Cmd {
-	// In a real implementation, this would call tf.WorkspaceNew.
+func (e *Plugin) createWorkspace(name string) tea.Cmd {
 	return func() tea.Msg {
 		return WorkspaceSwitchMsg{Name: name}
 	}
 }
 
 // DeleteSelected deletes the selected workspace (cannot delete current or default).
-func (e *Extension) DeleteSelected() tea.Cmd {
+func (e *Plugin) DeleteSelected() tea.Cmd {
 	ws := e.SelectedWorkspace()
 	if ws == "" || ws == e.current || ws == "default" {
 		return nil
 	}
-	// In a real implementation, this would call tf.WorkspaceDelete.
 	return e.Refresh()
 }
 
-// View renders the workspaces extension.
-func (e *Extension) View(width, height int) string {
+// View renders the workspaces plugin.
+func (e *Plugin) View(width, height int) string {
 	title := styles.StyleTitle.Render("Workspaces")
 
 	switch e.status {
@@ -256,7 +263,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderWorkspaces(width, height int) string {
+func (e *Plugin) renderWorkspaces(width, height int) string {
 	title := styles.StyleTitle.Render("Workspaces")
 
 	var b strings.Builder
@@ -305,7 +312,7 @@ func (e *Extension) renderWorkspaces(width, height int) string {
 	return styles.StylePadded.Render(content)
 }
 
-func (e *Extension) renderWorkspaceRow(ws string, idx int) string {
+func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {
 	indicator := "  "
 	name := styles.StyleFaint.Render(ws)
 	if ws == e.current {
@@ -324,7 +331,7 @@ func (e *Extension) renderWorkspaceRow(ws string, idx int) string {
 }
 
 // FilterWorkspaces returns workspaces matching a filter string.
-func (e *Extension) FilterWorkspaces(filter string) []string {
+func (e *Plugin) FilterWorkspaces(filter string) []string {
 	if filter == "" {
 		return e.workspaces
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the blast radius extension.
+// Status represents the current state of the blast radius plugin.
 type Status int
 
 const (
@@ -48,8 +48,8 @@ type ModuleImpact struct {
 	Score ImpactScore
 }
 
-// Extension implements the blast radius visualization feature.
-type Extension struct {
+// Plugin implements the blast radius visualization feature.
+type Plugin struct {
 	svc      terraform.Service
 	status   Status
 	modules  []ModuleImpact
@@ -58,30 +58,30 @@ type Extension struct {
 	total    int
 }
 
-// New creates a new blast radius extension.
-func New() *Extension {
-	return &Extension{
+// New creates a new blast radius plugin.
+func New() *Plugin {
+	return &Plugin{
 		expanded: make(map[int]bool),
 	}
 }
 
-func (e *Extension) Name() string        { return "Blast Radius" }
-func (e *Extension) Description() string  { return "Visualize module-grouped changes with impact scores" }
-func (e *Extension) KeyBinding() string   { return "b" }
-func (e *Extension) Ready() bool          { return e.status == StatusReady }
-func (e *Extension) Status() Status       { return e.status }
-func (e *Extension) Selected() int        { return e.selected }
-func (e *Extension) ModuleCount() int     { return len(e.modules) }
-func (e *Extension) TotalChanges() int    { return e.total }
+func (e *Plugin) Name() string        { return "Blast Radius" }
+func (e *Plugin) Description() string  { return "Visualize module-grouped changes with impact scores" }
+func (e *Plugin) KeyBinding() string   { return "b" }
+func (e *Plugin) Ready() bool          { return e.status == StatusReady }
+func (e *Plugin) Status() Status       { return e.status }
+func (e *Plugin) Selected() int        { return e.selected }
+func (e *Plugin) ModuleCount() int     { return len(e.modules) }
+func (e *Plugin) TotalChanges() int    { return e.total }
 
-// Init initializes the extension with a terraform service.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
+// Init initializes the plugin with a terraform service.
+func (e *Plugin) Init(svc terraform.Service) tea.Cmd {
 	e.svc = svc
 	return nil
 }
 
 // Analyze processes a plan summary, groups by module, and calculates impact scores.
-func (e *Extension) Analyze(summary *terraform.PlanSummary) {
+func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = StatusReady
 		e.modules = nil
@@ -110,8 +110,8 @@ func (e *Extension) Analyze(summary *terraform.PlanSummary) {
 	e.expanded = make(map[int]bool)
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return e.handleKey(msg), true
@@ -119,7 +119,7 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "j", "down":
 		e.MoveDown()
@@ -132,34 +132,34 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // MoveUp moves selection up.
-func (e *Extension) MoveUp() {
+func (e *Plugin) MoveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
 // MoveDown moves selection down.
-func (e *Extension) MoveDown() {
+func (e *Plugin) MoveDown() {
 	if e.selected < len(e.modules)-1 {
 		e.selected++
 	}
 }
 
 // ToggleExpand toggles the expanded view for the selected module.
-func (e *Extension) ToggleExpand() {
+func (e *Plugin) ToggleExpand() {
 	e.expanded[e.selected] = !e.expanded[e.selected]
 }
 
 // SelectedModule returns the currently selected module impact.
-func (e *Extension) SelectedModule() *ModuleImpact {
+func (e *Plugin) SelectedModule() *ModuleImpact {
 	if e.selected < len(e.modules) {
 		return &e.modules[e.selected]
 	}
 	return nil
 }
 
-// View renders the blast radius extension.
-func (e *Extension) View(width, height int) string {
+// View renders the blast radius plugin.
+func (e *Plugin) View(width, height int) string {
 	title := styles.StyleTitle.Render("Blast Radius")
 
 	switch e.status {
@@ -175,7 +175,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderBlastRadius(width, height int) string {
+func (e *Plugin) renderBlastRadius(width, height int) string {
 	title := styles.StyleTitle.Render("Blast Radius")
 
 	if len(e.modules) == 0 {
@@ -225,7 +225,7 @@ func (e *Extension) renderBlastRadius(width, height int) string {
 	return styles.StylePadded.Render(content)
 }
 
-func (e *Extension) renderOverallSummary() string {
+func (e *Plugin) renderOverallSummary() string {
 	moduleCount := len(e.modules)
 	maxImpact := ImpactMinimal
 	for _, m := range e.modules {
@@ -248,7 +248,7 @@ func (e *Extension) renderOverallSummary() string {
 	}
 }
 
-func (e *Extension) renderModuleRow(mi ModuleImpact, idx int) string {
+func (e *Plugin) renderModuleRow(mi ModuleImpact, idx int) string {
 	indicator := ">"
 	if e.expanded[idx] {
 		indicator = "v"
@@ -264,7 +264,7 @@ func (e *Extension) renderModuleRow(mi ModuleImpact, idx int) string {
 	return fmt.Sprintf(" %s %s %s  %s  %s", indicator, module, changeCount, impactBadge, bar)
 }
 
-func (e *Extension) renderModuleChanges(mi ModuleImpact, width int) string {
+func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 	var b strings.Builder
 	for _, change := range mi.Group.Changes {
 		symbol := actionSymbol(change.Action)

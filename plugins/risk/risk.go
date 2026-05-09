@@ -9,7 +9,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
 )
 
-// Status represents the current state of the risk extension.
+// Status represents the current state of the risk plugin.
 type Status int
 
 const (
@@ -23,8 +23,8 @@ type RiskGroup struct {
 	Changes []terraform.PlanChange
 }
 
-// Extension implements the risk analysis feature.
-type Extension struct {
+// Plugin implements the risk analysis feature.
+type Plugin struct {
 	svc      terraform.Service
 	status   Status
 	groups   []RiskGroup
@@ -33,27 +33,27 @@ type Extension struct {
 	total    int
 }
 
-// New creates a new risk analysis extension.
-func New() *Extension {
-	return &Extension{}
+// New creates a new risk analysis plugin.
+func New() *Plugin {
+	return &Plugin{}
 }
 
-func (e *Extension) Name() string        { return "Risk Analysis" }
-func (e *Extension) Description() string  { return "Analyze risk levels of planned changes" }
-func (e *Extension) KeyBinding() string   { return "R" }
-func (e *Extension) Ready() bool          { return e.status == StatusReady }
-func (e *Extension) Status() Status       { return e.status }
-func (e *Extension) Selected() int        { return e.selected }
-func (e *Extension) Overall() terraform.RiskLevel { return e.overall }
+func (e *Plugin) Name() string        { return "Risk Analysis" }
+func (e *Plugin) Description() string  { return "Analyze risk levels of planned changes" }
+func (e *Plugin) KeyBinding() string   { return "R" }
+func (e *Plugin) Ready() bool          { return e.status == StatusReady }
+func (e *Plugin) Status() Status       { return e.status }
+func (e *Plugin) Selected() int        { return e.selected }
+func (e *Plugin) Overall() terraform.RiskLevel { return e.overall }
 
-// Init initializes the extension with a terraform service.
-func (e *Extension) Init(svc terraform.Service) tea.Cmd {
+// Init initializes the plugin with a terraform service.
+func (e *Plugin) Init(svc terraform.Service) tea.Cmd {
 	e.svc = svc
 	return nil
 }
 
 // Analyze processes a plan summary and groups changes by risk.
-func (e *Extension) Analyze(summary *terraform.PlanSummary) {
+func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = StatusReady
 		e.groups = nil
@@ -99,8 +99,8 @@ func (e *Extension) Analyze(summary *terraform.PlanSummary) {
 	e.selected = 0
 }
 
-// Update processes messages and returns the updated extension.
-func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
+// Update processes messages and returns the updated plugin.
+func (e *Plugin) Update(msg tea.Msg) (tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		return e.handleKey(msg), true
@@ -108,7 +108,7 @@ func (e *Extension) Update(msg tea.Msg) (tea.Cmd, bool) {
 	return nil, false
 }
 
-func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
+func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "j", "down":
 		e.MoveDown()
@@ -119,21 +119,21 @@ func (e *Extension) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 // MoveUp moves selection up.
-func (e *Extension) MoveUp() {
+func (e *Plugin) MoveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
 // MoveDown moves selection down.
-func (e *Extension) MoveDown() {
+func (e *Plugin) MoveDown() {
 	max := e.totalItems() - 1
 	if e.selected < max {
 		e.selected++
 	}
 }
 
-func (e *Extension) totalItems() int {
+func (e *Plugin) totalItems() int {
 	count := 0
 	for _, g := range e.groups {
 		count++ // group header
@@ -142,8 +142,8 @@ func (e *Extension) totalItems() int {
 	return count
 }
 
-// View renders the risk analysis extension.
-func (e *Extension) View(width, height int) string {
+// View renders the risk analysis plugin.
+func (e *Plugin) View(width, height int) string {
 	title := styles.StyleTitle.Render("Risk Analysis")
 
 	switch e.status {
@@ -159,7 +159,7 @@ func (e *Extension) View(width, height int) string {
 	}
 }
 
-func (e *Extension) renderAnalysis(width, height int) string {
+func (e *Plugin) renderAnalysis(width, height int) string {
 	title := styles.StyleTitle.Render("Risk Analysis")
 
 	if len(e.groups) == 0 {
@@ -215,7 +215,7 @@ func (e *Extension) renderAnalysis(width, height int) string {
 	return styles.StylePadded.Render(content)
 }
 
-func (e *Extension) renderOverallBanner() string {
+func (e *Plugin) renderOverallBanner() string {
 	switch e.overall {
 	case terraform.RiskCritical:
 		return styles.StyleRiskCritical.Render("!! CRITICAL RISK DETECTED !!")
@@ -230,7 +230,7 @@ func (e *Extension) renderOverallBanner() string {
 	}
 }
 
-func (e *Extension) renderGroupHeader(group RiskGroup) string {
+func (e *Plugin) renderGroupHeader(group RiskGroup) string {
 	var label string
 	switch group.Level {
 	case terraform.RiskCritical:
@@ -247,7 +247,7 @@ func (e *Extension) renderGroupHeader(group RiskGroup) string {
 	return "--- " + label + " ---"
 }
 
-func (e *Extension) renderChangeRow(change terraform.PlanChange) string {
+func (e *Plugin) renderChangeRow(change terraform.PlanChange) string {
 	symbol := actionSymbol(change.Action)
 	address := change.Resource.Address
 	reason := riskReason(change)
@@ -259,7 +259,7 @@ func (e *Extension) renderChangeRow(change terraform.PlanChange) string {
 	return row
 }
 
-func (e *Extension) renderStats() string {
+func (e *Plugin) renderStats() string {
 	var parts []string
 	for _, g := range e.groups {
 		parts = append(parts, fmt.Sprintf("%s: %d", g.Level.String(), len(g.Changes)))
