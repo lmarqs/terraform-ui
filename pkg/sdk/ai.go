@@ -50,17 +50,18 @@ type AIStreamChunkMsg struct {
 // AIConfig holds configuration for the AI service.
 type AIConfig struct {
 	Enabled  bool
-	Provider string // "bedrock"
-	Model    string // Bedrock model ID: "us.anthropic.claude-sonnet-4-6-v1"
-	Region   string // AWS region for Bedrock endpoint
+	Provider string // "" (auto-detect), "bedrock", or "anthropic"
+	Model    string // model ID (provider-specific)
+	Region   string // AWS region for Bedrock endpoint (optional)
 }
 
 // LoadAIConfig extracts AI configuration from the config context.
+// Provider auto-detection order: ANTHROPIC_API_KEY → AWS credentials → disabled.
 func LoadAIConfig(cfg *ConfigContext) AIConfig {
 	return AIConfig{
 		Enabled:  cfg.GetBool("ai.enabled", false),
-		Provider: cfg.GetString("ai.provider", "bedrock"),
-		Model:    cfg.GetString("ai.model", "us.anthropic.claude-sonnet-4-6-v1"),
+		Provider: cfg.GetString("ai.provider", ""),
+		Model:    cfg.GetString("ai.model", ""),
 		Region:   cfg.GetString("ai.region", ""),
 	}
 }

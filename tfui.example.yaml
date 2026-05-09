@@ -11,12 +11,12 @@ cache:
   # Prompt before destructive ops if data older than this
   staleness_threshold: 5m
 
-# AI integration (uses AWS Bedrock with default credential chain)
+# AI integration (auto-detects: ANTHROPIC_API_KEY → AWS Bedrock → disabled)
 # ai:
 #   enabled: true
-#   provider: bedrock
-#   model: us.anthropic.claude-sonnet-4-6-v1
-#   region: us-east-1  # optional: defaults to AWS_REGION env var
+#   # provider: ""  # auto-detect (or "bedrock", "anthropic")
+#   # model: ""     # auto-detect (bedrock: us.anthropic.claude-sonnet-4-6-v1, anthropic: claude-sonnet-4-6-20250514)
+#   # region: us-east-1  # for Bedrock: optional AWS region override
 
 # Context discovery for monorepos (similar to pnpm-workspace.yaml)
 # Define glob patterns to locate independent terraform projects.

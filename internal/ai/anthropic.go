@@ -1,12 +1,20 @@
-// Package ai provides AI-powered features for terraform-ui using Claude via AWS Bedrock.
+// Package ai provides AI-powered features for terraform-ui using Claude.
 // It implements the sdk.AIProvider interface with streaming support for real-time
 // token display in the TUI.
+//
+// Provider detection order:
+//  1. Explicit config (ai.provider in tfui.yaml)
+//  2. ANTHROPIC_API_KEY env var → direct Anthropic API
+//  3. AWS credentials available → Bedrock
+//  4. Disabled (no provider found)
 package ai
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -15,21 +23,58 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// AnthropicProvider implements sdk.AIProvider using Claude via AWS Bedrock.
+// Provider represents the detected AI backend.
+type Provider string
+
+const (
+	ProviderBedrock   Provider = "bedrock"
+	ProviderAnthropic Provider = "anthropic"
+	ProviderNone      Provider = "none"
+)
+
+// AnthropicProvider implements sdk.AIProvider using Claude.
+// Supports both direct Anthropic API and AWS Bedrock.
 type AnthropicProvider struct {
-	client *anthropic.Client
-	model  string
+	client   *anthropic.Client
+	model    string
+	provider Provider
 }
 
-// NewAnthropicProvider creates a new AI provider using Claude via AWS Bedrock.
-// Uses the default AWS credential chain (env vars, shared credentials, IAM role, etc.).
-// The model should be a Bedrock model ID like "us.anthropic.claude-sonnet-4-6-v1".
+// DetectProvider determines the best available AI provider from the environment.
+// Priority: explicit config > ANTHROPIC_API_KEY > AWS credentials > none.
+func DetectProvider(cfg sdk.AIConfig) Provider {
+	if cfg.Provider != "" {
+		return Provider(cfg.Provider)
+	}
+	if os.Getenv("ANTHROPIC_API_KEY") != "" {
+		return ProviderAnthropic
+	}
+	if hasAWSCredentials() {
+		return ProviderBedrock
+	}
+	return ProviderNone
+}
+
+// NewAnthropicProvider creates a new AI provider using the best available backend.
+// Auto-detects whether to use Bedrock or direct API based on available credentials.
 func NewAnthropicProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
+	provider := DetectProvider(cfg)
+
+	switch provider {
+	case ProviderBedrock:
+		return newBedrockProvider(cfg)
+	case ProviderAnthropic:
+		return newDirectProvider(cfg)
+	default:
+		return nil, fmt.Errorf("no AI credentials found: set ANTHROPIC_API_KEY or configure AWS credentials")
+	}
+}
+
+func newBedrockProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
 	opts := []option.RequestOption{
 		bedrock.WithLoadDefaultConfig(context.Background()),
 	}
 
-	// Allow region override via config
 	if cfg.Region != "" {
 		opts = append(opts, option.WithBaseURL(
 			fmt.Sprintf("https://bedrock-runtime.%s.amazonaws.com", cfg.Region),
@@ -44,9 +89,63 @@ func NewAnthropicProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
 	}
 
 	return &AnthropicProvider{
-		client: &client,
-		model:  model,
+		client:   &client,
+		model:    model,
+		provider: ProviderBedrock,
 	}, nil
+}
+
+func newDirectProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
+	apiKey := os.Getenv("ANTHROPIC_API_KEY")
+	if apiKey == "" {
+		return nil, fmt.Errorf("ANTHROPIC_API_KEY not set")
+	}
+
+	client := anthropic.NewClient(option.WithAPIKey(apiKey))
+
+	model := cfg.Model
+	if model == "" {
+		model = "claude-sonnet-4-6-20250514"
+	}
+
+	return &AnthropicProvider{
+		client:   &client,
+		model:    model,
+		provider: ProviderAnthropic,
+	}, nil
+}
+
+// hasAWSCredentials checks if AWS credentials are available in the environment.
+func hasAWSCredentials() bool {
+	// Check standard AWS env vars
+	if os.Getenv("AWS_ACCESS_KEY_ID") != "" {
+		return true
+	}
+	if os.Getenv("AWS_PROFILE") != "" {
+		return true
+	}
+	if os.Getenv("AWS_ROLE_ARN") != "" {
+		return true
+	}
+	// Check if aws CLI is configured (shared credentials file exists)
+	if home, err := os.UserHomeDir(); err == nil {
+		if _, err := os.Stat(home + "/.aws/credentials"); err == nil {
+			return true
+		}
+		if _, err := os.Stat(home + "/.aws/config"); err == nil {
+			return true
+		}
+	}
+	// Check if running on EC2/ECS with instance role (IMDSv2 quick check)
+	if _, err := exec.LookPath("aws"); err == nil {
+		return true
+	}
+	return false
+}
+
+// DetectedProvider returns which provider backend is in use.
+func (p *AnthropicProvider) DetectedProvider() Provider {
+	return p.provider
 }
 
 const systemPrompt = `You are a Terraform infrastructure expert embedded in a TUI tool called tfui.
