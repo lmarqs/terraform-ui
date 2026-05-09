@@ -86,7 +86,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestInitCmdReturnsProjectsDiscoveredMsg(t *testing.T) {
+func TestInitCmdReturnsContextDiscoveredMsg(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	// Use a cfg with no patterns (returns just the Dir)
@@ -97,19 +97,19 @@ func TestInitCmdReturnsProjectsDiscoveredMsg(t *testing.T) {
 	cmd := p.Activate()
 	msg := cmd()
 
-	result, ok := msg.(ProjectsDiscoveredMsg)
+	result, ok := msg.(ContextDiscoveredMsg)
 	if !ok {
-		t.Fatalf("Init cmd returned %T, want ProjectsDiscoveredMsg", msg)
+		t.Fatalf("Init cmd returned %T, want ContextDiscoveredMsg", msg)
 	}
 	if result.Err != nil {
-		t.Errorf("ProjectsDiscoveredMsg.Err = %v, want nil", result.Err)
+		t.Errorf("ContextDiscoveredMsg.Err = %v, want nil", result.Err)
 	}
 	if len(result.Projects) == 0 {
 		t.Error("len(Projects) = 0, want at least 1 (the dir itself)")
 	}
 }
 
-func TestUpdateProjectsDiscoveredMsgSuccess(t *testing.T) {
+func TestUpdateContextDiscoveredMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -120,9 +120,9 @@ func TestUpdateProjectsDiscoveredMsgSuccess(t *testing.T) {
 		{Path: "modules/rds", Name: "rds", AbsPath: "/tmp/modules/rds"},
 	}
 
-	result, cmd := p.Update(ProjectsDiscoveredMsg{Projects: projects, Err: nil})
+	result, cmd := p.Update(ContextDiscoveredMsg{Projects: projects, Err: nil})
 	if cmd != nil {
-		t.Errorf("Update(ProjectsDiscoveredMsg) cmd = %v, want nil", cmd)
+		t.Errorf("Update(ContextDiscoveredMsg) cmd = %v, want nil", cmd)
 	}
 
 	updated := result.(*Plugin)
@@ -140,15 +140,15 @@ func TestUpdateProjectsDiscoveredMsgSuccess(t *testing.T) {
 	}
 }
 
-func TestUpdateProjectsDiscoveredMsgError(t *testing.T) {
+func TestUpdateContextDiscoveredMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = StatusLoading
 
-	result, cmd := p.Update(ProjectsDiscoveredMsg{Err: errTest})
+	result, cmd := p.Update(ContextDiscoveredMsg{Err: errTest})
 	if cmd != nil {
-		t.Errorf("Update(ProjectsDiscoveredMsg) cmd = %v, want nil", cmd)
+		t.Errorf("Update(ContextDiscoveredMsg) cmd = %v, want nil", cmd)
 	}
 
 	updated := result.(*Plugin)

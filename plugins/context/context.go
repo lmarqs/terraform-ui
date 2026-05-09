@@ -20,8 +20,8 @@ const (
 	StatusError
 )
 
-// ProjectsDiscoveredMsg is sent when project discovery completes.
-type ProjectsDiscoveredMsg struct {
+// ContextDiscoveredMsg is sent when project discovery completes.
+type ContextDiscoveredMsg struct {
 	Projects []Project
 	Err      error
 }
@@ -114,7 +114,7 @@ func (e *Plugin) discover() tea.Cmd {
 	return func() tea.Msg {
 		paths, err := cfg.DiscoverContext()
 		if err != nil {
-			return ProjectsDiscoveredMsg{Err: err}
+			return ContextDiscoveredMsg{Err: err}
 		}
 
 		projects := make([]Project, 0, len(paths))
@@ -126,14 +126,14 @@ func (e *Plugin) discover() tea.Cmd {
 				AbsPath: filepath.Join(absDir, p),
 			})
 		}
-		return ProjectsDiscoveredMsg{Projects: projects}
+		return ContextDiscoveredMsg{Projects: projects}
 	}
 }
 
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
-	case ProjectsDiscoveredMsg:
+	case ContextDiscoveredMsg:
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
