@@ -1,0 +1,70 @@
+{
+  "rules": [
+    {
+      "id": "aws-database-delete",
+      "description": "AWS database resource being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "aws_db_instance|aws_rds_cluster|aws_rds_cluster_instance|aws_dynamodb_table|aws_redshift_cluster|aws_elasticache_cluster|aws_elasticache_replication_group|aws_docdb_cluster|aws_neptune_cluster", "action": ["delete"] }
+    },
+    {
+      "id": "aws-database-replace",
+      "description": "AWS database resource being replaced",
+      "severity": "critical",
+      "match": { "resource_type": "aws_db_instance|aws_rds_cluster|aws_rds_cluster_instance|aws_dynamodb_table|aws_redshift_cluster|aws_elasticache_cluster|aws_elasticache_replication_group|aws_docdb_cluster|aws_neptune_cluster", "action": ["replace"] }
+    },
+    {
+      "id": "aws-storage-delete",
+      "description": "AWS storage resource being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "aws_s3_bucket|aws_efs_file_system|aws_fsx_.*", "action": ["delete"] }
+    },
+    {
+      "id": "aws-encryption-delete",
+      "description": "AWS KMS key being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "aws_kms_key|aws_kms_alias", "action": ["delete", "replace"] }
+    },
+    {
+      "id": "aws-network-delete",
+      "description": "AWS network infrastructure being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "aws_vpc|aws_subnet|aws_route_table|aws_nat_gateway|aws_internet_gateway|aws_eip", "action": ["delete"] }
+    },
+    {
+      "id": "aws-iam-change",
+      "description": "AWS IAM resource being modified",
+      "severity": "high",
+      "match": { "resource_type": "aws_iam_role|aws_iam_policy|aws_iam_user|aws_iam_group|aws_iam_role_policy.*|aws_iam_instance_profile", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "aws-compute-delete",
+      "description": "AWS compute cluster being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "aws_ecs_cluster|aws_eks_cluster|aws_lambda_function", "action": ["delete"] }
+    },
+    {
+      "id": "aws-lb-delete",
+      "description": "AWS load balancer being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "aws_lb|aws_alb|aws_elb", "action": ["delete"] }
+    },
+    {
+      "id": "aws-security-group-change",
+      "description": "AWS security group being modified",
+      "severity": "medium",
+      "match": { "resource_type": "aws_security_group|aws_security_group_rule|aws_network_acl", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "aws-dns-change",
+      "description": "AWS DNS record being modified",
+      "severity": "medium",
+      "match": { "resource_type": "aws_route53_record|aws_route53_zone", "action": ["update", "delete", "replace"] }
+    },
+    {
+      "id": "aws-cloudfront-delete",
+      "description": "AWS CloudFront distribution being destroyed",
+      "severity": "medium",
+      "match": { "resource_type": "aws_cloudfront_distribution", "action": ["delete"] }
+    }
+  ]
+}

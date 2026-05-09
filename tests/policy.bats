@@ -493,3 +493,138 @@ JSON
   warning_count=$(echo "$output" | jq '.warnings | length')
   [ "$warning_count" -eq 0 ]
 }
+
+# -- Extends --
+
+@test "policy extends: resolves tfui:aws pack" {
+  local dir="$BATS_TEST_TMPDIR/extends-aws"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["tfui:aws"], "rules": []}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local count
+  count=$(echo "$output" | jq '.rules | length')
+  [ "$count" -gt 0 ]
+  local has_aws
+  has_aws=$(echo "$output" | jq '[.rules[] | select(.id | startswith("aws-"))] | length')
+  [ "$has_aws" -gt 0 ]
+}
+
+@test "policy extends: resolves tfui:gcp pack" {
+  local dir="$BATS_TEST_TMPDIR/extends-gcp"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["tfui:gcp"], "rules": []}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local has_gcp
+  has_gcp=$(echo "$output" | jq '[.rules[] | select(.id | startswith("gcp-"))] | length')
+  [ "$has_gcp" -gt 0 ]
+}
+
+@test "policy extends: resolves tfui:azure pack" {
+  local dir="$BATS_TEST_TMPDIR/extends-azure"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["tfui:azure"], "rules": []}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local has_azure
+  has_azure=$(echo "$output" | jq '[.rules[] | select(.id | startswith("azure-"))] | length')
+  [ "$has_azure" -gt 0 ]
+}
+
+@test "policy extends: merges multiple packs" {
+  local dir="$BATS_TEST_TMPDIR/extends-multi"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["tfui:aws", "tfui:gcp"], "rules": []}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local has_aws has_gcp
+  has_aws=$(echo "$output" | jq '[.rules[] | select(.id | startswith("aws-"))] | length')
+  has_gcp=$(echo "$output" | jq '[.rules[] | select(.id | startswith("gcp-"))] | length')
+  [ "$has_aws" -gt 0 ]
+  [ "$has_gcp" -gt 0 ]
+}
+
+@test "policy extends: user rules appended after pack rules" {
+  local dir="$BATS_TEST_TMPDIR/extends-user"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["tfui:aws"], "rules": [
+  {"id":"my-custom","description":"Custom rule","severity":"low","match":{"resource_type":"null_resource","action":["create"]}}
+]}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local last_id
+  last_id=$(echo "$output" | jq -r '.rules[-1].id')
+  [ "$last_id" = "my-custom" ]
+}
+
+@test "policy extends: ignores unknown pack names" {
+  local dir="$BATS_TEST_TMPDIR/extends-unknown"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["tfui:nonexistent"], "rules": [
+  {"id":"my-rule","description":"Only rule","severity":"low","match":{"resource_type":"null_resource","action":["create"]}}
+]}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local count
+  count=$(echo "$output" | jq '.rules | length')
+  [ "$count" -eq 1 ]
+}
+
+@test "policy extends: resolves relative path" {
+  local dir="$BATS_TEST_TMPDIR/extends-relative"
+  mkdir -p "$dir"
+
+  cat > "$dir/my-policies.json" <<'JSON'
+{"rules": [{"id":"relative-rule","description":"From relative file","severity":"medium","match":{"resource_type":"aws_instance","action":["delete"]}}]}
+JSON
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"extends": ["my-policies.json"], "rules": []}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local has_relative
+  has_relative=$(echo "$output" | jq '[.rules[] | select(.id == "relative-rule")] | length')
+  [ "$has_relative" -eq 1 ]
+}
+
+@test "policy extends: no extends field works as before" {
+  local dir="$BATS_TEST_TMPDIR/extends-none"
+  mkdir -p "$dir"
+
+  cat > "$dir/.tfui-policy.json" <<'JSON'
+{"rules": [{"id":"standalone","description":"Standalone rule","severity":"low","match":{"resource_type":"null_resource","action":["create"]}}]}
+JSON
+
+  run _tfui_policy_load "$dir"
+  assert_success
+  local rule_id
+  rule_id=$(echo "$output" | jq -r '.rules[0].id')
+  [ "$rule_id" = "standalone" ]
+}

@@ -1,0 +1,64 @@
+{
+  "rules": [
+    {
+      "id": "azure-database-delete",
+      "description": "Azure database resource being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "azurerm_mssql_server|azurerm_mssql_database|azurerm_cosmosdb_account|azurerm_postgresql_server|azurerm_postgresql_flexible_server|azurerm_mysql_server|azurerm_mysql_flexible_server", "action": ["delete"] }
+    },
+    {
+      "id": "azure-database-replace",
+      "description": "Azure database resource being replaced",
+      "severity": "critical",
+      "match": { "resource_type": "azurerm_mssql_server|azurerm_mssql_database|azurerm_cosmosdb_account|azurerm_postgresql_server|azurerm_postgresql_flexible_server|azurerm_mysql_server|azurerm_mysql_flexible_server", "action": ["replace"] }
+    },
+    {
+      "id": "azure-storage-delete",
+      "description": "Azure storage account being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "azurerm_storage_account|azurerm_storage_container|azurerm_managed_disk", "action": ["delete"] }
+    },
+    {
+      "id": "azure-keyvault-delete",
+      "description": "Azure Key Vault being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "azurerm_key_vault|azurerm_key_vault_key|azurerm_key_vault_secret", "action": ["delete", "replace"] }
+    },
+    {
+      "id": "azure-network-delete",
+      "description": "Azure network infrastructure being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "azurerm_virtual_network|azurerm_subnet|azurerm_public_ip|azurerm_nat_gateway", "action": ["delete"] }
+    },
+    {
+      "id": "azure-iam-change",
+      "description": "Azure role assignment being modified",
+      "severity": "high",
+      "match": { "resource_type": "azurerm_role_assignment|azurerm_role_definition|azurerm_user_assigned_identity", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "azure-aks-delete",
+      "description": "Azure AKS cluster being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "azurerm_kubernetes_cluster|azurerm_kubernetes_cluster_node_pool", "action": ["delete"] }
+    },
+    {
+      "id": "azure-nsg-change",
+      "description": "Azure network security group being modified",
+      "severity": "medium",
+      "match": { "resource_type": "azurerm_network_security_group|azurerm_network_security_rule", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "azure-dns-change",
+      "description": "Azure DNS record being modified",
+      "severity": "medium",
+      "match": { "resource_type": "azurerm_dns_.*_record|azurerm_private_dns_.*_record", "action": ["update", "delete", "replace"] }
+    },
+    {
+      "id": "azure-lb-delete",
+      "description": "Azure load balancer being destroyed",
+      "severity": "medium",
+      "match": { "resource_type": "azurerm_lb|azurerm_application_gateway", "action": ["delete"] }
+    }
+  ]
+}

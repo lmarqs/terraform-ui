@@ -1096,18 +1096,86 @@ _tfui_policy_discover() {
   return 1
 }
 
-# @description Load policy rules: from discovered file or built-in defaults.
+# @description Resolve a policy pack name to its file path.
+# Supports "tfui:aws", "tfui:gcp", "tfui:azure" for bundled packs,
+# or relative/absolute file paths for custom packs.
+# @param $1 {string} name - Pack name or path
+# @param $2 {string} base_dir - Base directory for relative path resolution
+# @return stdout - Resolved file path
+# @return exit_code - 0 if found, 1 if not found
+_tfui_policy_resolve_pack() {
+  local name="$1"
+  local base_dir="$2"
+  local lib_dir
+
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  case "$name" in
+    tfui:*)
+      local pack_name="${name#tfui:}"
+      local pack_file="$lib_dir/policies/${pack_name}.json"
+      if [ -f "$pack_file" ]; then
+        echo "$pack_file"
+        return 0
+      fi
+      ;;
+    /*)
+      if [ -f "$name" ]; then
+        echo "$name"
+        return 0
+      fi
+      ;;
+    *)
+      if [ -f "$base_dir/$name" ]; then
+        echo "$base_dir/$name"
+        return 0
+      fi
+      ;;
+  esac
+  return 1
+}
+
+# @description Load policy rules: resolve extends, merge packs, then user rules.
 # @param $1 {string} start_dir - Directory to start policy file search
-# @return stdout - JSON object with "rules" array
+# @return stdout - JSON object with "rules" array (merged)
 _tfui_policy_load() {
   local start_dir="$1"
-  local policy_file
+  local policy_file policy_json
 
   if policy_file=$(_tfui_policy_discover "$start_dir"); then
-    cat "$policy_file"
+    policy_json=$(cat "$policy_file")
   else
     _tfui_policy_defaults
+    return
   fi
+
+  local extends
+  extends=$(echo "$policy_json" | jq -r '.extends // [] | .[]' 2>/dev/null)
+
+  if [ -z "$extends" ]; then
+    echo "$policy_json"
+    return
+  fi
+
+  local base_dir
+  base_dir="$(dirname "$policy_file")"
+  local merged_rules="[]"
+
+  while IFS= read -r pack_name; do
+    [ -z "$pack_name" ] && continue
+    local pack_file
+    if pack_file=$(_tfui_policy_resolve_pack "$pack_name" "$base_dir"); then
+      local pack_rules
+      pack_rules=$(jq '.rules // []' "$pack_file")
+      merged_rules=$(echo "$merged_rules" | jq --argjson new "$pack_rules" '. + $new')
+    fi
+  done <<< "$extends"
+
+  local user_rules
+  user_rules=$(echo "$policy_json" | jq '.rules // []')
+  merged_rules=$(echo "$merged_rules" | jq --argjson new "$user_rules" '. + $new')
+
+  echo "$merged_rules" | jq '{rules: .}'
 }
 
 # @description Normalize plan actions into a single canonical action string.
