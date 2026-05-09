@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.3 — 2026-05-09
+
+### CI
+
+- build tarball in build task, not release
+
+### Miscellaneous
+
+- v0.36.2 [skip ci]
+
 ## 0.36.2 — 2026-05-09
 
 ### Bug Fixes
