@@ -216,8 +216,11 @@ func (h Header) formatRight() string {
 	if h.activeView != "" {
 		return sdk.StyleTitle.Render(h.activeView)
 	}
-	return fmt.Sprintf("%s %d",
-		sdk.StyleKey.Render("resources:"),
-		h.resourceCount,
-	)
+	if h.planSummary != nil {
+		return h.formatPlanCompact()
+	}
+	if h.resourceCount > 0 {
+		return sdk.StyleFaint.Render(fmt.Sprintf("*%d", h.resourceCount))
+	}
+	return ""
 }
