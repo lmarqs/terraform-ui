@@ -475,3 +475,143 @@ func TestApp_View_ActivePlugin(t *testing.T) {
 		t.Error("View() should contain the active plugin's view output")
 	}
 }
+
+func TestApp_CommandMode_ColonEnters(t *testing.T) {
+	app := setupTestApp()
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}}
+	model, _ := app.Update(msg)
+	app = model.(App)
+
+	if !app.commandMode {
+		t.Error(": should enter command mode")
+	}
+	if app.commandInput != "" {
+		t.Errorf("commandInput = %q, want empty", app.commandInput)
+	}
+}
+
+func TestApp_CommandMode_TypingAndEnter(t *testing.T) {
+	app := setupTestApp()
+
+	// Enter command mode
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+
+	// Type "state"
+	for _, ch := range "state" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+
+	if app.commandInput != "state" {
+		t.Errorf("commandInput = %q, want %q", app.commandInput, "state")
+	}
+
+	// Press enter
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.commandMode {
+		t.Error("enter should exit command mode")
+	}
+	if app.activePlugin == nil {
+		t.Fatal("enter with 'state' should activate state plugin")
+	}
+	if app.activePlugin.ID() != "state" {
+		t.Errorf("active plugin = %q, want %q", app.activePlugin.ID(), "state")
+	}
+}
+
+func TestApp_CommandMode_PrefixMatch(t *testing.T) {
+	app := setupTestApp()
+
+	// Enter command mode and type "st"
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "st" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+
+	// Enter should auto-complete to "state" (only match)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.activePlugin == nil {
+		t.Fatal("'st' + enter should activate state plugin via prefix match")
+	}
+	if app.activePlugin.ID() != "state" {
+		t.Errorf("active plugin = %q, want %q", app.activePlugin.ID(), "state")
+	}
+}
+
+func TestApp_CommandMode_TabAutocomplete(t *testing.T) {
+	app := setupTestApp()
+
+	// Enter command mode and type "st"
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "st" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+
+	// Tab should complete to "state"
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyTab})
+	app = model.(App)
+
+	if app.commandInput != "state" {
+		t.Errorf("after tab: commandInput = %q, want %q", app.commandInput, "state")
+	}
+}
+
+func TestApp_CommandMode_EscCancels(t *testing.T) {
+	app := setupTestApp()
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	app = model.(App)
+
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	app = model.(App)
+
+	if app.commandMode {
+		t.Error("esc should exit command mode")
+	}
+	if app.commandInput != "" {
+		t.Errorf("esc should clear input, got %q", app.commandInput)
+	}
+}
+
+func TestApp_CommandMode_ColonFromActivePlugin(t *testing.T) {
+	app := setupTestApp()
+
+	// Activate plan plugin
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	app = model.(App)
+	if app.activePlugin == nil || app.activePlugin.ID() != "plan" {
+		t.Fatal("p should activate plan plugin")
+	}
+
+	// : should enter command mode even with active plugin
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+
+	if !app.commandMode {
+		t.Error(": with active plugin should still enter command mode")
+	}
+
+	// Type "state" and enter to switch
+	for _, ch := range "state" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
+		t.Errorf("should switch to state, got %v", app.activePlugin)
+	}
+}
