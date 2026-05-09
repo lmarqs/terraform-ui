@@ -180,8 +180,16 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.MoveDown()
 	case "k", "up":
 		e.MoveUp()
-	case "enter", " ":
+	case "enter":
 		e.ToggleExpand()
+	case " ":
+		if change := e.SelectedChange(); change != nil {
+			e.togglePin(change.Resource.Address)
+		}
+	case "a":
+		if e.status == StatusDone && e.summary != nil && len(e.summary.Changes) > 0 {
+			return e.requestApply()
+		}
 	case "r":
 		if e.status == StatusError || e.status == StatusDone {
 			return e.Refresh()
@@ -308,7 +316,7 @@ func (e *Plugin) renderResults(width, height int) string {
 
 	summary := e.renderSummaryLine()
 	riskLine := e.renderOverallRisk()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  a apply  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  Space pin  a apply  r refresh  Esc back")
 
 	content := title + "\n\n" + b.String() + "\n" + summary
 	if riskLine != "" {
@@ -328,6 +336,11 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange, width int) string {
 		symbol = sdk.StylePhantom.Render(symbol)
 	}
 
+	pinMark := " "
+	if e.isPinnedAddress(change.Resource.Address) {
+		pinMark = sdk.StyleSuccess.Render("*")
+	}
+
 	expandIndicator := " "
 	if len(change.AttributeDiffs) > 0 {
 		if e.expanded[e.selected] {
@@ -337,7 +350,7 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange, width int) string {
 		}
 	}
 
-	row := fmt.Sprintf(" %s %s %s", expandIndicator, symbol, address)
+	row := fmt.Sprintf(" %s%s %s %s", pinMark, expandIndicator, symbol, address)
 	if risk != "" {
 		row += " " + risk
 	}
@@ -400,5 +413,54 @@ func (e *Plugin) renderOverallRisk() string {
 		return sdk.StyleRiskLow.Render("Overall risk: low")
 	default:
 		return ""
+	}
+}
+
+func (e *Plugin) togglePin(address string) {
+	if e.session == nil {
+		return
+	}
+	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
+	for i, a := range pinned {
+		if a == address {
+			pinned = append(pinned[:i], pinned[i+1:]...)
+			e.session.Set("terraform.pinned", pinned)
+			e.log.Debug("plan.unpin", "address", address)
+			return
+		}
+	}
+	pinned = append(pinned, address)
+	e.session.Set("terraform.pinned", pinned)
+	e.log.Debug("plan.pin", "address", address)
+}
+
+func (e *Plugin) isPinnedAddress(address string) bool {
+	if e.session == nil {
+		return false
+	}
+	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
+	for _, a := range pinned {
+		if a == address {
+			return true
+		}
+	}
+	return false
+}
+
+// ApplyRequestMsg signals the app to start applying the plan.
+type ApplyRequestMsg struct{}
+
+func (e *Plugin) requestApply() tea.Cmd {
+	return func() tea.Msg {
+		return sdk.RequestInputMsg{
+			Request: sdk.InputConfirm(
+				fmt.Sprintf("Apply plan (%d changes)?", len(e.summary.Changes)),
+				func() tea.Cmd {
+					return func() tea.Msg {
+						return ApplyRequestMsg{}
+					}
+				},
+			),
+		}
 	}
 }
