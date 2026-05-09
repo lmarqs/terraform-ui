@@ -128,11 +128,7 @@ Run a single test file: `bats tests/format.bats`
 ```
 main.yaml (orchestrator)
   │
-  ├─ build.yaml
-  │    ├─ Checkout
-  │    └─ mise run build (syntax validation + packages dist/)
-  │
-  ├─ test.yaml (needs: build)
+  ├─ test.yaml
   │    ├─ Matrix: ubuntu-latest + macos-latest, fail-fast: false
   │    ├─ mise run test:run (syntax check + tests)
   │    ├─ JUnit report via dorny/test-reporter@v1
@@ -162,7 +158,7 @@ main.yaml (orchestrator)
 ### Design Decisions
 
 - Build is a mise task — runs identically locally and in CI
-- Release checks out with full history; build and test use shallow checkout
+- Test uses shallow checkout; release checks out with full history
 - semantic-release owns the full release lifecycle (version, tag, changelog, assets, commit-back)
 - No manual version management needed — commit messages drive everything
 
