@@ -420,23 +420,37 @@ func fuzzyContains(text, pattern string) bool {
 	if strings.Contains(stripped, pattern) {
 		return true
 	}
-	// Subsequence match on stripped text (characters in order, gaps allowed)
-	ti := 0
-	for pi := 0; pi < len(pattern); pi++ {
-		found := false
-		for ti < len(stripped) {
-			if stripped[ti] == pattern[pi] {
+	// Bounded subsequence: try from each occurrence of pattern[0],
+	// allow total gaps up to 3x pattern length
+	maxGap := len(pattern) * 3
+	for start := 0; start < len(stripped); start++ {
+		if stripped[start] != pattern[0] {
+			continue
+		}
+		ti := start + 1
+		totalGap := 0
+		matched := true
+		for pi := 1; pi < len(pattern); pi++ {
+			found := false
+			for ti < len(stripped) {
+				if stripped[ti] == pattern[pi] {
+					ti++
+					found = true
+					break
+				}
+				totalGap++
 				ti++
-				found = true
+			}
+			if !found || totalGap > maxGap {
+				matched = false
 				break
 			}
-			ti++
 		}
-		if !found {
-			return false
+		if matched {
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 func stripSeparators(s string) string {

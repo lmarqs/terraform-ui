@@ -546,6 +546,43 @@ func TestSetFilter(t *testing.T) {
 	}
 }
 
+func TestSetFilterFuzzy(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"1\"]", Type: "aws_rds_cluster_instance", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"2\"]", Type: "aws_rds_cluster_instance", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group", Module: "module.redis"},
+		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group", Module: ""},
+	}
+	p.filtered = p.resources
+
+	tests := []struct {
+		filter string
+		want   int
+	}{
+		{"aurora", 3},
+		{"aurora0", 1},
+		{"rdscluster", 3},
+		{"rdsclusterthis", 3},
+		{"rdsclusterinstance", 2},
+		{"aurorathis", 3},
+		{"auroraclusterthis", 3},
+		{"redis", 1},
+		{"securitygroup", 1},
+		{"elasticache", 1},
+		{"securitygroupweb", 1},
+		{"zzz", 0},
+	}
+	for _, tt := range tests {
+		p.SetFilter(tt.filter)
+		if len(p.filtered) != tt.want {
+			t.Errorf("SetFilter(%q): got %d results, want %d", tt.filter, len(p.filtered), tt.want)
+		}
+	}
+}
+
 func TestAppendFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
