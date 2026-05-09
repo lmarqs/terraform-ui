@@ -289,6 +289,47 @@ root (1 to add, 1 to destroy)
   - aws_iam_role.old_role
 ```
 
+### Blast Radius Analysis
+
+When a plan includes destructive changes (delete or replace), blast radius analysis surfaces which downstream resources are transitively affected via terraform's dependency graph.
+
+```bash
+source lib/tfui.sh
+_tfui_analyze_blast_radius "$plan_json_file"
+```
+
+```json
+{
+  "blast_radius": [
+    {
+      "resource": "local_file.config",
+      "action": "delete",
+      "affected_resources": ["local_file.app", "local_file.downstream"],
+      "cascade_depth": 2,
+      "risk": "low"
+    }
+  ],
+  "total_affected": 2,
+  "max_cascade_depth": 2
+}
+```
+
+Human-readable output with tree visualization:
+
+```bash
+_tfui_render_blast_radius "$plan_json_file"
+```
+
+```
+Blast Radius:
+  - local_file.config (LOW)
+      └── local_file.app
+      └── local_file.downstream
+  Total cascade: 2 additional resource(s) affected
+```
+
+Risk is classified by cascade count: `none` (0), `low` (1-2), `moderate` (3-5), `high` (6+), `critical` (6+ on delete). An optional `max_depth` parameter (default: 10) limits BFS traversal depth.
+
 ### File Descriptors
 
 | FD | Purpose |

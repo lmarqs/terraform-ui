@@ -734,6 +734,136 @@ _tfui_strategy_agent() {
   _tfui_exec "$command"
 }
 
+# -- Blast Radius Analysis ----------------------------------------------------
+
+# @description Analyze blast radius for destructive changes in a plan.
+# Parses dependency information from configuration.root_module.resources[].dependencies,
+# builds a reverse dependency map, and performs BFS traversal to find all
+# transitively affected downstream resources.
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @param $2 {int} [max_depth=10] - Maximum traversal depth
+# @return stdout - JSON object with blast radius analysis
+# @requires jq
+_tfui_analyze_blast_radius() {
+  local plan_file="$1"
+  local max_depth="${2:-10}"
+
+  jq --argjson max_depth "$max_depth" '
+    # Extract dependency information from configuration
+    (
+      [.configuration.root_module.resources // [] | .[] |
+        {address: .address, dependencies: (.dependencies // [])}
+      ]
+    ) as $resources |
+
+    # Build reverse dependency map: resource -> who depends on me
+    (
+      reduce $resources[] as $r ({};
+        reduce ($r.dependencies // [])[] as $dep (.;
+          .[$dep] = ((.[$dep] // []) + [$r.address])
+        )
+      )
+    ) as $reverse_map |
+
+    # Identify destructive changes (delete or replace)
+    [
+      .resource_changes // [] | .[] |
+      select(
+        .change.actions == ["delete"] or
+        (.change.actions | sort) == ["create", "delete"]
+      ) |
+      {
+        address: .address,
+        action: (if .change.actions == ["delete"] then "delete" else "replace" end)
+      }
+    ] as $destructive |
+
+    # BFS traversal for each destructive resource
+    if ($destructive | length) == 0 then
+      {blast_radius: [], total_affected: 0, max_cascade_depth: 0}
+    else
+      [
+        $destructive[] |
+        . as $root |
+        # BFS: find all transitively dependent resources
+        {visited: [], frontier: [$root.address], depth: 0, depth_map: {}} |
+        until(
+          (.frontier | length == 0) or (.depth >= $max_depth);
+          .depth as $current_depth |
+          .visited as $visited |
+          .depth_map as $dm |
+          # Get all neighbors of current frontier
+          [.frontier[] | $reverse_map[.] // [] | .[]] | unique |
+          # Filter out already visited
+          map(select(. as $n | $visited | index($n) | not)) |
+          map(select(. != $root.address)) |
+          . as $new_nodes |
+          {
+            visited: ($visited + $new_nodes),
+            frontier: $new_nodes,
+            depth: ($current_depth + 1),
+            depth_map: (reduce $new_nodes[] as $n ($dm; .[$n] = ($current_depth + 1)))
+          }
+        ) |
+        {
+          resource: $root.address,
+          action: $root.action,
+          affected_resources: .visited,
+          cascade_depth: (if (.visited | length) == 0 then 0 else ([.depth_map[]] | max) end),
+          risk: (
+            (.visited | length) as $count |
+            if $root.action == "delete" and $count >= 6 then "critical"
+            elif $count >= 6 then "high"
+            elif $count >= 3 then "moderate"
+            elif $count >= 1 then "low"
+            else "none"
+            end
+          )
+        }
+      ] as $results |
+      {
+        blast_radius: $results,
+        total_affected: ([$results[].affected_resources[]] | unique | length),
+        max_cascade_depth: (if ($results | length) == 0 then 0 else [$results[].cascade_depth] | max end)
+      }
+    end
+  ' "$plan_file"
+}
+
+# @description Render human-readable blast radius output.
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @param $2 {int} [max_depth=10] - Maximum traversal depth
+# @return stdout - Formatted blast radius tree with risk indicators
+_tfui_render_blast_radius() {
+  local plan_file="$1"
+  local max_depth="${2:-10}"
+
+  local json
+  json=$(_tfui_analyze_blast_radius "$plan_file" "$max_depth")
+
+  local total_affected
+  total_affected=$(echo "$json" | jq -r '.total_affected')
+
+  if [ "$total_affected" -eq 0 ]; then
+    return 0
+  fi
+
+  echo ""
+  echo "Blast Radius:"
+
+  echo "$json" | jq -r '
+    .blast_radius[] |
+    "  " +
+    (if .action == "delete" then "-" else "-/+" end) +
+    " " + .resource + " (" + (.risk | ascii_upcase) + ")" +
+    (if (.affected_resources | length) > 0 then
+      "\n" + ([.affected_resources[] | "      └── " + .] | join("\n"))
+    else "" end)
+  '
+
+  echo "  Total cascade: $total_affected additional resource(s) affected"
+}
+
 # -- Renderer -----------------------------------------------------------------
 
 # @description Parse plan JSON and print a tree view of changes.
