@@ -829,3 +829,128 @@ func TestSelectedGetter(t *testing.T) {
 		t.Errorf("Selected() = %d, want 3", p.Selected())
 	}
 }
+
+func TestActivateWithSessionContextChange(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyActiveContextAbs, "/new/ctx")
+	ctx := &sdk.Context{Service: svc, Session: session}
+	p.Init(ctx)
+	p.status = StatusDone
+	p.scopedContext = "/old/ctx"
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() context change: want non-nil cmd")
+	}
+}
+
+func TestActivateWithSameContext(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyActiveContextAbs, "/same")
+	ctx := &sdk.Context{Service: svc, Session: session}
+	p.Init(ctx)
+	p.status = StatusDone
+	p.scopedContext = "/same"
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() same context done: want nil cmd")
+	}
+}
+
+func TestActivateMultiContextNoSelection(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyContextCount, 3)
+	ctx := &sdk.Context{Service: svc, Session: session}
+	p.Init(ctx)
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() multi-context no selection: want nil")
+	}
+	if p.status != StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+}
+
+func TestActivateWithContextDir(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyActiveContextAbs, "/my/ctx")
+	ctx := &sdk.Context{Service: svc, Session: session}
+	p.Init(ctx)
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() with context dir: want non-nil cmd")
+	}
+}
+
+func TestCreateWorkspaceCmd(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	cmd := p.createWorkspace("new-ws")
+	msg := cmd()
+	sm := msg.(WorkspaceSwitchMsg)
+	if sm.Name != "new-ws" || sm.Err != nil {
+		t.Errorf("createWorkspace: Name=%q Err=%v", sm.Name, sm.Err)
+	}
+}
+
+func TestCreateWorkspaceCmdError(t *testing.T) {
+	svc := &mockService{workspaceNewErr: errors.New("exists")}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	cmd := p.createWorkspace("x")
+	msg := cmd()
+	sm := msg.(WorkspaceSwitchMsg)
+	if sm.Err == nil {
+		t.Error("createWorkspace error: want non-nil Err")
+	}
+}
+
+func TestDeleteSelectedCmd(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.workspaces = []string{"default", "staging", "dev"}
+	p.current = "default"
+	p.selected = 2
+	cmd := p.DeleteSelected()
+	if cmd == nil {
+		t.Fatal("DeleteSelected: want non-nil cmd")
+	}
+	msg := cmd()
+	sm := msg.(WorkspaceSwitchMsg)
+	if sm.Err != nil {
+		t.Errorf("DeleteSelected: Err = %v", sm.Err)
+	}
+}
+
+func TestSwitchWorkspaceCmd(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	cmd := p.switchWorkspace("staging")
+	msg := cmd()
+	sm := msg.(WorkspaceSwitchMsg)
+	if sm.Name != "staging" || sm.Err != nil {
+		t.Errorf("switchWorkspace: Name=%q Err=%v", sm.Name, sm.Err)
+	}
+}
+
+func TestSwitchWorkspaceCmdError(t *testing.T) {
+	svc := &mockService{workspaceSelectErr: errors.New("fail")}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	cmd := p.switchWorkspace("x")
+	msg := cmd()
+	sm := msg.(WorkspaceSwitchMsg)
+	if sm.Err == nil {
+		t.Error("switchWorkspace error: want non-nil Err")
+	}
+}

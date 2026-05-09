@@ -979,3 +979,109 @@ func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
 		t.Error("j in loading: cmd != nil, want nil")
 	}
 }
+
+func TestStatusGetter(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	if p.Status() != StatusIdle {
+		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	}
+}
+
+func TestSelectedGetter(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.selected = 5
+	if p.Selected() != 5 {
+		t.Errorf("Selected() = %d, want 5", p.Selected())
+	}
+}
+
+func TestFilteringGetter(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	if p.Filtering() {
+		t.Error("Filtering() = true, want false")
+	}
+}
+
+func TestActivateWithContextChange(t *testing.T) {
+	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}}}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyActiveContextAbs, "/new/ctx")
+	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+	p.status = StatusDone
+	p.scopedContext = "/old/ctx"
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() context change: want non-nil cmd")
+	}
+}
+
+func TestActivateWithSameContext(t *testing.T) {
+	svc := &mockService{stateListResult: []sdk.Resource{}}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyActiveContextAbs, "/same")
+	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+	p.status = StatusDone
+	p.scopedContext = "/same"
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() same context done: want nil")
+	}
+}
+
+func TestActivateMultiContextNoSelection(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyContextCount, 3)
+	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() multi-context no selection: want nil")
+	}
+	if p.status != StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+}
+
+func TestActivateWithContextDir(t *testing.T) {
+	svc := &mockService{stateListResult: []sdk.Resource{}}
+	p := New(svc).(*Plugin)
+	session := sdk.NewSession()
+	session.Set(sdk.SessionKeyActiveContextAbs, "/my/ctx")
+	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() with context dir: want non-nil cmd")
+	}
+}
+
+func TestActivateNoSession(t *testing.T) {
+	svc := &mockService{stateListResult: []sdk.Resource{}}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() no session: want non-nil cmd")
+	}
+}
+
+func TestHandleKeyFilterMode(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusDone
+	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_s3_bucket.b"}}
+	p.filtered = p.resources
+
+	// Activate filter mode
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if !p.filtering {
+		t.Error("after /: filtering = false, want true")
+	}
+}
