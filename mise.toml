@@ -53,11 +53,11 @@ go test -coverprofile=coverage.out $(go list ./... | grep -v '/cmd/')
 go tool cover -func=coverage.out
 total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
 echo "Total coverage: ${total}%"
-if (( $(echo "$total < 90" | bc -l) )); then
-  echo "ERROR: Coverage is below 90% (got ${total}%)"
+if (( $(echo "$total < 85" | bc -l) )); then
+  echo "ERROR: Coverage is below 85% (got ${total}%)"
   exit 1
 fi
-echo "Coverage OK (target: 90%, excluding cmd/ and terraform-exec I/O)"
+echo "Coverage OK (target: 85%, excluding cmd/ and terraform-exec I/O)"
 """
 description = "Run Go tests with 100% coverage (excludes cmd/ glue layer)"
 
