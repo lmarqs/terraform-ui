@@ -20,7 +20,7 @@ import (
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	"github.com/lmarqs/terraform-ui/plugins/phantom"
 	"github.com/lmarqs/terraform-ui/plugins/plan"
-	"github.com/lmarqs/terraform-ui/plugins/projects"
+	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	"github.com/lmarqs/terraform-ui/plugins/risk"
 	"github.com/lmarqs/terraform-ui/plugins/state"
 	"github.com/lmarqs/terraform-ui/plugins/workspaces"
@@ -106,7 +106,7 @@ func runTUI(cfg config.Config) error {
 	registry.RegisterFactory("state", state.New)
 	registry.RegisterFactory("apply", apply.New)
 	registry.RegisterFactory("workspaces", workspaces.New)
-	registry.RegisterFactory("projects", projects.New)
+	registry.RegisterFactory("context", tfuicontext.New)
 	registry.RegisterFactory("blastradius", blastradius.New)
 	registry.RegisterFactory("init", tfuiinit.New)
 

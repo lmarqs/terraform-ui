@@ -1,4 +1,4 @@
-package projects
+package context
 
 import (
 	"fmt"
@@ -57,16 +57,16 @@ func New(svc sdk.Service) sdk.Plugin {
 	}
 }
 
-func (e *Plugin) ID() string          { return "projects" }
-func (e *Plugin) Name() string        { return "Projects" }
-func (e *Plugin) Description() string { return "Navigate terraform projects in a monorepo" }
-func (e *Plugin) KeyBinding() string  { return "m" }
+func (e *Plugin) ID() string          { return "context" }
+func (e *Plugin) Name() string        { return "Context" }
+func (e *Plugin) Description() string { return "Select terraform project scope" }
+func (e *Plugin) KeyBinding() string  { return "c" }
 func (e *Plugin) Ready() bool         { return e.status == StatusDone }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Active() int         { return e.active }
 func (e *Plugin) Filter() string      { return e.filter }
-func (e *Plugin) ProjectCount() int   { return len(e.projects) }
+func (e *Plugin) ContextCount() int   { return len(e.projects) }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(opts map[string]interface{}) error {

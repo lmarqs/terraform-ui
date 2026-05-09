@@ -1,4 +1,4 @@
-package projects
+package context
 
 import (
 	"context"
@@ -30,17 +30,17 @@ func TestNew(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 
-	if p.ID() != "projects" {
-		t.Errorf("ID() = %q, want %q", p.ID(), "projects")
+	if p.ID() != "context" {
+		t.Errorf("ID() = %q, want %q", p.ID(), "context")
 	}
-	if p.Name() != "Projects" {
-		t.Errorf("Name() = %q, want %q", p.Name(), "Projects")
+	if p.Name() != "Context" {
+		t.Errorf("Name() = %q, want %q", p.Name(), "Context")
 	}
-	if p.Description() != "Navigate terraform projects in a monorepo" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Navigate terraform projects in a monorepo")
+	if p.Description() != "Select terraform project scope" {
+		t.Errorf("Description() = %q, want %q", p.Description(), "Select terraform project scope")
 	}
-	if p.KeyBinding() != "m" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "m")
+	if p.KeyBinding() != "c" {
+		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "c")
 	}
 	if p.Ready() {
 		t.Error("Ready() = true before discovery, want false")
@@ -678,12 +678,12 @@ func TestDeriveProjectName(t *testing.T) {
 	}
 }
 
-func TestProjectCount(t *testing.T) {
+func TestContextCount(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.projects = []Project{{}, {}, {}}
-	if p.ProjectCount() != 3 {
-		t.Errorf("ProjectCount() = %d, want 3", p.ProjectCount())
+	if p.ContextCount() != 3 {
+		t.Errorf("ContextCount() = %d, want 3", p.ContextCount())
 	}
 }
 
