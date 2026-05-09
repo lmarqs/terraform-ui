@@ -35,6 +35,7 @@ var version = "1.0.0-dev"
 func main() {
 	var cfg config.Config
 	var debug bool
+	var configOverrides []string
 
 	rootCmd := &cobra.Command{
 		Use:   "tfui",
@@ -42,17 +43,19 @@ func main() {
 		Long:  "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cfg.Dir = resolveProjectDir(cfg.Dir)
+			cfg.ApplyOverrides(configOverrides)
 			binary := cfg.TerraformBinary()
-			logging.Init(debug, version, cfg.Dir, binary)
+			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runTUI(cfg)
 		},
 	}
 
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging to ~/.tfui/debug.log")
+	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.yaml lives)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
+	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",

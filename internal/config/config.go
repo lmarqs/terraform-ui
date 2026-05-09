@@ -27,6 +27,9 @@ type Config struct {
 	// Terraform holds terraform-specific configuration (binary path, etc.).
 	Terraform TerraformConfig `yaml:"terraform"`
 
+	// Logger holds logging configuration.
+	Logger LoggerConfig `yaml:"logger"`
+
 	// Mode is the UI mode for non-interactive commands: silent, spinner, progress, agent.
 	Mode string `yaml:"-"`
 
@@ -39,6 +42,64 @@ type Config struct {
 	// Plugins is a map of plugin ID → plugin config.
 	// Plugins not listed are enabled with default settings.
 	Plugins map[string]PluginConfig `yaml:"plugins"`
+
+	// Overrides holds key=value pairs from --config CLI flag.
+	// Applied after yaml loading, overriding any matching values.
+	Overrides map[string]string `yaml:"-"`
+}
+
+// LoggerConfig holds logging configuration.
+type LoggerConfig struct {
+	// Dir is the directory for log files. Defaults to ~/.tfui/logs.
+	Dir string `yaml:"dir"`
+}
+
+// LogDir returns the resolved log directory.
+func (c Config) LogDir() string {
+	if c.Logger.Dir != "" {
+		if filepath.IsAbs(c.Logger.Dir) {
+			return c.Logger.Dir
+		}
+		return filepath.Join(c.Dir, c.Logger.Dir)
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".tfui", "logs")
+}
+
+// ApplyOverrides applies --config key=value pairs to the config.
+// Keys use dot-notation matching yaml structure (e.g., "logger.dir", "terraform.bin").
+func (c *Config) ApplyOverrides(overrides []string) {
+	if c.Overrides == nil {
+		c.Overrides = make(map[string]string)
+	}
+	for _, ov := range overrides {
+		key, value, found := parseOverride(ov)
+		if !found {
+			continue
+		}
+		c.Overrides[key] = value
+		switch key {
+		case "basedir":
+			c.BaseDir = value
+		case "terraform.bin":
+			c.Terraform.Bin = value
+		case "logger.dir":
+			c.Logger.Dir = value
+		}
+	}
+}
+
+// parseOverride splits "key=value" or "key,value" into parts.
+func parseOverride(s string) (key, value string, ok bool) {
+	for i, ch := range s {
+		if ch == '=' || ch == ',' {
+			return s[:i], s[i+1:], true
+		}
+	}
+	return "", "", false
 }
 
 // WorkingDir returns the resolved terraform working directory.

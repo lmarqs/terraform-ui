@@ -13,22 +13,23 @@ import (
 var logger *slog.Logger
 
 // Init configures the global logger. If debug is true, logs are written as JSON
-// lines to ~/.tfui/debug.log (truncated on each session). If false, all logs are
-// discarded.
-func Init(debug bool, version, dir, binary string) {
+// lines to the specified logDir (or ~/.tfui/logs if empty). If debug is false,
+// all logs are discarded.
+func Init(debug bool, version, dir, binary, logDir string) {
 	if !debug {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 		return
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		// Fallback: discard if we can't determine home
-		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
-		return
+	if logDir == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
+			return
+		}
+		logDir = filepath.Join(home, ".tfui", "logs")
 	}
 
-	logDir := filepath.Join(home, ".tfui", "logs")
 	if err := os.MkdirAll(logDir, 0o700); err != nil {
 		logger = slog.New(slog.NewJSONHandler(io.Discard, nil))
 		return
