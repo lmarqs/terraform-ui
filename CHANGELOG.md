@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.36.2 — 2026-05-09
+
+### Bug Fixes
+
+- preserve executable permission in release tarball
+
+### Miscellaneous
+
+- v0.36.1 [skip ci]
+
 ## 0.36.1 — 2026-05-09
 
 ### CI
