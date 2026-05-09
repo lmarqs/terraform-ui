@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
@@ -11,10 +12,12 @@ type Header struct {
 	dir           string
 	workspace     string
 	resourceCount int
+	binaryName    string
 }
 
-func NewHeader(dir, workspace string, resourceCount int) Header {
-	return Header{dir: dir, workspace: workspace, resourceCount: resourceCount}
+func NewHeader(dir, workspace, binaryPath string, resourceCount int) Header {
+	name := filepath.Base(binaryPath)
+	return Header{dir: dir, workspace: workspace, binaryName: name, resourceCount: resourceCount}
 }
 
 var headerStyle = lipgloss.NewStyle().
@@ -24,11 +27,13 @@ var headerStyle = lipgloss.NewStyle().
 	Padding(0, 1)
 
 func (h Header) Render(width int) string {
-	left := fmt.Sprintf("%s %s  %s %s",
+	left := fmt.Sprintf("%s %s  %s %s  %s %s",
 		styles.StyleKey.Render("workspace:"),
 		h.workspace,
 		styles.StyleKey.Render("dir:"),
 		h.dir,
+		styles.StyleKey.Render("binary:"),
+		h.binaryName,
 	)
 
 	right := fmt.Sprintf("%s %d",

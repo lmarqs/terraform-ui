@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -41,9 +42,8 @@ const ConfigFileName = "tfui.yaml"
 // DefaultConfig returns the default configuration.
 func DefaultConfig() Config {
 	return Config{
-		Dir:             ".",
-		TerraformBinary: "terraform",
-		Mode:            "progress",
+		Dir:  ".",
+		Mode: "progress",
 	}
 }
 
@@ -129,6 +129,20 @@ func (c Config) DiscoverProjects() ([]string, error) {
 	}
 
 	return modules, nil
+}
+
+// DetectBinary returns the terraform binary to use.
+// If the given binary is non-empty, it is returned as-is.
+// Otherwise, it checks if "tofu" is on PATH (preferring OpenTofu),
+// and falls back to "terraform".
+func DetectBinary(configured string) string {
+	if configured != "" {
+		return configured
+	}
+	if _, err := exec.LookPath("tofu"); err == nil {
+		return "tofu"
+	}
+	return "terraform"
 }
 
 func hasTerraformFiles(dir string) bool {

@@ -30,7 +30,7 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "dir", ".", "Working directory for terraform operations")
-	rootCmd.PersistentFlags().StringVar(&cfg.TerraformBinary, "terraform-bin", "terraform", "Path to terraform binary")
+	rootCmd.PersistentFlags().StringVar(&cfg.TerraformBinary, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -68,6 +68,7 @@ func main() {
 }
 
 func runTUI(cfg config.Config) error {
+	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
 	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
 	app := ui.NewApp(cfg, svc)
 	p := tea.NewProgram(app, tea.WithAltScreen())
@@ -220,6 +221,7 @@ func printAgentJSON(summary *terraform.PlanSummary) error {
 }
 
 func runPlan(cfg config.Config) error {
+	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
 	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
 	ctx := context.Background()
 
@@ -266,6 +268,7 @@ func runPlan(cfg config.Config) error {
 }
 
 func runApply(cfg config.Config) error {
+	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
 	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
 	ctx := context.Background()
 
