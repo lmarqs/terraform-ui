@@ -15,8 +15,8 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Mode != "progress" {
 		t.Errorf("DefaultConfig().Mode = %q, want %q", cfg.Mode, "progress")
 	}
-	if cfg.TerraformBinary != "" {
-		t.Errorf("DefaultConfig().TerraformBinary = %q, want empty", cfg.TerraformBinary)
+	if cfg.Terraform.Bin != "" {
+		t.Errorf("DefaultConfig().Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
 	}
 	if cfg.Workspace != "" {
 		t.Errorf("DefaultConfig().Workspace = %q, want empty", cfg.Workspace)
@@ -52,7 +52,8 @@ func TestLoad_ValidConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	configContent := `
-terraform_binary: /usr/local/bin/tofu
+terraform:
+  bin: /usr/local/bin/tofu
 context:
   paths:
     - "infra/*"
@@ -77,8 +78,8 @@ plugins:
 	if cfg.Dir != dir {
 		t.Errorf("Load().Dir = %q, want %q", cfg.Dir, dir)
 	}
-	if cfg.TerraformBinary != "/usr/local/bin/tofu" {
-		t.Errorf("Load().TerraformBinary = %q, want %q", cfg.TerraformBinary, "/usr/local/bin/tofu")
+	if cfg.Terraform.Bin != "/usr/local/bin/tofu" {
+		t.Errorf("Load().Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/local/bin/tofu")
 	}
 	if len(cfg.Context.Paths) != 2 {
 		t.Fatalf("Load().Projects.Paths length = %d, want 2", len(cfg.Context.Paths))
@@ -109,7 +110,8 @@ func TestLoad_WalksUpDirectoryTree(t *testing.T) {
 	}
 
 	configContent := `
-terraform_binary: /usr/bin/terraform
+terraform:
+  bin: /usr/bin/terraform
 `
 	err = os.WriteFile(filepath.Join(root, ConfigFileName), []byte(configContent), 0644)
 	if err != nil {
@@ -121,8 +123,8 @@ terraform_binary: /usr/bin/terraform
 		t.Fatalf("Load() returned error: %v", err)
 	}
 
-	if cfg.TerraformBinary != "/usr/bin/terraform" {
-		t.Errorf("Load().TerraformBinary = %q, want %q", cfg.TerraformBinary, "/usr/bin/terraform")
+	if cfg.Terraform.Bin != "/usr/bin/terraform" {
+		t.Errorf("Load().Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/bin/terraform")
 	}
 }
 

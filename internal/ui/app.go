@@ -38,7 +38,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		svc:       svc,
 		registry:  registry,
 		session:   sdk.NewSession(),
-		header:    components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary, 0),
+		header:    components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary(), 0),
 		statusBar: components.NewStatusBar(),
 		homeView:  views.NewHomeView(registry.All()),
 	}
@@ -85,7 +85,7 @@ func (a App) loadWorkspace() tea.Msg {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
-		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary, 0)
+		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary(), 0)
 		return a, nil
 
 	case sdk.DeactivateMsg:

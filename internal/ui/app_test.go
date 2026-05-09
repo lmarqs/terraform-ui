@@ -54,13 +54,24 @@ func (s *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 }
 func (s *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
 func (s *mockService) WorkspaceNew(_ context.Context, _ string) error    { return nil }
-func (s *mockService) WorkspaceDelete(_ context.Context, _ string) error { return nil }
-func (s *mockService) WithDir(_ string) terraform.Service                { return s }
+func (s *mockService) WorkspaceDelete(_ context.Context, _ string) error   { return nil }
+func (s *mockService) StateRm(_ context.Context, _ string) error           { return nil }
+func (s *mockService) StateMove(_ context.Context, _, _ string) error      { return nil }
+func (s *mockService) Import(_ context.Context, _, _ string) error         { return nil }
+func (s *mockService) Taint(_ context.Context, _ string) error             { return nil }
+func (s *mockService) Untaint(_ context.Context, _ string) error           { return nil }
+func (s *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
+func (s *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
+	return nil, nil
+}
+func (s *mockService) Refresh(_ context.Context) error                     { return nil }
+func (s *mockService) Init(_ context.Context) error                        { return nil }
+func (s *mockService) WithDir(_ string) terraform.Service                  { return s }
 
 func setupTestApp() App {
 	cfg := config.Config{
 		Dir:             "/test/dir",
-		TerraformBinary: "terraform",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
 		Mode:            "progress",
 	}
 
@@ -325,7 +336,7 @@ func TestApp_Init_ReturnsCmd(t *testing.T) {
 func TestApp_LoadWorkspace_Success(t *testing.T) {
 	cfg := config.Config{
 		Dir:             "/test/dir",
-		TerraformBinary: "terraform",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
 		Mode:            "progress",
 	}
 
@@ -348,7 +359,7 @@ func TestApp_LoadWorkspace_Success(t *testing.T) {
 func TestApp_LoadWorkspace_Error(t *testing.T) {
 	cfg := config.Config{
 		Dir:             "/test/dir",
-		TerraformBinary: "terraform",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
 		Mode:            "progress",
 	}
 
@@ -371,7 +382,7 @@ func TestApp_LoadWorkspace_Error(t *testing.T) {
 func TestApp_Init_WithPluginInitCmd(t *testing.T) {
 	cfg := config.Config{
 		Dir:             "/test/dir",
-		TerraformBinary: "terraform",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
 		Mode:            "progress",
 	}
 

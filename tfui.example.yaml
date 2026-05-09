@@ -1,8 +1,21 @@
 # tfui.yaml — project configuration for terraform-ui
 # Place this file in your repository root.
 
-# Path to terraform (or tofu) binary (auto-detects if omitted: prefers tofu, falls back to terraform)
-# terraform_binary: tofu
+# Terraform configuration
+terraform:
+  # Path to terraform (or tofu) binary (auto-detects if omitted: prefers tofu, falls back to terraform)
+  # bin: tofu
+
+# Cache configuration
+cache:
+  # Prompt before destructive ops if data older than this
+  staleness_threshold: 5m
+
+# AI integration (requires ANTHROPIC_API_KEY env var)
+# ai:
+#   enabled: true
+#   provider: anthropic
+#   model: claude-sonnet-4-6-20250514
 
 # Context discovery for monorepos (similar to pnpm-workspace.yaml)
 # Define glob patterns to locate independent terraform projects.

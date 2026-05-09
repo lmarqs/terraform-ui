@@ -19,8 +19,8 @@ type Config struct {
 	// Workspace is the terraform workspace name.
 	Workspace string `yaml:"-"`
 
-	// TerraformBinary is the path to the terraform binary.
-	TerraformBinary string `yaml:"terraform_binary"`
+	// Terraform holds terraform-specific configuration (binary path, etc.).
+	Terraform TerraformConfig `yaml:"terraform"`
 
 	// Mode is the UI mode for non-interactive commands: silent, spinner, progress, agent.
 	Mode string `yaml:"-"`
@@ -34,6 +34,18 @@ type Config struct {
 	// Plugins is a map of plugin ID → plugin config.
 	// Plugins not listed are enabled with default settings.
 	Plugins map[string]PluginConfig `yaml:"plugins"`
+}
+
+// TerraformConfig holds terraform-specific configuration.
+type TerraformConfig struct {
+	// Bin is the path to the terraform/tofu binary.
+	// Auto-detects if empty: prefers tofu, falls back to terraform.
+	Bin string `yaml:"bin"`
+}
+
+// TerraformBinary returns the resolved terraform binary path for backwards compatibility.
+func (c Config) TerraformBinary() string {
+	return DetectBinary(c.Terraform.Bin)
 }
 
 // PluginConfig holds per-plugin configuration as declared in tfui.yaml.

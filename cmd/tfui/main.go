@@ -38,7 +38,7 @@ func main() {
 		Short: "Terminal UI for Terraform operations",
 		Long:  "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			binary := config.DetectBinary(cfg.TerraformBinary)
+			binary := cfg.TerraformBinary()
 			logging.Init(debug, version, cfg.Dir, binary)
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -48,7 +48,7 @@ func main() {
 
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging to ~/.tfui/debug.log")
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "dir", ".", "Working directory for terraform operations")
-	rootCmd.PersistentFlags().StringVar(&cfg.TerraformBinary, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
+	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -95,8 +95,8 @@ func main() {
 }
 
 func runTUI(cfg config.Config) error {
-	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
-	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
+	binary := cfg.TerraformBinary()
+	svc := terraform.NewService(cfg.Dir, binary)
 
 	// Create and populate the plugin registry
 	registry := plugin.NewRegistry()
@@ -280,8 +280,8 @@ func runInit(cfg config.Config) error {
 }
 
 func runPlan(cfg config.Config) error {
-	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
-	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
+	binary := cfg.TerraformBinary()
+	svc := terraform.NewService(cfg.Dir, binary)
 	ctx := context.Background()
 
 	switch cfg.Mode {
@@ -327,8 +327,8 @@ func runPlan(cfg config.Config) error {
 }
 
 func runApply(cfg config.Config) error {
-	cfg.TerraformBinary = config.DetectBinary(cfg.TerraformBinary)
-	svc := terraform.NewService(cfg.Dir, cfg.TerraformBinary)
+	binary := cfg.TerraformBinary()
+	svc := terraform.NewService(cfg.Dir, binary)
 	ctx := context.Background()
 
 	switch cfg.Mode {
