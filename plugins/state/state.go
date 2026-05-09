@@ -237,6 +237,14 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
+	// Global: ctrl+w toggles wrap from any mode
+	if msg.String() == "ctrl+w" {
+		e.detailWrap = !e.detailWrap
+		e.detailScroll = 0
+		e.detailHScroll = 0
+		return nil
+	}
+
 	// Filter mode: typing goes to filter, navigation and enter still work
 	if e.filtering {
 		switch msg.String() {
@@ -342,7 +350,29 @@ func (e *Plugin) SetFilter(filter string) {
 
 func matchAllTerms(text string, terms []string) bool {
 	for _, term := range terms {
-		if !strings.Contains(text, term) {
+		if !fuzzyContains(text, term) {
+			return false
+		}
+	}
+	return true
+}
+
+func fuzzyContains(text, pattern string) bool {
+	if strings.Contains(text, pattern) {
+		return true
+	}
+	ti := 0
+	for pi := 0; pi < len(pattern); pi++ {
+		found := false
+		for ti < len(text) {
+			if text[ti] == pattern[pi] {
+				ti++
+				found = true
+				break
+			}
+			ti++
+		}
+		if !found {
 			return false
 		}
 	}
@@ -479,9 +509,9 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 	var hint string
 	if e.filtering {
-		hint = sdk.StyleFaintItalic.Render("Type to filter  Esc exit filter")
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter  ^w wrap(%s)  Esc exit", wrapLabel))
 	} else {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  Enter inspect  / filter  w wrap(%s)  : switch  q back", wrapLabel))
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  Enter inspect  / filter  ^w wrap(%s)  : switch  q back", wrapLabel))
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
@@ -557,7 +587,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		wrapIndicator = "on"
 	}
 
-	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  w wrap(%s)  Esc back", wrapIndicator))
+	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  ^w wrap(%s)  Esc back", wrapIndicator))
 
 	content := title + "\n" + address + scrollInfo + "\n\n" + detail + "\n\n" + hint
 	return sdk.StylePadded.Render(content)
