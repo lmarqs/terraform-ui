@@ -5,12 +5,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the phantom plugin.
+// Status represents the current state of the phantom sdk.
 type Status int
 
 const (
@@ -20,14 +18,14 @@ const (
 
 // PhantomChange holds a phantom change with its explanation.
 type PhantomChange struct {
-	Change      terraform.PlanChange
+	Change      sdk.PlanChange
 	Explanation string
-	Attributes  []terraform.AttributeDiff
+	Attributes  []sdk.AttributeDiff
 }
 
 // Plugin implements the phantom change detection feature.
 type Plugin struct {
-	svc      terraform.Service
+	svc      sdk.Service
 	status   Status
 	phantoms []PhantomChange
 	selected int
@@ -36,8 +34,8 @@ type Plugin struct {
 	real     int
 }
 
-// New creates a new phantom change detection plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new phantom change detection sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc:      svc,
 		expanded: make(map[int]bool),
@@ -61,13 +59,13 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 }
 
 // Init initializes the plugin with shared context.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	return nil
 }
 
 // Analyze processes a plan summary and identifies phantom changes.
-func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
+func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = StatusReady
 		e.phantoms = nil
@@ -96,8 +94,8 @@ func (e *Plugin) Analyze(summary *terraform.PlanSummary) {
 	e.expanded = make(map[int]bool)
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		e.handleKey(msg)
@@ -136,14 +134,14 @@ func (e *Plugin) ToggleExpand() {
 	e.expanded[e.selected] = !e.expanded[e.selected]
 }
 
-// View renders the phantom change detection plugin.
+// View renders the phantom change detection sdk.
 func (e *Plugin) View(width, height int) string {
-	title := styles.StyleTitle.Render("Phantom Changes")
+	title := sdk.StyleTitle.Render("Phantom Changes")
 
 	switch e.status {
 	case StatusIdle:
-		placeholder := styles.StyleFaintItalic.Render("Run a plan first to detect phantom changes...")
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		placeholder := sdk.StyleFaintItalic.Render("Run a plan first to detect phantom changes...")
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusReady:
 		return e.renderPhantoms(width, height)
@@ -154,24 +152,24 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderPhantoms(width, height int) string {
-	title := styles.StyleTitle.Render("Phantom Changes")
+	title := sdk.StyleTitle.Render("Phantom Changes")
 
 	if len(e.phantoms) == 0 {
-		noPhantoms := styles.StyleSuccess.Render("No phantom changes detected.")
-		summary := styles.StyleFaint.Render(fmt.Sprintf("All %d changes are real modifications.", e.total))
-		return styles.StylePadded.Render(title + "\n\n" + noPhantoms + "\n" + summary)
+		noPhantoms := sdk.StyleSuccess.Render("No phantom changes detected.")
+		summary := sdk.StyleFaint.Render(fmt.Sprintf("All %d changes are real modifications.", e.total))
+		return sdk.StylePadded.Render(title + "\n\n" + noPhantoms + "\n" + summary)
 	}
 
 	var b strings.Builder
 
 	// Summary banner
-	banner := styles.StylePhantom.Render(fmt.Sprintf(
+	banner := sdk.StylePhantom.Render(fmt.Sprintf(
 		"Detected %d phantom change(s) out of %d total",
 		len(e.phantoms), e.total,
 	))
 	b.WriteString(banner)
 	b.WriteString("\n")
-	b.WriteString(styles.StyleFaint.Render(
+	b.WriteString(sdk.StyleFaint.Render(
 		"These changes appear in the plan but result in no actual infrastructure modification.",
 	))
 	b.WriteString("\n\n")
@@ -195,7 +193,7 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		pc := e.phantoms[i]
 		row := e.renderPhantomRow(pc, i)
 		if i == e.selected {
-			row = styles.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
@@ -206,9 +204,9 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		}
 	}
 
-	hint := styles.StyleFaintItalic.Render("j/k navigate  Enter expand  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  Esc back")
 	content := title + "\n\n" + b.String() + "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
 func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {
@@ -217,10 +215,10 @@ func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {
 		indicator = "v"
 	}
 
-	address := styles.StylePhantom.Render(pc.Change.Resource.Address)
-	attrCount := styles.StyleFaint.Render(fmt.Sprintf("(%d attrs)", len(pc.Attributes)))
+	address := sdk.StylePhantom.Render(pc.Change.Resource.Address)
+	attrCount := sdk.StyleFaint.Render(fmt.Sprintf("(%d attrs)", len(pc.Attributes)))
 
-	return fmt.Sprintf(" %s %s %s  %s", indicator, styles.StylePhantom.Render("~"), address, attrCount)
+	return fmt.Sprintf(" %s %s %s  %s", indicator, sdk.StylePhantom.Render("~"), address, attrCount)
 }
 
 func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) string {
@@ -228,19 +226,19 @@ func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) string {
 
 	// Explanation
 	b.WriteString("   ")
-	b.WriteString(styles.StyleFaintItalic.Render("Reason: " + pc.Explanation))
+	b.WriteString(sdk.StyleFaintItalic.Render("Reason: " + pc.Explanation))
 	b.WriteByte('\n')
 
 	// Show attribute diffs that are cosmetic
 	for _, diff := range pc.Attributes {
-		key := styles.StyleKey.Render("     " + diff.Key)
+		key := sdk.StyleKey.Render("     " + diff.Key)
 		if diff.Sensitive {
-			b.WriteString(key + ": " + styles.StyleFaintItalic.Render("(sensitive)") + "\n")
+			b.WriteString(key + ": " + sdk.StyleFaintItalic.Render("(sensitive)") + "\n")
 			continue
 		}
 		old := truncate(diff.OldValue, width/4)
 		new := truncate(diff.NewValue, width/4)
-		b.WriteString(key + ": " + styles.StyleFaint.Render(old+" = "+new) + "\n")
+		b.WriteString(key + ": " + sdk.StyleFaint.Render(old+" = "+new) + "\n")
 	}
 	b.WriteByte('\n')
 	return b.String()
@@ -256,7 +254,7 @@ func truncate(s string, max int) string {
 	return s
 }
 
-func explainPhantom(change terraform.PlanChange) string {
+func explainPhantom(change sdk.PlanChange) string {
 	if len(change.AttributeDiffs) == 0 {
 		return "empty diff detected"
 	}

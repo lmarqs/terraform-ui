@@ -6,9 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // Status represents the current state of the plan plugin.
@@ -23,15 +21,15 @@ const (
 
 // PlanResultMsg is sent when the plan operation completes.
 type PlanResultMsg struct {
-	Summary *terraform.PlanSummary
+	Summary *sdk.PlanSummary
 	Err     error
 }
 
 // Plugin implements the plan review feature.
 type Plugin struct {
-	svc      terraform.Service
+	svc      sdk.Service
 	status   Status
-	summary  *terraform.PlanSummary
+	summary  *sdk.PlanSummary
 	errMsg   string
 	selected int
 	targets  []string
@@ -39,7 +37,7 @@ type Plugin struct {
 }
 
 // New creates a new plan plugin.
-func New(svc terraform.Service) plugin.Plugin {
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		expanded: make(map[int]bool),
 		svc:      svc,
@@ -54,7 +52,7 @@ func (e *Plugin) Ready() bool         { return e.status == StatusDone }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Targets() []string   { return e.targets }
-func (e *Plugin) Summary() *terraform.PlanSummary {
+func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
 }
 
@@ -69,7 +67,7 @@ func (e *Plugin) SetTargets(targets []string) {
 }
 
 // Init initializes the plugin with shared context and triggers a plan.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.summary = nil
@@ -99,7 +97,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 }
 
 // Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case PlanResultMsg:
 		if msg.Err != nil {
@@ -175,7 +173,7 @@ func (e *Plugin) IsExpanded(idx int) bool {
 }
 
 // SelectedChange returns the currently selected change, if any.
-func (e *Plugin) SelectedChange() *terraform.PlanChange {
+func (e *Plugin) SelectedChange() *sdk.PlanChange {
 	if e.summary == nil || e.selected >= len(e.summary.Changes) {
 		return nil
 	}
@@ -186,20 +184,20 @@ func (e *Plugin) SelectedChange() *terraform.PlanChange {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		title := styles.StyleTitle.Render("Plan Review")
-		placeholder := styles.StyleFaintItalic.Render("Press Enter to run terraform plan...")
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		title := sdk.StyleTitle.Render("Plan Review")
+		placeholder := sdk.StyleFaintItalic.Render("Press Enter to run terraform plan...")
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusLoading:
-		title := styles.StyleTitle.Render("Plan Review")
-		loading := styles.StyleFaintItalic.Render("Running terraform plan...")
-		return styles.StylePadded.Render(title + "\n\n" + loading)
+		title := sdk.StyleTitle.Render("Plan Review")
+		loading := sdk.StyleFaintItalic.Render("Running terraform plan...")
+		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
-		title := styles.StyleTitle.Render("Plan Review")
-		errText := styles.StyleError.Render("Error: " + e.errMsg)
-		hint := styles.StyleFaintItalic.Render("Press r to retry, Esc to go back")
-		return styles.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		title := sdk.StyleTitle.Render("Plan Review")
+		errText := sdk.StyleError.Render("Error: " + e.errMsg)
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
 		return e.renderResults(width, height)
@@ -210,11 +208,11 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderResults(width, height int) string {
-	title := styles.StyleTitle.Render("Plan Review")
+	title := sdk.StyleTitle.Render("Plan Review")
 
 	if e.summary == nil || len(e.summary.Changes) == 0 {
-		noChanges := styles.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
-		return styles.StylePadded.Render(title + "\n\n" + noChanges)
+		noChanges := sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
+		return sdk.StylePadded.Render(title + "\n\n" + noChanges)
 	}
 
 	var b strings.Builder
@@ -239,7 +237,7 @@ func (e *Plugin) renderResults(width, height int) string {
 		change := e.summary.Changes[i]
 		row := e.renderChangeRow(change, width)
 		if i == e.selected {
-			row = styles.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
@@ -252,24 +250,24 @@ func (e *Plugin) renderResults(width, height int) string {
 
 	summary := e.renderSummaryLine()
 	riskLine := e.renderOverallRisk()
-	hint := styles.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  a apply  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  a apply  Esc back")
 
 	content := title + "\n\n" + b.String() + "\n" + summary
 	if riskLine != "" {
 		content += "\n" + riskLine
 	}
 	content += "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
-func (e *Plugin) renderChangeRow(change terraform.PlanChange, width int) string {
+func (e *Plugin) renderChangeRow(change sdk.PlanChange, width int) string {
 	symbol := actionSymbol(change.Action)
 	address := change.Resource.Address
 	risk := riskBadge(change.Risk)
 
 	if change.IsPhantom {
-		address = styles.StylePhantom.Render(address)
-		symbol = styles.StylePhantom.Render(symbol)
+		address = sdk.StylePhantom.Render(address)
+		symbol = sdk.StylePhantom.Render(symbol)
 	}
 
 	expandIndicator := " "
@@ -286,21 +284,21 @@ func (e *Plugin) renderChangeRow(change terraform.PlanChange, width int) string 
 		row += " " + risk
 	}
 	if change.IsPhantom {
-		row += " " + styles.StylePhantom.Render("(phantom)")
+		row += " " + sdk.StylePhantom.Render("(phantom)")
 	}
 	return row
 }
 
-func (e *Plugin) renderAttributeDiffs(diffs []terraform.AttributeDiff, width int) string {
+func (e *Plugin) renderAttributeDiffs(diffs []sdk.AttributeDiff, width int) string {
 	var b strings.Builder
 	for _, diff := range diffs {
-		key := styles.StyleKey.Render("    " + diff.Key + ":")
+		key := sdk.StyleKey.Render("    " + diff.Key + ":")
 		if diff.Sensitive {
-			b.WriteString(key + " " + styles.StyleFaintItalic.Render("(sensitive)") + "\n")
+			b.WriteString(key + " " + sdk.StyleFaintItalic.Render("(sensitive)") + "\n")
 			continue
 		}
-		old := styles.StyleDelete.Render(truncateValue(diff.OldValue, width/3))
-		new := styles.StyleCreate.Render(truncateValue(diff.NewValue, width/3))
+		old := sdk.StyleDelete.Render(truncateValue(diff.OldValue, width/3))
+		new := sdk.StyleCreate.Render(truncateValue(diff.NewValue, width/3))
 		b.WriteString(key + " " + old + " -> " + new + "\n")
 	}
 	return b.String()
@@ -320,20 +318,20 @@ func (e *Plugin) renderSummaryLine() string {
 	s := e.summary
 	parts := []string{}
 	if s.ToCreate > 0 {
-		parts = append(parts, styles.StyleCreate.Render(fmt.Sprintf("%d to add", s.ToCreate)))
+		parts = append(parts, sdk.StyleCreate.Render(fmt.Sprintf("%d to add", s.ToCreate)))
 	}
 	if s.ToUpdate > 0 {
-		parts = append(parts, styles.StyleUpdate.Render(fmt.Sprintf("%d to change", s.ToUpdate)))
+		parts = append(parts, sdk.StyleUpdate.Render(fmt.Sprintf("%d to change", s.ToUpdate)))
 	}
 	if s.ToDelete > 0 {
-		parts = append(parts, styles.StyleDelete.Render(fmt.Sprintf("%d to destroy", s.ToDelete)))
+		parts = append(parts, sdk.StyleDelete.Render(fmt.Sprintf("%d to destroy", s.ToDelete)))
 	}
 	if s.ToReplace > 0 {
-		parts = append(parts, styles.StyleReplace.Render(fmt.Sprintf("%d to replace", s.ToReplace)))
+		parts = append(parts, sdk.StyleReplace.Render(fmt.Sprintf("%d to replace", s.ToReplace)))
 	}
 
 	if len(parts) == 0 {
-		return styles.StyleFaint.Render("Plan: no changes")
+		return sdk.StyleFaint.Render("Plan: no changes")
 	}
 	return "Plan: " + strings.Join(parts, ", ")
 }
@@ -342,48 +340,48 @@ func (e *Plugin) renderOverallRisk() string {
 	if e.summary == nil || len(e.summary.Changes) == 0 {
 		return ""
 	}
-	overall := terraform.OverallRisk(e.summary.Changes)
+	overall := sdk.OverallRisk(e.summary.Changes)
 	switch overall {
-	case terraform.RiskCritical:
-		return styles.StyleRiskCritical.Render("Overall risk: CRITICAL")
-	case terraform.RiskHigh:
-		return styles.StyleRiskHigh.Render("Overall risk: HIGH")
-	case terraform.RiskMedium:
-		return styles.StyleRiskMedium.Render("Overall risk: medium")
-	case terraform.RiskLow:
-		return styles.StyleRiskLow.Render("Overall risk: low")
+	case sdk.RiskCritical:
+		return sdk.StyleRiskCritical.Render("Overall risk: CRITICAL")
+	case sdk.RiskHigh:
+		return sdk.StyleRiskHigh.Render("Overall risk: HIGH")
+	case sdk.RiskMedium:
+		return sdk.StyleRiskMedium.Render("Overall risk: medium")
+	case sdk.RiskLow:
+		return sdk.StyleRiskLow.Render("Overall risk: low")
 	default:
 		return ""
 	}
 }
 
-func actionSymbol(action terraform.Action) string {
+func actionSymbol(action sdk.Action) string {
 	switch action {
-	case terraform.ActionCreate:
-		return styles.StyleCreate.Render("+")
-	case terraform.ActionUpdate:
-		return styles.StyleUpdate.Render("~")
-	case terraform.ActionDelete:
-		return styles.StyleDelete.Render("-")
-	case terraform.ActionDeleteThenCreate, terraform.ActionCreateThenDelete:
-		return styles.StyleReplace.Render("-/+")
-	case terraform.ActionRead:
-		return styles.StyleFaint.Render("<=")
+	case sdk.ActionCreate:
+		return sdk.StyleCreate.Render("+")
+	case sdk.ActionUpdate:
+		return sdk.StyleUpdate.Render("~")
+	case sdk.ActionDelete:
+		return sdk.StyleDelete.Render("-")
+	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
+		return sdk.StyleReplace.Render("-/+")
+	case sdk.ActionRead:
+		return sdk.StyleFaint.Render("<=")
 	default:
 		return " "
 	}
 }
 
-func riskBadge(risk terraform.RiskLevel) string {
+func riskBadge(risk sdk.RiskLevel) string {
 	switch risk {
-	case terraform.RiskLow:
-		return styles.StyleRiskLow.Render("[low]")
-	case terraform.RiskMedium:
-		return styles.StyleRiskMedium.Render("[medium]")
-	case terraform.RiskHigh:
-		return styles.StyleRiskHigh.Render("[HIGH]")
-	case terraform.RiskCritical:
-		return styles.StyleRiskCritical.Render("[CRITICAL]")
+	case sdk.RiskLow:
+		return sdk.StyleRiskLow.Render("[low]")
+	case sdk.RiskMedium:
+		return sdk.StyleRiskMedium.Render("[medium]")
+	case sdk.RiskHigh:
+		return sdk.StyleRiskHigh.Render("[HIGH]")
+	case sdk.RiskCritical:
+		return sdk.StyleRiskCritical.Render("[CRITICAL]")
 	default:
 		return ""
 	}

@@ -6,12 +6,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the state browser plugin.
+// Status represents the current state of the state browser sdk.
 type Status int
 
 const (
@@ -24,7 +22,7 @@ const (
 
 // StateListMsg is sent when state list completes.
 type StateListMsg struct {
-	Resources []terraform.Resource
+	Resources []sdk.Resource
 	Err       error
 }
 
@@ -37,10 +35,10 @@ type ResourceDetailMsg struct {
 
 // Plugin implements the state browser feature.
 type Plugin struct {
-	svc        terraform.Service
+	svc        sdk.Service
 	status     Status
-	resources  []terraform.Resource
-	filtered   []terraform.Resource
+	resources  []sdk.Resource
+	filtered   []sdk.Resource
 	filter     string
 	errMsg     string
 	selected   int
@@ -48,8 +46,8 @@ type Plugin struct {
 	detailAddr string
 }
 
-// New creates a new state browser plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new state browser sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
 	}
@@ -72,7 +70,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 }
 
 // Init initializes the plugin and loads state.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.resources = nil
@@ -114,8 +112,8 @@ func (e *Plugin) loadDetail(address string) tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StateListMsg:
 		if msg.Err != nil {
@@ -221,7 +219,7 @@ func (e *Plugin) SetFilter(filter string) {
 		return
 	}
 	lower := strings.ToLower(filter)
-	var result []terraform.Resource
+	var result []sdk.Resource
 	for _, r := range e.resources {
 		if strings.Contains(strings.ToLower(r.Address), lower) ||
 			strings.Contains(strings.ToLower(r.Type), lower) ||
@@ -250,11 +248,11 @@ func (e *Plugin) ClearFilter() {
 }
 
 // SelectedResource returns the currently selected resource.
-func (e *Plugin) SelectedResource() terraform.Resource {
+func (e *Plugin) SelectedResource() sdk.Resource {
 	if e.selected < len(e.filtered) {
 		return e.filtered[e.selected]
 	}
-	return terraform.Resource{}
+	return sdk.Resource{}
 }
 
 // InspectSelected loads detailed info about the selected resource.
@@ -266,24 +264,24 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	return e.loadDetail(r.Address)
 }
 
-// View renders the state browser plugin.
+// View renders the state browser sdk.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		title := styles.StyleTitle.Render("State Browser")
-		placeholder := styles.StyleFaintItalic.Render("Loading state...")
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		title := sdk.StyleTitle.Render("State Browser")
+		placeholder := sdk.StyleFaintItalic.Render("Loading state...")
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusLoading:
-		title := styles.StyleTitle.Render("State Browser")
-		loading := styles.StyleFaintItalic.Render("Loading terraform state...")
-		return styles.StylePadded.Render(title + "\n\n" + loading)
+		title := sdk.StyleTitle.Render("State Browser")
+		loading := sdk.StyleFaintItalic.Render("Loading terraform state...")
+		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
-		title := styles.StyleTitle.Render("State Browser")
-		errText := styles.StyleError.Render("Error: " + e.errMsg)
-		hint := styles.StyleFaintItalic.Render("Press r to retry, Esc to go back")
-		return styles.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		title := sdk.StyleTitle.Render("State Browser")
+		errText := sdk.StyleError.Render("Error: " + e.errMsg)
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusShowingDetail:
 		return e.renderDetail(width, height)
@@ -297,16 +295,16 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderResources(width, height int) string {
-	title := styles.StyleTitle.Render("State Browser")
+	title := sdk.StyleTitle.Render("State Browser")
 
 	filterLine := ""
 	if e.filter != "" {
-		filterLine = styles.StyleKey.Render("filter: ") + e.filter + "\n\n"
+		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
 	}
 
 	if len(e.filtered) == 0 {
-		noResources := styles.StyleFaintItalic.Render("No resources found.")
-		return styles.StylePadded.Render(title + "\n\n" + filterLine + noResources)
+		noResources := sdk.StyleFaintItalic.Render("No resources found.")
+		return sdk.StylePadded.Render(title + "\n\n" + filterLine + noResources)
 	}
 
 	var b strings.Builder
@@ -330,38 +328,38 @@ func (e *Plugin) renderResources(width, height int) string {
 		r := e.filtered[i]
 		row := e.renderResourceRow(r)
 		if i == e.selected {
-			row = styles.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
 	}
 
-	count := styles.StyleFaint.Render(fmt.Sprintf("%d resources", len(e.filtered)))
+	count := sdk.StyleFaint.Render(fmt.Sprintf("%d resources", len(e.filtered)))
 	if len(e.filtered) != len(e.resources) {
-		count = styles.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
+		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
 	}
 
-	hint := styles.StyleFaintItalic.Render("j/k navigate  Enter inspect  / filter  r refresh  Esc back")
+	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter inspect  / filter  r refresh  Esc back")
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
-func (e *Plugin) renderResourceRow(r terraform.Resource) string {
+func (e *Plugin) renderResourceRow(r sdk.Resource) string {
 	address := r.Address
-	typeInfo := styles.StyleFaint.Render(r.Type)
+	typeInfo := sdk.StyleFaint.Render(r.Type)
 
 	row := fmt.Sprintf(" %s  %s", address, typeInfo)
 	if r.Module != "" {
-		module := styles.StyleKey.Render(fmt.Sprintf("[%s]", r.Module))
+		module := sdk.StyleKey.Render(fmt.Sprintf("[%s]", r.Module))
 		row += " " + module
 	}
 	return row
 }
 
 func (e *Plugin) renderDetail(width, height int) string {
-	title := styles.StyleTitle.Render("Resource Detail")
-	address := styles.StyleKey.Render(e.detailAddr)
+	title := sdk.StyleTitle.Render("Resource Detail")
+	address := sdk.StyleKey.Render(e.detailAddr)
 
 	// Truncate detail to visible area
 	lines := strings.Split(e.detail, "\n")
@@ -371,12 +369,12 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 	if len(lines) > maxLines {
 		lines = lines[:maxLines]
-		lines = append(lines, styles.StyleFaint.Render("... (truncated)"))
+		lines = append(lines, sdk.StyleFaint.Render("... (truncated)"))
 	}
 
 	detail := strings.Join(lines, "\n")
-	hint := styles.StyleFaintItalic.Render("Esc/q to go back")
+	hint := sdk.StyleFaintItalic.Render("Esc/q to go back")
 
 	content := title + "\n" + address + "\n\n" + detail + "\n\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }

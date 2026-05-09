@@ -8,33 +8,15 @@ import (
 
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 const planFileName = "tfplan.out"
 
-// Service defines the interface for all terraform operations that tfui depends on.
-// Implementations wrap terraform-exec or similar backends.
-type Service interface {
-	// Plan runs terraform plan with optional resource targets and returns
-	// the parsed plan summary including changes, risk levels, and phantom detection.
-	Plan(ctx context.Context, targets []string) (*PlanSummary, error)
-
-	// Apply runs terraform apply on the previously saved plan file.
-	// If targets are provided, they scope the apply to specific resources.
-	Apply(ctx context.Context, targets []string) error
-
-	// StateList returns all managed resources in the current terraform state.
-	StateList(ctx context.Context) ([]Resource, error)
-
-	// Show returns a JSON representation of a specific resource identified by address.
-	Show(ctx context.Context, address string) (string, error)
-
-	// Workspace returns the name of the currently selected terraform workspace.
-	Workspace(ctx context.Context) (string, error)
-
-	// WorkspaceList returns the names of all available terraform workspaces.
-	WorkspaceList(ctx context.Context) ([]string, error)
-}
+// Service is a type alias for the SDK Service interface. Internal packages and
+// existing code can continue to reference terraform.Service. New code should
+// prefer importing pkg/sdk directly.
+type Service = sdk.Service
 
 // TerraformService implements the Service interface using hashicorp/terraform-exec
 // to shell out to the terraform (or tofu) binary.

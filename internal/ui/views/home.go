@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 type MenuItem struct {
@@ -21,7 +21,7 @@ type HomeView struct {
 }
 
 // NewHomeView creates a home view with menu items generated from the plugin registry.
-func NewHomeView(plugins []plugin.Plugin) HomeView {
+func NewHomeView(plugins []sdk.Plugin) HomeView {
 	items := make([]MenuItem, 0, len(plugins))
 	for _, p := range plugins {
 		items = append(items, MenuItem{

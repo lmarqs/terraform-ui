@@ -1,15 +1,7 @@
 package plugin
 
-import "github.com/lmarqs/terraform-ui/internal/terraform"
+import "github.com/lmarqs/terraform-ui/pkg/sdk"
 
-// Context provides shared state passed to plugins during initialization.
-// It contains the working directory, active workspace, and the terraform
-// service instance that plugins use to execute operations.
-type Context struct {
-	// Dir is the working directory for terraform operations.
-	Dir string
-	// Workspace is the name of the currently active terraform workspace.
-	Workspace string
-	// Service is the terraform service used to run plan, apply, and state operations.
-	Service terraform.Service
-}
+// Context is a type alias for the SDK Context type. Internal packages
+// can continue to reference plugin.Context. New code should prefer pkg/sdk.
+type Context = sdk.Context

@@ -6,12 +6,10 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the apply plugin.
+// Status represents the current state of the apply sdk.
 type Status int
 
 const (
@@ -33,7 +31,7 @@ type TickMsg time.Time
 
 // Plugin implements the terraform apply feature.
 type Plugin struct {
-	svc       terraform.Service
+	svc       sdk.Service
 	status    Status
 	errMsg    string
 	targets   []string
@@ -42,8 +40,8 @@ type Plugin struct {
 	confirmed bool
 }
 
-// New creates a new apply plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new apply sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
 	}
@@ -71,7 +69,7 @@ func (e *Plugin) SetTargets(targets []string) {
 }
 
 // Init initializes the plugin with shared context.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	return nil
 }
@@ -114,8 +112,8 @@ func (e *Plugin) tick() tea.Cmd {
 	})
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ApplyResultMsg:
 		e.elapsed = msg.Duration
@@ -164,35 +162,35 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	return nil
 }
 
-// View renders the apply plugin.
+// View renders the apply sdk.
 func (e *Plugin) View(width, height int) string {
-	title := styles.StyleTitle.Render("Apply")
+	title := sdk.StyleTitle.Render("Apply")
 
 	switch e.status {
 	case StatusIdle:
-		placeholder := styles.StyleFaintItalic.Render("Run plan first, then apply changes here.\nPress Enter to start apply.")
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		placeholder := sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.\nPress Enter to start apply.")
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
 
 	case StatusRunning:
 		elapsed := formatDuration(e.elapsed)
-		running := styles.StyleFaintItalic.Render("Applying changes... " + elapsed)
-		spinner := styles.StyleUpdate.Render(">>>")
-		return styles.StylePadded.Render(title + "\n\n" + spinner + " " + running)
+		running := sdk.StyleFaintItalic.Render("Applying changes... " + elapsed)
+		spinner := sdk.StyleUpdate.Render(">>>")
+		return sdk.StylePadded.Render(title + "\n\n" + spinner + " " + running)
 
 	case StatusSuccess:
 		elapsed := formatDuration(e.elapsed)
-		success := styles.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
-		duration := styles.StyleFaint.Render("Duration: " + elapsed)
-		hint := styles.StyleFaintItalic.Render("Press Esc to go back")
-		return styles.StylePadded.Render(title + "\n\n" + success + "\n" + duration + "\n\n" + hint)
+		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
+		duration := sdk.StyleFaint.Render("Duration: " + elapsed)
+		hint := sdk.StyleFaintItalic.Render("Press Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + success + "\n" + duration + "\n\n" + hint)
 
 	case StatusError:
-		errText := styles.StyleError.Render("Apply failed: " + e.errMsg)
-		hint := styles.StyleFaintItalic.Render("Press r to retry, Esc to go back")
-		return styles.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		errText := sdk.StyleError.Render("Apply failed: " + e.errMsg)
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	default:
 		return ""
@@ -200,19 +198,19 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderConfirmation(width, height int) string {
-	title := styles.StyleTitle.Render("Apply")
+	title := sdk.StyleTitle.Render("Apply")
 
-	warning := styles.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
-	detail := styles.StyleFaint.Render("This will modify your infrastructure.")
+	warning := sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
+	detail := sdk.StyleFaint.Render("This will modify your infrastructure.")
 
 	if len(e.targets) > 0 {
-		detail = styles.StyleFaint.Render(fmt.Sprintf("Targeting %d resource(s).", len(e.targets)))
+		detail = sdk.StyleFaint.Render(fmt.Sprintf("Targeting %d resource(s).", len(e.targets)))
 	}
 
-	prompt := styles.StyleKey.Render("[y]es") + " / " + styles.StyleFaint.Render("[n]o")
+	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
 
 	content := title + "\n\n" + warning + "\n" + detail + "\n\n" + prompt
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
 func formatDuration(d time.Duration) string {

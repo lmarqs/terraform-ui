@@ -1,5 +1,7 @@
 package terraform
 
+import "github.com/lmarqs/terraform-ui/pkg/sdk"
+
 var criticalTypes = map[string]bool{
 	"aws_db_instance": true, "aws_rds_cluster": true, "aws_rds_cluster_instance": true,
 	"aws_dynamodb_table": true, "aws_s3_bucket": true, "aws_efs_file_system": true,
@@ -72,13 +74,5 @@ func ClassifyRisk(change *PlanChange) RiskLevel {
 	}
 }
 
-// OverallRisk returns the highest risk level found across all changes in the slice.
-func OverallRisk(changes []PlanChange) RiskLevel {
-	max := RiskNone
-	for i := range changes {
-		if changes[i].Risk > max {
-			max = changes[i].Risk
-		}
-	}
-	return max
-}
+// OverallRisk delegates to the SDK implementation.
+var OverallRisk = sdk.OverallRisk

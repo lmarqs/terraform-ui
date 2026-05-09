@@ -7,12 +7,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
-	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui/styles"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the projects plugin.
+// Status represents the current state of the projects sdk.
 type Status int
 
 const (
@@ -40,7 +38,7 @@ type Project struct {
 
 // Plugin implements the monorepo project picker feature.
 type Plugin struct {
-	svc      terraform.Service
+	svc      sdk.Service
 	cfg      config.Config
 	status   Status
 	projects []Project
@@ -51,8 +49,8 @@ type Plugin struct {
 	filtered []Project
 }
 
-// New creates a new projects plugin.
-func New(svc terraform.Service) plugin.Plugin {
+// New creates a new projects sdk.
+func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
 	}
@@ -80,7 +78,7 @@ func (e *Plugin) SetConfig(cfg config.Config) {
 }
 
 // Init initializes the plugin and discovers projects.
-func (e *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.status = StatusLoading
 	e.projects = nil
@@ -121,8 +119,8 @@ func (e *Plugin) discover() tea.Cmd {
 	}
 }
 
-// Update processes messages and returns the updated plugin.
-func (e *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+// Update processes messages and returns the updated sdk.
+func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ProjectsDiscoveredMsg:
 		if msg.Err != nil {
@@ -239,19 +237,19 @@ func (e *Plugin) BackspaceFilter() {
 	}
 }
 
-// View renders the projects plugin.
+// View renders the projects sdk.
 func (e *Plugin) View(width, height int) string {
-	title := styles.StyleTitle.Render("Projects")
+	title := sdk.StyleTitle.Render("Projects")
 
 	switch e.status {
 	case StatusIdle, StatusLoading:
-		loading := styles.StyleFaintItalic.Render("Discovering projects...")
-		return styles.StylePadded.Render(title + "\n\n" + loading)
+		loading := sdk.StyleFaintItalic.Render("Discovering projects...")
+		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
-		errText := styles.StyleError.Render("Error: " + e.errMsg)
-		hint := styles.StyleFaintItalic.Render("Press r to retry, Esc to go back")
-		return styles.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		errText := sdk.StyleError.Render("Error: " + e.errMsg)
+		hint := sdk.StyleFaintItalic.Render("Press r to retry, Esc to go back")
+		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
 
 	case StatusDone:
 		return e.renderProjects(width, height)
@@ -262,30 +260,30 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderProjects(width, height int) string {
-	title := styles.StyleTitle.Render("Projects")
+	title := sdk.StyleTitle.Render("Projects")
 
 	if len(e.projects) == 0 {
-		placeholder := styles.StyleFaintItalic.Render(
+		placeholder := sdk.StyleFaintItalic.Render(
 			"No projects configured. Add paths to tfui.yaml:\n\n" +
 				"  projects:\n" +
 				"    paths:\n" +
 				"      - \"modules/*\"\n" +
 				"      - \"envs/**\"",
 		)
-		return styles.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 	}
 
 	var b strings.Builder
 
 	// Filter line
 	if e.filter != "" {
-		filterLine := styles.StyleKey.Render("filter: ") + e.filter
+		filterLine := sdk.StyleKey.Render("filter: ") + e.filter
 		b.WriteString(filterLine)
 		b.WriteString("\n\n")
 	}
 
 	if len(e.filtered) == 0 {
-		noMatch := styles.StyleFaintItalic.Render("No projects match filter.")
+		noMatch := sdk.StyleFaintItalic.Render("No projects match filter.")
 		b.WriteString(noMatch)
 	} else {
 		// Calculate visible area
@@ -307,22 +305,22 @@ func (e *Plugin) renderProjects(width, height int) string {
 			project := e.filtered[i]
 			row := e.renderProjectRow(project, i)
 			if i == e.selected {
-				row = styles.StyleSelected.Width(width - 6).Render(row)
+				row = sdk.StyleSelected.Width(width - 6).Render(row)
 			}
 			b.WriteString(row)
 			b.WriteByte('\n')
 		}
 	}
 
-	count := styles.StyleFaint.Render(fmt.Sprintf("%d project(s)", len(e.filtered)))
+	count := sdk.StyleFaint.Render(fmt.Sprintf("%d project(s)", len(e.filtered)))
 	if len(e.filtered) != len(e.projects) {
-		count = styles.StyleFaint.Render(fmt.Sprintf("%d/%d project(s)", len(e.filtered), len(e.projects)))
+		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d project(s)", len(e.filtered), len(e.projects)))
 	}
 
-	hint := styles.StyleFaintItalic.Render("Enter select  / filter  r refresh  Esc back")
+	hint := sdk.StyleFaintItalic.Render("Enter select  / filter  r refresh  Esc back")
 
 	content := title + "\n\n" + b.String() + "\n" + count + "\n" + hint
-	return styles.StylePadded.Render(content)
+	return sdk.StylePadded.Render(content)
 }
 
 func (e *Plugin) renderProjectRow(project Project, idx int) string {
@@ -336,17 +334,17 @@ func (e *Plugin) renderProjectRow(project Project, idx int) string {
 	}
 
 	indicator := "  "
-	name := styles.StyleFaint.Render(project.Path)
+	name := sdk.StyleFaint.Render(project.Path)
 	if isActive {
-		indicator = styles.StyleSuccess.Render("* ")
-		name = styles.StyleKey.Render(project.Path)
+		indicator = sdk.StyleSuccess.Render("* ")
+		name = sdk.StyleKey.Render(project.Path)
 	}
 
 	row := fmt.Sprintf("%s%s", indicator, name)
 
 	// Show the friendly name if different from path
 	if project.Name != project.Path && project.Name != "" {
-		row += " " + styles.StyleFaint.Render("("+project.Name+")")
+		row += " " + sdk.StyleFaint.Render("("+project.Name+")")
 	}
 
 	return row

@@ -1,84 +1,35 @@
 package terraform
 
-// RiskLevel classifies the risk severity of a planned infrastructure change,
-// ranging from RiskNone (no risk) to RiskCritical (potentially destructive).
-type RiskLevel int
+import "github.com/lmarqs/terraform-ui/pkg/sdk"
 
-const (
-	RiskNone RiskLevel = iota
-	RiskLow
-	RiskMedium
-	RiskHigh
-	RiskCritical
+// Type aliases re-export SDK types so that internal packages can continue using
+// the terraform package without breaking existing code. New code should prefer
+// importing pkg/sdk directly.
+type (
+	RiskLevel     = sdk.RiskLevel
+	Action        = sdk.Action
+	Resource      = sdk.Resource
+	AttributeDiff = sdk.AttributeDiff
+	PlanChange    = sdk.PlanChange
+	PlanSummary   = sdk.PlanSummary
+	ModuleGroup   = sdk.ModuleGroup
+	ActionSummary = sdk.ActionSummary
+	PhantomResult = sdk.PhantomResult
 )
 
-// String returns the lowercase string representation of the risk level.
-func (r RiskLevel) String() string {
-	switch r {
-	case RiskLow:
-		return "low"
-	case RiskMedium:
-		return "medium"
-	case RiskHigh:
-		return "high"
-	case RiskCritical:
-		return "critical"
-	default:
-		return "none"
-	}
-}
-
-// Action represents the type of change terraform will make to a resource
-// (create, update, delete, or replace variants).
-type Action string
-
+// Re-export SDK constants.
 const (
-	ActionCreate           Action = "create"
-	ActionRead             Action = "read"
-	ActionUpdate           Action = "update"
-	ActionDelete           Action = "delete"
-	ActionDeleteThenCreate Action = "delete-then-create"
-	ActionCreateThenDelete Action = "create-then-delete"
-	ActionNoOp             Action = "no-op"
+	RiskNone     = sdk.RiskNone
+	RiskLow      = sdk.RiskLow
+	RiskMedium   = sdk.RiskMedium
+	RiskHigh     = sdk.RiskHigh
+	RiskCritical = sdk.RiskCritical
+
+	ActionCreate           = sdk.ActionCreate
+	ActionRead             = sdk.ActionRead
+	ActionUpdate           = sdk.ActionUpdate
+	ActionDelete           = sdk.ActionDelete
+	ActionDeleteThenCreate = sdk.ActionDeleteThenCreate
+	ActionCreateThenDelete = sdk.ActionCreateThenDelete
+	ActionNoOp             = sdk.ActionNoOp
 )
-
-// Resource represents a terraform-managed resource identified by its address,
-// type, logical name, module path, and provider.
-type Resource struct {
-	Address      string
-	Type         string
-	Name         string
-	Module       string
-	ProviderName string
-}
-
-// AttributeDiff represents a change to a single resource attribute,
-// capturing the old and new values along with sensitivity and force-new flags.
-type AttributeDiff struct {
-	Key       string
-	OldValue  string
-	NewValue  string
-	Sensitive bool
-	ForcesNew bool
-}
-
-// PlanChange represents a single resource change in a terraform plan, including
-// the action to be taken, attribute-level diffs, computed risk, and phantom status.
-type PlanChange struct {
-	Resource       Resource
-	Action         Action
-	AttributeDiffs []AttributeDiff
-	Risk           RiskLevel
-	IsPhantom      bool
-}
-
-// PlanSummary holds the full set of resource changes from a terraform plan
-// along with aggregate counts by action type.
-type PlanSummary struct {
-	Changes   []PlanChange
-	ToCreate  int
-	ToUpdate  int
-	ToDelete  int
-	ToReplace int
-	ToRead    int
-}

@@ -2,7 +2,7 @@ package plugin
 
 import (
 	"github.com/lmarqs/terraform-ui/internal/config"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // Registry holds all registered plugin factories and their instantiated plugins.
@@ -33,7 +33,7 @@ func (r *Registry) RegisterFactory(id string, factory PluginFactory) {
 
 // Build instantiates all enabled plugins from registered factories and applies
 // their configuration. Plugins not present in the configs map are enabled by default.
-func (r *Registry) Build(svc terraform.Service, configs map[string]config.PluginConfig) {
+func (r *Registry) Build(svc sdk.Service, configs map[string]config.PluginConfig) {
 	for id, factory := range r.factories {
 		cfg, exists := configs[id]
 
