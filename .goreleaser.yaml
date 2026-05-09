@@ -1,0 +1,36 @@
+version: 2
+
+builds:
+  - main: ./cmd/tfui
+    binary: tfui
+    ldflags:
+      - -s -w -X main.version={{.Version}}
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - format: tar.gz
+    name_template: "tfui_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+brews:
+  - repository:
+      owner: lmarqs
+      name: homebrew-tap
+    name: tfui
+    homepage: https://github.com/lmarqs/terraform-ui
+    description: Terminal UI for Terraform operations
+    license: MIT
+    install: |
+      bin.install "tfui"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^chore:"
+      - "^ci:"
