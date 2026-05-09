@@ -43,6 +43,7 @@ jobs:
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
+          chmod +x artifacts/tfui/bin/tfui
           tar -czf "release-assets/tfui-${{ steps.version.outputs.version }}.tar.gz" -C artifacts/tfui .
           cp artifacts/changelog/CHANGELOG.md release-assets/CHANGELOG.md
           cp artifacts/test-report-ubuntu-latest/report.xml release-assets/test-report-ubuntu.xml
