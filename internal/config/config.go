@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,7 +83,7 @@ func Load(dir string) (Config, error) {
 
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
-		return cfg, nil
+		return cfg, fmt.Errorf("resolving directory path: %w", err)
 	}
 
 	configPath := findConfigFile(absDir)
@@ -92,11 +93,11 @@ func Load(dir string) (Config, error) {
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return cfg, nil
+		return cfg, fmt.Errorf("reading config file %s: %w", configPath, err)
 	}
 
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return cfg, err
+		return cfg, fmt.Errorf("parsing config file %s: %w", configPath, err)
 	}
 
 	cfg.Dir = dir
