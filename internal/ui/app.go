@@ -7,22 +7,27 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/editor"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
+	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 )
 
 type App struct {
-	cfg      config.Config
-	svc      sdk.Service
-	registry *plugin.Registry
-	session  *sdk.Session
-	width    int
-	height   int
+	cfg         config.Config
+	svc         sdk.Service
+	registry    *plugin.Registry
+	session     *sdk.Session
+	sourceIndex *terraform.SourceIndex
+	width       int
+	height      int
 
 	header    components.Header
+	separator components.Separator
 	statusBar components.StatusBar
 	homeView  views.HomeView
 
@@ -30,17 +35,25 @@ type App struct {
 	activeContext string     // tracks last known active context for header updates
 	commandMode   bool
 	commandInput  string
+
+	inputActive   bool
+	inputPrompt   string
+	inputAnswer   string
+	inputCallback func(string) tea.Cmd
 }
 
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
+	sourceIndex, _ := terraform.NewSourceIndex(cfg.Dir)
 	return App{
-		cfg:       cfg,
-		svc:       svc,
-		registry:  registry,
-		session:   sdk.NewSession(),
-		header:    components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary(), 0),
-		statusBar: components.NewStatusBar(),
-		homeView:  views.NewHomeView(registry.All()),
+		cfg:         cfg,
+		svc:         svc,
+		registry:    registry,
+		session:     sdk.NewSession(),
+		sourceIndex: sourceIndex,
+		header:      components.NewHeader(cfg.Dir, "default", cfg.TerraformBinary(), 0),
+		separator:   components.NewSeparator(),
+		statusBar:   components.NewStatusBar(),
+		homeView:    views.NewHomeView(registry.All()),
 	}
 }
 
@@ -96,6 +109,30 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case sdk.RequestInputMsg:
+		a.inputActive = true
+		a.inputPrompt = msg.Request.Prompt
+		a.inputAnswer = msg.Request.Default
+		a.inputCallback = msg.Request.Callback
+		return a, nil
+
+	case tfuistate.StateEditMsg:
+		if a.sourceIndex != nil {
+			if loc, ok := a.sourceIndex.Lookup(msg.Address); ok {
+				return a, editor.Open(loc)
+			}
+		}
+		return a, nil
+
+	case editor.EditorClosedMsg:
+		if msg.Modified {
+			// Invalidate plan cache since file was edited
+			if a.session != nil {
+				a.session.Set("plan.invalidated", true)
+			}
+		}
+		return a, nil
+
 	case tea.KeyMsg:
 		return a.handleKey(msg)
 
@@ -122,6 +159,44 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		activeView = a.activePlugin.ID()
 	}
 	logging.Logger().Debug("key.press", "key", msg.String(), "view", activeView)
+
+	// Input prompt mode
+	if a.inputActive {
+		switch msg.String() {
+		case "y":
+			if a.inputCallback != nil {
+				cmd := a.inputCallback("y")
+				a.inputActive = false
+				a.inputPrompt = ""
+				a.inputAnswer = ""
+				a.inputCallback = nil
+				return a, cmd
+			}
+		case "n", "esc":
+			a.inputActive = false
+			a.inputPrompt = ""
+			a.inputAnswer = ""
+			a.inputCallback = nil
+		case "enter":
+			if a.inputCallback != nil {
+				cmd := a.inputCallback(a.inputAnswer)
+				a.inputActive = false
+				a.inputPrompt = ""
+				a.inputAnswer = ""
+				a.inputCallback = nil
+				return a, cmd
+			}
+		case "backspace", "ctrl+h":
+			if len(a.inputAnswer) > 0 {
+				a.inputAnswer = a.inputAnswer[:len(a.inputAnswer)-1]
+			}
+		default:
+			if len(msg.String()) == 1 && msg.String() >= " " {
+				a.inputAnswer += msg.String()
+			}
+		}
+		return a, nil
+	}
 
 	// Command input mode
 	if a.commandMode {
@@ -307,8 +382,9 @@ func (a App) View() string {
 	}
 
 	headerHeight := 3
+	separatorHeight := 2 // two separators (1 line each)
 	statusBarHeight := 1
-	contentHeight := a.height - headerHeight - statusBarHeight
+	contentHeight := a.height - headerHeight - separatorHeight - statusBarHeight
 
 	h := a.header
 	var content string
@@ -326,7 +402,15 @@ func (a App) View() string {
 	content = contentStyle.Render(content)
 
 	var statusBar string
-	if a.commandMode {
+	if a.inputActive {
+		promptStyle := lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorText).
+			Bold(true).
+			Padding(0, 1).
+			Width(a.width)
+		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
+	} else if a.commandMode {
 		cmdStyle := lipgloss.NewStyle().
 			Background(sdk.ColorBg).
 			Foreground(sdk.ColorText).
@@ -343,5 +427,6 @@ func (a App) View() string {
 		statusBar = a.statusBar.Render(a.width)
 	}
 
-	return header + "\n" + content + "\n" + statusBar
+	sep := a.separator.Render(a.width)
+	return header + "\n" + sep + "\n" + content + "\n" + sep + "\n" + statusBar
 }
