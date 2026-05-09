@@ -90,17 +90,17 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (e *Plugin) Activate() tea.Cmd {
 	// Check if the active project changed since last activation
 	if e.session != nil {
-		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
-		if currentProject != e.scopedContext {
+		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveContextAbs)
+		if currentContext != e.scopedContext {
 			// Project changed — reset state and re-scope
 			e.status = StatusIdle
 			e.summary = nil
 			e.errMsg = ""
 			e.selected = 0
 			e.expanded = make(map[int]bool)
-			e.scopedContext = currentProject
-			if currentProject != "" {
-				e.svc = e.svc.WithDir(currentProject)
+			e.scopedContext = currentContext
+			if currentContext != "" {
+				e.svc = e.svc.WithDir(currentContext)
 			}
 		}
 	}
@@ -114,7 +114,7 @@ func (e *Plugin) Activate() tea.Cmd {
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyContextCount); ok && count > 1 {
 				// Multi-project mode but no project selected
 				e.status = StatusError
-				e.errMsg = "Select a project first (press m)"
+				e.errMsg = "Select a context first (press c)"
 				return nil
 			}
 		}
