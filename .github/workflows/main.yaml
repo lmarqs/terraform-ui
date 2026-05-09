@@ -27,6 +27,7 @@ jobs:
       contents: read
 
   release:
+    if: github.event_name == 'push'
     uses: ./.github/workflows/release.yaml
     needs: test
     permissions:
