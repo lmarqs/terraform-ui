@@ -1,0 +1,7 @@
+Error: Error configuring provider
+
+  with aws_instance.web,
+  on main.tf:1, in provider "aws":
+  1: provider "aws" {
+
+API error: AuthFailure — check your AWS credentials.

@@ -734,6 +734,273 @@ _tfui_strategy_agent() {
   _tfui_exec "$command"
 }
 
+# -- Error parsing ------------------------------------------------------------
+
+# @description Parse terraform error output into structured JSON.
+# Reads raw terraform stderr from stdin or a file, extracts diagnostic blocks,
+# and emits a JSON object with categorized errors and suggestions.
+# @param $1 {string} [error_file] - Path to error output file (reads stdin if omitted)
+# @return stdout - JSON object: { success, errors[], raw_output }
+_tfui_parse_error() {
+  local input
+  if [ $# -gt 0 ] && [ -n "$1" ]; then
+    input=$(cat "$1")
+  else
+    input=$(cat)
+  fi
+
+  # Strip box-drawing characters and ANSI escapes for robust parsing
+  local clean
+  clean=$(printf '%s' "$input" | sed 's/\x1b\[[0-9;]*m//g' | sed 's/[│├└─╷╵]//g')
+
+  local errors_json="[]"
+  local current_severity=""
+  local current_headline=""
+  local current_resource=""
+  local current_attribute=""
+  local current_file=""
+  local current_body=""
+  local in_block=false
+
+  _tfui_error_flush_block() {
+    if [ -z "$current_headline" ]; then
+      return
+    fi
+
+    local category
+    category=$(_tfui_error_categorize "$current_headline" "$current_body")
+
+    local suggestion
+    suggestion=$(_tfui_error_suggest "$category" "$current_headline" "$current_attribute" "$current_resource")
+
+    # Use jq to build the error entry and append to array
+    errors_json=$(printf '%s' "$errors_json" | jq --arg sev "$current_severity" \
+      --arg res "$current_resource" \
+      --arg attr "$current_attribute" \
+      --arg msg "$current_headline" \
+      --arg cat "$category" \
+      --arg sug "$suggestion" \
+      --arg file "$current_file" \
+      '. + [{
+        severity: $sev,
+        resource: (if $res == "" then null else $res end),
+        attribute: (if $attr == "" then null else $attr end),
+        message: $msg,
+        category: $cat,
+        suggestion: (if $sug == "" then null else $sug end),
+        file: (if $file == "" then null else $file end)
+      }]')
+
+    current_headline=""
+    current_resource=""
+    current_attribute=""
+    current_file=""
+    current_body=""
+  }
+
+  while IFS= read -r line; do
+    # Detect start of a diagnostic block
+    if echo "$line" | grep -qE '^[[:space:]]*(Error|Warning):'; then
+      # Flush any previous block
+      if [ "$in_block" = true ]; then
+        _tfui_error_flush_block
+      fi
+      in_block=true
+
+      if echo "$line" | grep -qE '^[[:space:]]*Error:'; then
+        current_severity="error"
+        current_headline=$(echo "$line" | sed -E 's/^[[:space:]]*Error:[[:space:]]*//')
+      else
+        current_severity="warning"
+        current_headline=$(echo "$line" | sed -E 's/^[[:space:]]*Warning:[[:space:]]*//')
+      fi
+      continue
+    fi
+
+    if [ "$in_block" = true ]; then
+      # Extract resource address: "with <resource>,"
+      if echo "$line" | grep -qE 'with[[:space:]]+[^[:space:]]+'; then
+        local res_match
+        res_match=$(echo "$line" | sed -nE 's/.*with[[:space:]]+([^[:space:]]+),?.*/\1/p')
+        if [ -n "$res_match" ]; then
+          current_resource=$(echo "$res_match" | sed 's/,$//')
+        fi
+      fi
+
+      # Extract file location: "on <file>:<line>"
+      if echo "$line" | grep -qE 'on[[:space:]]+[^[:space:]]+:[[:space:]]*[0-9]+'; then
+        local file_match
+        file_match=$(echo "$line" | sed -nE 's/.*on[[:space:]]+([^[:space:]]+:[0-9]+).*/\1/p')
+        if [ -n "$file_match" ]; then
+          current_file="$file_match"
+        fi
+      fi
+
+      # Extract attribute from "argument" references
+      if echo "$line" | grep -qE 'argument[[:space:]]+"[^"]+"'; then
+        local attr_match
+        attr_match=$(echo "$line" | sed -nE 's/.*argument[[:space:]]+"([^"]+)".*/\1/p')
+        if [ -n "$attr_match" ]; then
+          current_attribute="$attr_match"
+        fi
+      fi
+
+      # Also extract from headline itself (for "argument" in headline)
+      if [ -z "$current_attribute" ] && echo "$current_headline" | grep -qE 'argument[[:space:]]+"[^"]+"'; then
+        current_attribute=$(echo "$current_headline" | sed -nE 's/.*argument[[:space:]]+"([^"]+)".*/\1/p')
+      fi
+
+      # Extract attribute from "variable" references
+      if [ -z "$current_attribute" ] && echo "$line" | grep -qE 'variable[[:space:]]+"[^"]+"'; then
+        local var_match
+        var_match=$(echo "$line" | sed -nE 's/.*variable[[:space:]]+"([^"]+)".*/\1/p')
+        if [ -n "$var_match" ]; then
+          current_attribute="$var_match"
+        fi
+      fi
+
+      # Accumulate body
+      current_body="${current_body}${line}
+"
+    fi
+  done <<< "$clean"
+
+  # Flush the last block
+  if [ "$in_block" = true ]; then
+    _tfui_error_flush_block
+  fi
+
+  # If no structured errors were found, create a generic entry
+  if [ "$errors_json" = "[]" ] && [ -n "$input" ]; then
+    local first_line
+    first_line=$(echo "$input" | head -1)
+    errors_json=$(printf '[]' | jq --arg msg "$first_line" \
+      '. + [{
+        severity: "error",
+        resource: null,
+        attribute: null,
+        message: $msg,
+        category: "unknown",
+        suggestion: null,
+        file: null
+      }]')
+  fi
+
+  # Assemble final output
+  printf '%s' "$input" | jq -Rs --argjson errors "$errors_json" '{
+    success: false,
+    errors: $errors,
+    raw_output: .
+  }'
+
+  unset -f _tfui_error_flush_block
+}
+
+# @description Categorize an error based on headline and body text.
+# @param $1 {string} headline - The error headline
+# @param $2 {string} body - The error body text
+# @return stdout - Category string
+_tfui_error_categorize() {
+  local headline="$1"
+  local body="$2"
+  local combined="${headline} ${body}"
+
+  # Check for syntax errors
+  if echo "$headline" | grep -qiE 'Invalid (expression|block|reference|character)|Argument or block|Unclosed|parse'; then
+    echo "syntax_error"
+    return
+  fi
+
+  # Check for missing argument
+  if echo "$combined" | grep -qiE 'argument .* is required|Missing required argument|required, but no definition'; then
+    echo "missing_argument"
+    return
+  fi
+
+  # Check for invalid value
+  if echo "$combined" | grep -qiE 'Invalid value|Unsuitable value|Invalid count|expected .* got|Incorrect attribute value'; then
+    echo "invalid_value"
+    return
+  fi
+
+  # Check for state errors
+  if echo "$combined" | grep -qiE 'state lock|state snapshot|backend initialization|Failed to load state'; then
+    echo "state_error"
+    return
+  fi
+
+  # Check for dependency errors
+  if echo "$combined" | grep -qiE 'Cycle|circular|Module not installed|Module source has changed|provider requirements'; then
+    echo "dependency_error"
+    return
+  fi
+
+  # Check for provider/API errors (broad — catches API failures)
+  if echo "$combined" | grep -qiE 'Provider .* not available|error configuring|API error|status code:|AuthFailure|AccessDenied|InvalidParameter'; then
+    echo "provider_error"
+    return
+  fi
+
+  echo "unknown"
+}
+
+# @description Generate a suggestion for a categorized error.
+# @param $1 {string} category - Error category
+# @param $2 {string} headline - Error headline
+# @param $3 {string} attribute - Extracted attribute name (may be empty)
+# @param $4 {string} resource - Extracted resource address (may be empty)
+# @return stdout - Suggestion string (empty if none)
+_tfui_error_suggest() {
+  local category="$1"
+  local headline="$2"
+  local attribute="$3"
+  local resource="$4"
+
+  case "$category" in
+    missing_argument)
+      if [ -n "$attribute" ] && [ -n "$resource" ]; then
+        echo "Add '$attribute' attribute to the $resource resource block"
+      elif [ -n "$attribute" ]; then
+        echo "Add the required '$attribute' argument"
+      else
+        echo "Add the missing required argument to the resource block"
+      fi
+      ;;
+    invalid_value)
+      if [ -n "$attribute" ]; then
+        echo "Check the value of '$attribute' — ensure it matches the expected type"
+      else
+        echo "Check the value — ensure it matches the expected type or constraint"
+      fi
+      ;;
+    syntax_error)
+      echo "Fix the HCL syntax error — check for unclosed braces, quotes, or invalid expressions"
+      ;;
+    state_error)
+      if echo "$headline" | grep -qiE 'lock'; then
+        echo "Release the state lock (terraform force-unlock) or wait for the other operation to complete"
+      else
+        echo "Check backend configuration and state file integrity"
+      fi
+      ;;
+    dependency_error)
+      if echo "$headline" | grep -qiE 'Cycle|circular'; then
+        echo "Remove circular dependencies between resources"
+      elif echo "$headline" | grep -qiE 'Module not installed'; then
+        echo "Run 'terraform init' to install the required module"
+      else
+        echo "Run 'terraform init' to resolve provider and module dependencies"
+      fi
+      ;;
+    provider_error)
+      echo "Check provider configuration, credentials, and API connectivity"
+      ;;
+    *)
+      echo ""
+      ;;
+  esac
+}
+
 # -- Renderer -----------------------------------------------------------------
 
 # @description Parse plan JSON and print a tree view of changes.

@@ -1,0 +1,6 @@
+Error: Invalid value for variable
+
+  on variables.tf:5, in variable "instance_count":
+  5: variable "instance_count" {
+
+The variable "instance_count" expected a number but got string.
