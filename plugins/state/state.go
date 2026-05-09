@@ -390,28 +390,8 @@ func (e *Plugin) maxAddressLen() int {
 	return max
 }
 
-// SetFilter sets the filter string and refilters the resource list.
-// buildSearchTexts returns short search strings for fzf matching.
-// Uses innermost module + type + name to keep strings short and distinctive.
-func buildSearchTexts(resources []sdk.Resource) []string {
-	texts := make([]string, len(resources))
-	for i, r := range resources {
-		base := r.Type + "." + r.Name
-		if r.Module != "" {
-			mod := r.Module
-			if idx := strings.LastIndex(mod, "."); idx >= 0 {
-				mod = mod[idx+1:]
-			}
-			texts[i] = mod + "." + base
-		} else {
-			texts[i] = base
-		}
-	}
-	return texts
-}
-
-// SetFilter filters resources using fzf's fuzzy matching algorithm.
-// Space-separated terms use AND logic (each must match independently).
+// SetFilter filters resources using fzf's FuzzyMatchV2 algorithm.
+// Space-separated terms use AND logic. Results sorted by score (best first).
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
@@ -425,16 +405,14 @@ func (e *Plugin) SetFilter(filter string) {
 		resource sdk.Resource
 		score    int
 	}
-	searchTexts := buildSearchTexts(e.resources)
 	var results []scored
 	slab := util.MakeSlab(100*1024, 2048)
-	for i, r := range e.resources {
-		text := util.RunesToChars([]rune(searchTexts[i]))
+	for _, r := range e.resources {
+		input := util.RunesToChars([]rune(r.Address))
 		totalScore := 0
 		matched := true
 		for _, term := range terms {
-			pat := []rune(term)
-			res, _ := algo.FuzzyMatchV2(false, true, true, &text, pat, false, slab)
+			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
 			if res.Score <= 0 {
 				matched = false
 				break
@@ -445,7 +423,6 @@ func (e *Plugin) SetFilter(filter string) {
 			results = append(results, scored{r, totalScore})
 		}
 	}
-	// Sort by score descending (best matches first)
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].score > results[j].score
 	})
