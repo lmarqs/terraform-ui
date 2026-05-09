@@ -358,8 +358,13 @@ func (e *Plugin) MoveToEnd() {
 func (e *Plugin) maxAddressLen() int {
 	max := 0
 	for _, r := range e.filtered {
-		if len(r.Address) > max {
-			max = len(r.Address)
+		// Address + type + module + spacing
+		l := len(r.Address) + len(r.Type) + 4
+		if r.Module != "" {
+			l += len(r.Module) + 3
+		}
+		if l > max {
+			max = l
 		}
 	}
 	return max
@@ -394,22 +399,21 @@ func fuzzyContains(text, pattern string) bool {
 	if strings.Contains(text, pattern) {
 		return true
 	}
-	ti := 0
-	for pi := 0; pi < len(pattern); pi++ {
-		found := false
-		for ti < len(text) {
-			if text[ti] == pattern[pi] {
-				ti++
-				found = true
-				break
-			}
-			ti++
-		}
-		if !found {
-			return false
+	// Strip separators and do substring match
+	stripped := stripSeparators(text)
+	return strings.Contains(stripped, pattern)
+}
+
+func stripSeparators(s string) string {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c != '_' && c != '.' && c != ' ' && c != '[' && c != ']' && c != '"' {
+			b.WriteByte(c)
 		}
 	}
-	return true
+	return b.String()
 }
 
 // AppendFilter adds a character to the filter.
@@ -521,12 +525,20 @@ func (e *Plugin) renderResources(width, height int) string {
 	rowStyle := lipgloss.NewStyle().MaxWidth(contentWidth)
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
-		row := e.renderResourceRow(r, e.listHScroll)
-		row = rowStyle.Render(row)
-		if i == e.selected {
-			row = sdk.StyleSelected.Width(contentWidth).Render(row)
+		if e.detailWrap {
+			row := e.renderResourceRow(r, 0)
+			if i == e.selected {
+				row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			}
+			b.WriteString(row)
+		} else {
+			row := e.renderResourceRow(r, e.listHScroll)
+			row = rowStyle.Render(row)
+			if i == e.selected {
+				row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			}
+			b.WriteString(row)
 		}
-		b.WriteString(row)
 		b.WriteByte('\n')
 	}
 
