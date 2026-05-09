@@ -562,18 +562,24 @@ func TestSetFilterFuzzy(t *testing.T) {
 		filter string
 		want   int
 	}{
+		// Stripped substring: separators removed, contiguous match
 		{"aurora", 3},
-		{"aurora0", 1},
 		{"rdscluster", 3},
-		{"rdsclusterthis", 3},
 		{"rdsclusterinstance", 2},
-		{"aurorathis", 3},
-		{"auroraclusterthis", 3},
+		{"clusterthis", 1},
 		{"redis", 1},
 		{"securitygroup", 1},
 		{"elasticache", 1},
 		{"securitygroupweb", 1},
+		// Space-separated AND terms
+		{"aurora cluster", 3},
+		{"aurora instance", 2},
+		{"aurora this 0", 1},
+		{"aurora this 1", 1},
+		{"redis this", 1},
+		// No match
 		{"zzz", 0},
+		{"aurora zzz", 0},
 	}
 	for _, tt := range tests {
 		p.SetFilter(tt.filter)

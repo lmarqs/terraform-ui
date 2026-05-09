@@ -388,7 +388,8 @@ func (e *Plugin) maxAddressLen() int {
 }
 
 // SetFilter sets the filter string and refilters the resource list.
-// Supports fuzzy subsequence matching against the address and module.
+// Space-separated terms use AND logic (each term matched independently).
+// Each term matches as substring on raw text or stripped text (separators removed).
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
@@ -397,14 +398,14 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	lower := strings.ToLower(filter)
+	terms := strings.Fields(strings.ToLower(filter))
 	var result []sdk.Resource
 	for _, r := range e.resources {
 		text := strings.ToLower(r.Address)
 		if r.Module != "" {
 			text += " " + strings.ToLower(r.Module)
 		}
-		if fuzzyContains(text, lower) {
+		if matchAllTerms(text, terms) {
 			result = append(result, r)
 		}
 	}
@@ -412,45 +413,21 @@ func (e *Plugin) SetFilter(filter string) {
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
+func matchAllTerms(text string, terms []string) bool {
+	for _, term := range terms {
+		if !fuzzyContains(text, term) {
+			return false
+		}
+	}
+	return true
+}
+
 func fuzzyContains(text, pattern string) bool {
 	if strings.Contains(text, pattern) {
 		return true
 	}
 	stripped := stripSeparators(text)
-	if strings.Contains(stripped, pattern) {
-		return true
-	}
-	// Bounded subsequence: try from each occurrence of pattern[0],
-	// allow total gaps up to 3x pattern length
-	maxGap := len(pattern) * 3
-	for start := 0; start < len(stripped); start++ {
-		if stripped[start] != pattern[0] {
-			continue
-		}
-		ti := start + 1
-		totalGap := 0
-		matched := true
-		for pi := 1; pi < len(pattern); pi++ {
-			found := false
-			for ti < len(stripped) {
-				if stripped[ti] == pattern[pi] {
-					ti++
-					found = true
-					break
-				}
-				totalGap++
-				ti++
-			}
-			if !found || totalGap > maxGap {
-				matched = false
-				break
-			}
-		}
-		if matched {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(stripped, pattern)
 }
 
 func stripSeparators(s string) string {
