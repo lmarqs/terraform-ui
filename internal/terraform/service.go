@@ -420,6 +420,40 @@ func isKeySensitive(sensitive interface{}, key string) bool {
 	return false
 }
 
+// redactSensitiveValues replaces sensitive attribute values with "(sensitive)".
+func redactSensitiveValues(values map[string]interface{}, sensitive interface{}) map[string]interface{} {
+	if values == nil {
+		return nil
+	}
+	result := make(map[string]interface{}, len(values))
+	for k, v := range values {
+		if isSensitiveKey(sensitive, k) {
+			result[k] = "(sensitive)"
+		} else {
+			result[k] = v
+		}
+	}
+	return result
+}
+
+func isSensitiveKey(sensitive interface{}, key string) bool {
+	if sensitive == nil {
+		return false
+	}
+	switch s := sensitive.(type) {
+	case bool:
+		return s
+	case map[string]interface{}:
+		if v, ok := s[key]; ok {
+			if b, ok := v.(bool); ok {
+				return b
+			}
+			return v != nil
+		}
+	}
+	return false
+}
+
 // parseStateResources recursively extracts resources from a state module.
 func parseStateResources(module *tfjson.StateModule) []Resource {
 	if module == nil {
