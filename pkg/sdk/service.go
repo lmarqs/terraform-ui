@@ -24,4 +24,13 @@ type Service interface {
 
 	// WorkspaceList returns the names of all available terraform workspaces.
 	WorkspaceList(ctx context.Context) ([]string, error)
+
+	// WorkspaceSelect switches to the specified terraform workspace.
+	WorkspaceSelect(ctx context.Context, name string) error
+
+	// WorkspaceNew creates a new terraform workspace and switches to it.
+	WorkspaceNew(ctx context.Context, name string) error
+
+	// WorkspaceDelete deletes the specified terraform workspace.
+	WorkspaceDelete(ctx context.Context, name string) error
 }

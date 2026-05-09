@@ -10,10 +10,13 @@ import (
 )
 
 type mockService struct {
-	workspaceList    []string
-	workspaceListErr error
-	workspace        string
-	workspaceErr     error
+	workspaceList      []string
+	workspaceListErr   error
+	workspace          string
+	workspaceErr       error
+	workspaceSelectErr error
+	workspaceNewErr    error
+	workspaceDeleteErr error
 }
 
 func (m *mockService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, error) {
@@ -27,6 +30,15 @@ func (m *mockService) Workspace(_ context.Context) (string, error) {
 }
 func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 	return m.workspaceList, m.workspaceListErr
+}
+func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error {
+	return m.workspaceSelectErr
+}
+func (m *mockService) WorkspaceNew(_ context.Context, _ string) error {
+	return m.workspaceNewErr
+}
+func (m *mockService) WorkspaceDelete(_ context.Context, _ string) error {
+	return m.workspaceDeleteErr
 }
 
 func TestNew(t *testing.T) {

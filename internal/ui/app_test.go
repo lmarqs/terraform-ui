@@ -51,6 +51,9 @@ func (s *mockService) Workspace(_ context.Context) (string, error) {
 func (s *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 	return []string{"default"}, nil
 }
+func (s *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
+func (s *mockService) WorkspaceNew(_ context.Context, _ string) error    { return nil }
+func (s *mockService) WorkspaceDelete(_ context.Context, _ string) error { return nil }
 
 func setupTestApp() App {
 	cfg := config.Config{

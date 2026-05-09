@@ -202,6 +202,45 @@ func (s *TerraformService) WorkspaceList(ctx context.Context) ([]string, error) 
 	return workspaces, nil
 }
 
+// WorkspaceSelect switches to the specified workspace.
+func (s *TerraformService) WorkspaceSelect(ctx context.Context, name string) error {
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.WorkspaceSelect(ctx, name); err != nil {
+		return fmt.Errorf("selecting workspace %q: %w", name, err)
+	}
+	return nil
+}
+
+// WorkspaceNew creates a new workspace and switches to it.
+func (s *TerraformService) WorkspaceNew(ctx context.Context, name string) error {
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.WorkspaceNew(ctx, name); err != nil {
+		return fmt.Errorf("creating workspace %q: %w", name, err)
+	}
+	return nil
+}
+
+// WorkspaceDelete deletes the specified workspace.
+func (s *TerraformService) WorkspaceDelete(ctx context.Context, name string) error {
+	tf, err := s.newTerraform()
+	if err != nil {
+		return err
+	}
+
+	if err := tf.WorkspaceDelete(ctx, name); err != nil {
+		return fmt.Errorf("deleting workspace %q: %w", name, err)
+	}
+	return nil
+}
+
 // parsePlan converts a tfjson.Plan into a PlanSummary.
 func parsePlan(plan *tfjson.Plan) *PlanSummary {
 	summary := &PlanSummary{

@@ -228,14 +228,18 @@ func (e *Plugin) SwitchToSelected() tea.Cmd {
 }
 
 func (e *Plugin) switchWorkspace(name string) tea.Cmd {
+	svc := e.svc
 	return func() tea.Msg {
-		return WorkspaceSwitchMsg{Name: name}
+		err := svc.WorkspaceSelect(context.Background(), name)
+		return WorkspaceSwitchMsg{Name: name, Err: err}
 	}
 }
 
 func (e *Plugin) createWorkspace(name string) tea.Cmd {
+	svc := e.svc
 	return func() tea.Msg {
-		return WorkspaceSwitchMsg{Name: name}
+		err := svc.WorkspaceNew(context.Background(), name)
+		return WorkspaceSwitchMsg{Name: name, Err: err}
 	}
 }
 
@@ -245,7 +249,11 @@ func (e *Plugin) DeleteSelected() tea.Cmd {
 	if ws == "" || ws == e.current || ws == "default" {
 		return nil
 	}
-	return e.Refresh()
+	svc := e.svc
+	return func() tea.Msg {
+		err := svc.WorkspaceDelete(context.Background(), ws)
+		return WorkspaceSwitchMsg{Name: e.current, Err: err}
+	}
 }
 
 // View renders the workspaces sdk.

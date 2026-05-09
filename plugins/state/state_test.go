@@ -32,6 +32,9 @@ func (m *mockService) Workspace(_ context.Context) (string, error) { return "def
 func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 	return []string{"default"}, nil
 }
+func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
+func (m *mockService) WorkspaceNew(_ context.Context, _ string) error    { return nil }
+func (m *mockService) WorkspaceDelete(_ context.Context, _ string) error { return nil }
 
 func TestNew(t *testing.T) {
 	svc := &mockService{}
