@@ -31,13 +31,15 @@ type TickMsg time.Time
 
 // Plugin implements the terraform apply feature.
 type Plugin struct {
-	svc       sdk.Service
-	status    Status
-	errMsg    string
-	targets   []string
-	startTime time.Time
-	elapsed   time.Duration
-	confirmed bool
+	svc            sdk.Service
+	session        *sdk.Session
+	status         Status
+	errMsg         string
+	targets        []string
+	startTime      time.Time
+	elapsed        time.Duration
+	confirmed      bool
+	totalResources int
 }
 
 // New creates a new apply sdk.
@@ -71,7 +73,24 @@ func (e *Plugin) SetTargets(targets []string) {
 // Init initializes the plugin with shared context.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
+	e.session = ctx.Session
+	if e.session != nil {
+		if summary, ok := sdk.GetTyped[*sdk.PlanSummary](e.session, sdk.SessionKeyPlanSummary); ok {
+			e.totalResources = len(summary.Changes)
+		}
+	}
 	return nil
+}
+
+// TotalResources returns the total resource count read from the session plan summary.
+func (e *Plugin) TotalResources() int {
+	// Re-read from session in case plan ran after Init.
+	if e.session != nil {
+		if summary, ok := sdk.GetTyped[*sdk.PlanSummary](e.session, sdk.SessionKeyPlanSummary); ok {
+			e.totalResources = len(summary.Changes)
+		}
+	}
+	return e.totalResources
 }
 
 // RequestApply transitions to the confirmation state.
