@@ -162,34 +162,55 @@ func (c Config) DiscoverContext() ([]string, error) {
 	return modules, nil
 }
 
-// autoDiscoverContext scans immediate subdirectories for terraform files.
-// If multiple subdirectories contain terraform files, returns all of them.
+// autoDiscoverContext walks the directory tree to find terraform projects.
+// Skips hidden directories and stops descending once a dir has .tf files.
 // If only the root directory has terraform files, returns just the root.
 func (c Config) autoDiscoverContext(absDir string) ([]string, error) {
+	var projects []string
+
 	entries, err := os.ReadDir(absDir)
 	if err != nil {
 		return []string{c.Dir}, nil
 	}
 
-	var subdirs []string
 	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		if entry.Name()[0] == '.' {
+		if !entry.IsDir() || entry.Name()[0] == '.' {
 			continue
 		}
 		subPath := filepath.Join(absDir, entry.Name())
-		if HasTerraformFiles(subPath) {
-			subdirs = append(subdirs, entry.Name())
-		}
+		found := discoverTerraformDirs(subPath, absDir)
+		projects = append(projects, found...)
 	}
 
-	if len(subdirs) <= 1 {
+	if len(projects) <= 1 {
 		return []string{c.Dir}, nil
 	}
 
-	return subdirs, nil
+	return projects, nil
+}
+
+func discoverTerraformDirs(dir, root string) []string {
+	if HasTerraformFiles(dir) {
+		rel, err := filepath.Rel(root, dir)
+		if err != nil {
+			rel = dir
+		}
+		return []string{rel}
+	}
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+
+	var results []string
+	for _, entry := range entries {
+		if !entry.IsDir() || entry.Name()[0] == '.' {
+			continue
+		}
+		results = append(results, discoverTerraformDirs(filepath.Join(dir, entry.Name()), root)...)
+	}
+	return results
 }
 
 // DetectBinary returns the terraform binary to use. If configured is non-empty,

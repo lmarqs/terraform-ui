@@ -199,6 +199,45 @@ func TestDiscoverContext_NoPatterns_AutoDiscovers(t *testing.T) {
 	}
 }
 
+func TestDiscoverContext_NoPatterns_NestedDirs(t *testing.T) {
+	root := t.TempDir()
+
+	// Create nested terraform dirs (e.g. environments/prod, environments/staging)
+	for _, name := range []string{"environments/prod", "environments/staging", "modules/vpc"} {
+		dir := filepath.Join(root, name)
+		err := os.MkdirAll(dir, 0755)
+		if err != nil {
+			t.Fatalf("failed to create dir: %v", err)
+		}
+		err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
+		if err != nil {
+			t.Fatalf("failed to write .tf file: %v", err)
+		}
+	}
+
+	cfg := Config{Dir: root}
+
+	projects, err := cfg.DiscoverContext()
+	if err != nil {
+		t.Fatalf("DiscoverContext() returned error: %v", err)
+	}
+
+	if len(projects) != 3 {
+		t.Fatalf("DiscoverContext() length = %d, want 3 (got %v)", len(projects), projects)
+	}
+
+	// Should have relative paths like "environments/prod"
+	found := map[string]bool{}
+	for _, p := range projects {
+		found[p] = true
+	}
+	for _, want := range []string{"environments/prod", "environments/staging", "modules/vpc"} {
+		if !found[want] {
+			t.Errorf("DiscoverContext() missing %q, got %v", want, projects)
+		}
+	}
+}
+
 func TestDiscoverContext_NoPatterns_IgnoresHiddenDirs(t *testing.T) {
 	root := t.TempDir()
 
