@@ -171,6 +171,57 @@ main.yaml (orchestrator)
 - Slash commands: noun-verb matching mise tasks (`/test-run`, `/coverage-run`)
 - Terraform: pinned to 1.14, fixtures use `required_version = ">= 1.14"`
 
+## Architecture Decisions
+
+### Go Rewrite
+
+k9s-style interactive TUI for Terraform. Plugin architecture. Single binary (no jq dependency).
+
+- All features are plugins under `plugins/`
+- Shared logic in `internal/terraform/`
+- Config: `tfui.yaml` with `plugins:` map
+- Coverage must be 100% excluding `cmd/` glue layer
+
+### Fuzzy Search (State Plugin)
+
+Uses `github.com/junegunn/fzf/src/algo.FuzzyMatchV2` directly on `r.Address`. No wrappers, no helpers, no custom logic.
+
+- Match against the full address — what the user sees is what they search
+- Pattern lowercased before matching (`caseSensitive=false` requires this per fzf docs)
+- Space-separated terms = AND logic (each term scored independently)
+- Results sorted by fzf score descending, threshold: `score > 0`
+- DO NOT add buildSearchTexts, stripSeparators, segmentMatch, or any string manipulation
+- DO NOT add score thresholds beyond `> 0`
+- If results seem "too many" — that's fine, best match is at the top
+
+### UX Model (k9s-inspired)
+
+- **`:` command mode**: type plugin name to switch views. Tab autocomplete, prefix matching.
+- **`/` filter mode** in state browser: auto-focused on entry. `esc` exits. Typing = filter, arrows = navigate, enter = inspect.
+- **`ctrl+w` wrap toggle**: global across all modes. `w` also works in normal/detail mode.
+- **`←→` pan**: works in list and detail views. Capped at content width.
+- `esc` exits current stack level (filter → normal → home).
+- `q` exits to home (app level). `:` opens command input (app level).
+
+### Detail View
+
+- Enter = instant inspect (state cached from initial load).
+- Arrows scroll vertically, ←→ pan horizontally (10 chars/press).
+- `w` toggles wrap. Fixed header stays visible.
+- Scroll indicator `[n/total]` when content overflows.
+
+### State Caching
+
+- `TerraformService.stateCache` holds parsed state from `StateList()`.
+- `Show(address)` reuses cache instead of re-pulling (~35s saved).
+- Cache invalidated on `StateList()` call (refresh).
+
+### Context Auto-Discovery
+
+- No `context.paths` in `tfui.yaml` → recursively walks subdirs for terraform projects.
+- Skips hidden dirs (`.terraform`), stops descending when dir has `.tf` files.
+- 2+ projects found → offered as selectable contexts.
+
 ## Important Notes
 
 - Never break the public API signature without a major version bump

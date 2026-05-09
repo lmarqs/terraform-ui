@@ -408,7 +408,7 @@ func (e *Plugin) SetFilter(filter string) {
 	var results []scored
 	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
-		input := util.RunesToChars([]rune(r.Address))
+		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
 		totalScore := 0
 		matched := true
 		for _, term := range terms {
