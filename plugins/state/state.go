@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -47,6 +48,8 @@ type Plugin struct {
 	filtering     bool
 	errMsg        string
 	selected      int
+	listHScroll   int
+	viewWidth     int
 	detail        string
 	detailAddr    string
 	detailScroll  int
@@ -206,6 +209,15 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
+	// Global: ctrl+w toggles wrap from any mode
+	if msg.String() == "ctrl+w" {
+		e.detailWrap = !e.detailWrap
+		e.detailScroll = 0
+		e.detailHScroll = 0
+		e.listHScroll = 0
+		return nil
+	}
+
 	// Detail view — arrows scroll, left/right pan, w toggles wrap, esc goes back
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
@@ -237,11 +249,27 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	// Global: ctrl+w toggles wrap from any mode
-	if msg.String() == "ctrl+w" {
-		e.detailWrap = !e.detailWrap
-		e.detailScroll = 0
-		e.detailHScroll = 0
+	// List pan: left/right work in both filter and normal modes
+	switch msg.String() {
+	case "right":
+		contentWidth := e.viewWidth - 6
+		if contentWidth < 40 {
+			contentWidth = 40
+		}
+		maxScroll := e.maxAddressLen() - contentWidth
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		e.listHScroll += 10
+		if e.listHScroll > maxScroll {
+			e.listHScroll = maxScroll
+		}
+		return nil
+	case "left":
+		e.listHScroll -= 10
+		if e.listHScroll < 0 {
+			e.listHScroll = 0
+		}
 		return nil
 	}
 
@@ -296,6 +324,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.MoveToStart()
 	case "w":
 		e.detailWrap = !e.detailWrap
+		e.listHScroll = 0
 	}
 	return nil
 }
@@ -326,8 +355,18 @@ func (e *Plugin) MoveToEnd() {
 	}
 }
 
+func (e *Plugin) maxAddressLen() int {
+	max := 0
+	for _, r := range e.filtered {
+		if len(r.Address) > max {
+			max = len(r.Address)
+		}
+	}
+	return max
+}
+
 // SetFilter sets the filter string and refilters the resource list.
-// Supports fuzzy matching: space-separated terms must all match (e.g. "rds cluster").
+// Supports fuzzy subsequence matching against the address and module.
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
@@ -336,25 +375,19 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	terms := strings.Fields(strings.ToLower(filter))
+	lower := strings.ToLower(filter)
 	var result []sdk.Resource
 	for _, r := range e.resources {
-		text := strings.ToLower(r.Address + " " + r.Type + " " + r.Module)
-		if matchAllTerms(text, terms) {
+		text := strings.ToLower(r.Address)
+		if r.Module != "" {
+			text += " " + strings.ToLower(r.Module)
+		}
+		if fuzzyContains(text, lower) {
 			result = append(result, r)
 		}
 	}
 	e.filtered = result
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
-}
-
-func matchAllTerms(text string, terms []string) bool {
-	for _, term := range terms {
-		if !fuzzyContains(text, term) {
-			return false
-		}
-	}
-	return true
 }
 
 func fuzzyContains(text, pattern string) bool {
@@ -452,6 +485,7 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderResources(width, height int) string {
+	e.viewWidth = width
 	title := sdk.StyleTitle.Render("State Browser")
 
 	filterLine := ""
@@ -484,15 +518,13 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 
 	contentWidth := width - 6
+	rowStyle := lipgloss.NewStyle().MaxWidth(contentWidth)
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
-		row := e.renderResourceRow(r)
+		row := e.renderResourceRow(r, e.listHScroll)
+		row = rowStyle.Render(row)
 		if i == e.selected {
-			if e.detailWrap {
-				row = sdk.StyleSelected.Width(contentWidth).Render(row)
-			} else {
-				row = sdk.StyleSelected.Render(row)
-			}
+			row = sdk.StyleSelected.Width(contentWidth).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
@@ -509,17 +541,24 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 	var hint string
 	if e.filtering {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter  ^w wrap(%s)  Esc exit", wrapLabel))
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter  ←→ pan  ^w wrap(%s)  Esc exit", wrapLabel))
 	} else {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  Enter inspect  / filter  ^w wrap(%s)  : switch  q back", wrapLabel))
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  / filter  ^w wrap(%s)  : switch  q back", wrapLabel))
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
 	return sdk.StylePadded.Render(content)
 }
 
-func (e *Plugin) renderResourceRow(r sdk.Resource) string {
+func (e *Plugin) renderResourceRow(r sdk.Resource, hscroll int) string {
 	address := r.Address
+	if hscroll > 0 {
+		if hscroll < len(address) {
+			address = address[hscroll:]
+		} else {
+			address = ""
+		}
+	}
 	typeInfo := sdk.StyleFaint.Render(r.Type)
 
 	row := fmt.Sprintf(" %s  %s", address, typeInfo)
@@ -544,12 +583,15 @@ func (e *Plugin) renderDetail(width, height int) string {
 	lines := strings.Split(e.detail, "\n")
 	if e.detailWrap {
 		lines = wrapLines(lines, contentWidth)
-	} else if e.detailHScroll > 0 {
+	} else {
 		for i, line := range lines {
 			if e.detailHScroll < len(line) {
 				lines[i] = line[e.detailHScroll:]
 			} else {
 				lines[i] = ""
+			}
+			if len(lines[i]) > contentWidth {
+				lines[i] = lines[i][:contentWidth]
 			}
 		}
 	}
