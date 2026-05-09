@@ -1,0 +1,13 @@
+# tfui.yaml — project configuration for terraform-ui
+# Place this file in your repository root.
+
+# Path to terraform (or tofu) binary
+terraform_binary: terraform
+
+# Project discovery for monorepos (similar to pnpm-workspace.yaml)
+# Define glob patterns to locate independent terraform projects.
+projects:
+  paths:
+    - "modules/*"
+    # - "envs/*"
+    # - "infra/**"
