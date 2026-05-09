@@ -1,5 +1,6 @@
 *.out
 *.tmp
+dist/
 reports/
 coverage/
 tests/helpers/bats-support/

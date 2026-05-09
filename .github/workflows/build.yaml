@@ -25,7 +25,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: tfui
-          path: |
-            bin/tfui
-            lib/tfui.sh
-            VERSION
+          path: dist/

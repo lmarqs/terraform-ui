@@ -99,10 +99,10 @@ Dockerfile.coverage      — kcov coverage runner
 ## Mise Tasks
 
 ```bash
-mise run setup          # Install BATS helper libraries
-mise run build          # Syntax check lib/tfui.sh
-mise run test:run       # Run test suite (BATS + JUnit XML)
-mise run coverage:run   # Run coverage via Docker + kcov
+mise run setup               # Install BATS helper libraries
+mise run build [version]     # Package dist/ (default: reads VERSION file)
+mise run test:run            # Syntax check + run test suite
+mise run coverage:run        # Run coverage via Docker + kcov
 ```
 
 Run a single test file: `bats tests/format.bats`
@@ -110,8 +110,8 @@ Run a single test file: `bats tests/format.bats`
 ## Development Workflow
 
 1. Edit `lib/tfui.sh` or `bin/tfui`
-2. Run `mise run build` to syntax-check both
-3. Run `mise run test:run` to verify
+2. Run `mise run test:run` to syntax-check and test
+3. Run `mise run build` to produce dist/
 4. Keep public API stable (`tfui_init`, `tfui_plan`, `tfui_confirm`, `tfui_apply`)
 
 ## Testing
@@ -128,36 +128,36 @@ Run a single test file: `bats tests/format.bats`
 main.yaml (orchestrator)
   │
   ├─ build.yaml
-  │    ├─ Syntax check (mise run build)
-  │    ├─ Resolve version from VERSION file
-  │    │    push to main → X.Y.Z (official)
-  │    │    PR           → X.Y.Z-rc.<timestamp> (prerelease)
-  │    └─ Upload artifact: bin/tfui, lib/tfui.sh, VERSION
+  │    ├─ mise run build (packages dist/)
+  │    └─ Upload artifact (dist/ contents)
   │
   ├─ test.yaml (needs: build)
   │    ├─ Matrix: ubuntu-latest + macos-latest, fail-fast: false
-  │    ├─ Run tests (mise run test:run)
+  │    ├─ mise run test:run (syntax check + tests)
   │    ├─ JUnit report via dorny/test-reporter@v1
   │    └─ Coverage via Docker + kcov
   │
-  └─ release.yaml (needs: build, test)
+  └─ release.yaml (needs: test)
        ├─ Download all artifacts
+       ├─ Read VERSION from artifact to resolve tag
+       │    push to main → vX.Y.Z (official)
+       │    PR           → vX.Y.Z-rc.<timestamp> (prerelease)
        ├─ Package tarball: tfui-<version>.tar.gz
-       └─ Create GitHub release (prerelease flag based on -rc suffix)
+       └─ Create GitHub release
 ```
 
 ### Versioning
 
 - `VERSION` file is the single source of truth — bump it manually
-- CLI and build pipeline read from this file
+- CLI reads VERSION at runtime, build embeds it into dist/
 - Tags follow `vX.Y.Z` format, created automatically by CI
 - No auto-bumping from commits — conventional commits are for clean history and changelogs
 
 ### Design Decisions
 
-- Build resolves version, release only consumes — separation of concerns
-- Release runs on both push and PR — push creates official release, PR creates prerelease
-- Artifacts flow forward through the pipeline — no rebuilding at release time
+- Build is a mise task — runs identically locally and in CI
+- Artifact is self-contained (bin/tfui + lib/tfui.sh + VERSION) — release only consumes, never builds
+- Release resolves official vs prerelease from event type, not from build
 - Test reports are release assets for traceability
 
 ## Conventions

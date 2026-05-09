@@ -6,6 +6,7 @@ terraform = "1.14"
 [tasks.setup]
 run = """
 #!/usr/bin/env bash
+set -euo pipefail
 dir="tests/helpers"
 for lib in bats-support bats-assert bats-file; do
   [ -d "$dir/$lib" ] || git clone --depth 1 "https://github.com/bats-core/$lib.git" "$dir/$lib"
@@ -14,18 +15,38 @@ done
 description = "Install BATS helper libraries"
 
 [tasks.build]
-run = "bash -n lib/tfui.sh && bash -n bin/tfui"
-description = "Syntax check the library and CLI"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+version="${1:-$(cat VERSION)}"
+mkdir -p dist
+cp -r bin lib VERSION dist/
+echo "$version" > dist/VERSION
+"""
+description = "Package distributable into dist/ (accepts optional version argument)"
 
 [tasks."test:run"]
 depends = ["setup"]
-run = "mkdir -p reports && bats tests/ --report-formatter junit --output ./reports"
-description = "Run test suite"
+run = """
+#!/usr/bin/env bash
+set -euo pipefail
+bash -n lib/tfui.sh
+bash -n bin/tfui
+mkdir -p reports
+bats tests/ --report-formatter junit --output ./reports
+"""
+description = "Syntax check and run test suite"
 
 [tasks."coverage:run"]
 depends = ["setup"]
 run = """
-docker build -f Dockerfile.coverage -t tfui-coverage . && \
-docker run --rm -v "$PWD/lib:/app/lib" -v "$PWD/tests:/app/tests" -v "$PWD/coverage:/app/coverage" tfui-coverage || true
+#!/usr/bin/env bash
+set -euo pipefail
+docker build -f Dockerfile.coverage -t tfui-coverage .
+docker run --rm \
+  -v "$PWD/lib:/app/lib" \
+  -v "$PWD/tests:/app/tests" \
+  -v "$PWD/coverage:/app/coverage" \
+  tfui-coverage || true
 """
 description = "Run tests with kcov coverage via Docker (outputs to coverage/)"
