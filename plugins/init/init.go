@@ -287,7 +287,7 @@ func (p *Plugin) generateYAML() string {
 	}
 
 	if len(enabled) > 0 {
-		b.WriteString("projects:\n")
+		b.WriteString("context:\n")
 		b.WriteString("  paths:\n")
 		for _, pat := range enabled {
 			b.WriteString(fmt.Sprintf("    - \"%s\"\n", pat))
@@ -359,7 +359,7 @@ func GenerateConfig(dir string) (string, error) {
 	}
 
 	if len(enabled) > 0 {
-		b.WriteString("projects:\n")
+		b.WriteString("context:\n")
 		b.WriteString("  paths:\n")
 		for _, pat := range enabled {
 			b.WriteString(fmt.Sprintf("    - \"%s\"\n", pat))
