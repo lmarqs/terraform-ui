@@ -191,6 +191,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return e, nil
 
+	case StateDeletedMsg:
+		e.log.Debug("state.deleted", "address", msg.Address)
+		return e, e.Refresh()
+
+
 	case ResourceDetailMsg:
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()
@@ -221,7 +226,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return nil
 	}
 
-	// Detail view — arrows scroll, left/right pan, w toggles wrap, esc goes back
+	// Detail view — scroll, pan, wrap, and context actions
 	if e.status == StatusShowingDetail {
 		switch msg.String() {
 		case "esc":
@@ -265,6 +270,12 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			e.detailWrap = !e.detailWrap
 			e.detailScroll = 0
 			e.detailHScroll = 0
+		case " ":
+			return e.togglePin(e.detailAddr)
+		case "d":
+			return e.requestDelete(e.detailAddr)
+		case "e":
+			return e.requestEdit(e.detailAddr)
 		}
 		return nil
 	}
@@ -345,6 +356,21 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "w":
 		e.detailWrap = !e.detailWrap
 		e.listHScroll = 0
+	case " ":
+		r := e.SelectedResource()
+		if r.Address != "" {
+			return e.togglePin(r.Address)
+		}
+	case "d":
+		r := e.SelectedResource()
+		if r.Address != "" {
+			return e.requestDelete(r.Address)
+		}
+	case "e":
+		r := e.SelectedResource()
+		if r.Address != "" {
+			return e.requestEdit(r.Address)
+		}
 	}
 	return nil
 }
@@ -572,7 +598,7 @@ func (e *Plugin) renderResources(width, height int) string {
 	if e.filtering {
 		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter (space=AND)  ←→ pan  ^w wrap(%s)  Esc exit", wrapLabel))
 	} else {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  / filter  ^w wrap(%s)  : switch  q back", wrapLabel))
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(%s)", wrapLabel))
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
@@ -580,6 +606,11 @@ func (e *Plugin) renderResources(width, height int) string {
 }
 
 func (e *Plugin) renderResourceRow(r sdk.Resource, hscroll int) string {
+	pinMark := "  "
+	if e.isPinnedAddress(r.Address) {
+		pinMark = sdk.StyleSuccess.Render("* ")
+	}
+
 	address := r.Address
 	if hscroll > 0 {
 		if hscroll < len(address) {
@@ -590,7 +621,7 @@ func (e *Plugin) renderResourceRow(r sdk.Resource, hscroll int) string {
 	}
 	typeInfo := sdk.StyleFaint.Render(r.Type)
 
-	row := fmt.Sprintf(" %s  %s", address, typeInfo)
+	row := fmt.Sprintf("%s%s  %s", pinMark, address, typeInfo)
 	if r.Module != "" {
 		module := sdk.StyleKey.Render(fmt.Sprintf("[%s]", r.Module))
 		row += " " + module
@@ -659,9 +690,14 @@ func (e *Plugin) renderDetail(width, height int) string {
 		wrapIndicator = "on"
 	}
 
-	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  ^w wrap(%s)  Esc back", wrapIndicator))
+	pinIndicator := ""
+	if e.session != nil && e.isPinnedAddress(e.detailAddr) {
+		pinIndicator = " " + sdk.StyleSuccess.Render("[pinned]")
+	}
 
-	content := title + "\n" + address + scrollInfo + "\n\n" + detail + "\n\n" + hint
+	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  ^w wrap(%s)  Space pin  d delete  e edit  Esc back", wrapIndicator))
+
+	content := title + "\n" + address + pinIndicator + scrollInfo + "\n\n" + detail + "\n\n" + hint
 	return sdk.StylePadded.Render(content)
 }
 
@@ -681,4 +717,77 @@ func wrapLines(lines []string, width int) []string {
 		}
 	}
 	return result
+}
+
+// --- Context actions ---
+
+// StateDeletedMsg is sent when a resource is successfully removed from state.
+type StateDeletedMsg struct {
+	Address string
+}
+
+// StateEditMsg requests the editor to open for this resource.
+type StateEditMsg struct {
+	Address string
+}
+
+func (e *Plugin) togglePin(address string) tea.Cmd {
+	if e.session == nil {
+		return nil
+	}
+	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
+	for i, a := range pinned {
+		if a == address {
+			pinned = append(pinned[:i], pinned[i+1:]...)
+			e.session.Set("terraform.pinned", pinned)
+			e.log.Debug("state.unpin", "address", address)
+			return nil
+		}
+	}
+	pinned = append(pinned, address)
+	e.session.Set("terraform.pinned", pinned)
+	e.log.Debug("state.pin", "address", address)
+	return nil
+}
+
+func (e *Plugin) isPinnedAddress(address string) bool {
+	if e.session == nil {
+		return false
+	}
+	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
+	for _, a := range pinned {
+		if a == address {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Plugin) requestDelete(address string) tea.Cmd {
+	svc := e.svc
+	log := e.log
+	return func() tea.Msg {
+		return sdk.RequestInputMsg{
+			Request: sdk.InputConfirm(
+				fmt.Sprintf("Remove %s from state?", address),
+				func() tea.Cmd {
+					return func() tea.Msg {
+						err := svc.StateRm(context.Background(), address)
+						if err != nil {
+							log.Debug("state.rm.error", "address", address, "error", err.Error())
+							return StateListMsg{Err: err}
+						}
+						log.Debug("state.rm.success", "address", address)
+						return StateDeletedMsg{Address: address}
+					}
+				},
+			),
+		}
+	}
+}
+
+func (e *Plugin) requestEdit(address string) tea.Cmd {
+	return func() tea.Msg {
+		return StateEditMsg{Address: address}
+	}
 }

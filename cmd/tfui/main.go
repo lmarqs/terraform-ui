@@ -19,10 +19,13 @@ import (
 	"github.com/lmarqs/terraform-ui/plugins/blastradius"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
+	"github.com/lmarqs/terraform-ui/plugins/output"
 	"github.com/lmarqs/terraform-ui/plugins/phantom"
 	"github.com/lmarqs/terraform-ui/plugins/plan"
+	"github.com/lmarqs/terraform-ui/plugins/repl"
 	"github.com/lmarqs/terraform-ui/plugins/risk"
 	"github.com/lmarqs/terraform-ui/plugins/state"
+	"github.com/lmarqs/terraform-ui/plugins/validate"
 	"github.com/lmarqs/terraform-ui/plugins/workspaces"
 	"github.com/spf13/cobra"
 )
@@ -100,13 +103,16 @@ func runTUI(cfg config.Config) error {
 
 	// Create and populate the plugin registry
 	registry := plugin.NewRegistry()
-	registry.RegisterFactory("plan", plan.New)
-	registry.RegisterFactory("risk", risk.New)
-	registry.RegisterFactory("phantom", phantom.New)
+	registry.RegisterFactory("context", tfuicontext.New)
 	registry.RegisterFactory("state", state.New)
+	registry.RegisterFactory("plan", plan.New)
 	registry.RegisterFactory("apply", apply.New)
 	registry.RegisterFactory("workspaces", workspaces.New)
-	registry.RegisterFactory("context", tfuicontext.New)
+	registry.RegisterFactory("repl", repl.New)
+	registry.RegisterFactory("output", output.New)
+	registry.RegisterFactory("validate", validate.New)
+	registry.RegisterFactory("risk", risk.New)
+	registry.RegisterFactory("phantom", phantom.New)
 	registry.RegisterFactory("blastradius", blastradius.New)
 	registry.RegisterFactory("init", tfuiinit.New)
 
