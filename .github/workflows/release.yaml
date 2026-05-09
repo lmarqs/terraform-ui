@@ -2,11 +2,6 @@ name: Release
 
 on:
   workflow_call:
-    inputs:
-      version:
-        description: "Version to release"
-        required: true
-        type: string
 
 env:
   # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
@@ -24,10 +19,21 @@ jobs:
         with:
           path: artifacts/
 
+      - name: Resolve version
+        id: version
+        run: |
+          base_version=$(cat artifacts/tfui/VERSION)
+          if [ "${{ github.event_name }}" = "push" ]; then
+            echo "version=${base_version}" >> "$GITHUB_OUTPUT"
+          else
+            timestamp=$(date -u +%Y%m%d%H%M%S)
+            echo "version=${base_version}-rc.${timestamp}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare release assets
         run: |
           mkdir -p release-assets
-          tar -czf "release-assets/tfui-${{ inputs.version }}.tar.gz" -C artifacts/tfui .
+          tar -czf "release-assets/tfui-${{ steps.version.outputs.version }}.tar.gz" -C artifacts/tfui .
           cp artifacts/test-report-ubuntu-latest/report.xml release-assets/test-report-ubuntu.xml
           cp artifacts/test-report-macos-latest/report.xml release-assets/test-report-macos.xml
 
@@ -35,7 +41,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          tag="v${{ inputs.version }}"
+          tag="v${{ steps.version.outputs.version }}"
           flags=""
           if [[ "$tag" == *"-rc."* ]]; then
             flags="--prerelease"

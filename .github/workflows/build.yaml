@@ -2,10 +2,6 @@ name: Build
 
 on:
   workflow_call:
-    outputs:
-      version:
-        description: "Resolved version (semver with optional -rc suffix)"
-        value: ${{ jobs.main.outputs.version }}
 
 env:
   # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
@@ -15,25 +11,12 @@ env:
 jobs:
   main:
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Prepare Environment
         uses: ./.github/actions/prepare-env
-
-      - name: Resolve version
-        id: version
-        run: |
-          base_version=$(cat VERSION)
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "version=${base_version}" >> "$GITHUB_OUTPUT"
-          else
-            timestamp=$(date -u +%Y%m%d%H%M%S)
-            echo "version=${base_version}-rc.${timestamp}" >> "$GITHUB_OUTPUT"
-          fi
 
       - name: Build
         run: mise run build

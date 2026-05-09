@@ -124,12 +124,41 @@ Run a single test file: `bats tests/format.bats`
 
 ## CI Pipeline
 
-- `main.yaml` orchestrates: build → test → release (reusable workflow_call)
-- Test matrix: ubuntu-latest + macos-latest, `fail-fast: false`
-- CI steps call mise tasks — reproducible locally with same commands
-- JUnit reports via `dorny/test-reporter@v1` (needs `checks: write`)
-- Coverage via Docker (Dockerfile.coverage), uploaded to Codecov
-- Only GitHub-specific integrations (test-reporter, codecov) are non-mise steps
+```
+main.yaml (orchestrator)
+  │
+  ├─ build.yaml
+  │    ├─ Syntax check (mise run build)
+  │    ├─ Resolve version from VERSION file
+  │    │    push to main → X.Y.Z (official)
+  │    │    PR           → X.Y.Z-rc.<timestamp> (prerelease)
+  │    └─ Upload artifact: bin/tfui, lib/tfui.sh, VERSION
+  │
+  ├─ test.yaml (needs: build)
+  │    ├─ Matrix: ubuntu-latest + macos-latest, fail-fast: false
+  │    ├─ Run tests (mise run test:run)
+  │    ├─ JUnit report via dorny/test-reporter@v1
+  │    └─ Coverage via Docker + kcov
+  │
+  └─ release.yaml (needs: build, test)
+       ├─ Download all artifacts
+       ├─ Package tarball: tfui-<version>.tar.gz
+       └─ Create GitHub release (prerelease flag based on -rc suffix)
+```
+
+### Versioning
+
+- `VERSION` file is the single source of truth — bump it manually
+- CLI and build pipeline read from this file
+- Tags follow `vX.Y.Z` format, created automatically by CI
+- No auto-bumping from commits — conventional commits are for clean history and changelogs
+
+### Design Decisions
+
+- Build resolves version, release only consumes — separation of concerns
+- Release runs on both push and PR — push creates official release, PR creates prerelease
+- Artifacts flow forward through the pipeline — no rebuilding at release time
+- Test reports are release assets for traceability
 
 ## Conventions
 
