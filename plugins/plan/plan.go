@@ -31,6 +31,7 @@ type PlanResultMsg struct {
 type Plugin struct {
 	svc      sdk.Service
 	log      *slog.Logger
+	session  *sdk.Session
 	status   Status
 	summary  *sdk.PlanSummary
 	errMsg   string
@@ -70,17 +71,28 @@ func (e *Plugin) SetTargets(targets []string) {
 	e.targets = targets
 }
 
-// Init initializes the plugin with shared context and triggers a plan.
+// Init initializes the plugin with shared context. Does not auto-run plan —
+// the user must explicitly activate the plugin to trigger a plan.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
-	e.status = StatusLoading
+	e.session = ctx.Session
+	e.status = StatusIdle
 	e.summary = nil
 	e.errMsg = ""
 	e.selected = 0
 	e.expanded = make(map[int]bool)
-	e.log.Debug("plan.start", "targets", e.targets)
-	return e.runPlan()
+	return nil
+}
+
+// Activate triggers the plan when the user enters the plugin view.
+func (e *Plugin) Activate() tea.Cmd {
+	if e.status == StatusIdle || e.status == StatusError {
+		e.status = StatusLoading
+		e.log.Debug("plan.start", "targets", e.targets)
+		return e.runPlan()
+	}
+	return nil
 }
 
 // Refresh re-runs the plan.
@@ -118,6 +130,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				changes = len(msg.Summary.Changes)
 			}
 			e.log.Debug("plan.complete", "changes", changes)
+			if e.session != nil && msg.Summary != nil {
+				e.session.Set(sdk.SessionKeyPlanSummary, msg.Summary)
+				e.session.Set(sdk.SessionKeyResourceCount, len(msg.Summary.Changes))
+			}
 		}
 		return e, nil
 

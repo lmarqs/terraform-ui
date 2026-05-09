@@ -42,11 +42,13 @@ func (a App) Init() tea.Cmd {
 	cmds := []tea.Cmd{a.loadWorkspace}
 
 	// Initialize all plugins
+	session := sdk.NewSession()
 	ctx := &plugin.Context{
 		Dir:       a.cfg.Dir,
 		Workspace: "default",
 		Service:   a.svc,
 		Logger:    logging.Logger(),
+		Session:   session,
 	}
 	for _, p := range a.registry.All() {
 		if cmd := p.Init(ctx); cmd != nil {
@@ -152,6 +154,7 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.activePlugin = p
 			logging.Logger().Debug("plugin.activate", "id", p.ID())
 			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
+			return a, a.activatePlugin(p)
 		}
 		return a, nil
 	default:
@@ -160,10 +163,17 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.activePlugin = p
 			logging.Logger().Debug("plugin.activate", "id", p.ID())
 			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
-			return a, nil
+			return a, a.activatePlugin(p)
 		}
 	}
 	return a, nil
+}
+
+func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
+	if activatable, ok := p.(sdk.Activatable); ok {
+		return activatable.Activate()
+	}
+	return nil
 }
 
 func (a App) View() string {

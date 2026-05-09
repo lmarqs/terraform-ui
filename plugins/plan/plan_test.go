@@ -3,9 +3,9 @@ package plan
 import (
 	"context"
 	"errors"
-	"testing"
 	"io"
 	"log/slog"
+	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -71,20 +71,44 @@ func TestInit(t *testing.T) {
 		Workspace: "default",
 		Service:   svc,
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Session:   sdk.NewSession(),
 	}
 
 	cmd := p.Init(ctx)
-	if cmd == nil {
-		t.Error("Init() returned nil cmd, want non-nil")
+	if cmd != nil {
+		t.Error("Init() should return nil cmd (no auto-plan)")
 	}
 
 	pp := p.(*Plugin)
+	if pp.status != StatusIdle {
+		t.Errorf("status = %v, want StatusIdle", pp.status)
+	}
+}
+
+func TestActivate(t *testing.T) {
+	svc := &mockService{
+		planResult: &sdk.PlanSummary{Changes: []sdk.PlanChange{}},
+	}
+	p := New(svc)
+	ctx := &sdk.Context{
+		Dir:     "/tmp",
+		Service: svc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Session: sdk.NewSession(),
+	}
+	p.Init(ctx)
+
+	pp := p.(*Plugin)
+	cmd := pp.Activate()
+	if cmd == nil {
+		t.Error("Activate() returned nil cmd, want non-nil")
+	}
 	if pp.status != StatusLoading {
 		t.Errorf("status = %v, want StatusLoading", pp.status)
 	}
 }
 
-func TestInitCmdReturnsPlanResultMsg(t *testing.T) {
+func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
@@ -97,9 +121,10 @@ func TestInitCmdReturnsPlanResultMsg(t *testing.T) {
 	}
 	svc := &mockService{planResult: summary}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Session: sdk.NewSession()}
+	p.Init(ctx)
 
-	cmd := p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(PlanResultMsg)
@@ -117,12 +142,13 @@ func TestInitCmdReturnsPlanResultMsg(t *testing.T) {
 	}
 }
 
-func TestInitCmdReturnsError(t *testing.T) {
+func TestActivateCmdReturnsError(t *testing.T) {
 	svc := &mockService{planErr: errors.New("plan failed")}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Session: sdk.NewSession()}
+	p.Init(ctx)
 
-	cmd := p.Init(ctx)
+	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
 	result, ok := msg.(PlanResultMsg)

@@ -34,6 +34,12 @@ type Plugin interface {
 	Ready() bool
 }
 
+// Activatable is an optional interface plugins can implement to perform work
+// when the user navigates to them (e.g., trigger a plan on first visit).
+type Activatable interface {
+	Activate() tea.Cmd
+}
+
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin
