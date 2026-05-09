@@ -286,6 +286,8 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		e.MoveToEnd()
 	case "g":
 		e.MoveToStart()
+	case "w":
+		e.detailWrap = !e.detailWrap
 	}
 	return nil
 }
@@ -451,11 +453,16 @@ func (e *Plugin) renderResources(width, height int) string {
 		endIdx = len(e.filtered)
 	}
 
+	contentWidth := width - 6
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
 		row := e.renderResourceRow(r)
 		if i == e.selected {
-			row = sdk.StyleSelected.Width(width - 6).Render(row)
+			if e.detailWrap {
+				row = sdk.StyleSelected.Render(row)
+			} else {
+				row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			}
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')
@@ -466,11 +473,15 @@ func (e *Plugin) renderResources(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
 	}
 
+	wrapLabel := "off"
+	if e.detailWrap {
+		wrapLabel = "on"
+	}
 	var hint string
 	if e.filtering {
 		hint = sdk.StyleFaintItalic.Render("Type to filter  Esc exit filter")
 	} else {
-		hint = sdk.StyleFaintItalic.Render("↑↓ navigate  Enter inspect  / filter  : switch view  q back")
+		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  Enter inspect  / filter  w wrap(%s)  : switch  q back", wrapLabel))
 	}
 
 	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
