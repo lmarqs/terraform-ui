@@ -489,9 +489,9 @@ func (e *Plugin) renderResources(width, height int) string {
 		row := e.renderResourceRow(r)
 		if i == e.selected {
 			if e.detailWrap {
-				row = sdk.StyleSelected.Render(row)
-			} else {
 				row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			} else {
+				row = sdk.StyleSelected.Render(row)
 			}
 		}
 		b.WriteString(row)
