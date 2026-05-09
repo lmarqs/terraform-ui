@@ -8,18 +8,59 @@ description: Interactive terminal UI for Terraform operations
 
 A k9s-style interactive terminal UI for Terraform. Plan, analyze risk, inspect blast radius, and apply — all from a keyboard-driven TUI.
 
+## Install
+
+### Homebrew
+
+```bash
+brew install lmarqs/tap/tfui
+```
+
+### Go install
+
+```bash
+go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
+```
+
+### Binary download
+
+Download the latest release from [GitHub Releases](https://github.com/lmarqs/terraform-ui/releases). Extract the binary and place it on your `PATH`.
+
+```bash
+# Example: Linux amd64
+curl -sL https://github.com/lmarqs/terraform-ui/releases/latest/download/tfui_linux_amd64.tar.gz | tar xz
+sudo mv tfui /usr/local/bin/
+```
+
 ## Quick Start
 
 ```bash
-# Install
-go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
-
 # Launch interactive TUI
 tfui
 
 # Or use non-interactive mode (backward compatible)
 tfui plan --dir ./infra
 tfui apply --dir ./infra --mode progress
+```
+
+## Home Screen
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  terraform-ui                        workspace: default  │
+├─────────────────────────────────────────────────────────┤
+│                                                         │
+│   [p] Plan          [r] Risk Analysis                   │
+│   [a] Apply         [b] Blast Radius                    │
+│   [s] State         [w] Workspaces                      │
+│   [m] Projects      [?] Help                            │
+│                                                         │
+│   dir: ./infra                                          │
+│   terraform: v1.14.0                                    │
+│                                                         │
+├─────────────────────────────────────────────────────────┤
+│  q quit  / search  ? help                               │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ## Features
