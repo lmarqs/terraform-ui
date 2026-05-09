@@ -222,10 +222,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "enter":
 			e.filtering = false
 			return e.InspectSelected()
-		case "j", "down":
+		case "down":
 			e.MoveDown()
 			return nil
-		case "k", "up":
+		case "up":
 			e.MoveUp()
 			return nil
 		case "backspace", "ctrl+h", "delete":
