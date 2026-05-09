@@ -398,7 +398,12 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	terms := strings.Fields(strings.ToLower(filter))
+	lower := strings.ToLower(filter)
+	rawTerms := strings.Fields(lower)
+	terms := make([]string, len(rawTerms))
+	for i, t := range rawTerms {
+		terms[i] = stripSeparators(t)
+	}
 	var result []sdk.Resource
 	for _, r := range e.resources {
 		text := strings.ToLower(r.Address)
@@ -414,8 +419,9 @@ func (e *Plugin) SetFilter(filter string) {
 }
 
 func matchAllTerms(text string, terms []string) bool {
+	stripped := stripSeparators(text)
 	for _, term := range terms {
-		if !strings.Contains(text, term) && !strings.Contains(stripSeparators(text), term) {
+		if !strings.Contains(stripped, term) {
 			return false
 		}
 	}
