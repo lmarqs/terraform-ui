@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -546,7 +547,7 @@ func TestSetFilter(t *testing.T) {
 	}
 }
 
-func TestSetFilterSubstring(t *testing.T) {
+func TestSetFilterFzf(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
@@ -561,112 +562,69 @@ func TestSetFilterSubstring(t *testing.T) {
 	}
 	p.filtered = p.resources
 
-	tests := []struct {
-		filter string
-		want   int
-	}{
-		// Single term substring on address
-		{"aurora", 4},
-		{"redis", 1},
-		{"memorydb", 1},
-		{"opensearch", 1},
-		{"read_only", 1},
-		{"rds_cluster", 3},
-		{"cluster_instance", 2},
-		// Space-separated AND
-		{"aurora cluster", 3},
-		{"aurora instance", 2},
-		{"aurora proxy", 1},
-		{"aurora read_only", 1},
-		{"aurora this 0", 1},
-		// Case insensitive
-		{"Aurora", 4},
-		{"RDS_CLUSTER", 3},
-		// No match
-		{"zzz", 0},
-		{"aurora zzz", 0},
-		// Ignores separators (_, ., [], "")
-		{"readonly", 1},
-		{"readonlyproxy", 0},
-		{"proxyreadonly", 1},
-		{"dbproxy", 1},
-		{"rdscluster", 3},
-		{"clusterinstance", 2},
-		{"memorydbcluster", 1},
-		// Digit/letter split: "auro1" -> "auro" AND "1"
-		{"aurora0", 1},
-		{"aurora1", 1},
-		{"aurora2", 1},
-		{"auro0", 1},
-		{"auro1", 1},
-		{"cluster1", 1},
-		{"cluster2", 1},
-		// Segment skip: word segments in order, skipping what's between
-		{"aurorathis", 3},
-		{"auroracluster", 3},
-		{"auroraclusterthis", 3},
-		{"aurorainstance", 2},
-		{"aurorainstancethis", 2},
-		{"auroraproxy", 1},
-		{"aurorareadonly", 1},
-		{"aurorardscluster", 3},
-		{"aurorardsclusterthis", 3},
-		{"aurorardsinstance", 2},
-		{"postgresqlcluster", 3},
-		{"postgresqlinstance", 2},
-		{"postgresqlproxy", 1},
-		{"postgresqlreadonly", 1},
-		{"rdsthis", 3},
-		{"rdsproxy", 0},
-		{"redisthis", 1},
-		{"redisreplication", 1},
-		{"rediselasticache", 1},
-		{"elasticachethis", 1},
-		{"memorydbthis", 1},
-		{"memorydbclusterthis", 1},
-		{"securityweb", 1},
-		{"securitygroupweb", 1},
-		{"opensearchlegacy", 1},
-		{"opensearchdomain", 1},
-		{"domainlegacy", 1},
-		// Proxy search patterns
-		{"proxyread", 1},
-		{"proxyreadonly", 1},
-		{"dbproxy", 1},
-		{"dbproxyreadonly", 1},
-		// Short substrings (direct match, no segment split needed)
-		{"memorydb", 1},
-		{"dbproxy", 1},
-		{"elast", 1},
-		{"replic", 1},
-		// Digit split still works: "insta1" -> "insta" AND "1"
-		{"insta1", 1},
-		{"insta2", 1},
-		// Segment split: both chunks need >= 3 chars each
-		{"memdb", 0},
-		{"dbread", 0},
-		{"rdprox", 0},
-		{"rdread", 0},
-		// Valid segment splits (both halves >= 3)
-		{"memorydbcluster", 1},
-		{"instancethis", 2},
-		{"clusteraurora", 0},
-		{"proxyreadonly", 1},
-		{"proxyread", 1},
-		// Negative: segments not in correct order
-		{"thisaurora", 0},
-		{"clusterpostgresql", 0},
-		{"websecu", 0},
-		{"legacyopensearch", 0},
-		{"readonlyproxy", 0},
-		{"instancecluster", 0},
-	}
-	for _, tt := range tests {
-		p.SetFilter(tt.filter)
-		if len(p.filtered) != tt.want {
-			t.Errorf("SetFilter(%q): got %d results, want %d", tt.filter, len(p.filtered), tt.want)
+	// fzf ranks best matches first; validate ranking not exact counts
+	t.Run("best match ranked first", func(t *testing.T) {
+		cases := []struct {
+			filter   string
+			topMatch string
+		}{
+			{"aurora", "aurora"},
+			{"redis", "redis"},
+			{"memorydb", "memorydb"},
+			{"opensearch", "opensearch"},
+			{"read_only", "read_only"},
+			{"readonly", "read_only"},
+			{"proxy", "proxy"},
+			{"memdb", "memorydb"},
+			{"dbproxy", "db_proxy"},
+			{"securityweb", "security_group.web"},
+			{"aurorathis", "aurora"},
+			{"auroracluster", "aurora"},
+			{"aurorainstance", "cluster_instance"},
+			{"proxyreadonly", "proxy.read_only"},
+			{"rdscluster", "rds_cluster"},
+			{"clusterinstance", "cluster_instance"},
+			{"elasticache", "elasticache"},
 		}
-	}
+		for _, c := range cases {
+			p.SetFilter(c.filter)
+			if len(p.filtered) == 0 {
+				t.Errorf("SetFilter(%q): no results, expected match containing %q", c.filter, c.topMatch)
+				continue
+			}
+			if !strings.Contains(p.filtered[0].Address, c.topMatch) {
+				t.Errorf("SetFilter(%q): top result %q doesn't contain %q", c.filter, p.filtered[0].Address, c.topMatch)
+			}
+		}
+	})
+
+	t.Run("space AND narrows results", func(t *testing.T) {
+		p.SetFilter("aurora")
+		auroraCount := len(p.filtered)
+		p.SetFilter("aurora instance")
+		if len(p.filtered) >= auroraCount {
+			t.Errorf("'aurora instance' (%d) should be fewer than 'aurora' (%d)", len(p.filtered), auroraCount)
+		}
+		if len(p.filtered) == 0 {
+			t.Error("'aurora instance' should have results")
+		}
+		for _, r := range p.filtered {
+			if !strings.Contains(r.Address, "instance") {
+				t.Errorf("'aurora instance' result %q should contain 'instance'", r.Address)
+			}
+		}
+	})
+
+	t.Run("no match", func(t *testing.T) {
+		p.SetFilter("zzz")
+		if len(p.filtered) != 0 {
+			t.Errorf("'zzz': got %d results, want 0", len(p.filtered))
+		}
+		p.SetFilter("aurora zzz")
+		if len(p.filtered) != 0 {
+			t.Errorf("'aurora zzz': got %d results, want 0", len(p.filtered))
+		}
+	})
 }
 
 func TestAppendFilter(t *testing.T) {

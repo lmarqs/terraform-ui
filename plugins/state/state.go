@@ -5,10 +5,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/junegunn/fzf/src/algo"
+	"github.com/junegunn/fzf/src/util"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -388,7 +391,7 @@ func (e *Plugin) maxAddressLen() int {
 }
 
 // SetFilter sets the filter string and refilters the resource list.
-// Uses case-insensitive substring matching on the address.
+// SetFilter filters resources using fzf's fuzzy matching algorithm.
 // Space-separated terms use AND logic (each must match independently).
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
@@ -398,92 +401,39 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	lower := strings.ToLower(filter)
-	rawTerms := strings.Fields(lower)
-	var terms []string
-	for _, t := range rawTerms {
-		terms = append(terms, splitTerms(stripSeparators(t))...)
+	terms := strings.Fields(filter)
+	type scored struct {
+		resource sdk.Resource
+		score    int
 	}
-	var result []sdk.Resource
+	var results []scored
+	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
-		text := strings.ToLower(r.Address)
-		if matchAllTerms(text, terms) {
-			result = append(result, r)
+		text := util.RunesToChars([]rune(r.Address))
+		totalScore := 0
+		matched := true
+		for _, term := range terms {
+			pat := []rune(term)
+			res, _ := algo.FuzzyMatchV2(false, true, true, &text, pat, false, slab)
+			if res.Score <= 0 {
+				matched = false
+				break
+			}
+			totalScore += res.Score
+		}
+		if matched {
+			results = append(results, scored{r, totalScore})
 		}
 	}
-	e.filtered = result
+	// Sort by score descending (best matches first)
+	sort.Slice(results, func(i, j int) bool {
+		return results[i].score > results[j].score
+	})
+	e.filtered = make([]sdk.Resource, len(results))
+	for i, r := range results {
+		e.filtered[i] = r.resource
+	}
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
-}
-
-func matchAllTerms(text string, terms []string) bool {
-	stripped := stripSeparators(text)
-	for _, term := range terms {
-		if !segmentMatch(stripped, term) {
-			return false
-		}
-	}
-	return true
-}
-
-// segmentMatch checks if pattern can be found in text as ordered contiguous chunks.
-// Each chunk is at least 3 chars. Greedy: finds longest matching prefix first.
-// "aurorathis" → "aurora" + "this"
-// "auroraclusterthis" → "aurora" + "cluster" + "this"
-func segmentMatch(text, pattern string) bool {
-	if strings.Contains(text, pattern) {
-		return true
-	}
-	if len(pattern) < 5 {
-		return false
-	}
-	// Split into 2 chunks: each >= 3 chars, or first=2 + remainder>=3
-	for length := len(pattern) - 3; length >= 3; length-- {
-		chunk := pattern[:length]
-		idx := strings.Index(text, chunk)
-		if idx >= 0 {
-			remainder := pattern[length:]
-			rest := text[idx+length:]
-			if strings.Contains(rest, remainder) {
-				return true
-			}
-			if len(remainder) >= 5 && segmentMatch(rest, remainder) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// splitTerms splits a string at letter/digit boundaries.
-// "auro1" -> ["auro", "1"], "aurora" -> ["aurora"], "123" -> ["123"]
-func splitTerms(s string) []string {
-	if s == "" {
-		return nil
-	}
-	var terms []string
-	start := 0
-	for i := 1; i < len(s); i++ {
-		prevDigit := s[i-1] >= '0' && s[i-1] <= '9'
-		currDigit := s[i] >= '0' && s[i] <= '9'
-		if prevDigit != currDigit {
-			terms = append(terms, s[start:i])
-			start = i
-		}
-	}
-	terms = append(terms, s[start:])
-	return terms
-}
-
-func stripSeparators(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c != '_' && c != '.' && c != '[' && c != ']' && c != '"' && c != ' ' {
-			b.WriteByte(c)
-		}
-	}
-	return b.String()
 }
 
 // AppendFilter adds a character to the filter.
