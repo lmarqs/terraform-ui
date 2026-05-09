@@ -637,35 +637,6 @@ func TestDeleteSelectedEmpty(t *testing.T) {
 	}
 }
 
-func TestFilterWorkspaces(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.workspaces = []string{"default", "staging", "production", "dev"}
-
-	// Empty filter returns all
-	result := p.FilterWorkspaces("")
-	if len(result) != 4 {
-		t.Errorf("FilterWorkspaces(''): len = %d, want 4", len(result))
-	}
-
-	// Filter by "prod"
-	result = p.FilterWorkspaces("prod")
-	if len(result) != 1 {
-		t.Errorf("FilterWorkspaces('prod'): len = %d, want 1", len(result))
-	}
-
-	// Case insensitive
-	result = p.FilterWorkspaces("DEV")
-	if len(result) != 1 {
-		t.Errorf("FilterWorkspaces('DEV'): len = %d, want 1", len(result))
-	}
-
-	// No match
-	result = p.FilterWorkspaces("zzz")
-	if len(result) != 0 {
-		t.Errorf("FilterWorkspaces('zzz'): len = %d, want 0", len(result))
-	}
-}
 
 func TestRefresh(t *testing.T) {
 	svc := &mockService{

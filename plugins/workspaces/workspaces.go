@@ -35,15 +35,16 @@ type WorkspaceSwitchMsg struct {
 
 // Plugin implements the workspace management feature.
 type Plugin struct {
-	svc        sdk.Service
-	session    *sdk.Session
-	status     Status
-	workspaces []string
-	current    string
-	selected   int
-	errMsg     string
-	newName    string
-	creating   bool
+	svc           sdk.Service
+	session       *sdk.Session
+	status        Status
+	workspaces    []string
+	current       string
+	selected      int
+	errMsg        string
+	newName       string
+	creating      bool
+	scopedProject string
 }
 
 // New creates a new workspaces plugin.
@@ -87,11 +88,29 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
+	// Check if the active project changed since last activation
+	if e.session != nil {
+		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs)
+		if currentProject != e.scopedProject {
+			// Project changed — reset state
+			e.status = StatusIdle
+			e.workspaces = nil
+			e.current = ""
+			e.errMsg = ""
+			e.selected = 0
+			e.scopedProject = currentProject
+			if currentProject != "" {
+				e.svc = e.svc.WithDir(currentProject)
+			}
+		}
+	}
+
 	if e.status == StatusIdle || e.status == StatusError {
 		// Check if there's an active project to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
+				e.scopedProject = dir
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
 				e.status = StatusError
 				e.errMsg = "Select a project first (press m)"
@@ -357,17 +376,3 @@ func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {
 	return row
 }
 
-// FilterWorkspaces returns workspaces matching a filter string.
-func (e *Plugin) FilterWorkspaces(filter string) []string {
-	if filter == "" {
-		return e.workspaces
-	}
-	lower := strings.ToLower(filter)
-	var result []string
-	for _, ws := range e.workspaces {
-		if strings.Contains(strings.ToLower(ws), lower) {
-			result = append(result, ws)
-		}
-	}
-	return result
-}

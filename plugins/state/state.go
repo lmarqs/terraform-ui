@@ -37,17 +37,18 @@ type ResourceDetailMsg struct {
 
 // Plugin implements the state browser feature.
 type Plugin struct {
-	svc        sdk.Service
-	log        *slog.Logger
-	session    *sdk.Session
-	status     Status
-	resources  []sdk.Resource
-	filtered   []sdk.Resource
-	filter     string
-	errMsg     string
-	selected   int
-	detail     string
-	detailAddr string
+	svc           sdk.Service
+	log           *slog.Logger
+	session       *sdk.Session
+	status        Status
+	resources     []sdk.Resource
+	filtered      []sdk.Resource
+	filter        string
+	errMsg        string
+	selected      int
+	detail        string
+	detailAddr    string
+	scopedProject string
 }
 
 // New creates a new state browser plugin.
@@ -92,11 +93,32 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate triggers state loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
+	// Check if the active project changed since last activation
+	if e.session != nil {
+		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs)
+		if currentProject != e.scopedProject {
+			// Project changed — reset state
+			e.status = StatusIdle
+			e.resources = nil
+			e.filtered = nil
+			e.filter = ""
+			e.errMsg = ""
+			e.selected = 0
+			e.detail = ""
+			e.detailAddr = ""
+			e.scopedProject = currentProject
+			if currentProject != "" {
+				e.svc = e.svc.WithDir(currentProject)
+			}
+		}
+	}
+
 	if e.status == StatusIdle || e.status == StatusError {
 		// Check if there's an active project to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
+				e.scopedProject = dir
 			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
 				e.status = StatusError
 				e.errMsg = "Select a project first (press m)"
@@ -274,10 +296,6 @@ func (e *Plugin) BackspaceFilter() {
 	}
 }
 
-// ClearFilter clears the filter.
-func (e *Plugin) ClearFilter() {
-	e.SetFilter("")
-}
 
 // SelectedResource returns the currently selected resource.
 func (e *Plugin) SelectedResource() sdk.Resource {

@@ -40,6 +40,7 @@ type Plugin struct {
 	elapsed        time.Duration
 	confirmed      bool
 	totalResources int
+	scopedProject  string
 }
 
 // New creates a new apply plugin.
@@ -84,14 +85,25 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate scopes the service to the active project before apply operations.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if there's an active project to scope to
+	// Check if the active project changed since last activation
 	if e.session != nil {
-		if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs); ok && dir != "" {
-			e.svc = e.svc.WithDir(dir)
-		} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
-			e.status = StatusError
-			e.errMsg = "Select a project first (press m)"
-			return nil
+		currentProject, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveProjectAbs)
+		if currentProject != e.scopedProject {
+			// Project changed — reset status
+			e.status = StatusIdle
+			e.errMsg = ""
+			e.scopedProject = currentProject
+			if currentProject != "" {
+				e.svc = e.svc.WithDir(currentProject)
+			}
+		}
+
+		if e.scopedProject == "" {
+			if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyProjectCount); ok && count > 1 {
+				e.status = StatusError
+				e.errMsg = "Select a project first (press m)"
+				return nil
+			}
 		}
 	}
 	return nil

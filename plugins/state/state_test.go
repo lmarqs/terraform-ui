@@ -556,21 +556,6 @@ func TestBackspaceFilter(t *testing.T) {
 	}
 }
 
-func TestClearFilter(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.filtered = p.resources[:1]
-	p.filter = "something"
-
-	p.ClearFilter()
-	if p.filter != "" {
-		t.Errorf("ClearFilter: filter = %q, want empty", p.filter)
-	}
-	if len(p.filtered) != 2 {
-		t.Errorf("ClearFilter: len(filtered) = %d, want 2", len(p.filtered))
-	}
-}
 
 func TestSelectedResource(t *testing.T) {
 	svc := &mockService{}
