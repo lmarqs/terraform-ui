@@ -125,6 +125,13 @@ func runTUI(cfg config.Config) error {
 	// Build plugins from config
 	registry.Build(svc, cfg.Plugins)
 
+	// Inject config into context plugin for project discovery
+	if ctxPlugin, ok := registry.ByID("context"); ok {
+		if cp, ok := ctxPlugin.(*tfuicontext.Plugin); ok {
+			cp.SetConfig(cfg)
+		}
+	}
+
 	app := ui.NewApp(cfg, svc, registry)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err := p.Run()

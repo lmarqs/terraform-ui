@@ -2,6 +2,8 @@ package context
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"path/filepath"
 	"strings"
 
@@ -40,6 +42,7 @@ type Project struct {
 type Plugin struct {
 	svc      sdk.Service
 	cfg      config.Config
+	log      *slog.Logger
 	session  *sdk.Session
 	status   Status
 	projects []Project
@@ -54,6 +57,7 @@ type Plugin struct {
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
 		svc: svc,
+		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 }
 
@@ -81,6 +85,9 @@ func (e *Plugin) SetConfig(cfg config.Config) {
 // Init initializes the plugin with shared context. Does not auto-discover.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
+	if ctx.Logger != nil {
+		e.log = ctx.Logger
+	}
 	e.session = ctx.Session
 	e.status = StatusIdle
 	e.projects = nil
@@ -96,6 +103,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
+		e.log.Debug("context.activate", "dir", e.cfg.Dir, "paths", e.cfg.Context.Paths)
 		return e.discover()
 	}
 	return nil
@@ -137,10 +145,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
+			e.log.Debug("context.discover.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
 			e.projects = msg.Projects
 			e.filtered = msg.Projects
+			e.log.Debug("context.discover.complete", "projects", len(msg.Projects))
 			if e.session != nil {
 				e.session.Set(sdk.SessionKeyContextCount, len(msg.Projects))
 			}
