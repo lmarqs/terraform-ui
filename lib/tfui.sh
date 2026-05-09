@@ -706,6 +706,75 @@ _tfui_strategy_progress() {
   return $exit_code
 }
 
+# -- State summary ------------------------------------------------------------
+
+# @description Pull terraform state and render a structured summary.
+# @param $1 {string} mode - Output mode: agent (JSON) or text (human-readable)
+# @return stdout - JSON or text summary of current state
+# @side-effect _TFUI_OUTPUT_FILE (captures state pull output on failure)
+# @requires _TFUI_WORKING_DIR
+tfui_state() {
+  local mode="${1:-text}"
+
+  local state_json exit_code=0
+  state_json=$(cd "$_TFUI_WORKING_DIR"; terraform state pull 2>"$_TFUI_OUTPUT_FILE") || exit_code=$?
+  if [ $exit_code -ne 0 ]; then
+    echo "tfui_state: terraform state pull failed" >&2
+    cat "$_TFUI_OUTPUT_FILE" >&2
+    return 1
+  fi
+
+  case "$mode" in
+    agent) _tfui_render_state_json "$state_json" ;;
+    *)     _tfui_render_state_text "$state_json" ;;
+  esac
+}
+
+# @description Render state as JSON summary for agent consumption.
+# @param $1 {string} state_json - Raw terraform state JSON (from state pull)
+# @return stdout - Structured JSON summary
+_tfui_render_state_json() {
+  local state_json="$1"
+
+  echo "$state_json" | jq -r '
+    [.resources // [] | .[] | select(.mode == "managed")] |
+    if length == 0 then
+      {"total_resources": 0, "by_type": {}, "by_module": {}, "resources": []}
+    else
+      {
+        total_resources: length,
+        by_type: (group_by(.type) | map({key: .[0].type, value: length}) | from_entries),
+        by_module: (map(.module // "root") | group_by(.) | map({key: .[0], value: length}) | from_entries),
+        resources: map({
+          address: ((.module // "") | if . == "" then "" else . + "." end) + .type + "." + .name,
+          type: .type,
+          module: (.module // "root"),
+          provider: (.provider | gsub(".*\\/"; "") | gsub("\"\\]"; ""))
+        })
+      }
+    end
+  '
+}
+
+# @description Render state as human-readable text summary.
+# @param $1 {string} state_json - Raw terraform state JSON (from state pull)
+# @return stdout - Formatted text summary
+_tfui_render_state_text() {
+  local state_json="$1"
+
+  echo "$state_json" | jq -r '
+    [.resources // [] | .[] | select(.mode == "managed")] |
+    if length == 0 then
+      "State: empty (no managed resources)"
+    else
+      "State: \(length) resources\n" +
+      (group_by(.type) | map("  \(.[0].type) \(length)") | sort | join("\n")) +
+      "\nModules: " +
+      (map(.module // "root") | group_by(.) | map("\(.[0]) (\(length))") | sort | join(" | "))
+    end
+  '
+}
+
 # -- Renderer -----------------------------------------------------------------
 
 # @description Parse plan JSON and print a tree view of changes.

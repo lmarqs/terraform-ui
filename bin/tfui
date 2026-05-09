@@ -25,12 +25,13 @@ Usage: tfui <command> [options] [-- terraform_args]
 Commands:
   plan      Run terraform plan and display tree view
   apply     Plan, confirm, and apply changes
+  state     Show structured state summary
   version   Print version
   help      Show this help
 
 Options:
   --dir <path>       Working directory (default: .)
-  --mode <mode>      UI mode: auto, rich, simple, plain (default: auto)
+  --mode <mode>      UI mode: auto, rich, simple, plain, agent (default: auto)
   --message <msg>    Spinner message
   --auto-approve     Skip confirmation (apply only)
   --                 Pass remaining args to terraform
@@ -39,6 +40,8 @@ Examples:
   tfui plan
   tfui plan --dir ./modules/vpc
   tfui apply --auto-approve
+  tfui state --dir ./modules/vpc
+  tfui state --mode agent
   tfui plan -- -target=aws_instance.web
 EOF
 }
@@ -125,6 +128,35 @@ _tfui_cli_apply() {
   fi
 }
 
+_tfui_cli_state() {
+  local dir="." mode="auto"
+
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --dir) dir="$2"; shift 2 ;;
+      --mode) mode="$2"; shift 2 ;;
+      --) shift; break ;;
+      -*) _tfui_cli_die "unknown option: $1" ;;
+      *) _tfui_cli_die "unexpected argument: $1" ;;
+    esac
+  done
+
+  [ -d "$dir" ] || _tfui_cli_die "directory not found: $dir"
+
+  _tfui_cli_check_deps
+
+  _TFUI_WORKING_DIR="$dir"
+  _TFUI_OUTPUT_FILE=$(mktemp)
+  trap 'rm -f "$_TFUI_OUTPUT_FILE"' EXIT
+
+  local render_mode="text"
+  if [ "$mode" = "agent" ]; then
+    render_mode="agent"
+  fi
+
+  tfui_state "$render_mode"
+}
+
 # -- Dispatch -----------------------------------------------------------------
 
 if [ $# -eq 0 ]; then
@@ -135,6 +167,7 @@ fi
 case "$1" in
   plan)    shift; _tfui_cli_plan "$@" ;;
   apply)   shift; _tfui_cli_apply "$@" ;;
+  state)   shift; _tfui_cli_state "$@" ;;
   version) echo "tfui $_TFUI_CLI_VERSION" ;;
   help)    _tfui_cli_usage ;;
   *)       _tfui_cli_die "unknown command: $1 (see 'tfui help')" ;;
