@@ -317,6 +317,7 @@ func (e *Plugin) MoveToEnd() {
 }
 
 // SetFilter sets the filter string and refilters the resource list.
+// Supports fuzzy matching: space-separated terms must all match (e.g. "rds cluster").
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
@@ -325,17 +326,25 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
-	lower := strings.ToLower(filter)
+	terms := strings.Fields(strings.ToLower(filter))
 	var result []sdk.Resource
 	for _, r := range e.resources {
-		if strings.Contains(strings.ToLower(r.Address), lower) ||
-			strings.Contains(strings.ToLower(r.Type), lower) ||
-			strings.Contains(strings.ToLower(r.Module), lower) {
+		text := strings.ToLower(r.Address + " " + r.Type + " " + r.Module)
+		if matchAllTerms(text, terms) {
 			result = append(result, r)
 		}
 	}
 	e.filtered = result
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
+}
+
+func matchAllTerms(text string, terms []string) bool {
+	for _, term := range terms {
+		if !strings.Contains(text, term) {
+			return false
+		}
+	}
+	return true
 }
 
 // AppendFilter adds a character to the filter.
