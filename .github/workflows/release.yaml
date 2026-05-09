@@ -26,7 +26,7 @@ jobs:
         uses: ./.github/actions/prepare-env
 
       - name: Install dependencies
-        run: npm ci
+        run: mise run setup
 
       - name: Release
         env:
