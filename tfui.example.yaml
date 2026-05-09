@@ -4,9 +4,9 @@
 # Path to terraform (or tofu) binary (auto-detects if omitted: prefers tofu, falls back to terraform)
 # terraform_binary: tofu
 
-# Project discovery for monorepos (similar to pnpm-workspace.yaml)
+# Context discovery for monorepos (similar to pnpm-workspace.yaml)
 # Define glob patterns to locate independent terraform projects.
-projects:
+context:
   paths:
     - "modules/*"
     # - "envs/*"
