@@ -1,0 +1,64 @@
+{
+  "rules": [
+    {
+      "id": "gcp-database-delete",
+      "description": "GCP database instance being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "google_sql_database_instance|google_sql_database|google_spanner_instance|google_spanner_database|google_bigtable_instance", "action": ["delete"] }
+    },
+    {
+      "id": "gcp-database-replace",
+      "description": "GCP database instance being replaced",
+      "severity": "critical",
+      "match": { "resource_type": "google_sql_database_instance|google_sql_database|google_spanner_instance|google_spanner_database|google_bigtable_instance", "action": ["replace"] }
+    },
+    {
+      "id": "gcp-storage-delete",
+      "description": "GCP storage bucket being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "google_storage_bucket|google_filestore_instance", "action": ["delete"] }
+    },
+    {
+      "id": "gcp-encryption-delete",
+      "description": "GCP KMS key being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "google_kms_key_ring|google_kms_crypto_key", "action": ["delete", "replace"] }
+    },
+    {
+      "id": "gcp-network-delete",
+      "description": "GCP network infrastructure being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "google_compute_network|google_compute_subnetwork|google_compute_router|google_compute_address", "action": ["delete"] }
+    },
+    {
+      "id": "gcp-iam-change",
+      "description": "GCP IAM binding being modified",
+      "severity": "high",
+      "match": { "resource_type": "google_project_iam.*|google_service_account|google_service_account_key", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "gcp-gke-delete",
+      "description": "GCP GKE cluster being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "google_container_cluster|google_container_node_pool", "action": ["delete"] }
+    },
+    {
+      "id": "gcp-firewall-change",
+      "description": "GCP firewall rule being modified",
+      "severity": "medium",
+      "match": { "resource_type": "google_compute_firewall", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "gcp-dns-change",
+      "description": "GCP DNS record being modified",
+      "severity": "medium",
+      "match": { "resource_type": "google_dns_record_set|google_dns_managed_zone", "action": ["update", "delete", "replace"] }
+    },
+    {
+      "id": "gcp-pubsub-delete",
+      "description": "GCP Pub/Sub topic being destroyed",
+      "severity": "medium",
+      "match": { "resource_type": "google_pubsub_topic|google_pubsub_subscription", "action": ["delete"] }
+    }
+  ]
+}

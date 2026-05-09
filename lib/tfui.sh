@@ -1150,3 +1150,245 @@ _tfui_render_grouped_plan_tree() {
     end
   ' "$plan_file"
 }
+
+# -- Policy -------------------------------------------------------------------
+
+_TFUI_POLICY_FILE_NAME=".tfui-policy.json"
+
+# @description Emit built-in default policy rules as JSON to stdout.
+# @return stdout - JSON object with "rules" array
+_tfui_policy_defaults() {
+  cat <<'EOF'
+{
+  "rules": [
+    {
+      "id": "database-delete",
+      "description": "Database resource being destroyed",
+      "severity": "critical",
+      "match": { "resource_type": "aws_db_instance|aws_rds_cluster|google_sql_database_instance|azurerm_.*sql.*", "action": ["delete"] }
+    },
+    {
+      "id": "database-replace",
+      "description": "Database resource being replaced (destroy+recreate)",
+      "severity": "critical",
+      "match": { "resource_type": "aws_db_instance|aws_rds_cluster|google_sql_database_instance|azurerm_.*sql.*", "action": ["replace"] }
+    },
+    {
+      "id": "storage-delete",
+      "description": "Storage resource being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "aws_s3_bucket|google_storage_bucket|azurerm_storage_account", "action": ["delete"] }
+    },
+    {
+      "id": "network-delete",
+      "description": "Network resource being destroyed",
+      "severity": "high",
+      "match": { "resource_type": "aws_vpc|aws_subnet|google_compute_network|google_compute_subnetwork|azurerm_virtual_network|azurerm_subnet", "action": ["delete"] }
+    },
+    {
+      "id": "iam-change",
+      "description": "IAM resource being modified",
+      "severity": "medium",
+      "match": { "resource_type": "aws_iam_role|aws_iam_policy|aws_iam_role_policy.*|google_project_iam.*|azurerm_role_assignment", "action": ["create", "update", "delete", "replace"] }
+    },
+    {
+      "id": "encryption-change",
+      "description": "Encryption configuration being modified",
+      "severity": "medium",
+      "match": { "resource_type": "aws_kms_key|aws_kms_alias|google_kms_crypto_key|azurerm_key_vault_key", "action": ["update", "delete", "replace"] }
+    }
+  ]
+}
+EOF
+}
+
+# @description Discover policy file by walking up from a starting directory.
+# @param $1 {string} start_dir - Directory to start searching from
+# @return stdout - Path to the found policy file (empty if not found)
+# @return exit_code - 0 if found, 1 if not found
+_tfui_policy_discover() {
+  local start_dir="$1"
+  local dir
+
+  dir="$(cd "$start_dir" && pwd)"
+
+  while true; do
+    if [ -f "$dir/$_TFUI_POLICY_FILE_NAME" ]; then
+      echo "$dir/$_TFUI_POLICY_FILE_NAME"
+      return 0
+    fi
+    if [ "$dir" = "/" ]; then
+      break
+    fi
+    dir="$(dirname "$dir")"
+  done
+
+  return 1
+}
+
+# @description Resolve a policy pack name to its file path.
+# Supports "tfui:aws", "tfui:gcp", "tfui:azure" for bundled packs,
+# or relative/absolute file paths for custom packs.
+# @param $1 {string} name - Pack name or path
+# @param $2 {string} base_dir - Base directory for relative path resolution
+# @return stdout - Resolved file path
+# @return exit_code - 0 if found, 1 if not found
+_tfui_policy_resolve_pack() {
+  local name="$1"
+  local base_dir="$2"
+  local lib_dir
+
+  lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  case "$name" in
+    tfui:*)
+      local pack_name="${name#tfui:}"
+      local pack_file="$lib_dir/policies/${pack_name}.json"
+      if [ -f "$pack_file" ]; then
+        echo "$pack_file"
+        return 0
+      fi
+      ;;
+    /*)
+      if [ -f "$name" ]; then
+        echo "$name"
+        return 0
+      fi
+      ;;
+    *)
+      if [ -f "$base_dir/$name" ]; then
+        echo "$base_dir/$name"
+        return 0
+      fi
+      ;;
+  esac
+  return 1
+}
+
+# @description Load policy rules: resolve extends, merge packs, then user rules.
+# @param $1 {string} start_dir - Directory to start policy file search
+# @return stdout - JSON object with "rules" array (merged)
+_tfui_policy_load() {
+  local start_dir="$1"
+  local policy_file policy_json
+
+  if policy_file=$(_tfui_policy_discover "$start_dir"); then
+    policy_json=$(cat "$policy_file")
+  else
+    _tfui_policy_defaults
+    return
+  fi
+
+  local extends
+  extends=$(echo "$policy_json" | jq -r '.extends // [] | .[]' 2>/dev/null)
+
+  if [ -z "$extends" ]; then
+    echo "$policy_json"
+    return
+  fi
+
+  local base_dir
+  base_dir="$(dirname "$policy_file")"
+  local merged_rules="[]"
+
+  while IFS= read -r pack_name; do
+    [ -z "$pack_name" ] && continue
+    local pack_file
+    if pack_file=$(_tfui_policy_resolve_pack "$pack_name" "$base_dir"); then
+      local pack_rules
+      pack_rules=$(jq '.rules // []' "$pack_file")
+      merged_rules=$(echo "$merged_rules" | jq --argjson new "$pack_rules" '. + $new')
+    fi
+  done <<< "$extends"
+
+  local user_rules
+  user_rules=$(echo "$policy_json" | jq '.rules // []')
+  merged_rules=$(echo "$merged_rules" | jq --argjson new "$user_rules" '. + $new')
+
+  echo "$merged_rules" | jq '{rules: .}'
+}
+
+# @description Normalize plan actions into a single canonical action string.
+# @param $1 {string} actions_json - JSON array of actions (e.g., '["delete","create"]')
+# @return stdout - Canonical action: create, update, delete, replace, or read
+_tfui_policy_normalize_action() {
+  local actions_json="$1"
+
+  local action
+  action=$(echo "$actions_json" | jq -r '
+    if . == ["create"] then "create"
+    elif . == ["update"] then "update"
+    elif . == ["delete"] then "delete"
+    elif (. | sort) == ["create", "delete"] then "replace"
+    elif . == ["read"] then "read"
+    elif . == ["no-op"] then "no-op"
+    else "unknown"
+    end
+  ')
+  echo "$action"
+}
+
+# @description Evaluate policy rules against a terraform plan JSON file.
+# @param $1 {string} plan_file - Path to the plan JSON file
+# @param $2 {string} [policy_dir] - Directory to search for policy file (default: plan file's dir)
+# @return stdout - JSON object with "warnings" array and "policy_summary"
+_tfui_policy_evaluate() {
+  local plan_file="$1"
+  local policy_dir="${2:-$(dirname "$plan_file")}"
+
+  local policy_json
+  policy_json=$(_tfui_policy_load "$policy_dir")
+
+  jq -r --argjson policy "$policy_json" '
+    # Normalize actions to a single canonical string
+    def normalize_action:
+      if . == ["create"] then "create"
+      elif . == ["update"] then "update"
+      elif . == ["delete"] then "delete"
+      elif (. | sort) == ["create", "delete"] then "replace"
+      elif . == ["read"] then "read"
+      elif . == ["no-op"] then "no-op"
+      else "unknown"
+      end;
+
+    # Check if a resource type matches a rule pattern
+    # Pattern is a regex (supports | for alternation)
+    def type_matches(pattern):
+      . as $type | $type | test("^(" + pattern + ")$");
+
+    # Check if an action is in the rule action list
+    def action_matches(rule_actions):
+      . as $action | [rule_actions[] | select(. == $action)] | length > 0;
+
+    # Get resource changes with real actions
+    [.resource_changes // [] | .[] | select(.change.actions != ["no-op"] and .change.actions != ["read"])] as $changes |
+
+    # Evaluate each rule against each change
+    [
+      $policy.rules[] as $rule |
+      $changes[] |
+      select(
+        (.type | type_matches($rule.match.resource_type)) and
+        ((.change.actions | normalize_action) | action_matches($rule.match.action))
+      ) |
+      {
+        rule_id: $rule.id,
+        severity: $rule.severity,
+        resource: .address,
+        message: $rule.description
+      }
+    ] as $warnings |
+
+    # Count by severity
+    {
+      warnings: $warnings,
+      policy_summary: {
+        critical: [$warnings[] | select(.severity == "critical")] | length,
+        high: [$warnings[] | select(.severity == "high")] | length,
+        medium: [$warnings[] | select(.severity == "medium")] | length,
+        low: [$warnings[] | select(.severity == "low")] | length,
+        passed: ([$policy.rules[] | .id] | unique | length) - ([$warnings[] | .rule_id] | unique | length)
+      }
+    }
+  ' "$plan_file"
+}
