@@ -1,17 +1,51 @@
 # terraform-ui
 
-Animated terminal UI for `terraform plan` and `terraform apply` operations.
+Animated terminal feedback for `terraform plan` and `terraform apply` — spinner, progress bar, elapsed timer, and tree-view diff — in pure bash.
 
-Provides spinner, elapsed timer, progress bar, and tree-view diff output — all in pure bash.
+**Type:** CLI + embeddable bash library
+**Invocation:** `tfui plan`, `tfui apply`, or `source lib/tfui.sh`
+**Input:** Terraform root module directory
+**Output:** Tree-view diff (stdout), animations (fd3)
+**Dependencies:** bash 3.2+, jq, terraform
 
-## Features
+## What It Looks Like
 
-- Spinner with elapsed time counter
-- Progress bar tracking resource count during plan/apply
-- Tree-view output showing planned changes (`+`, `~`, `-`, `-/+`)
-- Three display modes: rich (progress bar), simple (spinner only), plain (silent)
-- Works on macOS (bash 3.2+) and any Linux distro
-- Single dependency: `jq`
+During a plan or apply, the terminal shows a live spinner with elapsed time and a progress bar:
+
+```
+⠋ Planning (12s)
+  Progress: 8/20 [████████████░░░░░░░░] 40%
+```
+
+When the plan completes, a tree-view diff is printed to stdout:
+
+```
++ aws_instance.web
+~ aws_security_group.allow_tls
+- aws_iam_role.old_role
+-/+ aws_db_instance.main
+
+Plan: 1 to add, 1 to change, 1 to destroy.
+```
+
+Symbols: `+` create, `~` update, `-` delete, `-/+` replace.
+
+## Why
+
+Running `terraform plan` on large modules produces verbose output with no progress indication during the wait. `terraform-ui` wraps these commands with a live animated spinner and progress bar, then outputs a concise tree diff showing only what changes. Use it to wrap terraform in scripts, in CI pipelines (with `--mode plain`), or interactively in the terminal.
+
+## Quick Start
+
+```bash
+# Install
+curl -fsSL https://raw.githubusercontent.com/lmarqs/terraform-ui/main/scripts/install.sh | bash
+
+# Preview changes
+tfui plan --dir ./modules/vpc
+
+# Plan, confirm, and apply
+tfui apply --dir ./modules/vpc
+```
 
 ## Install
 
@@ -39,6 +73,8 @@ brew install terraform-ui
 Download the tarball from [GitHub Releases](https://github.com/lmarqs/terraform-ui/releases), extract it, and add `bin/` to your PATH.
 
 ## Usage
+
+Use the **CLI** as a drop-in wrapper for `terraform plan`/`apply`. Use the **library** when embedding terraform-ui into your own bash scripts or task runners.
 
 ### CLI
 
@@ -96,13 +132,7 @@ Plan, confirm, and apply changes (full lifecycle).
 | `--auto-approve` | *(prompt)* | Skip confirmation |
 | `--` | | Pass remaining args to terraform |
 
-#### `tfui version`
-
-Print version string (reads from VERSION file).
-
-#### `tfui help`
-
-Print usage information.
+Additional commands: `tfui version`, `tfui help`.
 
 ### Library API
 
@@ -137,46 +167,6 @@ Print usage information.
 | `TF_CLI_ARGS_plan` | Extra args passed to `terraform plan` (native terraform) |
 | `TF_CLI_ARGS_apply` | Extra args passed to `terraform apply` (native terraform) |
 
-## Architecture
-
-```
-bin/tfui                 — CLI entry point
-lib/tfui.sh              — library (source to embed)
-VERSION                  — version (single source of truth)
-tests/                   — BATS test suite
-tests/fixtures/          — real terraform projects for integration tests
-scripts/install.sh       — curl installer
-```
-
-### Layers
-
-```
-┌─────────────────────────────────────────────┐
-│  CLI  (bin/tfui)                            │
-│  Argument parsing, fd3 setup, dispatch      │
-├─────────────────────────────────────────────┤
-│  Public API  (tfui_*)                       │
-│  init, plan, confirm, apply                 │
-├─────────────────────────────────────────────┤
-│  Orchestration  (_tfui_run*)                │
-│  Strategy resolution, phase sequencing      │
-├─────────────────────────────────────────────┤
-│  Strategies  (_tfui_strategy_*)             │
-│  silent, spinner, progress                  │
-├──────────────────────┬──────────────────────┤
-│  UI Engine           │  Execution           │
-│  (_tfui_ui_*)        │  (_tfui_exec)        │
-│  Animation, layout,  │  Working dir, output │
-│  render, format      │  capture, exit codes │
-├──────────────────────┴──────────────────────┤
-│  Renderer  (_tfui_render_*)                 │
-│  Plan tree view (jq)                        │
-├─────────────────────────────────────────────┤
-│  State & Lifecycle                          │
-│  (_tfui_state_*, _tfui_lifecycle_*)         │
-└─────────────────────────────────────────────┘
-```
-
 ## Requirements
 
 - bash 3.2+ (macOS default works)
@@ -192,6 +182,8 @@ mise run test:run         # Syntax check + run tests
 mise run build [version]  # Package dist/ (reads VERSION by default)
 mise run coverage:run     # Coverage via Docker + kcov
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for commit conventions and test guidelines.
 
 ## License
 
