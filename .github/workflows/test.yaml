@@ -43,9 +43,27 @@ jobs:
       - name: Coverage
         run: mise run coverage:run
 
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
-        if: success()
+      - name: Coverage Report
+        if: always()
+        run: |
+          if [ -f coverage/kcov-merged/cobertura.xml ]; then
+            LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' coverage/kcov-merged/cobertura.xml | head -1)
+            PERCENT=$(awk "BEGIN {printf \"%.1f\", $LINE_RATE * 100}")
+            echo "## Coverage: ${PERCENT}%" >> "$GITHUB_STEP_SUMMARY"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "Full report available as artifact." >> "$GITHUB_STEP_SUMMARY"
+          elif [ -d coverage/bats.*/cobertura.xml ]; then
+            LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' coverage/bats.*/cobertura.xml | head -1)
+            PERCENT=$(awk "BEGIN {printf \"%.1f\", $LINE_RATE * 100}")
+            echo "## Coverage: ${PERCENT}%" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "## Coverage: report generated" >> "$GITHUB_STEP_SUMMARY"
+            echo "Check artifacts for details." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload Coverage Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          directory: coverage
-          fail_ci_if_error: false
+          name: coverage-report
+          path: coverage/
