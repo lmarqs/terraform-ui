@@ -407,9 +407,6 @@ func (e *Plugin) SetFilter(filter string) {
 	var result []sdk.Resource
 	for _, r := range e.resources {
 		text := strings.ToLower(r.Address)
-		if r.Module != "" {
-			text += " " + strings.ToLower(r.Module)
-		}
 		if matchAllTerms(text, terms) {
 			result = append(result, r)
 		}
@@ -428,28 +425,28 @@ func matchAllTerms(text string, terms []string) bool {
 	return true
 }
 
-// segmentMatch checks if pattern can be found in text as a series of contiguous
-// substrings appearing in order. Greedily matches the longest prefix at each step.
-// "aurorathis" matches "postgresqlauroraawsrdsclusterthis0" because:
-//   "aurora" found at pos 14, then "this" found at pos 28 (after aurora).
+// segmentMatch checks if pattern can be found in text as ordered contiguous chunks.
+// Each chunk is at least 3 chars. Greedy: finds longest matching prefix first.
+// "aurorathis" → "aurora" + "this"
+// "auroraclusterthis" → "aurora" + "cluster" + "this"
 func segmentMatch(text, pattern string) bool {
 	if strings.Contains(text, pattern) {
 		return true
 	}
-	if len(pattern) < 2 {
+	if len(pattern) < 5 {
 		return false
 	}
-	// Try all ways to split pattern into first chunk + remainder
-	// Find the longest prefix of pattern that exists as substring, then recurse
-	for length := len(pattern); length >= 2; length-- {
+	// Split into 2 chunks: each >= 3 chars, or first=2 + remainder>=3
+	for length := len(pattern) - 3; length >= 3; length-- {
 		chunk := pattern[:length]
 		idx := strings.Index(text, chunk)
 		if idx >= 0 {
-			if length == len(pattern) {
+			remainder := pattern[length:]
+			rest := text[idx+length:]
+			if strings.Contains(rest, remainder) {
 				return true
 			}
-			// Continue matching remainder after this chunk
-			if segmentMatch(text[idx+length:], pattern[length:]) {
+			if len(remainder) >= 5 && segmentMatch(rest, remainder) {
 				return true
 			}
 		}

@@ -504,7 +504,7 @@ func TestSetFilter(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Name: "web", Module: ""},
-		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data", Module: "module.storage"},
+		{Address: "module.storage.aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data", Module: "module.storage"},
 		{Address: "aws_vpc.main", Type: "aws_vpc", Name: "main", Module: ""},
 	}
 	p.filtered = p.resources
@@ -601,26 +601,65 @@ func TestSetFilterSubstring(t *testing.T) {
 		{"auro1", 1},
 		{"cluster1", 1},
 		{"cluster2", 1},
-		// Segment skip: chunks matched in order
+		// Segment skip: word segments in order, skipping what's between
 		{"aurorathis", 3},
 		{"auroracluster", 3},
 		{"auroraclusterthis", 3},
 		{"aurorainstance", 2},
+		{"aurorainstancethis", 2},
 		{"auroraproxy", 1},
+		{"aurorareadonly", 1},
+		{"aurorardscluster", 3},
+		{"aurorardsclusterthis", 3},
+		{"aurorardsinstance", 2},
+		{"postgresqlcluster", 3},
+		{"postgresqlinstance", 2},
+		{"postgresqlproxy", 1},
+		{"postgresqlreadonly", 1},
+		{"rdsthis", 3},
+		{"rdsproxy", 0},
+		{"redisthis", 1},
 		{"redisreplication", 1},
+		{"rediselasticache", 1},
+		{"elasticachethis", 1},
+		{"memorydbthis", 1},
+		{"memorydbclusterthis", 1},
+		{"securityweb", 1},
+		{"securitygroupweb", 1},
+		{"opensearchlegacy", 1},
+		{"opensearchdomain", 1},
+		{"domainlegacy", 1},
 		// Proxy search patterns
 		{"proxyread", 1},
 		{"proxyreadonly", 1},
 		{"dbproxy", 1},
 		{"dbproxyreadonly", 1},
-		{"aurorareadonly", 1},
-		// Opensearch not matched by aurora/proxy patterns
-		{"opensearch", 1},
-		{"opensearchlegacy", 1},
-		// Multi-segment skips
-		{"redisthis", 1},
-		{"memorydbthis", 1},
-		{"securityweb", 1},
+		// Short substrings (direct match, no segment split needed)
+		{"memorydb", 1},
+		{"dbproxy", 1},
+		{"elast", 1},
+		{"replic", 1},
+		// Digit split still works: "insta1" -> "insta" AND "1"
+		{"insta1", 1},
+		{"insta2", 1},
+		// Segment split: both chunks need >= 3 chars each
+		{"memdb", 0},
+		{"dbread", 0},
+		{"rdprox", 0},
+		{"rdread", 0},
+		// Valid segment splits (both halves >= 3)
+		{"memorydbcluster", 1},
+		{"instancethis", 2},
+		{"clusteraurora", 0},
+		{"proxyreadonly", 1},
+		{"proxyread", 1},
+		// Negative: segments not in correct order
+		{"thisaurora", 0},
+		{"clusterpostgresql", 0},
+		{"websecu", 0},
+		{"legacyopensearch", 0},
+		{"readonlyproxy", 0},
+		{"instancecluster", 0},
 	}
 	for _, tt := range tests {
 		p.SetFilter(tt.filter)
