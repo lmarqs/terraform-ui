@@ -7,7 +7,9 @@ theme: minima
 
 header_pages:
   - index.md
+  - getting-started.md
   - configuration.md
+  - architecture.md
   - risk-analysis.md
   - phantom-changes.md
   - blast-radius.md
