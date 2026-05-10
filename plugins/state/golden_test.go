@@ -66,6 +66,7 @@ func TestView_Given_ResourceList_ShouldRender_AllResources(t *testing.T) {
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
+	p.computeDisplayItems()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -75,6 +76,7 @@ func TestView_Given_ResourceList_WithSelection_ShouldRender_HighlightedRow(t *te
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
+	p.computeDisplayItems()
 	p.selected = 2
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -87,6 +89,7 @@ func TestView_Given_FilterActive_ShouldRender_FilterInput(t *testing.T) {
 	p.filtered = []sdk.Resource{
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data"},
 	}
+	p.computeDisplayItems()
 	p.filter = "s3"
 	p.filtering = true
 
@@ -100,6 +103,7 @@ func TestView_Given_FilterInactive_ShouldRender_FilterLabel(t *testing.T) {
 	p.filtered = []sdk.Resource{
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data"},
 	}
+	p.computeDisplayItems()
 	p.filter = "s3"
 	p.filtering = false
 
@@ -111,6 +115,7 @@ func TestView_Given_EmptyResourceList_ShouldRender_NoResourcesMessage(t *testing
 	p.status = StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
+	p.computeDisplayItems()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -120,6 +125,7 @@ func TestView_Given_PinnedResources_ShouldRender_PinMarkers(t *testing.T) {
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
+	p.computeDisplayItems()
 	p.session = sdk.NewSession()
 	p.session.Set("terraform.pinned", []string{"aws_instance.web", "aws_s3_bucket.data"})
 
@@ -168,6 +174,7 @@ func TestView_Given_ManyResources_ShouldRender_ScrolledWindow(t *testing.T) {
 	p.status = StatusDone
 	p.resources = resources
 	p.filtered = resources
+	p.computeDisplayItems()
 	p.selected = 15
 
 	sdktest.AssertGolden(t, p.View(80, 18))
