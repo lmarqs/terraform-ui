@@ -4,56 +4,29 @@ import (
 	"strings"
 	"testing"
 
-	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 )
 
-// testPlugin implements sdk.Plugin for testing NewHomeView.
-type testPlugin struct {
-	id          string
-	name        string
-	description string
-	keyBinding  string
-}
-
-func (p *testPlugin) ID() string                               { return p.id }
-func (p *testPlugin) Name() string                             { return p.name }
-func (p *testPlugin) Description() string                      { return p.description }
-func (p *testPlugin) KeyBinding() string                       { return p.keyBinding }
-func (p *testPlugin) Init(_ *sdk.Context) tea.Cmd              { return nil }
-func (p *testPlugin) Update(_ tea.Msg) (sdk.Plugin, tea.Cmd)   { return p, nil }
-func (p *testPlugin) View(_, _ int) string                     { return "" }
-func (p *testPlugin) Configure(_ map[string]interface{}) error { return nil }
-func (p *testPlugin) Ready() bool                              { return true }
-
-// Verify testPlugin satisfies the interface at compile time.
-var _ sdk.Plugin = (*testPlugin)(nil)
-
-func makeTestPlugins() []sdk.Plugin {
-	return []sdk.Plugin{
-		&testPlugin{id: "plan", name: "Plan", description: "Run terraform plan", keyBinding: "p"},
-		&testPlugin{id: "apply", name: "Apply", description: "Run terraform apply", keyBinding: "a"},
-		&testPlugin{id: "state", name: "State", description: "Browse state", keyBinding: "s"},
+func makeTestItems() []plugin.MenuItem {
+	return []plugin.MenuItem{
+		{Key: "p", Name: "Plan", Description: "Run terraform plan"},
+		{Key: "a", Name: "Apply", Description: "Run terraform apply"},
+		{Key: "s", Name: "State", Description: "Browse state"},
 	}
 }
 
-// Ensure testPlugin doesn't need sdk.Service (satisfies factory pattern).
-var _ sdk.PluginFactory = func(_ sdk.Service) sdk.Plugin {
-	return &testPlugin{}
-}
-
 func TestNewHomeView_GeneratesMenuItems(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
-	items := view.Items()
-	if len(items) != 3 {
-		t.Fatalf("NewHomeView() items length = %d, want 3", len(items))
+	got := view.Items()
+	if len(got) != 3 {
+		t.Fatalf("NewHomeView() items length = %d, want 3", len(got))
 	}
 
 	expected := []struct {
 		key   string
-		label string
+		name  string
 		desc  string
 	}{
 		{"p", "Plan", "Run terraform plan"},
@@ -62,20 +35,20 @@ func TestNewHomeView_GeneratesMenuItems(t *testing.T) {
 	}
 
 	for i, exp := range expected {
-		if items[i].Key != exp.key {
-			t.Errorf("items[%d].Key = %q, want %q", i, items[i].Key, exp.key)
+		if got[i].Key != exp.key {
+			t.Errorf("items[%d].Key = %q, want %q", i, got[i].Key, exp.key)
 		}
-		if items[i].Label != exp.label {
-			t.Errorf("items[%d].Label = %q, want %q", i, items[i].Label, exp.label)
+		if got[i].Name != exp.name {
+			t.Errorf("items[%d].Name = %q, want %q", i, got[i].Name, exp.name)
 		}
-		if items[i].Description != exp.desc {
-			t.Errorf("items[%d].Description = %q, want %q", i, items[i].Description, exp.desc)
+		if got[i].Description != exp.desc {
+			t.Errorf("items[%d].Description = %q, want %q", i, got[i].Description, exp.desc)
 		}
 	}
 }
 
-func TestNewHomeView_EmptyPlugins(t *testing.T) {
-	view := NewHomeView([]sdk.Plugin{})
+func TestNewHomeView_EmptyItems(t *testing.T) {
+	view := NewHomeView([]plugin.MenuItem{})
 
 	items := view.Items()
 	if len(items) != 0 {
@@ -84,8 +57,8 @@ func TestNewHomeView_EmptyPlugins(t *testing.T) {
 }
 
 func TestHomeView_InitialSelection(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	if view.Selected() != 0 {
 		t.Errorf("Initial Selected() = %d, want 0", view.Selected())
@@ -93,8 +66,8 @@ func TestHomeView_InitialSelection(t *testing.T) {
 }
 
 func TestHomeView_MoveDown(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	view = view.MoveDown()
 	if view.Selected() != 1 {
@@ -114,8 +87,8 @@ func TestHomeView_MoveDown(t *testing.T) {
 }
 
 func TestHomeView_MoveUp(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	// Move down first, then back up
 	view = view.MoveDown()
@@ -138,8 +111,8 @@ func TestHomeView_MoveUp(t *testing.T) {
 }
 
 func TestHomeView_SelectedItem(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	item := view.SelectedItem()
 	if item.Key != "p" {
@@ -160,8 +133,8 @@ func TestHomeView_SelectedItem(t *testing.T) {
 }
 
 func TestHomeView_Render(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	output := view.Render(80, 24)
 
@@ -192,8 +165,8 @@ func TestHomeView_Render(t *testing.T) {
 }
 
 func TestHomeView_Render_DifferentWidths(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	widths := []int{40, 80, 120, 200}
 	for _, w := range widths {
@@ -205,8 +178,8 @@ func TestHomeView_Render_DifferentWidths(t *testing.T) {
 }
 
 func TestHomeView_Render_NarrowWidth(t *testing.T) {
-	plugins := makeTestPlugins()
-	view := NewHomeView(plugins)
+	items := makeTestItems()
+	view := NewHomeView(items)
 
 	// Even with very narrow width, should produce output
 	output := view.Render(10, 5)

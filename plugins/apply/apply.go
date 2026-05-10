@@ -53,7 +53,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "apply" }
 func (e *Plugin) Name() string        { return "Apply" }
 func (e *Plugin) Description() string { return "Apply terraform changes to infrastructure" }
-func (e *Plugin) KeyBinding() string  { return "a" }
 func (e *Plugin) Ready() bool         { return e.status == StatusSuccess }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Elapsed() time.Duration {

@@ -48,9 +48,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Detect and explain phantom (no-op) changes" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Detect and explain phantom (no-op) changes")
 	}
-	if p.KeyBinding() != "P" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "P")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before analysis, want false")
 	}

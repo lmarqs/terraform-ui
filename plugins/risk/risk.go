@@ -42,7 +42,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "risk" }
 func (e *Plugin) Name() string        { return "Risk Analysis" }
 func (e *Plugin) Description() string { return "Analyze risk levels of planned changes" }
-func (e *Plugin) KeyBinding() string  { return "R" }
 func (e *Plugin) Ready() bool         { return e.status == StatusReady }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }

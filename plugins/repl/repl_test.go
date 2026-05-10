@@ -62,9 +62,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Terraform console (REPL)" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Terraform console (REPL)")
 	}
-	if p.KeyBinding() != "t" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "t")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before activation, want false")
 	}

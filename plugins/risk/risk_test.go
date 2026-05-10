@@ -48,9 +48,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Analyze risk levels of planned changes" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Analyze risk levels of planned changes")
 	}
-	if p.KeyBinding() != "R" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "R")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before analysis, want false")
 	}

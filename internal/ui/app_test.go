@@ -17,7 +17,6 @@ import (
 type mockPlugin struct {
 	id         string
 	name       string
-	key        string
 	viewOutput string
 	initCmd    tea.Cmd
 }
@@ -25,7 +24,6 @@ type mockPlugin struct {
 func (m *mockPlugin) ID() string                                { return m.id }
 func (m *mockPlugin) Name() string                              { return m.name }
 func (m *mockPlugin) Description() string                       { return m.id + " description" }
-func (m *mockPlugin) KeyBinding() string                        { return m.key }
 func (m *mockPlugin) Init(_ *plugin.Context) tea.Cmd            { return m.initCmd }
 func (m *mockPlugin) Update(_ tea.Msg) (plugin.Plugin, tea.Cmd) { return m, nil }
 func (m *mockPlugin) View(_, _ int) string                      { return m.viewOutput }
@@ -80,11 +78,11 @@ func setupTestApp() App {
 
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
-		return &mockPlugin{id: "plan", name: "Plan", key: "p", viewOutput: "plan view"}
-	})
+		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
-		return &mockPlugin{id: "state", name: "State", key: "s", viewOutput: "state view"}
-	})
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
 	return NewApp(cfg, svc, registry)
@@ -390,10 +388,10 @@ func TestApp_Init_WithPluginInitCmd(t *testing.T) {
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{
-			id: "plan", name: "Plan", key: "p", viewOutput: "plan view",
+			id: "plan", name: "Plan", viewOutput: "plan view",
 			initCmd: func() tea.Msg { return customMsg{} },
 		}
-	})
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.Build(nil, nil)
 
 	app := NewApp(cfg, nil, registry)

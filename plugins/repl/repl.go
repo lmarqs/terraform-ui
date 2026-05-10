@@ -65,7 +65,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (p *Plugin) ID() string          { return "repl" }
 func (p *Plugin) Name() string        { return "Console" }
 func (p *Plugin) Description() string { return "Terraform console (REPL)" }
-func (p *Plugin) KeyBinding() string  { return "t" }
 func (p *Plugin) Ready() bool         { return p.status == StatusReady }
 
 // Configure applies plugin-specific options from config.

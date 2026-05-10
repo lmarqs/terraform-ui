@@ -49,9 +49,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Select terraform project scope" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Select terraform project scope")
 	}
-	if p.KeyBinding() != "" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before discovery, want false")
 	}

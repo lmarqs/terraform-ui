@@ -15,9 +15,6 @@ type Plugin interface {
 	// Description returns a one-line summary of the plugin's purpose.
 	Description() string
 
-	// KeyBinding returns the single key used to activate this plugin from home (e.g., "p", "R", "b").
-	KeyBinding() string
-
 	// Init initializes the plugin with shared context and returns an optional startup command.
 	Init(ctx *Context) tea.Cmd
 

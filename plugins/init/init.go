@@ -68,7 +68,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (p *Plugin) ID() string          { return "init" }
 func (p *Plugin) Name() string        { return "Init" }
 func (p *Plugin) Description() string { return "Generate tfui.yaml configuration interactively" }
-func (p *Plugin) KeyBinding() string  { return "i" }
 func (p *Plugin) Ready() bool         { return p.status == StatusDone }
 
 // Configure applies plugin-specific options from config.

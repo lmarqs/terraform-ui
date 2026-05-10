@@ -45,7 +45,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "phantom" }
 func (e *Plugin) Name() string        { return "Phantom Changes" }
 func (e *Plugin) Description() string { return "Detect and explain phantom (no-op) changes" }
-func (e *Plugin) KeyBinding() string  { return "P" }
 func (e *Plugin) Ready() bool         { return e.status == StatusReady }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }

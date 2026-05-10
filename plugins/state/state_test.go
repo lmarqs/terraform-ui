@@ -61,9 +61,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Browse and inspect terraform state resources" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Browse and inspect terraform state resources")
 	}
-	if p.KeyBinding() != "s" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "s")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before data loads, want false")
 	}

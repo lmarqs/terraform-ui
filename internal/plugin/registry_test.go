@@ -13,7 +13,6 @@ type mockPlugin struct {
 	id          string
 	name        string
 	description string
-	keyBinding  string
 	configured  map[string]interface{}
 	ready       bool
 }
@@ -21,7 +20,6 @@ type mockPlugin struct {
 func (m *mockPlugin) ID() string                         { return m.id }
 func (m *mockPlugin) Name() string                       { return m.name }
 func (m *mockPlugin) Description() string                { return m.description }
-func (m *mockPlugin) KeyBinding() string                 { return m.keyBinding }
 func (m *mockPlugin) Init(_ *Context) tea.Cmd            { return nil }
 func (m *mockPlugin) Update(_ tea.Msg) (Plugin, tea.Cmd) { return m, nil }
 func (m *mockPlugin) View(_, _ int) string               { return "mock view" }
@@ -31,13 +29,12 @@ func (m *mockPlugin) Configure(cfg map[string]interface{}) error {
 }
 func (m *mockPlugin) Ready() bool { return m.ready }
 
-func newMockFactory(id, name, key string) PluginFactory {
+func newMockFactory(id, name string) PluginFactory {
 	return func(_ terraform.Service) Plugin {
 		return &mockPlugin{
-			id:         id,
-			name:       name,
-			keyBinding: key,
-			ready:      true,
+			id:    id,
+			name:  name,
+			ready: true,
 		}
 	}
 }
@@ -65,8 +62,8 @@ func TestNewRegistry(t *testing.T) {
 func TestRegisterFactory(t *testing.T) {
 	r := NewRegistry()
 
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
-	r.RegisterFactory("state", newMockFactory("state", "State", "s"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
 
 	if len(r.factories) != 2 {
 		t.Errorf("factories length = %d, want 2", len(r.factories))
@@ -82,8 +79,8 @@ func TestRegisterFactory(t *testing.T) {
 
 func TestBuild_CreatesPlugins(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
-	r.RegisterFactory("state", newMockFactory("state", "State", "s"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
 
 	r.Build(nil, nil)
 
@@ -94,8 +91,8 @@ func TestBuild_CreatesPlugins(t *testing.T) {
 
 func TestBuild_DisabledConfigSkipsPlugin(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
-	r.RegisterFactory("state", newMockFactory("state", "State", "s"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
 
 	falseVal := false
 	configs := map[string]config.PluginConfig{
@@ -115,7 +112,7 @@ func TestBuild_DisabledConfigSkipsPlugin(t *testing.T) {
 
 func TestBuild_ConfigOptionsCallsConfigure(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
 
 	trueVal := true
 	configs := map[string]config.PluginConfig{
@@ -148,7 +145,7 @@ func TestBuild_ConfigOptionsCallsConfigure(t *testing.T) {
 
 func TestBuild_NoConfigDefaultsToEnabled(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
 
 	// Empty config map means plugin is not mentioned at all
 	configs := map[string]config.PluginConfig{}
@@ -162,8 +159,8 @@ func TestBuild_NoConfigDefaultsToEnabled(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
-	r.RegisterFactory("state", newMockFactory("state", "State", "s"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
 	r.Build(nil, nil)
 
 	all := r.All()
@@ -174,8 +171,8 @@ func TestAll(t *testing.T) {
 
 func TestByKey(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
-	r.RegisterFactory("state", newMockFactory("state", "State", "s"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
 	r.Build(nil, nil)
 
 	// Find existing key
@@ -204,8 +201,8 @@ func TestByKey(t *testing.T) {
 
 func TestByID(t *testing.T) {
 	r := NewRegistry()
-	r.RegisterFactory("plan", newMockFactory("plan", "Plan", "p"))
-	r.RegisterFactory("state", newMockFactory("state", "State", "s"))
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
 	r.Build(nil, nil)
 
 	// Find existing ID
@@ -229,12 +226,11 @@ func TestByKey_EmptyKeyBinding(t *testing.T) {
 	// Plugin with no key binding
 	r.RegisterFactory("nokey", func(_ terraform.Service) Plugin {
 		return &mockPlugin{
-			id:         "nokey",
-			name:       "No Key",
-			keyBinding: "",
-			ready:      true,
+			id:    "nokey",
+			name:  "No Key",
+			ready: true,
 		}
-	})
+	}, PluginMeta{Keybinding: "", MenuVisible: false})
 	r.Build(nil, nil)
 
 	// Should be findable by ID but not by key
@@ -249,5 +245,74 @@ func TestByKey_EmptyKeyBinding(t *testing.T) {
 	}
 	if p.Name() != "No Key" {
 		t.Errorf("ByID(\"nokey\").Name() = %q, want %q", p.Name(), "No Key")
+	}
+}
+
+func TestMenuItems(t *testing.T) {
+	r := NewRegistry()
+	r.RegisterFactory("context", newMockFactory("context", "Context"), PluginMeta{Keybinding: "", MenuVisible: false})
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+	r.Build(nil, nil)
+
+	items := r.MenuItems()
+	if len(items) != 2 {
+		t.Fatalf("MenuItems() length = %d, want 2", len(items))
+	}
+
+	// Should be in registration order
+	if items[0].Key != "s" {
+		t.Errorf("items[0].Key = %q, want %q", items[0].Key, "s")
+	}
+	if items[0].Name != "State" {
+		t.Errorf("items[0].Name = %q, want %q", items[0].Name, "State")
+	}
+	if items[1].Key != "p" {
+		t.Errorf("items[1].Key = %q, want %q", items[1].Key, "p")
+	}
+	if items[1].Name != "Plan" {
+		t.Errorf("items[1].Name = %q, want %q", items[1].Name, "Plan")
+	}
+}
+
+func TestMenuItems_DisabledPlugin(t *testing.T) {
+	r := NewRegistry()
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true})
+	r.RegisterFactory("plan", newMockFactory("plan", "Plan"), PluginMeta{Keybinding: "p", MenuVisible: true})
+
+	falseVal := false
+	configs := map[string]config.PluginConfig{
+		"plan": {Enabled: &falseVal},
+	}
+	r.Build(nil, configs)
+
+	items := r.MenuItems()
+	if len(items) != 1 {
+		t.Fatalf("MenuItems() with disabled plugin: length = %d, want 1", len(items))
+	}
+	if items[0].Name != "State" {
+		t.Errorf("items[0].Name = %q, want %q", items[0].Name, "State")
+	}
+}
+
+func TestBuild_PreservesRegistrationOrder(t *testing.T) {
+	r := NewRegistry()
+	r.RegisterFactory("alpha", newMockFactory("alpha", "Alpha"), PluginMeta{Keybinding: "a", MenuVisible: true})
+	r.RegisterFactory("beta", newMockFactory("beta", "Beta"), PluginMeta{Keybinding: "b", MenuVisible: true})
+	r.RegisterFactory("gamma", newMockFactory("gamma", "Gamma"), PluginMeta{Keybinding: "g", MenuVisible: true})
+	r.Build(nil, nil)
+
+	all := r.All()
+	if len(all) != 3 {
+		t.Fatalf("All() length = %d, want 3", len(all))
+	}
+	if all[0].ID() != "alpha" {
+		t.Errorf("All()[0].ID() = %q, want %q", all[0].ID(), "alpha")
+	}
+	if all[1].ID() != "beta" {
+		t.Errorf("All()[1].ID() = %q, want %q", all[1].ID(), "beta")
+	}
+	if all[2].ID() != "gamma" {
+		t.Errorf("All()[2].ID() = %q, want %q", all[2].ID(), "gamma")
 	}
 }

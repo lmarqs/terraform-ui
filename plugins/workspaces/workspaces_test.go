@@ -65,9 +65,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Manage terraform workspaces" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Manage terraform workspaces")
 	}
-	if p.KeyBinding() != "w" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "w")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before load, want false")
 	}

@@ -83,9 +83,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "View terraform outputs" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "View terraform outputs")
 	}
-	if p.KeyBinding() != "o" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "o")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before data loads, want false")
 	}

@@ -52,9 +52,6 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Apply terraform changes to infrastructure" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Apply terraform changes to infrastructure")
 	}
-	if p.KeyBinding() != "a" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "a")
-	}
 	if p.Ready() {
 		t.Error("Ready() = true before apply completes, want false")
 	}

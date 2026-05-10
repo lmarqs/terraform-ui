@@ -58,7 +58,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "plan" }
 func (e *Plugin) Name() string        { return "Plan" }
 func (e *Plugin) Description() string { return "Review terraform plan changes" }
-func (e *Plugin) KeyBinding() string  { return "p" }
 func (e *Plugin) Ready() bool         { return e.status == StatusDone }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }

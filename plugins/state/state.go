@@ -91,7 +91,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "state" }
 func (e *Plugin) Name() string        { return "State Browser" }
 func (e *Plugin) Description() string { return "Browse and inspect terraform state resources" }
-func (e *Plugin) KeyBinding() string  { return "s" }
 func (e *Plugin) Ready() bool         { return e.status == StatusDone || e.status == StatusShowingDetail }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.tree.Cursor() }

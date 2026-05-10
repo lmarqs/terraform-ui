@@ -67,7 +67,6 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "context" }
 func (e *Plugin) Name() string        { return "Context" }
 func (e *Plugin) Description() string { return "Select terraform project scope" }
-func (e *Plugin) KeyBinding() string  { return "" }
 func (e *Plugin) Ready() bool       { return e.status == StatusDone }
 func (e *Plugin) Status() Status    { return e.status }
 func (e *Plugin) Selected() int     { return e.selected }

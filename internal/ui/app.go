@@ -62,7 +62,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		contentBorder: components.NewContentBorder(),
 		commandBar:    components.NewCommandBar(),
 		statusBar:     components.NewStatusBar(),
-		homeView:      views.NewHomeView(registry.All()),
+		homeView:      views.NewHomeView(registry.MenuItems()),
 	}
 }
 
