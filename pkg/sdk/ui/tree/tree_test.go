@@ -549,13 +549,13 @@ func TestRender_WhenTreeHasContent_ShouldIncludeConnectors(t *testing.T) {
 	output := tree.Render(opts)
 
 	t.Run("ShouldContainBranchConnector", func(t *testing.T) {
-		if !strings.Contains(output, "├──") {
+		if !strings.Contains(output, "├─") {
 			t.Fatal("expected output to contain branch connector")
 		}
 	})
 
 	t.Run("ShouldContainLastChildConnector", func(t *testing.T) {
-		if !strings.Contains(output, "└──") {
+		if !strings.Contains(output, "└─") {
 			t.Fatal("expected output to contain last-child connector")
 		}
 	})

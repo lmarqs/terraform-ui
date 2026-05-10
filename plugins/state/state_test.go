@@ -252,30 +252,30 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 		{Address: "c", Type: "t3"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Move down with arrow
 	p.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if p.selected != 1 {
-		t.Errorf("after down: selected = %d, want 1", p.selected)
+	if p.Selected() != 1 {
+		t.Errorf("after down: selected = %d, want 1", p.Selected())
 	}
 
 	// Move down
 	p.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if p.selected != 2 {
-		t.Errorf("after down,down: selected = %d, want 2", p.selected)
+	if p.Selected() != 2 {
+		t.Errorf("after down,down: selected = %d, want 2", p.Selected())
 	}
 
 	// Boundary
 	p.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if p.selected != 2 {
-		t.Errorf("after down,down,down: selected = %d, want 2 (boundary)", p.selected)
+	if p.Selected() != 2 {
+		t.Errorf("after down,down,down: selected = %d, want 2 (boundary)", p.Selected())
 	}
 
 	// Move up with arrow
 	p.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if p.selected != 1 {
-		t.Errorf("after up: selected = %d, want 1", p.selected)
+	if p.Selected() != 1 {
+		t.Errorf("after up: selected = %d, want 1", p.Selected())
 	}
 }
 
@@ -289,18 +289,18 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 		{Address: "c"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// G moves to end
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
-	if p.selected != 2 {
-		t.Errorf("after G: selected = %d, want 2", p.selected)
+	if p.Selected() != 2 {
+		t.Errorf("after G: selected = %d, want 2", p.Selected())
 	}
 
 	// g moves to start
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
-	if p.selected != 0 {
-		t.Errorf("after g: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("after g: selected = %d, want 0", p.Selected())
 	}
 }
 
@@ -312,7 +312,7 @@ func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
@@ -326,7 +326,7 @@ func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
@@ -369,7 +369,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Enter filter mode via / then type "web"
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -392,7 +392,7 @@ func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Enter filter mode with /, then type
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -414,7 +414,7 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 		{Address: "aws_rds_instance.db", Type: "aws_rds_instance"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Enter filter mode and type 'r' — should filter, not refresh
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -479,23 +479,23 @@ func TestMoveUpDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	p.MoveDown()
-	if p.selected != 1 {
-		t.Errorf("MoveDown: selected = %d, want 1", p.selected)
+	if p.Selected() != 1 {
+		t.Errorf("MoveDown: selected = %d, want 1", p.Selected())
 	}
 	p.MoveDown()
-	if p.selected != 1 {
-		t.Errorf("MoveDown boundary: selected = %d, want 1", p.selected)
+	if p.Selected() != 1 {
+		t.Errorf("MoveDown boundary: selected = %d, want 1", p.Selected())
 	}
 	p.MoveUp()
-	if p.selected != 0 {
-		t.Errorf("MoveUp: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("MoveUp: selected = %d, want 0", p.Selected())
 	}
 	p.MoveUp()
-	if p.selected != 0 {
-		t.Errorf("MoveUp boundary: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("MoveUp boundary: selected = %d, want 0", p.Selected())
 	}
 }
 
@@ -503,15 +503,15 @@ func TestMoveToStartEnd(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	p.MoveToEnd()
-	if p.selected != 2 {
-		t.Errorf("MoveToEnd: selected = %d, want 2", p.selected)
+	if p.Selected() != 2 {
+		t.Errorf("MoveToEnd: selected = %d, want 2", p.Selected())
 	}
 	p.MoveToStart()
-	if p.selected != 0 {
-		t.Errorf("MoveToStart: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("MoveToStart: selected = %d, want 0", p.Selected())
 	}
 }
 
@@ -519,10 +519,10 @@ func TestMoveToEndEmpty(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{}
-	p.computeDisplayItems()
+	p.rebuildTree()
 	p.MoveToEnd()
-	if p.selected != 0 {
-		t.Errorf("MoveToEnd empty: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("MoveToEnd empty: selected = %d, want 0", p.Selected())
 	}
 }
 
@@ -535,15 +535,15 @@ func TestSetFilter(t *testing.T) {
 		{Address: "aws_vpc.main", Type: "aws_vpc", Name: "main", Module: ""},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Filter by "s3"
 	p.SetFilter("s3")
 	if len(p.filtered) != 1 {
 		t.Errorf("SetFilter('s3'): len(filtered) = %d, want 1", len(p.filtered))
 	}
-	if p.selected != 0 {
-		t.Errorf("SetFilter resets selected: got %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("SetFilter resets selected: got %d, want 0", p.Selected())
 	}
 	if p.filter != "s3" {
 		t.Errorf("filter = %q, want %q", p.filter, "s3")
@@ -588,7 +588,7 @@ func TestSetFilterFzf(t *testing.T) {
 		{Address: "module.medprev_online_prd.aws_opensearch_domain.legacy", Type: "aws_opensearch_domain", Name: "legacy", Module: ""},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// fzf ranks best matches first; validate ranking not exact counts
 	t.Run("best match ranked first", func(t *testing.T) {
@@ -677,7 +677,7 @@ func TestAppendFilter(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	p.AppendFilter("a")
 	if p.filter != "a" {
@@ -696,7 +696,7 @@ func TestBackspaceFilter(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 	p.filter = "abc"
 
 	p.BackspaceFilter()
@@ -718,7 +718,7 @@ func TestSelectedResource(t *testing.T) {
 
 	// Empty filtered
 	p.filtered = []sdk.Resource{}
-	p.computeDisplayItems()
+	p.rebuildTree()
 	r := p.SelectedResource()
 	if r.Address != "" {
 		t.Errorf("SelectedResource empty: Address = %q, want empty", r.Address)
@@ -729,8 +729,8 @@ func TestSelectedResource(t *testing.T) {
 		{Address: "a"},
 		{Address: "b"},
 	}
-	p.computeDisplayItems()
-	p.selected = 1
+	p.rebuildTree()
+	p.MoveDown()
 	r = p.SelectedResource()
 	if r.Address != "b" {
 		t.Errorf("SelectedResource: Address = %q, want %q", r.Address, "b")
@@ -743,7 +743,7 @@ func TestInspectSelected(t *testing.T) {
 	p.filtered = []sdk.Resource{
 		{Address: "aws_instance.web"},
 	}
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	cmd := p.InspectSelected()
 	if cmd == nil {
@@ -776,7 +776,13 @@ func TestRefresh(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.selected = 5
+	// Set up some items and move cursor to simulate non-zero selection
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}, {Address: "d"}, {Address: "e"}, {Address: "f"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	for i := 0; i < 5; i++ {
+		p.MoveDown()
+	}
 	p.filter = "something"
 
 	cmd := p.Refresh()
@@ -786,8 +792,8 @@ func TestRefresh(t *testing.T) {
 	if p.status != StatusLoading {
 		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
 	}
-	if p.selected != 0 {
-		t.Errorf("after Refresh: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("after Refresh: selected = %d, want 0", p.Selected())
 	}
 	if p.filter != "" {
 		t.Errorf("after Refresh: filter = %q, want empty", p.filter)
@@ -866,7 +872,7 @@ func TestViewDoneNoResources(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -883,7 +889,7 @@ func TestViewDoneWithResources(t *testing.T) {
 		{Address: "module.vpc.aws_subnet.a", Type: "aws_subnet", Module: "module.vpc"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -899,7 +905,7 @@ func TestViewDoneWithFilter(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 	p.filter = "web"
 
 	view := p.View(80, 24)
@@ -948,7 +954,10 @@ func TestViewScrolling(t *testing.T) {
 	}
 	p.resources = resources
 	p.filtered = resources
-	p.selected = 40
+	p.rebuildTree()
+	for i := 0; i < 40; i++ {
+		p.MoveDown()
+	}
 
 	view := p.View(80, 10)
 	if view == "" {
@@ -989,7 +998,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Enter filter mode, type "ab", then use delete key as backspace
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -1008,7 +1017,7 @@ func TestUpdateKeyMsgSlash(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// "/" key should not crash (handled but empty)
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -1023,16 +1032,16 @@ func TestUpdateKeyMsgDownKey(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	p.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if p.selected != 1 {
-		t.Errorf("after down: selected = %d, want 1", p.selected)
+	if p.Selected() != 1 {
+		t.Errorf("after down: selected = %d, want 1", p.Selected())
 	}
 
 	p.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if p.selected != 0 {
-		t.Errorf("after up: selected = %d, want 0", p.selected)
+	if p.Selected() != 0 {
+		t.Errorf("after up: selected = %d, want 0", p.Selected())
 	}
 }
 
@@ -1042,7 +1051,7 @@ func TestInspectSelectedCmdError(t *testing.T) {
 	p.filtered = []sdk.Resource{
 		{Address: "aws_instance.web"},
 	}
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	cmd := p.InspectSelected()
 	if cmd == nil {
@@ -1064,7 +1073,7 @@ func TestUpdateKeyMsgCtrlH(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 	p.filter = "abc"
 
 	// ctrl+h should work as backspace
@@ -1082,7 +1091,7 @@ func TestHandleKeyDefaultPrintable(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Must enter filter mode first with /
 	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -1133,7 +1142,12 @@ func TestStatusGetter(t *testing.T) {
 
 func TestSelectedGetter(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.selected = 5
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}, {Address: "d"}, {Address: "e"}, {Address: "f"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	for i := 0; i < 5; i++ {
+		p.MoveDown()
+	}
 	if p.Selected() != 5 {
 		t.Errorf("Selected() = %d, want 5", p.Selected())
 	}
@@ -1222,7 +1236,7 @@ func TestHandleKeyFilterMode(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_s3_bucket.b"}}
 	p.filtered = p.resources
-	p.computeDisplayItems()
+	p.rebuildTree()
 
 	// Activate filter mode
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})

@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
 // listFrame is the root frame for the state plugin's resource list.
@@ -30,12 +31,17 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "up":
 		f.plugin.MoveUp()
 	case "enter", "i":
+		node := f.plugin.CursorNode()
+		if node != nil && node.Kind == tree.KindBranch {
+			f.plugin.tree.Toggle()
+			return f, nil
+		}
 		return f, f.plugin.InspectSelected()
 	case "/":
 		f.plugin.filtering = true
 		f.plugin.filter = ""
 		f.plugin.filtered = f.plugin.resources
-		f.plugin.sortPinnedFirst()
+		f.plugin.rebuildTree()
 		f.plugin.stack.Push(&stateFilterFrame{
 			plugin: f.plugin,
 			inner: frames.NewFilterFrame(frames.FilterOpts{
@@ -43,11 +49,11 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 				OnSelect:   func() tea.Cmd { return f.plugin.InspectSelected() },
 				OnNavigate: func(dir int) { f.plugin.navigate(dir) },
 				OnPin: func() tea.Cmd {
-					r := f.plugin.SelectedResource()
-					if r.Address != "" {
-						return f.plugin.togglePin(r.Address)
+					node := f.plugin.CursorNode()
+					if node == nil {
+						return nil
 					}
-					return nil
+					return f.plugin.togglePin(node.Path)
 				},
 			}),
 		})
@@ -66,38 +72,22 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.MoveToStart()
 	case "w":
 		f.plugin.detailWrap = !f.plugin.detailWrap
-		f.plugin.listHScroll = 0
 	case "ctrl+w":
 		f.plugin.detailWrap = !f.plugin.detailWrap
 		f.plugin.detailScroll = 0
 		f.plugin.detailHScroll = 0
-		f.plugin.listHScroll = 0
 	case "right":
-		f.plugin.panRight()
+		f.plugin.tree.ExpandFocused()
 	case "left":
-		f.plugin.panLeft()
+		f.plugin.tree.CollapseFocused()
 	case "]":
-		if f.plugin.depth < f.plugin.maxDepth() {
-			f.plugin.depth++
-			f.plugin.computeDisplayItems()
-			f.plugin.selected = 0
-			f.plugin.listHScroll = 0
-		}
+		f.plugin.tree.ExpandAll()
 	case "[":
-		if f.plugin.depth > 0 {
-			f.plugin.depth--
-			f.plugin.computeDisplayItems()
-			f.plugin.selected = 0
-			f.plugin.listHScroll = 0
-		}
+		f.plugin.tree.CollapseAll()
 	case " ":
-		item := f.plugin.SelectedItem()
-		if item.IsGroup {
-			return f, f.plugin.togglePin(item.GroupPath)
-		}
-		r := f.plugin.SelectedResource()
-		if r.Address != "" {
-			return f, f.plugin.togglePin(r.Address)
+		node := f.plugin.CursorNode()
+		if node != nil {
+			return f, f.plugin.togglePin(node.Path)
 		}
 	case "d":
 		r := f.plugin.SelectedResource()
@@ -125,7 +115,8 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		sdk.HintDelete,
 		sdk.HintEdit,
 		sdk.HintFilter,
-		{Key: "[/]", Description: fmt.Sprintf("depth(%d)", f.plugin.depth)},
+		{Key: "[/]", Description: "collapse/expand all"},
+		{Key: "←/→", Description: "collapse/expand"},
 		{Key: "^w", Description: fmt.Sprintf("wrap(%s)", wrapLabel(f.plugin.detailWrap))},
 		sdk.HintBack,
 	}

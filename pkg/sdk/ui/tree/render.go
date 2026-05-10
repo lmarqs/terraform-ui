@@ -93,22 +93,20 @@ func (t *Tree) buildConnectors(node *Node) string {
 		return ""
 	}
 
-	// Build connector for current level
 	var connector string
 	if node.IsLast {
-		connector = "└── "
+		connector = "└─"
 	} else {
-		connector = "├── "
+		connector = "├─"
 	}
 
-	// Build ancestor connectors by walking up the flattened list
 	ancestors := t.getAncestorContinuations(node)
 	var prefix strings.Builder
 	for i := 0; i < node.Depth-1; i++ {
 		if i < len(ancestors) && ancestors[i] {
-			prefix.WriteString("│   ")
+			prefix.WriteString("│ ")
 		} else {
-			prefix.WriteString("    ")
+			prefix.WriteString("  ")
 		}
 	}
 

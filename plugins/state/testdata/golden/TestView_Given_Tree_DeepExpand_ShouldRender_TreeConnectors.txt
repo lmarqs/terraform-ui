@@ -1,0 +1,15 @@
+
+  State Browser
+
+    ▶ module.cloudwatch (3)
+    ▼ module.medprev_online (6)
+    ├─▼ module.medprev_api (3)
+    │ ├─aws_api_gateway_rest_api.this  aws_api_gateway_rest_api
+    │ ├─aws_lambda_function.api  aws_lambda_function
+    │ └─aws_lambda_function.worker  aws_lambda_function
+    └─▶ module.postgresql_proxy (3)
+    aws_dynamodb_table.terraform_locks  aws_dynamodb_table
+    aws_s3_bucket.terraform_state  aws_s3_bucket
+
+  11 resources
+  ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

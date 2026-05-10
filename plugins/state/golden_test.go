@@ -30,14 +30,12 @@ func testResources() []sdk.Resource {
 func TestView_Given_Idle_ShouldRender_LoadingPlaceholder(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusIdle
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Loading_ShouldRender_LoadingMessage(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusLoading
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -45,7 +43,6 @@ func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusError
 	p.errMsg = "Failed to read state: no state file found"
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -57,7 +54,6 @@ func TestView_Given_ErrorWithLock_ShouldRender_LockPanel(t *testing.T) {
 		Who:       "user@machine",
 		Operation: "OperationTypePlan",
 	}
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -66,8 +62,7 @@ func TestView_Given_ResourceList_ShouldRender_AllResources(t *testing.T) {
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
-	p.computeDisplayItems()
-
+	p.rebuildTree()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -76,9 +71,9 @@ func TestView_Given_ResourceList_WithSelection_ShouldRender_HighlightedRow(t *te
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
-	p.computeDisplayItems()
-	p.selected = 2
-
+	p.rebuildTree()
+	p.tree.MoveDown()
+	p.tree.MoveDown()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -89,10 +84,9 @@ func TestView_Given_FilterActive_ShouldRender_FilterInput(t *testing.T) {
 	p.filtered = []sdk.Resource{
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data"},
 	}
-	p.computeDisplayItems()
+	p.rebuildTree()
 	p.filter = "s3"
 	p.filtering = true
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -103,10 +97,9 @@ func TestView_Given_FilterInactive_ShouldRender_FilterLabel(t *testing.T) {
 	p.filtered = []sdk.Resource{
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data"},
 	}
-	p.computeDisplayItems()
+	p.rebuildTree()
 	p.filter = "s3"
 	p.filtering = false
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -115,8 +108,7 @@ func TestView_Given_EmptyResourceList_ShouldRender_NoResourcesMessage(t *testing
 	p.status = StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
-	p.computeDisplayItems()
-
+	p.rebuildTree()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -125,10 +117,9 @@ func TestView_Given_PinnedResources_ShouldRender_PinMarkers(t *testing.T) {
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
-	p.computeDisplayItems()
 	p.session = sdk.NewSession()
 	p.session.Set("terraform.pinned", []string{"aws_instance.web", "aws_s3_bucket.data"})
-
+	p.rebuildTree()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -145,7 +136,6 @@ func TestView_Given_DetailView_ShouldRender_ExpandedAttributes(t *testing.T) {
     "Environment": "production"
   }
 }`
-
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -156,8 +146,91 @@ func TestView_Given_DetailView_WithPinned_ShouldRender_PinnedIndicator(t *testin
 	p.detail = `{"id": "i-0abc123def456"}`
 	p.session = sdk.NewSession()
 	p.session.Set("terraform.pinned", []string{"aws_instance.web"})
-
 	sdktest.AssertGolden(t, p.View(80, 18))
+}
+
+func realisticResources() []sdk.Resource {
+	return []sdk.Resource{
+		{Address: "module.medprev_online.module.postgresql_proxy.aws_db_proxy.this[0]", Type: "aws_db_proxy", Module: "module.medprev_online.module.postgresql_proxy"},
+		{Address: "module.medprev_online.module.postgresql_proxy.aws_db_proxy_default_target_group.this[0]", Type: "aws_db_proxy_default_target_group", Module: "module.medprev_online.module.postgresql_proxy"},
+		{Address: "module.medprev_online.module.postgresql_proxy.aws_db_proxy_endpoint.read_only[0]", Type: "aws_db_proxy_endpoint", Module: "module.medprev_online.module.postgresql_proxy"},
+		{Address: "module.medprev_online.module.medprev_api.aws_lambda_function.api", Type: "aws_lambda_function", Module: "module.medprev_online.module.medprev_api"},
+		{Address: "module.medprev_online.module.medprev_api.aws_lambda_function.worker", Type: "aws_lambda_function", Module: "module.medprev_online.module.medprev_api"},
+		{Address: "module.medprev_online.module.medprev_api.aws_api_gateway_rest_api.this", Type: "aws_api_gateway_rest_api", Module: "module.medprev_online.module.medprev_api"},
+		{Address: "module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high", Type: "aws_cloudwatch_metric_alarm", Module: "module.cloudwatch"},
+		{Address: "module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high", Type: "aws_cloudwatch_metric_alarm", Module: "module.cloudwatch"},
+		{Address: "module.cloudwatch.aws_cloudwatch_dashboard.main", Type: "aws_cloudwatch_dashboard", Module: "module.cloudwatch"},
+		{Address: "aws_s3_bucket.terraform_state", Type: "aws_s3_bucket"},
+		{Address: "aws_dynamodb_table.terraform_locks", Type: "aws_dynamodb_table"},
+	}
+}
+
+func TestView_Given_Tree_AllCollapsed_ShouldRender_ModuleGroups(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.rebuildTree()
+	sdktest.AssertGolden(t, p.View(80, 18))
+}
+
+func TestView_Given_Tree_OneModuleExpanded_ShouldRender_Children(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.rebuildTree()
+	// Expand module.cloudwatch (first in alphabetical order)
+	p.tree.Toggle()
+	sdktest.AssertGolden(t, p.View(80, 18))
+}
+
+func TestView_Given_Tree_NestedExpanded_ShouldRender_FullHierarchy(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.rebuildTree()
+	// Expand all to show full tree
+	p.tree.ExpandAll()
+	sdktest.AssertGolden(t, p.View(80, 24))
+}
+
+func TestView_Given_Tree_PinnedModule_ShouldRender_PinOnGroup(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.session = sdk.NewSession()
+	p.session.Set("terraform.pinned", []string{"module.cloudwatch"})
+	p.rebuildTree()
+	sdktest.AssertGolden(t, p.View(80, 18))
+}
+
+func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.rebuildTree()
+	// Expand medprev_online but keep its children collapsed
+	p.tree.MoveDown() // move to module.medprev_online
+	p.tree.Toggle()   // expand it — shows sub-modules collapsed
+	sdktest.AssertGolden(t, p.View(80, 18))
+}
+
+func TestView_Given_Tree_DeepExpand_ShouldRender_TreeConnectors(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.rebuildTree()
+	// Expand medprev_online and then postgresql_proxy
+	p.tree.MoveDown() // module.medprev_online
+	p.tree.Toggle()   // expand
+	p.tree.MoveDown() // module.medprev_api (first child)
+	p.tree.Toggle()   // expand medprev_api
+	sdktest.AssertGolden(t, p.View(80, 24))
 }
 
 func TestView_Given_ManyResources_ShouldRender_ScrolledWindow(t *testing.T) {
@@ -169,13 +242,13 @@ func TestView_Given_ManyResources_ShouldRender_ScrolledWindow(t *testing.T) {
 			Name:    fmt.Sprintf("server_%02d", i),
 		}
 	}
-
 	p := newGoldenPlugin()
 	p.status = StatusDone
 	p.resources = resources
 	p.filtered = resources
-	p.computeDisplayItems()
-	p.selected = 15
-
+	p.rebuildTree()
+	for i := 0; i < 15; i++ {
+		p.tree.MoveDown()
+	}
 	sdktest.AssertGolden(t, p.View(80, 18))
 }

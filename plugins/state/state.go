@@ -9,10 +9,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/junegunn/fzf/src/algo"
 	"github.com/junegunn/fzf/src/util"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
 // Status represents the current state of the state browser plugin.
@@ -44,15 +44,12 @@ type ForceUnlockResultMsg struct {
 	Err error
 }
 
-// DisplayItem represents a single row in the state list view.
-// At depth 0, every item is a resource. At depth > 0, resources
-// are grouped by module prefix and shown as group headers with counts.
-type DisplayItem struct {
-	IsGroup   bool
-	GroupPath string
-	Count     int
-	Resource  sdk.Resource
+// resourceItem wraps sdk.Resource to implement tree.Item.
+type resourceItem struct {
+	resource sdk.Resource
 }
+
+func (r resourceItem) Address() string { return r.resource.Address }
 
 // Plugin implements the state browser feature.
 type Plugin struct {
@@ -63,14 +60,11 @@ type Plugin struct {
 	status        Status
 	resources     []sdk.Resource
 	filtered      []sdk.Resource
-	displayItems  []DisplayItem
+	tree          *tree.Tree
 	filter        string
 	filtering     bool
-	depth         int
 	errMsg        string
 	lockInfo      *sdk.StateLock
-	selected      int
-	listHScroll   int
 	viewWidth     int
 	detail        string
 	detailAddr    string
@@ -83,8 +77,9 @@ type Plugin struct {
 // New creates a new state browser plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		svc: svc,
-		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		svc:  svc,
+		log:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+		tree: tree.New(nil),
 	}
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
@@ -97,7 +92,7 @@ func (e *Plugin) Description() string { return "Browse and inspect terraform sta
 func (e *Plugin) KeyBinding() string  { return "s" }
 func (e *Plugin) Ready() bool         { return e.status == StatusDone || e.status == StatusShowingDetail }
 func (e *Plugin) Status() Status      { return e.status }
-func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Selected() int       { return e.tree.Cursor() }
 func (e *Plugin) Filter() string      { return e.filter }
 func (e *Plugin) Filtering() bool     { return e.filtering }
 func (e *Plugin) ResourceCount() int  { return len(e.filtered) }
@@ -118,10 +113,10 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.status = StatusIdle
 	e.resources = nil
 	e.filtered = nil
+	e.tree = tree.New(nil)
 	e.filter = ""
 	e.filtering = false
 	e.errMsg = ""
-	e.selected = 0
 	e.detail = ""
 	e.detailAddr = ""
 	return nil
@@ -137,10 +132,10 @@ func (e *Plugin) Activate() tea.Cmd {
 			e.status = StatusIdle
 			e.resources = nil
 			e.filtered = nil
+			e.tree = tree.New(nil)
 			e.filter = ""
 			e.filtering = false
 			e.errMsg = ""
-			e.selected = 0
 			e.detail = ""
 			e.detailAddr = ""
 			e.scopedContext = currentContext
@@ -173,11 +168,11 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.status = StatusLoading
 	e.resources = nil
 	e.filtered = nil
+	e.tree = tree.New(nil)
 	e.filter = ""
 	e.filtering = false
 	e.errMsg = ""
 	e.lockInfo = nil
-	e.selected = 0
 	e.detail = ""
 	e.detailAddr = ""
 	if e.stack != nil {
@@ -215,8 +210,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.status = StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
-			e.sortPinnedFirst()
-			e.computeDisplayItems()
+			e.rebuildTree()
 			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
 		}
 		return e, nil
@@ -264,28 +258,22 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 // MoveUp moves selection up.
 func (e *Plugin) MoveUp() {
-	if e.selected > 0 {
-		e.selected--
-	}
+	e.tree.MoveUp()
 }
 
 // MoveDown moves selection down.
 func (e *Plugin) MoveDown() {
-	if e.selected < len(e.displayItems)-1 {
-		e.selected++
-	}
+	e.tree.MoveDown()
 }
 
 // MoveToStart moves selection to the first item.
 func (e *Plugin) MoveToStart() {
-	e.selected = 0
+	e.tree.MoveToStart()
 }
 
 // MoveToEnd moves selection to the last item.
 func (e *Plugin) MoveToEnd() {
-	if len(e.displayItems) > 0 {
-		e.selected = len(e.displayItems) - 1
-	}
+	e.tree.MoveToEnd()
 }
 
 func (e *Plugin) navigate(dir int) {
@@ -293,28 +281,6 @@ func (e *Plugin) navigate(dir int) {
 		e.MoveDown()
 	} else {
 		e.MoveUp()
-	}
-}
-
-func (e *Plugin) panRight() {
-	contentWidth := e.viewWidth - 6
-	if contentWidth < 40 {
-		contentWidth = 40
-	}
-	maxScroll := e.maxAddressLen() - contentWidth
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	e.listHScroll += 10
-	if e.listHScroll > maxScroll {
-		e.listHScroll = maxScroll
-	}
-}
-
-func (e *Plugin) panLeft() {
-	e.listHScroll -= 10
-	if e.listHScroll < 0 {
-		e.listHScroll = 0
 	}
 }
 
@@ -346,35 +312,14 @@ func (e *Plugin) panDetailLeft() {
 	}
 }
 
-func (e *Plugin) maxAddressLen() int {
-	max := 0
-	for _, item := range e.displayItems {
-		var l int
-		if item.IsGroup {
-			l = len(item.GroupPath) + 10
-		} else {
-			l = len(item.Resource.Address) + len(item.Resource.Type) + 4
-			if item.Resource.Module != "" {
-				l += len(item.Resource.Module) + 3
-			}
-		}
-		if l > max {
-			max = l
-		}
-	}
-	return max
-}
-
 // SetFilter filters resources using fzf's FuzzyMatchV2 algorithm.
 // Space-separated terms use AND logic. Results sorted by score (best first),
 // with pinned items always at the top.
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
-	e.selected = 0
 	if filter == "" {
 		e.filtered = e.resources
-		e.sortPinnedFirst()
-		e.computeDisplayItems()
+		e.rebuildTree()
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
@@ -408,147 +353,27 @@ func (e *Plugin) SetFilter(filter string) {
 	for i, r := range results {
 		e.filtered[i] = r.resource
 	}
-	e.sortPinnedFirst()
-	e.computeDisplayItems()
+	e.rebuildTree()
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
-// sortPinnedFirst moves pinned resources to the top of the filtered list
-// while preserving their relative order.
-func (e *Plugin) sortPinnedFirst() {
+// rebuildTree reconstructs the tree from filtered resources, syncing pinned state.
+func (e *Plugin) rebuildTree() {
+	items := make([]tree.Item, len(e.filtered))
+	for i, r := range e.filtered {
+		items[i] = resourceItem{resource: r}
+	}
+	e.tree.SetItems(items)
+	e.syncPinnedToTree()
+}
+
+// syncPinnedToTree updates the tree's pinned set from session state.
+func (e *Plugin) syncPinnedToTree() {
 	if e.session == nil {
 		return
 	}
 	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	if len(pinned) == 0 {
-		return
-	}
-	pinnedSet := make(map[string]bool, len(pinned))
-	for _, a := range pinned {
-		pinnedSet[a] = true
-	}
-	sort.SliceStable(e.filtered, func(i, j int) bool {
-		pi := pinnedSet[e.filtered[i].Address]
-		pj := pinnedSet[e.filtered[j].Address]
-		if pi != pj {
-			return pi
-		}
-		return false
-	})
-}
-
-// computeDisplayItems builds the visible item list from filtered resources
-// based on the current depth setting.
-func (e *Plugin) computeDisplayItems() {
-	if e.depth == 0 {
-		e.displayItems = make([]DisplayItem, len(e.filtered))
-		for i, r := range e.filtered {
-			e.displayItems[i] = DisplayItem{Resource: r}
-		}
-		return
-	}
-
-	type group struct {
-		path  string
-		count int
-	}
-	groups := make(map[string]*group)
-	var order []string
-	var items []DisplayItem
-
-	for _, r := range e.filtered {
-		prefix := modulePrefix(r.Address, e.depth)
-		if prefix == "" {
-			items = append(items, DisplayItem{Resource: r})
-		} else {
-			if g, ok := groups[prefix]; ok {
-				g.count++
-			} else {
-				groups[prefix] = &group{path: prefix, count: 1}
-				order = append(order, prefix)
-			}
-		}
-	}
-
-	// Pinned groups float to top
-	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	pinnedSet := make(map[string]bool, len(pinned))
-	for _, a := range pinned {
-		pinnedSet[a] = true
-	}
-
-	sort.SliceStable(order, func(i, j int) bool {
-		pi := pinnedSet[order[i]]
-		pj := pinnedSet[order[j]]
-		if pi != pj {
-			return pi
-		}
-		return false
-	})
-
-	e.displayItems = nil
-	for _, path := range order {
-		g := groups[path]
-		e.displayItems = append(e.displayItems, DisplayItem{
-			IsGroup:   true,
-			GroupPath: path,
-			Count:     g.count,
-		})
-	}
-	e.displayItems = append(e.displayItems, items...)
-}
-
-// maxDepth returns the deepest module nesting level across all filtered resources.
-func (e *Plugin) maxDepth() int {
-	max := 0
-	for _, r := range e.filtered {
-		d := moduleDepth(r.Address)
-		if d > max {
-			max = d
-		}
-	}
-	return max
-}
-
-// moduleDepth counts how many module segments an address has.
-func moduleDepth(address string) int {
-	parts := strings.Split(address, ".")
-	count := 0
-	for i := 0; i < len(parts); i++ {
-		if parts[i] == "module" && i+1 < len(parts) {
-			count++
-			i++
-		} else {
-			break
-		}
-	}
-	return count
-}
-
-// modulePrefix extracts the first `depth` module segments from a resource address.
-func modulePrefix(address string, depth int) string {
-	parts := strings.Split(address, ".")
-	segCount := 0
-	endIdx := 0
-	for i := 0; i < len(parts); i++ {
-		if parts[i] == "module" && i+1 < len(parts) {
-			segCount++
-			endIdx = i + 2
-			if segCount >= depth {
-				break
-			}
-			i++
-		} else {
-			break
-		}
-	}
-	if segCount == 0 {
-		return ""
-	}
-	if endIdx > len(parts) {
-		endIdx = len(parts)
-	}
-	return strings.Join(parts[:endIdx], ".")
+	e.tree.SetPinned(pinned)
 }
 
 // AppendFilter adds a character to the filter.
@@ -563,23 +388,18 @@ func (e *Plugin) BackspaceFilter() {
 	}
 }
 
-// SelectedResource returns the currently selected resource (empty if group header).
+// SelectedResource returns the currently selected resource (empty if on branch node).
 func (e *Plugin) SelectedResource() sdk.Resource {
-	if e.selected < len(e.displayItems) {
-		item := e.displayItems[e.selected]
-		if !item.IsGroup {
-			return item.Resource
-		}
+	item := e.tree.CursorItem()
+	if item != nil {
+		return item.(resourceItem).resource
 	}
 	return sdk.Resource{}
 }
 
-// SelectedItem returns the display item at the cursor position.
-func (e *Plugin) SelectedItem() DisplayItem {
-	if e.selected < len(e.displayItems) {
-		return e.displayItems[e.selected]
-	}
-	return DisplayItem{}
+// CursorNode returns the tree node at the cursor position.
+func (e *Plugin) CursorNode() *tree.Node {
+	return e.tree.CursorNode()
 }
 
 // InspectSelected loads detail for the selected resource (enter = inspect, like k9s).
@@ -589,7 +409,7 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	}
 	r := e.SelectedResource()
 	if r.Address == "" {
-		e.log.Debug("state.inspect.skip", "reason", "empty address", "selected", e.selected, "filtered", len(e.filtered))
+		e.log.Debug("state.inspect.skip", "reason", "empty address", "cursor", e.tree.Cursor(), "filtered", len(e.filtered))
 		return nil
 	}
 	e.log.Debug("state.inspect.start", "address", r.Address)
@@ -654,12 +474,10 @@ func (e *Plugin) renderResources(width, height int) string {
 		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
 	}
 
-	if len(e.displayItems) == 0 {
+	if e.tree.VisibleCount() == 0 {
 		noResources := sdk.StyleFaintItalic.Render("No resources found.")
 		return sdk.StylePadded.Render(title + "\n\n" + filterLine + noResources)
 	}
-
-	var b strings.Builder
 
 	// Calculate visible area
 	maxVisible := height - 7
@@ -667,41 +485,34 @@ func (e *Plugin) renderResources(width, height int) string {
 		maxVisible = 3
 	}
 
-	startIdx := 0
-	if e.selected >= maxVisible {
-		startIdx = e.selected - maxVisible + 1
-	}
-	endIdx := startIdx + maxVisible
-	if endIdx > len(e.displayItems) {
-		endIdx = len(e.displayItems)
-	}
-
 	contentWidth := width - 6
-	rowStyle := lipgloss.NewStyle().MaxWidth(contentWidth)
-	for i := startIdx; i < endIdx; i++ {
-		item := e.displayItems[i]
-		var row string
-		if item.IsGroup {
-			row = e.renderGroupRow(item)
-		} else if e.detailWrap {
-			row = e.renderResourceRow(item.Resource, 0)
-		} else {
-			row = e.renderResourceRow(item.Resource, e.listHScroll)
-			row = rowStyle.Render(row)
-		}
-		if i == e.selected {
-			row = sdk.StyleSelected.Width(contentWidth).Render(row)
-		}
-		b.WriteString(row)
-		b.WriteByte('\n')
-	}
+
+	treeContent := e.tree.Render(tree.RenderOpts{
+		Width:  contentWidth,
+		Height: maxVisible,
+		RenderLeaf: func(node *tree.Node, pinned bool) string {
+			r := node.Item.(resourceItem).resource
+			typeInfo := sdk.StyleFaint.Render(r.Type)
+			return fmt.Sprintf("%s  %s", node.Label, typeInfo)
+		},
+		RenderBranch: func(node *tree.Node, pinned bool) string {
+			indicator := "▶"
+			if node.Expanded {
+				indicator = "▼"
+			}
+			path := sdk.StyleKey.Render(node.Label)
+			count := sdk.StyleFaint.Render(fmt.Sprintf(" (%d)", node.Count))
+			return fmt.Sprintf("%s %s%s", indicator, path, count)
+		},
+		PinIndicator: sdk.StyleSuccess.Render("* "),
+		SelectedStyle: func(s string, w int) string {
+			return sdk.StyleSelected.Width(w).Render(s)
+		},
+	})
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d resources", len(e.filtered)))
 	if len(e.filtered) != len(e.resources) {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
-	}
-	if e.depth > 0 {
-		count += "  " + sdk.StyleFaint.Render(fmt.Sprintf("depth %d", e.depth))
 	}
 
 	wrapLabel := "off"
@@ -715,37 +526,13 @@ func (e *Plugin) renderResources(width, height int) string {
 		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(%s)", wrapLabel))
 	}
 
-	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
+	content := title + "\n\n" + filterLine + treeContent + "\n\n" + count + "\n" + hint
 	return sdk.StylePadded.Render(content)
 }
 
-func (e *Plugin) renderGroupRow(item DisplayItem) string {
-	pinMark := "  "
-	if e.isPinnedAddress(item.GroupPath) {
-		pinMark = sdk.StyleSuccess.Render("* ")
-	}
-	path := sdk.StyleKey.Render(item.GroupPath)
-	count := sdk.StyleFaint.Render(fmt.Sprintf(" (%d)", item.Count))
-	return fmt.Sprintf("%s%s%s", pinMark, path, count)
-}
-
-func (e *Plugin) renderResourceRow(r sdk.Resource, hscroll int) string {
-	pinMark := "  "
-	if e.isPinnedAddress(r.Address) {
-		pinMark = sdk.StyleSuccess.Render("* ")
-	}
-
-	address := r.Address
-	if hscroll > 0 {
-		if hscroll < len(address) {
-			address = address[hscroll:]
-		} else {
-			address = ""
-		}
-	}
+func (e *Plugin) renderResourceRow(r sdk.Resource) string {
 	typeInfo := sdk.StyleFaint.Render(r.Type)
-
-	row := fmt.Sprintf("%s%s  %s", pinMark, address, typeInfo)
+	row := fmt.Sprintf("%s  %s", r.Address, typeInfo)
 	if r.Module != "" {
 		module := sdk.StyleKey.Render(fmt.Sprintf("[%s]", r.Module))
 		row += " " + module
@@ -865,16 +652,14 @@ func (e *Plugin) togglePin(address string) tea.Cmd {
 			pinned = append(pinned[:i], pinned[i+1:]...)
 			e.session.Set("terraform.pinned", pinned)
 			e.log.Debug("state.unpin", "address", address)
-			e.sortPinnedFirst()
-			e.computeDisplayItems()
+			e.tree.SetPinned(pinned)
 			return nil
 		}
 	}
 	pinned = append(pinned, address)
 	e.session.Set("terraform.pinned", pinned)
 	e.log.Debug("state.pin", "address", address)
-	e.sortPinnedFirst()
-	e.computeDisplayItems()
+	e.tree.SetPinned(pinned)
 	return nil
 }
 
