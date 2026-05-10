@@ -62,6 +62,7 @@ type Plugin struct {
 	filtered      []sdk.Resource
 	tree          *tree.Tree
 	treeMode      bool
+	filterScores  map[string]int
 	filter        string
 	filtering     bool
 	errMsg        string
@@ -337,9 +338,11 @@ func (e *Plugin) SetFilter(filter string) {
 func (e *Plugin) filterForTree(filter string) {
 	terms := strings.Fields(strings.ToLower(filter))
 	var results []sdk.Resource
+	e.filterScores = make(map[string]int)
 	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
 		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
+		totalScore := 0
 		matched := true
 		for _, term := range terms {
 			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
@@ -348,8 +351,10 @@ func (e *Plugin) filterForTree(filter string) {
 				matched = false
 				break
 			}
+			totalScore += res.Score
 		}
 		if matched {
+			e.filterScores[r.Address] = totalScore
 			results = append(results, r)
 		}
 	}
@@ -537,7 +542,13 @@ func (e *Plugin) renderResources(width, height int) string {
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
 				r := node.Item.(resourceItem).resource
 				typeInfo := sdk.StyleFaint.Render(r.Type)
-				return fmt.Sprintf("%s  %s", node.Label, typeInfo)
+				row := fmt.Sprintf("%s  %s", node.Label, typeInfo)
+				if e.filter != "" {
+					if score, ok := e.filterScores[r.Address]; ok {
+						row += sdk.StyleFaint.Render(fmt.Sprintf(" [%d]", score))
+					}
+				}
+				return row
 			},
 			RenderBranch: func(node *tree.Node, pinned bool) string {
 				indicator := "▶"
