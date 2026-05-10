@@ -57,3 +57,4 @@ func (f *ConfirmFrame) Hints() []sdk.KeyHint {
 		{Key: "n", Description: "cancel"},
 	}
 }
+

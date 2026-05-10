@@ -8,6 +8,24 @@ type KeyHint struct {
 	Description string
 }
 
+// Common hints reusable across plugins.
+var (
+	HintNavigate = KeyHint{Key: "↑↓", Description: "navigate"}
+	HintScroll   = KeyHint{Key: "↑↓", Description: "scroll"}
+	HintPan      = KeyHint{Key: "←→", Description: "pan"}
+	HintBack     = KeyHint{Key: "q", Description: "back"}
+	HintRefresh  = KeyHint{Key: "r", Description: "refresh"}
+	HintRetry    = KeyHint{Key: "r", Description: "retry"}
+	HintFilter   = KeyHint{Key: "/", Description: "filter"}
+	HintPin      = KeyHint{Key: "Space", Description: "pin"}
+	HintDelete   = KeyHint{Key: "d", Description: "delete"}
+	HintEdit     = KeyHint{Key: "e", Description: "edit"}
+	HintInspect  = KeyHint{Key: "Enter", Description: "inspect"}
+	HintSelect   = KeyHint{Key: "Enter", Description: "select"}
+	HintConfirm  = KeyHint{Key: "Enter", Description: "confirm"}
+	HintCancel   = KeyHint{Key: "Esc", Description: "cancel"}
+)
+
 // Frame is a composable view layer that lives in a navigation stack.
 // Input is always routed to the topmost frame. Each frame renders its
 // own view and declares which key hints to show.
