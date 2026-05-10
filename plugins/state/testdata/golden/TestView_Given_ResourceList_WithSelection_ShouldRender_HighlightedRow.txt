@@ -1,0 +1,11 @@
+
+  State Browser
+
+    aws_instance.web  aws_instance
+    aws_s3_bucket.data  aws_s3_bucket
+    module.vpc.aws_subnet.public  aws_subnet [module.vpc]
+    aws_security_group.allow_ssh  aws_security_group
+    aws_iam_role.lambda_exec  aws_iam_role
+
+  5 resources
+  ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)
