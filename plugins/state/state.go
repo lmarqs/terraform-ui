@@ -49,6 +49,7 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	session       *sdk.Session
+	stack         *sdk.Stack
 	status        Status
 	resources     []sdk.Resource
 	filtered      []sdk.Resource
@@ -69,10 +70,13 @@ type Plugin struct {
 
 // New creates a new state browser plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
+	p := &Plugin{
 		svc: svc,
 		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
+	p.stack = sdk.NewStack()
+	p.stack.Push(&listFrame{plugin: p})
+	return p
 }
 
 func (e *Plugin) ID() string          { return "state" }
@@ -86,6 +90,7 @@ func (e *Plugin) Filter() string      { return e.filter }
 func (e *Plugin) Filtering() bool     { return e.filtering }
 func (e *Plugin) ResourceCount() int  { return len(e.filtered) }
 func (e *Plugin) TotalCount() int     { return len(e.resources) }
+func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
@@ -97,6 +102,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
 	e.session = ctx.Session
+	e.stack.Clear()
 	e.status = StatusIdle
 	e.resources = nil
 	e.filtered = nil
@@ -162,6 +168,9 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.selected = 0
 	e.detail = ""
 	e.detailAddr = ""
+	if e.stack != nil {
+		e.stack.Clear()
+	}
 	return e.loadState()
 }
 
@@ -224,176 +233,19 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.detailAddr = msg.Address
 			e.status = StatusShowingDetail
 			e.log.Debug("state.inspect", "address", msg.Address)
+			e.stack.Push(&detailFrame{plugin: e})
 		}
 		return e, nil
 
 	case tea.KeyMsg:
-		cmd := e.handleKey(msg)
+		cmd := e.stack.Update(msg)
 		return e, cmd
 	}
 	return e, nil
 }
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Global: ctrl+w toggles wrap from any mode
-	if msg.String() == "ctrl+w" {
-		e.detailWrap = !e.detailWrap
-		e.detailScroll = 0
-		e.detailHScroll = 0
-		e.listHScroll = 0
-		return nil
-	}
-
-	// Detail view — scroll, pan, wrap, and context actions
-	if e.status == StatusShowingDetail {
-		switch msg.String() {
-		case "esc":
-			e.status = StatusDone
-			e.detail = ""
-			e.detailAddr = ""
-			e.detailScroll = 0
-			e.detailHScroll = 0
-		case "down":
-			e.detailScroll++
-		case "up":
-			if e.detailScroll > 0 {
-				e.detailScroll--
-			}
-		case "right":
-			maxLine := 0
-			for _, line := range strings.Split(e.detail, "\n") {
-				if len(line) > maxLine {
-					maxLine = len(line)
-				}
-			}
-			contentWidth := e.viewWidth - 6
-			if contentWidth < 40 {
-				contentWidth = 40
-			}
-			maxScroll := maxLine - contentWidth
-			if maxScroll < 0 {
-				maxScroll = 0
-			}
-			e.detailHScroll += 10
-			if e.detailHScroll > maxScroll {
-				e.detailHScroll = maxScroll
-			}
-		case "left":
-			e.detailHScroll -= 10
-			if e.detailHScroll < 0 {
-				e.detailHScroll = 0
-			}
-		case "w":
-			e.detailWrap = !e.detailWrap
-			e.detailScroll = 0
-			e.detailHScroll = 0
-		case " ":
-			return e.togglePin(e.detailAddr)
-		case "d":
-			return e.requestDelete(e.detailAddr)
-		case "e":
-			return e.requestEdit(e.detailAddr)
-		}
-		return nil
-	}
-
-	// List pan: left/right work in both filter and normal modes
-	switch msg.String() {
-	case "right":
-		contentWidth := e.viewWidth - 6
-		if contentWidth < 40 {
-			contentWidth = 40
-		}
-		maxScroll := e.maxAddressLen() - contentWidth
-		if maxScroll < 0 {
-			maxScroll = 0
-		}
-		e.listHScroll += 10
-		if e.listHScroll > maxScroll {
-			e.listHScroll = maxScroll
-		}
-		return nil
-	case "left":
-		e.listHScroll -= 10
-		if e.listHScroll < 0 {
-			e.listHScroll = 0
-		}
-		return nil
-	}
-
-	// Filter mode: typing goes to filter, navigation and enter still work
-	if e.filtering {
-		switch msg.String() {
-		case "esc":
-			e.filtering = false
-			return nil
-		case "enter", "i":
-			return e.InspectSelected()
-		case "/":
-			return nil
-		case "down":
-			e.MoveDown()
-			return nil
-		case "up":
-			e.MoveUp()
-			return nil
-		case "backspace", "ctrl+h", "delete":
-			e.BackspaceFilter()
-			return nil
-		default:
-			if len(msg.String()) == 1 && msg.String() >= " " {
-				e.AppendFilter(msg.String())
-			}
-			return nil
-		}
-	}
-
-	// Normal mode
-	switch msg.String() {
-	case "esc":
-		return func() tea.Msg { return sdk.DeactivateMsg{} }
-	case "down":
-		e.MoveDown()
-	case "up":
-		e.MoveUp()
-	case "enter", "i":
-		return e.InspectSelected()
-	case "/":
-		e.filtering = true
-		e.filter = ""
-		e.filtered = e.resources
-	case "u":
-		if e.status == StatusError && e.lockInfo != nil {
-			return e.requestForceUnlock()
-		}
-	case "r":
-		if e.status == StatusError || e.status == StatusDone {
-			return e.Refresh()
-		}
-	case "G":
-		e.MoveToEnd()
-	case "g":
-		e.MoveToStart()
-	case "w":
-		e.detailWrap = !e.detailWrap
-		e.listHScroll = 0
-	case " ":
-		r := e.SelectedResource()
-		if r.Address != "" {
-			return e.togglePin(r.Address)
-		}
-	case "d":
-		r := e.SelectedResource()
-		if r.Address != "" {
-			return e.requestDelete(r.Address)
-		}
-	case "e":
-		r := e.SelectedResource()
-		if r.Address != "" {
-			return e.requestEdit(r.Address)
-		}
-	}
-	return nil
+	return e.stack.Update(msg)
 }
 
 // MoveUp moves selection up.
@@ -419,6 +271,64 @@ func (e *Plugin) MoveToStart() {
 func (e *Plugin) MoveToEnd() {
 	if len(e.filtered) > 0 {
 		e.selected = len(e.filtered) - 1
+	}
+}
+
+func (e *Plugin) navigate(dir int) {
+	if dir > 0 {
+		e.MoveDown()
+	} else {
+		e.MoveUp()
+	}
+}
+
+func (e *Plugin) panRight() {
+	contentWidth := e.viewWidth - 6
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+	maxScroll := e.maxAddressLen() - contentWidth
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	e.listHScroll += 10
+	if e.listHScroll > maxScroll {
+		e.listHScroll = maxScroll
+	}
+}
+
+func (e *Plugin) panLeft() {
+	e.listHScroll -= 10
+	if e.listHScroll < 0 {
+		e.listHScroll = 0
+	}
+}
+
+func (e *Plugin) panDetailRight() {
+	maxLine := 0
+	for _, line := range strings.Split(e.detail, "\n") {
+		if len(line) > maxLine {
+			maxLine = len(line)
+		}
+	}
+	contentWidth := e.viewWidth - 6
+	if contentWidth < 40 {
+		contentWidth = 40
+	}
+	maxScroll := maxLine - contentWidth
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	e.detailHScroll += 10
+	if e.detailHScroll > maxScroll {
+		e.detailHScroll = maxScroll
+	}
+}
+
+func (e *Plugin) panDetailLeft() {
+	e.detailHScroll -= 10
+	if e.detailHScroll < 0 {
+		e.detailHScroll = 0
 	}
 }
 
@@ -513,6 +423,10 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	e.log.Debug("state.inspect.start", "address", r.Address)
 	e.status = StatusLoading
 	e.filtering = false
+	// Pop the filter frame if active (inspect overrides filter)
+	if e.stack.Peek() != nil && e.stack.Peek().ID() == "filter" {
+		e.stack.Pop()
+	}
 	e.errMsg = "Loading " + r.Address + "..."
 	return e.loadDetail(r.Address)
 }

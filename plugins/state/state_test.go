@@ -365,8 +365,12 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 	p.filtered = p.resources
-	p.filter = "web"
-	p.filtering = true
+
+	// Enter filter mode via / then type "web"
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
 
 	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	if p.filter != "we" {
@@ -424,6 +428,8 @@ func TestUpdateKeyMsgDetailViewEsc(t *testing.T) {
 	p.status = StatusShowingDetail
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
+	// Push detail frame as ResourceDetailMsg would
+	p.stack.Push(&detailFrame{plugin: p})
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if p.status != StatusDone {
@@ -963,10 +969,12 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 	p.status = StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
-	p.filter = "ab"
-	p.filtering = true
 
-	// "delete" key should also work as backspace in filter mode
+	// Enter filter mode, type "ab", then use delete key as backspace
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'b'}})
+
 	p.Update(tea.KeyMsg{Type: tea.KeyDelete})
 	if p.filter != "a" {
 		t.Errorf("after delete: filter = %q, want %q", p.filter, "a")

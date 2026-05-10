@@ -1,0 +1,17 @@
+
+  Risk Analysis
+
+  ! HIGH RISK DETECTED !
+
+  --- HIGH (1) ---
+     - aws_db_instance.main  destructive operation
+
+  --- MEDIUM (1) ---
+     ~ aws_security_group.web
+
+  --- LOW (2) ---
+     + aws_instance.web
+     + aws_s3_bucket.logs
+
+  Total: 4 changes  [high: 1 | medium: 1 | low: 2]
+  j/k navigate  q back
