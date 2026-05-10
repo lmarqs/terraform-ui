@@ -75,6 +75,7 @@ func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) ModuleCount() int    { return len(e.modules) }
 func (e *Plugin) TotalChanges() int   { return e.total }
+func (e *Plugin) Count() (int, int)   { return len(e.modules), e.total }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {

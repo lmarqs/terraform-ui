@@ -56,6 +56,24 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestCountable(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	var c sdk.Countable = p
+	filtered, total := c.Count()
+	if filtered != 0 || total != 0 {
+		t.Errorf("Count() = (%d, %d), want (0, 0) when empty", filtered, total)
+	}
+
+	p.modules = []ModuleImpact{{Group: sdk.ModuleGroup{Module: "mod_a"}}, {Group: sdk.ModuleGroup{Module: "mod_b"}}}
+	p.total = 5
+	filtered, total = c.Count()
+	if filtered != 2 || total != 5 {
+		t.Errorf("Count() = (%d, %d), want (2, 5)", filtered, total)
+	}
+}
+
 func TestConfigure(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
