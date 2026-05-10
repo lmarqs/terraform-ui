@@ -1,18 +1,4 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(bash -n lib/tfui.sh)",
-      "Bash(bats *)",
-      "Bash(go build *)",
-      "Bash(go test *)",
-      "Bash(go vet *)",
-      "Bash(ls *)",
-      "Bash(find *)",
-      "Bash(grep *)",
-      "Bash(git *)",
-      "Bash(cat *)"
-    ]
-  },
   "hooks": {
     "PostToolUse": [
       {
