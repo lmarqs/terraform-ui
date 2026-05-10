@@ -56,22 +56,22 @@ type DisplayItem struct {
 
 // Plugin implements the state browser feature.
 type Plugin struct {
-	svc          sdk.Service
-	log          *slog.Logger
-	session      *sdk.Session
-	stack        *sdk.Stack
-	status       Status
-	resources    []sdk.Resource
-	filtered     []sdk.Resource
-	displayItems []DisplayItem
-	filter       string
-	filtering    bool
-	depth        int
-	errMsg       string
-	lockInfo     *sdk.StateLock
-	selected     int
-	listHScroll  int
-	viewWidth    int
+	svc           sdk.Service
+	log           *slog.Logger
+	session       *sdk.Session
+	stack         *sdk.Stack
+	status        Status
+	resources     []sdk.Resource
+	filtered      []sdk.Resource
+	displayItems  []DisplayItem
+	filter        string
+	filtering     bool
+	depth         int
+	errMsg        string
+	lockInfo      *sdk.StateLock
+	selected      int
+	listHScroll   int
+	viewWidth     int
 	detail        string
 	detailAddr    string
 	detailScroll  int
@@ -496,6 +496,33 @@ func (e *Plugin) computeDisplayItems() {
 		})
 	}
 	e.displayItems = append(e.displayItems, items...)
+}
+
+// maxDepth returns the deepest module nesting level across all filtered resources.
+func (e *Plugin) maxDepth() int {
+	max := 0
+	for _, r := range e.filtered {
+		d := moduleDepth(r.Address)
+		if d > max {
+			max = d
+		}
+	}
+	return max
+}
+
+// moduleDepth counts how many module segments an address has.
+func moduleDepth(address string) int {
+	parts := strings.Split(address, ".")
+	count := 0
+	for i := 0; i < len(parts); i++ {
+		if parts[i] == "module" && i+1 < len(parts) {
+			count++
+			i++
+		} else {
+			break
+		}
+	}
+	return count
 }
 
 // modulePrefix extracts the first `depth` module segments from a resource address.

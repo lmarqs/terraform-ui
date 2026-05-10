@@ -76,12 +76,14 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.panRight()
 	case "left":
 		f.plugin.panLeft()
-	case "-":
-		f.plugin.depth++
-		f.plugin.computeDisplayItems()
-		f.plugin.selected = 0
-		f.plugin.listHScroll = 0
 	case "+", "=":
+		if f.plugin.depth < f.plugin.maxDepth() {
+			f.plugin.depth++
+			f.plugin.computeDisplayItems()
+			f.plugin.selected = 0
+			f.plugin.listHScroll = 0
+		}
+	case "-":
 		if f.plugin.depth > 0 {
 			f.plugin.depth--
 			f.plugin.computeDisplayItems()
