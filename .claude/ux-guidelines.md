@@ -3,29 +3,29 @@
 ## 1. Layout Structure
 
 ```
- Context: modules/sa-east-1                                        ╔╦╗╔═╗╦ ╦╦
- Workspace: default                                                 ║ ╠╣ ║ ║║
- Dir: ../medprev-cloud-iac │ terraform                              ╩ ╚  ╚═╝╩
+ Project: ../medprev-cloud-iac                                     ╔╦╗╔═╗╦ ╦╦
+ Scope: modules/sa-east-1                                          ║ ╠╣ ║ ║║
+ Workspace: default                                                 ╩ ╚  ╚═╝╩
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ :context                                                                   │
 └────────────────────────────────────────────────────────────────────────────┘
 ┌────────────────────── State Browser (30/1549) ─────────────────────────────┐
 │ content...                                                                 │
 └────────────────────────────────────────────────────────────────────────────┘
- ↑↓ navigate  Enter expand/inspect  Space pin  / filter  ^t flat  q back
+ ↑↓ navigate  Enter expand/inspect  Space pin  / filter  ^t flat  q back    terraform
 ```
 
-- **Header** (3 lines): left=terraform info, right=ASCII logo. Always visible.
+- **Header** (3 lines): left=Project/Scope/Workspace, right=ASCII logo. Always visible.
 - **Command bar**: bordered `:` input, visible only when active.
 - **Content**: bordered box, view title + count embedded in top border.
-- **Footer**: single hint line, context-sensitive, sorted.
+- **Footer**: single hint line (left), binary name right-aligned faint.
 - **No separators** — borders handle visual separation.
 
 ## 2. Information Architecture
 
 | Location | Content |
 |----------|---------|
-| Header left | Context, Workspace, Dir, Binary, Pinned count |
+| Header left | Project (+ pinned count), Scope, Workspace |
 | Header right | ASCII logo (brand identity) |
 | Content border title | View name + filtered/total count |
 | Footer | Context-sensitive key hints (from frame's Hints()) |
@@ -144,15 +144,15 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 - Captures ALL input — nothing passes through to plugins
 - `Esc` or completion action dismisses
 - Status bar shows overlay-specific hints
-- Used for: context picker, error display, confirmations
+- Used for: scope picker, error display, confirmations
 
 ## 9. Home Screen
 
-- Shows after context selection (or when no plugin active)
+- Shows after scope selection (or when no plugin active)
 - Plugin list sorted by workflow: State, Plan, Apply, Workspaces, Outputs, Validate, Console, then decorators (Risk, Phantom, Blast Radius, Init)
-- Current context visible in header
+- Current scope visible in header
 - Direct key activation (press letter) or j/k + Enter
-- Context plugin NOT in the list (accessed via `C` or `:context`)
+- Context plugin in the list (accessed via `C` or `:context`) — manages Project + Scope + Workspace
 
 ## 10. Color Palette
 
