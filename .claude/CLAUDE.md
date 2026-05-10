@@ -151,6 +151,40 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) { /* handle result ms
 func (p *Plugin) View(w, h int) string { /* switch on status */ }
 ```
 
+### Navigation Stack (Android-style)
+
+Plugins use a nested navigation stack instead of boolean state flags. Input always routes to the topmost frame — no key leakage between modes.
+
+```
+App Stack: [Home] → [State Plugin]
+                      └── Plugin Stack: [List] → [Filter]
+                                                → [Inspect] → [Confirm]
+```
+
+**Rules:**
+- Input goes to the deepest leaf frame only
+- `esc` always pops the innermost frame (universal "back")
+- `q` pops to app root (deactivate plugin)
+- `:` side-navigates at app level (replaces plugin)
+- Each frame declares its own `Hints() []KeyHint` — rendered automatically
+
+**SDK types** (`pkg/sdk/`):
+- `Frame` interface: `ID()`, `Update(msg) (Frame, Cmd)`, `View(w,h)`, `Hints()`
+- `Stack`: LIFO container with `Push`, `Pop`, `Update`, `View`, `Hints`
+- `Stackable` interface: optional on plugins, returns their internal `*Stack`
+
+**Reusable frames** (`pkg/sdk/frames/`):
+- `FilterFrame`: consumes ALL printable keys as text input; only esc/enter/arrows escape
+- `InspectFrame`: scrollable detail + configurable action keys
+- `ConfirmFrame`: blocks all input except y/n/esc
+
+**Frame lifecycle:**
+- Return `nil` from `Update` → frame is popped (back navigation)
+- Return a different `Frame` → in-place replacement
+- Return self → no change
+
+**Migration:** plugins implement `Stackable` to opt in. Legacy plugins continue using direct `Update` delegation unchanged.
+
 ### UX Model (k9s-inspired)
 
 - **`:` command mode**: type plugin name to switch views. Tab autocomplete.
