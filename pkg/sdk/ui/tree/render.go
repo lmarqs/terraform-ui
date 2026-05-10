@@ -118,15 +118,18 @@ func (t *Tree) buildConnectors(node *Node) string {
 // getAncestorContinuations determines which ancestor levels have continuing siblings.
 func (t *Tree) getAncestorContinuations(node *Node) []bool {
 	result := make([]bool, node.Depth)
-	// Walk backwards through flattened to find ancestors
-	for i := t.indexOf(node) - 1; i >= 0; i-- {
-		ancestor := t.flattened[i]
-		if ancestor.Depth < node.Depth-1 {
-			break
-		}
-		if ancestor.Depth < node.Depth && !ancestor.IsLast {
-			if ancestor.Depth < len(result) {
-				result[ancestor.Depth] = true
+	idx := t.indexOf(node)
+	// For each ancestor depth level, walk backwards to find the ancestor node
+	// and check if it's NOT the last child (meaning the vertical line continues).
+	for d := 0; d < node.Depth; d++ {
+		for i := idx - 1; i >= 0; i-- {
+			n := t.flattened[i]
+			if n.Depth == d {
+				result[d] = !n.IsLast
+				break
+			}
+			if n.Depth < d {
+				break
 			}
 		}
 	}
