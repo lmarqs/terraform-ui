@@ -332,8 +332,8 @@ func (e *Plugin) SetFilter(filter string) {
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
-// filterForTree uses fzf matching but preserves original order (no score sorting)
-// so the tree hierarchy stays consistent.
+// filterForTree uses fzf matching but preserves original order and requires
+// a higher score threshold to keep results precise in a tree context.
 func (e *Plugin) filterForTree(filter string) {
 	terms := strings.Fields(strings.ToLower(filter))
 	var results []sdk.Resource
@@ -343,7 +343,9 @@ func (e *Plugin) filterForTree(filter string) {
 		matched := true
 		for _, term := range terms {
 			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			if res.Score <= 0 {
+			// Require score proportional to term length for precision
+			minScore := len(term) * 16
+			if res.Score < minScore {
 				matched = false
 				break
 			}

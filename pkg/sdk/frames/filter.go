@@ -17,6 +17,8 @@ type FilterOpts struct {
 	OnNavigate func(dir int)
 	// OnPin is called when space is pressed. If nil, space is treated as text input.
 	OnPin func() tea.Cmd
+	// OnToggle is called when ctrl+t is pressed (e.g., toggle tree/flat mode).
+	OnToggle func()
 }
 
 // FilterFrame provides fzf-style live filtering. It consumes all
@@ -28,6 +30,7 @@ type FilterFrame struct {
 	onSelect   func() tea.Cmd
 	onNavigate func(dir int)
 	onPin      func() tea.Cmd
+	onToggle   func()
 }
 
 // NewFilterFrame creates a filter frame with the given callbacks.
@@ -37,6 +40,7 @@ func NewFilterFrame(opts FilterOpts) *FilterFrame {
 		onSelect:   opts.OnSelect,
 		onNavigate: opts.OnNavigate,
 		onPin:      opts.OnPin,
+		onToggle:   opts.OnToggle,
 	}
 }
 
@@ -51,6 +55,11 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	switch keyMsg.String() {
 	case "esc":
 		return nil, nil
+	case "ctrl+t":
+		if f.onToggle != nil {
+			f.onToggle()
+		}
+		return f, nil
 	case "enter":
 		if f.onSelect != nil {
 			return f, f.onSelect()

@@ -64,6 +64,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 					}
 					return f.plugin.togglePin(node.Path)
 				},
+				OnToggle: func() {
+					f.plugin.treeMode = !f.plugin.treeMode
+					f.plugin.SetFilter(f.plugin.filter)
+				},
 			}),
 		})
 		return f, nil
@@ -85,7 +89,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.detailWrap = !f.plugin.detailWrap
 		f.plugin.detailScroll = 0
 		f.plugin.detailHScroll = 0
-	case "t":
+	case "ctrl+t":
 		f.plugin.treeMode = !f.plugin.treeMode
 		f.plugin.SetFilter(f.plugin.filter)
 	case "]":
@@ -129,7 +133,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		{Key: "Enter", Description: "expand/inspect"},
 		sdk.HintPin,
 		sdk.HintFilter,
-		{Key: "t", Description: mode},
+		{Key: "^t", Description: mode},
 	}
 	if f.plugin.treeMode {
 		hints = append(hints, sdk.KeyHint{Key: "[/]", Description: "collapse/expand"})
