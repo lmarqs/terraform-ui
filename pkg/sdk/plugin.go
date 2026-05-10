@@ -40,6 +40,12 @@ type Activatable interface {
 	Activate() tea.Cmd
 }
 
+// Countable is an optional interface plugins implement to report item counts
+// for display in the content border title (e.g., "State Browser (30/1549)").
+type Countable interface {
+	Count() (filtered int, total int)
+}
+
 // DeactivateMsg is returned by a plugin's Update to signal the app should
 // deactivate it and return to the home screen.
 type DeactivateMsg struct{}
