@@ -6,4 +6,3 @@
     production
 
   3 workspace(s)  Current: default
-  Enter switch  n new  d delete  r refresh  q back

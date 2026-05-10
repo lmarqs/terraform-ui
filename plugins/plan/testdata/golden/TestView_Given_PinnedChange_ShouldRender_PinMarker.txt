@@ -6,4 +6,3 @@
 
   Plan: 2 to add
   Overall risk: low
-  j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back

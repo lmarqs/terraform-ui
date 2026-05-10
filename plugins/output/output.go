@@ -35,6 +35,7 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	session       *sdk.Session
+	stack         *sdk.Stack
 	status        Status
 	outputs       []sdk.OutputValue
 	filtered      []sdk.OutputValue
@@ -47,10 +48,13 @@ type Plugin struct {
 
 // New creates a new output plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
+	p := &Plugin{
 		svc: svc,
 		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
+	p.stack = sdk.NewStack()
+	p.stack.Push(&listFrame{plugin: p})
+	return p
 }
 
 func (p *Plugin) ID() string          { return "output" }
@@ -64,6 +68,7 @@ func (p *Plugin) Filter() string      { return p.filter }
 func (p *Plugin) Filtering() bool     { return p.filtering }
 func (p *Plugin) OutputCount() int    { return len(p.filtered) }
 func (p *Plugin) TotalCount() int     { return len(p.outputs) }
+func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
 
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
@@ -160,9 +165,6 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return p, nil
 
-	case tea.KeyMsg:
-		cmd := p.handleKey(msg)
-		return p, cmd
 	}
 	return p, nil
 }
@@ -179,57 +181,6 @@ func sortedOutputs(m map[string]sdk.OutputValue) []sdk.OutputValue {
 		return result[i].Name < result[j].Name
 	})
 	return result
-}
-
-func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Filter mode: typing goes to filter, arrow keys navigate, esc exits
-	if p.filtering {
-		switch msg.String() {
-		case "esc":
-			p.filtering = false
-			return nil
-		case "/":
-			return nil
-		case "down":
-			p.MoveDown()
-			return nil
-		case "up":
-			p.MoveUp()
-			return nil
-		case "backspace", "ctrl+h", "delete":
-			p.BackspaceFilter()
-			return nil
-		default:
-			if len(msg.String()) == 1 && msg.String() >= " " {
-				p.AppendFilter(msg.String())
-			}
-			return nil
-		}
-	}
-
-	// Normal mode
-	switch msg.String() {
-	case "esc":
-		return func() tea.Msg { return sdk.DeactivateMsg{} }
-	case "down", "j":
-		p.MoveDown()
-	case "up", "k":
-		p.MoveUp()
-	case "/":
-		p.filtering = true
-		p.filter = ""
-		p.filtered = p.outputs
-		p.selected = 0
-	case "r":
-		if p.status == StatusError || p.status == StatusDone {
-			return p.Refresh()
-		}
-	case "G":
-		p.MoveToEnd()
-	case "g":
-		p.MoveToStart()
-	}
-	return nil
 }
 
 // MoveUp moves selection up.
@@ -331,14 +282,12 @@ func (p *Plugin) View(width, height int) string {
 	case StatusLoading:
 		title := sdk.StyleTitle.Render("Outputs")
 		loading := sdk.StyleFaintItalic.Render("Loading terraform outputs...")
-		hint := sdk.StyleFaintItalic.Render("q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + loading + "\n\n" + hint)
+		return sdk.StylePadded.Render(title + "\n\n" + loading)
 
 	case StatusError:
 		title := sdk.StyleTitle.Render("Outputs")
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return sdk.StylePadded.Render(title + "\n\n" + errText)
 
 	case StatusDone:
 		return p.renderOutputs(width, height)
@@ -400,14 +349,7 @@ func (p *Plugin) renderOutputs(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d outputs", len(p.filtered), len(p.outputs)))
 	}
 
-	var hint string
-	if p.filtering {
-		hint = sdk.StyleFaintItalic.Render("Type to filter  Esc exit")
-	} else {
-		hint = sdk.StyleFaintItalic.Render("↑↓/jk navigate  / filter  r refresh  q back")
-	}
-
-	content := title + "\n\n" + filterLine + b.String() + "\n" + count + "\n" + hint
+	content := title + "\n\n" + filterLine + b.String() + "\n" + count
 	return sdk.StylePadded.Render(content)
 }
 

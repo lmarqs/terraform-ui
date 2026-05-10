@@ -277,25 +277,25 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	p.current = "default"
 
 	// Move down with j
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 1 {
 		t.Errorf("after j: selected = %d, want 1", p.selected)
 	}
 
 	// Move down more
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 2 {
 		t.Errorf("after j,j: selected = %d, want 2", p.selected)
 	}
 
 	// Boundary
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 2 {
 		t.Errorf("after j,j,j: selected = %d, want 2 (boundary)", p.selected)
 	}
 
 	// Move up with k
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if p.selected != 1 {
 		t.Errorf("after k: selected = %d, want 1", p.selected)
 	}
@@ -309,7 +309,7 @@ func TestUpdateKeyMsgEnter_SwitchWorkspace(t *testing.T) {
 	p.current = "default"
 	p.selected = 1
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Error("after enter (switch): cmd = nil, want non-nil")
 	}
@@ -323,7 +323,7 @@ func TestUpdateKeyMsgEnter_SameWorkspace(t *testing.T) {
 	p.current = "default"
 	p.selected = 0
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Error("after enter on current ws: cmd != nil, want nil")
 	}
@@ -335,7 +335,7 @@ func TestUpdateKeyMsgN_CreateMode(t *testing.T) {
 	p.status = StatusDone
 	p.workspaces = []string{"default"}
 
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	if !p.creating {
 		t.Error("after n: creating = false, want true")
 	}
@@ -351,7 +351,7 @@ func TestUpdateKeyMsgCreating_Enter(t *testing.T) {
 	p.creating = true
 	p.newName = "my-workspace"
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Error("after enter in creating: cmd = nil, want non-nil")
 	}
@@ -367,7 +367,7 @@ func TestUpdateKeyMsgCreating_EnterEmpty(t *testing.T) {
 	p.creating = true
 	p.newName = ""
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Error("after enter with empty name: cmd != nil, want nil")
 	}
@@ -380,7 +380,7 @@ func TestUpdateKeyMsgCreating_Esc(t *testing.T) {
 	p.creating = true
 	p.newName = "partial"
 
-	p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if p.creating {
 		t.Error("after esc in creating: creating = true, want false")
 	}
@@ -396,14 +396,14 @@ func TestUpdateKeyMsgCreating_Backspace(t *testing.T) {
 	p.creating = true
 	p.newName = "abc"
 
-	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	if p.newName != "ab" {
 		t.Errorf("after backspace: newName = %q, want %q", p.newName, "ab")
 	}
 
 	// Backspace on empty
 	p.newName = ""
-	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	if p.newName != "" {
 		t.Errorf("after backspace on empty: newName = %q, want empty", p.newName)
 	}
@@ -416,11 +416,11 @@ func TestUpdateKeyMsgCreating_TypeChar(t *testing.T) {
 	p.creating = true
 	p.newName = ""
 
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
 	if p.newName != "t" {
 		t.Errorf("after 't': newName = %q, want %q", p.newName, "t")
 	}
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 	if p.newName != "te" {
 		t.Errorf("after 'e': newName = %q, want %q", p.newName, "te")
 	}
@@ -437,7 +437,7 @@ func TestUpdateKeyMsgD_DeleteSelected(t *testing.T) {
 	p.current = "default"
 	p.selected = 1
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	if cmd == nil {
 		t.Error("after d on non-current: cmd = nil, want non-nil (refresh)")
 	}
@@ -451,7 +451,7 @@ func TestUpdateKeyMsgD_DeleteCurrent(t *testing.T) {
 	p.current = "default"
 	p.selected = 0 // trying to delete current
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	if cmd != nil {
 		t.Error("after d on current ws: cmd != nil, want nil (cannot delete current)")
 	}
@@ -465,7 +465,7 @@ func TestUpdateKeyMsgD_DeleteDefault(t *testing.T) {
 	p.current = "staging"
 	p.selected = 0 // "default"
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
 	if cmd != nil {
 		t.Error("after d on 'default' ws: cmd != nil, want nil (cannot delete default)")
 	}
@@ -480,7 +480,7 @@ func TestUpdateKeyMsgR_Refresh(t *testing.T) {
 	p.status = StatusDone
 	p.svc = svc
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r: cmd = nil, want non-nil (refresh)")
 	}
@@ -785,12 +785,12 @@ func TestUpdateKeyMsgDown(t *testing.T) {
 	p.status = StatusDone
 	p.workspaces = []string{"a", "b"}
 
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 1 {
 		t.Errorf("after down: selected = %d, want 1", p.selected)
 	}
 
-	p.Update(tea.KeyMsg{Type: tea.KeyUp})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if p.selected != 0 {
 		t.Errorf("after up: selected = %d, want 0", p.selected)
 	}
@@ -817,7 +817,7 @@ func TestUpdateKeyMsgCreating_DeleteKey(t *testing.T) {
 	p.creating = true
 	p.newName = "abc"
 
-	p.Update(tea.KeyMsg{Type: tea.KeyDelete})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDelete})
 	if p.newName != "ab" {
 		t.Errorf("after delete key in creating: newName = %q, want %q", p.newName, "ab")
 	}

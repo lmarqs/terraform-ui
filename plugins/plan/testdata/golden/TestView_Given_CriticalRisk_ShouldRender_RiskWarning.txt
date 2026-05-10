@@ -5,4 +5,3 @@
 
   Plan: 1 to destroy
   Overall risk: CRITICAL
-  j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back

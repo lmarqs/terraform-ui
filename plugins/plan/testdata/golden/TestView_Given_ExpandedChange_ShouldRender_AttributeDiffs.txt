@@ -8,4 +8,3 @@
 
   Plan: 1 to change
   Overall risk: medium
-  j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back

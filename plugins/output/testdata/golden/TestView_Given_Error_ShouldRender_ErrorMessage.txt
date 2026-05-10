@@ -2,5 +2,3 @@
   Outputs
 
   Error: Failed to read outputs
-
-  Press r to retry, q to go back

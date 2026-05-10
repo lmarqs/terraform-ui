@@ -7,4 +7,3 @@
     staging
 
   2 workspace(s)  Current: default
-  Enter confirm  Esc cancel

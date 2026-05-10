@@ -92,17 +92,16 @@ func (f *listFrame) View(width, height int) string {
 }
 
 func (f *listFrame) Hints() []sdk.KeyHint {
-	hints := []sdk.KeyHint{
-		{Key: "↑↓", Description: "navigate"},
-		{Key: "Enter", Description: "inspect"},
-		{Key: "Space", Description: "pin"},
-		{Key: "d", Description: "delete"},
-		{Key: "e", Description: "edit"},
-		{Key: "/", Description: "filter"},
+	return []sdk.KeyHint{
+		sdk.HintNavigate,
+		sdk.HintInspect,
+		sdk.HintPin,
+		sdk.HintDelete,
+		sdk.HintEdit,
+		sdk.HintFilter,
 		{Key: "^w", Description: fmt.Sprintf("wrap(%s)", wrapLabel(f.plugin.detailWrap))},
-		{Key: "q", Description: "back"},
+		sdk.HintBack,
 	}
-	return hints
 }
 
 // detailFrame handles key routing for the resource detail/inspect view.
@@ -160,13 +159,13 @@ func (f *detailFrame) View(width, height int) string {
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
 	hints := []sdk.KeyHint{
-		{Key: "Esc", Description: "back"},
-		{Key: "↑↓", Description: "scroll"},
-		{Key: "←→", Description: "pan"},
+		sdk.HintCancel,
+		sdk.HintScroll,
+		sdk.HintPan,
 		{Key: "^w", Description: fmt.Sprintf("wrap(%s)", wrapLabel(f.plugin.detailWrap))},
-		{Key: "Space", Description: "pin"},
-		{Key: "d", Description: "delete"},
-		{Key: "e", Description: "edit"},
+		sdk.HintPin,
+		sdk.HintDelete,
+		sdk.HintEdit,
 	}
 	if f.plugin.isPinnedAddress(f.plugin.detailAddr) {
 		hints = append(hints, sdk.KeyHint{Description: "[pinned]"})
@@ -197,10 +196,10 @@ func (f *stateFilterFrame) View(width, height int) string {
 
 func (f *stateFilterFrame) Hints() []sdk.KeyHint {
 	return []sdk.KeyHint{
-		{Key: "Esc", Description: "cancel"},
-		{Key: "Enter", Description: "inspect"},
-		{Key: "↑↓", Description: "navigate"},
-		{Key: "←→", Description: "pan"},
+		sdk.HintCancel,
+		sdk.HintInspect,
+		sdk.HintNavigate,
+		sdk.HintPan,
 		{Key: "Space", Description: "AND"},
 	}
 }

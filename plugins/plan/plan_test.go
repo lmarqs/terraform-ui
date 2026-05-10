@@ -238,37 +238,37 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 
 	// Move down
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if pp.selected != 1 {
 		t.Errorf("after j: selected = %d, want 1", pp.selected)
 	}
 
 	// Move down again
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if pp.selected != 2 {
 		t.Errorf("after j,j: selected = %d, want 2", pp.selected)
 	}
 
 	// Move down at boundary (should not go past last)
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if pp.selected != 2 {
 		t.Errorf("after j,j,j: selected = %d, want 2 (boundary)", pp.selected)
 	}
 
 	// Move up
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if pp.selected != 1 {
 		t.Errorf("after k: selected = %d, want 1", pp.selected)
 	}
 
 	// Move up to start
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if pp.selected != 0 {
 		t.Errorf("after k,k: selected = %d, want 0", pp.selected)
 	}
 
 	// Move up at boundary
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if pp.selected != 0 {
 		t.Errorf("after k,k,k: selected = %d, want 0 (boundary)", pp.selected)
 	}
@@ -288,13 +288,13 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	}
 
 	// G moves to end
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
 	if pp.selected != 2 {
 		t.Errorf("after G: selected = %d, want 2", pp.selected)
 	}
 
 	// g moves to start
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
 	if pp.selected != 0 {
 		t.Errorf("after g: selected = %d, want 0", pp.selected)
 	}
@@ -312,13 +312,13 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 	}
 
 	// Toggle expand with enter
-	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if !pp.expanded[0] {
 		t.Error("after enter: expanded[0] = false, want true")
 	}
 
 	// Toggle again
-	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if pp.expanded[0] {
 		t.Error("after enter,enter: expanded[0] = true, want false")
 	}
@@ -331,21 +331,21 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	pp.status = StatusDone
 
 	// r triggers refresh when status is Done
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd := pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r triggers refresh when status is Error
 	pp.status = StatusError
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd = pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r does nothing when Loading
 	pp.status = StatusLoading
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd = pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
 		t.Error("after r in StatusLoading: cmd != nil, want nil")
 	}

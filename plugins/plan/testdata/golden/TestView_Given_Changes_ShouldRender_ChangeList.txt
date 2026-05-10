@@ -7,4 +7,3 @@
 
   Plan: 1 to add, 1 to change, 1 to destroy
   Overall risk: HIGH
-  j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back

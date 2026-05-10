@@ -37,6 +37,7 @@ type WorkspaceSwitchMsg struct {
 type Plugin struct {
 	svc           sdk.Service
 	session       *sdk.Session
+	stack         *sdk.Stack
 	status        Status
 	workspaces    []string
 	current       string
@@ -49,9 +50,12 @@ type Plugin struct {
 
 // New creates a new workspaces plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
+	p := &Plugin{
 		svc: svc,
 	}
+	p.stack = sdk.NewStack()
+	p.stack.Push(&listFrame{plugin: p})
+	return p
 }
 
 func (e *Plugin) ID() string          { return "workspaces" }
@@ -65,7 +69,8 @@ func (e *Plugin) Current() string     { return e.current }
 func (e *Plugin) Workspaces() []string {
 	return e.workspaces
 }
-func (e *Plugin) IsCreating() bool { return e.creating }
+func (e *Plugin) IsCreating() bool  { return e.creating }
+func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
@@ -176,55 +181,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return e, e.Refresh()
 
-	case tea.KeyMsg:
-		cmd := e.handleKey(msg)
-		return e, cmd
 	}
 	return e, nil
-}
-
-func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	// Creating mode has its own key handling
-	if e.creating {
-		switch msg.String() {
-		case "enter":
-			if e.newName != "" {
-				name := e.newName
-				e.creating = false
-				e.newName = ""
-				return e.createWorkspace(name)
-			}
-		case "esc":
-			e.creating = false
-			e.newName = ""
-		case "backspace", "ctrl+h", "delete":
-			if len(e.newName) > 0 {
-				e.newName = e.newName[:len(e.newName)-1]
-			}
-		default:
-			if len(msg.String()) == 1 && msg.String() >= " " {
-				e.newName += msg.String()
-			}
-		}
-		return nil
-	}
-
-	switch msg.String() {
-	case "j", "down":
-		e.MoveDown()
-	case "k", "up":
-		e.MoveUp()
-	case "enter":
-		return e.SwitchToSelected()
-	case "n":
-		e.creating = true
-		e.newName = ""
-	case "d":
-		return e.DeleteSelected()
-	case "r":
-		return e.Refresh()
-	}
-	return nil
 }
 
 // MoveUp moves selection up.
@@ -298,8 +256,7 @@ func (e *Plugin) View(width, height int) string {
 
 	case StatusError:
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return sdk.StylePadded.Render(title + "\n\n" + errText)
 
 	case StatusDone:
 		return e.renderWorkspaces(width, height)
@@ -349,12 +306,7 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
 	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
 
-	hint := sdk.StyleFaintItalic.Render("Enter switch  n new  d delete  r refresh  q back")
-	if e.creating {
-		hint = sdk.StyleFaintItalic.Render("Enter confirm  Esc cancel")
-	}
-
-	content := title + "\n\n" + b.String() + "\n" + count + "  " + currentInfo + "\n" + hint
+	content := title + "\n\n" + b.String() + "\n" + count + "  " + currentInfo
 	return sdk.StylePadded.Render(content)
 }
 

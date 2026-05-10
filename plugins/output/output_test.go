@@ -248,25 +248,25 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	p.filtered = p.outputs
 
 	// Move down with arrow
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 1 {
 		t.Errorf("after down: selected = %d, want 1", p.selected)
 	}
 
 	// Move down again
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 2 {
 		t.Errorf("after down,down: selected = %d, want 2", p.selected)
 	}
 
 	// Boundary
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 2 {
 		t.Errorf("after down,down,down: selected = %d, want 2 (boundary)", p.selected)
 	}
 
 	// Move up with arrow
-	p.Update(tea.KeyMsg{Type: tea.KeyUp})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if p.selected != 1 {
 		t.Errorf("after up: selected = %d, want 1", p.selected)
 	}
@@ -283,13 +283,13 @@ func TestUpdateKeyMsgJK(t *testing.T) {
 	p.filtered = p.outputs
 
 	// j moves down
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 1 {
 		t.Errorf("after j: selected = %d, want 1", p.selected)
 	}
 
 	// k moves up
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if p.selected != 0 {
 		t.Errorf("after k: selected = %d, want 0", p.selected)
 	}
@@ -307,13 +307,13 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	p.filtered = p.outputs
 
 	// G moves to end
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
 	if p.selected != 2 {
 		t.Errorf("after G: selected = %d, want 2", p.selected)
 	}
 
 	// g moves to start
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
 	if p.selected != 0 {
 		t.Errorf("after g: selected = %d, want 0", p.selected)
 	}
@@ -325,21 +325,21 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	p.status = StatusDone
 
 	// r triggers refresh in normal mode
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r works in error state too
 	p.status = StatusError
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd = p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r does nothing in Loading
 	p.status = StatusLoading
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd = p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
 		t.Error("after r in StatusLoading: cmd != nil, want nil")
 	}
@@ -352,7 +352,7 @@ func TestUpdateKeyMsgEscDeactivates(t *testing.T) {
 	p.outputs = []sdk.OutputValue{{Name: "a"}}
 	p.filtered = p.outputs
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
 		t.Fatal("after esc in normal mode: cmd = nil, want non-nil (deactivate)")
 	}
@@ -374,19 +374,19 @@ func TestUpdateKeyMsgFilterMode(t *testing.T) {
 	p.filtered = p.outputs
 
 	// Enter filter mode with /
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	if !p.filtering {
 		t.Fatal("after '/': expected filtering mode")
 	}
 
 	// Type 'v'
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
 	if p.filter != "v" {
 		t.Errorf("after 'v': filter = %q, want %q", p.filter, "v")
 	}
 
 	// Type 'p'
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	if p.filter != "vp" {
 		t.Errorf("after 'p': filter = %q, want %q", p.filter, "vp")
 	}
@@ -400,7 +400,7 @@ func TestUpdateKeyMsgFilterModeEscExits(t *testing.T) {
 	p.filtered = p.outputs
 	p.filtering = true
 
-	p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if p.filtering {
 		t.Error("after esc in filter mode: filtering = true, want false")
 	}
@@ -417,7 +417,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 	p.filter = "vpc"
 	p.filtering = true
 
-	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	if p.filter != "vp" {
 		t.Errorf("after backspace: filter = %q, want %q", p.filter, "vp")
 	}
@@ -432,7 +432,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 	p.filter = "ab"
 	p.filtering = true
 
-	p.Update(tea.KeyMsg{Type: tea.KeyDelete})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDelete})
 	if p.filter != "a" {
 		t.Errorf("after delete: filter = %q, want %q", p.filter, "a")
 	}
@@ -449,8 +449,8 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 	p.filtered = p.outputs
 
 	// Enter filter mode and type 'r' — should filter, not refresh
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if p.filter != "r" {
 		t.Errorf("filter = %q, want %q", p.filter, "r")
 	}
@@ -471,13 +471,13 @@ func TestFilterModeNavigationDown(t *testing.T) {
 	p.filtering = true
 
 	// down in filter mode
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 1 {
 		t.Errorf("after down in filter mode: selected = %d, want 1", p.selected)
 	}
 
 	// up in filter mode
-	p.Update(tea.KeyMsg{Type: tea.KeyUp})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if p.selected != 0 {
 		t.Errorf("after up in filter mode: selected = %d, want 0", p.selected)
 	}
@@ -495,13 +495,13 @@ func TestFilterModeJKAppendsToFilter(t *testing.T) {
 	p.filtering = true
 
 	// j in filter mode appends to filter (only arrow keys navigate)
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.filter != "j" {
 		t.Errorf("j in filter mode: filter = %q, want %q (appended to filter)", p.filter, "j")
 	}
 
 	// k also appends to filter
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if p.filter != "jk" {
 		t.Errorf("k in filter mode: filter = %q, want %q (appended to filter)", p.filter, "jk")
 	}
@@ -1063,7 +1063,7 @@ func TestFilterModeGgAppendsToFilter(t *testing.T) {
 	p.filtering = true
 
 	// G in filter mode appends to filter, does not navigate
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
 	if p.filter != "G" {
 		t.Errorf("after G in filter mode: filter = %q, want %q", p.filter, "G")
 	}

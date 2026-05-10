@@ -32,6 +32,7 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	session       *sdk.Session
+	stack         *sdk.Stack
 	status        Status
 	summary       *sdk.PlanSummary
 	errMsg        string
@@ -44,11 +45,14 @@ type Plugin struct {
 
 // New creates a new plan plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
+	p := &Plugin{
 		expanded: make(map[int]bool),
 		svc:      svc,
 		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
+	p.stack = sdk.NewStack()
+	p.stack.Push(&listFrame{plugin: p})
+	return p
 }
 
 func (e *Plugin) ID() string          { return "plan" }
@@ -59,6 +63,7 @@ func (e *Plugin) Ready() bool         { return e.status == StatusDone }
 func (e *Plugin) Status() Status      { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Targets() []string   { return e.targets }
+func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
 }
@@ -182,43 +187,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return e, nil
 
-	case tea.KeyMsg:
-		cmd := e.handleKey(msg)
-		return e, cmd
 	}
 	return e, nil
-}
-
-func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	switch msg.String() {
-	case "j", "down":
-		e.MoveDown()
-	case "k", "up":
-		e.MoveUp()
-	case "enter", "i":
-		e.ToggleExpand()
-	case " ":
-		if change := e.SelectedChange(); change != nil {
-			e.togglePin(change.Resource.Address)
-		}
-	case "a":
-		if e.status == StatusDone && e.summary != nil && len(e.summary.Changes) > 0 {
-			return e.requestApply()
-		}
-	case "u":
-		if e.status == StatusError && e.lockInfo != nil {
-			return e.requestForceUnlock()
-		}
-	case "r":
-		if e.status == StatusError || e.status == StatusDone {
-			return e.Refresh()
-		}
-	case "G":
-		e.MoveToEnd()
-	case "g":
-		e.MoveToStart()
-	}
-	return nil
 }
 
 // MoveUp moves selection up.
@@ -282,12 +252,10 @@ func (e *Plugin) View(width, height int) string {
 		title := sdk.StyleTitle.Render("Plan Review")
 		if e.lockInfo != nil {
 			lockPanel := sdk.FormatLockInfo(e.lockInfo)
-			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  q back")
-			return sdk.StylePadded.Render(title + "\n\n" + lockPanel + "\n" + hint)
+			return sdk.StylePadded.Render(title + "\n\n" + lockPanel)
 		}
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return sdk.StylePadded.Render(title + "\n\n" + errText)
 
 	case StatusDone:
 		return e.renderResults(width, height)
@@ -340,13 +308,11 @@ func (e *Plugin) renderResults(width, height int) string {
 
 	summary := e.renderSummaryLine()
 	riskLine := e.renderOverallRisk()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back")
 
 	content := title + "\n\n" + b.String() + "\n" + summary
 	if riskLine != "" {
 		content += "\n" + riskLine
 	}
-	content += "\n" + hint
 	return sdk.StylePadded.Render(content)
 }
 
