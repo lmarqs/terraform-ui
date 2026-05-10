@@ -272,6 +272,9 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return a, tea.Quit
+	case "ctrl+s":
+		logging.Logger().Info("screen.capture", "content", a.View())
+		return a, nil
 	case ":":
 		a.commandMode = true
 		a.commandInput = ""
