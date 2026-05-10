@@ -27,10 +27,11 @@ type App struct {
 	width       int
 	height      int
 
-	header    components.Header
-	separator components.Separator
-	statusBar components.StatusBar
-	homeView  views.HomeView
+	header        components.Header
+	contentBorder components.ContentBorder
+	commandBar    components.CommandBar
+	statusBar     components.StatusBar
+	homeView      views.HomeView
 
 	activePlugin  sdk.Plugin // nil = home screen
 	activeOverlay sdk.Overlay
@@ -52,15 +53,16 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		header = header.WithContext(cfg.BaseDir)
 	}
 	return App{
-		cfg:         cfg,
-		svc:         svc,
-		registry:    registry,
-		session:     sdk.NewSession(),
-		sourceIndex: sourceIndex,
-		header:      header,
-		separator:   components.NewSeparator(),
-		statusBar:   components.NewStatusBar(),
-		homeView:    views.NewHomeView(registry.All()),
+		cfg:           cfg,
+		svc:           svc,
+		registry:      registry,
+		session:       sdk.NewSession(),
+		sourceIndex:   sourceIndex,
+		header:        header,
+		contentBorder: components.NewContentBorder(),
+		commandBar:    components.NewCommandBar(),
+		statusBar:     components.NewStatusBar(),
+		homeView:      views.NewHomeView(registry.All()),
 	}
 }
 
@@ -461,23 +463,33 @@ func (a App) View() string {
 	}
 
 	headerHeight := 3
-	separatorHeight := 2 // two separators (1 line each)
-	statusBarHeight := 1
-	contentHeight := a.height - headerHeight - separatorHeight - statusBarHeight
-
-	h := a.header
-	var content string
-	if a.activePlugin != nil {
-		content = a.activePlugin.View(a.width, contentHeight)
-	} else {
-		content = a.homeView.Render(a.width, contentHeight)
+	footerHeight := 1
+	borderChrome := 2
+	commandBarHeight := 0
+	if a.commandMode {
+		commandBarHeight = 3
 	}
-	header := h.Render(a.width)
+	contentHeight := a.height - headerHeight - commandBarHeight - borderChrome - footerHeight
 
-	contentStyle := lipgloss.NewStyle().
-		Width(a.width).
-		Height(contentHeight)
-	content = contentStyle.Render(content)
+	title := "Home"
+	filtered, total := 0, 0
+	if a.activePlugin != nil {
+		title = a.activePlugin.Name()
+		if c, ok := a.activePlugin.(sdk.Countable); ok {
+			filtered, total = c.Count()
+		}
+	}
+
+	var content string
+	innerWidth := a.width - 2
+	if a.activePlugin != nil {
+		content = a.activePlugin.View(innerWidth, contentHeight)
+	} else {
+		content = a.homeView.Render(innerWidth, contentHeight)
+	}
+
+	header := a.header.Render(a.width)
+	bordered := a.contentBorder.Render(content, title, filtered, total, a.width, contentHeight+borderChrome)
 
 	var statusBar string
 	if a.inputActive {
@@ -488,19 +500,6 @@ func (a App) View() string {
 			Padding(0, 1).
 			Width(a.width)
 		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
-	} else if a.commandMode {
-		cmdStyle := lipgloss.NewStyle().
-			Background(sdk.ColorBg).
-			Foreground(sdk.ColorText).
-			Bold(true).
-			Padding(0, 1).
-			Width(a.width)
-		matches := a.commandMatches()
-		hint := ""
-		if len(matches) > 0 {
-			hint = "  " + sdk.StyleFaint.Render(strings.Join(matches, " | "))
-		}
-		statusBar = cmdStyle.Render(":" + a.commandInput + "█" + hint)
 	} else if a.activePlugin != nil {
 		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
 			if hints := stackable.Stack().Hints(); hints != nil {
@@ -514,8 +513,6 @@ func (a App) View() string {
 	} else {
 		statusBar = a.statusBar.Render(a.width)
 	}
-
-	sep := a.separator.Render(a.width)
 
 	if a.activeOverlay != nil {
 		overlayContent := a.activeOverlay.View(a.width, a.height)
@@ -533,5 +530,12 @@ func (a App) View() string {
 		return overlayView + "\n" + statusBar
 	}
 
-	return header + "\n" + sep + "\n" + content + "\n" + sep + "\n" + statusBar
+	var parts []string
+	parts = append(parts, header)
+	if a.commandMode {
+		parts = append(parts, a.commandBar.Render(a.commandInput, a.commandMatches(), a.width))
+	}
+	parts = append(parts, bordered)
+	parts = append(parts, statusBar)
+	return strings.Join(parts, "\n")
 }
