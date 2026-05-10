@@ -203,6 +203,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.status = StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
+			e.sortPinnedFirst()
 			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
 		}
 		return e, nil
@@ -348,12 +349,14 @@ func (e *Plugin) maxAddressLen() int {
 }
 
 // SetFilter filters resources using fzf's FuzzyMatchV2 algorithm.
-// Space-separated terms use AND logic. Results sorted by score (best first).
+// Space-separated terms use AND logic. Results sorted by score (best first),
+// with pinned items always at the top.
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	e.selected = 0
 	if filter == "" {
 		e.filtered = e.resources
+		e.sortPinnedFirst()
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
@@ -387,7 +390,32 @@ func (e *Plugin) SetFilter(filter string) {
 	for i, r := range results {
 		e.filtered[i] = r.resource
 	}
+	e.sortPinnedFirst()
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
+}
+
+// sortPinnedFirst moves pinned resources to the top of the filtered list
+// while preserving their relative order.
+func (e *Plugin) sortPinnedFirst() {
+	if e.session == nil {
+		return
+	}
+	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
+	if len(pinned) == 0 {
+		return
+	}
+	pinnedSet := make(map[string]bool, len(pinned))
+	for _, a := range pinned {
+		pinnedSet[a] = true
+	}
+	sort.SliceStable(e.filtered, func(i, j int) bool {
+		pi := pinnedSet[e.filtered[i].Address]
+		pj := pinnedSet[e.filtered[j].Address]
+		if pi != pj {
+			return pi
+		}
+		return false
+	})
 }
 
 // AppendFilter adds a character to the filter.
@@ -681,12 +709,14 @@ func (e *Plugin) togglePin(address string) tea.Cmd {
 			pinned = append(pinned[:i], pinned[i+1:]...)
 			e.session.Set("terraform.pinned", pinned)
 			e.log.Debug("state.unpin", "address", address)
+			e.sortPinnedFirst()
 			return nil
 		}
 	}
 	pinned = append(pinned, address)
 	e.session.Set("terraform.pinned", pinned)
 	e.log.Debug("state.pin", "address", address)
+	e.sortPinnedFirst()
 	return nil
 }
 

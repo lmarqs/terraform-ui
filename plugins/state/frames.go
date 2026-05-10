@@ -35,12 +35,20 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.filtering = true
 		f.plugin.filter = ""
 		f.plugin.filtered = f.plugin.resources
+		f.plugin.sortPinnedFirst()
 		f.plugin.stack.Push(&stateFilterFrame{
 			plugin: f.plugin,
 			inner: frames.NewFilterFrame(frames.FilterOpts{
 				OnFilter:   func(q string) { f.plugin.SetFilter(q) },
 				OnSelect:   func() tea.Cmd { return f.plugin.InspectSelected() },
 				OnNavigate: func(dir int) { f.plugin.navigate(dir) },
+				OnPin: func() tea.Cmd {
+					r := f.plugin.SelectedResource()
+					if r.Address != "" {
+						return f.plugin.togglePin(r.Address)
+					}
+					return nil
+				},
 			}),
 		})
 		return f, nil
@@ -199,8 +207,7 @@ func (f *stateFilterFrame) Hints() []sdk.KeyHint {
 		sdk.HintCancel,
 		sdk.HintInspect,
 		sdk.HintNavigate,
-		sdk.HintPan,
-		{Key: "Space", Description: "AND"},
+		sdk.HintPin,
 	}
 }
 

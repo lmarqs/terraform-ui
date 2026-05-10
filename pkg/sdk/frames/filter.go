@@ -15,6 +15,8 @@ type FilterOpts struct {
 	OnSelect func() tea.Cmd
 	// OnNavigate is called with +1 (down) or -1 (up) for cursor movement.
 	OnNavigate func(dir int)
+	// OnPin is called when space is pressed. If nil, space is treated as text input.
+	OnPin func() tea.Cmd
 }
 
 // FilterFrame provides fzf-style live filtering. It consumes all
@@ -25,6 +27,7 @@ type FilterFrame struct {
 	onFilter   func(query string)
 	onSelect   func() tea.Cmd
 	onNavigate func(dir int)
+	onPin      func() tea.Cmd
 }
 
 // NewFilterFrame creates a filter frame with the given callbacks.
@@ -33,6 +36,7 @@ func NewFilterFrame(opts FilterOpts) *FilterFrame {
 		onFilter:   opts.OnFilter,
 		onSelect:   opts.OnSelect,
 		onNavigate: opts.OnNavigate,
+		onPin:      opts.OnPin,
 	}
 }
 
@@ -62,6 +66,15 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			f.onNavigate(-1)
 		}
 		return f, nil
+	case " ":
+		if f.onPin != nil {
+			return f, f.onPin()
+		}
+		f.Query += " "
+		if f.onFilter != nil {
+			f.onFilter(f.Query)
+		}
+		return f, nil
 	case "backspace", "ctrl+h", "delete":
 		if len(f.Query) > 0 {
 			f.Query = f.Query[:len(f.Query)-1]
@@ -72,7 +85,7 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, nil
 	default:
 		key := keyMsg.String()
-		if len(key) == 1 && key >= " " {
+		if len(key) == 1 && key > " " {
 			f.Query += key
 			if f.onFilter != nil {
 				f.onFilter(f.Query)
