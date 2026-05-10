@@ -344,7 +344,7 @@ func (e *Plugin) filterForTree(filter string) {
 		for _, term := range terms {
 			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
 			// Require score proportional to term length for precision
-			minScore := len(term) * 24
+			minScore := len(term) * 14
 			if res.Score < minScore {
 				matched = false
 				break

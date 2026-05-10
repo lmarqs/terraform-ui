@@ -1244,3 +1244,57 @@ func TestHandleKeyFilterMode(t *testing.T) {
 		t.Error("after /: filtering = false, want true")
 	}
 }
+
+func TestFilterForTree_ScoreThreshold(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.treeMode = true
+	p.resources = []sdk.Resource{
+		{Address: "module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]", Type: "aws_db_proxy"},
+		{Address: "module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy_endpoint.read_only[0]", Type: "aws_db_proxy_endpoint"},
+		{Address: "module.medprev_online_prd.module.medprev_api.module.api_gateway.aws_apigatewayv2_route.this[\"PUT /storage/private/{proxy+}\"]", Type: "aws_apigatewayv2_route"},
+		{Address: "module.medprev_online_prd.module.medprev_api.aws_api_gateway_rest_api.this", Type: "aws_api_gateway_rest_api"},
+		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group"},
+		{Address: "module.cloudwatch.aws_cloudwatch_metric_alarm.bedrock_input_tokens", Type: "aws_cloudwatch_metric_alarm"},
+		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group"},
+		{Address: "aws_s3_bucket.terraform_state", Type: "aws_s3_bucket"},
+	}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	tests := []struct {
+		filter    string
+		wantMin   int
+		wantMax   int
+		mustMatch string
+	}{
+		{"proxy", 2, 4, "aws_db_proxy"},
+		{"proxyread", 1, 2, "read_only"},
+		{"restapi", 1, 3, "rest_api"},
+		{"redis", 1, 2, "redis"},
+		{"alarm", 1, 2, "alarm"},
+		{"s3", 1, 2, "s3_bucket"},
+		{"cloudwatch", 1, 2, "cloudwatch"},
+		{"zzzznothing", 0, 0, ""},
+	}
+
+	for _, tt := range tests {
+		p.SetFilter(tt.filter)
+		count := len(p.filtered)
+		if count < tt.wantMin || count > tt.wantMax {
+			t.Errorf("tree filter %q: got %d results, want %d-%d", tt.filter, count, tt.wantMin, tt.wantMax)
+		}
+		if tt.mustMatch != "" && count > 0 {
+			found := false
+			for _, r := range p.filtered {
+				if strings.Contains(r.Address, tt.mustMatch) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("tree filter %q: expected result containing %q", tt.filter, tt.mustMatch)
+			}
+		}
+	}
+}
