@@ -1,1 +1,1 @@
-Error: failed to discover context: permission denied
+Error: failed to discover scopes: permission denied

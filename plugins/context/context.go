@@ -67,12 +67,12 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "context" }
 func (e *Plugin) Name() string        { return "Context" }
 func (e *Plugin) Description() string { return "Select terraform project scope" }
-func (e *Plugin) Ready() bool       { return e.status == StatusDone }
-func (e *Plugin) Status() Status    { return e.status }
-func (e *Plugin) Selected() int     { return e.selected }
-func (e *Plugin) Active() int       { return e.active }
-func (e *Plugin) ScopeCount() int   { return len(e.scopes) }
-func (e *Plugin) Stack() *sdk.Stack { return e.stack }
+func (e *Plugin) Ready() bool         { return e.status == StatusDone }
+func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Active() int         { return e.active }
+func (e *Plugin) ScopeCount() int     { return len(e.scopes) }
+func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(opts map[string]interface{}) error {

@@ -62,9 +62,9 @@ plugins:
 
 To create a new plugin:
 
-1. Create a new directory `plugins/<name>/` with a Go file implementing the `Plugin` interface from `internal/plugin/plugin.go`
-2. Implement the required methods: `ID()`, `Name()`, `Description()`, `KeyBinding()`, `Init()`, `Update()`, `View()`, `Configure()`, `Ready()`
-3. Register the plugin factory in `cmd/tfui/main.go`
+1. Create a new directory `plugins/<name>/` with a Go file implementing the `Plugin` interface from `pkg/sdk/plugin.go`
+2. Implement the required methods: `ID()`, `Name()`, `Description()`, `Init()`, `Update()`, `View()`, `Configure()`, `Ready()`
+3. Register the plugin factory in `cmd/tfui/main.go` with `PluginMeta` (keybinding, menu visibility)
 4. Add documentation at `docs/plugins/<name>.md`
 
 See the `/add-plugin` slash command for a full step-by-step guide and reference implementation.

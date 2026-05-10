@@ -883,7 +883,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithContextDir(t *testing.T) {
+func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()

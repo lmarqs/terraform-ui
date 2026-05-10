@@ -127,7 +127,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithContextDir(t *testing.T) {
+func TestActivateWithScopeDir(t *testing.T) {
 	p := newTestPlugin()
 	session := sdk.NewSession()
 	session.Set(sdk.SessionKeyScopeCount, 2)

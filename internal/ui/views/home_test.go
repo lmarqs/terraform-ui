@@ -25,9 +25,9 @@ func TestNewHomeView_GeneratesMenuItems(t *testing.T) {
 	}
 
 	expected := []struct {
-		key   string
-		name  string
-		desc  string
+		key  string
+		name string
+		desc string
 	}{
 		{"p", "Plan", "Run terraform plan"},
 		{"a", "Apply", "Run terraform apply"},

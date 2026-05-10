@@ -21,8 +21,8 @@ func NewHomeView(items []plugin.MenuItem) HomeView {
 	}
 }
 
-func (v HomeView) Selected() int              { return v.selected }
-func (v HomeView) Items() []plugin.MenuItem   { return v.items }
+func (v HomeView) Selected() int                 { return v.selected }
+func (v HomeView) Items() []plugin.MenuItem      { return v.items }
 func (v HomeView) SelectedItem() plugin.MenuItem { return v.items[v.selected] }
 
 func (v HomeView) MoveUp() HomeView {

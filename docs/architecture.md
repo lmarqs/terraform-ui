@@ -51,7 +51,7 @@ plugins/
   state/                   — State browser plugin
   apply/                   — Apply with confirmation plugin
   workspaces/              — Workspace management plugin
-  projects/                — Monorepo project picker plugin
+  context/                 — Context manager (scope picker, monorepo support)
 tests/
   integration/             — CLI integration tests (require terraform)
   fixtures/                — Real terraform projects for testing
@@ -66,7 +66,6 @@ type Plugin interface {
     ID() string
     Name() string
     Description() string
-    KeyBinding() string
     Init(ctx *Context) tea.Cmd
     Update(msg tea.Msg) (Plugin, tea.Cmd)
     View(width, height int) string
@@ -74,6 +73,8 @@ type Plugin interface {
     Ready() bool
 }
 ```
+
+Plugins are registered with external metadata (`PluginMeta`) that controls keybinding and menu visibility — plugins themselves are invocation-agnostic.
 
 Plugins are:
 - **Self-contained** — own view logic, types, messages

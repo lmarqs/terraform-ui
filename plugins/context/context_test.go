@@ -65,7 +65,6 @@ func TestNew_ActiveIsMinusOne(t *testing.T) {
 	}
 }
 
-
 func TestConfigure(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)

@@ -1175,7 +1175,7 @@ func TestFilteringGetter(t *testing.T) {
 	}
 }
 
-func TestActivateWithContextChange(t *testing.T) {
+func TestActivateWithScopeChange(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}}}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
@@ -1221,7 +1221,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithContextDir(t *testing.T) {
+func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()

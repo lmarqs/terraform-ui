@@ -930,7 +930,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestActivateWithContextChange(t *testing.T) {
+func TestActivateWithScopeChange(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
@@ -976,7 +976,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithContextDir(t *testing.T) {
+func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()

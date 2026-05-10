@@ -22,12 +22,12 @@ func TestView_Given_Loading_ShouldRender_LoadingMessage(t *testing.T) {
 func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusError
-	p.errMsg = "failed to discover context: permission denied"
+	p.errMsg = "failed to discover scopes: permission denied"
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
-func TestView_Given_NoProjects_ShouldRender_Placeholder(t *testing.T) {
+func TestView_Given_NoScopes_ShouldRender_Placeholder(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
 	p.scopes = []Scope{}
@@ -35,7 +35,7 @@ func TestView_Given_NoProjects_ShouldRender_Placeholder(t *testing.T) {
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
-func TestView_Given_ProjectList_ShouldRender_AllProjects(t *testing.T) {
+func TestView_Given_ScopeList_ShouldRender_AllScopes(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
 	p.scopes = []Scope{
@@ -47,7 +47,7 @@ func TestView_Given_ProjectList_ShouldRender_AllProjects(t *testing.T) {
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
-func TestView_Given_ProjectList_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
+func TestView_Given_ScopeList_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
 	p.scopes = []Scope{
@@ -60,7 +60,7 @@ func TestView_Given_ProjectList_WithSelection_ShouldRender_HighlightedRow(t *tes
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
-func TestView_Given_ProjectList_WithActiveProject_ShouldRender_ActiveIndicator(t *testing.T) {
+func TestView_Given_ScopeList_WithActiveScope_ShouldRender_ActiveIndicator(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
 	p.scopes = []Scope{

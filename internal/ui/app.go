@@ -36,7 +36,7 @@ type App struct {
 
 	activePlugin  sdk.Plugin // nil = home screen
 	activeOverlay sdk.Overlay
-	activeScope string // tracks last known active scope for header updates
+	activeScope   string // tracks last known active scope for header updates
 	commandMode   bool
 	commandInput  string
 
