@@ -46,7 +46,14 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			plugin: f.plugin,
 			inner: frames.NewFilterFrame(frames.FilterOpts{
 				OnFilter:   func(q string) { f.plugin.SetFilter(q) },
-				OnSelect:   func() tea.Cmd { return f.plugin.InspectSelected() },
+				OnSelect: func() tea.Cmd {
+					node := f.plugin.CursorNode()
+					if node != nil && node.Kind == tree.KindBranch {
+						f.plugin.tree.Toggle()
+						return nil
+					}
+					return f.plugin.InspectSelected()
+				},
 				OnNavigate: func(dir int) { f.plugin.navigate(dir) },
 				OnPin: func() tea.Cmd {
 					node := f.plugin.CursorNode()

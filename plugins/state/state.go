@@ -312,7 +312,8 @@ func (e *Plugin) panDetailLeft() {
 	}
 }
 
-// SetFilter filters resources using fzf's FuzzyMatchV2 algorithm.
+// SetFilter filters resources using fzf fuzzy matching against the leaf segment
+// (resource type.name), not the full module path. This ensures precise results.
 // Space-separated terms use AND logic. Results sorted by score (best first),
 // with pinned items always at the top.
 func (e *Plugin) SetFilter(filter string) {
@@ -331,33 +332,45 @@ func (e *Plugin) SetFilter(filter string) {
 	var results []scored
 	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
-		// Match against full address for broad search
-		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
+		segments := tree.SplitTerraform(r.Address)
+		leaf := r.Address
+		if len(segments) > 0 {
+			leaf = segments[len(segments)-1]
+		}
+
 		totalScore := 0
 		matched := true
+
+		// Match each term against the leaf (resource name)
+		leafInput := util.RunesToChars([]rune(strings.ToLower(leaf)))
 		for _, term := range terms {
-			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			if res.Score <= 0 {
+			res, _ := algo.FuzzyMatchV2(false, true, true, &leafInput, []rune(term), false, slab)
+			if res.Score > 0 {
+				totalScore += res.Score
+			} else {
 				matched = false
 				break
 			}
-			totalScore += res.Score
 		}
+
+		// If leaf didn't match, try substring match on full address
 		if !matched {
-			continue
-		}
-		// Boost score for matches in the leaf portion (type.name)
-		segments := tree.SplitTerraform(r.Address)
-		if len(segments) > 0 {
-			leaf := util.RunesToChars([]rune(strings.ToLower(segments[len(segments)-1])))
+			matched = true
+			totalScore = 0
+			addrLower := strings.ToLower(r.Address)
 			for _, term := range terms {
-				res, _ := algo.FuzzyMatchV2(false, true, true, &leaf, []rune(term), false, slab)
-				if res.Score > 0 {
-					totalScore += res.Score * 10
+				if strings.Contains(addrLower, term) {
+					totalScore += 1
+				} else {
+					matched = false
+					break
 				}
 			}
 		}
-		results = append(results, scored{r, totalScore})
+
+		if matched {
+			results = append(results, scored{r, totalScore})
+		}
 	}
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].score > results[j].score
