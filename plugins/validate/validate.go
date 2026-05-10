@@ -83,7 +83,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (p *Plugin) Activate() tea.Cmd {
 	// Check if the active context changed since last activation
 	if p.session != nil {
-		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContextAbs)
+		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs)
 		if currentContext != p.scopedContext {
 			p.status = StatusIdle
 			p.diagnostics = nil
@@ -99,10 +99,10 @@ func (p *Plugin) Activate() tea.Cmd {
 
 	if p.status == StatusIdle || p.status == StatusError {
 		if p.session != nil {
-			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
+			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				p.svc = p.svc.WithDir(dir)
 				p.scopedContext = dir
-			} else if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyContextCount); ok && count > 1 {
+			} else if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyScopeCount); ok && count > 1 {
 				p.status = StatusError
 				p.errMsg = "Select a context first (press c)"
 				return nil

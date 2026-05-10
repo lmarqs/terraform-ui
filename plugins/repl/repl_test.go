@@ -117,7 +117,7 @@ func TestActivate(t *testing.T) {
 func TestActivateMultiContextNoSelection(t *testing.T) {
 	p := newTestPlugin()
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyContextCount, 3)
+	session.Set(sdk.SessionKeyScopeCount, 3)
 	p.session = session
 
 	p.Activate()
@@ -133,8 +133,8 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 func TestActivateWithContextDir(t *testing.T) {
 	p := newTestPlugin()
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyContextCount, 2)
-	session.Set(sdk.SessionKeyActiveContextAbs, "/my/project")
+	session.Set(sdk.SessionKeyScopeCount, 2)
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/my/project")
 	p.session = session
 
 	p.Activate()
@@ -636,7 +636,7 @@ func TestSetBinaryPath(t *testing.T) {
 func TestActivateContextChange(t *testing.T) {
 	p := newTestPlugin()
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveContextAbs, "/new/ctx")
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/new/ctx")
 	p.session = session
 	p.scopedContext = "/old/ctx"
 	p.history = []replEntry{{Expr: "old", Result: "stale"}}

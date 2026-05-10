@@ -35,14 +35,14 @@ func TestHeader_Render_IsThreeLines(t *testing.T) {
 	}
 }
 
-func TestHeader_Render_ContainsContext(t *testing.T) {
-	h := NewHeader(".", "default", "terraform").WithContext("modules/sa-east-1")
+func TestHeader_Render_ContainsScope(t *testing.T) {
+	h := NewHeader(".", "default", "terraform").WithScope("modules/sa-east-1")
 	output := h.Render(80)
 	if !strings.Contains(output, "modules/sa-east-1") {
-		t.Error("should contain context value")
+		t.Error("should contain scope value")
 	}
-	if !strings.Contains(output, "Context:") {
-		t.Error("should contain Context: label")
+	if !strings.Contains(output, "Scope:") {
+		t.Error("should contain Scope: label")
 	}
 }
 
@@ -98,18 +98,18 @@ func TestHeader_Render_ZeroPinnedHidden(t *testing.T) {
 	}
 }
 
-func TestHeader_Render_NoContextShowsDash(t *testing.T) {
+func TestHeader_Render_NoScopeShowsDash(t *testing.T) {
 	h := NewHeader(".", "default", "terraform")
 	output := h.Render(80)
 	lines := strings.Split(output, "\n")
 	if !strings.Contains(lines[1], "-") {
-		t.Error("should show dash when no context")
+		t.Error("should show dash when no scope")
 	}
 }
 
 func TestHeader_Render_VariousWidths(t *testing.T) {
 	h := NewHeader("/some/path", "production", "terraform").
-		WithContext("prod-us-east").
+		WithScope("prod-us-east").
 		WithPinnedCount(3)
 
 	widths := []int{40, 80, 120, 200}
@@ -127,11 +127,11 @@ func TestHeader_Render_VariousWidths(t *testing.T) {
 
 func TestHeader_Chainable(t *testing.T) {
 	h := NewHeader(".", "default", "terraform").
-		WithContext("ctx").
+		WithScope("ctx").
 		WithPinnedCount(5)
 
-	if h.context != "ctx" {
-		t.Error("WithContext should chain")
+	if h.scope != "ctx" {
+		t.Error("WithScope should chain")
 	}
 	if h.pinnedCount != 5 {
 		t.Error("WithPinnedCount should chain")

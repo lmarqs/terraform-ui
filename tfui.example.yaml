@@ -22,9 +22,9 @@ cache:
 #   # model: ""     # auto-detect (bedrock: us.anthropic.claude-sonnet-4-6-v1, anthropic: claude-sonnet-4-6-20250514)
 #   # region: us-east-1  # for Bedrock: optional AWS region override
 
-# Context discovery for monorepos (similar to pnpm-workspace.yaml)
+# Scope discovery for monorepos (similar to pnpm-workspace.yaml)
 # Define glob patterns to locate independent terraform projects.
-context:
+scope:
   paths:
     - "modules/*"
     # - "envs/*"

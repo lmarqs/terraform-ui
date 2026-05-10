@@ -10,19 +10,19 @@ default_enabled: true
 
 ## Overview
 
-The Context plugin discovers and lists terraform projects within a monorepo based on glob patterns defined in `tfui.yaml`. You can filter, select, and switch between projects. The active context determines the working directory for all other plugins (plan, apply, state, etc.).
+The Context plugin discovers and lists terraform scopes within a monorepo based on glob patterns defined in `tfui.yaml`. You can filter, select, and switch between scopes. The active scope determines the working directory for all other plugins (plan, apply, state, etc.).
 
 ## Usage
 
-Press `c` to open the Context view. It scans for projects matching your configured path patterns.
+Press `c` to open the Context view. It scans for scopes matching your configured path patterns.
 
 | Key | Action |
 |-----|--------|
 | `j` / `k` | Navigate up/down |
-| `Enter` | Select project as active |
+| `Enter` | Select scope as active |
 | Any character | Filter by path/name |
 | `Backspace` | Remove last filter character |
-| `r` | Re-discover projects |
+| `r` | Re-discover scopes |
 | `Esc` | Go back |
 
 ## Configuration
@@ -33,7 +33,7 @@ plugins:
   context:
     enabled: true
 
-context:
+scope:
   paths:
     - "modules/*"
     - "envs/**"
@@ -43,7 +43,7 @@ context:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-| `context.paths` | list | `[]` | Glob patterns for project discovery |
+| `scope.paths` | list | `[]` | Glob patterns for scope discovery |
 
 ## Screenshots/Output
 
@@ -56,7 +56,7 @@ Context
   modules/compute (compute)
   stacks/networking (networking)
 
-5 project(s)
+5 scope(s)
 
 Enter select  / filter  r refresh  Esc back
 ```
@@ -71,13 +71,13 @@ filter: net
   modules/networking (networking)
   stacks/networking (networking)
 
-2/5 project(s)
+2/5 scope(s)
 
 Enter select  / filter  r refresh  Esc back
 ```
 
 ## Related
 
-- [Workspaces](workspaces.md) -- manage workspaces within the active context
-- [State Browser](state.md) -- browse state for the active context
-- [Plan](plan.md) -- plan runs against the active context directory
+- [Workspaces](workspaces.md) -- manage workspaces within the active scope
+- [State Browser](state.md) -- browse state for the active scope
+- [Plan](plan.md) -- plan runs against the active scope directory

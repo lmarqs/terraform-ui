@@ -20,10 +20,10 @@ type AppContext struct {
 
 // ProjectContext holds immutable project-level info.
 type ProjectContext struct {
-	Dir              string   // absolute path to root working directory
-	Contexts         []string // discovered terraform sub-projects (relative paths)
-	ActiveContext    string   // currently selected sub-project (relative path)
-	ActiveContextAbs string   // absolute path of active context
+	Dir            string   // absolute path to root working directory
+	Scopes         []string // discovered terraform sub-projects (relative paths)
+	ActiveScope    string   // currently selected sub-project (relative path)
+	ActiveScopeAbs string   // absolute path of active scope
 }
 
 // TerraformContext holds all terraform operational state.

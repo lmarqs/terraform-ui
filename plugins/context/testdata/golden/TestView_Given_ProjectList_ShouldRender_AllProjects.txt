@@ -2,4 +2,4 @@
   modules/compute
   envs/production
 
-3 project(s)
+3 scope(s)

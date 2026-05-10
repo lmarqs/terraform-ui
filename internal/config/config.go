@@ -36,8 +36,8 @@ type Config struct {
 	// Targets is a list of resource targets for plan/apply.
 	Targets []string `yaml:"-"`
 
-	// Context defines monorepo project discovery (similar to pnpm-workspace.yaml).
-	Context ContextConfig `yaml:"context"`
+	// Scope defines monorepo project discovery (similar to pnpm-workspace.yaml).
+	Scope ScopeConfig `yaml:"scope"`
 
 	// Plugins is a map of plugin ID → plugin config.
 	// Plugins not listed are enabled with default settings.
@@ -143,9 +143,9 @@ func (c PluginConfig) IsEnabled() bool {
 	return *c.Enabled
 }
 
-// ContextConfig defines how to discover terraform projects in a monorepo
+// ScopeConfig defines how to discover terraform projects in a monorepo
 // by specifying glob patterns that match directories containing .tf files.
-type ContextConfig struct {
+type ScopeConfig struct {
 	// Paths is a list of glob patterns for module directories.
 	// Example: ["infra/*", "modules/**", "envs/production"]
 	Paths []string `yaml:"paths"`
@@ -210,24 +210,24 @@ func findConfigFile(dir string) string {
 	return ""
 }
 
-// DiscoverContext returns all terraform project directories matching the glob
-// patterns configured in Context.Paths. If no patterns are configured, it
+// DiscoverScopes returns all terraform project directories matching the glob
+// patterns configured in Scope.Paths. If no patterns are configured, it
 // auto-discovers terraform subdirectories (one level deep). If only the root
 // directory contains terraform files, it returns just the root directory.
-func (c Config) DiscoverContext() ([]string, error) {
+func (c Config) DiscoverScopes() ([]string, error) {
 	absDir, err := filepath.Abs(c.Dir)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(c.Context.Paths) == 0 {
-		return c.autoDiscoverContext(absDir)
+	if len(c.Scope.Paths) == 0 {
+		return c.autoDiscoverScopes(absDir)
 	}
 
 	var modules []string
 	seen := make(map[string]bool)
 
-	for _, pattern := range c.Context.Paths {
+	for _, pattern := range c.Scope.Paths {
 		fullPattern := filepath.Join(absDir, pattern)
 		matches, err := filepath.Glob(fullPattern)
 		if err != nil {
@@ -252,10 +252,10 @@ func (c Config) DiscoverContext() ([]string, error) {
 	return modules, nil
 }
 
-// autoDiscoverContext walks the directory tree to find terraform projects.
+// autoDiscoverScopes walks the directory tree to find terraform projects.
 // Skips hidden directories and stops descending once a dir has .tf files.
 // If only the root directory has terraform files, returns just the root.
-func (c Config) autoDiscoverContext(absDir string) ([]string, error) {
+func (c Config) autoDiscoverScopes(absDir string) ([]string, error) {
 	var projects []string
 
 	entries, err := os.ReadDir(absDir)

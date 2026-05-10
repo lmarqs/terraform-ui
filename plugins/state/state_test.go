@@ -1182,7 +1182,7 @@ func TestActivateWithContextChange(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}}}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveContextAbs, "/new/ctx")
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/new/ctx")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	p.status = StatusDone
@@ -1197,7 +1197,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveContextAbs, "/same")
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/same")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	p.status = StatusDone
@@ -1212,7 +1212,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyContextCount, 3)
+	session.Set(sdk.SessionKeyScopeCount, 3)
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	cmd := p.Activate()
@@ -1228,7 +1228,7 @@ func TestActivateWithContextDir(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveContextAbs, "/my/ctx")
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/my/ctx")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	cmd := p.Activate()

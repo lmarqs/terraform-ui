@@ -35,7 +35,7 @@ type App struct {
 
 	activePlugin  sdk.Plugin // nil = home screen
 	activeOverlay sdk.Overlay
-	activeContext string // tracks last known active context for header updates
+	activeScope string // tracks last known active scope for header updates
 	commandMode   bool
 	commandInput  string
 
@@ -50,7 +50,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
 	header := components.NewHeader(workDir, "default", cfg.TerraformBinary())
 	if cfg.BaseDir != "" {
-		header = header.WithContext(cfg.BaseDir)
+		header = header.WithScope(cfg.BaseDir)
 	}
 	return App{
 		cfg:           cfg,
@@ -121,7 +121,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.OverlayDismissMsg:
 		a.activeOverlay = nil
-		a.syncActiveContext()
+		a.syncActiveScope()
 		return a, nil
 
 	case sdk.DeactivateMsg:
@@ -170,7 +170,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.activeOverlay.Update(msg)
 		if updated == nil {
 			a.activeOverlay = nil
-			a.syncActiveContext()
+			a.syncActiveScope()
 		} else {
 			a.activeOverlay = updated
 		}
@@ -181,7 +181,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
-		a.syncActiveContext()
+		a.syncActiveScope()
 		return a, cmd
 	}
 
@@ -200,7 +200,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.activeOverlay.Update(msg)
 		if updated == nil {
 			a.activeOverlay = nil
-			a.syncActiveContext()
+			a.syncActiveScope()
 		} else {
 			a.activeOverlay = updated
 		}
@@ -315,12 +315,12 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// For stackable plugins, route keys through the navigation stack
 		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
 			cmd := stackable.Stack().Update(msg)
-			a.syncActiveContext()
+			a.syncActiveScope()
 			return a, cmd
 		}
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
-		a.syncActiveContext()
+		a.syncActiveScope()
 		return a, cmd
 	}
 
@@ -358,15 +358,15 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// syncActiveContext checks if the active context changed in session and updates the header.
-func (a *App) syncActiveContext() {
+// syncActiveScope checks if the active scope changed in session and updates the header.
+func (a *App) syncActiveScope() {
 	if a.session == nil {
 		return
 	}
-	if ctx, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveContext); ok {
-		if ctx != a.activeContext {
-			a.activeContext = ctx
-			a.header = a.header.WithContext(ctx)
+	if scope, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveScope); ok {
+		if scope != a.activeScope {
+			a.activeScope = scope
+			a.header = a.header.WithScope(scope)
 		}
 	}
 }

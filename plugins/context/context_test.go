@@ -63,10 +63,11 @@ func TestNew_ActiveIsMinusOne(t *testing.T) {
 	if p.active != -1 {
 		t.Errorf("active = %d, want -1", p.active)
 	}
-	if p.ActiveProject() != nil {
-		t.Error("ActiveProject() != nil for new plugin, want nil")
+	if p.ActiveScope() != nil {
+		t.Error("ActiveScope() != nil for new plugin, want nil")
 	}
 }
+
 
 func TestConfigure(t *testing.T) {
 	svc := &mockService{}
@@ -110,7 +111,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestInitCmdReturnsContextDiscoveredMsg(t *testing.T) {
+func TestInitCmdReturnsScopeDiscoveredMsg(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.cfg = config.Config{Dir: "."}
@@ -120,55 +121,55 @@ func TestInitCmdReturnsContextDiscoveredMsg(t *testing.T) {
 	cmd := p.Activate()
 	msg := cmd()
 
-	result, ok := msg.(ContextDiscoveredMsg)
+	result, ok := msg.(ScopeDiscoveredMsg)
 	if !ok {
-		t.Fatalf("Init cmd returned %T, want ContextDiscoveredMsg", msg)
+		t.Fatalf("Init cmd returned %T, want ScopeDiscoveredMsg", msg)
 	}
 	if result.Err != nil {
-		t.Errorf("ContextDiscoveredMsg.Err = %v, want nil", result.Err)
+		t.Errorf("ScopeDiscoveredMsg.Err = %v, want nil", result.Err)
 	}
-	if len(result.Projects) == 0 {
-		t.Error("len(Projects) = 0, want at least 1 (the dir itself)")
+	if len(result.Scopes) == 0 {
+		t.Error("len(Scopes) = 0, want at least 1 (the dir itself)")
 	}
 }
 
-func TestUpdateContextDiscoveredMsgSuccess(t *testing.T) {
+func TestUpdateScopeDiscoveredMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = StatusLoading
 
-	projects := []Project{
+	scopes := []Scope{
 		{Path: "modules/vpc", Name: "vpc", AbsPath: "/tmp/modules/vpc"},
 		{Path: "modules/rds", Name: "rds", AbsPath: "/tmp/modules/rds"},
 	}
 
-	result, cmd := p.Update(ContextDiscoveredMsg{Projects: projects, Err: nil})
+	result, cmd := p.Update(ScopeDiscoveredMsg{Scopes: scopes, Err: nil})
 	if cmd != nil {
-		t.Errorf("Update(ContextDiscoveredMsg) cmd = %v, want nil", cmd)
+		t.Errorf("Update(ScopeDiscoveredMsg) cmd = %v, want nil", cmd)
 	}
 
 	updated := result.(*Plugin)
 	if updated.status != StatusDone {
 		t.Errorf("status = %v, want StatusDone", updated.status)
 	}
-	if len(updated.projects) != 2 {
-		t.Errorf("len(projects) = %d, want 2", len(updated.projects))
+	if len(updated.scopes) != 2 {
+		t.Errorf("len(scopes) = %d, want 2", len(updated.scopes))
 	}
 	if !updated.Ready() {
 		t.Error("Ready() = false after success, want true")
 	}
 }
 
-func TestUpdateContextDiscoveredMsgError(t *testing.T) {
+func TestUpdateScopeDiscoveredMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = StatusLoading
 
-	result, cmd := p.Update(ContextDiscoveredMsg{Err: errTest})
+	result, cmd := p.Update(ScopeDiscoveredMsg{Err: errTest})
 	if cmd != nil {
-		t.Errorf("Update(ContextDiscoveredMsg) cmd = %v, want nil", cmd)
+		t.Errorf("Update(ScopeDiscoveredMsg) cmd = %v, want nil", cmd)
 	}
 
 	updated := result.(*Plugin)
@@ -190,7 +191,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "a", Name: "a"},
 		{Path: "b", Name: "b"},
 		{Path: "c", Name: "c"},
@@ -237,7 +238,7 @@ func TestUpdateKeyMsgEnter_SelectAndDeactivate(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "a", Name: "a", AbsPath: "/tmp/a"},
 		{Path: "b", Name: "b", AbsPath: "/tmp/b"},
 	}
@@ -285,7 +286,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 func TestMoveUpDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "a"}, {Path: "b"}, {Path: "c"}}
+	p.scopes = []Scope{{Path: "a"}, {Path: "b"}, {Path: "c"}}
 
 	p.MoveDown()
 	if p.selected != 1 {
@@ -313,7 +314,7 @@ func TestMoveUpDown(t *testing.T) {
 func TestMoveDownEmpty(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{}
+	p.scopes = []Scope{}
 	p.MoveDown()
 	if p.selected != 0 {
 		t.Errorf("MoveDown empty: selected = %d, want 0", p.selected)
@@ -323,7 +324,7 @@ func TestMoveDownEmpty(t *testing.T) {
 func TestSelectCurrent(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "a"},
 		{Path: "b"},
 		{Path: "c"},
@@ -347,7 +348,7 @@ func TestSelectCurrentWithSession(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.session = sdk.NewSession()
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "modules/vpc", AbsPath: "/tmp/modules/vpc"},
 		{Path: "modules/rds", AbsPath: "/tmp/modules/rds"},
 	}
@@ -355,11 +356,11 @@ func TestSelectCurrentWithSession(t *testing.T) {
 
 	p.SelectCurrent()
 
-	ctx, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContext)
+	ctx, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScope)
 	if !ok || ctx != "modules/rds" {
 		t.Errorf("session context = %q, want %q", ctx, "modules/rds")
 	}
-	abs, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContextAbs)
+	abs, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs)
 	if !ok || abs != "/tmp/modules/rds" {
 		t.Errorf("session context abs = %q, want %q", abs, "/tmp/modules/rds")
 	}
@@ -368,7 +369,7 @@ func TestSelectCurrentWithSession(t *testing.T) {
 func TestSelectCurrentOutOfBounds(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "a"}}
+	p.scopes = []Scope{{Path: "a"}}
 	p.selected = 5
 
 	cmd := p.SelectCurrent()
@@ -377,65 +378,65 @@ func TestSelectCurrentOutOfBounds(t *testing.T) {
 	}
 }
 
-func TestActiveProject(t *testing.T) {
+func TestActiveScope(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "a"}, {Path: "b"}}
+	p.scopes = []Scope{{Path: "a"}, {Path: "b"}}
 	p.active = 1
 
-	ap := p.ActiveProject()
+	ap := p.ActiveScope()
 	if ap == nil {
-		t.Fatal("ActiveProject() = nil, want non-nil")
+		t.Fatal("ActiveScope() = nil, want non-nil")
 	}
 	if ap.Path != "b" {
-		t.Errorf("ActiveProject().Path = %q, want %q", ap.Path, "b")
+		t.Errorf("ActiveScope().Path = %q, want %q", ap.Path, "b")
 	}
 }
 
-func TestActiveProjectNoSelection(t *testing.T) {
+func TestActiveScopeNoSelection(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "a"}, {Path: "b"}}
+	p.scopes = []Scope{{Path: "a"}, {Path: "b"}}
 
-	if p.ActiveProject() != nil {
-		t.Error("ActiveProject() != nil for new plugin (active=-1), want nil")
+	if p.ActiveScope() != nil {
+		t.Error("ActiveScope() != nil for new plugin (active=-1), want nil")
 	}
 }
 
-func TestActiveProjectOutOfBounds(t *testing.T) {
+func TestActiveScopeOutOfBounds(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{}
+	p.scopes = []Scope{}
 	p.active = 5
 
-	if p.ActiveProject() != nil {
-		t.Error("ActiveProject() out of bounds: want nil")
+	if p.ActiveScope() != nil {
+		t.Error("ActiveScope() out of bounds: want nil")
 	}
 }
 
-func TestSelectedProject(t *testing.T) {
+func TestSelectedScope(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "a"}, {Path: "b"}}
+	p.scopes = []Scope{{Path: "a"}, {Path: "b"}}
 	p.selected = 1
 
-	sp := p.SelectedProject()
+	sp := p.SelectedScope()
 	if sp == nil {
-		t.Fatal("SelectedProject() = nil, want non-nil")
+		t.Fatal("SelectedScope() = nil, want non-nil")
 	}
 	if sp.Path != "b" {
-		t.Errorf("SelectedProject().Path = %q, want %q", sp.Path, "b")
+		t.Errorf("SelectedScope().Path = %q, want %q", sp.Path, "b")
 	}
 }
 
-func TestSelectedProjectOutOfBounds(t *testing.T) {
+func TestSelectedScopeOutOfBounds(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{}
+	p.scopes = []Scope{}
 	p.selected = 5
 
-	if p.SelectedProject() != nil {
-		t.Error("SelectedProject() out of bounds: want nil")
+	if p.SelectedScope() != nil {
+		t.Error("SelectedScope() out of bounds: want nil")
 	}
 }
 
@@ -483,23 +484,23 @@ func TestViewError(t *testing.T) {
 	}
 }
 
-func TestViewDone_NoProjects(t *testing.T) {
+func TestViewDone_NoScopes(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{}
+	p.scopes = []Scope{}
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, no projects) returned empty string")
+		t.Error("View(StatusDone, no scopes) returned empty string")
 	}
 }
 
-func TestViewDone_WithProjects(t *testing.T) {
+func TestViewDone_WithScopes(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "modules/vpc", Name: "vpc", AbsPath: "/tmp/modules/vpc"},
 		{Path: "modules/rds", Name: "rds", AbsPath: "/tmp/modules/rds"},
 	}
@@ -507,7 +508,7 @@ func TestViewDone_WithProjects(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with projects) returned empty string")
+		t.Error("View(StatusDone, with scopes) returned empty string")
 	}
 }
 
@@ -527,11 +528,11 @@ func TestViewScrolling(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 
-	projects := make([]Project, 50)
-	for i := range projects {
-		projects[i] = Project{Path: "module_" + string(rune('a'+i%26)), Name: "m" + string(rune('a'+i%26))}
+	scopes := make([]Scope, 50)
+	for i := range scopes {
+		scopes[i] = Scope{Path: "module_" + string(rune('a'+i%26)), Name: "m" + string(rune('a'+i%26))}
 	}
-	p.projects = projects
+	p.scopes = scopes
 	p.selected = 40
 
 	view := p.View(80, 10)
@@ -540,7 +541,7 @@ func TestViewScrolling(t *testing.T) {
 	}
 }
 
-func TestDeriveProjectName(t *testing.T) {
+func TestDeriveScopeName(t *testing.T) {
 	tests := []struct {
 		path string
 		want string
@@ -553,19 +554,19 @@ func TestDeriveProjectName(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		got := deriveProjectName(tt.path)
+		got := deriveScopeName(tt.path)
 		if got != tt.want {
-			t.Errorf("deriveProjectName(%q) = %q, want %q", tt.path, got, tt.want)
+			t.Errorf("deriveScopeName(%q) = %q, want %q", tt.path, got, tt.want)
 		}
 	}
 }
 
-func TestContextCount(t *testing.T) {
+func TestScopeCount(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.projects = []Project{{}, {}, {}}
-	if p.ContextCount() != 3 {
-		t.Errorf("ContextCount() = %d, want 3", p.ContextCount())
+	p.scopes = []Scope{{}, {}, {}}
+	if p.ScopeCount() != 3 {
+		t.Errorf("ScopeCount() = %d, want 3", p.ScopeCount())
 	}
 }
 
@@ -599,7 +600,7 @@ func TestUpdateKeyMsgDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}, {Path: "b"}}
+	p.scopes = []Scope{{Path: "a"}, {Path: "b"}}
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 1 {
@@ -616,7 +617,7 @@ func TestUpdateKeyMsgUnhandled(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}}
+	p.scopes = []Scope{{Path: "a"}}
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if cmd != nil {
@@ -628,7 +629,7 @@ func TestUpdateKeyMsgEsc_Deactivate(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}}
+	p.scopes = []Scope{{Path: "a"}}
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEscape})
 	if cmd == nil {
@@ -644,7 +645,7 @@ func TestStackHints_Done(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}}
+	p.scopes = []Scope{{Path: "a"}}
 
 	hints := p.stack.Hints()
 	if len(hints) != 4 {

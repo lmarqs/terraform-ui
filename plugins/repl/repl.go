@@ -94,7 +94,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (p *Plugin) Activate() tea.Cmd {
 	// Check for context change
 	if p.session != nil {
-		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContextAbs)
+		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs)
 		if currentContext != p.scopedContext {
 			p.scopedContext = currentContext
 			p.history = nil
@@ -115,8 +115,8 @@ func (p *Plugin) Activate() tea.Cmd {
 	}
 
 	if p.session != nil {
-		if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyContextCount); ok && count > 1 {
-			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContextAbs); ok && dir != "" {
+		if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyScopeCount); ok && count > 1 {
+			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				p.dir = dir
 			} else {
 				p.status = StatusError

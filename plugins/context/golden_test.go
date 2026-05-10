@@ -30,7 +30,7 @@ func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
 func TestView_Given_NoProjects_ShouldRender_Placeholder(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
-	p.projects = []Project{}
+	p.scopes = []Scope{}
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -38,7 +38,7 @@ func TestView_Given_NoProjects_ShouldRender_Placeholder(t *testing.T) {
 func TestView_Given_ProjectList_ShouldRender_AllProjects(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "modules/networking", Name: "networking", AbsPath: "/repo/modules/networking"},
 		{Path: "modules/compute", Name: "compute", AbsPath: "/repo/modules/compute"},
 		{Path: "envs/production", Name: "production", AbsPath: "/repo/envs/production"},
@@ -50,7 +50,7 @@ func TestView_Given_ProjectList_ShouldRender_AllProjects(t *testing.T) {
 func TestView_Given_ProjectList_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "modules/networking", Name: "networking", AbsPath: "/repo/modules/networking"},
 		{Path: "modules/compute", Name: "compute", AbsPath: "/repo/modules/compute"},
 		{Path: "envs/production", Name: "production", AbsPath: "/repo/envs/production"},
@@ -63,7 +63,7 @@ func TestView_Given_ProjectList_WithSelection_ShouldRender_HighlightedRow(t *tes
 func TestView_Given_ProjectList_WithActiveProject_ShouldRender_ActiveIndicator(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
-	p.projects = []Project{
+	p.scopes = []Scope{
 		{Path: "modules/networking", Name: "networking", AbsPath: "/repo/modules/networking"},
 		{Path: "modules/compute", Name: "compute", AbsPath: "/repo/modules/compute"},
 		{Path: "envs/production", Name: "production", AbsPath: "/repo/envs/production"},

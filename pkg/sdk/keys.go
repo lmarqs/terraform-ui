@@ -9,11 +9,11 @@ const (
 	// SessionKeyResourceCount holds the total resource count (int) from the plan.
 	SessionKeyResourceCount = "plan.resource_count"
 
-	// SessionKeyActiveContext holds the relative path (string) of the active context.
-	SessionKeyActiveContext = "context.active"
-	// SessionKeyActiveContextAbs holds the absolute path (string) of the active context.
-	SessionKeyActiveContextAbs = "context.active_abs"
-	// SessionKeyContextCount holds the number of discovered contexts (int).
-	// A value > 1 indicates a multi-context (monorepo) environment.
-	SessionKeyContextCount = "context.count"
+	// SessionKeyActiveScope holds the relative path (string) of the active scope.
+	SessionKeyActiveScope = "scope.active"
+	// SessionKeyActiveScopeAbs holds the absolute path (string) of the active scope.
+	SessionKeyActiveScopeAbs = "scope.active_abs"
+	// SessionKeyScopeCount holds the number of discovered scopes (int).
+	// A value > 1 indicates a multi-scope (monorepo) environment.
+	SessionKeyScopeCount = "scope.count"
 )

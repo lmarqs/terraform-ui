@@ -24,8 +24,8 @@ func TestDefaultConfig(t *testing.T) {
 	if len(cfg.Targets) != 0 {
 		t.Errorf("DefaultConfig().Targets = %v, want empty", cfg.Targets)
 	}
-	if len(cfg.Context.Paths) != 0 {
-		t.Errorf("DefaultConfig().Context.Paths = %v, want empty", cfg.Context.Paths)
+	if len(cfg.Scope.Paths) != 0 {
+		t.Errorf("DefaultConfig().Scope.Paths = %v, want empty", cfg.Scope.Paths)
 	}
 	if cfg.Plugins != nil {
 		t.Errorf("DefaultConfig().Plugins = %v, want nil", cfg.Plugins)
@@ -54,7 +54,7 @@ func TestLoad_ValidConfig(t *testing.T) {
 	configContent := `
 terraform:
   bin: /usr/local/bin/tofu
-context:
+scope:
   paths:
     - "infra/*"
     - "modules/**"
@@ -81,14 +81,14 @@ plugins:
 	if cfg.Terraform.Bin != "/usr/local/bin/tofu" {
 		t.Errorf("Load().Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/local/bin/tofu")
 	}
-	if len(cfg.Context.Paths) != 2 {
-		t.Fatalf("Load().Projects.Paths length = %d, want 2", len(cfg.Context.Paths))
+	if len(cfg.Scope.Paths) != 2 {
+		t.Fatalf("Load().Projects.Paths length = %d, want 2", len(cfg.Scope.Paths))
 	}
-	if cfg.Context.Paths[0] != "infra/*" {
-		t.Errorf("Load().Projects.Paths[0] = %q, want %q", cfg.Context.Paths[0], "infra/*")
+	if cfg.Scope.Paths[0] != "infra/*" {
+		t.Errorf("Load().Projects.Paths[0] = %q, want %q", cfg.Scope.Paths[0], "infra/*")
 	}
-	if cfg.Context.Paths[1] != "modules/**" {
-		t.Errorf("Load().Projects.Paths[1] = %q, want %q", cfg.Context.Paths[1], "modules/**")
+	if cfg.Scope.Paths[1] != "modules/**" {
+		t.Errorf("Load().Projects.Paths[1] = %q, want %q", cfg.Scope.Paths[1], "modules/**")
 	}
 	if len(cfg.Plugins) != 2 {
 		t.Fatalf("Load().Plugins length = %d, want 2", len(cfg.Plugins))
@@ -142,7 +142,7 @@ func TestLoad_InvalidYAML(t *testing.T) {
 	}
 }
 
-func TestDiscoverContext_NoPatterns_SingleDir(t *testing.T) {
+func TestDiscoverScopes_NoPatterns_SingleDir(t *testing.T) {
 	root := t.TempDir()
 
 	// Only root has .tf files, no subdirs with terraform
@@ -153,20 +153,20 @@ func TestDiscoverContext_NoPatterns_SingleDir(t *testing.T) {
 
 	cfg := Config{Dir: root}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 1 {
-		t.Fatalf("DiscoverContext() length = %d, want 1", len(projects))
+		t.Fatalf("DiscoverScopes() length = %d, want 1", len(projects))
 	}
 	if projects[0] != root {
-		t.Errorf("DiscoverContext()[0] = %q, want %q", projects[0], root)
+		t.Errorf("DiscoverScopes()[0] = %q, want %q", projects[0], root)
 	}
 }
 
-func TestDiscoverContext_NoPatterns_AutoDiscovers(t *testing.T) {
+func TestDiscoverScopes_NoPatterns_AutoDiscovers(t *testing.T) {
 	root := t.TempDir()
 
 	// Create multiple subdirs with .tf files
@@ -184,24 +184,24 @@ func TestDiscoverContext_NoPatterns_AutoDiscovers(t *testing.T) {
 
 	cfg := Config{Dir: root}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 3 {
-		t.Fatalf("DiscoverContext() length = %d, want 3 (got %v)", len(projects), projects)
+		t.Fatalf("DiscoverScopes() length = %d, want 3 (got %v)", len(projects), projects)
 	}
 
 	// All should be relative names
 	for _, p := range projects {
 		if filepath.IsAbs(p) {
-			t.Errorf("DiscoverContext() returned absolute path: %q", p)
+			t.Errorf("DiscoverScopes() returned absolute path: %q", p)
 		}
 	}
 }
 
-func TestDiscoverContext_NoPatterns_NestedDirs(t *testing.T) {
+func TestDiscoverScopes_NoPatterns_NestedDirs(t *testing.T) {
 	root := t.TempDir()
 
 	// Create nested terraform dirs (e.g. environments/prod, environments/staging)
@@ -219,13 +219,13 @@ func TestDiscoverContext_NoPatterns_NestedDirs(t *testing.T) {
 
 	cfg := Config{Dir: root}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 3 {
-		t.Fatalf("DiscoverContext() length = %d, want 3 (got %v)", len(projects), projects)
+		t.Fatalf("DiscoverScopes() length = %d, want 3 (got %v)", len(projects), projects)
 	}
 
 	// Should have relative paths like "environments/prod"
@@ -235,12 +235,12 @@ func TestDiscoverContext_NoPatterns_NestedDirs(t *testing.T) {
 	}
 	for _, want := range []string{"environments/prod", "environments/staging", "modules/vpc"} {
 		if !found[want] {
-			t.Errorf("DiscoverContext() missing %q, got %v", want, projects)
+			t.Errorf("DiscoverScopes() missing %q, got %v", want, projects)
 		}
 	}
 }
 
-func TestDiscoverContext_NoPatterns_IgnoresHiddenDirs(t *testing.T) {
+func TestDiscoverScopes_NoPatterns_IgnoresHiddenDirs(t *testing.T) {
 	root := t.TempDir()
 
 	// Create visible and hidden subdirs
@@ -258,23 +258,23 @@ func TestDiscoverContext_NoPatterns_IgnoresHiddenDirs(t *testing.T) {
 
 	cfg := Config{Dir: root}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 2 {
-		t.Fatalf("DiscoverContext() length = %d, want 2 (got %v)", len(projects), projects)
+		t.Fatalf("DiscoverScopes() length = %d, want 2 (got %v)", len(projects), projects)
 	}
 
 	for _, p := range projects {
 		if p == ".terraform" {
-			t.Error("DiscoverContext() should not include hidden directories")
+			t.Error("DiscoverScopes() should not include hidden directories")
 		}
 	}
 }
 
-func TestDiscoverContext_WithPatterns(t *testing.T) {
+func TestDiscoverScopes_WithPatterns(t *testing.T) {
 	root := t.TempDir()
 
 	// Create directories with .tf files
@@ -311,29 +311,29 @@ func TestDiscoverContext_WithPatterns(t *testing.T) {
 
 	cfg := Config{
 		Dir: root,
-		Context: ContextConfig{
+		Scope: ScopeConfig{
 			Paths: []string{"infra/*"},
 		},
 	}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 2 {
-		t.Fatalf("DiscoverContext() length = %d, want 2 (got %v)", len(projects), projects)
+		t.Fatalf("DiscoverScopes() length = %d, want 2 (got %v)", len(projects), projects)
 	}
 
 	// Check that returned paths are relative
 	for _, p := range projects {
 		if filepath.IsAbs(p) {
-			t.Errorf("DiscoverContext() returned absolute path: %q", p)
+			t.Errorf("DiscoverScopes() returned absolute path: %q", p)
 		}
 	}
 }
 
-func TestDiscoverContext_WithTofuFiles(t *testing.T) {
+func TestDiscoverScopes_WithTofuFiles(t *testing.T) {
 	root := t.TempDir()
 
 	dir := filepath.Join(root, "modules", "network")
@@ -348,22 +348,22 @@ func TestDiscoverContext_WithTofuFiles(t *testing.T) {
 
 	cfg := Config{
 		Dir: root,
-		Context: ContextConfig{
+		Scope: ScopeConfig{
 			Paths: []string{"modules/*"},
 		},
 	}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 1 {
-		t.Fatalf("DiscoverContext() length = %d, want 1", len(projects))
+		t.Fatalf("DiscoverScopes() length = %d, want 1", len(projects))
 	}
 }
 
-func TestDiscoverContext_DeduplicatesResults(t *testing.T) {
+func TestDiscoverScopes_DeduplicatesResults(t *testing.T) {
 	root := t.TempDir()
 
 	dir := filepath.Join(root, "infra")
@@ -378,40 +378,40 @@ func TestDiscoverContext_DeduplicatesResults(t *testing.T) {
 
 	cfg := Config{
 		Dir: root,
-		Context: ContextConfig{
+		Scope: ScopeConfig{
 			// Both patterns match the same directory
 			Paths: []string{"infra", "infra"},
 		},
 	}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	if len(projects) != 1 {
-		t.Errorf("DiscoverContext() should deduplicate, got %d entries: %v", len(projects), projects)
+		t.Errorf("DiscoverScopes() should deduplicate, got %d entries: %v", len(projects), projects)
 	}
 }
 
-func TestDiscoverContext_InvalidGlobPattern(t *testing.T) {
+func TestDiscoverScopes_InvalidGlobPattern(t *testing.T) {
 	root := t.TempDir()
 
 	cfg := Config{
 		Dir: root,
-		Context: ContextConfig{
+		Scope: ScopeConfig{
 			Paths: []string{"[invalid"},
 		},
 	}
 
-	projects, err := cfg.DiscoverContext()
+	projects, err := cfg.DiscoverScopes()
 	if err != nil {
-		t.Fatalf("DiscoverContext() returned error: %v", err)
+		t.Fatalf("DiscoverScopes() returned error: %v", err)
 	}
 
 	// Invalid glob patterns are skipped, resulting in empty list
 	if len(projects) != 0 {
-		t.Errorf("DiscoverContext() with invalid glob = %v, want empty", projects)
+		t.Errorf("DiscoverScopes() with invalid glob = %v, want empty", projects)
 	}
 }
 

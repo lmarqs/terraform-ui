@@ -22,23 +22,23 @@ const (
 	StatusError
 )
 
-// ContextDiscoveredMsg is sent when project discovery completes.
-type ContextDiscoveredMsg struct {
-	Projects []Project
-	Err      error
+// ScopeDiscoveredMsg is sent when scope discovery completes.
+type ScopeDiscoveredMsg struct {
+	Scopes []Scope
+	Err    error
 }
 
-// Project represents a discovered terraform project in the monorepo.
-type Project struct {
+// Scope represents a discovered terraform scope (subdirectory) in the monorepo.
+type Scope struct {
 	// Path is the relative path from the monorepo root.
 	Path string
 	// Name is a display-friendly name derived from the path.
 	Name string
-	// AbsPath is the absolute path to the project.
+	// AbsPath is the absolute path to the scope.
 	AbsPath string
 }
 
-// Plugin implements the monorepo project picker feature.
+// Plugin implements the monorepo scope picker feature.
 type Plugin struct {
 	svc      sdk.Service
 	cfg      config.Config
@@ -46,7 +46,7 @@ type Plugin struct {
 	session  *sdk.Session
 	stack    *sdk.Stack
 	status   Status
-	projects []Project
+	scopes   []Scope
 	selected int
 	active   int // -1 = no selection yet
 	errMsg   string
@@ -68,12 +68,12 @@ func (e *Plugin) ID() string          { return "context" }
 func (e *Plugin) Name() string        { return "Context" }
 func (e *Plugin) Description() string { return "Select terraform project scope" }
 func (e *Plugin) KeyBinding() string  { return "" }
-func (e *Plugin) Ready() bool         { return e.status == StatusDone }
-func (e *Plugin) Status() Status      { return e.status }
-func (e *Plugin) Selected() int       { return e.selected }
-func (e *Plugin) Active() int         { return e.active }
-func (e *Plugin) ContextCount() int   { return len(e.projects) }
-func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
+func (e *Plugin) Ready() bool       { return e.status == StatusDone }
+func (e *Plugin) Status() Status    { return e.status }
+func (e *Plugin) Selected() int     { return e.selected }
+func (e *Plugin) Active() int       { return e.active }
+func (e *Plugin) ScopeCount() int   { return len(e.scopes) }
+func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(opts map[string]interface{}) error {
@@ -93,7 +93,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	}
 	e.session = ctx.Session
 	e.status = StatusIdle
-	e.projects = nil
+	e.scopes = nil
 	e.errMsg = ""
 	e.selected = 0
 	e.active = -1
@@ -104,7 +104,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
-		e.log.Debug("context.activate", "dir", e.cfg.Dir, "paths", e.cfg.Context.Paths)
+		e.log.Debug("context.activate", "dir", e.cfg.Dir, "paths", e.cfg.Scope.Paths)
 		return e.discover()
 	}
 	return nil
@@ -120,38 +120,38 @@ func (e *Plugin) Refresh() tea.Cmd {
 func (e *Plugin) discover() tea.Cmd {
 	cfg := e.cfg
 	return func() tea.Msg {
-		paths, err := cfg.DiscoverContext()
+		paths, err := cfg.DiscoverScopes()
 		if err != nil {
-			return ContextDiscoveredMsg{Err: err}
+			return ScopeDiscoveredMsg{Err: err}
 		}
 
-		projects := make([]Project, 0, len(paths))
+		scopes := make([]Scope, 0, len(paths))
 		absDir, _ := filepath.Abs(cfg.Dir)
 		for _, p := range paths {
-			projects = append(projects, Project{
+			scopes = append(scopes, Scope{
 				Path:    p,
-				Name:    deriveProjectName(p),
+				Name:    deriveScopeName(p),
 				AbsPath: filepath.Join(absDir, p),
 			})
 		}
-		return ContextDiscoveredMsg{Projects: projects}
+		return ScopeDiscoveredMsg{Scopes: scopes}
 	}
 }
 
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
-	case ContextDiscoveredMsg:
+	case ScopeDiscoveredMsg:
 		if msg.Err != nil {
 			e.status = StatusError
 			e.errMsg = msg.Err.Error()
 			e.log.Debug("context.discover.error", "error", msg.Err.Error())
 		} else {
 			e.status = StatusDone
-			e.projects = msg.Projects
-			e.log.Debug("context.discover.complete", "projects", len(msg.Projects))
+			e.scopes = msg.Scopes
+			e.log.Debug("context.discover.complete", "scopes", len(msg.Scopes))
 			if e.session != nil {
-				e.session.Set(sdk.SessionKeyContextCount, len(msg.Projects))
+				e.session.Set(sdk.SessionKeyScopeCount, len(msg.Scopes))
 			}
 		}
 		return e, nil
@@ -168,37 +168,37 @@ func (e *Plugin) MoveUp() {
 
 // MoveDown moves selection down.
 func (e *Plugin) MoveDown() {
-	if e.selected < len(e.projects)-1 {
+	if e.selected < len(e.scopes)-1 {
 		e.selected++
 	}
 }
 
-// SelectCurrent marks the currently selected project as active and deactivates.
+// SelectCurrent marks the currently selected scope as active and deactivates.
 func (e *Plugin) SelectCurrent() tea.Cmd {
-	if e.selected >= len(e.projects) {
+	if e.selected >= len(e.scopes) {
 		return nil
 	}
 	e.active = e.selected
-	p := e.projects[e.selected]
+	p := e.scopes[e.selected]
 	if e.session != nil {
-		e.session.Set(sdk.SessionKeyActiveContext, p.Path)
-		e.session.Set(sdk.SessionKeyActiveContextAbs, p.AbsPath)
+		e.session.Set(sdk.SessionKeyActiveScope, p.Path)
+		e.session.Set(sdk.SessionKeyActiveScopeAbs, p.AbsPath)
 	}
 	return func() tea.Msg { return sdk.DeactivateMsg{} }
 }
 
-// ActiveProject returns the currently active project.
-func (e *Plugin) ActiveProject() *Project {
-	if e.active >= 0 && e.active < len(e.projects) {
-		return &e.projects[e.active]
+// ActiveScope returns the currently active scope.
+func (e *Plugin) ActiveScope() *Scope {
+	if e.active >= 0 && e.active < len(e.scopes) {
+		return &e.scopes[e.active]
 	}
 	return nil
 }
 
-// SelectedProject returns the currently highlighted project.
-func (e *Plugin) SelectedProject() *Project {
-	if e.selected < len(e.projects) {
-		return &e.projects[e.selected]
+// SelectedScope returns the currently highlighted scope.
+func (e *Plugin) SelectedScope() *Scope {
+	if e.selected < len(e.scopes) {
+		return &e.scopes[e.selected]
 	}
 	return nil
 }
@@ -207,24 +207,24 @@ func (e *Plugin) SelectedProject() *Project {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle, StatusLoading:
-		return sdk.StyleFaintItalic.Render("Discovering context...")
+		return sdk.StyleFaintItalic.Render("Discovering scopes...")
 
 	case StatusError:
 		return sdk.StyleError.Render("Error: " + e.errMsg)
 
 	case StatusDone:
-		return e.renderProjects(width, height)
+		return e.renderScopes(width, height)
 
 	default:
 		return ""
 	}
 }
 
-func (e *Plugin) renderProjects(width, height int) string {
-	if len(e.projects) == 0 {
+func (e *Plugin) renderScopes(width, height int) string {
+	if len(e.scopes) == 0 {
 		return sdk.StyleFaintItalic.Render(
-			"No context configured. Add paths to tfui.yaml:\n\n" +
-				"  context:\n" +
+			"No scopes configured. Add paths to tfui.yaml:\n\n" +
+				"  scope:\n" +
 				"    paths:\n" +
 				"      - \"modules/*\"\n" +
 				"      - \"envs/**\"",
@@ -243,13 +243,13 @@ func (e *Plugin) renderProjects(width, height int) string {
 		startIdx = e.selected - maxVisible + 1
 	}
 	endIdx := startIdx + maxVisible
-	if endIdx > len(e.projects) {
-		endIdx = len(e.projects)
+	if endIdx > len(e.scopes) {
+		endIdx = len(e.scopes)
 	}
 
 	for i := startIdx; i < endIdx; i++ {
-		project := e.projects[i]
-		row := e.renderProjectRow(project, i)
+		scope := e.scopes[i]
+		row := e.renderScopeRow(scope, i)
 		if i == e.selected {
 			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
@@ -257,16 +257,16 @@ func (e *Plugin) renderProjects(width, height int) string {
 		b.WriteByte('\n')
 	}
 
-	count := sdk.StyleFaint.Render(fmt.Sprintf("%d project(s)", len(e.projects)))
+	count := sdk.StyleFaint.Render(fmt.Sprintf("%d scope(s)", len(e.scopes)))
 
 	return b.String() + "\n" + count
 }
 
-func (e *Plugin) renderProjectRow(project Project, idx int) string {
+func (e *Plugin) renderScopeRow(scope Scope, idx int) string {
 	isActive := false
 	if e.active >= 0 {
-		for i, p := range e.projects {
-			if p.Path == project.Path && i == e.active {
+		for i, s := range e.scopes {
+			if s.Path == scope.Path && i == e.active {
 				isActive = true
 				break
 			}
@@ -274,10 +274,10 @@ func (e *Plugin) renderProjectRow(project Project, idx int) string {
 	}
 
 	indicator := "  "
-	name := sdk.StyleFaint.Render(project.Path)
+	name := sdk.StyleFaint.Render(scope.Path)
 	if isActive {
 		indicator = sdk.StyleSuccess.Render("* ")
-		name = sdk.StyleKey.Render(project.Path)
+		name = sdk.StyleKey.Render(scope.Path)
 	}
 
 	return fmt.Sprintf("%s%s", indicator, name)
@@ -320,7 +320,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	case StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	case StatusDone:
-		if len(f.plugin.projects) == 0 {
+		if len(f.plugin.scopes) == 0 {
 			return sdk.HintSetBack.Hints()
 		}
 		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
@@ -329,8 +329,8 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	}
 }
 
-// deriveProjectName creates a display name from a project path.
-func deriveProjectName(path string) string {
+// deriveScopeName creates a display name from a scope path.
+func deriveScopeName(path string) string {
 	// Use the last path component as the name
 	base := filepath.Base(path)
 	if base == "." || base == "/" {

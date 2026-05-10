@@ -15,13 +15,13 @@ var logo = [3]string{
 	" ╩ ╚  ╚═╝╩",
 }
 
-// Header renders a 3-line info block with project+binary, context, workspace on
+// Header renders a 3-line info block with project+binary, scope, workspace on
 // the left, and an ASCII logo on the right.
 type Header struct {
 	dir         string
 	workspace   string
 	binaryName  string
-	context     string
+	scope       string
 	pinnedCount int
 }
 
@@ -34,9 +34,9 @@ func NewHeader(dir, workspace, binaryPath string) Header {
 	}
 }
 
-// WithContext returns a copy with the active context set.
-func (h Header) WithContext(context string) Header {
-	h.context = context
+// WithScope returns a copy with the active scope set.
+func (h Header) WithScope(scope string) Header {
+	h.scope = scope
 	return h
 }
 
@@ -58,9 +58,9 @@ var logoStyle = lipgloss.NewStyle().
 
 // Render produces the 3-line header at the given width.
 func (h Header) Render(width int) string {
-	ctxVal := h.context
-	if ctxVal == "" {
-		ctxVal = "-"
+	scopeVal := h.scope
+	if scopeVal == "" {
+		scopeVal = "-"
 	}
 
 	projectParts := []string{h.dir}
@@ -69,7 +69,7 @@ func (h Header) Render(width int) string {
 		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}
 	line1Left := headerLabelStyle.Render(" Project:") + " " + headerValueStyle.Render(strings.Join(projectParts, " │ "))
-	line2Left := headerLabelStyle.Render(" Context:") + " " + headerValueStyle.Render(ctxVal)
+	line2Left := headerLabelStyle.Render(" Scope:") + " " + headerValueStyle.Render(scopeVal)
 	line3Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(h.workspace)
 
 	logoWidth := lipgloss.Width(logo[0])

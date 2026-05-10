@@ -1,6 +1,6 @@
-No context configured. Add paths to tfui.yaml:
+No scopes configured. Add paths to tfui.yaml:
 
-  context:
+  scope:
     paths:
       - "modules/*"
       - "envs/**"
