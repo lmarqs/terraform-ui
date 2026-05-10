@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -60,7 +61,7 @@ func (h Header) Render(width int) string {
 		scopeVal = "-"
 	}
 
-	projectParts := []string{h.dir}
+	projectParts := []string{filepath.Base(h.dir)}
 	if h.pinnedCount > 0 {
 		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}

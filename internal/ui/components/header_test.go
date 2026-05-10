@@ -39,8 +39,11 @@ func TestHeader_Render_ContainsWorkspace(t *testing.T) {
 func TestHeader_Render_ContainsProject(t *testing.T) {
 	h := NewHeader("/my/project", "default")
 	output := h.Render(80)
-	if !strings.Contains(output, "/my/project") {
-		t.Error("should contain directory")
+	if !strings.Contains(output, "project") {
+		t.Error("should contain directory basename")
+	}
+	if strings.Contains(output, "/my/project") {
+		t.Error("should show only basename, not full path")
 	}
 	if !strings.Contains(output, "Project:") {
 		t.Error("should contain Project: label")
