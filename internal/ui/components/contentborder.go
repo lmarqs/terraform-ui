@@ -83,4 +83,3 @@ func buildTopBorder(title string, width int) string {
 
 	return "┌" + strings.Repeat("─", leftPad) + decorated + strings.Repeat("─", rightPad) + "┐"
 }
-

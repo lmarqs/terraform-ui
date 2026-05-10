@@ -169,11 +169,6 @@ func TestHomeView_Render(t *testing.T) {
 		t.Fatal("Render() returned empty string")
 	}
 
-	// Should contain the title
-	if !strings.Contains(output, "terraform-ui") {
-		t.Error("Render() should contain the title 'terraform-ui'")
-	}
-
 	// Should contain plugin names
 	if !strings.Contains(output, "Plan") {
 		t.Error("Render() should contain 'Plan'")

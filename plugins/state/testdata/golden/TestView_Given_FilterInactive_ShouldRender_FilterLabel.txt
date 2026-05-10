@@ -1,10 +1,7 @@
+filter: s3
 
-  State Browser
-
-  filter: s3
-
-    aws_s3_bucket.data  aws_s3_bucket
+  aws_s3_bucket.data  aws_s3_bucket
 
 
-  1/5 resources
-  ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)
+1/5 resources
+↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

@@ -1,19 +1,16 @@
-
-  State Browser
-
-    module.medprev_online.module.postgresql_proxy.aws_db_proxy.this[0]
-  aws_db_proxy
-    module.medprev_online.module.postgresql_proxy.aws_db_proxy_default_target_group.this[0]  aws_db_proxy_default_target_group
-    module.medprev_online.module.postgresql_proxy.aws_db_proxy_endpoint.read_only[0]  aws_db_proxy_endpoint
-    module.medprev_online.module.medprev_api.aws_lambda_function.api  aws_lambda_function
-    module.medprev_online.module.medprev_api.aws_lambda_function.worker  aws_lambda_function
-    module.medprev_online.module.medprev_api.aws_api_gateway_rest_api.this  aws_api_gateway_rest_api
-    module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high  aws_cloudwatch_metric_alarm
-    module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high  aws_cloudwatch_metric_alarm
-    module.cloudwatch.aws_cloudwatch_dashboard.main  aws_cloudwatch_dashboard
-    aws_s3_bucket.terraform_state  aws_s3_bucket
-    aws_dynamodb_table.terraform_locks  aws_dynamodb_table
+  module.medprev_online.module.postgresql_proxy.aws_db_proxy.this[0]
+aws_db_proxy
+  module.medprev_online.module.postgresql_proxy.aws_db_proxy_default_target_group.this[0]  aws_db_proxy_default_target_group
+  module.medprev_online.module.postgresql_proxy.aws_db_proxy_endpoint.read_only[0]  aws_db_proxy_endpoint
+  module.medprev_online.module.medprev_api.aws_lambda_function.api  aws_lambda_function
+  module.medprev_online.module.medprev_api.aws_lambda_function.worker  aws_lambda_function
+  module.medprev_online.module.medprev_api.aws_api_gateway_rest_api.this  aws_api_gateway_rest_api
+  module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high  aws_cloudwatch_metric_alarm
+  module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high  aws_cloudwatch_metric_alarm
+  module.cloudwatch.aws_cloudwatch_dashboard.main  aws_cloudwatch_dashboard
+  aws_s3_bucket.terraform_state  aws_s3_bucket
+  aws_dynamodb_table.terraform_locks  aws_dynamodb_table
 
 
-  11 resources
-  ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)
+11 resources
+↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

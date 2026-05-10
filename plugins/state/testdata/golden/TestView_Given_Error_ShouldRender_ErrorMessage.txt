@@ -1,6 +1,3 @@
+Error: Failed to read state: no state file found
 
-  State Browser
-
-  Error: Failed to read state: no state file found
-
-  Press r to retry, q to go back
+Press r to retry, q to go back

@@ -1,4 +1,1 @@
-
-  Plan Review
-
-  Error: Error running plan: insufficient permissions
+Error: Error running plan: insufficient permissions

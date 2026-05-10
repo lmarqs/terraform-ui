@@ -1,6 +1,3 @@
+Loading terraform state...
 
-  State Browser
-
-  Loading terraform state...
-
-  q to go back
+q to go back

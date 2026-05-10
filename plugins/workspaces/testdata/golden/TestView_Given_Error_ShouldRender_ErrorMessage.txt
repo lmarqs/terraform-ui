@@ -1,4 +1,1 @@
-
-  Workspaces
-
-  Error: Failed to list workspaces
+Error: Failed to list workspaces

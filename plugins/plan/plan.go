@@ -245,23 +245,16 @@ func (e *Plugin) SelectedChange() *sdk.PlanChange {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		title := sdk.StyleTitle.Render("Plan Review")
-		placeholder := sdk.StyleFaintItalic.Render("Press Enter to run terraform plan...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Press Enter to run terraform plan...")
 
 	case StatusLoading:
-		title := sdk.StyleTitle.Render("Plan Review")
-		loading := sdk.StyleFaintItalic.Render("Running terraform plan...")
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		return sdk.StyleFaintItalic.Render("Running terraform plan...")
 
 	case StatusError:
-		title := sdk.StyleTitle.Render("Plan Review")
 		if e.lockInfo != nil {
-			lockPanel := sdk.FormatLockInfo(e.lockInfo)
-			return sdk.StylePadded.Render(title + "\n\n" + lockPanel)
+			return sdk.FormatLockInfo(e.lockInfo)
 		}
-		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		return sdk.StylePadded.Render(title + "\n\n" + errText)
+		return sdk.StyleError.Render("Error: " + e.errMsg)
 
 	case StatusDone:
 		return e.renderResults(width, height)
@@ -272,17 +265,14 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderResults(width, height int) string {
-	title := sdk.StyleTitle.Render("Plan Review")
-
 	if e.summary == nil || len(e.summary.Changes) == 0 {
-		noChanges := sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
-		return sdk.StylePadded.Render(title + "\n\n" + noChanges)
+		return sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
 	}
 
 	var b strings.Builder
 
-	// Calculate visible area (title + summary + hint take ~5 lines)
-	maxVisible := height - 7
+	// Calculate visible area (summary + hint take ~5 lines)
+	maxVisible := height - 5
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -315,11 +305,11 @@ func (e *Plugin) renderResults(width, height int) string {
 	summary := e.renderSummaryLine()
 	riskLine := e.renderOverallRisk()
 
-	content := title + "\n\n" + b.String() + "\n" + summary
+	content := b.String() + "\n" + summary
 	if riskLine != "" {
 		content += "\n" + riskLine
 	}
-	return sdk.StylePadded.Render(content)
+	return content
 }
 
 func (e *Plugin) renderChangeRow(change sdk.PlanChange, width int) string {

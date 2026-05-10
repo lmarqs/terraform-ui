@@ -168,12 +168,9 @@ func (e *Plugin) SelectedModule() *ModuleImpact {
 
 // View renders the blast radius plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Blast Radius")
-
 	switch e.status {
 	case StatusIdle:
-		placeholder := sdk.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
 
 	case StatusReady:
 		return e.renderBlastRadius(width, height)
@@ -184,11 +181,8 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderBlastRadius(width, height int) string {
-	title := sdk.StyleTitle.Render("Blast Radius")
-
 	if len(e.modules) == 0 {
-		noChanges := sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
-		return sdk.StylePadded.Render(title + "\n\n" + noChanges)
+		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
 	}
 
 	var b strings.Builder
@@ -229,8 +223,7 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 	}
 
 	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  q back")
-	content := title + "\n\n" + b.String() + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + "\n" + hint
 }
 
 func (e *Plugin) renderOverallSummary() string {

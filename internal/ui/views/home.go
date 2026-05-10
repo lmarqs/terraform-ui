@@ -71,6 +71,5 @@ func (v HomeView) Render(width, height int) string {
 
 	hint := sdk.StyleFaintItalic.Render("Press a key or use j/k + Enter to select an action")
 
-	content := sdk.StyleTitle.Render("terraform-ui") + "\n\n" + b.String() + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + "\n" + hint
 }

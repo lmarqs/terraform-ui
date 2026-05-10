@@ -210,12 +210,9 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 // View renders the apply plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Apply")
-
 	switch e.status {
 	case StatusIdle:
-		placeholder := sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.\nPress Enter to start apply.")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.\nPress Enter to start apply.")
 
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
@@ -224,19 +221,19 @@ func (e *Plugin) View(width, height int) string {
 		elapsed := formatDuration(e.elapsed)
 		running := sdk.StyleFaintItalic.Render("Applying changes... " + elapsed)
 		spinner := sdk.StyleUpdate.Render(">>>")
-		return sdk.StylePadded.Render(title + "\n\n" + spinner + " " + running)
+		return spinner + " " + running
 
 	case StatusSuccess:
 		elapsed := formatDuration(e.elapsed)
 		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
 		duration := sdk.StyleFaint.Render("Duration: " + elapsed)
 		hint := sdk.StyleFaintItalic.Render("Press q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + success + "\n" + duration + "\n\n" + hint)
+		return success + "\n" + duration + "\n\n" + hint
 
 	case StatusError:
 		errText := sdk.StyleError.Render("Apply failed: " + e.errMsg)
 		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return errText + "\n\n" + hint
 
 	default:
 		return ""
@@ -244,8 +241,6 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderConfirmation(width, height int) string {
-	title := sdk.StyleTitle.Render("Apply")
-
 	warning := sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
 	detail := sdk.StyleFaint.Render("This will modify your infrastructure.")
 
@@ -255,8 +250,7 @@ func (e *Plugin) renderConfirmation(width, height int) string {
 
 	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
 
-	content := title + "\n\n" + warning + "\n" + detail + "\n\n" + prompt
-	return sdk.StylePadded.Render(content)
+	return warning + "\n" + detail + "\n\n" + prompt
 }
 
 func formatDuration(d time.Duration) string {

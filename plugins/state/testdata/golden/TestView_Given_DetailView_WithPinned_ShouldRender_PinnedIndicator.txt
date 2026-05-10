@@ -1,7 +1,5 @@
+aws_instance.web [pinned]
 
-  Resource Detail
-  aws_instance.web [pinned]
+{"id": "i-0abc123def456"}
 
-  {"id": "i-0abc123def456"}
-
-  ↑↓ scroll  ←→ pan  ^w wrap(off)  Space pin  d delete  e edit  Esc back
+↑↓ scroll  ←→ pan  ^w wrap(off)  Space pin  d delete  e edit  Esc back

@@ -1,10 +1,7 @@
+State Lock Detected
+----------------------------------------
+  Lock ID:    a1b2c3d4-e5f6-7890-abcd-ef1234567890
+  Who:        user@machine
+  Operation:  OperationTypePlan
 
-  State Browser
-
-  State Lock Detected
-  ----------------------------------------
-    Lock ID:    a1b2c3d4-e5f6-7890-abcd-ef1234567890
-    Who:        user@machine
-    Operation:  OperationTypePlan
-
-  u force-unlock  r retry  q back
+u force-unlock  r retry  q back

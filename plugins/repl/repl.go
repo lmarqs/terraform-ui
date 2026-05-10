@@ -242,15 +242,12 @@ func (p *Plugin) evaluate(expr string) tea.Cmd {
 func (p *Plugin) View(width, height int) string {
 	switch p.status {
 	case StatusIdle:
-		title := sdk.StyleTitle.Render("Terraform Console (REPL)")
-		placeholder := sdk.StyleFaintItalic.Render("Activating...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Activating...")
 
 	case StatusError:
-		title := sdk.StyleTitle.Render("Terraform Console (REPL)")
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
 		hint := sdk.StyleFaintItalic.Render("q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return errText + "\n\n" + hint
 
 	case StatusReady, StatusEvaluating:
 		return p.renderREPL(width, height)
@@ -261,10 +258,8 @@ func (p *Plugin) View(width, height int) string {
 }
 
 func (p *Plugin) renderREPL(width, height int) string {
-	title := sdk.StyleTitle.Render("Terraform Console (REPL)")
-
-	// Reserve lines for: title(1) + blank(1) + input(1) + blank(1) + hint(1) + padding(2)
-	headerLines := 7
+	// Reserve lines for: input(1) + blank(1) + hint(1)
+	headerLines := 3
 	maxHistoryLines := height - headerLines
 	if maxHistoryLines < 3 {
 		maxHistoryLines = 3
@@ -313,8 +308,7 @@ func (p *Plugin) renderREPL(width, height int) string {
 	// Hint
 	hint := sdk.StyleFaintItalic.Render("Enter evaluate  Up/Down history  Ctrl+C clear  q exit")
 
-	content := title + "\n\n" + b.String() + inputLine + "\n\n" + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + inputLine + "\n\n" + hint
 }
 
 // detectBinary finds the terraform/tofu binary on PATH.

@@ -1,15 +1,13 @@
+aws_instance.web
 
-  Resource Detail
-  aws_instance.web
-
-  {
-    "id": "i-0abc123def456",
-    "instance_type": "t3.micro",
-    "ami": "ami-12345678",
-    "tags": {
-      "Name": "web-server",
-      "Environment": "production"
-    }
+{
+  "id": "i-0abc123def456",
+  "instance_type": "t3.micro",
+  "ami": "ami-12345678",
+  "tags": {
+    "Name": "web-server",
+    "Environment": "production"
   }
+}
 
-  ↑↓ scroll  ←→ pan  ^w wrap(off)  Space pin  d delete  e edit  Esc back
+↑↓ scroll  ←→ pan  ^w wrap(off)  Space pin  d delete  e edit  Esc back

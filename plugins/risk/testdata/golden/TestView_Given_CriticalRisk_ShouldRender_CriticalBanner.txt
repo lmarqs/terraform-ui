@@ -1,10 +1,7 @@
+!! CRITICAL RISK DETECTED !!
 
-  Risk Analysis
+--- CRITICAL (1) ---
+   - aws_rds_cluster.production  destructive operation
 
-  !! CRITICAL RISK DETECTED !!
-
-  --- CRITICAL (1) ---
-     - aws_rds_cluster.production  destructive operation
-
-  Total: 1 changes  [critical: 1]
-  j/k navigate  q back
+Total: 1 changes  [critical: 1]
+j/k navigate  q back

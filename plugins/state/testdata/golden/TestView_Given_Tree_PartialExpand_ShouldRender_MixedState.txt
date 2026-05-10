@@ -1,12 +1,9 @@
+  ▶ module.cloudwatch (3)
+  ▼ module.medprev_online (6)
+  ├─▶ module.medprev_api (3)
+  └─▶ module.postgresql_proxy (3)
+  aws_dynamodb_table.terraform_locks  aws_dynamodb_table
+  aws_s3_bucket.terraform_state  aws_s3_bucket
 
-  State Browser
-
-    ▶ module.cloudwatch (3)
-    ▼ module.medprev_online (6)
-    ├─▶ module.medprev_api (3)
-    └─▶ module.postgresql_proxy (3)
-    aws_dynamodb_table.terraform_locks  aws_dynamodb_table
-    aws_s3_bucket.terraform_state  aws_s3_bucket
-
-  11 resources
-  ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)
+11 resources
+↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

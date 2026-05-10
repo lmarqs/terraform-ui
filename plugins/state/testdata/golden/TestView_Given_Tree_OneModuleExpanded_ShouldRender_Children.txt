@@ -1,13 +1,10 @@
+  ▼ module.cloudwatch (3)
+  ├─aws_cloudwatch_dashboard.main  aws_cloudwatch_dashboard
+  ├─aws_cloudwatch_metric_alarm.cpu_high  aws_cloudwatch_metric_alarm
+  └─aws_cloudwatch_metric_alarm.memory_high  aws_cloudwatch_metric_alarm
+  ▶ module.medprev_online (6)
+  aws_dynamodb_table.terraform_locks  aws_dynamodb_table
+  aws_s3_bucket.terraform_state  aws_s3_bucket
 
-  State Browser
-
-    ▼ module.cloudwatch (3)
-    ├─aws_cloudwatch_dashboard.main  aws_cloudwatch_dashboard
-    ├─aws_cloudwatch_metric_alarm.cpu_high  aws_cloudwatch_metric_alarm
-    └─aws_cloudwatch_metric_alarm.memory_high  aws_cloudwatch_metric_alarm
-    ▶ module.medprev_online (6)
-    aws_dynamodb_table.terraform_locks  aws_dynamodb_table
-    aws_s3_bucket.terraform_state  aws_s3_bucket
-
-  11 resources
-  ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)
+11 resources
+↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

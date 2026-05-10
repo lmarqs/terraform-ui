@@ -153,12 +153,9 @@ func (e *Plugin) totalItems() int {
 
 // View renders the risk analysis plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Risk Analysis")
-
 	switch e.status {
 	case StatusIdle:
-		placeholder := sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
 
 	case StatusReady:
 		return e.renderAnalysis(width, height)
@@ -169,11 +166,8 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderAnalysis(width, height int) string {
-	title := sdk.StyleTitle.Render("Risk Analysis")
-
 	if len(e.groups) == 0 {
-		noRisk := sdk.StyleSuccess.Render("No changes to analyze.")
-		return sdk.StylePadded.Render(title + "\n\n" + noRisk)
+		return sdk.StyleSuccess.Render("No changes to analyze.")
 	}
 
 	var b strings.Builder
@@ -220,8 +214,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 	stats := e.renderStats()
 	hint := sdk.StyleFaintItalic.Render("j/k navigate  q back")
 
-	content := title + "\n\n" + b.String() + stats + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + stats + "\n" + hint
 }
 
 func (e *Plugin) renderOverallBanner() string {

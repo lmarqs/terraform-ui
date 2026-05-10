@@ -476,30 +476,27 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		title := sdk.StyleTitle.Render("State Browser")
 		placeholder := sdk.StyleFaintItalic.Render("Loading state...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return placeholder
 
 	case StatusLoading:
-		title := sdk.StyleTitle.Render("State Browser")
 		msg := "Loading terraform state..."
 		if e.errMsg != "" {
 			msg = e.errMsg
 		}
 		loading := sdk.StyleFaintItalic.Render(msg)
 		hint := sdk.StyleFaintItalic.Render("q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + loading + "\n\n" + hint)
+		return loading + "\n\n" + hint
 
 	case StatusError:
-		title := sdk.StyleTitle.Render("State Browser")
 		if e.lockInfo != nil {
 			lockPanel := sdk.FormatLockInfo(e.lockInfo)
 			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  q back")
-			return sdk.StylePadded.Render(title + "\n\n" + lockPanel + "\n" + hint)
+			return lockPanel + "\n" + hint
 		}
 		errText := sdk.StyleError.Render("Error: " + e.errMsg)
 		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return errText + "\n\n" + hint
 
 	case StatusShowingDetail:
 		return e.renderDetail(width, height)
@@ -514,7 +511,6 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderResources(width, height int) string {
 	e.viewWidth = width
-	title := sdk.StyleTitle.Render("State Browser")
 
 	filterLine := ""
 	if e.filtering {
@@ -525,7 +521,7 @@ func (e *Plugin) renderResources(width, height int) string {
 
 	if len(e.filtered) == 0 {
 		noResources := sdk.StyleFaintItalic.Render("No resources found.")
-		return sdk.StylePadded.Render(title + "\n\n" + filterLine + noResources)
+		return filterLine + noResources
 	}
 
 	maxVisible := height - 7
@@ -585,8 +581,8 @@ func (e *Plugin) renderResources(width, height int) string {
 		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(%s)", wrapLabel))
 	}
 
-	content := title + "\n\n" + filterLine + treeContent + "\n\n" + count + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	content := filterLine + treeContent + "\n\n" + count + "\n" + hint
+	return content
 }
 
 func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
@@ -629,11 +625,10 @@ func (e *Plugin) renderResourceRow(r sdk.Resource) string {
 
 func (e *Plugin) renderDetail(width, height int) string {
 	e.viewWidth = width
-	title := sdk.StyleTitle.Render("Resource Detail")
 	address := sdk.StyleKey.Render(e.detailAddr)
 
-	// Fixed header takes 2 lines (title + address)
-	headerLines := 4
+	// Fixed header takes 1 line (address)
+	headerLines := 3
 	contentWidth := width - 6
 	if contentWidth < 40 {
 		contentWidth = 40
@@ -695,8 +690,8 @@ func (e *Plugin) renderDetail(width, height int) string {
 
 	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  ^w wrap(%s)  Space pin  d delete  e edit  Esc back", wrapIndicator))
 
-	content := title + "\n" + address + pinIndicator + scrollInfo + "\n\n" + detail + "\n\n" + hint
-	return sdk.StylePadded.Render(content)
+	content := address + pinIndicator + scrollInfo + "\n\n" + detail + "\n\n" + hint
+	return content
 }
 
 func wrapLines(lines []string, width int) []string {

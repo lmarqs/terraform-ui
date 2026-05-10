@@ -205,16 +205,12 @@ func (e *Plugin) SelectedProject() *Project {
 
 // View renders the context plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Context")
-
 	switch e.status {
 	case StatusIdle, StatusLoading:
-		loading := sdk.StyleFaintItalic.Render("Discovering context...")
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		return sdk.StyleFaintItalic.Render("Discovering context...")
 
 	case StatusError:
-		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		return sdk.StylePadded.Render(title + "\n\n" + errText)
+		return sdk.StyleError.Render("Error: " + e.errMsg)
 
 	case StatusDone:
 		return e.renderProjects(width, height)
@@ -225,22 +221,19 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderProjects(width, height int) string {
-	title := sdk.StyleTitle.Render("Context")
-
 	if len(e.projects) == 0 {
-		placeholder := sdk.StyleFaintItalic.Render(
+		return sdk.StyleFaintItalic.Render(
 			"No context configured. Add paths to tfui.yaml:\n\n" +
 				"  context:\n" +
 				"    paths:\n" +
 				"      - \"modules/*\"\n" +
 				"      - \"envs/**\"",
 		)
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
 	}
 
 	var b strings.Builder
 
-	maxVisible := height - 8
+	maxVisible := height - 4
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -266,8 +259,7 @@ func (e *Plugin) renderProjects(width, height int) string {
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d project(s)", len(e.projects)))
 
-	content := title + "\n\n" + b.String() + "\n" + count
-	return sdk.StylePadded.Render(content)
+	return b.String() + "\n" + count
 }
 
 func (e *Plugin) renderProjectRow(project Project, idx int) string {

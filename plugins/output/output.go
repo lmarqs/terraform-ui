@@ -276,19 +276,13 @@ func FormatValue(o sdk.OutputValue) string {
 func (p *Plugin) View(width, height int) string {
 	switch p.status {
 	case StatusIdle:
-		title := sdk.StyleTitle.Render("Outputs")
-		placeholder := sdk.StyleFaintItalic.Render("Loading outputs...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Loading outputs...")
 
 	case StatusLoading:
-		title := sdk.StyleTitle.Render("Outputs")
-		loading := sdk.StyleFaintItalic.Render("Loading terraform outputs...")
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		return sdk.StyleFaintItalic.Render("Loading terraform outputs...")
 
 	case StatusError:
-		title := sdk.StyleTitle.Render("Outputs")
-		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		return sdk.StylePadded.Render(title + "\n\n" + errText)
+		return sdk.StyleError.Render("Error: " + p.errMsg)
 
 	case StatusDone:
 		return p.renderOutputs(width, height)
@@ -299,8 +293,6 @@ func (p *Plugin) View(width, height int) string {
 }
 
 func (p *Plugin) renderOutputs(width, height int) string {
-	title := sdk.StyleTitle.Render("Outputs")
-
 	filterLine := ""
 	if p.filtering {
 		filterLine = sdk.StyleKey.Render("/ ") + p.filter + "█\n\n"
@@ -309,14 +301,13 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	}
 
 	if len(p.filtered) == 0 {
-		noOutputs := sdk.StyleFaintItalic.Render("No outputs found.")
-		return sdk.StylePadded.Render(title + "\n\n" + filterLine + noOutputs)
+		return filterLine + sdk.StyleFaintItalic.Render("No outputs found.")
 	}
 
 	var b strings.Builder
 
 	// Calculate visible area
-	maxVisible := height - 7
+	maxVisible := height - 5
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -350,8 +341,7 @@ func (p *Plugin) renderOutputs(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d outputs", len(p.filtered), len(p.outputs)))
 	}
 
-	content := title + "\n\n" + filterLine + b.String() + "\n" + count
-	return sdk.StylePadded.Render(content)
+	return filterLine + b.String() + "\n" + count
 }
 
 func (p *Plugin) renderOutputRow(o sdk.OutputValue) string {

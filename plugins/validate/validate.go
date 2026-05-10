@@ -215,20 +215,15 @@ func (p *Plugin) IsExpanded(idx int) bool {
 func (p *Plugin) View(width, height int) string {
 	switch p.status {
 	case StatusIdle:
-		title := sdk.StyleTitle.Render("Validate")
-		placeholder := sdk.StyleFaintItalic.Render("Press Enter to run terraform validate...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Press Enter to run terraform validate...")
 
 	case StatusLoading:
-		title := sdk.StyleTitle.Render("Validate")
-		loading := sdk.StyleFaintItalic.Render("Running terraform validate...")
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		return sdk.StyleFaintItalic.Render("Running terraform validate...")
 
 	case StatusError:
-		title := sdk.StyleTitle.Render("Validate")
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
 		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return errText + "\n\n" + hint
 
 	case StatusDone:
 		return p.renderResults(width, height)
@@ -239,12 +234,10 @@ func (p *Plugin) View(width, height int) string {
 }
 
 func (p *Plugin) renderResults(width, height int) string {
-	title := sdk.StyleTitle.Render("Validate")
-
 	if len(p.diagnostics) == 0 {
 		success := sdk.StyleSuccess.Render("✓ Configuration is valid")
 		hint := sdk.StyleFaintItalic.Render("Press r to re-validate, q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + success + "\n\n" + hint)
+		return success + "\n\n" + hint
 	}
 
 	var b strings.Builder
@@ -285,8 +278,7 @@ func (p *Plugin) renderResults(width, height int) string {
 	summary := p.renderSummaryLine()
 	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  q back")
 
-	content := title + "\n\n" + b.String() + "\n" + summary + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + "\n" + summary + "\n" + hint
 }
 
 func (p *Plugin) renderDiagnosticRow(diag sdk.Diagnostic) string {

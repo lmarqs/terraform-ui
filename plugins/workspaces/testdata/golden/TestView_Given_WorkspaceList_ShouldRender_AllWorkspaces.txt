@@ -1,8 +1,5 @@
+* default (default)
+  staging
+  production
 
-  Workspaces
-
-  * default (default)
-    staging
-    production
-
-  3 workspace(s)  Current: default
+3 workspace(s)  Current: default

@@ -1,9 +1,6 @@
+    + aws_instance.web [low]
+    ~ aws_security_group.allow_ssh [medium]
+    - aws_db_instance.main [HIGH]
 
-  Plan Review
-
-      + aws_instance.web [low]
-      ~ aws_security_group.allow_ssh [medium]
-      - aws_db_instance.main [HIGH]
-
-  Plan: 1 to add, 1 to change, 1 to destroy
-  Overall risk: HIGH
+Plan: 1 to add, 1 to change, 1 to destroy
+Overall risk: HIGH

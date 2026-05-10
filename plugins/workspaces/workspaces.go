@@ -247,16 +247,12 @@ func (e *Plugin) DeleteSelected() tea.Cmd {
 
 // View renders the workspaces plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Workspaces")
-
 	switch e.status {
 	case StatusIdle, StatusLoading:
-		loading := sdk.StyleFaintItalic.Render("Loading workspaces...")
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		return sdk.StyleFaintItalic.Render("Loading workspaces...")
 
 	case StatusError:
-		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		return sdk.StylePadded.Render(title + "\n\n" + errText)
+		return sdk.StyleError.Render("Error: " + e.errMsg)
 
 	case StatusDone:
 		return e.renderWorkspaces(width, height)
@@ -267,8 +263,6 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderWorkspaces(width, height int) string {
-	title := sdk.StyleTitle.Render("Workspaces")
-
 	var b strings.Builder
 
 	// Creating new workspace input
@@ -279,7 +273,7 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	}
 
 	// Calculate visible area
-	maxVisible := height - 8
+	maxVisible := height - 5
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -306,8 +300,7 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
 	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
 
-	content := title + "\n\n" + b.String() + "\n" + count + "  " + currentInfo
-	return sdk.StylePadded.Render(content)
+	return b.String() + "\n" + count + "  " + currentInfo
 }
 
 func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {

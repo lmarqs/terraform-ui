@@ -136,12 +136,9 @@ func (e *Plugin) ToggleExpand() {
 
 // View renders the phantom change detection plugin.
 func (e *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Phantom Changes")
-
 	switch e.status {
 	case StatusIdle:
-		placeholder := sdk.StyleFaintItalic.Render("Run a plan first to detect phantom changes...")
-		return sdk.StylePadded.Render(title + "\n\n" + placeholder)
+		return sdk.StyleFaintItalic.Render("Run a plan first to detect phantom changes...")
 
 	case StatusReady:
 		return e.renderPhantoms(width, height)
@@ -152,12 +149,10 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderPhantoms(width, height int) string {
-	title := sdk.StyleTitle.Render("Phantom Changes")
-
 	if len(e.phantoms) == 0 {
 		noPhantoms := sdk.StyleSuccess.Render("No phantom changes detected.")
 		summary := sdk.StyleFaint.Render(fmt.Sprintf("All %d changes are real modifications.", e.total))
-		return sdk.StylePadded.Render(title + "\n\n" + noPhantoms + "\n" + summary)
+		return noPhantoms + "\n" + summary
 	}
 
 	var b strings.Builder
@@ -205,8 +200,7 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 	}
 
 	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  q back")
-	content := title + "\n\n" + b.String() + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + "\n" + hint
 }
 
 func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {

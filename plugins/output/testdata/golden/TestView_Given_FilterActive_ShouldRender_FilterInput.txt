@@ -1,8 +1,5 @@
+/ vpc█
 
-  Outputs
+ vpc_id  string  = vpc-abc123
 
-  / vpc█
-
-   vpc_id  string  = vpc-abc123
-
-  1/2 outputs
+1/2 outputs

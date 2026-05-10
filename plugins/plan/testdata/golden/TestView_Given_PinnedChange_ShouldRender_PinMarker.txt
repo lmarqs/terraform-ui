@@ -1,8 +1,5 @@
+ *  + aws_instance.web [low]
+    + aws_s3_bucket.logs [low]
 
-  Plan Review
-
-   *  + aws_instance.web [low]
-      + aws_s3_bucket.logs [low]
-
-  Plan: 2 to add
-  Overall risk: low
+Plan: 2 to add
+Overall risk: low

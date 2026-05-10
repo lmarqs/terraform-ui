@@ -231,20 +231,17 @@ func (p *Plugin) handleConfirmKey(msg tea.KeyMsg) tea.Cmd {
 
 // View renders the init wizard UI.
 func (p *Plugin) View(width, height int) string {
-	title := sdk.StyleTitle.Render("Init / Config")
-
 	switch p.status {
 	case StatusMenu:
 		return p.renderMenu(width, height)
 
 	case StatusDetecting:
-		loading := sdk.StyleFaintItalic.Render("Scanning filesystem for terraform projects...")
-		return sdk.StylePadded.Render(title + "\n\n" + loading)
+		return sdk.StyleFaintItalic.Render("Scanning filesystem for terraform projects...")
 
 	case StatusError:
 		errText := sdk.StyleError.Render("Error: " + p.errMsg)
 		hint := sdk.StyleFaintItalic.Render("Press q to go back")
-		return sdk.StylePadded.Render(title + "\n\n" + errText + "\n\n" + hint)
+		return errText + "\n\n" + hint
 
 	case StatusReview:
 		return p.renderReview(width, height)
@@ -261,8 +258,6 @@ func (p *Plugin) View(width, height int) string {
 }
 
 func (p *Plugin) renderMenu(width, height int) string {
-	title := sdk.StyleTitle.Render("Init / Config")
-
 	var b strings.Builder
 
 	if p.hasConfig {
@@ -297,13 +292,10 @@ func (p *Plugin) renderMenu(width, height int) string {
 	editorName := editor.DetectEditor()
 	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("\nEnter select  e edit  Esc back   (editor: %s)", editorName))
 
-	content := title + "\n\n" + b.String() + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + hint
 }
 
 func (p *Plugin) renderReview(width, height int) string {
-	title := sdk.StyleTitle.Render("Init")
-
 	var b strings.Builder
 
 	// Binary detection
@@ -335,30 +327,23 @@ func (p *Plugin) renderReview(width, height int) string {
 
 	hint := sdk.StyleFaintItalic.Render("\nj/k navigate  Space toggle  Enter confirm  Esc back")
 
-	content := title + "\n\n" + b.String() + hint
-	return sdk.StylePadded.Render(content)
+	return b.String() + hint
 }
 
 func (p *Plugin) renderConfirm(width, height int) string {
-	title := sdk.StyleTitle.Render("Init")
-
 	previewLabel := sdk.StyleKey.Render("Preview (tfui.yaml):")
 	preview := sdk.StyleFaint.Render(p.preview)
 	hint := sdk.StyleFaintItalic.Render("\nEnter write file  Esc go back")
 
-	content := title + "\n\n" + previewLabel + "\n\n" + preview + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return previewLabel + "\n\n" + preview + "\n" + hint
 }
 
 func (p *Plugin) renderDone(width, height int) string {
-	title := sdk.StyleTitle.Render("Init")
-
 	successMsg := sdk.StyleSuccess.Render("tfui.yaml written successfully!")
 	path := sdk.StyleFaint.Render(filepath.Join(p.dir, "tfui.yaml"))
 	hint := sdk.StyleFaintItalic.Render("\nPress Esc to go back")
 
-	content := title + "\n\n" + successMsg + "\n" + path + "\n" + hint
-	return sdk.StylePadded.Render(content)
+	return successMsg + "\n" + path + "\n" + hint
 }
 
 func (p *Plugin) detect() tea.Cmd {

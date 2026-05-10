@@ -1,4 +1,1 @@
-
-  Outputs
-
-  Error: Failed to read outputs
+Error: Failed to read outputs
