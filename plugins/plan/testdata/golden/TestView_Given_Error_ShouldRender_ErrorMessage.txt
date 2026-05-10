@@ -1,0 +1,6 @@
+
+  Plan Review
+
+  Error: Error running plan: insufficient permissions
+
+  Press r to retry, q to go back

@@ -1,0 +1,9 @@
+
+  Plan Review
+
+      ~ aws_instance.web (phantom)
+      + aws_s3_bucket.logs [low]
+
+  Plan: 1 to add, 1 to change
+  Overall risk: low
+  j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back

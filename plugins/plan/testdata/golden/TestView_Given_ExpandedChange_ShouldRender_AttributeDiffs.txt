@@ -1,0 +1,11 @@
+
+  Plan Review
+
+    v ~ aws_instance.web [medium]
+      instance_type: t3.micro -> t3.small
+      tags.Name: web-old -> web-new
+      password: (sensitive)
+
+  Plan: 1 to change
+  Overall risk: medium
+  j/k navigate  Enter inspect  Space pin  a apply  r refresh  q back
