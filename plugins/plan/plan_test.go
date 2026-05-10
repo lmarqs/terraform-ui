@@ -63,6 +63,25 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestCountable(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	var c sdk.Countable = p
+	filtered, total := c.Count()
+	if filtered != 0 || total != 0 {
+		t.Errorf("Count() = (%d, %d), want (0, 0) when no summary", filtered, total)
+	}
+
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}, {Resource: sdk.Resource{Address: "b"}}},
+	}
+	filtered, total = c.Count()
+	if filtered != 2 || total != 2 {
+		t.Errorf("Count() = (%d, %d), want (2, 2)", filtered, total)
+	}
+}
+
 func TestConfigure(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)

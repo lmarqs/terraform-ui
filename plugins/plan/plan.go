@@ -67,6 +67,12 @@ func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
 }
+func (e *Plugin) Count() (int, int) {
+	if e.summary == nil {
+		return 0, 0
+	}
+	return len(e.summary.Changes), len(e.summary.Changes)
+}
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
