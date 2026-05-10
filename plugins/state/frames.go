@@ -76,14 +76,14 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.panRight()
 	case "left":
 		f.plugin.panLeft()
-	case "+":
+	case "]":
 		if f.plugin.depth < f.plugin.maxDepth() {
 			f.plugin.depth++
 			f.plugin.computeDisplayItems()
 			f.plugin.selected = 0
 			f.plugin.listHScroll = 0
 		}
-	case "-":
+	case "[":
 		if f.plugin.depth > 0 {
 			f.plugin.depth--
 			f.plugin.computeDisplayItems()
@@ -125,7 +125,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		sdk.HintDelete,
 		sdk.HintEdit,
 		sdk.HintFilter,
-		{Key: "-/+", Description: fmt.Sprintf("depth(%d)", f.plugin.depth)},
+		{Key: "[/]", Description: fmt.Sprintf("depth(%d)", f.plugin.depth)},
 		{Key: "^w", Description: fmt.Sprintf("wrap(%s)", wrapLabel(f.plugin.detailWrap))},
 		sdk.HintBack,
 	}
