@@ -43,6 +43,12 @@ type Countable interface {
 	Count() (filtered int, total int)
 }
 
+// Hintable is an optional interface plugins implement to supply
+// context-sensitive key hints for the status bar without needing a full Stack.
+type Hintable interface {
+	Hints() []KeyHint
+}
+
 // DeactivateMsg is returned by a plugin's Update to signal the app should
 // deactivate it and return to the home screen.
 type DeactivateMsg struct{}

@@ -509,6 +509,12 @@ func (a App) View() string {
 			} else {
 				statusBar = a.statusBar.Render(a.width)
 			}
+		} else if hintable, ok := a.activePlugin.(sdk.Hintable); ok {
+			if hints := hintable.Hints(); hints != nil {
+				statusBar = a.statusBar.RenderHints(hints, a.width)
+			} else {
+				statusBar = a.statusBar.Render(a.width)
+			}
 		} else {
 			statusBar = a.statusBar.Render(a.width)
 		}
