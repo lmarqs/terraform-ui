@@ -14,6 +14,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 )
 
@@ -32,7 +33,8 @@ type App struct {
 	homeView  views.HomeView
 
 	activePlugin  sdk.Plugin // nil = home screen
-	activeContext string     // tracks last known active context for header updates
+	activeOverlay sdk.Overlay
+	activeContext string // tracks last known active context for header updates
 	commandMode   bool
 	commandInput  string
 
@@ -106,6 +108,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary(), 0)
 		return a, nil
 
+	case sdk.OverlayDismissMsg:
+		a.activeOverlay = nil
+		a.syncActiveContext()
+		return a, nil
+
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
 			prev := a.activePlugin.ID()
@@ -147,6 +154,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 
+	// If an overlay is active, route messages to it
+	if a.activeOverlay != nil {
+		updated, cmd := a.activeOverlay.Update(msg)
+		if updated == nil {
+			a.activeOverlay = nil
+			a.syncActiveContext()
+		} else {
+			a.activeOverlay = updated
+		}
+		return a, cmd
+	}
+
 	// If a plugin is active, delegate the message to it
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
@@ -164,6 +183,18 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		activeView = a.activePlugin.ID()
 	}
 	logging.Logger().Debug("key.press", "key", msg.String(), "view", activeView)
+
+	// Overlay captures all input when active
+	if a.activeOverlay != nil {
+		updated, cmd := a.activeOverlay.Update(msg)
+		if updated == nil {
+			a.activeOverlay = nil
+			a.syncActiveContext()
+		} else {
+			a.activeOverlay = updated
+		}
+		return a, cmd
+	}
 
 	// Input prompt mode
 	if a.inputActive {
@@ -241,6 +272,8 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return a, tea.Quit
+	case "C":
+		return a.openContextOverlay()
 	case ":":
 		a.commandMode = true
 		a.commandInput = ""
@@ -318,6 +351,19 @@ func (a *App) syncActiveContext() {
 			a.header = a.header.WithContext(ctx)
 		}
 	}
+}
+
+func (a App) openContextOverlay() (tea.Model, tea.Cmd) {
+	for _, p := range a.registry.All() {
+		if p.ID() == "context" {
+			if cp, ok := p.(*tfuicontext.Plugin); ok {
+				overlay := tfuicontext.NewOverlay(cp)
+				a.activeOverlay = overlay
+				return a, overlay.Open()
+			}
+		}
+	}
+	return a, nil
 }
 
 func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
@@ -456,5 +502,22 @@ func (a App) View() string {
 	}
 
 	sep := a.separator.Render(a.width)
+
+	if a.activeOverlay != nil {
+		overlayContent := a.activeOverlay.View(a.width, a.height)
+		boxStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(sdk.ColorPrimary).
+			Padding(1, 2).
+			Width(a.width / 2).
+			MaxHeight(a.height - 4)
+		box := boxStyle.Render(overlayContent)
+		overlayView := lipgloss.Place(a.width, a.height-1, lipgloss.Center, lipgloss.Center, box)
+		if hints := a.activeOverlay.Hints(); hints != nil {
+			statusBar = a.statusBar.RenderHints(hints, a.width)
+		}
+		return overlayView + "\n" + statusBar
+	}
+
 	return header + "\n" + sep + "\n" + content + "\n" + sep + "\n" + statusBar
 }
