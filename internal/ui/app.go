@@ -117,8 +117,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case openContextOnStartupMsg:
-		cmd := a.openContextOverlay()
-		return a, cmd
+		// On startup, activate the scope plugin directly for scope selection
+		if p, ok := a.registry.ByID("scope"); ok {
+			a.activePlugin = p
+			return a, a.activatePlugin(p)
+		}
+		return a, nil
 
 	case sdk.OverlayDismissMsg:
 		a.activeOverlay = nil
@@ -130,6 +134,15 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
+		}
+		a.syncActiveScope()
+		return a, nil
+
+	case tfuicontext.NavigateToMsg:
+		if p, ok := a.registry.ByID(msg.PluginID); ok {
+			a.activePlugin = p
+			logging.Logger().Debug("view.transition", "to", msg.PluginID)
+			return a, a.activatePlugin(p)
 		}
 		return a, nil
 
@@ -285,8 +298,11 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return a, tea.Quit
 	case "C":
-		cmd := a.openContextOverlay()
-		return a, cmd
+		if p, ok := a.registry.ByID("context"); ok {
+			a.activePlugin = p
+			return a, a.activatePlugin(p)
+		}
+		return a, nil
 	case "ctrl+s":
 		logging.Logger().Info("screen.capture", "content", a.View())
 		return a, nil
@@ -338,9 +354,6 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		item := a.homeView.SelectedItem()
 		if p, ok := a.registry.ByKey(item.Key); ok {
-			if p.ID() == "context" {
-				return a, a.openContextOverlay()
-			}
 			a.activePlugin = p
 			logging.Logger().Debug("plugin.activate", "id", p.ID())
 			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
@@ -372,19 +385,6 @@ func (a *App) syncActiveScope() {
 	}
 }
 
-func (a *App) openContextOverlay() tea.Cmd {
-	for _, p := range a.registry.All() {
-		if p.ID() == "context" {
-			if cp, ok := p.(*tfuicontext.Plugin); ok {
-				overlay := tfuicontext.NewOverlay(cp)
-				a.activeOverlay = overlay
-				return overlay.Open()
-			}
-		}
-	}
-	return nil
-}
-
 func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()
@@ -401,9 +401,6 @@ func (a *App) executeCommand(input string) tea.Cmd {
 	lower := strings.ToLower(input)
 	for _, p := range a.registry.All() {
 		if strings.ToLower(p.ID()) == lower || strings.HasPrefix(strings.ToLower(p.Name()), lower) {
-			if p.ID() == "context" {
-				return a.openContextOverlay()
-			}
 			prev := ""
 			if a.activePlugin != nil {
 				prev = a.activePlugin.ID()

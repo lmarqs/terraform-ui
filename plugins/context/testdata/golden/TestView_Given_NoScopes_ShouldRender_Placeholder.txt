@@ -1,6 +1,0 @@
-No scopes configured. Add paths to tfui.yaml:
-
-  scope:
-    paths:
-      - "modules/*"
-      - "envs/**"

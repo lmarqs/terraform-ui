@@ -16,4 +16,7 @@ const (
 	// SessionKeyScopeCount holds the number of discovered scopes (int).
 	// A value > 1 indicates a multi-scope (monorepo) environment.
 	SessionKeyScopeCount = "scope.count"
+
+	// SessionKeyWorkspace holds the current terraform workspace name (string).
+	SessionKeyWorkspace = "workspace.active"
 )

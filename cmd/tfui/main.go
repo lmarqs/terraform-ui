@@ -19,6 +19,7 @@ import (
 	tfuiblast "github.com/lmarqs/terraform-ui/plugins/blastradius"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
+	tfuiscope "github.com/lmarqs/terraform-ui/plugins/scope"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiphantom "github.com/lmarqs/terraform-ui/plugins/phantom"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
@@ -112,7 +113,8 @@ func runTUI(cfg config.Config) error {
 
 	// Create and populate the plugin registry
 	registry := plugin.NewRegistry()
-	registry.RegisterFactory("context", tfuicontext.New, plugin.PluginMeta{Keybinding: "", MenuVisible: false})
+	registry.RegisterFactory("context", tfuicontext.New, plugin.PluginMeta{Keybinding: "C", MenuVisible: true})
+	registry.RegisterFactory("scope", tfuiscope.New, plugin.PluginMeta{Keybinding: "", MenuVisible: false})
 	registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.RegisterFactory("plan", tfuiplan.New, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.RegisterFactory("apply", tfuiapply.New, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
@@ -128,10 +130,15 @@ func runTUI(cfg config.Config) error {
 	// Build plugins from config
 	registry.Build(svc, cfg.Plugins)
 
-	// Inject config into context plugin for project discovery
+	// Inject config into context and scope plugins
 	if ctxPlugin, ok := registry.ByID("context"); ok {
 		if cp, ok := ctxPlugin.(*tfuicontext.Plugin); ok {
 			cp.SetConfig(cfg)
+		}
+	}
+	if scopePlugin, ok := registry.ByID("scope"); ok {
+		if sp, ok := scopePlugin.(*tfuiscope.Plugin); ok {
+			sp.SetConfig(cfg)
 		}
 	}
 
