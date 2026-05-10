@@ -34,7 +34,8 @@ internal/
   plugin/              — Registry (factory pattern, config-driven enablement)
   logging/             — Structured logger setup
 plugins/               — All features as plugins (one dir per plugin)
-  context/             — Context manager: scope picker, project info (monorepo support)
+  context/             — Context dashboard: shows Project + Scope + Workspace (FormFrame)
+  scope/               — Scope picker: select subdirectory within project
   state/               — State browser (list, inspect, pin, delete, move, edit)
   plan/                — Plan review (diff view, expand attributes, risk)
   apply/               — Apply executor
