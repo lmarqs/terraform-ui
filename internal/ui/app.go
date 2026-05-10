@@ -83,10 +83,8 @@ func (a App) Init() tea.Cmd {
 		}
 	}
 
-	// Open context picker on startup
-	if cmd := a.openContextOverlay(); cmd != nil {
-		cmds = append(cmds, cmd)
-	}
+	// Defer context picker to Update() where mutations persist
+	cmds = append(cmds, func() tea.Msg { return openContextOnStartupMsg{} })
 
 	return tea.Batch(cmds...)
 }
@@ -96,6 +94,8 @@ func (a App) Init() tea.Cmd {
 type workspaceLoadedMsg struct {
 	workspace string
 }
+
+type openContextOnStartupMsg struct{}
 
 // --- Async commands ---
 
@@ -114,6 +114,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case workspaceLoadedMsg:
 		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary())
 		return a, nil
+
+	case openContextOnStartupMsg:
+		cmd := a.openContextOverlay()
+		return a, cmd
 
 	case sdk.OverlayDismissMsg:
 		a.activeOverlay = nil

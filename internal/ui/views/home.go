@@ -20,9 +20,13 @@ type HomeView struct {
 }
 
 // NewHomeView creates a home view with menu items generated from the plugin registry.
+// Plugins with no keybinding are excluded (they are overlay-only, e.g. context).
 func NewHomeView(plugins []sdk.Plugin) HomeView {
 	items := make([]MenuItem, 0, len(plugins))
 	for _, p := range plugins {
+		if p.KeyBinding() == "" {
+			continue
+		}
 		items = append(items, MenuItem{
 			Key:         p.KeyBinding(),
 			Label:       p.Name(),
