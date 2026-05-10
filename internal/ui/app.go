@@ -247,6 +247,13 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	case "q":
 		if a.activePlugin != nil {
+			// For stackable plugins, clear sub-frames first before deactivating
+			if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
+				if stackable.Stack().Depth() > 1 {
+					stackable.Stack().Clear()
+					return a, nil
+				}
+			}
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
@@ -257,6 +264,12 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// If a plugin is active, delegate key to it
 	if a.activePlugin != nil {
+		// For stackable plugins, route keys through the navigation stack
+		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
+			cmd := stackable.Stack().Update(msg)
+			a.syncActiveContext()
+			return a, cmd
+		}
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
 		a.syncActiveContext()
@@ -428,6 +441,16 @@ func (a App) View() string {
 			hint = "  " + sdk.StyleFaint.Render(strings.Join(matches, " | "))
 		}
 		statusBar = cmdStyle.Render(":" + a.commandInput + "█" + hint)
+	} else if a.activePlugin != nil {
+		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
+			if hints := stackable.Stack().Hints(); hints != nil {
+				statusBar = a.statusBar.RenderHints(hints, a.width)
+			} else {
+				statusBar = a.statusBar.Render(a.width)
+			}
+		} else {
+			statusBar = a.statusBar.Render(a.width)
+		}
 	} else {
 		statusBar = a.statusBar.Render(a.width)
 	}

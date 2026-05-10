@@ -1,6 +1,8 @@
 package components
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -36,5 +38,19 @@ func (s StatusBar) Render(width int) string {
 			sdk.StyleKey.Render("?") + " help"
 	}
 
+	return statusStyle.Width(width).Render(bindings)
+}
+
+// RenderHints formats a slice of KeyHint into a styled status bar string.
+func (s StatusBar) RenderHints(hints []sdk.KeyHint, width int) string {
+	var parts []string
+	for _, h := range hints {
+		if h.Key == "" {
+			parts = append(parts, sdk.StyleFaint.Render(h.Description))
+		} else {
+			parts = append(parts, sdk.StyleKey.Render(h.Key)+" "+h.Description)
+		}
+	}
+	bindings := strings.Join(parts, "  ")
 	return statusStyle.Width(width).Render(bindings)
 }
