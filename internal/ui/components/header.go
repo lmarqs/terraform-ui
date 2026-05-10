@@ -15,7 +15,7 @@ var logo = [3]string{
 	" ╩ ╚  ╚═╝╩",
 }
 
-// Header renders a 3-line info block with context, workspace, dir+binary on
+// Header renders a 3-line info block with project+binary, context, workspace on
 // the left, and an ASCII logo on the right.
 type Header struct {
 	dir         string
@@ -63,15 +63,14 @@ func (h Header) Render(width int) string {
 		ctxVal = "-"
 	}
 
-	line1Left := headerLabelStyle.Render(" Context:") + " " + headerValueStyle.Render(ctxVal)
-	line2Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(h.workspace)
-
-	line3Parts := []string{h.dir}
-	line3Parts = append(line3Parts, sdk.StyleFaint.Render(h.binaryName))
+	projectParts := []string{h.dir}
+	projectParts = append(projectParts, sdk.StyleFaint.Render(h.binaryName))
 	if h.pinnedCount > 0 {
-		line3Parts = append(line3Parts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
+		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}
-	line3Left := headerLabelStyle.Render(" Dir:") + " " + headerValueStyle.Render(strings.Join(line3Parts, " │ "))
+	line1Left := headerLabelStyle.Render(" Project:") + " " + headerValueStyle.Render(strings.Join(projectParts, " │ "))
+	line2Left := headerLabelStyle.Render(" Context:") + " " + headerValueStyle.Render(ctxVal)
+	line3Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(h.workspace)
 
 	logoWidth := lipgloss.Width(logo[0])
 

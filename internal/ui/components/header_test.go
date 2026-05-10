@@ -57,7 +57,7 @@ func TestHeader_Render_ContainsWorkspace(t *testing.T) {
 	}
 }
 
-func TestHeader_Render_ContainsDirAndBinary(t *testing.T) {
+func TestHeader_Render_ContainsProjectAndBinary(t *testing.T) {
 	h := NewHeader("/my/project", "default", "/usr/bin/tofu")
 	output := h.Render(80)
 	if !strings.Contains(output, "/my/project") {
@@ -66,8 +66,8 @@ func TestHeader_Render_ContainsDirAndBinary(t *testing.T) {
 	if !strings.Contains(output, "tofu") {
 		t.Error("should contain binary name")
 	}
-	if !strings.Contains(output, "Dir:") {
-		t.Error("should contain Dir: label")
+	if !strings.Contains(output, "Project:") {
+		t.Error("should contain Project: label")
 	}
 }
 
@@ -102,7 +102,7 @@ func TestHeader_Render_NoContextShowsDash(t *testing.T) {
 	h := NewHeader(".", "default", "terraform")
 	output := h.Render(80)
 	lines := strings.Split(output, "\n")
-	if !strings.Contains(lines[0], "-") {
+	if !strings.Contains(lines[1], "-") {
 		t.Error("should show dash when no context")
 	}
 }
