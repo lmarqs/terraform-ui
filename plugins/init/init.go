@@ -70,6 +70,26 @@ func (p *Plugin) Name() string        { return "Init" }
 func (p *Plugin) Description() string { return "Generate tfui.yaml configuration interactively" }
 func (p *Plugin) Ready() bool         { return p.status == StatusDone }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (p *Plugin) Hints() []sdk.KeyHint {
+	switch p.status {
+	case StatusMenu:
+		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetBack).Hints()
+	case StatusDetecting:
+		return (sdk.HintSetBack).Hints()
+	case StatusReview:
+		return (sdk.HintSetNavigate | sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
+	case StatusConfirm:
+		return (sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
+	case StatusDone:
+		return (sdk.HintSetBack).Hints()
+	case StatusError:
+		return (sdk.HintSetBack).Hints()
+	default:
+		return (sdk.HintSetBack).Hints()
+	}
+}
+
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(opts map[string]interface{}) error {
 	return nil
@@ -238,9 +258,7 @@ func (p *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Scanning filesystem for terraform projects...")
 
 	case StatusError:
-		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press q to go back")
-		return errText + "\n\n" + hint
+		return sdk.StyleError.Render("Error: " + p.errMsg)
 
 	case StatusReview:
 		return p.renderReview(width, height)
@@ -289,9 +307,9 @@ func (p *Plugin) renderMenu(width, height int) string {
 	}
 
 	editorName := editor.DetectEditor()
-	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("\nEnter select  e edit  Esc back   (editor: %s)", editorName))
+	editorInfo := sdk.StyleFaintItalic.Render(fmt.Sprintf("\neditor: %s", editorName))
 
-	return b.String() + hint
+	return b.String() + editorInfo
 }
 
 func (p *Plugin) renderReview(width, height int) string {
@@ -324,7 +342,7 @@ func (p *Plugin) renderReview(width, height int) string {
 		}
 	}
 
-	hint := sdk.StyleFaintItalic.Render("\nj/k navigate  Space toggle  Enter confirm  Esc back")
+	hint := sdk.StyleFaintItalic.Render("\nSpace toggle")
 
 	return b.String() + hint
 }
@@ -332,17 +350,15 @@ func (p *Plugin) renderReview(width, height int) string {
 func (p *Plugin) renderConfirm(width, height int) string {
 	previewLabel := sdk.StyleKey.Render("Preview (tfui.yaml):")
 	preview := sdk.StyleFaint.Render(p.preview)
-	hint := sdk.StyleFaintItalic.Render("\nEnter write file  Esc go back")
 
-	return previewLabel + "\n\n" + preview + "\n" + hint
+	return previewLabel + "\n\n" + preview
 }
 
 func (p *Plugin) renderDone(width, height int) string {
 	successMsg := sdk.StyleSuccess.Render("tfui.yaml written successfully!")
 	path := sdk.StyleFaint.Render(filepath.Join(p.dir, "tfui.yaml"))
-	hint := sdk.StyleFaintItalic.Render("\nPress Esc to go back")
 
-	return successMsg + "\n" + path + "\n" + hint
+	return successMsg + "\n" + path
 }
 
 func (p *Plugin) detect() tea.Cmd {

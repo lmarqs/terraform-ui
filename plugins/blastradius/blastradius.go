@@ -76,6 +76,14 @@ func (e *Plugin) ModuleCount() int    { return len(e.modules) }
 func (e *Plugin) TotalChanges() int   { return e.total }
 func (e *Plugin) Count() (int, int)   { return len(e.modules), e.total }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (e *Plugin) Hints() []sdk.KeyHint {
+	if e.status == StatusReady && len(e.modules) > 0 {
+		return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetBack).Hints()
+	}
+	return (sdk.HintSetBack).Hints()
+}
+
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -221,8 +229,7 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 		}
 	}
 
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  q back")
-	return b.String() + "\n" + hint
+	return b.String()
 }
 
 func (e *Plugin) renderOverallSummary() string {

@@ -52,6 +52,14 @@ func (e *Plugin) PhantomCount() int   { return len(e.phantoms) }
 func (e *Plugin) RealCount() int      { return e.real }
 func (e *Plugin) TotalCount() int     { return e.total }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (e *Plugin) Hints() []sdk.KeyHint {
+	if e.status == StatusReady && len(e.phantoms) > 0 {
+		return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetBack).Hints()
+	}
+	return (sdk.HintSetBack).Hints()
+}
+
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -198,8 +206,7 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		}
 	}
 
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  q back")
-	return b.String() + "\n" + hint
+	return b.String()
 }
 
 func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {

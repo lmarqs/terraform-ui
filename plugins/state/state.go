@@ -481,19 +481,15 @@ func (e *Plugin) View(width, height int) string {
 		if e.errMsg != "" {
 			msg = e.errMsg
 		}
-		loading := sdk.StyleFaintItalic.Render(msg)
-		hint := sdk.StyleFaintItalic.Render("q to go back")
-		return loading + "\n\n" + hint
+		return sdk.StyleFaintItalic.Render(msg)
 
 	case StatusError:
 		if e.lockInfo != nil {
 			lockPanel := sdk.FormatLockInfo(e.lockInfo)
-			hint := sdk.StyleFaintItalic.Render("u force-unlock  r retry  q back")
-			return lockPanel + "\n" + hint
+			hint := sdk.StyleFaintItalic.Render("u force-unlock")
+			return lockPanel + "\n\n" + hint
 		}
-		errText := sdk.StyleError.Render("Error: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return errText + "\n\n" + hint
+		return sdk.StyleError.Render("Error: " + e.errMsg)
 
 	case StatusShowingDetail:
 		return e.renderDetail(width, height)
@@ -567,18 +563,7 @@ func (e *Plugin) renderResources(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
 	}
 
-	wrapLabel := "off"
-	if e.detailWrap {
-		wrapLabel = "on"
-	}
-	var hint string
-	if e.filtering {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("Type to filter (space=AND)  ←→ pan  ^w wrap(%s)  Esc exit", wrapLabel))
-	} else {
-		hint = sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(%s)", wrapLabel))
-	}
-
-	content := filterLine + treeContent + "\n\n" + count + "\n" + hint
+	content := filterLine + treeContent + "\n\n" + count
 	return content
 }
 
@@ -675,19 +660,12 @@ func (e *Plugin) renderDetail(width, height int) string {
 		scrollInfo = sdk.StyleFaint.Render(fmt.Sprintf(" [%d/%d]", e.detailScroll+1, maxScroll+1))
 	}
 
-	wrapIndicator := "off"
-	if e.detailWrap {
-		wrapIndicator = "on"
-	}
-
 	pinIndicator := ""
 	if e.session != nil && e.isPinnedAddress(e.detailAddr) {
 		pinIndicator = " " + sdk.StyleSuccess.Render("[pinned]")
 	}
 
-	hint := sdk.StyleFaintItalic.Render(fmt.Sprintf("↑↓ scroll  ←→ pan  ^w wrap(%s)  Space pin  d delete  e edit  Esc back", wrapIndicator))
-
-	content := address + pinIndicator + scrollInfo + "\n\n" + detail + "\n\n" + hint
+	content := address + pinIndicator + scrollInfo + "\n\n" + detail
 	return content
 }
 

@@ -67,6 +67,14 @@ func (p *Plugin) Ready() bool         { return p.status == StatusDone }
 func (p *Plugin) Status() Status      { return p.status }
 func (p *Plugin) ScopeCount() int     { return len(p.scopes) }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (p *Plugin) Hints() []sdk.KeyHint {
+	if p.status == StatusDone && len(p.scopes) > 0 {
+		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetBack).Hints()
+	}
+	return (sdk.HintSetBack).Hints()
+}
+
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(opts map[string]interface{}) error {
 	return nil

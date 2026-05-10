@@ -49,6 +49,14 @@ func (e *Plugin) Overall() sdk.RiskLevel {
 	return e.overall
 }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (e *Plugin) Hints() []sdk.KeyHint {
+	if e.status == StatusReady && len(e.groups) > 0 {
+		return (sdk.HintSetNavigate | sdk.HintSetBack).Hints()
+	}
+	return (sdk.HintSetBack).Hints()
+}
+
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -209,11 +217,9 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 		b.WriteByte('\n')
 	}
 
-	// Statistics
 	stats := e.renderStats()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  q back")
 
-	return b.String() + stats + "\n" + hint
+	return b.String() + stats
 }
 
 func (e *Plugin) renderOverallBanner() string {

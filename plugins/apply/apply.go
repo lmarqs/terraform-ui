@@ -60,6 +60,27 @@ func (e *Plugin) Elapsed() time.Duration {
 }
 func (e *Plugin) IsConfirming() bool { return e.status == StatusConfirming }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (e *Plugin) Hints() []sdk.KeyHint {
+	switch e.status {
+	case StatusIdle:
+		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
+	case StatusConfirming:
+		return []sdk.KeyHint{
+			{Key: "y/n", Description: "confirm"},
+			sdk.HintCancel,
+		}
+	case StatusRunning:
+		return (sdk.HintSetBack).Hints()
+	case StatusSuccess:
+		return (sdk.HintSetBack).Hints()
+	case StatusError:
+		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+	default:
+		return (sdk.HintSetBack).Hints()
+	}
+}
+
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -211,7 +232,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.\nPress Enter to start apply.")
+		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.")
 
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
@@ -226,13 +247,10 @@ func (e *Plugin) View(width, height int) string {
 		elapsed := formatDuration(e.elapsed)
 		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
 		duration := sdk.StyleFaint.Render("Duration: " + elapsed)
-		hint := sdk.StyleFaintItalic.Render("Press q to go back")
-		return success + "\n" + duration + "\n\n" + hint
+		return success + "\n" + duration
 
 	case StatusError:
-		errText := sdk.StyleError.Render("Apply failed: " + e.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return errText + "\n\n" + hint
+		return sdk.StyleError.Render("Apply failed: " + e.errMsg)
 
 	default:
 		return ""

@@ -122,11 +122,22 @@ func (f *listFrame) View(width, height int) string {
 }
 
 func (f *listFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetBack
-	if f.plugin.treeMode {
-		set |= sdk.HintSetCollapse
+	switch f.plugin.status {
+	case StatusLoading:
+		return (sdk.HintSetBack).Hints()
+	case StatusError:
+		set := sdk.HintSetRetry | sdk.HintSetBack
+		if f.plugin.lockInfo != nil {
+			set |= sdk.HintSetUnlock
+		}
+		return set.Hints()
+	default:
+		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetBack
+		if f.plugin.treeMode {
+			set |= sdk.HintSetCollapse
+		}
+		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
 	}
-	return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
 }
 
 // detailFrame handles key routing for the resource detail/inspect view.

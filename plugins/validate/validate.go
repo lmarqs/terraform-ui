@@ -60,6 +60,25 @@ func (p *Plugin) Diagnostics() []sdk.Diagnostic {
 	return p.diagnostics
 }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (p *Plugin) Hints() []sdk.KeyHint {
+	switch p.status {
+	case StatusIdle:
+		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
+	case StatusLoading:
+		return (sdk.HintSetBack).Hints()
+	case StatusError:
+		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+	case StatusDone:
+		if len(p.diagnostics) == 0 {
+			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+		}
+		return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+	default:
+		return (sdk.HintSetBack).Hints()
+	}
+}
+
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -214,15 +233,13 @@ func (p *Plugin) IsExpanded(idx int) bool {
 func (p *Plugin) View(width, height int) string {
 	switch p.status {
 	case StatusIdle:
-		return sdk.StyleFaintItalic.Render("Press Enter to run terraform validate...")
+		return sdk.StyleFaintItalic.Render("Ready to validate.")
 
 	case StatusLoading:
 		return sdk.StyleFaintItalic.Render("Running terraform validate...")
 
 	case StatusError:
-		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("Press r to retry, q to go back")
-		return errText + "\n\n" + hint
+		return sdk.StyleError.Render("Error: " + p.errMsg)
 
 	case StatusDone:
 		return p.renderResults(width, height)
@@ -234,9 +251,7 @@ func (p *Plugin) View(width, height int) string {
 
 func (p *Plugin) renderResults(width, height int) string {
 	if len(p.diagnostics) == 0 {
-		success := sdk.StyleSuccess.Render("✓ Configuration is valid")
-		hint := sdk.StyleFaintItalic.Render("Press r to re-validate, q to go back")
-		return success + "\n\n" + hint
+		return sdk.StyleSuccess.Render("✓ Configuration is valid")
 	}
 
 	var b strings.Builder
@@ -275,9 +290,8 @@ func (p *Plugin) renderResults(width, height int) string {
 	}
 
 	summary := p.renderSummaryLine()
-	hint := sdk.StyleFaintItalic.Render("j/k navigate  Enter expand  r refresh  q back")
 
-	return b.String() + "\n" + summary + "\n" + hint
+	return b.String() + "\n" + summary
 }
 
 func (p *Plugin) renderDiagnosticRow(diag sdk.Diagnostic) string {

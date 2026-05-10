@@ -244,7 +244,7 @@ func (e *Plugin) SelectedChange() *sdk.PlanChange {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		return sdk.StyleFaintItalic.Render("Press Enter to run terraform plan...")
+		return sdk.StyleFaintItalic.Render("Ready to plan.")
 
 	case StatusLoading:
 		return sdk.StyleFaintItalic.Render("Running terraform plan...")

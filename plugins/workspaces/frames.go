@@ -76,6 +76,6 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	case StatusDone:
 		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetNew | sdk.HintSetDelete | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
-		return nil
+		return (sdk.HintSetBack).Hints()
 	}
 }

@@ -67,6 +67,23 @@ func (p *Plugin) Name() string        { return "Console" }
 func (p *Plugin) Description() string { return "Terraform console (REPL)" }
 func (p *Plugin) Ready() bool         { return p.status == StatusReady }
 
+// Hints returns context-sensitive key hints for the status bar.
+func (p *Plugin) Hints() []sdk.KeyHint {
+	switch p.status {
+	case StatusReady, StatusEvaluating:
+		return []sdk.KeyHint{
+			{Key: "Enter", Description: "evaluate"},
+			{Key: "↑↓", Description: "history"},
+			{Key: "^C", Description: "clear"},
+			{Key: "q", Description: "exit"},
+		}
+	case StatusError:
+		return (sdk.HintSetBack).Hints()
+	default:
+		return (sdk.HintSetBack).Hints()
+	}
+}
+
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -244,9 +261,7 @@ func (p *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Activating...")
 
 	case StatusError:
-		errText := sdk.StyleError.Render("Error: " + p.errMsg)
-		hint := sdk.StyleFaintItalic.Render("q to go back")
-		return errText + "\n\n" + hint
+		return sdk.StyleError.Render("Error: " + p.errMsg)
 
 	case StatusReady, StatusEvaluating:
 		return p.renderREPL(width, height)
@@ -304,10 +319,7 @@ func (p *Plugin) renderREPL(width, height int) string {
 		inputLine = inputPrefix + sdk.StyleFaintItalic.Render("evaluating...")
 	}
 
-	// Hint
-	hint := sdk.StyleFaintItalic.Render("Enter evaluate  Up/Down history  Ctrl+C clear  q exit")
-
-	return b.String() + inputLine + "\n\n" + hint
+	return b.String() + inputLine
 }
 
 // detectBinary finds the terraform/tofu binary on PATH.
