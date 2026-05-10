@@ -76,7 +76,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.panRight()
 	case "left":
 		f.plugin.panLeft()
-	case "+", "=":
+	case "+":
 		if f.plugin.depth < f.plugin.maxDepth() {
 			f.plugin.depth++
 			f.plugin.computeDisplayItems()
