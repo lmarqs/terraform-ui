@@ -174,10 +174,46 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 
 Every plugin's `View(width, height)` must:
 - NOT include its own title (title goes in the content border)
-- NOT include hint text (hints come from frame's `Hints()` method)
 - NOT add padding (the bordered box handles spacing)
 - Return pure content that fills the available space
 - Handle empty state gracefully (show informative placeholder)
+- MAY include plugin-specific contextual hints (see §12)
+
+## 12. Hint Placement Rules
+
+### Two layers
+
+| Layer | Location | Content | Source |
+|-------|----------|---------|--------|
+| **Hint bar** | Footer (status bar) | Standard keys that work in current state | `Frame.Hints()` (Stackable) or `Plugin.Hints()` (Hintable) |
+| **Inline hints** | Inside plugin view | Plugin-specific contextual keys not in standard vocabulary | Hardcoded in `View()` near relevant content |
+
+### Hint bar rules
+- Shows standard `HintSet` vocabulary: navigate, inspect, pin, filter, back, retry, etc.
+- MUST be state-aware: return different hints per plugin status
+- Loading state: only `q back`
+- Error state: `r retry` + `q back` (+ `u force-unlock` if locked)
+- Done state: full navigation set for that plugin
+- Never show keys that don't work in the current state
+
+### Inline hint rules
+- ONLY for plugin-specific keys with no `HintSet` equivalent
+- Examples: `u force-unlock` (near lock info), `Space toggle` (in pattern selection)
+- NEVER duplicate the hint bar (no `q back`, `r retry`, `↑↓ navigate` inline)
+- Format: terse `key action` separated by double-space, styled with `sdk.StyleFaintItalic`
+- Position: near the UI element they act on (proximity = comprehension)
+- Dangerous/narrow-scope actions belong inline (visual friction is intentional)
+
+### View content (NOT hints)
+- State messages: "Loading terraform state...", "Running terraform plan..."
+- Error detail: "Error: connection refused"
+- Guidance: "Run plan first to analyze risk..."
+- NEVER mix keybinding text with content ("Press r to retry" is wrong)
+
+### Interface implementation
+- Stackable plugins: hints come from `Frame.Hints()` on the active frame
+- Non-stackable plugins: implement `Hintable` interface with `Hints() []KeyHint`
+- Both must return state-appropriate hints (check plugin status in the method)
 
 ## 12. Performance
 

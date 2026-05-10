@@ -83,7 +83,7 @@ type Plugin interface {
 }
 ```
 
-Optional interfaces: `Activatable` (work on navigation), `Countable` (item counts for border title).
+Optional interfaces: `Activatable` (work on navigation), `Countable` (item counts for border title), `Hintable` (state-aware key hints for status bar).
 
 ### Plugin Routing (`internal/plugin/registry.go`)
 
@@ -308,9 +308,10 @@ mise run run             # Run TUI in dev mode
 | Agent | Purpose | When to use |
 |-------|---------|-------------|
 | `test-writer` | Generate table-driven tests | New/modified plugin or internal code needing test coverage |
-| `convention-checker` | Audit CLAUDE.md compliance | Before commits, during PR review, after large refactors |
+| `code-checker` | Audit CLAUDE.md code conventions | Before commits, during PR review, after large refactors |
+| `ux-checker` | Validate hint placement and UX rules | Changes to `View()`, `Hints()`, frames, or new plugins |
 | `architect` | Design implementation plans | New plugins or cross-cutting features (before coding) |
-| `security-reviewer` | Terraform-specific security audit | PRs touching terraform service, state display, or AI integration |
+| `security-checker` | Terraform-specific security audit | PRs touching terraform service, state display, or AI integration |
 
 Agents run in isolation and can be spawned in parallel. Unlike commands, they don't need conversation context and produce self-contained reports.
 

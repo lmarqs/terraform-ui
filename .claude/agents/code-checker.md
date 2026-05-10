@@ -1,5 +1,5 @@
 ---
-name: convention-checker
+name: code-checker
 description: Verify code follows all CLAUDE.md conventions that the linter cannot catch
 tools:
   - Read
@@ -8,7 +8,7 @@ tools:
   - Bash(go vet:*)
 ---
 
-# Convention Checker Agent
+# Code Checker Agent
 
 You audit terraform-ui code for compliance with project conventions documented in CLAUDE.md. You are read-only — never modify files.
 
@@ -41,7 +41,6 @@ You audit terraform-ui code for compliance with project conventions documented i
 - [ ] `enter` = inspect/detail view
 - [ ] `r` = refresh/reload data
 - [ ] No conflicts between plugin-specific keys and global keys
-- [ ] Hint text in `View()` matches actual `handleKey` bindings
 
 ### Naming
 
@@ -61,13 +60,6 @@ You audit terraform-ui code for compliance with project conventions documented i
 - [ ] All `GetString`, `GetBool`, `GetInt`, `GetDuration` calls include a default value
 - [ ] No bare map access on config without nil checks
 
-### UX Patterns
-
-- [ ] Error views offer escape route (esc to go back)
-- [ ] Loading states show a spinner or "Loading..." text
-- [ ] Destructive operations have confirmation prompts
-- [ ] No dead-end states where user cannot navigate away
-
 ## Output Format
 
 Report as a prioritized list:
@@ -80,7 +72,7 @@ Report as a prioritized list:
 - `plugins/bar/bar.go:15` — imports internal/terraform (must use pkg/sdk)
 
 ### Warning (inconsistency)
-- `plugins/baz/baz.go:88` — hint text says "r: reload" but handleKey uses "R"
+- `plugins/baz/baz.go:88` — key handler uses "R" but plugin convention is lowercase
 
 ### Info (style)
 - `plugins/qux/qux.go:5` — import block not separated by blank lines

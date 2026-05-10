@@ -1,5 +1,5 @@
 ---
-name: security-reviewer
+name: security-checker
 description: Audit terraform-specific security concerns (sensitive data leaks, injection, access control)
 tools:
   - Read
