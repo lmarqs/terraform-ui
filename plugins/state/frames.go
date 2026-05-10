@@ -31,10 +31,12 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "up":
 		f.plugin.MoveUp()
 	case "enter", "i":
-		node := f.plugin.CursorNode()
-		if node != nil && node.Kind == tree.KindBranch {
-			f.plugin.tree.Toggle()
-			return f, nil
+		if f.plugin.treeMode {
+			node := f.plugin.CursorNode()
+			if node != nil && node.Kind == tree.KindBranch {
+				f.plugin.tree.Toggle()
+				return f, nil
+			}
 		}
 		return f, f.plugin.InspectSelected()
 	case "/":
@@ -45,7 +47,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.stack.Push(&stateFilterFrame{
 			plugin: f.plugin,
 			inner: frames.NewFilterFrame(frames.FilterOpts{
-				OnFilter:   func(q string) { f.plugin.SetFilter(q) },
+				OnFilter: func(q string) { f.plugin.SetFilter(q) },
 				OnSelect: func() tea.Cmd {
 					node := f.plugin.CursorNode()
 					if node != nil && node.Kind == tree.KindBranch {
@@ -83,10 +85,17 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.detailWrap = !f.plugin.detailWrap
 		f.plugin.detailScroll = 0
 		f.plugin.detailHScroll = 0
+	case "t":
+		f.plugin.treeMode = !f.plugin.treeMode
+		f.plugin.SetFilter(f.plugin.filter)
 	case "]":
-		f.plugin.tree.ExpandAll()
+		if f.plugin.treeMode {
+			f.plugin.tree.ExpandAll()
+		}
 	case "[":
-		f.plugin.tree.CollapseAll()
+		if f.plugin.treeMode {
+			f.plugin.tree.CollapseAll()
+		}
 	case " ":
 		node := f.plugin.CursorNode()
 		if node != nil {
@@ -111,14 +120,22 @@ func (f *listFrame) View(width, height int) string {
 }
 
 func (f *listFrame) Hints() []sdk.KeyHint {
-	return []sdk.KeyHint{
+	mode := "flat"
+	if f.plugin.treeMode {
+		mode = "tree"
+	}
+	hints := []sdk.KeyHint{
 		sdk.HintNavigate,
 		{Key: "Enter", Description: "expand/inspect"},
 		sdk.HintPin,
 		sdk.HintFilter,
-		{Key: "[/]", Description: "collapse/expand all"},
-		sdk.HintBack,
+		{Key: "t", Description: mode},
 	}
+	if f.plugin.treeMode {
+		hints = append(hints, sdk.KeyHint{Key: "[/]", Description: "collapse/expand"})
+	}
+	hints = append(hints, sdk.HintBack)
+	return hints
 }
 
 // detailFrame handles key routing for the resource detail/inspect view.

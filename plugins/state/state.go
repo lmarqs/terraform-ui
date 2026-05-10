@@ -61,6 +61,7 @@ type Plugin struct {
 	resources     []sdk.Resource
 	filtered      []sdk.Resource
 	tree          *tree.Tree
+	treeMode      bool
 	filter        string
 	filtering     bool
 	errMsg        string
@@ -312,8 +313,8 @@ func (e *Plugin) panDetailLeft() {
 	}
 }
 
-// SetFilter filters resources using fzf fuzzy matching against the full address.
-// Space-separated terms use AND logic. Results sorted by score (best first).
+// SetFilter filters resources. In tree mode, uses substring matching to preserve
+// hierarchy order. In flat mode, uses fzf fuzzy matching sorted by score.
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	if filter == "" {
@@ -322,6 +323,35 @@ func (e *Plugin) SetFilter(filter string) {
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
+	if e.treeMode {
+		e.filterSubstring(filter)
+	} else {
+		e.filterFuzzy(filter)
+	}
+	e.rebuildTree()
+	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
+}
+
+func (e *Plugin) filterSubstring(filter string) {
+	terms := strings.Fields(strings.ToLower(filter))
+	var results []sdk.Resource
+	for _, r := range e.resources {
+		addr := strings.ToLower(r.Address)
+		matched := true
+		for _, term := range terms {
+			if !strings.Contains(addr, term) {
+				matched = false
+				break
+			}
+		}
+		if matched {
+			results = append(results, r)
+		}
+	}
+	e.filtered = results
+}
+
+func (e *Plugin) filterFuzzy(filter string) {
 	terms := strings.Fields(strings.ToLower(filter))
 	type scored struct {
 		resource sdk.Resource
@@ -352,20 +382,25 @@ func (e *Plugin) SetFilter(filter string) {
 	for i, r := range results {
 		e.filtered[i] = r.resource
 	}
-	e.rebuildTree()
-	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
 // rebuildTree reconstructs the tree from filtered resources, syncing pinned state.
-// When a filter is active, all branches are auto-expanded to reveal matches.
+// In flat mode, uses identity split (no hierarchy). In tree mode with active filter,
+// auto-expands all branches to reveal matches.
 func (e *Plugin) rebuildTree() {
 	items := make([]tree.Item, len(e.filtered))
 	for i, r := range e.filtered {
 		items[i] = resourceItem{resource: r}
 	}
-	e.tree.SetItems(items)
+	if e.treeMode {
+		e.tree = tree.New(items)
+	} else {
+		e.tree = tree.New(items, tree.WithSplitFunc(func(addr string) []string {
+			return []string{addr}
+		}))
+	}
 	e.syncPinnedToTree()
-	if e.filter != "" {
+	if e.treeMode && e.filter != "" {
 		e.tree.ExpandAll()
 	}
 }
@@ -477,12 +512,11 @@ func (e *Plugin) renderResources(width, height int) string {
 		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
 	}
 
-	if e.tree.VisibleCount() == 0 {
+	if len(e.filtered) == 0 {
 		noResources := sdk.StyleFaintItalic.Render("No resources found.")
 		return sdk.StylePadded.Render(title + "\n\n" + filterLine + noResources)
 	}
 
-	// Calculate visible area
 	maxVisible := height - 7
 	if maxVisible < 3 {
 		maxVisible = 3
@@ -490,28 +524,33 @@ func (e *Plugin) renderResources(width, height int) string {
 
 	contentWidth := width - 6
 
-	treeContent := e.tree.Render(tree.RenderOpts{
-		Width:  contentWidth,
-		Height: maxVisible,
-		RenderLeaf: func(node *tree.Node, pinned bool) string {
-			r := node.Item.(resourceItem).resource
-			typeInfo := sdk.StyleFaint.Render(r.Type)
-			return fmt.Sprintf("%s  %s", node.Label, typeInfo)
-		},
-		RenderBranch: func(node *tree.Node, pinned bool) string {
-			indicator := "▶"
-			if node.Expanded {
-				indicator = "▼"
-			}
-			path := sdk.StyleKey.Render(node.Label)
-			count := sdk.StyleFaint.Render(fmt.Sprintf(" (%d)", node.Count))
-			return fmt.Sprintf("%s %s%s", indicator, path, count)
-		},
-		PinIndicator: sdk.StyleSuccess.Render("* "),
-		SelectedStyle: func(s string, w int) string {
-			return sdk.StyleSelected.Width(w).Render(s)
-		},
-	})
+	var treeContent string
+	if e.treeMode {
+		treeContent = e.tree.Render(tree.RenderOpts{
+			Width:  contentWidth,
+			Height: maxVisible,
+			RenderLeaf: func(node *tree.Node, pinned bool) string {
+				r := node.Item.(resourceItem).resource
+				typeInfo := sdk.StyleFaint.Render(r.Type)
+				return fmt.Sprintf("%s  %s", node.Label, typeInfo)
+			},
+			RenderBranch: func(node *tree.Node, pinned bool) string {
+				indicator := "▶"
+				if node.Expanded {
+					indicator = "▼"
+				}
+				path := sdk.StyleKey.Render(node.Label)
+				count := sdk.StyleFaint.Render(fmt.Sprintf(" (%d)", node.Count))
+				return fmt.Sprintf("%s %s%s", indicator, path, count)
+			},
+			PinIndicator: sdk.StyleSuccess.Render("* "),
+			SelectedStyle: func(s string, w int) string {
+				return sdk.StyleSelected.Width(w).Render(s)
+			},
+		})
+	} else {
+		treeContent = e.renderFlatList(contentWidth, maxVisible)
+	}
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d resources", len(e.filtered)))
 	if len(e.filtered) != len(e.resources) {
@@ -531,6 +570,34 @@ func (e *Plugin) renderResources(width, height int) string {
 
 	content := title + "\n\n" + filterLine + treeContent + "\n\n" + count + "\n" + hint
 	return sdk.StylePadded.Render(content)
+}
+
+func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
+	cursor := e.tree.Cursor()
+	startIdx := 0
+	if cursor >= maxVisible {
+		startIdx = cursor - maxVisible + 1
+	}
+	endIdx := startIdx + maxVisible
+	if endIdx > len(e.filtered) {
+		endIdx = len(e.filtered)
+	}
+
+	var b strings.Builder
+	for i := startIdx; i < endIdx; i++ {
+		r := e.filtered[i]
+		pinMark := "  "
+		if e.isPinnedAddress(r.Address) {
+			pinMark = sdk.StyleSuccess.Render("* ")
+		}
+		row := pinMark + r.Address + "  " + sdk.StyleFaint.Render(r.Type)
+		if i == cursor {
+			row = sdk.StyleSelected.Width(contentWidth).Render(row)
+		}
+		b.WriteString(row)
+		b.WriteByte('\n')
+	}
+	return b.String()
 }
 
 func (e *Plugin) renderResourceRow(r sdk.Resource) string {

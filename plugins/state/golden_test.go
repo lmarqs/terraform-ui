@@ -170,6 +170,7 @@ func TestView_Given_Tree_AllCollapsed_ShouldRender_ModuleGroups(t *testing.T) {
 	p.status = StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
+	p.treeMode = true
 	p.rebuildTree()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -179,6 +180,7 @@ func TestView_Given_Tree_OneModuleExpanded_ShouldRender_Children(t *testing.T) {
 	p.status = StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
+	p.treeMode = true
 	p.rebuildTree()
 	// Expand module.cloudwatch (first in alphabetical order)
 	p.tree.Toggle()
@@ -190,6 +192,7 @@ func TestView_Given_Tree_NestedExpanded_ShouldRender_FullHierarchy(t *testing.T)
 	p.status = StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
+	p.treeMode = true
 	p.rebuildTree()
 	// Expand all to show full tree
 	p.tree.ExpandAll()
@@ -212,6 +215,7 @@ func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {
 	p.status = StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
+	p.treeMode = true
 	p.rebuildTree()
 	// Expand medprev_online but keep its children collapsed
 	p.tree.MoveDown() // move to module.medprev_online
@@ -224,6 +228,7 @@ func TestView_Given_Tree_DeepExpand_ShouldRender_TreeConnectors(t *testing.T) {
 	p.status = StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
+	p.treeMode = true
 	p.rebuildTree()
 	// Expand medprev_online and then postgresql_proxy
 	p.tree.MoveDown() // module.medprev_online

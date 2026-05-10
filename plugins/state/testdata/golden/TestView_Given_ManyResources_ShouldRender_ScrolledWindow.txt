@@ -13,5 +13,6 @@
     aws_instance.server_14  aws_instance
     aws_instance.server_15  aws_instance
 
+
   30 resources
   ↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

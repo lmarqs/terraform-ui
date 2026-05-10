@@ -5,5 +5,6 @@
 
     aws_s3_bucket.data  aws_s3_bucket
 
+
   1/5 resources
   Type to filter (space=AND)  ←→ pan  ^w wrap(off)  Esc exit
