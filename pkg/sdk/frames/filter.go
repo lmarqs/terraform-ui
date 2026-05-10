@@ -85,7 +85,7 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, nil
 	default:
 		key := keyMsg.String()
-		if len(key) == 1 && key > " " {
+		if len(key) == 1 && isFilterChar(key[0]) {
 			f.Query += key
 			if f.onFilter != nil {
 				f.onFilter(f.Query)
@@ -93,6 +93,11 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		}
 		return f, nil
 	}
+}
+
+func isFilterChar(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
+		(c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.'
 }
 
 func (f *FilterFrame) View(width, height int) string {

@@ -76,10 +76,6 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.detailWrap = !f.plugin.detailWrap
 		f.plugin.detailScroll = 0
 		f.plugin.detailHScroll = 0
-	case "right":
-		f.plugin.tree.ExpandFocused()
-	case "left":
-		f.plugin.tree.CollapseFocused()
 	case "]":
 		f.plugin.tree.ExpandAll()
 	case "[":
@@ -110,14 +106,10 @@ func (f *listFrame) View(width, height int) string {
 func (f *listFrame) Hints() []sdk.KeyHint {
 	return []sdk.KeyHint{
 		sdk.HintNavigate,
-		sdk.HintInspect,
+		{Key: "Enter", Description: "expand/inspect"},
 		sdk.HintPin,
-		sdk.HintDelete,
-		sdk.HintEdit,
 		sdk.HintFilter,
 		{Key: "[/]", Description: "collapse/expand all"},
-		{Key: "←/→", Description: "collapse/expand"},
-		{Key: "^w", Description: fmt.Sprintf("wrap(%s)", wrapLabel(f.plugin.detailWrap))},
 		sdk.HintBack,
 	}
 }

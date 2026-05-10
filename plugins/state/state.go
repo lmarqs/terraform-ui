@@ -331,6 +331,7 @@ func (e *Plugin) SetFilter(filter string) {
 	var results []scored
 	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
+		// Match against full address for broad search
 		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
 		totalScore := 0
 		matched := true
@@ -342,9 +343,21 @@ func (e *Plugin) SetFilter(filter string) {
 			}
 			totalScore += res.Score
 		}
-		if matched {
-			results = append(results, scored{r, totalScore})
+		if !matched {
+			continue
 		}
+		// Boost score for matches in the leaf portion (type.name)
+		segments := tree.SplitTerraform(r.Address)
+		if len(segments) > 0 {
+			leaf := util.RunesToChars([]rune(strings.ToLower(segments[len(segments)-1])))
+			for _, term := range terms {
+				res, _ := algo.FuzzyMatchV2(false, true, true, &leaf, []rune(term), false, slab)
+				if res.Score > 0 {
+					totalScore += res.Score * 10
+				}
+			}
+		}
+		results = append(results, scored{r, totalScore})
 	}
 	sort.Slice(results, func(i, j int) bool {
 		return results[i].score > results[j].score
@@ -358,6 +371,7 @@ func (e *Plugin) SetFilter(filter string) {
 }
 
 // rebuildTree reconstructs the tree from filtered resources, syncing pinned state.
+// When a filter is active, all branches are auto-expanded to reveal matches.
 func (e *Plugin) rebuildTree() {
 	items := make([]tree.Item, len(e.filtered))
 	for i, r := range e.filtered {
@@ -365,6 +379,9 @@ func (e *Plugin) rebuildTree() {
 	}
 	e.tree.SetItems(items)
 	e.syncPinnedToTree()
+	if e.filter != "" {
+		e.tree.ExpandAll()
+	}
 }
 
 // syncPinnedToTree updates the tree's pinned set from session state.
