@@ -1273,7 +1273,7 @@ func TestFilterForTree_ScoreThreshold(t *testing.T) {
 		{"restapi", 1, 3, "rest_api"},
 		{"redis", 1, 2, "redis"},
 		{"alarm", 1, 2, "alarm"},
-		{"s3", 1, 2, "s3_bucket"},
+		{"s3bucket", 1, 2, "s3_bucket"},
 		{"cloudwatch", 1, 2, "cloudwatch"},
 		{"zzzznothing", 0, 0, ""},
 	}

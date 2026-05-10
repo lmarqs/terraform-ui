@@ -334,8 +334,21 @@ func (e *Plugin) SetFilter(filter string) {
 
 // filterForTree uses fzf matching but preserves original order and requires
 // a higher score threshold to keep results precise in a tree context.
+// Short queries (< 3 chars) show all resources (no filtering).
 func (e *Plugin) filterForTree(filter string) {
 	terms := strings.Fields(strings.ToLower(filter))
+	// Don't filter until we have meaningful input
+	shortestTerm := len(filter)
+	for _, t := range terms {
+		if len(t) < shortestTerm {
+			shortestTerm = len(t)
+		}
+	}
+	if shortestTerm < 3 {
+		e.filtered = e.resources
+		return
+	}
+
 	var results []sdk.Resource
 	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
@@ -343,7 +356,6 @@ func (e *Plugin) filterForTree(filter string) {
 		matched := true
 		for _, term := range terms {
 			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			// Require score proportional to term length for precision
 			minScore := len(term) * 14
 			if res.Score < minScore {
 				matched = false
