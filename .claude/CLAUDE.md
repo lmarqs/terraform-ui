@@ -4,6 +4,22 @@
 
 terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Single Go binary, plugin architecture, BubbleTea framework.
 
+## Terminology
+
+| Term | Definition | Example | Where shown |
+|------|-----------|---------|-------------|
+| **Project** | Root directory where tfui.yaml lives | `../medprev-cloud-iac` | Header line 1 |
+| **Scope** | Selected subdirectory within a project (terraform root module) | `modules/sa-east-1` | Header line 2 |
+| **Workspace** | Terraform workspace within a scope | `default`, `staging` | Header line 3 |
+| **Context** | The full working state: Project + Scope + Workspace combined | — | Plugin name (umbrella) |
+
+Rules:
+- "Context" is ONLY used as the umbrella concept (the plugin managing all three selections)
+- Code referring to subdirectory selection uses "scope" (never "context")
+- Config YAML key: `scope:` (not `context:`)
+- SDK fields: `Scopes`, `ActiveScope`, `ActiveScopeAbs` (in `ProjectContext`)
+- Session keys: `scope.active`, `scope.active_abs`, `scope.count`
+
 ## Architecture
 
 ```
@@ -18,7 +34,7 @@ internal/
   plugin/              — Registry (factory pattern, config-driven enablement)
   logging/             — Structured logger setup
 plugins/               — All features as plugins (one dir per plugin)
-  context/             — Project scope picker (monorepo support)
+  context/             — Context manager: scope picker, project info (monorepo support)
   state/               — State browser (list, inspect, pin, delete, move, edit)
   plan/                — Plan review (diff view, expand attributes, risk)
   apply/               — Apply executor
@@ -43,7 +59,7 @@ Single source of truth for the application, partitioned by domain:
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `Project` | `ProjectContext` | Immutable: dir, discovered contexts, active context |
+| `Project` | `ProjectContext` | Immutable: dir, discovered scopes, active scope |
 | `Config` | `*ConfigContext` | Read-only: dot-notation access to tfui.yaml |
 | `Terraform` | `*TerraformContext` | Mutable: workspace, pinned targets, cached state/plan |
 | `UI` | `*UIContext` | Mutable: window size, active plugin, input mode |
@@ -58,7 +74,6 @@ type Plugin interface {
     ID() string
     Name() string
     Description() string
-    KeyBinding() string
     Init(ctx *Context) tea.Cmd
     Update(msg tea.Msg) (Plugin, tea.Cmd)
     View(width, height int) string
@@ -67,7 +82,27 @@ type Plugin interface {
 }
 ```
 
-Optional interfaces: `Activatable` (work on navigation).
+Optional interfaces: `Activatable` (work on navigation), `Countable` (item counts for border title).
+
+### Plugin Routing (`internal/plugin/registry.go`)
+
+Plugins are **invocation-agnostic** — they don't know their keybinding, menu position, or how they're reached. Routing metadata is external:
+
+```go
+type PluginMeta struct {
+    Keybinding  string // single key, empty = not in home menu
+    MenuVisible bool   // whether to show in home menu
+}
+```
+
+Registration happens at the entry point (`cmd/tfui/main.go`):
+```go
+registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{
+    Keybinding: "s", MenuVisible: true,
+})
+```
+
+The home menu and command bar are independent consumers of registry metadata. This keeps plugins focused on their domain logic with zero coupling to navigation.
 
 ### Service Interface (`pkg/sdk/service.go`)
 
@@ -85,8 +120,8 @@ ai:
   provider: ""                 # auto-detect (bedrock if AWS creds, anthropic if API key)
   model: ""                    # auto-detect per provider
   region: us-east-1            # for Bedrock
-context:
-  paths: ["modules/*"]         # glob patterns for monorepo discovery
+scope:
+  paths: ["modules/*"]         # glob patterns for monorepo scope discovery
 plugins:
   risk:
     enabled: true
@@ -146,10 +181,12 @@ const (StatusIdle, StatusLoading, StatusDone, StatusError)
 
 type Plugin struct { svc sdk.Service; log *slog.Logger; session *sdk.Session; status Status; ... }
 func New(svc sdk.Service) sdk.Plugin { ... }
-func (p *Plugin) Activate() tea.Cmd { /* respect context, load data */ }
+func (p *Plugin) Activate() tea.Cmd { /* respect scope, load data */ }
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) { /* handle result msgs + keys */ }
 func (p *Plugin) View(w, h int) string { /* switch on status */ }
 ```
+
+Plugins are registered with external metadata — they never declare their own keybinding or menu visibility.
 
 ### Navigation Stack (Android-style)
 
@@ -199,6 +236,11 @@ App Stack: [Home] → [State Plugin]
 - **`q`** exits plugin to home. **`esc`** exits current sub-state (scoped).
 
 ### Keybinding Ergonomics
+
+**Convention:**
+- Capital letter = non-terraform feature (Context `C`, Risk `R`, Phantom `P`, Blast Radius `B`)
+- Lowercase = terraform operation (state `s`, plan `p`, apply `a`, workspaces `w`)
+- `ctrl+char` = modifier actions within a view (ctrl+w wrap, ctrl+s screen capture)
 
 Redundant keybindings exist for keyboard layout accessibility, but hints show only the primary key:
 
