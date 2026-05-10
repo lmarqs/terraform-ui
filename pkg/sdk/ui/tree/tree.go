@@ -1,0 +1,375 @@
+package tree
+
+import (
+	"sort"
+	"strings"
+)
+
+// Item is implemented by anything that can appear in a tree.
+type Item interface {
+	Address() string
+}
+
+// NodeKind distinguishes branch nodes from leaf nodes.
+type NodeKind int
+
+const (
+	KindBranch NodeKind = iota
+	KindLeaf
+)
+
+// Node represents a visible row in the flattened tree.
+type Node struct {
+	Kind     NodeKind
+	Label    string
+	Path     string // full module path for branches, full address for leaves
+	Depth    int
+	Expanded bool
+	Count    int  // descendant leaf count (branches only)
+	IsLast   bool // last child of its parent (for connector rendering)
+	Item     Item // non-nil for leaves only
+}
+
+// Tree is an interactive tree navigator built from flat addressed items.
+type Tree struct {
+	root      *treeNode
+	flattened []*Node
+	cursor    int
+	expanded  map[string]bool
+	pinned    map[string]bool
+	splitFunc func(string) []string
+}
+
+// treeNode is the internal recursive structure used for building.
+type treeNode struct {
+	label    string
+	path     string
+	children []*treeNode
+	items    []Item // leaf items directly under this node
+}
+
+// Option configures a Tree.
+type Option func(*Tree)
+
+// WithSplitFunc sets a custom function for splitting addresses into segments.
+func WithSplitFunc(fn func(string) []string) Option {
+	return func(t *Tree) { t.splitFunc = fn }
+}
+
+// New creates a tree from flat items.
+func New(items []Item, opts ...Option) *Tree {
+	t := &Tree{
+		expanded: make(map[string]bool),
+		pinned:   make(map[string]bool),
+		splitFunc: SplitTerraform,
+	}
+	for _, opt := range opts {
+		opt(t)
+	}
+	t.SetItems(items)
+	return t
+}
+
+// SetItems replaces the tree data and rebuilds. Preserves expansion state.
+func (t *Tree) SetItems(items []Item) {
+	t.root = &treeNode{path: ""}
+	for _, item := range items {
+		segments := t.splitFunc(item.Address())
+		t.insert(segments, item)
+	}
+	t.sortNodes(t.root)
+	t.flatten()
+}
+
+func (t *Tree) insert(segments []string, item Item) {
+	current := t.root
+	pathSoFar := ""
+	for i, seg := range segments {
+		if i == len(segments)-1 {
+			current.items = append(current.items, item)
+		} else {
+			if pathSoFar != "" {
+				pathSoFar += "." + seg
+			} else {
+				pathSoFar = seg
+			}
+			child := t.findChild(current, seg)
+			if child == nil {
+				child = &treeNode{label: seg, path: pathSoFar}
+				current.children = append(current.children, child)
+			}
+			current = child
+		}
+	}
+}
+
+func (t *Tree) findChild(parent *treeNode, label string) *treeNode {
+	for _, c := range parent.children {
+		if c.label == label {
+			return c
+		}
+	}
+	return nil
+}
+
+func (t *Tree) sortNodes(node *treeNode) {
+	sort.SliceStable(node.children, func(i, j int) bool {
+		pi := t.pinned[node.children[i].path]
+		pj := t.pinned[node.children[j].path]
+		if pi != pj {
+			return pi
+		}
+		return node.children[i].label < node.children[j].label
+	})
+	sort.SliceStable(node.items, func(i, j int) bool {
+		pi := t.pinned[node.items[i].Address()]
+		pj := t.pinned[node.items[j].Address()]
+		if pi != pj {
+			return pi
+		}
+		return node.items[i].Address() < node.items[j].Address()
+	})
+	for _, c := range node.children {
+		t.sortNodes(c)
+	}
+}
+
+func (t *Tree) countLeaves(node *treeNode) int {
+	count := len(node.items)
+	for _, c := range node.children {
+		count += t.countLeaves(c)
+	}
+	return count
+}
+
+func (t *Tree) flatten() {
+	t.flattened = t.flattened[:0]
+	t.walkChildren(t.root, 0)
+	if t.cursor >= len(t.flattened) {
+		t.cursor = len(t.flattened) - 1
+	}
+	if t.cursor < 0 {
+		t.cursor = 0
+	}
+}
+
+func (t *Tree) walkChildren(node *treeNode, depth int) {
+	totalChildren := len(node.children) + len(node.items)
+	idx := 0
+
+	for _, child := range node.children {
+		idx++
+		isLast := idx == totalChildren
+		expanded := t.expanded[child.path]
+		t.flattened = append(t.flattened, &Node{
+			Kind:     KindBranch,
+			Label:    child.label,
+			Path:     child.path,
+			Depth:    depth,
+			Expanded: expanded,
+			Count:    t.countLeaves(child),
+			IsLast:   isLast,
+		})
+		if expanded {
+			t.walkChildren(child, depth+1)
+		}
+	}
+
+	for _, item := range node.items {
+		idx++
+		isLast := idx == totalChildren
+		t.flattened = append(t.flattened, &Node{
+			Kind:   KindLeaf,
+			Label:  leafLabel(item.Address(), t.splitFunc),
+			Path:   item.Address(),
+			Depth:  depth,
+			IsLast: isLast,
+			Item:   item,
+		})
+	}
+}
+
+func leafLabel(address string, splitFn func(string) []string) string {
+	segments := splitFn(address)
+	if len(segments) == 0 {
+		return address
+	}
+	return segments[len(segments)-1]
+}
+
+// Navigation
+
+func (t *Tree) MoveUp() {
+	if t.cursor > 0 {
+		t.cursor--
+	}
+}
+
+func (t *Tree) MoveDown() {
+	if t.cursor < len(t.flattened)-1 {
+		t.cursor++
+	}
+}
+
+func (t *Tree) MoveToStart() { t.cursor = 0 }
+
+func (t *Tree) MoveToEnd() {
+	if len(t.flattened) > 0 {
+		t.cursor = len(t.flattened) - 1
+	}
+}
+
+// Expand/Collapse
+
+func (t *Tree) Toggle() {
+	if n := t.CursorNode(); n != nil && n.Kind == KindBranch {
+		t.expanded[n.Path] = !t.expanded[n.Path]
+		t.flatten()
+	}
+}
+
+func (t *Tree) ExpandFocused() {
+	if n := t.CursorNode(); n != nil && n.Kind == KindBranch {
+		t.expanded[n.Path] = true
+		t.flatten()
+	}
+}
+
+func (t *Tree) CollapseFocused() {
+	n := t.CursorNode()
+	if n == nil {
+		return
+	}
+	if n.Kind == KindBranch && t.expanded[n.Path] {
+		t.expanded[n.Path] = false
+		t.flatten()
+		return
+	}
+	// On leaf or collapsed branch: collapse parent
+	parent := t.parentPath(n.Path)
+	if parent != "" {
+		t.expanded[parent] = false
+		t.flatten()
+		// Move cursor to the collapsed parent
+		for i, node := range t.flattened {
+			if node.Path == parent {
+				t.cursor = i
+				break
+			}
+		}
+	}
+}
+
+func (t *Tree) parentPath(path string) string {
+	segments := t.splitFunc(path)
+	if len(segments) <= 1 {
+		return ""
+	}
+	parentSegments := segments[:len(segments)-1]
+	result := ""
+	for _, seg := range parentSegments {
+		if result != "" {
+			result += "." + seg
+		} else {
+			result = seg
+		}
+	}
+	return result
+}
+
+func (t *Tree) ExpandAll() {
+	for {
+		changed := false
+		for _, n := range t.flattened {
+			if n.Kind == KindBranch && !t.expanded[n.Path] {
+				t.expanded[n.Path] = true
+				changed = true
+			}
+		}
+		t.flatten()
+		if !changed {
+			break
+		}
+	}
+}
+
+func (t *Tree) CollapseAll() {
+	t.expanded = make(map[string]bool)
+	t.flatten()
+	t.cursor = 0
+}
+
+// Pinning
+
+func (t *Tree) TogglePin() {
+	if n := t.CursorNode(); n != nil {
+		if t.pinned[n.Path] {
+			delete(t.pinned, n.Path)
+		} else {
+			t.pinned[n.Path] = true
+		}
+		t.sortNodes(t.root)
+		t.flatten()
+	}
+}
+
+func (t *Tree) IsPinned(path string) bool { return t.pinned[path] }
+
+func (t *Tree) SetPinned(paths []string) {
+	t.pinned = make(map[string]bool, len(paths))
+	for _, p := range paths {
+		t.pinned[p] = true
+	}
+	t.sortNodes(t.root)
+	t.flatten()
+}
+
+func (t *Tree) PinnedPaths() []string {
+	result := make([]string, 0, len(t.pinned))
+	for p := range t.pinned {
+		result = append(result, p)
+	}
+	sort.Strings(result)
+	return result
+}
+
+// Query methods
+
+func (t *Tree) Cursor() int          { return t.cursor }
+func (t *Tree) VisibleCount() int    { return len(t.flattened) }
+
+func (t *Tree) CursorNode() *Node {
+	if t.cursor >= 0 && t.cursor < len(t.flattened) {
+		return t.flattened[t.cursor]
+	}
+	return nil
+}
+
+func (t *Tree) CursorItem() Item {
+	if n := t.CursorNode(); n != nil && n.Kind == KindLeaf {
+		return n.Item
+	}
+	return nil
+}
+
+func (t *Tree) Nodes() []*Node { return t.flattened }
+
+// SplitTerraform splits a terraform address into hierarchical segments.
+// "module.vpc.module.subnets.aws_subnet.private[0]" ->
+//
+//	["module.vpc", "module.subnets", "aws_subnet.private[0]"]
+func SplitTerraform(address string) []string {
+	parts := strings.Split(address, ".")
+	var segments []string
+	i := 0
+	for i < len(parts) {
+		if parts[i] == "module" && i+1 < len(parts) {
+			segments = append(segments, "module."+parts[i+1])
+			i += 2
+		} else {
+			segments = append(segments, strings.Join(parts[i:], "."))
+			break
+		}
+	}
+	return segments
+}
