@@ -11,4 +11,3 @@
    + aws_s3_bucket.logs
 
 Total: 4 changes  [high: 1 | medium: 1 | low: 2]
-j/k navigate  q back

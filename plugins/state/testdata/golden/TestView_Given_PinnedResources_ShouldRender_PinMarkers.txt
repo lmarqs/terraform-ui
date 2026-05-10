@@ -6,4 +6,3 @@
 
 
 5 resources
-↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

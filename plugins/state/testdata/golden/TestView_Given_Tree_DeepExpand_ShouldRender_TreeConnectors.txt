@@ -9,4 +9,3 @@
   aws_s3_bucket.terraform_state  aws_s3_bucket
 
 11 resources
-↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

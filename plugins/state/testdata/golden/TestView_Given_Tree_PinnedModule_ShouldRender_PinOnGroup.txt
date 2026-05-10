@@ -13,4 +13,3 @@ aws_db_proxy
 
 
 11 resources
-↑↓ navigate  ←→ pan  Enter inspect  Space pin  d delete  e edit  / filter  ^w wrap(off)

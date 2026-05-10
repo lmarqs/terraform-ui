@@ -4,4 +4,3 @@
 
 
 1/5 resources
-Type to filter (space=AND)  ←→ pan  ^w wrap(off)  Esc exit

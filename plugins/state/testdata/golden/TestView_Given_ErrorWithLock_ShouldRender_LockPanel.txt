@@ -4,4 +4,5 @@ State Lock Detected
   Who:        user@machine
   Operation:  OperationTypePlan
 
-u force-unlock  r retry  q back
+
+u force-unlock

@@ -9,5 +9,3 @@ aws_instance.web
     "Environment": "production"
   }
 }
-
-↑↓ scroll  ←→ pan  ^w wrap(off)  Space pin  d delete  e edit  Esc back

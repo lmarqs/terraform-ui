@@ -702,23 +702,23 @@ func TestFilterTreeMonotonicity(t *testing.T) {
 	p.rebuildTree()
 
 	cases := []struct {
-		name    string
+		name     string
 		prefixes []string
 	}{
 		{
-			name:    "proxyread progression",
+			name:     "proxyread progression",
 			prefixes: []string{"p", "pr", "pro", "prox", "proxy", "proxyr", "proxyre", "proxyrea", "proxyread"},
 		},
 		{
-			name:    "readonly progression",
+			name:     "readonly progression",
 			prefixes: []string{"r", "re", "rea", "read", "reado", "readon", "readonl", "readonly"},
 		},
 		{
-			name:    "dbproxy progression",
+			name:     "dbproxy progression",
 			prefixes: []string{"d", "db", "dbp", "dbpr", "dbpro", "dbprox", "dbproxy"},
 		},
 		{
-			name:    "aurora progression",
+			name:     "aurora progression",
 			prefixes: []string{"a", "au", "aur", "auro", "auror", "aurora"},
 		},
 	}
