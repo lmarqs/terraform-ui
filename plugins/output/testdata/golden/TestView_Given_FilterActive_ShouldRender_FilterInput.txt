@@ -1,0 +1,9 @@
+
+  Outputs
+
+  / vpc█
+
+   vpc_id  string  = vpc-abc123
+
+  1/2 outputs
+  Type to filter  Esc exit

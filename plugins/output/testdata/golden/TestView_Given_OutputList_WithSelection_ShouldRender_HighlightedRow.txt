@@ -1,0 +1,9 @@
+
+  Outputs
+
+   vpc_id  string  = vpc-abc123
+   subnet_ids  list  = [subnet-1 subnet-2]
+   db_password  string  = (sensitive)
+
+  3 outputs
+  ↑↓/jk navigate  / filter  r refresh  q back

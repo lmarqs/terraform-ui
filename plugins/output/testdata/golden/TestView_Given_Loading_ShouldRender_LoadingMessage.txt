@@ -1,0 +1,6 @@
+
+  Outputs
+
+  Loading terraform outputs...
+
+  q to go back
