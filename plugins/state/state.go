@@ -324,7 +324,7 @@ func (e *Plugin) SetFilter(filter string) {
 		return
 	}
 	if e.treeMode {
-		e.filterSubstring(filter)
+		e.filterForTree(filter)
 	} else {
 		e.filterFuzzy(filter)
 	}
@@ -332,14 +332,18 @@ func (e *Plugin) SetFilter(filter string) {
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
-func (e *Plugin) filterSubstring(filter string) {
+// filterForTree uses fzf matching but preserves original order (no score sorting)
+// so the tree hierarchy stays consistent.
+func (e *Plugin) filterForTree(filter string) {
 	terms := strings.Fields(strings.ToLower(filter))
 	var results []sdk.Resource
+	slab := util.MakeSlab(100*1024, 2048)
 	for _, r := range e.resources {
-		addr := strings.ToLower(r.Address)
+		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
 		matched := true
 		for _, term := range terms {
-			if !strings.Contains(addr, term) {
+			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
+			if res.Score <= 0 {
 				matched = false
 				break
 			}
