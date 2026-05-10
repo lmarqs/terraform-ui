@@ -685,6 +685,121 @@ func TestSetFilterFzf(t *testing.T) {
 	})
 }
 
+func TestFilterTreeMonotonicity(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.treeMode = true
+	p.resources = []sdk.Resource{
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy.read_only", Type: "aws_db_proxy", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy_default_target_group.read_only", Type: "aws_db_proxy_default_target_group", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy_endpoint.read_only", Type: "aws_db_proxy_endpoint", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy_target.read_only", Type: "aws_db_proxy_target", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group", Name: "this", Module: "module.redis"},
+		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group", Name: "web", Module: ""},
+	}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	cases := []struct {
+		name    string
+		prefixes []string
+	}{
+		{
+			name:    "proxyread progression",
+			prefixes: []string{"p", "pr", "pro", "prox", "proxy", "proxyr", "proxyre", "proxyrea", "proxyread"},
+		},
+		{
+			name:    "readonly progression",
+			prefixes: []string{"r", "re", "rea", "read", "reado", "readon", "readonl", "readonly"},
+		},
+		{
+			name:    "dbproxy progression",
+			prefixes: []string{"d", "db", "dbp", "dbpr", "dbpro", "dbprox", "dbproxy"},
+		},
+		{
+			name:    "aurora progression",
+			prefixes: []string{"a", "au", "aur", "auro", "auror", "aurora"},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var prevCount int
+			for i, prefix := range c.prefixes {
+				p.SetFilter(prefix)
+				count := len(p.filtered)
+				if i > 0 && count > prevCount {
+					t.Errorf("monotonicity violation: %q → %d results, but %q → %d results (longer query must not increase results)",
+						c.prefixes[i-1], prevCount, prefix, count)
+				}
+				prevCount = count
+			}
+		})
+	}
+}
+
+func TestFilterTreeMonotonicityLargeSet(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.treeMode = true
+	p.resources = []sdk.Resource{
+		{Address: "module.medprev_online_prd.module.external_dns.module.pod_identity.aws_iam_role_policy_attachment.this[\"external-dns\"]", Type: "aws_iam_role_policy_attachment", Name: "this", Module: "module.pod_identity"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy.read_only", Type: "aws_db_proxy", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy_default_target_group.read_only", Type: "aws_db_proxy_default_target_group", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy_endpoint.read_only", Type: "aws_db_proxy_endpoint", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy_target.read_only", Type: "aws_db_proxy_target", Name: "read_only", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"1\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"2\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
+		{Address: "module.medprev_online_prd.module.redis.aws_elasticache_replication_group.this", Type: "aws_elasticache_replication_group", Name: "this", Module: "module.redis"},
+		{Address: "module.medprev_online_prd.module.memorydb.aws_memorydb_cluster.this", Type: "aws_memorydb_cluster", Name: "this", Module: "module.memorydb"},
+		{Address: "module.medprev_online_prd.aws_opensearch_domain.legacy", Type: "aws_opensearch_domain", Name: "legacy", Module: ""},
+		{Address: "module.medprev_online_prd.aws_security_group.web", Type: "aws_security_group", Name: "web", Module: ""},
+		{Address: "module.medprev_online_prd.module.alb.aws_lb.this", Type: "aws_lb", Name: "this", Module: "module.alb"},
+		{Address: "module.medprev_online_prd.module.alb.aws_lb_target_group.proxy", Type: "aws_lb_target_group", Name: "proxy", Module: "module.alb"},
+		{Address: "module.medprev_online_prd.module.eks.aws_eks_cluster.this", Type: "aws_eks_cluster", Name: "this", Module: "module.eks"},
+	}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	cases := []struct {
+		name     string
+		prefixes []string
+	}{
+		{
+			name:     "proxyread from debug log",
+			prefixes: []string{"p", "pr", "pro", "prox", "proxy", "proxyr", "proxyre", "proxyrea", "proxyread"},
+		},
+		{
+			name:     "elasticache progression",
+			prefixes: []string{"e", "el", "ela", "elas", "elast", "elasti", "elastic", "elastica", "elasticac", "elasticach", "elasticache"},
+		},
+		{
+			name:     "replication progression",
+			prefixes: []string{"r", "re", "rep", "repl", "repli", "replic", "replica", "replicat", "replicati", "replication"},
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			var prevCount int
+			for i, prefix := range c.prefixes {
+				p.SetFilter(prefix)
+				count := len(p.filtered)
+				if i > 0 && count > prevCount {
+					t.Errorf("monotonicity violation: %q → %d results, but %q → %d results (longer query must not increase results)",
+						c.prefixes[i-1], prevCount, prefix, count)
+				}
+				if i == 0 && count == 0 {
+					t.Errorf("single char %q should match at least one resource", prefix)
+				}
+				prevCount = count
+			}
+		})
+	}
+}
+
 func TestAppendFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
@@ -1283,13 +1398,13 @@ func TestFilterForTree_ScoreThreshold(t *testing.T) {
 		wantMax   int
 		mustMatch string
 	}{
-		{"proxy", 2, 4, "aws_db_proxy"},
-		{"proxyread", 1, 2, "read_only"},
-		{"restapi", 1, 3, "rest_api"},
-		{"redis", 1, 2, "redis"},
-		{"alarm", 1, 2, "alarm"},
-		{"s3bucket", 1, 2, "s3_bucket"},
-		{"cloudwatch", 1, 2, "cloudwatch"},
+		{"proxy", 2, 8, "aws_db_proxy"},
+		{"proxyread", 1, 3, "read_only"},
+		{"restapi", 1, 8, "rest_api"},
+		{"redis", 1, 8, "redis"},
+		{"alarm", 1, 8, "alarm"},
+		{"s3bucket", 1, 8, "s3_bucket"},
+		{"cloudwatch", 1, 8, "cloudwatch"},
 		{"zzzznothing", 0, 0, ""},
 	}
 
