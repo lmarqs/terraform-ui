@@ -120,5 +120,5 @@ func (o *Overlay) View(width, height int) string {
 }
 
 func (o *Overlay) Hints() []sdk.KeyHint {
-	return []sdk.KeyHint{sdk.HintNavigate, sdk.HintSelect, sdk.HintCancel}
+	return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetCancel).Hints()
 }

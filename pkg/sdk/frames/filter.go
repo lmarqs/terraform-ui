@@ -114,8 +114,5 @@ func (f *FilterFrame) View(width, height int) string {
 }
 
 func (f *FilterFrame) Hints() []sdk.KeyHint {
-	return []sdk.KeyHint{
-		{Key: "Esc", Description: "cancel"},
-		{Key: "Enter", Description: "select"},
-	}
+	return (sdk.HintSetSelect | sdk.HintSetCancel).Hints()
 }

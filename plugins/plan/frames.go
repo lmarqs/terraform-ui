@@ -58,22 +58,16 @@ func (f *listFrame) View(width, height int) string {
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case StatusError:
+		set := sdk.HintSetRetry | sdk.HintSetBack
 		if f.plugin.lockInfo != nil {
-			return []sdk.KeyHint{{Key: "u", Description: "force-unlock"}, sdk.HintRetry, sdk.HintBack}
+			set |= sdk.HintSetUnlock
 		}
-		return []sdk.KeyHint{sdk.HintRetry, sdk.HintBack}
+		return set.Hints()
 	case StatusDone:
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
-			return []sdk.KeyHint{sdk.HintRefresh, sdk.HintBack}
+			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 		}
-		return []sdk.KeyHint{
-			sdk.HintNavigate,
-			sdk.HintInspect,
-			sdk.HintPin,
-			{Key: "a", Description: "apply"},
-			sdk.HintRefresh,
-			sdk.HintBack,
-		}
+		return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetApply | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
 		return nil
 	}

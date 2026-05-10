@@ -326,12 +326,12 @@ func (f *listFrame) View(width, height int) string {
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case StatusError:
-		return []sdk.KeyHint{sdk.HintRetry, sdk.HintBack}
+		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	case StatusDone:
 		if len(f.plugin.projects) == 0 {
-			return []sdk.KeyHint{sdk.HintBack}
+			return sdk.HintSetBack.Hints()
 		}
-		return []sdk.KeyHint{sdk.HintNavigate, sdk.HintSelect, sdk.HintRefresh, sdk.HintBack}
+		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
 		return nil
 	}

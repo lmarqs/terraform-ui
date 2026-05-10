@@ -1,8 +1,6 @@
 package state
 
 import (
-	"fmt"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
@@ -124,22 +122,11 @@ func (f *listFrame) View(width, height int) string {
 }
 
 func (f *listFrame) Hints() []sdk.KeyHint {
-	mode := "flat"
+	set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetBack
 	if f.plugin.treeMode {
-		mode = "tree"
+		set |= sdk.HintSetCollapse
 	}
-	hints := []sdk.KeyHint{
-		sdk.HintNavigate,
-		{Key: "Enter", Description: "expand/inspect"},
-		sdk.HintPin,
-		sdk.HintFilter,
-		{Key: "^t", Description: mode},
-	}
-	if f.plugin.treeMode {
-		hints = append(hints, sdk.KeyHint{Key: "[/]", Description: "collapse/expand"})
-	}
-	hints = append(hints, sdk.HintBack)
-	return hints
+	return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
 }
 
 // detailFrame handles key routing for the resource detail/inspect view.
@@ -196,19 +183,11 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	hints := []sdk.KeyHint{
-		sdk.HintCancel,
-		sdk.HintScroll,
-		sdk.HintPan,
-		{Key: "^w", Description: fmt.Sprintf("wrap(%s)", wrapLabel(f.plugin.detailWrap))},
-		sdk.HintPin,
-		sdk.HintDelete,
-		sdk.HintEdit,
-	}
-	if f.plugin.isPinnedAddress(f.plugin.detailAddr) {
-		hints = append(hints, sdk.KeyHint{Description: "[pinned]"})
-	}
-	return hints
+	set := sdk.HintSetScroll | sdk.HintSetPan | sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetCancel
+	return set.Hints(sdk.HintSetOpts{
+		WrapMode: f.plugin.detailWrap,
+		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
+	})
 }
 
 // stateFilterFrame wraps FilterFrame with plugin-specific cleanup on pop.
@@ -233,17 +212,5 @@ func (f *stateFilterFrame) View(width, height int) string {
 }
 
 func (f *stateFilterFrame) Hints() []sdk.KeyHint {
-	return []sdk.KeyHint{
-		sdk.HintCancel,
-		sdk.HintInspect,
-		sdk.HintNavigate,
-		sdk.HintPin,
-	}
-}
-
-func wrapLabel(enabled bool) string {
-	if enabled {
-		return "on"
-	}
-	return "off"
+	return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel).Hints()
 }

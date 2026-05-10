@@ -54,3 +54,120 @@ type Stackable interface {
 type FramePushMsg struct {
 	Frame Frame
 }
+
+// HintSet is a bitmask of standard hints. Plugins compose with |.
+// Hints always render in a consistent fixed order regardless of which bits
+// are set — "navigate" is always first if present, "back" is always last, etc.
+type HintSet uint32
+
+const (
+	HintSetNavigate HintSet = 1 << iota // ↑↓ navigate
+	HintSetScroll                        // ↑↓ scroll
+	HintSetPan                           // ←→ pan
+	HintSetInspect                       // Enter inspect
+	HintSetSelect                        // Enter select
+	HintSetConfirm                       // Enter confirm
+	HintSetPin                           // Space pin
+	HintSetFilter                        // / filter
+	HintSetTree                          // ^t flat/tree (dynamic label)
+	HintSetCollapse                      // [/] collapse/expand
+	HintSetWrap                          // ^w wrap(on/off) (dynamic label)
+	HintSetRefresh                       // r refresh
+	HintSetRetry                         // r retry
+	HintSetDelete                        // d delete
+	HintSetEdit                          // e edit
+	HintSetApply                         // a apply
+	HintSetNew                           // n new
+	HintSetUnlock                        // u force-unlock
+	HintSetCancel                        // Esc cancel
+	HintSetBack                          // q back
+)
+
+// HintSetOpts provides dynamic state for hints that need it.
+type HintSetOpts struct {
+	TreeMode bool // for HintSetTree: true → shows "tree", false → shows "flat"
+	WrapMode bool // for HintSetWrap: true → shows "wrap(on)", false → shows "wrap(off)"
+	Pinned   bool // appends [pinned] indicator at the end
+}
+
+// hintDef maps a HintSet bit to its KeyHint representation.
+type hintDef struct {
+	bit     HintSet
+	hint    KeyHint
+	dynamic bool // if true, resolved via opts
+}
+
+// hintOrder defines the fixed rendering order for all standard hints.
+var hintOrder = []hintDef{
+	{bit: HintSetNavigate, hint: KeyHint{Key: "↑↓", Description: "navigate"}},
+	{bit: HintSetScroll, hint: KeyHint{Key: "↑↓", Description: "scroll"}},
+	{bit: HintSetPan, hint: KeyHint{Key: "←→", Description: "pan"}},
+	{bit: HintSetInspect, hint: KeyHint{Key: "Enter", Description: "inspect"}},
+	{bit: HintSetSelect, hint: KeyHint{Key: "Enter", Description: "select"}},
+	{bit: HintSetConfirm, hint: KeyHint{Key: "Enter", Description: "confirm"}},
+	{bit: HintSetPin, hint: KeyHint{Key: "Space", Description: "pin"}},
+	{bit: HintSetFilter, hint: KeyHint{Key: "/", Description: "filter"}},
+	{bit: HintSetTree, dynamic: true},
+	{bit: HintSetCollapse, hint: KeyHint{Key: "[/]", Description: "collapse/expand"}},
+	{bit: HintSetWrap, dynamic: true},
+	{bit: HintSetRefresh, hint: KeyHint{Key: "r", Description: "refresh"}},
+	{bit: HintSetRetry, hint: KeyHint{Key: "r", Description: "retry"}},
+	{bit: HintSetDelete, hint: KeyHint{Key: "d", Description: "delete"}},
+	{bit: HintSetEdit, hint: KeyHint{Key: "e", Description: "edit"}},
+	{bit: HintSetApply, hint: KeyHint{Key: "a", Description: "apply"}},
+	{bit: HintSetNew, hint: KeyHint{Key: "n", Description: "new"}},
+	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
+	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
+	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
+}
+
+// Hints converts a HintSet to a slice of KeyHint in fixed display order.
+// The order is always the same regardless of which bits are set.
+// Pass HintSetOpts to control dynamic hint labels (tree mode, wrap mode, pinned).
+func (h HintSet) Hints(opts ...HintSetOpts) []KeyHint {
+	var o HintSetOpts
+	if len(opts) > 0 {
+		o = opts[0]
+	}
+
+	var result []KeyHint
+	for _, def := range hintOrder {
+		if h&def.bit == 0 {
+			continue
+		}
+		if def.dynamic {
+			result = append(result, resolveDynamic(def.bit, o))
+		} else {
+			result = append(result, def.hint)
+		}
+	}
+
+	if o.Pinned {
+		result = append(result, KeyHint{Description: "[pinned]"})
+	}
+
+	return result
+}
+
+// Has returns true if all bits in other are set in h.
+func (h HintSet) Has(other HintSet) bool {
+	return h&other == other
+}
+
+// resolveDynamic returns the KeyHint for a dynamic hint bit based on opts.
+func resolveDynamic(bit HintSet, opts HintSetOpts) KeyHint {
+	switch bit {
+	case HintSetTree:
+		if opts.TreeMode {
+			return KeyHint{Key: "^t", Description: "tree"}
+		}
+		return KeyHint{Key: "^t", Description: "flat"}
+	case HintSetWrap:
+		if opts.WrapMode {
+			return KeyHint{Key: "^w", Description: "wrap(on)"}
+		}
+		return KeyHint{Key: "^w", Description: "wrap(off)"}
+	default:
+		return KeyHint{}
+	}
+}
