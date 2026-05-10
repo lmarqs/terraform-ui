@@ -272,8 +272,6 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return a, tea.Quit
-	case "C":
-		return a.openContextOverlay()
 	case ":":
 		a.commandMode = true
 		a.commandInput = ""
@@ -322,6 +320,9 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		item := a.homeView.SelectedItem()
 		if p, ok := a.registry.ByKey(item.Key); ok {
+			if p.ID() == "context" {
+				return a, a.openContextOverlay()
+			}
 			a.activePlugin = p
 			logging.Logger().Debug("plugin.activate", "id", p.ID())
 			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
@@ -353,17 +354,17 @@ func (a *App) syncActiveContext() {
 	}
 }
 
-func (a App) openContextOverlay() (tea.Model, tea.Cmd) {
+func (a *App) openContextOverlay() tea.Cmd {
 	for _, p := range a.registry.All() {
 		if p.ID() == "context" {
 			if cp, ok := p.(*tfuicontext.Plugin); ok {
 				overlay := tfuicontext.NewOverlay(cp)
 				a.activeOverlay = overlay
-				return a, overlay.Open()
+				return overlay.Open()
 			}
 		}
 	}
-	return a, nil
+	return nil
 }
 
 func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
@@ -382,6 +383,9 @@ func (a *App) executeCommand(input string) tea.Cmd {
 	lower := strings.ToLower(input)
 	for _, p := range a.registry.All() {
 		if strings.ToLower(p.ID()) == lower || strings.HasPrefix(strings.ToLower(p.Name()), lower) {
+			if p.ID() == "context" {
+				return a.openContextOverlay()
+			}
 			prev := ""
 			if a.activePlugin != nil {
 				prev = a.activePlugin.ID()
