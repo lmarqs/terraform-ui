@@ -1,0 +1,6 @@
+
+  Workspaces
+
+  Error: Failed to list workspaces
+
+  Press r to retry, q to go back

@@ -1,0 +1,10 @@
+
+  Workspaces
+
+  New workspace: feature-x_
+
+  * default (default)
+    staging
+
+  2 workspace(s)  Current: default
+  Enter confirm  Esc cancel
