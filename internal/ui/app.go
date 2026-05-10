@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -48,7 +49,7 @@ type App struct {
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
-	header := components.NewHeader(workDir, "default", cfg.TerraformBinary())
+	header := components.NewHeader(workDir, "default")
 	if cfg.BaseDir != "" {
 		header = header.WithScope(cfg.BaseDir)
 	}
@@ -61,7 +62,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		header:        header,
 		contentBorder: components.NewContentBorder(),
 		commandBar:    components.NewCommandBar(),
-		statusBar:     components.NewStatusBar(),
+		statusBar:     components.NewStatusBar().WithBinaryName(filepath.Base(cfg.TerraformBinary())),
 		homeView:      views.NewHomeView(registry.MenuItems()),
 	}
 }
@@ -112,7 +113,7 @@ func (a App) loadWorkspace() tea.Msg {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
-		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary())
+		a.header = components.NewHeader(a.cfg.Dir, msg.workspace)
 		return a, nil
 
 	case openContextOnStartupMsg:

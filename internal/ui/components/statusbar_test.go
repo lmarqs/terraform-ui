@@ -3,6 +3,8 @@ package components
 import (
 	"strings"
 	"testing"
+
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 func TestNewStatusBar(t *testing.T) {
@@ -55,5 +57,43 @@ func TestStatusBar_Render_VariousWidths(t *testing.T) {
 		if output == "" {
 			t.Errorf("Render(%d) returned empty string", w)
 		}
+	}
+}
+
+func TestStatusBar_WithBinaryName_Render(t *testing.T) {
+	sb := NewStatusBar().WithBinaryName("terraform")
+	output := sb.Render(120)
+	if !strings.Contains(output, "terraform") {
+		t.Error("Render() should contain the binary name")
+	}
+}
+
+func TestStatusBar_WithBinaryName_RenderHints(t *testing.T) {
+	sb := NewStatusBar().WithBinaryName("tofu")
+	hints := []sdk.KeyHint{
+		{Key: "q", Description: "quit"},
+		{Key: "?", Description: "help"},
+	}
+	output := sb.RenderHints(hints, 120)
+	if !strings.Contains(output, "tofu") {
+		t.Error("RenderHints() with binary name should contain 'tofu'")
+	}
+}
+
+func TestStatusBar_WithBinaryName_Empty(t *testing.T) {
+	sb := NewStatusBar().WithBinaryName("")
+	output := sb.Render(80)
+	// Should still render normally without binary name
+	if output == "" {
+		t.Error("Render() should not be empty even with no binary name")
+	}
+}
+
+func TestStatusBar_WithBinaryName_NarrowWidth(t *testing.T) {
+	sb := NewStatusBar().WithBinaryName("terraform")
+	// With a very narrow width, binary name should be omitted (not enough gap)
+	output := sb.Render(20)
+	if output == "" {
+		t.Error("Render() should not be empty even with narrow width")
 	}
 }

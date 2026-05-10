@@ -8,7 +8,8 @@ import (
 )
 
 type StatusBar struct {
-	shortcuts string
+	shortcuts  string
+	binaryName string
 }
 
 func NewStatusBar() StatusBar { return StatusBar{} }
@@ -16,6 +17,12 @@ func NewStatusBar() StatusBar { return StatusBar{} }
 // WithShortcuts returns a StatusBar that displays the given shortcut hints.
 func (s StatusBar) WithShortcuts(shortcuts string) StatusBar {
 	s.shortcuts = shortcuts
+	return s
+}
+
+// WithBinaryName returns a StatusBar that displays the binary name right-aligned.
+func (s StatusBar) WithBinaryName(name string) StatusBar {
+	s.binaryName = name
 	return s
 }
 
@@ -38,7 +45,8 @@ func (s StatusBar) Render(width int) string {
 			sdk.StyleKey.Render("?") + " help"
 	}
 
-	return statusStyle.Width(width).Render(bindings)
+	content := s.appendBinaryName(bindings, width)
+	return statusStyle.Width(width).Render(content)
 }
 
 // RenderHints formats a slice of KeyHint into a styled status bar string.
@@ -52,5 +60,22 @@ func (s StatusBar) RenderHints(hints []sdk.KeyHint, width int) string {
 		}
 	}
 	bindings := strings.Join(parts, "  ")
-	return statusStyle.Width(width).Render(bindings)
+	content := s.appendBinaryName(bindings, width)
+	return statusStyle.Width(width).Render(content)
+}
+
+// appendBinaryName appends the binary name right-aligned if set.
+func (s StatusBar) appendBinaryName(bindings string, width int) string {
+	if s.binaryName == "" {
+		return bindings
+	}
+	binaryLabel := sdk.StyleFaint.Render(s.binaryName)
+	bindingsWidth := lipgloss.Width(bindings)
+	binaryWidth := lipgloss.Width(binaryLabel)
+	// Account for statusStyle padding (1 on each side)
+	gap := width - bindingsWidth - binaryWidth - 2
+	if gap < 2 {
+		return bindings
+	}
+	return bindings + strings.Repeat(" ", gap) + binaryLabel
 }

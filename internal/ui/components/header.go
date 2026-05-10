@@ -2,7 +2,6 @@ package components
 
 import (
 	"fmt"
-	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -15,22 +14,20 @@ var logo = [3]string{
 	" ╩ ╚  ╚═╝╩",
 }
 
-// Header renders a 3-line info block with project+binary, scope, workspace on
+// Header renders a 3-line info block with project, scope, workspace on
 // the left, and an ASCII logo on the right.
 type Header struct {
 	dir         string
 	workspace   string
-	binaryName  string
 	scope       string
 	pinnedCount int
 }
 
-// NewHeader creates a header. binaryPath is resolved to its base name.
-func NewHeader(dir, workspace, binaryPath string) Header {
+// NewHeader creates a header.
+func NewHeader(dir, workspace string) Header {
 	return Header{
-		dir:        dir,
-		workspace:  workspace,
-		binaryName: filepath.Base(binaryPath),
+		dir:       dir,
+		workspace: workspace,
 	}
 }
 
@@ -64,7 +61,6 @@ func (h Header) Render(width int) string {
 	}
 
 	projectParts := []string{h.dir}
-	projectParts = append(projectParts, sdk.StyleFaint.Render(h.binaryName))
 	if h.pinnedCount > 0 {
 		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}

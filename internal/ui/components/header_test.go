@@ -5,29 +5,8 @@ import (
 	"testing"
 )
 
-func TestNewHeader_ExtractsBaseName(t *testing.T) {
-	tests := []struct {
-		binaryPath   string
-		expectedName string
-	}{
-		{"/usr/local/bin/terraform", "terraform"},
-		{"/usr/bin/tofu", "tofu"},
-		{"terraform", "terraform"},
-		{"/path/to/custom-binary", "custom-binary"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.binaryPath, func(t *testing.T) {
-			h := NewHeader(".", "default", tt.binaryPath)
-			if h.binaryName != tt.expectedName {
-				t.Errorf("binaryName = %q, want %q", h.binaryName, tt.expectedName)
-			}
-		})
-	}
-}
-
 func TestHeader_Render_IsThreeLines(t *testing.T) {
-	h := NewHeader("/home/user/infra", "production", "terraform")
+	h := NewHeader("/home/user/infra", "production")
 	output := h.Render(80)
 	lines := strings.Split(output, "\n")
 	if len(lines) != 3 {
@@ -36,7 +15,7 @@ func TestHeader_Render_IsThreeLines(t *testing.T) {
 }
 
 func TestHeader_Render_ContainsScope(t *testing.T) {
-	h := NewHeader(".", "default", "terraform").WithScope("modules/sa-east-1")
+	h := NewHeader(".", "default").WithScope("modules/sa-east-1")
 	output := h.Render(80)
 	if !strings.Contains(output, "modules/sa-east-1") {
 		t.Error("should contain scope value")
@@ -47,7 +26,7 @@ func TestHeader_Render_ContainsScope(t *testing.T) {
 }
 
 func TestHeader_Render_ContainsWorkspace(t *testing.T) {
-	h := NewHeader(".", "staging", "terraform")
+	h := NewHeader(".", "staging")
 	output := h.Render(80)
 	if !strings.Contains(output, "staging") {
 		t.Error("should contain workspace")
@@ -57,14 +36,11 @@ func TestHeader_Render_ContainsWorkspace(t *testing.T) {
 	}
 }
 
-func TestHeader_Render_ContainsProjectAndBinary(t *testing.T) {
-	h := NewHeader("/my/project", "default", "/usr/bin/tofu")
+func TestHeader_Render_ContainsProject(t *testing.T) {
+	h := NewHeader("/my/project", "default")
 	output := h.Render(80)
 	if !strings.Contains(output, "/my/project") {
 		t.Error("should contain directory")
-	}
-	if !strings.Contains(output, "tofu") {
-		t.Error("should contain binary name")
 	}
 	if !strings.Contains(output, "Project:") {
 		t.Error("should contain Project: label")
@@ -72,7 +48,7 @@ func TestHeader_Render_ContainsProjectAndBinary(t *testing.T) {
 }
 
 func TestHeader_Render_ContainsLogo(t *testing.T) {
-	h := NewHeader(".", "default", "terraform")
+	h := NewHeader(".", "default")
 	output := h.Render(80)
 	if !strings.Contains(output, "╔╦╗") {
 		t.Error("should contain ASCII logo")
@@ -83,7 +59,7 @@ func TestHeader_Render_ContainsLogo(t *testing.T) {
 }
 
 func TestHeader_Render_PinnedCount(t *testing.T) {
-	h := NewHeader(".", "default", "terraform").WithPinnedCount(5)
+	h := NewHeader(".", "default").WithPinnedCount(5)
 	output := h.Render(80)
 	if !strings.Contains(output, "5 pinned") {
 		t.Error("should show pinned count")
@@ -91,7 +67,7 @@ func TestHeader_Render_PinnedCount(t *testing.T) {
 }
 
 func TestHeader_Render_ZeroPinnedHidden(t *testing.T) {
-	h := NewHeader(".", "default", "terraform").WithPinnedCount(0)
+	h := NewHeader(".", "default").WithPinnedCount(0)
 	output := h.Render(80)
 	if strings.Contains(output, "pinned") {
 		t.Error("should not show pinned when count is 0")
@@ -99,7 +75,7 @@ func TestHeader_Render_ZeroPinnedHidden(t *testing.T) {
 }
 
 func TestHeader_Render_NoScopeShowsDash(t *testing.T) {
-	h := NewHeader(".", "default", "terraform")
+	h := NewHeader(".", "default")
 	output := h.Render(80)
 	lines := strings.Split(output, "\n")
 	if !strings.Contains(lines[1], "-") {
@@ -108,7 +84,7 @@ func TestHeader_Render_NoScopeShowsDash(t *testing.T) {
 }
 
 func TestHeader_Render_VariousWidths(t *testing.T) {
-	h := NewHeader("/some/path", "production", "terraform").
+	h := NewHeader("/some/path", "production").
 		WithScope("prod-us-east").
 		WithPinnedCount(3)
 
@@ -126,7 +102,7 @@ func TestHeader_Render_VariousWidths(t *testing.T) {
 }
 
 func TestHeader_Chainable(t *testing.T) {
-	h := NewHeader(".", "default", "terraform").
+	h := NewHeader(".", "default").
 		WithScope("ctx").
 		WithPinnedCount(5)
 
