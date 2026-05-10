@@ -81,6 +81,11 @@ func (a App) Init() tea.Cmd {
 		}
 	}
 
+	// Open context picker on startup if multiple contexts exist
+	if cmd := a.openContextOverlay(); cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
 	return tea.Batch(cmds...)
 }
 
@@ -272,6 +277,9 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+c":
 		return a, tea.Quit
+	case "C":
+		cmd := a.openContextOverlay()
+		return a, cmd
 	case "ctrl+s":
 		logging.Logger().Info("screen.capture", "content", a.View())
 		return a, nil
