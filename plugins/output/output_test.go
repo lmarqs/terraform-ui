@@ -91,6 +91,24 @@ func TestNew(t *testing.T) {
 	}
 }
 
+func TestCountable(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	var c sdk.Countable = p
+	filtered, total := c.Count()
+	if filtered != 0 || total != 0 {
+		t.Errorf("Count() = (%d, %d), want (0, 0) when empty", filtered, total)
+	}
+
+	p.outputs = []sdk.OutputValue{{Name: "a"}, {Name: "b"}, {Name: "c"}}
+	p.filtered = p.outputs[:1]
+	filtered, total = c.Count()
+	if filtered != 1 || total != 3 {
+		t.Errorf("Count() = (%d, %d), want (1, 3)", filtered, total)
+	}
+}
+
 func TestConfigure(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)

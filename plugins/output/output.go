@@ -68,6 +68,7 @@ func (p *Plugin) Filter() string      { return p.filter }
 func (p *Plugin) Filtering() bool     { return p.filtering }
 func (p *Plugin) OutputCount() int    { return len(p.filtered) }
 func (p *Plugin) TotalCount() int     { return len(p.outputs) }
+func (p *Plugin) Count() (int, int)   { return len(p.filtered), len(p.outputs) }
 func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
 
 // Configure applies plugin-specific options from config.
