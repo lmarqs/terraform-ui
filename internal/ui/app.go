@@ -47,7 +47,7 @@ type App struct {
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
-	header := components.NewHeader(workDir, "default", cfg.TerraformBinary(), 0)
+	header := components.NewHeader(workDir, "default", cfg.TerraformBinary())
 	if cfg.BaseDir != "" {
 		header = header.WithContext(cfg.BaseDir)
 	}
@@ -110,7 +110,7 @@ func (a App) loadWorkspace() tea.Msg {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
-		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary(), 0)
+		a.header = components.NewHeader(a.cfg.Dir, msg.workspace, a.cfg.TerraformBinary())
 		return a, nil
 
 	case sdk.OverlayDismissMsg:
@@ -468,7 +468,6 @@ func (a App) View() string {
 	h := a.header
 	var content string
 	if a.activePlugin != nil {
-		h = h.WithActiveView(a.activePlugin.Name())
 		content = a.activePlugin.View(a.width, contentHeight)
 	} else {
 		content = a.homeView.Render(a.width, contentHeight)
