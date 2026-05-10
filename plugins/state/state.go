@@ -99,6 +99,7 @@ func (e *Plugin) Filter() string      { return e.filter }
 func (e *Plugin) Filtering() bool     { return e.filtering }
 func (e *Plugin) ResourceCount() int  { return len(e.filtered) }
 func (e *Plugin) TotalCount() int     { return len(e.resources) }
+func (e *Plugin) Count() (int, int)   { return len(e.filtered), len(e.resources) }
 func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 
 // Configure applies plugin-specific options from config.
