@@ -81,11 +81,6 @@ func (a App) Init() tea.Cmd {
 		}
 	}
 
-	// Open context picker on startup if multiple contexts exist
-	if cmd := a.openContextOverlay(); cmd != nil {
-		cmds = append(cmds, cmd)
-	}
-
 	return tea.Batch(cmds...)
 }
 
@@ -154,8 +149,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleKey(msg)
 
 	case tea.WindowSizeMsg:
+		firstRender := a.width == 0 && a.height == 0
 		a.width = msg.Width
 		a.height = msg.Height
+		if firstRender {
+			cmd := a.openContextOverlay()
+			return a, cmd
+		}
 		return a, nil
 	}
 
