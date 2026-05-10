@@ -1,0 +1,9 @@
+
+  Context
+
+  No context configured. Add paths to tfui.yaml:
+
+    context:
+      paths:
+        - "modules/*"
+        - "envs/**"

@@ -50,10 +50,21 @@ func TestNew(t *testing.T) {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Select terraform project scope")
 	}
 	if p.KeyBinding() != "C" {
-		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "c")
+		t.Errorf("KeyBinding() = %q, want %q", p.KeyBinding(), "C")
 	}
 	if p.Ready() {
 		t.Error("Ready() = true before discovery, want false")
+	}
+}
+
+func TestNew_ActiveIsMinusOne(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	if p.active != -1 {
+		t.Errorf("active = %d, want -1", p.active)
+	}
+	if p.ActiveProject() != nil {
+		t.Error("ActiveProject() != nil for new plugin, want nil")
 	}
 }
 
@@ -89,17 +100,19 @@ func TestInit(t *testing.T) {
 
 	cmd := p.Init(ctx)
 	if cmd != nil {
-		t.Error("Init() returned nil cmd, should return nil (no auto-load)")
+		t.Error("Init() returned non-nil cmd, should return nil (no auto-load)")
 	}
 	if p.status != StatusIdle {
 		t.Errorf("status = %v, want StatusIdle", p.status)
+	}
+	if p.active != -1 {
+		t.Errorf("after Init: active = %d, want -1", p.active)
 	}
 }
 
 func TestInitCmdReturnsContextDiscoveredMsg(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	// Use a cfg with no patterns (returns just the Dir)
 	p.cfg = config.Config{Dir: "."}
 
 	ctx := &sdk.Context{Service: svc}
@@ -142,9 +155,6 @@ func TestUpdateContextDiscoveredMsgSuccess(t *testing.T) {
 	if len(updated.projects) != 2 {
 		t.Errorf("len(projects) = %d, want 2", len(updated.projects))
 	}
-	if len(updated.filtered) != 2 {
-		t.Errorf("len(filtered) = %d, want 2", len(updated.filtered))
-	}
 	if !updated.Ready() {
 		t.Error("Ready() = false after success, want true")
 	}
@@ -185,73 +195,64 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 		{Path: "b", Name: "b"},
 		{Path: "c", Name: "c"},
 	}
-	p.filtered = p.projects
 
 	// Move down with j
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 1 {
 		t.Errorf("after j: selected = %d, want 1", p.selected)
 	}
 
 	// Move down more
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 2 {
 		t.Errorf("after j,j: selected = %d, want 2", p.selected)
 	}
 
 	// Boundary
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.selected != 2 {
 		t.Errorf("after j,j,j: selected = %d, want 2 (boundary)", p.selected)
 	}
 
 	// Move up with k
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if p.selected != 1 {
 		t.Errorf("after k: selected = %d, want 1", p.selected)
 	}
 
 	// Move up to start
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if p.selected != 0 {
 		t.Errorf("after k,k: selected = %d, want 0", p.selected)
 	}
 
 	// Boundary
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
 	if p.selected != 0 {
 		t.Errorf("after k,k,k: selected = %d, want 0 (boundary)", p.selected)
 	}
 }
 
-func TestUpdateKeyMsgEnter_SelectCurrent(t *testing.T) {
+func TestUpdateKeyMsgEnter_SelectAndDeactivate(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 	p.projects = []Project{
-		{Path: "a", Name: "a"},
-		{Path: "b", Name: "b"},
+		{Path: "a", Name: "a", AbsPath: "/tmp/a"},
+		{Path: "b", Name: "b", AbsPath: "/tmp/b"},
 	}
-	p.filtered = p.projects
 	p.selected = 1
 
-	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if p.active != 1 {
 		t.Errorf("after enter: active = %d, want 1", p.active)
 	}
-}
-
-func TestUpdateKeyMsgBackspace(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{{Path: "abc"}}
-	p.filtered = p.projects
-	p.filter = "ab"
-
-	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	if p.filter != "a" {
-		t.Errorf("after backspace: filter = %q, want %q", p.filter, "a")
+	if cmd == nil {
+		t.Fatal("after enter: cmd = nil, want DeactivateMsg cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd returned %T, want sdk.DeactivateMsg", msg)
 	}
 }
 
@@ -261,7 +262,7 @@ func TestUpdateKeyMsgR_Refresh(t *testing.T) {
 	p.status = StatusDone
 	p.cfg = config.Config{Dir: "."}
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r: cmd = nil, want non-nil (refresh)")
 	}
@@ -284,7 +285,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 func TestMoveUpDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.filtered = []Project{{Path: "a"}, {Path: "b"}, {Path: "c"}}
+	p.projects = []Project{{Path: "a"}, {Path: "b"}, {Path: "c"}}
 
 	p.MoveDown()
 	if p.selected != 1 {
@@ -312,7 +313,7 @@ func TestMoveUpDown(t *testing.T) {
 func TestMoveDownEmpty(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.filtered = []Project{}
+	p.projects = []Project{}
 	p.MoveDown()
 	if p.selected != 0 {
 		t.Errorf("MoveDown empty: selected = %d, want 0", p.selected)
@@ -327,30 +328,40 @@ func TestSelectCurrent(t *testing.T) {
 		{Path: "b"},
 		{Path: "c"},
 	}
-	p.filtered = p.projects
 	p.selected = 2
 
-	p.SelectCurrent()
+	cmd := p.SelectCurrent()
 	if p.active != 2 {
 		t.Errorf("SelectCurrent: active = %d, want 2", p.active)
 	}
+	if cmd == nil {
+		t.Fatal("SelectCurrent: cmd = nil, want DeactivateMsg cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("SelectCurrent cmd returned %T, want sdk.DeactivateMsg", msg)
+	}
 }
 
-func TestSelectCurrentFiltered(t *testing.T) {
+func TestSelectCurrentWithSession(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
+	p.session = sdk.NewSession()
 	p.projects = []Project{
-		{Path: "a"},
-		{Path: "b"},
-		{Path: "c"},
+		{Path: "modules/vpc", AbsPath: "/tmp/modules/vpc"},
+		{Path: "modules/rds", AbsPath: "/tmp/modules/rds"},
 	}
-	// Filtered shows only "b" and "c"
-	p.filtered = []Project{{Path: "b"}, {Path: "c"}}
-	p.selected = 0
+	p.selected = 1
 
 	p.SelectCurrent()
-	if p.active != 1 {
-		t.Errorf("SelectCurrent filtered: active = %d, want 1 (index of 'b' in projects)", p.active)
+
+	ctx, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContext)
+	if !ok || ctx != "modules/rds" {
+		t.Errorf("session context = %q, want %q", ctx, "modules/rds")
+	}
+	abs, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveContextAbs)
+	if !ok || abs != "/tmp/modules/rds" {
+		t.Errorf("session context abs = %q, want %q", abs, "/tmp/modules/rds")
 	}
 }
 
@@ -358,11 +369,12 @@ func TestSelectCurrentOutOfBounds(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.projects = []Project{{Path: "a"}}
-	p.filtered = []Project{}
 	p.selected = 5
 
-	// Should not panic
-	p.SelectCurrent()
+	cmd := p.SelectCurrent()
+	if cmd != nil {
+		t.Error("SelectCurrent out of bounds: cmd != nil, want nil")
+	}
 }
 
 func TestActiveProject(t *testing.T) {
@@ -380,6 +392,16 @@ func TestActiveProject(t *testing.T) {
 	}
 }
 
+func TestActiveProjectNoSelection(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.projects = []Project{{Path: "a"}, {Path: "b"}}
+
+	if p.ActiveProject() != nil {
+		t.Error("ActiveProject() != nil for new plugin (active=-1), want nil")
+	}
+}
+
 func TestActiveProjectOutOfBounds(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
@@ -394,7 +416,7 @@ func TestActiveProjectOutOfBounds(t *testing.T) {
 func TestSelectedProject(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.filtered = []Project{{Path: "a"}, {Path: "b"}}
+	p.projects = []Project{{Path: "a"}, {Path: "b"}}
 	p.selected = 1
 
 	sp := p.SelectedProject()
@@ -409,7 +431,7 @@ func TestSelectedProject(t *testing.T) {
 func TestSelectedProjectOutOfBounds(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.filtered = []Project{}
+	p.projects = []Project{}
 	p.selected = 5
 
 	if p.SelectedProject() != nil {
@@ -417,94 +439,10 @@ func TestSelectedProjectOutOfBounds(t *testing.T) {
 	}
 }
 
-func TestSetFilter(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.projects = []Project{
-		{Path: "modules/vpc", Name: "vpc"},
-		{Path: "modules/rds", Name: "rds"},
-		{Path: "envs/prod", Name: "prod"},
-	}
-	p.filtered = p.projects
-
-	// Filter by path
-	p.SetFilter("vpc")
-	if len(p.filtered) != 1 {
-		t.Errorf("SetFilter('vpc'): len(filtered) = %d, want 1", len(p.filtered))
-	}
-	if p.selected != 0 {
-		t.Errorf("SetFilter resets selected: got %d, want 0", p.selected)
-	}
-	if p.filter != "vpc" {
-		t.Errorf("filter = %q, want %q", p.filter, "vpc")
-	}
-
-	// Filter by name
-	p.SetFilter("rds")
-	if len(p.filtered) != 1 {
-		t.Errorf("SetFilter('rds'): len(filtered) = %d, want 1", len(p.filtered))
-	}
-
-	// Clear filter
-	p.SetFilter("")
-	if len(p.filtered) != 3 {
-		t.Errorf("SetFilter(''): len(filtered) = %d, want 3", len(p.filtered))
-	}
-
-	// Case insensitive
-	p.SetFilter("VPC")
-	if len(p.filtered) != 1 {
-		t.Errorf("SetFilter('VPC'): len(filtered) = %d, want 1", len(p.filtered))
-	}
-
-	// No matches
-	p.SetFilter("zzz")
-	if len(p.filtered) != 0 {
-		t.Errorf("SetFilter('zzz'): len(filtered) = %d, want 0", len(p.filtered))
-	}
-}
-
-func TestAppendFilter(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "abc"}}
-	p.filtered = p.projects
-
-	p.AppendFilter("a")
-	if p.filter != "a" {
-		t.Errorf("AppendFilter('a'): filter = %q, want %q", p.filter, "a")
-	}
-	p.AppendFilter("b")
-	if p.filter != "ab" {
-		t.Errorf("AppendFilter('b'): filter = %q, want %q", p.filter, "ab")
-	}
-}
-
-func TestBackspaceFilter(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.projects = []Project{{Path: "abc"}}
-	p.filtered = p.projects
-	p.filter = "abc"
-
-	p.BackspaceFilter()
-	if p.filter != "ab" {
-		t.Errorf("BackspaceFilter: filter = %q, want %q", p.filter, "ab")
-	}
-
-	// Backspace on empty
-	p.filter = ""
-	p.BackspaceFilter()
-	if p.filter != "" {
-		t.Errorf("BackspaceFilter empty: filter = %q, want empty", p.filter)
-	}
-}
-
 func TestRefresh(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
-	p.filter = "something"
 	p.cfg = config.Config{Dir: "."}
 
 	cmd := p.Refresh()
@@ -513,9 +451,6 @@ func TestRefresh(t *testing.T) {
 	}
 	if p.status != StatusLoading {
 		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
-	}
-	if p.filter != "" {
-		t.Errorf("after Refresh: filter = %q, want empty", p.filter)
 	}
 }
 
@@ -553,7 +488,6 @@ func TestViewDone_NoProjects(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 	p.projects = []Project{}
-	p.filtered = []Project{}
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -569,40 +503,11 @@ func TestViewDone_WithProjects(t *testing.T) {
 		{Path: "modules/vpc", Name: "vpc", AbsPath: "/tmp/modules/vpc"},
 		{Path: "modules/rds", Name: "rds", AbsPath: "/tmp/modules/rds"},
 	}
-	p.filtered = p.projects
 	p.active = 0
 
 	view := p.View(80, 24)
 	if view == "" {
 		t.Error("View(StatusDone, with projects) returned empty string")
-	}
-}
-
-func TestViewDone_WithFilter(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}, {Path: "b"}}
-	p.filtered = p.projects[:1]
-	p.filter = "a"
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(StatusDone, with filter) returned empty string")
-	}
-}
-
-func TestViewDone_FilterNoMatch(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}}
-	p.filtered = []Project{}
-	p.filter = "zzz"
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(StatusDone, filter no match) returned empty string")
 	}
 }
 
@@ -627,44 +532,11 @@ func TestViewScrolling(t *testing.T) {
 		projects[i] = Project{Path: "module_" + string(rune('a'+i%26)), Name: "m" + string(rune('a'+i%26))}
 	}
 	p.projects = projects
-	p.filtered = projects
 	p.selected = 40
 
 	view := p.View(80, 10)
 	if view == "" {
 		t.Error("View with scrolling returned empty string")
-	}
-}
-
-func TestViewDone_ProjectWithDifferentName(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{
-		{Path: "envs/production/us-east-1", Name: "us-east-1", AbsPath: "/tmp/envs/production/us-east-1"},
-	}
-	p.filtered = p.projects
-	p.active = 0
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View with project name != path returned empty string")
-	}
-}
-
-func TestViewDone_ProjectSameNameAsPath(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{
-		{Path: "vpc", Name: "vpc"},
-	}
-	p.filtered = p.projects
-	p.active = 0
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View with same name and path returned empty string")
 	}
 }
 
@@ -723,71 +595,124 @@ func TestActiveGetter(t *testing.T) {
 	}
 }
 
-func TestFilterGetter(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.filter = "test"
-	if p.Filter() != "test" {
-		t.Errorf("Filter() = %q, want %q", p.Filter(), "test")
-	}
-}
-
-func TestUpdateKeyMsgSlash(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{{Path: "a"}}
-	p.filtered = p.projects
-
-	// "/" key should not crash (handled but empty)
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	if cmd != nil {
-		t.Error("after /: cmd != nil, want nil")
-	}
-}
-
 func TestUpdateKeyMsgDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 	p.projects = []Project{{Path: "a"}, {Path: "b"}}
-	p.filtered = p.projects
 
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	if p.selected != 1 {
 		t.Errorf("after down: selected = %d, want 1", p.selected)
 	}
 
-	p.Update(tea.KeyMsg{Type: tea.KeyUp})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyUp})
 	if p.selected != 0 {
 		t.Errorf("after up: selected = %d, want 0", p.selected)
 	}
 }
 
-func TestUpdateKeyMsgDelete(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusDone
-	p.projects = []Project{{Path: "abc"}}
-	p.filtered = p.projects
-	p.filter = "ab"
-
-	p.Update(tea.KeyMsg{Type: tea.KeyDelete})
-	if p.filter != "a" {
-		t.Errorf("after delete: filter = %q, want %q", p.filter, "a")
-	}
-}
-
-func TestUpdateKeyMsgDefaultChar(t *testing.T) {
+func TestUpdateKeyMsgUnhandled(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 	p.projects = []Project{{Path: "a"}}
-	p.filtered = p.projects
 
-	// Default character handling (not j/k/r/enter/backspace/etc.)
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if cmd != nil {
 		t.Error("after x: cmd != nil, want nil")
+	}
+}
+
+func TestUpdateKeyMsgEsc_Deactivate(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusDone
+	p.projects = []Project{{Path: "a"}}
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	if cmd == nil {
+		t.Fatal("after esc: cmd = nil, want DeactivateMsg cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd returned %T, want sdk.DeactivateMsg", msg)
+	}
+}
+
+func TestStackHints_Done(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusDone
+	p.projects = []Project{{Path: "a"}}
+
+	hints := p.stack.Hints()
+	if len(hints) != 4 {
+		t.Fatalf("Hints() len = %d, want 4", len(hints))
+	}
+	if hints[0].Key != "↑↓" {
+		t.Errorf("hints[0].Key = %q, want %q", hints[0].Key, "↑↓")
+	}
+	if hints[3].Key != "q" {
+		t.Errorf("hints[3].Key = %q, want %q", hints[3].Key, "q")
+	}
+}
+
+func TestStackHints_Error(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusError
+
+	hints := p.stack.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("Hints() len = %d, want 2", len(hints))
+	}
+	if hints[0].Key != "r" {
+		t.Errorf("hints[0].Key = %q, want %q", hints[0].Key, "r")
+	}
+}
+
+func TestStackHints_Loading(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusLoading
+
+	hints := p.stack.Hints()
+	if hints != nil {
+		t.Errorf("Hints() = %v, want nil during loading", hints)
+	}
+}
+
+func TestActivate_OnlyWhenIdleOrError(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.cfg = config.Config{Dir: "."}
+
+	// StatusDone should not re-activate
+	p.status = StatusDone
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() when Done: cmd != nil, want nil")
+	}
+
+	// StatusLoading should not re-activate
+	p.status = StatusLoading
+	cmd = p.Activate()
+	if cmd != nil {
+		t.Error("Activate() when Loading: cmd != nil, want nil")
+	}
+
+	// StatusIdle should activate
+	p.status = StatusIdle
+	cmd = p.Activate()
+	if cmd == nil {
+		t.Error("Activate() when Idle: cmd = nil, want non-nil")
+	}
+
+	// StatusError should activate
+	p.status = StatusError
+	cmd = p.Activate()
+	if cmd == nil {
+		t.Error("Activate() when Error: cmd = nil, want non-nil")
 	}
 }
