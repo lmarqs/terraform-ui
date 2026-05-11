@@ -48,6 +48,28 @@ type StateDeletedMsg struct {
 	Address string
 }
 
+// StateMovedMsg is sent when a resource is successfully moved.
+type StateMovedMsg struct {
+	Source string
+	Dest   string
+}
+
+// StateTaintedMsg is sent when resources are successfully tainted.
+type StateTaintedMsg struct {
+	Addresses []string
+}
+
+// StateUntaintedMsg is sent when resources are successfully untainted.
+type StateUntaintedMsg struct {
+	Addresses []string
+}
+
+// StateImportedMsg is sent when a resource is successfully imported.
+type StateImportedMsg struct {
+	Address string
+	ID      string
+}
+
 // StateEditMsg requests the editor to open for this resource.
 type StateEditMsg struct {
 	Address string
@@ -248,6 +270,22 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 	case StateDeletedMsg:
 		e.log.Debug("state.deleted", "address", msg.Address)
+		return e, e.Refresh()
+
+	case StateMovedMsg:
+		e.log.Debug("state.moved", "source", msg.Source, "dest", msg.Dest)
+		return e, e.Refresh()
+
+	case StateTaintedMsg:
+		e.log.Debug("state.tainted", "addresses", msg.Addresses)
+		return e, e.Refresh()
+
+	case StateUntaintedMsg:
+		e.log.Debug("state.untainted", "addresses", msg.Addresses)
+		return e, e.Refresh()
+
+	case StateImportedMsg:
+		e.log.Debug("state.imported", "address", msg.Address, "id", msg.ID)
 		return e, e.Refresh()
 
 	case ResourceDetailMsg:

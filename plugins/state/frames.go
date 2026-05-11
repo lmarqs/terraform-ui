@@ -123,6 +123,31 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if r.Address != "" {
 			return f, f.plugin.requestEdit(r.Address)
 		}
+	case "ctrl+a":
+		targets := f.plugin.actionTargets()
+		if len(targets) > 0 {
+			f.plugin.stack.Push(f.plugin.buildActionFrame(targets[0], true))
+		}
+	case "m":
+		r := f.plugin.SelectedResource()
+		if r.Address != "" {
+			return f, f.plugin.requestMove(r.Address)
+		}
+	case "t":
+		r := f.plugin.SelectedResource()
+		if r.Address != "" {
+			return f, f.plugin.requestTaint(r.Address)
+		}
+	case "T":
+		r := f.plugin.SelectedResource()
+		if r.Address != "" {
+			return f, f.plugin.requestUntaint(r.Address)
+		}
+	case "n":
+		r := f.plugin.SelectedResource()
+		if r.Address != "" {
+			return f, f.plugin.requestImport(r.Address)
+		}
 	}
 	return f, nil
 }
@@ -142,7 +167,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints()
 	default:
-		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPinnedFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetBack
+		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPinnedFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetActions | sdk.HintSetBack
 		if !f.plugin.listWrap {
 			set |= sdk.HintSetPan
 		}
@@ -201,6 +226,16 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, f.plugin.requestDelete(f.plugin.detailAddr)
 	case "e":
 		return f, f.plugin.requestEdit(f.plugin.detailAddr)
+	case "ctrl+a":
+		f.plugin.stack.Push(f.plugin.buildActionFrame(f.plugin.detailAddr, false))
+	case "m":
+		return f, f.plugin.requestMove(f.plugin.detailAddr)
+	case "t":
+		return f, f.plugin.requestTaint(f.plugin.detailAddr)
+	case "T":
+		return f, f.plugin.requestUntaint(f.plugin.detailAddr)
+	case "n":
+		return f, f.plugin.requestImport(f.plugin.detailAddr)
 	}
 	return f, nil
 }
@@ -210,7 +245,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetScroll | sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetCancel
+	set := sdk.HintSetScroll | sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetActions | sdk.HintSetCancel
 	if !f.plugin.detailWrap {
 		set |= sdk.HintSetPan
 	}
