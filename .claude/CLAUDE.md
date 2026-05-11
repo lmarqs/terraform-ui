@@ -319,6 +319,10 @@ Rules:
 - Show only the most relevant keys for the current state
 - No novel notation patterns (no `d/D`, no `(t/T) taint/untaint`)
 - All notation must have precedent in established TUI apps (k9s, vim, ranger)
+- Display preferences (`^w` wrap, `←→` pan) shown only in detail/inspect frame — not in list frame
+- List frame hints = navigation + actions that change state
+- Detail frame hints = display controls + single-item actions
+- Dynamic hints show the target state (what pressing the key switches TO): `^t tree` means "press to enter tree mode"
 
 ### UX Anti-patterns (do NOT introduce)
 
