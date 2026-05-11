@@ -1392,9 +1392,9 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 	p.rebuildTree()
 
 	tests := []struct {
-		name           string
-		height         int
-		wantListLines  int
+		name          string
+		height        int
+		wantListLines int
 	}{
 		{"ShouldShow18LinesInHeight20", 20, 18},
 		{"ShouldShow8LinesInHeight10", 10, 8},
@@ -1415,6 +1415,30 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 				t.Errorf("height=%d: got %d resource lines, want %d", tt.height, resourceLines, tt.wantListLines)
 			}
 		})
+	}
+}
+
+func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	resources := make([]sdk.Resource, 50)
+	for i := range resources {
+		resources[i] = sdk.Resource{
+			Address: "module.very_long_module_name.module.another_long_module.aws_cloudwatch_metric_alarm.extremely_long_resource_name_that_exceeds_width",
+			Type:    "aws_cloudwatch_metric_alarm",
+		}
+	}
+	p.status = StatusDone
+	p.resources = resources
+	p.filtered = resources
+	p.rebuildTree()
+
+	output := p.View(80, 20)
+	lines := strings.Split(output, "\n")
+	// height 20 - footerHeight 2 = 18 resource lines + 1 blank + 1 count = 20 total lines
+	if len(lines) > 20 {
+		t.Errorf("long addresses caused line overflow: got %d lines, want <= 20", len(lines))
 	}
 }
 

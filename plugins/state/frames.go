@@ -81,12 +81,6 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.MoveToEnd()
 	case "g":
 		f.plugin.MoveToStart()
-	case "w":
-		f.plugin.detailWrap = !f.plugin.detailWrap
-	case "ctrl+w":
-		f.plugin.detailWrap = !f.plugin.detailWrap
-		f.plugin.detailScroll = 0
-		f.plugin.detailHScroll = 0
 	case "ctrl+t":
 		f.plugin.treeMode = !f.plugin.treeMode
 		f.plugin.SetFilter(f.plugin.filter)

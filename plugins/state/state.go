@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
@@ -520,6 +521,9 @@ func (e *Plugin) renderResources(width, height int) string {
 			SelectedStyle: func(s string, w int) string {
 				return sdk.StyleSelected.Width(w).Render(s)
 			},
+			TruncateRow: func(s string, w int) string {
+				return lipgloss.NewStyle().MaxWidth(w).Render(s)
+			},
 		})
 	} else {
 		treeContent = e.renderFlatList(contentWidth, maxVisible)
@@ -543,6 +547,7 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 		endIdx = len(e.filtered)
 	}
 
+	truncStyle := lipgloss.NewStyle().MaxWidth(contentWidth)
 	for i := startIdx; i < endIdx; i++ {
 		if i > startIdx {
 			b.WriteByte('\n')
@@ -552,7 +557,7 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 		if e.isPinnedAddress(r.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
-		row := pinMark + r.Address + "  " + sdk.StyleFaint.Render(r.Type)
+		row := truncStyle.Render(pinMark + r.Address + "  " + sdk.StyleFaint.Render(r.Type))
 		if i == cursor {
 			row = sdk.StyleSelected.Width(contentWidth).Render(row)
 		}

@@ -23,6 +23,9 @@ type RenderOpts struct {
 	PinIndicators *PinIndicators
 	// SelectedStyle wraps the selected row. If nil, no highlight.
 	SelectedStyle func(s string, width int) string
+	// TruncateRow truncates a non-selected row to fit the available width.
+	// If nil, rows are not truncated.
+	TruncateRow func(s string, width int) string
 }
 
 // PinIndicators defines the visual indicators for each pin state.
@@ -54,6 +57,9 @@ func (t *Tree) Render(opts RenderOpts) string {
 	for i := startIdx; i < endIdx; i++ {
 		node := t.flattened[i]
 		line := t.renderNode(node, opts)
+		if opts.TruncateRow != nil {
+			line = opts.TruncateRow(line, opts.Width)
+		}
 		if i == t.cursor && opts.SelectedStyle != nil {
 			line = opts.SelectedStyle(line, opts.Width)
 		}
