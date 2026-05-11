@@ -165,6 +165,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 
 ### Testing
 
+- **TDD workflow**: write a failing test first, then implement the fix/feature
 - 100% coverage on all packages excluding `cmd/` glue
 - Table-driven tests preferred
 - Mock services implement `sdk.Service` with no-op methods
