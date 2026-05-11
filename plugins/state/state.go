@@ -80,6 +80,8 @@ type Plugin struct {
 	errMsg        string
 	lockInfo      *sdk.StateLock
 	viewWidth     int
+	listHScroll   int
+	listWrap      bool
 	detail        string
 	detailAddr    string
 	detailScroll  int
@@ -293,6 +295,17 @@ func (e *Plugin) navigate(dir int) {
 	}
 }
 
+func (e *Plugin) panListRight() {
+	e.listHScroll += 10
+}
+
+func (e *Plugin) panListLeft() {
+	e.listHScroll -= 10
+	if e.listHScroll < 0 {
+		e.listHScroll = 0
+	}
+}
+
 func (e *Plugin) panDetailRight() {
 	maxLine := 0
 	for _, line := range strings.Split(e.detail, "\n") {
@@ -495,14 +508,20 @@ func (e *Plugin) renderResources(width, height int) string {
 			Height: maxVisible,
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
 				r := node.Item.(resourceItem).resource
-				typeInfo := sdk.StyleFaint.Render(r.Type)
-				row := fmt.Sprintf("%s  %s", node.Label, typeInfo)
+				full := node.Label + "  " + r.Type
 				if e.filter != "" {
 					if score, ok := e.filterScores[r.Address]; ok {
-						row += sdk.StyleFaint.Render(fmt.Sprintf(" [%d]", score))
+						full += fmt.Sprintf(" [%d]", score)
 					}
 				}
-				return row
+				if e.listHScroll > 0 {
+					if e.listHScroll < len(full) {
+						full = full[e.listHScroll:]
+					} else {
+						full = ""
+					}
+				}
+				return full
 			},
 			RenderBranch: func(node *tree.Node, pinned bool) string {
 				indicator := "▶"
@@ -557,13 +576,29 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 		if e.isPinnedAddress(r.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
-		row := truncStyle.Render(pinMark + r.Address + "  " + sdk.StyleFaint.Render(r.Type))
+		row := e.formatResourceRow(pinMark, r, contentWidth, truncStyle)
 		if i == cursor {
 			row = sdk.StyleSelected.Width(contentWidth).Render(row)
 		}
 		b.WriteString(row)
 	}
 	return b.String()
+}
+
+func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource, contentWidth int, truncStyle lipgloss.Style) string {
+	full := r.Address + "  " + r.Type
+	if e.listHScroll > 0 {
+		if e.listHScroll < len(full) {
+			full = full[e.listHScroll:]
+		} else {
+			full = ""
+		}
+	}
+	availWidth := contentWidth - 4 // pin mark visual width
+	if len(full) > availWidth {
+		full = full[:availWidth]
+	}
+	return pinMark + full
 }
 
 func (e *Plugin) renderDetail(width, height int) string {

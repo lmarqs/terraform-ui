@@ -1418,6 +1418,45 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 	}
 }
 
+func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = StatusDone
+	p.resources = []sdk.Resource{
+		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
+	}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	t.Run("ShouldShowFullAddressAtZeroScroll", func(t *testing.T) {
+		p.listHScroll = 0
+		output := p.View(80, 10)
+		if !strings.Contains(output, "module.very_long_name") {
+			t.Error("expected full address visible at zero scroll")
+		}
+	})
+
+	t.Run("ShouldShiftContentWhenPanned", func(t *testing.T) {
+		p.listHScroll = 10
+		output := p.View(80, 10)
+		if strings.Contains(output, "module.ver") {
+			t.Error("expected beginning of address to be hidden after pan")
+		}
+		if !strings.Contains(output, "long_name") {
+			t.Error("expected shifted content to be visible")
+		}
+	})
+
+	t.Run("ShouldNotPanBelowZero", func(t *testing.T) {
+		p.listHScroll = 10
+		p.panListLeft()
+		if p.listHScroll != 0 {
+			t.Errorf("expected scroll to be 0 after panLeft, got %d", p.listHScroll)
+		}
+	})
+}
+
 func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)

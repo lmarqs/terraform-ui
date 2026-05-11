@@ -81,6 +81,13 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.MoveToEnd()
 	case "g":
 		f.plugin.MoveToStart()
+	case "right":
+		f.plugin.panListRight()
+	case "left":
+		f.plugin.panListLeft()
+	case "w", "ctrl+w":
+		f.plugin.listWrap = !f.plugin.listWrap
+		f.plugin.listHScroll = 0
 	case "ctrl+t":
 		f.plugin.treeMode = !f.plugin.treeMode
 		f.plugin.SetFilter(f.plugin.filter)
@@ -126,11 +133,11 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints()
 	default:
-		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetBack
+		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPan | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetBack
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse
 		}
-		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
+		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap})
 	}
 }
 
