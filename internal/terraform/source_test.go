@@ -222,6 +222,68 @@ resource "aws_instance" "web" {
 			t.Error("Lookup() returned true for non-existing address")
 		}
 	})
+
+	t.Run("module-prefixed address falls back to leaf", func(t *testing.T) {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {
+  ami = "ami-123"
+}
+`)
+		idx, err := NewSourceIndex(dir)
+		if err != nil {
+			t.Fatalf("NewSourceIndex() error = %v", err)
+		}
+
+		loc, ok := idx.Lookup("module.foo.aws_instance.web")
+		if !ok {
+			t.Fatal("Lookup() should find module-prefixed address via leaf fallback")
+		}
+		if loc.Line != 2 {
+			t.Errorf("Line = %d, want 2", loc.Line)
+		}
+	})
+
+	t.Run("nested module prefix falls back to leaf", func(t *testing.T) {
+		dir := t.TempDir()
+		writeFile(t, filepath.Join(dir, "main.tf"), `
+data "aws_ssoadmin_instances" "this" {}
+`)
+		idx, err := NewSourceIndex(dir)
+		if err != nil {
+			t.Fatalf("NewSourceIndex() error = %v", err)
+		}
+
+		loc, ok := idx.Lookup("module.identity_center.data.aws_ssoadmin_instances.this")
+		if !ok {
+			t.Fatal("Lookup() should find deeply nested module address via leaf fallback")
+		}
+		if loc.Line != 2 {
+			t.Errorf("Line = %d, want 2", loc.Line)
+		}
+	})
+}
+
+func TestStripModulePrefix(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"aws_instance.web", "aws_instance.web"},
+		{"module.foo.aws_instance.web", "aws_instance.web"},
+		{"module.foo.module.bar.aws_instance.web", "aws_instance.web"},
+		{"module.foo.data.aws_ami.latest", "data.aws_ami.latest"},
+		{"data.aws_ami.latest", "data.aws_ami.latest"},
+		{"module.x", "module.x"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got := stripModulePrefix(tt.input)
+			if got != tt.want {
+				t.Errorf("stripModulePrefix(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
 }
 
 func TestSourceIndexLookupFile(t *testing.T) {

@@ -49,9 +49,33 @@ func NewSourceIndex(dir string) (*SourceIndex, error) {
 
 // Lookup returns the source location for a resource address.
 // Supports addresses like "aws_s3_bucket.main", "module.foo.aws_s3_bucket.bar".
+// Falls back to stripping module prefix for nested module resources.
 func (idx *SourceIndex) Lookup(address string) (editor.SourceLocation, bool) {
-	loc, ok := idx.locations[address]
-	return loc, ok
+	if loc, ok := idx.locations[address]; ok {
+		return loc, true
+	}
+	// Strip module prefix: "module.foo.module.bar.aws_instance.x" → "aws_instance.x"
+	leaf := stripModulePrefix(address)
+	if leaf != address {
+		if loc, ok := idx.locations[leaf]; ok {
+			return loc, true
+		}
+	}
+	return editor.SourceLocation{}, false
+}
+
+// stripModulePrefix removes all "module.name." prefixes and "data." awareness.
+func stripModulePrefix(address string) string {
+	for strings.HasPrefix(address, "module.") {
+		// Skip "module.<name>."
+		rest := address[len("module."):]
+		dot := strings.Index(rest, ".")
+		if dot < 0 {
+			return address
+		}
+		address = rest[dot+1:]
+	}
+	return address
 }
 
 // LookupFile returns the directory's main.tf (or first .tf file) as a fallback.
