@@ -119,6 +119,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			return f, f.plugin.requestDelete(r.Address)
 		}
 	case "e":
+		targets := f.plugin.actionTargets()
+		if len(targets) > 1 {
+			return f, f.plugin.requestEditMultiple(targets)
+		}
 		r := f.plugin.SelectedResource()
 		if r.Address != "" {
 			return f, f.plugin.requestEdit(r.Address)
