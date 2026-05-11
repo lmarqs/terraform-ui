@@ -9,6 +9,11 @@
 [ ] aws_instance.server_13  aws_instance
 [ ] aws_instance.server_14  aws_instance
 [ ] aws_instance.server_15  aws_instance
+[ ] aws_instance.server_16  aws_instance
+[ ] aws_instance.server_17  aws_instance
+[ ] aws_instance.server_18  aws_instance
+[ ] aws_instance.server_19  aws_instance
+[ ] aws_instance.server_20  aws_instance
 
 
 30 resources

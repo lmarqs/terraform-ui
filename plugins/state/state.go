@@ -475,7 +475,12 @@ func (e *Plugin) renderResources(width, height int) string {
 		return filterLine + noResources
 	}
 
-	maxVisible := height - 7
+	filterHeight := 0
+	if e.filtering || e.filter != "" {
+		filterHeight = 2
+	}
+	footerHeight := 2 // blank line + count line
+	maxVisible := height - filterHeight - footerHeight
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -530,17 +535,14 @@ func (e *Plugin) renderResources(width, height int) string {
 }
 
 func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
+	var b strings.Builder
 	cursor := e.tree.Cursor()
-	startIdx := 0
-	if cursor >= maxVisible {
-		startIdx = cursor - maxVisible + 1
-	}
+	startIdx := e.tree.ViewOffset(maxVisible)
 	endIdx := startIdx + maxVisible
 	if endIdx > len(e.filtered) {
 		endIdx = len(e.filtered)
 	}
 
-	var b strings.Builder
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
 		pinMark := "[ ] "

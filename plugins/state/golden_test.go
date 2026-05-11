@@ -273,7 +273,8 @@ func TestView_Given_ManyResources_ShouldRender_ScrolledWindow(t *testing.T) {
 	p.resources = resources
 	p.filtered = resources
 	p.rebuildTree()
-	for i := 0; i < 15; i++ {
+	// Move cursor past viewport edge (height 18 - 2 footer = 16 visible rows)
+	for i := 0; i < 20; i++ {
 		p.tree.MoveDown()
 	}
 	sdktest.AssertGolden(t, p.View(80, 18))
