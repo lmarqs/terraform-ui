@@ -16,9 +16,20 @@ type RenderOpts struct {
 	// RenderBranch formats a branch node line. If nil, uses "Label (count)".
 	RenderBranch func(node *Node, pinned bool) string
 	// PinIndicator is the string shown for pinned items. Default: "* ".
+	// Deprecated: use PinIndicators for checkbox-style rendering.
 	PinIndicator string
+	// PinIndicators provides state-specific pin indicators (none/partial/full).
+	// If set, overrides PinIndicator.
+	PinIndicators *PinIndicators
 	// SelectedStyle wraps the selected row. If nil, no highlight.
 	SelectedStyle func(s string, width int) string
+}
+
+// PinIndicators defines the visual indicators for each pin state.
+type PinIndicators struct {
+	None    string // shown when not pinned (e.g. "[ ] ")
+	Full    string // shown when fully pinned (e.g. "[*] ")
+	Partial string // shown when partially pinned — branches only (e.g. "[-] ")
 }
 
 // Render returns the visible lines of the tree within the viewport.
@@ -57,19 +68,14 @@ func (t *Tree) Render(opts RenderOpts) string {
 func (t *Tree) renderNode(node *Node, opts RenderOpts) string {
 	prefix := t.buildConnectors(node)
 
-	pinInd := "  "
-	pinIndicator := opts.PinIndicator
-	if pinIndicator == "" {
-		pinIndicator = "* "
-	}
-	if t.pinned[node.Path] {
-		pinInd = pinIndicator
-	}
+	state := t.NodePinState(node.Path)
+	pinInd := t.pinIndicatorFor(state, node.Kind, opts)
+	pinned := state == PinFull
 
 	var content string
 	if node.Kind == KindBranch {
 		if opts.RenderBranch != nil {
-			content = opts.RenderBranch(node, t.pinned[node.Path])
+			content = opts.RenderBranch(node, pinned)
 		} else {
 			indicator := "▶"
 			if node.Expanded {
@@ -79,13 +85,38 @@ func (t *Tree) renderNode(node *Node, opts RenderOpts) string {
 		}
 	} else {
 		if opts.RenderLeaf != nil {
-			content = opts.RenderLeaf(node, t.pinned[node.Path])
+			content = opts.RenderLeaf(node, pinned)
 		} else {
 			content = node.Label
 		}
 	}
 
 	return pinInd + prefix + content
+}
+
+func (t *Tree) pinIndicatorFor(state PinState, kind NodeKind, opts RenderOpts) string {
+	if opts.PinIndicators != nil {
+		switch state {
+		case PinFull:
+			return opts.PinIndicators.Full
+		case PinPartial:
+			if kind == KindBranch {
+				return opts.PinIndicators.Partial
+			}
+			return opts.PinIndicators.None
+		default:
+			return opts.PinIndicators.None
+		}
+	}
+	// Legacy single-indicator mode
+	pinIndicator := opts.PinIndicator
+	if pinIndicator == "" {
+		pinIndicator = "* "
+	}
+	if state == PinFull {
+		return pinIndicator
+	}
+	return "  "
 }
 
 func (t *Tree) buildConnectors(node *Node) string {

@@ -549,7 +549,11 @@ func (e *Plugin) renderResources(width, height int) string {
 				count := sdk.StyleFaint.Render(fmt.Sprintf(" (%d)", node.Count))
 				return fmt.Sprintf("%s %s%s", indicator, path, count)
 			},
-			PinIndicator: sdk.StyleSuccess.Render("* "),
+			PinIndicators: &tree.PinIndicators{
+				None:    "[ ] ",
+				Full:    sdk.StyleSuccess.Render("[*] "),
+				Partial: sdk.StyleUpdate.Render("[-] "),
+			},
 			SelectedStyle: func(s string, w int) string {
 				return sdk.StyleSelected.Width(w).Render(s)
 			},
@@ -581,9 +585,9 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 	var b strings.Builder
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
-		pinMark := "  "
+		pinMark := "[ ] "
 		if e.isPinnedAddress(r.Address) {
-			pinMark = sdk.StyleSuccess.Render("* ")
+			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
 		row := pinMark + r.Address + "  " + sdk.StyleFaint.Render(r.Type)
 		if i == cursor {
@@ -703,20 +707,10 @@ func (e *Plugin) togglePin(address string) tea.Cmd {
 	if e.session == nil {
 		return nil
 	}
-	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	for i, a := range pinned {
-		if a == address {
-			pinned = append(pinned[:i], pinned[i+1:]...)
-			e.session.Set("terraform.pinned", pinned)
-			e.log.Debug("state.unpin", "address", address)
-			e.tree.SetPinned(pinned)
-			return nil
-		}
-	}
-	pinned = append(pinned, address)
+	e.tree.TogglePin()
+	pinned := e.tree.PinnedPaths()
 	e.session.Set("terraform.pinned", pinned)
-	e.log.Debug("state.pin", "address", address)
-	e.tree.SetPinned(pinned)
+	e.log.Debug("state.pin.toggle", "address", address, "pinned_count", len(pinned))
 	return nil
 }
 
