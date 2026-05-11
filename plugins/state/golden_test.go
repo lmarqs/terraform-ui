@@ -204,10 +204,31 @@ func TestView_Given_Tree_PinnedModule_ShouldRender_PinOnGroup(t *testing.T) {
 	p.status = StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
+	p.treeMode = true
 	p.session = sdk.NewSession()
-	p.session.Set("terraform.pinned", []string{"module.cloudwatch"})
+	p.session.Set("terraform.pinned", []string{
+		"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
+		"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high",
+		"module.cloudwatch.aws_cloudwatch_dashboard.main",
+	})
 	p.rebuildTree()
-	sdktest.AssertGolden(t, p.View(80, 18))
+	p.tree.ExpandAll()
+	sdktest.AssertGolden(t, p.View(80, 24))
+}
+
+func TestView_Given_Tree_PartiallyPinnedModule_ShouldRender_PartialIndicator(t *testing.T) {
+	p := newGoldenPlugin()
+	p.status = StatusDone
+	p.resources = realisticResources()
+	p.filtered = realisticResources()
+	p.treeMode = true
+	p.session = sdk.NewSession()
+	p.session.Set("terraform.pinned", []string{
+		"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
+	})
+	p.rebuildTree()
+	p.tree.ExpandAll()
+	sdktest.AssertGolden(t, p.View(80, 24))
 }
 
 func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {

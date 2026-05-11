@@ -1,7 +1,7 @@
-[*] ▼ module.cloudwatch (3)
-[*] ├─aws_cloudwatch_dashboard.main  aws_cloudwatch_dashboard
+[-] ▼ module.cloudwatch (3)
+[ ] ├─aws_cloudwatch_dashboard.main  aws_cloudwatch_dashboard
 [*] ├─aws_cloudwatch_metric_alarm.cpu_high  aws_cloudwatch_metric_alarm
-[*] └─aws_cloudwatch_metric_alarm.memory_high  aws_cloudwatch_metric_alarm
+[ ] └─aws_cloudwatch_metric_alarm.memory_high  aws_cloudwatch_metric_alarm
 [ ] ▼ module.medprev_online (6)
 [ ] ├─▼ module.medprev_api (3)
 [ ] │ ├─aws_api_gateway_rest_api.this  aws_api_gateway_rest_api

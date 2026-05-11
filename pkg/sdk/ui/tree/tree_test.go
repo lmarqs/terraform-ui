@@ -435,21 +435,19 @@ func TestPinning_WhenTogglingPin_ShouldUpdateState(t *testing.T) {
 		}
 	})
 
-	t.Run("ShouldSortPinnedItemsToTop", func(t *testing.T) {
+	t.Run("ShouldPreserveOrderOnPin", func(t *testing.T) {
 		freshTree := New(items)
 		freshTree.ExpandAll()
-		freshTree.SetPinned([]string{"aws_s3_bucket.logs"})
-		nodes := freshTree.Nodes()
-		// Find the pinned leaf
-		for i, n := range nodes {
-			if n.Kind == KindLeaf && n.Path == "aws_s3_bucket.logs" {
-				// Among root-level leaves, this should come first
-				for j := 0; j < i; j++ {
-					if nodes[j].Kind == KindLeaf && nodes[j].Depth == n.Depth {
-						t.Fatal("expected pinned item to sort before unpinned siblings")
-					}
-				}
-				break
+		nodesBefore := freshTree.Nodes()
+		var pathsBefore []string
+		for _, n := range nodesBefore {
+			pathsBefore = append(pathsBefore, n.Path)
+		}
+		freshTree.SetPinned([]string{"aws_s3_bucket.main"})
+		nodesAfter := freshTree.Nodes()
+		for i, n := range nodesAfter {
+			if n.Path != pathsBefore[i] {
+				t.Fatalf("expected order preserved after pin, but position %d changed from %q to %q", i, pathsBefore[i], n.Path)
 			}
 		}
 	})
@@ -461,6 +459,115 @@ func TestPinning_WhenTogglingPin_ShouldUpdateState(t *testing.T) {
 		}
 		if tree.IsPinned("aws_s3_bucket.logs") {
 			t.Fatal("expected aws_s3_bucket.logs to not be pinned after SetPinned with different list")
+		}
+	})
+}
+
+func TestTogglePin_WhenOnBranch_ShouldCascadeToChildren(t *testing.T) {
+	items := []Item{
+		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"},
+		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high"},
+		testItem{"module.cloudwatch.aws_cloudwatch_dashboard.main"},
+		testItem{"aws_s3_bucket.main"},
+	}
+	tr := New(items)
+
+	t.Run("ShouldPinAllChildrenWhenTogglingBranch", func(t *testing.T) {
+		tr.MoveToStart()
+		node := tr.CursorNode()
+		if node.Kind != KindBranch {
+			t.Fatal("expected first node to be a branch")
+		}
+		tr.TogglePin()
+		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high") {
+			t.Fatal("expected child leaf to be pinned")
+		}
+		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high") {
+			t.Fatal("expected child leaf to be pinned")
+		}
+		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_dashboard.main") {
+			t.Fatal("expected child leaf to be pinned")
+		}
+		if tr.IsPinned("aws_s3_bucket.main") {
+			t.Fatal("expected unrelated leaf to not be pinned")
+		}
+	})
+
+	t.Run("ShouldUnpinAllChildrenWhenTogglingFullyPinnedBranch", func(t *testing.T) {
+		tr.MoveToStart()
+		tr.TogglePin()
+		if tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high") {
+			t.Fatal("expected child leaf to be unpinned")
+		}
+		if tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high") {
+			t.Fatal("expected child leaf to be unpinned")
+		}
+	})
+
+	t.Run("ShouldPinAllWhenPartiallyPinned", func(t *testing.T) {
+		tr.SetPinned([]string{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"})
+		tr.MoveToStart()
+		state := tr.NodePinState("module.cloudwatch")
+		if state != PinPartial {
+			t.Fatalf("expected partial pin state, got %d", state)
+		}
+		tr.TogglePin()
+		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high") {
+			t.Fatal("expected all children to be pinned after toggling partially-pinned branch")
+		}
+		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_dashboard.main") {
+			t.Fatal("expected all children to be pinned after toggling partially-pinned branch")
+		}
+	})
+}
+
+func TestNodePinState_ShouldReturnCorrectState(t *testing.T) {
+	items := []Item{
+		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"},
+		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high"},
+		testItem{"aws_s3_bucket.main"},
+	}
+	tr := New(items)
+
+	t.Run("ShouldReturnNoneWhenNoPins", func(t *testing.T) {
+		state := tr.NodePinState("module.cloudwatch")
+		if state != PinNone {
+			t.Fatalf("expected PinNone, got %d", state)
+		}
+	})
+
+	t.Run("ShouldReturnPartialWhenSomePinned", func(t *testing.T) {
+		tr.SetPinned([]string{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"})
+		state := tr.NodePinState("module.cloudwatch")
+		if state != PinPartial {
+			t.Fatalf("expected PinPartial, got %d", state)
+		}
+	})
+
+	t.Run("ShouldReturnFullWhenAllPinned", func(t *testing.T) {
+		tr.SetPinned([]string{
+			"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
+			"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high",
+		})
+		state := tr.NodePinState("module.cloudwatch")
+		if state != PinFull {
+			t.Fatalf("expected PinFull, got %d", state)
+		}
+	})
+
+	t.Run("ShouldReturnFullForPinnedLeaf", func(t *testing.T) {
+		tr.SetPinned([]string{"aws_s3_bucket.main"})
+		state := tr.NodePinState("aws_s3_bucket.main")
+		if state != PinFull {
+			t.Fatalf("expected PinFull for pinned leaf, got %d", state)
+		}
+	})
+
+	t.Run("ShouldReturnNoneForUnpinnedLeaf", func(t *testing.T) {
+		tr.SetPinned([]string{})
+		state := tr.NodePinState("aws_s3_bucket.main")
+		if state != PinNone {
+			t.Fatalf("expected PinNone for unpinned leaf, got %d", state)
 		}
 	})
 }
