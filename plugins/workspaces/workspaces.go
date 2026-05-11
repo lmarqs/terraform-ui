@@ -38,6 +38,7 @@ type Plugin struct {
 	svc           sdk.Service
 	session       *sdk.Session
 	stack         *sdk.Stack
+	guard         *sdk.ScopeGuard
 	status        Status
 	workspaces    []string
 	current       string
@@ -80,6 +81,13 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.session = ctx.Session
+	e.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	e.reset()
+	return nil
+}
+
+// reset clears all plugin state to initial values.
+func (e *Plugin) reset() {
 	e.status = StatusIdle
 	e.workspaces = nil
 	e.current = ""
@@ -87,38 +95,34 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.selected = 0
 	e.creating = false
 	e.newName = ""
-	return nil
 }
 
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active context changed since last activation
-	if e.session != nil {
-		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != e.scopedContext {
-			// Context changed — reset state
-			e.status = StatusIdle
-			e.workspaces = nil
-			e.current = ""
-			e.errMsg = ""
-			e.selected = 0
-			e.scopedContext = currentContext
-			if currentContext != "" {
-				e.svc = e.svc.WithDir(currentContext)
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if e.scopedContext != "" && e.guard.CurrentScope() == "" {
+		e.guard.SetTracked(e.scopedContext)
+	}
+
+	scopeStatus, svc := e.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		e.svc = svc
+		e.scopedContext = e.guard.CurrentScope()
+		e.reset()
+		e.status = StatusLoading
+		return e.loadWorkspaces()
+	case sdk.ScopeRequired:
+		e.status = StatusError
+		e.errMsg = "Select a context first (press c)"
+		return nil
 	}
 
 	if e.status == StatusIdle || e.status == StatusError {
-		// Check if there's an active context to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
-			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-				e.status = StatusError
-				e.errMsg = "Select a context first (press c)"
-				return nil
 			}
 		}
 		e.status = StatusLoading
