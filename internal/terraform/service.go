@@ -102,7 +102,7 @@ func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSum
 		return nil, fmt.Errorf("reading plan file: %w", err)
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 
 	for i := range summary.Changes {
 		summary.Changes[i].Risk = ClassifyRisk(&summary.Changes[i])
@@ -150,7 +150,7 @@ func (s *TerraformService) StateList(ctx context.Context) ([]Resource, error) {
 		return []Resource{}, nil
 	}
 
-	resources := parseStateResources(state.Values.RootModule)
+	resources := ParseStateResources(state.Values.RootModule)
 	return resources, nil
 }
 
@@ -166,12 +166,12 @@ func (s *TerraformService) Show(ctx context.Context, address string) (string, er
 		return "", fmt.Errorf("no state available")
 	}
 
-	resource := findResourceInState(state.Values.RootModule, address)
+	resource := FindResourceInState(state.Values.RootModule, address)
 	if resource == nil {
 		return "", fmt.Errorf("resource %q not found in state", address)
 	}
 
-	redacted := redactSensitiveValues(resource.AttributeValues, resource.SensitiveValues)
+	redacted := RedactSensitiveValues(resource.AttributeValues, resource.SensitiveValues)
 
 	display := struct {
 		Address      string                 `json:"address"`
@@ -505,8 +505,8 @@ func (s *TerraformService) ForceUnlock(ctx context.Context, lockID string) error
 	return nil
 }
 
-// parsePlan converts a tfjson.Plan into a PlanSummary.
-func parsePlan(plan *tfjson.Plan) *PlanSummary {
+// ParsePlan converts a tfjson.Plan into a PlanSummary.
+func ParsePlan(plan *tfjson.Plan) *PlanSummary {
 	summary := &PlanSummary{
 		Changes: make([]PlanChange, 0),
 	}
@@ -665,8 +665,8 @@ func isKeySensitive(sensitive interface{}, key string) bool {
 	return false
 }
 
-// redactSensitiveValues replaces sensitive attribute values with "(sensitive)".
-func redactSensitiveValues(values map[string]interface{}, sensitive interface{}) map[string]interface{} {
+// RedactSensitiveValues replaces sensitive attribute values with "(sensitive)".
+func RedactSensitiveValues(values map[string]interface{}, sensitive interface{}) map[string]interface{} {
 	if values == nil {
 		return nil
 	}
@@ -699,8 +699,8 @@ func isSensitiveKey(sensitive interface{}, key string) bool {
 	return false
 }
 
-// parseStateResources recursively extracts resources from a state module.
-func parseStateResources(module *tfjson.StateModule) []Resource {
+// ParseStateResources recursively extracts resources from a state module.
+func ParseStateResources(module *tfjson.StateModule) []Resource {
 	if module == nil {
 		return []Resource{}
 	}
@@ -718,14 +718,14 @@ func parseStateResources(module *tfjson.StateModule) []Resource {
 	}
 
 	for _, child := range module.ChildModules {
-		resources = append(resources, parseStateResources(child)...)
+		resources = append(resources, ParseStateResources(child)...)
 	}
 
 	return resources
 }
 
-// findResourceInState searches for a resource by address in the state module tree.
-func findResourceInState(module *tfjson.StateModule, address string) *tfjson.StateResource {
+// FindResourceInState searches for a resource by address in the state module tree.
+func FindResourceInState(module *tfjson.StateModule, address string) *tfjson.StateResource {
 	if module == nil {
 		return nil
 	}
@@ -737,7 +737,7 @@ func findResourceInState(module *tfjson.StateModule, address string) *tfjson.Sta
 	}
 
 	for _, child := range module.ChildModules {
-		if r := findResourceInState(child, address); r != nil {
+		if r := FindResourceInState(child, address); r != nil {
 			return r
 		}
 	}

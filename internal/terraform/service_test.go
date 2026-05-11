@@ -7,12 +7,12 @@ import (
 )
 
 func TestParsePlan_NilPlan(t *testing.T) {
-	summary := parsePlan(nil)
+	summary := ParsePlan(nil)
 	if summary == nil {
-		t.Fatal("parsePlan(nil) should return non-nil summary")
+		t.Fatal("ParsePlan(nil) should return non-nil summary")
 	}
 	if len(summary.Changes) != 0 {
-		t.Errorf("parsePlan(nil).Changes length = %d, want 0", len(summary.Changes))
+		t.Errorf("ParsePlan(nil).Changes length = %d, want 0", len(summary.Changes))
 	}
 }
 
@@ -21,7 +21,7 @@ func TestParsePlan_NilResourceChanges(t *testing.T) {
 		ResourceChanges: nil,
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if len(summary.Changes) != 0 {
 		t.Errorf("parsePlan with nil ResourceChanges: Changes length = %d, want 0", len(summary.Changes))
 	}
@@ -42,7 +42,7 @@ func TestParsePlan_SkipsNoOp(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if len(summary.Changes) != 0 {
 		t.Errorf("parsePlan should skip no-op: Changes length = %d, want 0", len(summary.Changes))
 	}
@@ -63,7 +63,7 @@ func TestParsePlan_SkipsRead(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if len(summary.Changes) != 0 {
 		t.Errorf("parsePlan should skip read: Changes length = %d, want 0", len(summary.Changes))
 	}
@@ -87,7 +87,7 @@ func TestParsePlan_CountsCreate(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if summary.ToCreate != 1 {
 		t.Errorf("parsePlan.ToCreate = %d, want 1", summary.ToCreate)
 	}
@@ -114,7 +114,7 @@ func TestParsePlan_CountsUpdate(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if summary.ToUpdate != 1 {
 		t.Errorf("parsePlan.ToUpdate = %d, want 1", summary.ToUpdate)
 	}
@@ -135,7 +135,7 @@ func TestParsePlan_CountsDelete(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if summary.ToDelete != 1 {
 		t.Errorf("parsePlan.ToDelete = %d, want 1", summary.ToDelete)
 	}
@@ -165,7 +165,7 @@ func TestParsePlan_CountsReplace(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if summary.ToReplace != 2 {
 		t.Errorf("parsePlan.ToReplace = %d, want 2", summary.ToReplace)
 	}
@@ -184,7 +184,7 @@ func TestParsePlan_NilChange(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if len(summary.Changes) != 0 {
 		t.Errorf("parsePlan with nil Change: Changes length = %d, want 0", len(summary.Changes))
 	}
@@ -205,7 +205,7 @@ func TestParsePlan_ExtractsResourceMetadata(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if len(summary.Changes) != 1 {
 		t.Fatalf("parsePlan.Changes length = %d, want 1", len(summary.Changes))
 	}
@@ -505,9 +505,9 @@ func TestIsKeySensitive_MapWithNonBoolValue(t *testing.T) {
 }
 
 func TestParseStateResources_NilModule(t *testing.T) {
-	resources := parseStateResources(nil)
+	resources := ParseStateResources(nil)
 	if len(resources) != 0 {
-		t.Errorf("parseStateResources(nil) length = %d, want 0", len(resources))
+		t.Errorf("ParseStateResources(nil) length = %d, want 0", len(resources))
 	}
 }
 
@@ -529,7 +529,7 @@ func TestParseStateResources_WithResources(t *testing.T) {
 		},
 	}
 
-	resources := parseStateResources(module)
+	resources := ParseStateResources(module)
 	if len(resources) != 2 {
 		t.Fatalf("parseStateResources length = %d, want 2", len(resources))
 	}
@@ -565,16 +565,16 @@ func TestParseStateResources_WithChildModules(t *testing.T) {
 		},
 	}
 
-	resources := parseStateResources(module)
+	resources := ParseStateResources(module)
 	if len(resources) != 2 {
 		t.Fatalf("parseStateResources with children: length = %d, want 2", len(resources))
 	}
 }
 
 func TestFindResourceInState_NilModule(t *testing.T) {
-	result := findResourceInState(nil, "aws_instance.web")
+	result := FindResourceInState(nil, "aws_instance.web")
 	if result != nil {
-		t.Error("findResourceInState(nil) should return nil")
+		t.Error("FindResourceInState(nil) should return nil")
 	}
 }
 
@@ -586,7 +586,7 @@ func TestFindResourceInState_Found(t *testing.T) {
 		},
 	}
 
-	result := findResourceInState(module, "aws_s3_bucket.data")
+	result := FindResourceInState(module, "aws_s3_bucket.data")
 	if result == nil {
 		t.Fatal("findResourceInState should find 'aws_s3_bucket.data'")
 	}
@@ -602,7 +602,7 @@ func TestFindResourceInState_NotFound(t *testing.T) {
 		},
 	}
 
-	result := findResourceInState(module, "aws_instance.nonexistent")
+	result := FindResourceInState(module, "aws_instance.nonexistent")
 	if result != nil {
 		t.Error("findResourceInState should return nil for non-existent address")
 	}
@@ -622,7 +622,7 @@ func TestFindResourceInState_InChildModule(t *testing.T) {
 		},
 	}
 
-	result := findResourceInState(module, "module.vpc.aws_subnet.private")
+	result := FindResourceInState(module, "module.vpc.aws_subnet.private")
 	if result == nil {
 		t.Fatal("findResourceInState should find resource in child module")
 	}
@@ -727,7 +727,7 @@ func TestParsePlan_MixedActions(t *testing.T) {
 		},
 	}
 
-	summary := parsePlan(plan)
+	summary := ParsePlan(plan)
 	if summary.ToCreate != 1 {
 		t.Errorf("ToCreate = %d, want 1", summary.ToCreate)
 	}
