@@ -54,11 +54,19 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	if cfg.BaseDir != "" {
 		header = header.WithScope(cfg.BaseDir)
 	}
+
+	session := sdk.NewSession()
+	if cfg.ActiveScope != "" {
+		absScope := filepath.Join(cfg.Dir, cfg.ActiveScope)
+		session.Set(sdk.SessionKeyActiveScope, cfg.ActiveScope)
+		session.Set(sdk.SessionKeyActiveScopeAbs, absScope)
+	}
+
 	return App{
 		cfg:           cfg,
 		svc:           svc,
 		registry:      registry,
-		session:       sdk.NewSession(),
+		session:       session,
 		sourceIndex:   sourceIndex,
 		header:        header,
 		contentBorder: components.NewContentBorder(),

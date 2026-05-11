@@ -64,6 +64,7 @@ func main() {
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "scope", "", "Select scope non-interactively (relative to project root)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -115,6 +116,12 @@ func main() {
 }
 
 func runTUI(cfg config.Config, planURI, stateURI string) error {
+	if cfg.ActiveScope != "" {
+		if err := validateScope(cfg); err != nil {
+			return err
+		}
+	}
+
 	var svc sdk.Service
 
 	if planURI != "" || stateURI != "" {
@@ -125,7 +132,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		svc = staticSvc
 	} else {
 		binary := cfg.TerraformBinary()
-		svc = terraform.NewService(cfg.WorkingDir(), binary)
+		svc = terraform.NewService(effectiveWorkDir(cfg), binary)
 	}
 
 	// Create and populate the plugin registry
@@ -199,6 +206,29 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Servic
 	}
 
 	return terraform.NewStaticService(plan, resources, state), nil
+}
+
+func effectiveWorkDir(cfg config.Config) string {
+	if cfg.ActiveScope != "" {
+		return filepath.Join(cfg.Dir, cfg.ActiveScope)
+	}
+	return cfg.WorkingDir()
+}
+
+func validateScope(cfg config.Config) error {
+	scopeDir := filepath.Join(cfg.Dir, cfg.ActiveScope)
+
+	info, err := os.Stat(scopeDir)
+	if err != nil {
+		return fmt.Errorf("scope %q not found (resolved to %s)", cfg.ActiveScope, scopeDir)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("scope %q is not a directory (resolved to %s)", cfg.ActiveScope, scopeDir)
+	}
+	if !config.HasTerraformFiles(scopeDir) {
+		return fmt.Errorf("scope %q has no .tf files (resolved to %s)", cfg.ActiveScope, scopeDir)
+	}
+	return nil
 }
 
 // spinnerFrames are the braille spinner characters.
@@ -362,8 +392,13 @@ func runInit(cfg config.Config) error {
 }
 
 func runPlan(cfg config.Config) error {
+	if cfg.ActiveScope != "" {
+		if err := validateScope(cfg); err != nil {
+			return err
+		}
+	}
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(cfg.WorkingDir(), binary)
+	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
 	ctx := context.Background()
 
 	switch cfg.Mode {
@@ -409,8 +444,13 @@ func runPlan(cfg config.Config) error {
 }
 
 func runApply(cfg config.Config) error {
+	if cfg.ActiveScope != "" {
+		if err := validateScope(cfg); err != nil {
+			return err
+		}
+	}
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(cfg.WorkingDir(), binary)
+	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
 	ctx := context.Background()
 
 	switch cfg.Mode {

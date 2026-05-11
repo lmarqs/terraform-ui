@@ -24,6 +24,10 @@ type Config struct {
 	// Workspace is the terraform workspace name.
 	Workspace string `yaml:"-"`
 
+	// ActiveScope is the pre-selected scope (relative to Dir).
+	// Set via --scope flag for non-interactive scope selection.
+	ActiveScope string `yaml:"-"`
+
 	// Terraform holds terraform-specific configuration (binary path, etc.).
 	Terraform TerraformConfig `yaml:"terraform"`
 
