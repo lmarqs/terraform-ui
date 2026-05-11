@@ -19,14 +19,15 @@ func NewContentBorder() ContentBorder {
 
 // Render wraps content in a bordered box with title in the top border.
 // If filtered != total, shows "(filtered/total)". If equal and > 0, shows "(total)".
+// If pinned > 0, appends a pin icon with count.
 // Width is the outer box width. Height is the outer box height (including borders).
-func (c ContentBorder) Render(content, title string, filtered, total, width, height int) string {
+func (c ContentBorder) Render(content, title string, filtered, total, pinned, width, height int) string {
 	innerWidth := width - 2
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
 
-	titleStr := formatBorderTitle(title, filtered, total)
+	titleStr := formatBorderTitle(title, filtered, total, pinned)
 
 	topBorder := buildTopBorder(titleStr, width)
 	bottomBorder := "└" + strings.Repeat("─", innerWidth) + "┘"
@@ -50,14 +51,19 @@ func (c ContentBorder) Render(content, title string, filtered, total, width, hei
 	return topBorder + "\n" + strings.Join(lines, "\n") + "\n" + bottomBorder
 }
 
-func formatBorderTitle(title string, filtered, total int) string {
+func formatBorderTitle(title string, filtered, total, pinned int) string {
+	var s string
 	if total <= 0 {
-		return title
+		s = title
+	} else if filtered == total {
+		s = fmt.Sprintf("%s (%d)", title, total)
+	} else {
+		s = fmt.Sprintf("%s (%d/%d)", title, filtered, total)
 	}
-	if filtered == total {
-		return fmt.Sprintf("%s (%d)", title, total)
+	if pinned > 0 {
+		s += fmt.Sprintf(" 📌%d", pinned)
 	}
-	return fmt.Sprintf("%s (%d/%d)", title, filtered, total)
+	return s
 }
 
 func buildTopBorder(title string, width int) string {

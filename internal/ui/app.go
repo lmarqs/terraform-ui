@@ -474,11 +474,14 @@ func (a App) View() string {
 	contentHeight := a.height - headerHeight - commandBarHeight - borderChrome - footerHeight
 
 	title := "Home"
-	filtered, total := 0, 0
+	filtered, total, pinned := 0, 0, 0
 	if a.activePlugin != nil {
 		title = a.activePlugin.Name()
 		if c, ok := a.activePlugin.(sdk.Countable); ok {
 			filtered, total = c.Count()
+		}
+		if p, ok := a.activePlugin.(sdk.Pinnable); ok {
+			pinned = p.PinnedCount()
 		}
 	}
 
@@ -491,7 +494,7 @@ func (a App) View() string {
 	}
 
 	header := a.header.Render(a.width)
-	bordered := a.contentBorder.Render(content, title, filtered, total, a.width, contentHeight+borderChrome)
+	bordered := a.contentBorder.Render(content, title, filtered, total, pinned, a.width, contentHeight+borderChrome)
 
 	var statusBar string
 	if a.inputActive {

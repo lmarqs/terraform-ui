@@ -43,6 +43,12 @@ type Countable interface {
 	Count() (filtered int, total int)
 }
 
+// Pinnable is an optional interface plugins implement to report pinned item count
+// for display in the content border title.
+type Pinnable interface {
+	PinnedCount() int
+}
+
 // Hintable is an optional interface plugins implement to supply
 // context-sensitive key hints for the status bar without needing a full Stack.
 type Hintable interface {
