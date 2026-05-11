@@ -1457,6 +1457,34 @@ func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 	})
 }
 
+func TestRenderFlatList_WrapMode_ShouldShowCountAndNotOverflow(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	resources := make([]sdk.Resource, 20)
+	for i := range resources {
+		resources[i] = sdk.Resource{
+			Address: "module.very_long_module_name.module.another_module.aws_cloudwatch_metric_alarm.extremely_long_resource_name_that_exceeds_width",
+			Type:    "aws_cloudwatch_metric_alarm",
+		}
+	}
+	p.status = StatusDone
+	p.resources = resources
+	p.filtered = resources
+	p.listWrap = true
+	p.rebuildTree()
+
+	output := p.View(80, 20)
+	lines := strings.Split(output, "\n")
+
+	if len(lines) > 20 {
+		t.Errorf("wrap mode caused line overflow: got %d lines, want <= 20", len(lines))
+	}
+	if !strings.Contains(output, "resources") {
+		t.Error("expected resource count to be visible in wrap mode")
+	}
+}
+
 func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
