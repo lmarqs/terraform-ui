@@ -70,6 +70,8 @@ const (
 	HintSetRetry                        // r retry
 	HintSetDelete                       // d delete
 	HintSetEdit                         // e edit
+	HintSetTaint                        // t taint
+	HintSetUntaint                      // T untaint
 	HintSetApply                        // a apply
 	HintSetNew                          // n new
 	HintSetUnlock                       // u force-unlock
@@ -109,6 +111,8 @@ var hintOrder = []hintDef{
 	{bit: HintSetRetry, hint: KeyHint{Key: "r", Description: "retry"}},
 	{bit: HintSetDelete, hint: KeyHint{Key: "d", Description: "delete"}},
 	{bit: HintSetEdit, hint: KeyHint{Key: "e", Description: "edit"}},
+	{bit: HintSetTaint, hint: KeyHint{Key: "t", Description: "taint"}},
+	{bit: HintSetUntaint, hint: KeyHint{Key: "T", Description: "untaint"}},
 	{bit: HintSetApply, hint: KeyHint{Key: "a", Description: "apply"}},
 	{bit: HintSetNew, hint: KeyHint{Key: "n", Description: "new"}},
 	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
