@@ -15,7 +15,9 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
+	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 )
 
@@ -198,6 +200,23 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.session != nil {
 				a.session.Set("plan.invalidated", true)
 			}
+		}
+		return a, nil
+
+	case tfuiplan.ApplyRequestMsg:
+		if p, ok := a.registry.ByID("apply"); ok {
+			applyPlugin := p.(*tfuiapply.Plugin)
+			if a.session != nil {
+				pins := sdk.NewPinService(a.session)
+				if pinned := pins.All(); len(pinned) > 0 {
+					applyPlugin.SetTargets(pinned)
+				}
+			}
+			a.activePlugin = p
+			cmd := a.activatePlugin(p)
+			applyPlugin.RequestApply()
+			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
+			return a, cmd
 		}
 		return a, nil
 

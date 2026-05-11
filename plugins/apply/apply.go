@@ -92,6 +92,11 @@ func (e *Plugin) SetTargets(targets []string) {
 	e.targets = targets
 }
 
+// Targets returns the currently configured targets.
+func (e *Plugin) Targets() []string {
+	return e.targets
+}
+
 // Init initializes the plugin with shared context.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
