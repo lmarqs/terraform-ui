@@ -2,7 +2,6 @@ package terraform
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	tfjson "github.com/hashicorp/terraform-json"
@@ -185,28 +184,35 @@ func TestStaticServiceMutatingMethods(t *testing.T) {
 	}
 
 	for _, m := range mutators {
-		t.Run(m.name+" returns ErrReadOnly", func(t *testing.T) {
+		t.Run(m.name+" returns CommandErr", func(t *testing.T) {
 			err := m.fn()
 			if err == nil {
 				t.Fatal("expected error")
 			}
-			if !errors.Is(err, ErrReadOnly) {
-				t.Errorf("error = %v, want ErrReadOnly", err)
+			cmd, ok := sdk.IsCommandErr(err)
+			if !ok {
+				t.Fatalf("expected CommandErr, got %T: %v", err, err)
+			}
+			if cmd.Binary != "terraform" {
+				t.Errorf("binary = %q, want terraform", cmd.Binary)
+			}
+			if cmd.Verb == "" {
+				t.Error("expected non-empty verb")
 			}
 		})
 	}
 
-	t.Run("Validate returns ErrReadOnly", func(t *testing.T) {
+	t.Run("Validate returns CommandErr", func(t *testing.T) {
 		_, err := svc.Validate(ctx)
-		if !errors.Is(err, ErrReadOnly) {
-			t.Errorf("error = %v, want ErrReadOnly", err)
+		if _, ok := sdk.IsCommandErr(err); !ok {
+			t.Errorf("expected CommandErr, got: %v", err)
 		}
 	})
 
-	t.Run("Output returns ErrReadOnly", func(t *testing.T) {
+	t.Run("Output returns CommandErr", func(t *testing.T) {
 		_, err := svc.Output(ctx)
-		if !errors.Is(err, ErrReadOnly) {
-			t.Errorf("error = %v, want ErrReadOnly", err)
+		if _, ok := sdk.IsCommandErr(err); !ok {
+			t.Errorf("expected CommandErr, got: %v", err)
 		}
 	})
 }

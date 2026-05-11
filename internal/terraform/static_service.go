@@ -13,10 +13,16 @@ import (
 // ErrReadOnly is returned by mutating operations on a StaticService.
 var ErrReadOnly = errors.New("operation not available in read-only mode")
 
-// readOnlyHint returns an error containing the equivalent terraform CLI command.
-// The command is on its own line so it can be piped to sh.
-func readOnlyHint(command string) error {
-	return fmt.Errorf("%w\n%s", ErrReadOnly, command)
+const defaultBinary = "terraform"
+
+// commandErr returns a CommandErr wrapping the equivalent terraform CLI command.
+func commandErr(verb string, args []string, flags []string) error {
+	return &sdk.CommandErr{Cmd: sdk.Command{
+		Binary: defaultBinary,
+		Verb:   verb,
+		Args:   args,
+		Flags:  flags,
+	}}
 }
 
 // StaticService implements sdk.Service with pre-loaded plan and state data.
@@ -45,11 +51,11 @@ func (s *StaticService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, e
 }
 
 func (s *StaticService) Apply(_ context.Context, targets []string) error {
-	cmd := "terraform apply"
+	var flags []string
 	for _, t := range targets {
-		cmd += " -target=" + t
+		flags = append(flags, "-target="+t)
 	}
-	return readOnlyHint(cmd)
+	return commandErr("apply", nil, flags)
 }
 
 func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {
@@ -100,56 +106,56 @@ func (s *StaticService) WorkspaceList(_ context.Context) ([]string, error) {
 	return []string{"readonly"}, nil
 }
 
-func (s *StaticService) WorkspaceSelect(_ context.Context, _ string) error {
-	return fmt.Errorf("workspace select: %w", ErrReadOnly)
+func (s *StaticService) WorkspaceSelect(_ context.Context, name string) error {
+	return commandErr("workspace select", []string{name}, nil)
 }
 
-func (s *StaticService) WorkspaceNew(_ context.Context, _ string) error {
-	return fmt.Errorf("workspace new: %w", ErrReadOnly)
+func (s *StaticService) WorkspaceNew(_ context.Context, name string) error {
+	return commandErr("workspace new", []string{name}, nil)
 }
 
-func (s *StaticService) WorkspaceDelete(_ context.Context, _ string) error {
-	return fmt.Errorf("workspace delete: %w", ErrReadOnly)
+func (s *StaticService) WorkspaceDelete(_ context.Context, name string) error {
+	return commandErr("workspace delete", []string{name}, nil)
 }
 
 func (s *StaticService) StateRm(_ context.Context, address string) error {
-	return readOnlyHint("terraform state rm " + address)
+	return commandErr("state rm", []string{address}, nil)
 }
 
 func (s *StaticService) StateMove(_ context.Context, src, dst string) error {
-	return readOnlyHint("terraform state mv " + src + " " + dst)
+	return commandErr("state mv", []string{src, dst}, nil)
 }
 
 func (s *StaticService) Import(_ context.Context, address, id string) error {
-	return readOnlyHint("terraform import " + address + " " + id)
+	return commandErr("import", []string{address, id}, nil)
 }
 
 func (s *StaticService) Taint(_ context.Context, address string) error {
-	return readOnlyHint("terraform taint " + address)
+	return commandErr("taint", []string{address}, nil)
 }
 
 func (s *StaticService) Untaint(_ context.Context, address string) error {
-	return readOnlyHint("terraform untaint " + address)
+	return commandErr("untaint", []string{address}, nil)
 }
 
 func (s *StaticService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
-	return nil, fmt.Errorf("validate: %w", ErrReadOnly)
+	return nil, commandErr("validate", nil, nil)
 }
 
 func (s *StaticService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, fmt.Errorf("output: %w", ErrReadOnly)
+	return nil, commandErr("output", nil, nil)
 }
 
 func (s *StaticService) Refresh(_ context.Context) error {
-	return fmt.Errorf("refresh: %w", ErrReadOnly)
+	return commandErr("refresh", nil, nil)
 }
 
 func (s *StaticService) Init(_ context.Context) error {
-	return fmt.Errorf("init: %w", ErrReadOnly)
+	return commandErr("init", nil, nil)
 }
 
-func (s *StaticService) ForceUnlock(_ context.Context, _ string) error {
-	return fmt.Errorf("force-unlock: %w", ErrReadOnly)
+func (s *StaticService) ForceUnlock(_ context.Context, lockID string) error {
+	return commandErr("force-unlock", nil, []string{"-force", lockID})
 }
 
 func (s *StaticService) WithDir(_ string) sdk.Service {
