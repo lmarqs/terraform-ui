@@ -51,6 +51,26 @@ func TestSplitTerraform_WhenGivenVariousAddresses(t *testing.T) {
 			"aws_iam_role_policy_attachment.this[0]",
 			[]string{"aws_iam_role_policy_attachment.this[0]"},
 		},
+		{
+			"ShouldHandleModuleWithDotInKey",
+			`module.user["dev.ops@corp.com"].aws_iam_user.this`,
+			[]string{`module.user["dev.ops@corp.com"]`, "aws_iam_user.this"},
+		},
+		{
+			"ShouldHandleNestedModuleWithDotInKey",
+			`module.identity_center.module.user["admin.user@example.com"].aws_ssoadmin_account_assignment.this`,
+			[]string{"module.identity_center", `module.user["admin.user@example.com"]`, "aws_ssoadmin_account_assignment.this"},
+		},
+		{
+			"ShouldHandleMultipleDotsInKey",
+			`module.user["first.middle.last@sub.domain.com"].aws_iam_user.this`,
+			[]string{`module.user["first.middle.last@sub.domain.com"]`, "aws_iam_user.this"},
+		},
+		{
+			"ShouldHandleResourceWithDotInKey",
+			`aws_iam_user.this["dev.ops@corp.com"]`,
+			[]string{`aws_iam_user.this["dev.ops@corp.com"]`},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1024,6 +1044,50 @@ func TestWithPreserveOrder_ShouldKeepInsertionOrder(t *testing.T) {
 		if item.Address() != "alpha.resource" {
 			t.Fatalf("expected CursorItem at position 1 to be alpha.resource, got %q", item.Address())
 		}
+	})
+}
+
+func TestNew_WhenAddressesHaveDotsInBracketKeys_ShouldGroupCorrectly(t *testing.T) {
+	items := []Item{
+		testItem{`module.user["dev.ops@corp.com"].aws_iam_user.this`},
+		testItem{`module.user["dev.ops@corp.com"].aws_iam_access_key.this`},
+		testItem{`module.user["admin@example.com"].aws_iam_user.this`},
+		testItem{"aws_s3_bucket.main"},
+	}
+	tr := New(items)
+
+	t.Run("ShouldCreateCorrectBranchLabels", func(t *testing.T) {
+		tr.ExpandAll()
+		var branchLabels []string
+		for _, n := range tr.Nodes() {
+			if n.Kind == KindBranch {
+				branchLabels = append(branchLabels, n.Label)
+			}
+		}
+		found := false
+		for _, label := range branchLabels {
+			if label == `module.user["dev.ops@corp.com"]` {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected branch label module.user[\"dev.ops@corp.com\"], got branches: %v", branchLabels)
+		}
+	})
+
+	t.Run("ShouldCountLeavesCorrectly", func(t *testing.T) {
+		tr.CollapseAll()
+		nodes := tr.Nodes()
+		for _, n := range nodes {
+			if n.Kind == KindBranch && n.Label == `module.user["dev.ops@corp.com"]` {
+				if n.Count != 2 {
+					t.Fatalf("expected 2 leaves under dev.ops branch, got %d", n.Count)
+				}
+				return
+			}
+		}
+		t.Fatal("did not find expected branch node")
 	})
 }
 

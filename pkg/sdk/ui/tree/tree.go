@@ -467,7 +467,7 @@ func (t *Tree) Nodes() []*Node { return t.flattened }
 //
 //	["module.vpc", "module.subnets", "aws_subnet.private[0]"]
 func SplitTerraform(address string) []string {
-	parts := strings.Split(address, ".")
+	parts := splitRespectingBrackets(address)
 	var segments []string
 	i := 0
 	for i < len(parts) {
@@ -480,4 +480,30 @@ func SplitTerraform(address string) []string {
 		}
 	}
 	return segments
+}
+
+// splitRespectingBrackets splits on '.' but preserves dots inside bracket-quoted keys.
+func splitRespectingBrackets(address string) []string {
+	var parts []string
+	var current strings.Builder
+	inBracket := false
+	for _, ch := range address {
+		switch {
+		case ch == '[':
+			inBracket = true
+			current.WriteRune(ch)
+		case ch == ']':
+			inBracket = false
+			current.WriteRune(ch)
+		case ch == '.' && !inBracket:
+			parts = append(parts, current.String())
+			current.Reset()
+		default:
+			current.WriteRune(ch)
+		}
+	}
+	if current.Len() > 0 {
+		parts = append(parts, current.String())
+	}
+	return parts
 }
