@@ -39,7 +39,6 @@ var version = "1.0.0-dev"
 func main() {
 	var cfg config.Config
 	var debug bool
-	var forceTTY bool
 	var configOverrides []string
 	var planURI, stateURI string
 
@@ -55,7 +54,7 @@ func main() {
 			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTUI(cfg, planURI, stateURI, forceTTY)
+			return runTUI(cfg, planURI, stateURI)
 		},
 	}
 
@@ -66,7 +65,6 @@ func main() {
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "scope", "", "Select scope non-interactively (relative to project root)")
-	rootCmd.Flags().BoolVarP(&forceTTY, "tty", "t", false, "Force TTY mode (bypass terminal detection)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -117,9 +115,12 @@ func main() {
 	}
 }
 
-func runTUI(cfg config.Config, planURI, stateURI string, forceTTY bool) error {
-	if !forceTTY && !hasTTY() {
-		return fmt.Errorf("no TTY detected\n\nUse -t to force, or for non-interactive use:\n  tfui plan --mode agent    (JSON output)\n  tfui plan --mode silent   (tree output)")
+func runTUI(cfg config.Config, planURI, stateURI string) error {
+	if !hasTTY() {
+		if planURI != "" || stateURI != "" {
+			return runStaticNonInteractive(cfg, planURI, stateURI)
+		}
+		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --mode agent    (JSON output)\n  tfui plan --mode silent   (tree output)\n  tfui --plan ./file.json   (auto-renders without TTY)")
 	}
 
 	if cfg.ActiveScope != "" {
@@ -212,6 +213,39 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Servic
 	}
 
 	return terraform.NewStaticService(plan, resources, state), nil
+}
+
+func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error {
+	staticSvc, err := buildStaticService(cfg, planURI, stateURI)
+	if err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+
+	if planURI != "" {
+		summary, err := staticSvc.Plan(ctx, nil)
+		if err != nil {
+			return err
+		}
+		printTreeView(summary)
+	}
+
+	if stateURI != "" {
+		resources, err := staticSvc.StateList(ctx)
+		if err != nil {
+			return err
+		}
+		if planURI != "" {
+			fmt.Println()
+		}
+		fmt.Printf("State: %d resources\n", len(resources))
+		for _, r := range resources {
+			fmt.Printf("  %s\n", r.Address)
+		}
+	}
+
+	return nil
 }
 
 func hasTTY() bool {
