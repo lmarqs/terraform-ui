@@ -1,0 +1,2 @@
+wait ready
+assert view this_resource_does_not_exist
