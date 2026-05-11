@@ -23,7 +23,7 @@ func TestHintSet_WhenSingleHint_ShouldReturnCorrectKeyHint(t *testing.T) {
 		{"ShouldShowConfirm", HintSetConfirm, "Enter", "confirm"},
 		{"ShouldShowPin", HintSetPin, "Space", "pin"},
 		{"ShouldShowFilter", HintSetFilter, "/", "filter"},
-		{"ShouldShowTreeDefault", HintSetTree, "^t", "flat"},
+		{"ShouldShowTreeDefault", HintSetTree, "^t", "tree"},
 		{"ShouldShowCollapseExpand", HintSetCollapse, "[/]", "collapse/expand"},
 		{"ShouldShowWrapDefault", HintSetWrap, "^w", "wrap(off)"},
 		{"ShouldShowRefresh", HintSetRefresh, "r", "refresh"},
@@ -72,7 +72,7 @@ func TestHintSet_WhenCombined_ShouldProduceFixedOrder(t *testing.T) {
 		{
 			"ShouldMatchStateListPattern",
 			HintSetInspect | HintSetPin | HintSetFilter | HintSetTree | HintSetBack,
-			[]string{"inspect", "pin", "filter", "flat", "back"},
+			[]string{"inspect", "pin", "filter", "tree", "back"},
 		},
 		{
 			"ShouldMatchStateDetailPattern",
@@ -114,8 +114,8 @@ func TestHintSet_WhenDynamicHintsWithOpts_ShouldReflectState(t *testing.T) {
 		opts     HintSetOpts
 		wantDesc string
 	}{
-		{"ShouldShowTreeWhenTreeModeTrue", HintSetTree, HintSetOpts{TreeMode: true}, "tree"},
-		{"ShouldShowFlatWhenTreeModeFalse", HintSetTree, HintSetOpts{TreeMode: false}, "flat"},
+		{"ShouldShowFlatWhenTreeModeTrue", HintSetTree, HintSetOpts{TreeMode: true}, "flat"},
+		{"ShouldShowTreeWhenTreeModeFalse", HintSetTree, HintSetOpts{TreeMode: false}, "tree"},
 		{"ShouldShowWrapOnWhenWrapModeTrue", HintSetWrap, HintSetOpts{WrapMode: true}, "wrap(on)"},
 		{"ShouldShowWrapOffWhenWrapModeFalse", HintSetWrap, HintSetOpts{WrapMode: false}, "wrap(off)"},
 	}
@@ -173,8 +173,8 @@ func TestHintSet_WhenNoOptsProvided_ShouldUseDefaults(t *testing.T) {
 	for _, d := range descs {
 		found[d] = true
 	}
-	if !found["flat"] {
-		t.Error("expected Tree default to be 'flat'")
+	if !found["tree"] {
+		t.Error("expected Tree default to be 'tree'")
 	}
 	if !found["wrap(off)"] {
 		t.Error("expected Wrap default to be 'wrap(off)'")
@@ -234,8 +234,8 @@ func TestHintSet_WhenDynamicOptsWithCombination_ShouldApplyToCorrectHints(t *tes
 	for _, d := range descs {
 		found[d] = true
 	}
-	if !found["tree"] {
-		t.Error("expected 'tree' hint (TreeMode=true)")
+	if !found["flat"] {
+		t.Error("expected 'flat' hint (TreeMode=true means show 'flat' to switch back)")
 	}
 	if !found["wrap(on)"] {
 		t.Error("expected 'wrap(on)' hint (WrapMode=true)")

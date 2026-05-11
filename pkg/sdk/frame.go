@@ -161,9 +161,9 @@ func resolveDynamic(bit HintSet, opts HintSetOpts) KeyHint {
 	switch bit {
 	case HintSetTree:
 		if opts.TreeMode {
-			return KeyHint{Key: "^t", Description: "tree"}
+			return KeyHint{Key: "^t", Description: "flat"}
 		}
-		return KeyHint{Key: "^t", Description: "flat"}
+		return KeyHint{Key: "^t", Description: "tree"}
 	case HintSetWrap:
 		if opts.WrapMode {
 			return KeyHint{Key: "^w", Description: "wrap(on)"}
