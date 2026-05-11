@@ -85,7 +85,7 @@ func TestView_Given_ExpandedChange_ShouldRender_AttributeDiffs(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
 	p.selected = 0
-	p.expanded = map[int]bool{0: true}
+	p.expander.Toggle(0)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{

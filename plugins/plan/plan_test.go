@@ -329,14 +329,14 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 
 	// Toggle expand with enter
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !pp.expanded[0] {
-		t.Error("after enter: expanded[0] = false, want true")
+	if !pp.IsExpanded(0) {
+		t.Error("after enter: IsExpanded(0) = false, want true")
 	}
 
 	// Toggle again
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if pp.expanded[0] {
-		t.Error("after enter,enter: expanded[0] = true, want false")
+	if pp.IsExpanded(0) {
+		t.Error("after enter,enter: IsExpanded(0) = true, want false")
 	}
 }
 
@@ -530,7 +530,7 @@ func TestRefresh(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 	p.selected = 5
-	p.expanded[0] = true
+	p.expander.Toggle(0)
 
 	cmd := p.Refresh()
 	if cmd == nil {
@@ -671,7 +671,7 @@ func TestViewDoneWithExpandedAttributeDiffs(t *testing.T) {
 		},
 		ToUpdate: 1,
 	}
-	p.expanded[0] = true
+	p.expander.Toggle(0)
 
 	view := p.View(80, 24)
 	if view == "" {

@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // Status represents the current state of the plan plugin.
@@ -33,20 +34,22 @@ type Plugin struct {
 	log           *slog.Logger
 	session       *sdk.Session
 	stack         *sdk.Stack
+	guard         *sdk.ScopeGuard
+	pins          *sdk.PinService
+	expander      *ui.ExpandSet
 	status        Status
 	summary       *sdk.PlanSummary
 	errMsg        string
 	lockInfo      *sdk.StateLock
 	selected      int
 	targets       []string
-	expanded      map[int]bool
 	scopedContext string // tracks which context the service was scoped to
 }
 
 // New creates a new plan plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		expanded: make(map[int]bool),
+		expander: ui.NewExpandSet(),
 		svc:      svc,
 		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -89,44 +92,48 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
 	e.session = ctx.Session
+	e.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	e.pins = sdk.NewPinService(ctx.Session)
+	e.reset()
+	return nil
+}
+
+// reset clears all plugin state to initial values.
+func (e *Plugin) reset() {
 	e.status = StatusIdle
 	e.summary = nil
 	e.errMsg = ""
 	e.selected = 0
-	e.expanded = make(map[int]bool)
-	return nil
+	e.expander = ui.NewExpandSet()
 }
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active context changed since last activation
-	if e.session != nil {
-		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != e.scopedContext {
-			// Context changed — reset state and re-scope
-			e.status = StatusIdle
-			e.summary = nil
-			e.errMsg = ""
-			e.selected = 0
-			e.expanded = make(map[int]bool)
-			e.scopedContext = currentContext
-			if currentContext != "" {
-				e.svc = e.svc.WithDir(currentContext)
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if e.scopedContext != "" && e.guard.CurrentScope() == "" {
+		e.guard.SetTracked(e.scopedContext)
+	}
+
+	scopeStatus, svc := e.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		e.svc = svc
+		e.scopedContext = e.guard.CurrentScope()
+		e.reset()
+		e.status = StatusLoading
+		e.log.Debug("plan.start", "targets", e.targets)
+		return e.runPlan()
+	case sdk.ScopeRequired:
+		e.status = StatusError
+		e.errMsg = "Select a context first (press c)"
+		return nil
 	}
 
 	if e.status == StatusIdle || e.status == StatusError {
-		// Check if there's an active context to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
-			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-				// Multi-context mode but no context selected
-				e.status = StatusError
-				e.errMsg = "Select a context first (press c)"
-				return nil
 			}
 		}
 		e.status = StatusLoading
@@ -143,7 +150,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.errMsg = ""
 	e.lockInfo = nil
 	e.selected = 0
-	e.expanded = make(map[int]bool)
+	e.expander = ui.NewExpandSet()
 	return e.runPlan()
 }
 
@@ -224,12 +231,12 @@ func (e *Plugin) MoveToEnd() {
 
 // ToggleExpand toggles attribute diff expansion for the selected change.
 func (e *Plugin) ToggleExpand() {
-	e.expanded[e.selected] = !e.expanded[e.selected]
+	e.expander.Toggle(e.selected)
 }
 
 // IsExpanded returns whether a change row is expanded.
 func (e *Plugin) IsExpanded(idx int) bool {
-	return e.expanded[idx]
+	return e.expander.IsExpanded(idx)
 }
 
 // SelectedChange returns the currently selected change, if any.
@@ -296,7 +303,7 @@ func (e *Plugin) renderResults(width, height int) string {
 		b.WriteByte('\n')
 
 		// Render expanded attribute diffs
-		if e.expanded[i] && len(change.AttributeDiffs) > 0 {
+		if e.expander.IsExpanded(i) && len(change.AttributeDiffs) > 0 {
 			b.WriteString(e.renderAttributeDiffs(change.AttributeDiffs, width))
 		}
 	}
@@ -328,7 +335,7 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange, width int) string {
 
 	expandIndicator := " "
 	if len(change.AttributeDiffs) > 0 {
-		if e.expanded[e.selected] {
+		if e.expander.IsExpanded(e.selected) {
 			expandIndicator = "v"
 		} else {
 			expandIndicator = ">"
@@ -402,6 +409,11 @@ func (e *Plugin) renderOverallRisk() string {
 }
 
 func (e *Plugin) togglePin(address string) {
+	if e.pins != nil {
+		e.pins.Toggle(address)
+		e.log.Debug("plan.pin.toggle", "address", address)
+		return
+	}
 	if e.session == nil {
 		return
 	}
@@ -420,6 +432,9 @@ func (e *Plugin) togglePin(address string) {
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
+	if e.pins != nil {
+		return e.pins.IsPinned(address)
+	}
 	if e.session == nil {
 		return false
 	}
