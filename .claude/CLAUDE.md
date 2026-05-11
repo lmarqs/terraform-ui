@@ -246,12 +246,17 @@ App Stack: [Home] → [State Plugin]
 
 - **`:` command mode**: type plugin name to switch views. Tab autocomplete.
 - **`/` filter mode**: fzf-style fuzzy filter. `esc` exits.
-- **`space` pin**: toggle pin on selected resource. Pinned = apply target.
+- **`space` pin**: toggle pin on selected resource. Pinned = apply/plan target.
 - **`enter` / `i` inspect**: show detail view with expanded values.
-- **`d` delete**: destructive — triggers confirmation prompt.
+- **`d` delete**: remove from state — triggers confirmation prompt.
 - **`e` edit**: opens $EDITOR at resource's .tf file:line.
+- **`m` move**: rename resource address in state — text input + confirmation.
+- **`t` taint**: mark for recreation — triggers confirmation.
+- **`T` untaint**: remove taint mark — triggers confirmation.
+- **`n` import**: import existing resource — text input for ID + confirmation.
+- **`!` batch**: open batch action palette (only when pins > 0).
 - **`r` refresh**: reload data from terraform.
-- **`ctrl+w` / `w` wrap**: toggle line wrapping.
+- **`ctrl+w` wrap**: toggle line wrapping.
 - **`←→` pan**: horizontal scroll (10 chars/press).
 - **`q`** exits plugin to home. **`esc`** exits current sub-state (scoped).
 
@@ -277,6 +282,51 @@ Rules:
 - `space` always means pin — never overloaded for expand/inspect
 - `q` shown in hints at plugin top-level; `esc` shown only in sub-state hints
 - Plugins must NOT start in filter mode by default — user opts in with `/`
+
+### Action Model (cursor vs batch)
+
+**Core rule: direct keys always act on the cursor item. Batch operations go through `!` palette only.**
+
+| Layer | Keys | Scope | Mental model |
+|-------|------|-------|--------------|
+| Navigate | `↑↓`, `Enter`, `/`, `q`, `Esc` | — | Move around, look at things |
+| Act (single) | `d`, `e`, `t`, `T`, `m`, `n` | Cursor | Do something to this one thing |
+| Batch | `!` (palette) | Pinned set | Do something to all pinned items |
+
+**Rules:**
+- Direct action keys NEVER read the pinned set — always cursor only
+- `!` is hidden from hint bar when no pins exist (nothing to batch)
+- `!` replaces the hint bar with batch action keys, list stays visible
+- Detail/inspect frame has no `!` — single resource only
+- Destructive batch ops always show confirmation with resource count
+
+**Pin semantics:**
+- PRIMARY purpose: scoping `plan` and `apply` to specific resources
+- SECONDARY: enabling batch state actions via `!` palette
+- Pins are persistent (survive view switches and sessions) — NOT ephemeral marks
+
+**Design rationale (benchmarked against k9s, vim, ranger, lazygit, mutt):**
+- k9s marks are ephemeral (cleared after action) — ours persist, so the k9s "marks supersede cursor" model is dangerous here
+- This app follows the lazygit model: batch operations are separate, named commands — never an implicit side-effect of a single-item keybinding
+- Prevents "forgot I had pins, accidentally batch-deleted" scenarios
+
+### Hint Bar Design
+
+**Rules:**
+- Always 1 line. Never 2 lines.
+- One key per entry: `d delete`, `t taint`, `T untaint` (no grouping, no slash notation)
+- Context-sensitive: content changes per frame/state, line count stays at 1
+- Show only the most relevant keys for the current state
+- No novel notation patterns (no `d/D`, no `(t/T) taint/untaint`)
+- All notation must have precedent in established TUI apps (k9s, vim, ranger)
+
+### UX Anti-patterns (do NOT introduce)
+
+- Shift+letter = batch version of same action (zero precedent in TUI apps)
+- Implicit batch based on pin state (dangerous with persistent pins)
+- Novel hint bar notation (slash grouping, parenthetical pairs)
+- 2-line hint bars (costs screen real estate, no established precedent)
+- Auto-batch for non-destructive actions (creates inconsistency)
 
 ### Detail/Inspect View
 
