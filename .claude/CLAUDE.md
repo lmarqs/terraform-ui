@@ -261,6 +261,7 @@ App Stack: [Home] → [State Plugin]
 - Capital letter = non-terraform feature (Context `C`, Risk `R`, Phantom `P`, Blast Radius `B`)
 - Lowercase = terraform operation (state `s`, plan `p`, apply `a`, workspaces `w`)
 - `ctrl+char` = modifier actions within a view (ctrl+w wrap, ctrl+s screen capture)
+- Punctuation = mode/overlay triggers (`/` filter, `!` actions, `?` AI explain, `:` command)
 
 Redundant keybindings exist for keyboard layout accessibility, but hints show only the primary key:
 
