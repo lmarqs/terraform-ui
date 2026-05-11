@@ -72,6 +72,7 @@ func TestUpdate_Navigation(t *testing.T) {
 	p.scopes = []Scope{
 		{Path: "a"}, {Path: "b"}, {Path: "c"},
 	}
+	p.filtered = p.scopes
 	p.session = sdk.NewSession()
 
 	// Move down
@@ -106,6 +107,7 @@ func TestUpdate_Enter_SetsActiveAndDeactivates(t *testing.T) {
 		{Path: "a", AbsPath: "/abs/a"},
 		{Path: "b", AbsPath: "/abs/b"},
 	}
+	p.filtered = p.scopes
 	p.session = sdk.NewSession()
 	p.selected = 1
 
@@ -159,6 +161,7 @@ func TestView_Done_WithScopes(t *testing.T) {
 		{Path: "modules/a", Name: "a"},
 		{Path: "modules/b", Name: "b"},
 	}
+	p.filtered = p.scopes
 	output := p.View(80, 20)
 	if output == "" {
 		t.Error("should render scope list")
@@ -193,5 +196,126 @@ func TestActiveScope_NoSelection(t *testing.T) {
 
 	if p.ActiveScope() != nil {
 		t.Error("should return nil when no selection")
+	}
+}
+
+func TestFilter_EnterAndExit(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.status = StatusDone
+	p.scopes = []Scope{
+		{Path: "modules/a"}, {Path: "modules/b"}, {Path: "envs/prod"},
+	}
+	p.filtered = p.scopes
+	p.session = sdk.NewSession()
+
+	// Enter filter mode
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if !p.filtering {
+		t.Error("should be in filter mode")
+	}
+
+	// Exit with esc
+	p.Update(tea.KeyMsg{Type: tea.KeyEscape})
+	if p.filtering {
+		t.Error("should exit filter mode on esc")
+	}
+}
+
+func TestFilter_NarrowsResults(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.status = StatusDone
+	p.scopes = []Scope{
+		{Path: "modules/a"}, {Path: "modules/b"}, {Path: "envs/prod"},
+	}
+	p.filtered = p.scopes
+	p.session = sdk.NewSession()
+
+	// Enter filter mode
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+	// Type "env"
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+
+	if len(p.filtered) != 1 {
+		t.Errorf("filtered = %d, want 1", len(p.filtered))
+	}
+	if p.filtered[0].Path != "envs/prod" {
+		t.Errorf("filtered[0].Path = %q, want %q", p.filtered[0].Path, "envs/prod")
+	}
+}
+
+func TestFilter_SelectFromFiltered(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.status = StatusDone
+	p.scopes = []Scope{
+		{Path: "modules/a", AbsPath: "/repo/modules/a"},
+		{Path: "modules/b", AbsPath: "/repo/modules/b"},
+		{Path: "envs/prod", AbsPath: "/repo/envs/prod"},
+	}
+	p.filtered = p.scopes
+	p.session = sdk.NewSession()
+
+	// Enter filter, type "envs", then select
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'v'}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if cmd == nil {
+		t.Fatal("expected deactivate command")
+	}
+	if p.active != 2 {
+		t.Errorf("active = %d, want 2 (index in original scopes)", p.active)
+	}
+	v, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScope)
+	if v != "envs/prod" {
+		t.Errorf("session scope = %q, want %q", v, "envs/prod")
+	}
+}
+
+func TestFilter_NavigateInFilterMode(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.status = StatusDone
+	p.scopes = []Scope{
+		{Path: "modules/a"}, {Path: "modules/b"}, {Path: "modules/c"},
+	}
+	p.filtered = p.scopes
+	p.session = sdk.NewSession()
+
+	// Enter filter mode
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+	// Navigate down
+	p.Update(tea.KeyMsg{Type: tea.KeyDown})
+	if p.selected != 1 {
+		t.Errorf("selected = %d, want 1", p.selected)
+	}
+
+	// Navigate up
+	p.Update(tea.KeyMsg{Type: tea.KeyUp})
+	if p.selected != 0 {
+		t.Errorf("selected = %d, want 0", p.selected)
+	}
+}
+
+func TestFilter_HintsShowFilter(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.status = StatusDone
+	p.scopes = []Scope{{Path: "a"}}
+	p.filtered = p.scopes
+
+	hints := p.Hints()
+	found := false
+	for _, h := range hints {
+		if h.Key == "/" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("hints should include / for filter")
 	}
 }
