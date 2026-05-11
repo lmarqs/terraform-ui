@@ -9,9 +9,8 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/junegunn/fzf/src/algo"
-	"github.com/junegunn/fzf/src/util"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // Status represents the current state of the output plugin.
@@ -36,6 +35,8 @@ type Plugin struct {
 	log           *slog.Logger
 	session       *sdk.Session
 	stack         *sdk.Stack
+	guard         *sdk.ScopeGuard
+	fuzzy         *ui.FuzzyFilter[sdk.OutputValue]
 	status        Status
 	outputs       []sdk.OutputValue
 	filtered      []sdk.OutputValue
@@ -49,8 +50,9 @@ type Plugin struct {
 // New creates a new output plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		svc: svc,
-		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		svc:   svc,
+		log:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		fuzzy: ui.NewFuzzyFilter(func(o sdk.OutputValue) string { return o.Name }),
 	}
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
@@ -80,6 +82,13 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
+	p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	p.reset()
+	return nil
+}
+
+// reset clears all plugin state to initial values.
+func (p *Plugin) reset() {
 	p.status = StatusIdle
 	p.outputs = nil
 	p.filtered = nil
@@ -87,40 +96,35 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.filtering = false
 	p.errMsg = ""
 	p.selected = 0
-	return nil
+	p.fuzzy.SetItems(nil)
 }
 
 // Activate triggers output loading when the user enters the plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	// Check if the active context changed since last activation
-	if p.session != nil {
-		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != p.scopedContext {
-			// Context changed — reset state
-			p.status = StatusIdle
-			p.outputs = nil
-			p.filtered = nil
-			p.filter = ""
-			p.filtering = false
-			p.errMsg = ""
-			p.selected = 0
-			p.scopedContext = currentContext
-			if currentContext != "" {
-				p.svc = p.svc.WithDir(currentContext)
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if p.scopedContext != "" && p.guard.CurrentScope() == "" {
+		p.guard.SetTracked(p.scopedContext)
+	}
+
+	scopeStatus, svc := p.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		p.svc = svc
+		p.scopedContext = p.guard.CurrentScope()
+		p.reset()
+		p.status = StatusLoading
+		return p.loadOutputs()
+	case sdk.ScopeRequired:
+		p.status = StatusError
+		p.errMsg = "Select a context first (press c)"
+		return nil
 	}
 
 	if p.status == StatusIdle || p.status == StatusError {
-		// Check if there's an active context to scope to
 		if p.session != nil {
 			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				p.svc = p.svc.WithDir(dir)
 				p.scopedContext = dir
-			} else if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-				p.status = StatusError
-				p.errMsg = "Select a context first (press c)"
-				return nil
 			}
 		}
 		p.status = StatusLoading
@@ -131,13 +135,8 @@ func (p *Plugin) Activate() tea.Cmd {
 
 // Refresh reloads the outputs.
 func (p *Plugin) Refresh() tea.Cmd {
+	p.reset()
 	p.status = StatusLoading
-	p.outputs = nil
-	p.filtered = nil
-	p.filter = ""
-	p.filtering = false
-	p.errMsg = ""
-	p.selected = 0
 	return p.loadOutputs()
 }
 
@@ -213,41 +212,9 @@ func (p *Plugin) MoveToEnd() {
 func (p *Plugin) SetFilter(filter string) {
 	p.filter = filter
 	p.selected = 0
-	if filter == "" {
-		p.filtered = p.outputs
-		p.log.Debug("output.filter", "filter", "", "results", len(p.outputs))
-		return
-	}
-	terms := strings.Fields(strings.ToLower(filter))
-	type scored struct {
-		output sdk.OutputValue
-		score  int
-	}
-	var results []scored
-	slab := util.MakeSlab(100*1024, 2048)
-	for _, o := range p.outputs {
-		input := util.RunesToChars([]rune(strings.ToLower(o.Name)))
-		totalScore := 0
-		matched := true
-		for _, term := range terms {
-			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			if res.Score <= 0 {
-				matched = false
-				break
-			}
-			totalScore += res.Score
-		}
-		if matched {
-			results = append(results, scored{o, totalScore})
-		}
-	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].score > results[j].score
-	})
-	p.filtered = make([]sdk.OutputValue, len(results))
-	for i, r := range results {
-		p.filtered[i] = r.output
-	}
+	p.fuzzy.SetItems(p.outputs)
+	p.fuzzy.SetQuery(filter)
+	p.filtered = p.fuzzy.Results()
 	p.log.Debug("output.filter", "filter", filter, "results", len(p.filtered))
 }
 
