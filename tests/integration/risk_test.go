@@ -21,13 +21,13 @@ func TestRisk_CreateFixture_LowRisk(t *testing.T) {
 	}
 }
 
-func TestRisk_DeleteFixture_HighRisk(t *testing.T) {
+func TestRisk_DeleteFixture_MediumRisk(t *testing.T) {
 	result := runPlanAgent(t, "delete")
 
-	// Deleting a local_file should be high risk (delete of non-critical resource)
+	// Deleting an unmapped resource type (local_file) is medium risk
 	for _, c := range result.Changes {
-		if c.Action == "delete" && c.Risk != "high" {
-			t.Errorf("expected high risk for delete of %s, got %q", c.Address, c.Risk)
+		if c.Action == "delete" && c.Risk != "medium" {
+			t.Errorf("expected medium risk for delete of %s, got %q", c.Address, c.Risk)
 		}
 	}
 }
@@ -41,27 +41,27 @@ func TestRisk_OverallReflectsHighest(t *testing.T) {
 	}
 }
 
-func TestRisk_ReplaceFixture_HighRisk(t *testing.T) {
+func TestRisk_ReplaceFixture_MediumRisk(t *testing.T) {
 	result := runPlanAgent(t, "replace")
 
-	// Replace (delete+create) should be high risk for non-critical resources
+	// Replace (delete+create) of an unmapped resource type (local_file) is medium risk
 	for _, c := range result.Changes {
 		if c.Action == "delete-then-create" || c.Action == "create-then-delete" {
-			if c.Risk != "high" {
-				t.Errorf("expected high risk for replace of %s, got %q", c.Address, c.Risk)
+			if c.Risk != "medium" {
+				t.Errorf("expected medium risk for replace of %s, got %q", c.Address, c.Risk)
 			}
 		}
 	}
 }
 
-func TestRisk_UpdateFixture_MediumRisk(t *testing.T) {
+func TestRisk_UpdateFixture_LowRisk(t *testing.T) {
 	result := runPlanAgent(t, "update")
 
-	// Update of a non-critical, non-high-risk resource should be medium
+	// Update of an unmapped resource type (terraform_data) is low risk
 	for _, c := range result.Changes {
 		if c.Action == "update" {
-			if c.Risk != "medium" {
-				t.Errorf("expected medium risk for update of %s, got %q", c.Address, c.Risk)
+			if c.Risk != "low" {
+				t.Errorf("expected low risk for update of %s, got %q", c.Address, c.Risk)
 			}
 		}
 	}
