@@ -10,11 +10,14 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
+	"github.com/lmarqs/terraform-ui/internal/source"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiblast "github.com/lmarqs/terraform-ui/plugins/blastradius"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
@@ -37,11 +40,13 @@ func main() {
 	var cfg config.Config
 	var debug bool
 	var configOverrides []string
+	var planURI, stateURI string
 
 	rootCmd := &cobra.Command{
-		Use:   "tfui",
-		Short: "Terminal UI for Terraform operations",
-		Long:  "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
+		Use:          "tfui",
+		Short:        "Terminal UI for Terraform operations",
+		Long:         "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
+		SilenceUsage: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			cfg.Dir = resolveProjectDir(cfg.Dir)
 			cfg.ApplyOverrides(configOverrides)
@@ -49,7 +54,7 @@ func main() {
 			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTUI(cfg)
+			return runTUI(cfg, planURI, stateURI)
 		},
 	}
 
@@ -57,6 +62,8 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.yaml lives)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
+	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
+	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -107,9 +114,19 @@ func main() {
 	}
 }
 
-func runTUI(cfg config.Config) error {
-	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(cfg.WorkingDir(), binary)
+func runTUI(cfg config.Config, planURI, stateURI string) error {
+	var svc sdk.Service
+
+	if planURI != "" || stateURI != "" {
+		staticSvc, err := buildStaticService(cfg, planURI, stateURI)
+		if err != nil {
+			return err
+		}
+		svc = staticSvc
+	} else {
+		binary := cfg.TerraformBinary()
+		svc = terraform.NewService(cfg.WorkingDir(), binary)
+	}
 
 	// Create and populate the plugin registry
 	registry := plugin.NewRegistry()
@@ -146,6 +163,42 @@ func runTUI(cfg config.Config) error {
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
+}
+
+func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Service, error) {
+	if planURI == "-" && stateURI == "-" {
+		return nil, fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("getting working directory: %w", err)
+	}
+
+	resolver := source.NewResolver(
+		&source.LocalProvider{BaseDir: cwd},
+		&source.StdinProvider{},
+	)
+	ctx := context.Background()
+
+	var plan *sdk.PlanSummary
+	if planURI != "" {
+		plan, err = source.LoadPlan(ctx, resolver, planURI)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	var resources []sdk.Resource
+	var state *tfjson.State
+	if stateURI != "" {
+		resources, state, err = source.LoadState(ctx, resolver, stateURI)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return terraform.NewStaticService(plan, resources, state), nil
 }
 
 // spinnerFrames are the braille spinner characters.
