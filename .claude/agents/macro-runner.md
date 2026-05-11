@@ -19,6 +19,10 @@ You execute tfui macro tapes to verify TUI rendering after code changes. You dri
 
 After modifying a plugin's `View()`, `Hints()`, or layout logic, run macro tapes to confirm the output without manually opening the TUI. You are the automated UI verification step.
 
+## Safety Constraint
+
+Macro mode **always runs read-only**. The `--plan` or `--state` flag is mandatory — this forces `StaticService` where all mutating operations (apply, state rm, taint) return `ErrReadOnly`. A tape cannot trigger destructive terraform operations on real infrastructure. There is no bypass.
+
 ## Process
 
 1. **Identify what changed** — read the files mentioned in the prompt to understand which plugin or view was modified.

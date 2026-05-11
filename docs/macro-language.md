@@ -39,6 +39,10 @@ terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
 
 No TTY is required — macro mode drives the BubbleTea model directly without opening a terminal.
 
+## Safety
+
+Macro mode **always runs read-only** — `--plan` or `--state` is required, which forces `StaticService` where all mutating operations (apply, state rm, taint, etc.) return `ErrReadOnly`. This prevents a tape from accidentally triggering destructive terraform operations on real infrastructure. There is no way to bypass this: macros cannot run against a live terraform project.
+
 ## Tape Format
 
 One command per line. Empty lines and lines starting with `#` are ignored.
