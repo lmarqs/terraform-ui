@@ -8,18 +8,36 @@ description: Tape DSL reference for automated TUI interaction
 
 tfui includes a macro system for automated TUI interaction. Macros are used for testing, CI visual regression, and repeatable workflows.
 
+## Purpose
+
+The macro system serves three roles:
+
+1. **Self-verification** — after modifying a plugin's View(), run a tape to confirm the output without manually opening the TUI
+2. **CI visual regression** — tape files assert expected content in rendered views; failures produce non-zero exit codes
+3. **Reproducible demos** — capture screenshots at specific navigation points for documentation
+
 ## Invocation
 
+Macro mode requires `--plan` or `--state` (always read-only, no TTY needed):
+
 ```bash
-# From file (explicit path required)
-tfui --macro ./scripts/verify-plan.tape
+# Run tape against a plan file
+tfui --plan ./plan.json --macro ./scripts/verify-plan.tape
 
-# From stdin
-cat script.tape | tfui --macro -
+# Run tape against state
+tfui --state ./state.json --macro ./scripts/check-state.tape
 
-# Combined with plan/state loading
-tfui --plan ./plan.json --macro ./scripts/check-risk.tape
+# Both plan and state
+tfui --plan ./plan.json --state ./state.json --macro ./scripts/full-check.tape
+
+# Tape from stdin
+echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --macro -
+
+# CI pipeline
+terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
 ```
+
+No TTY is required — macro mode drives the BubbleTea model directly without opening a terminal.
 
 ## Tape Format
 
@@ -198,5 +216,6 @@ func TestPlanView(t *testing.T) {
 
 - No loops, conditionals, or variables (use Go tests for complex logic)
 - No interactive input simulation (text fields, prompts)
-- `wait ready` depends on plugin implementing `Ready()` correctly
-- Screenshots are ANSI-stripped plain text, not terminal renders
+- `wait ready` checks that the view is non-empty and not in a loading state
+- Screenshots include raw ANSI escape codes (lipgloss styling); use `cat` to view with colors, or pipe through `sed` to strip
+- Default terminal size is 80x24; use `resize` to change
