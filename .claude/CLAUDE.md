@@ -178,17 +178,35 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 Every plugin follows the same shape:
 
 ```go
-type Status int
-const (StatusIdle, StatusLoading, StatusDone, StatusError)
-
-type Plugin struct { svc sdk.Service; log *slog.Logger; session *sdk.Session; status Status; ... }
+type Plugin struct { svc sdk.Service; log *slog.Logger; guard *sdk.ScopeGuard; pins *sdk.PinService; ... }
 func New(svc sdk.Service) sdk.Plugin { ... }
-func (p *Plugin) Activate() tea.Cmd { /* respect scope, load data */ }
+func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service); ... }
+func (p *Plugin) Activate() tea.Cmd { /* use guard.Check(), load data */ }
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) { /* handle result msgs + keys */ }
 func (p *Plugin) View(w, h int) string { /* switch on status */ }
 ```
 
 Plugins are registered with external metadata — they never declare their own keybinding or menu visibility.
+
+### SDK Utilities (pkg/sdk/ and pkg/sdk/ui/)
+
+Use these instead of reimplementing common patterns:
+
+| Utility | Location | Purpose | Used by |
+|---------|----------|---------|---------|
+| `ScopeGuard` | `pkg/sdk/scope_guard.go` | Detect scope changes in Activate(), auto-rescope service | state, plan, output, validate, workspaces, apply |
+| `PinService` | `pkg/sdk/pin_service.go` | Toggle/query/bulk-set pinned resource addresses | state, plan |
+| `Status` | `pkg/sdk/status.go` | Shared enum (Idle/Loading/Done/Error) with predicates | all plugins |
+| `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + bounds + viewport windowing | plan, output, validate, workspaces, scope |
+| `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices in lists | plan, validate, phantom, blastradius |
+| `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + multi-term AND + score-sorted results | state, output |
+
+**Rules:**
+- Use `ScopeGuard` instead of reading `SessionKeyActiveScopeAbs` manually
+- Use `PinService` instead of raw `session.Set("terraform.pinned", ...)`
+- Use `Cursor.VisibleWindow(h)` instead of manual startIdx/endIdx calculation
+- Use `FuzzyFilter[T]` instead of importing `fzf/src/algo` directly
+- Reference implementation: `plugins/state/` demonstrates all SDK primitives
 
 ### Navigation Stack (Android-style)
 
