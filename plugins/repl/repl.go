@@ -49,6 +49,7 @@ type Plugin struct {
 	binaryPath    string
 	errMsg        string
 	scopedContext string
+	guard         *sdk.ScopeGuard
 	pastInputs    []string // previous expressions for up/down recall
 	savedInput    string   // saved current input when browsing history
 }
@@ -94,8 +95,15 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
+	p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
 	p.dir = ctx.WorkingDir
 	p.status = StatusIdle
+	p.reset()
+	return nil
+}
+
+// reset clears repl-specific state.
+func (p *Plugin) reset() {
 	p.history = nil
 	p.input = ""
 	p.historyIdx = -1
@@ -103,43 +111,31 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.errMsg = ""
 	p.pastInputs = nil
 	p.savedInput = ""
-	return nil
 }
 
 // Activate is called when the user navigates to this plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	// Check for context change
-	if p.session != nil {
-		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != p.scopedContext {
-			p.scopedContext = currentContext
-			p.history = nil
-			p.input = ""
-			p.historyIdx = -1
-			p.scrollY = 0
-			p.pastInputs = nil
-			p.savedInput = ""
-			if currentContext != "" {
-				p.dir = currentContext
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if p.scopedContext != "" && p.guard.CurrentScope() == "" {
+		p.guard.SetTracked(p.scopedContext)
+	}
+
+	scopeStatus, svc := p.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		p.svc = svc
+		p.scopedContext = p.guard.CurrentScope()
+		p.dir = p.scopedContext
+		p.reset()
+	case sdk.ScopeRequired:
+		p.status = StatusError
+		p.errMsg = "Select a context first (press c)"
+		return nil
 	}
 
 	// Detect terraform binary if not already set
 	if p.binaryPath == "" {
 		p.binaryPath = detectBinary()
-	}
-
-	if p.session != nil {
-		if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
-				p.dir = dir
-			} else {
-				p.status = StatusError
-				p.errMsg = "Select a context first (press c)"
-				return nil
-			}
-		}
 	}
 
 	p.status = StatusReady

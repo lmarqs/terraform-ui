@@ -112,10 +112,18 @@ func TestActivate(t *testing.T) {
 }
 
 func TestActivateMultiContextNoSelection(t *testing.T) {
-	p := newTestPlugin()
+	svc := &mockService{}
 	session := sdk.NewSession()
 	session.Set(sdk.SessionKeyScopeCount, 3)
-	p.session = session
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{
+		WorkingDir: "/tmp/test",
+		Workspace:  "default",
+		Service:    svc,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Session:    session,
+	}
+	p.Init(ctx)
 
 	p.Activate()
 
@@ -128,11 +136,19 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 }
 
 func TestActivateWithScopeDir(t *testing.T) {
-	p := newTestPlugin()
+	svc := &mockService{}
 	session := sdk.NewSession()
 	session.Set(sdk.SessionKeyScopeCount, 2)
 	session.Set(sdk.SessionKeyActiveScopeAbs, "/my/project")
-	p.session = session
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{
+		WorkingDir: "/tmp/test",
+		Workspace:  "default",
+		Service:    svc,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Session:    session,
+	}
+	p.Init(ctx)
 
 	p.Activate()
 
@@ -631,13 +647,28 @@ func TestSetBinaryPath(t *testing.T) {
 }
 
 func TestActivateContextChange(t *testing.T) {
-	p := newTestPlugin()
+	svc := &mockService{}
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/new/ctx")
-	p.session = session
-	p.scopedContext = "/old/ctx"
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/old/ctx")
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{
+		WorkingDir: "/tmp/test",
+		Workspace:  "default",
+		Service:    svc,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Session:    session,
+	}
+	p.Init(ctx)
+
+	// First activation sets the scope
+	p.Activate()
+
+	// Simulate state accumulation
 	p.history = []replEntry{{Expr: "old", Result: "stale"}}
 	p.pastInputs = []string{"old"}
+
+	// Change scope
+	session.Set(sdk.SessionKeyActiveScopeAbs, "/new/ctx")
 
 	p.Activate()
 
