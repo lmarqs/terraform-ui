@@ -5,13 +5,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"sort"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/junegunn/fzf/src/algo"
-	"github.com/junegunn/fzf/src/util"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
@@ -44,6 +42,16 @@ type ForceUnlockResultMsg struct {
 	Err error
 }
 
+// StateDeletedMsg is sent when a resource is successfully removed from state.
+type StateDeletedMsg struct {
+	Address string
+}
+
+// StateEditMsg requests the editor to open for this resource.
+type StateEditMsg struct {
+	Address string
+}
+
 // resourceItem wraps sdk.Resource to implement tree.Item.
 type resourceItem struct {
 	resource sdk.Resource
@@ -53,35 +61,39 @@ func (r resourceItem) Address() string { return r.resource.Address }
 
 // Plugin implements the state browser feature.
 type Plugin struct {
-	svc           sdk.Service
-	log           *slog.Logger
-	session       *sdk.Session
-	stack         *sdk.Stack
-	status        Status
-	resources     []sdk.Resource
-	filtered      []sdk.Resource
-	tree          *tree.Tree
-	treeMode      bool
-	filterScores  map[string]int
-	filter        string
-	filtering     bool
-	errMsg        string
-	lockInfo      *sdk.StateLock
-	viewWidth     int
-	detail        string
-	detailAddr    string
-	detailScroll  int
+	svc      sdk.Service
+	log      *slog.Logger
+	session  *sdk.Session
+	stack    *sdk.Stack
+	guard    *sdk.ScopeGuard
+	pins     *sdk.PinService
+	fuzzy    *ui.FuzzyFilter[sdk.Resource]
+	status   Status
+	resources []sdk.Resource
+	filtered  []sdk.Resource
+	tree      *tree.Tree
+	treeMode  bool
+	filterScores map[string]int
+	filter    string
+	filtering bool
+	errMsg    string
+	lockInfo  *sdk.StateLock
+	viewWidth int
+	detail       string
+	detailAddr   string
+	detailScroll int
 	detailHScroll int
-	detailWrap    bool
+	detailWrap   bool
 	scopedContext string
 }
 
 // New creates a new state browser plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		svc:  svc,
-		log:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		tree: tree.New(nil),
+		svc:   svc,
+		log:   slog.New(slog.NewTextHandler(io.Discard, nil)),
+		tree:  tree.New(nil),
+		fuzzy: ui.NewFuzzyFilter(func(r sdk.Resource) string { return r.Address }),
 	}
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
@@ -111,7 +123,15 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
 	e.session = ctx.Session
+	e.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	e.pins = sdk.NewPinService(ctx.Session)
 	e.stack.Clear()
+	e.reset()
+	return nil
+}
+
+// reset clears all plugin state to initial values.
+func (e *Plugin) reset() {
 	e.status = StatusIdle
 	e.resources = nil
 	e.filtered = nil
@@ -121,42 +141,35 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.errMsg = ""
 	e.detail = ""
 	e.detailAddr = ""
-	return nil
+	e.fuzzy.SetItems(nil)
 }
 
 // Activate triggers state loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active context changed since last activation
-	if e.session != nil {
-		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != e.scopedContext {
-			// Context changed — reset state
-			e.status = StatusIdle
-			e.resources = nil
-			e.filtered = nil
-			e.tree = tree.New(nil)
-			e.filter = ""
-			e.filtering = false
-			e.errMsg = ""
-			e.detail = ""
-			e.detailAddr = ""
-			e.scopedContext = currentContext
-			if currentContext != "" {
-				e.svc = e.svc.WithDir(currentContext)
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if e.scopedContext != "" && e.guard.CurrentScope() == "" {
+		e.guard.SetTracked(e.scopedContext)
+	}
+
+	scopeStatus, svc := e.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		e.svc = svc
+		e.scopedContext = e.guard.CurrentScope()
+		e.reset()
+		e.status = StatusLoading
+		return e.loadState()
+	case sdk.ScopeRequired:
+		e.status = StatusError
+		e.errMsg = "Select a context first (press c)"
+		return nil
 	}
 
 	if e.status == StatusIdle || e.status == StatusError {
-		// Check if there's an active context to scope to
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
-			} else if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-				e.status = StatusError
-				e.errMsg = "Select a context first (press c)"
-				return nil
 			}
 		}
 		e.status = StatusLoading
@@ -167,16 +180,8 @@ func (e *Plugin) Activate() tea.Cmd {
 
 // Refresh reloads the state.
 func (e *Plugin) Refresh() tea.Cmd {
+	e.reset()
 	e.status = StatusLoading
-	e.resources = nil
-	e.filtered = nil
-	e.tree = tree.New(nil)
-	e.filter = ""
-	e.filtering = false
-	e.errMsg = ""
-	e.lockInfo = nil
-	e.detail = ""
-	e.detailAddr = ""
 	if e.stack != nil {
 		e.stack.Clear()
 	}
@@ -212,6 +217,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.status = StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
+			e.fuzzy.SetItems(msg.Resources)
 			e.rebuildTree()
 			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
 		}
@@ -314,87 +320,37 @@ func (e *Plugin) panDetailLeft() {
 	}
 }
 
-// SetFilter filters resources. In tree mode, uses substring matching to preserve
-// hierarchy order. In flat mode, uses fzf fuzzy matching sorted by score.
+// SetFilter filters resources. In tree mode, uses fzf matching preserving original order.
+// In flat mode, uses fzf fuzzy matching sorted by score.
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
 	if filter == "" {
 		e.filtered = e.resources
+		e.filterScores = nil
 		e.rebuildTree()
 		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
 		return
 	}
+
+	e.fuzzy.SetItems(e.resources)
+	e.fuzzy.SetQuery(filter)
 	if e.treeMode {
-		e.filterForTree(filter)
+		e.filtered = e.fuzzy.OriginalOrder()
 	} else {
-		e.filterFuzzy(filter)
+		e.filtered = e.fuzzy.Results()
 	}
+
+	e.filterScores = make(map[string]int)
+	ordered := e.fuzzy.OriginalOrder()
+	for i, r := range ordered {
+		e.filterScores[r.Address] = e.fuzzy.ScoreAt(i)
+	}
+
 	e.rebuildTree()
 	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
-// filterForTree uses fzf matching preserving original order so tree hierarchy stays consistent.
-func (e *Plugin) filterForTree(filter string) {
-	terms := strings.Fields(strings.ToLower(filter))
-	var results []sdk.Resource
-	e.filterScores = make(map[string]int)
-	slab := util.MakeSlab(100*1024, 2048)
-	for _, r := range e.resources {
-		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
-		totalScore := 0
-		matched := true
-		for _, term := range terms {
-			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			if res.Score <= 0 {
-				matched = false
-				break
-			}
-			totalScore += res.Score
-		}
-		if matched {
-			e.filterScores[r.Address] = totalScore
-			results = append(results, r)
-		}
-	}
-	e.filtered = results
-}
-
-func (e *Plugin) filterFuzzy(filter string) {
-	terms := strings.Fields(strings.ToLower(filter))
-	type scored struct {
-		resource sdk.Resource
-		score    int
-	}
-	var results []scored
-	slab := util.MakeSlab(100*1024, 2048)
-	for _, r := range e.resources {
-		input := util.RunesToChars([]rune(strings.ToLower(r.Address)))
-		totalScore := 0
-		matched := true
-		for _, term := range terms {
-			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			if res.Score <= 0 {
-				matched = false
-				break
-			}
-			totalScore += res.Score
-		}
-		if matched {
-			results = append(results, scored{r, totalScore})
-		}
-	}
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].score > results[j].score
-	})
-	e.filtered = make([]sdk.Resource, len(results))
-	for i, r := range results {
-		e.filtered[i] = r.resource
-	}
-}
-
 // rebuildTree reconstructs the tree from filtered resources, syncing pinned state.
-// In flat mode, uses identity split (no hierarchy). In tree mode with active filter,
-// auto-expands all branches to reveal matches.
 func (e *Plugin) rebuildTree() {
 	items := make([]tree.Item, len(e.filtered))
 	for i, r := range e.filtered {
@@ -413,8 +369,12 @@ func (e *Plugin) rebuildTree() {
 	}
 }
 
-// syncPinnedToTree updates the tree's pinned set from session state.
+// syncPinnedToTree updates the tree's pinned set from the PinService or session.
 func (e *Plugin) syncPinnedToTree() {
+	if e.pins != nil {
+		e.tree.SetPinned(e.pins.All())
+		return
+	}
 	if e.session == nil {
 		return
 	}
@@ -448,7 +408,7 @@ func (e *Plugin) CursorNode() *tree.Node {
 	return e.tree.CursorNode()
 }
 
-// InspectSelected loads detail for the selected resource (enter = inspect, like k9s).
+// InspectSelected loads detail for the selected resource.
 func (e *Plugin) InspectSelected() tea.Cmd {
 	if e.status == StatusLoading {
 		return nil
@@ -461,7 +421,6 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	e.log.Debug("state.inspect.start", "address", r.Address)
 	e.status = StatusLoading
 	e.filtering = false
-	// Pop the filter frame if active (inspect overrides filter)
 	if e.stack.Peek() != nil && e.stack.Peek().ID() == "filter" {
 		e.stack.Pop()
 	}
@@ -473,8 +432,7 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case StatusIdle:
-		placeholder := sdk.StyleFaintItalic.Render("Loading state...")
-		return placeholder
+		return sdk.StyleFaintItalic.Render("Loading state...")
 
 	case StatusLoading:
 		msg := "Loading terraform state..."
@@ -599,21 +557,10 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 	return b.String()
 }
 
-func (e *Plugin) renderResourceRow(r sdk.Resource) string {
-	typeInfo := sdk.StyleFaint.Render(r.Type)
-	row := fmt.Sprintf("%s  %s", r.Address, typeInfo)
-	if r.Module != "" {
-		module := sdk.StyleKey.Render(fmt.Sprintf("[%s]", r.Module))
-		row += " " + module
-	}
-	return row
-}
-
 func (e *Plugin) renderDetail(width, height int) string {
 	e.viewWidth = width
 	address := sdk.StyleKey.Render(e.detailAddr)
 
-	// Fixed header takes 1 line (address)
 	headerLines := 3
 	contentWidth := width - 6
 	if contentWidth < 40 {
@@ -641,7 +588,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 		maxLines = 5
 	}
 
-	// Clamp scroll
 	maxScroll := len(lines) - maxLines
 	if maxScroll < 0 {
 		maxScroll = 0
@@ -650,7 +596,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 		e.detailScroll = maxScroll
 	}
 
-	// Slice visible window
 	endIdx := e.detailScroll + maxLines
 	if endIdx > len(lines) {
 		endIdx = len(lines)
@@ -665,7 +610,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	pinIndicator := ""
-	if e.session != nil && e.isPinnedAddress(e.detailAddr) {
+	if e.isPinnedAddress(e.detailAddr) {
 		pinIndicator = " " + sdk.StyleSuccess.Render("[pinned]")
 	}
 
@@ -693,28 +638,20 @@ func wrapLines(lines []string, width int) []string {
 
 // --- Context actions ---
 
-// StateDeletedMsg is sent when a resource is successfully removed from state.
-type StateDeletedMsg struct {
-	Address string
-}
-
-// StateEditMsg requests the editor to open for this resource.
-type StateEditMsg struct {
-	Address string
-}
-
 func (e *Plugin) togglePin(address string) tea.Cmd {
 	if e.session == nil {
 		return nil
 	}
 	e.tree.TogglePin()
-	pinned := e.tree.PinnedPaths()
-	e.session.Set("terraform.pinned", pinned)
-	e.log.Debug("state.pin.toggle", "address", address, "pinned_count", len(pinned))
+	e.pins.Set(e.tree.PinnedPaths())
+	e.log.Debug("state.pin.toggle", "address", address, "pinned_count", e.pins.Count())
 	return nil
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
+	if e.pins != nil {
+		return e.pins.IsPinned(address)
+	}
 	if e.session == nil {
 		return false
 	}
