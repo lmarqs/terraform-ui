@@ -72,7 +72,8 @@ type StateImportedMsg struct {
 
 // StateEditMsg requests the editor to open for this resource.
 type StateEditMsg struct {
-	Address string
+	Address   string
+	Addresses []string // if set, open multiple files
 }
 
 // resourceItem wraps sdk.Resource to implement tree.Item.
@@ -827,6 +828,12 @@ func (e *Plugin) requestDelete(address string) tea.Cmd {
 func (e *Plugin) requestEdit(address string) tea.Cmd {
 	return func() tea.Msg {
 		return StateEditMsg{Address: address}
+	}
+}
+
+func (e *Plugin) requestEditMultiple(addresses []string) tea.Cmd {
+	return func() tea.Msg {
+		return StateEditMsg{Addresses: addresses}
 	}
 }
 

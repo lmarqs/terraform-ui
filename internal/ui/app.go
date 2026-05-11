@@ -156,11 +156,26 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tfuistate.StateEditMsg:
-		if a.sourceIndex != nil {
-			if loc, ok := a.sourceIndex.Lookup(msg.Address); ok {
-				logging.Logger().Debug("editor.open", "address", msg.Address, "file", loc.File, "line", loc.Line)
-				return a, editor.Open(loc)
+		if a.sourceIndex == nil {
+			return a, nil
+		}
+		if len(msg.Addresses) > 0 {
+			var locs []editor.SourceLocation
+			for _, addr := range msg.Addresses {
+				if loc, ok := a.sourceIndex.Lookup(addr); ok {
+					locs = append(locs, loc)
+				}
 			}
+			if len(locs) > 0 {
+				logging.Logger().Debug("editor.open.multiple", "count", len(locs))
+				return a, editor.OpenMultiple(locs)
+			}
+			logging.Logger().Debug("editor.lookup.failed", "addresses", msg.Addresses)
+			return a, nil
+		}
+		if loc, ok := a.sourceIndex.Lookup(msg.Address); ok {
+			logging.Logger().Debug("editor.open", "address", msg.Address, "file", loc.File, "line", loc.Line)
+			return a, editor.Open(loc)
 		}
 		logging.Logger().Debug("editor.lookup.failed", "address", msg.Address)
 		return a, nil

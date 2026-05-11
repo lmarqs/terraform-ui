@@ -272,6 +272,9 @@ func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFram
 			Key:   "e",
 			Label: "edit",
 			Handler: func() tea.Cmd {
+				if multiTarget {
+					return e.requestEditMultiple(targets)
+				}
 				return e.requestEdit(address)
 			},
 		},

@@ -62,6 +62,46 @@ func splitCommand(editor string) (string, []string) {
 	return parts[0], parts[1:]
 }
 
+// OpenMultiple opens multiple source locations in a single editor invocation.
+// For editors that support multiple --goto args (VS Code), all files open at once.
+// For others, only the first location is opened.
+func OpenMultiple(locs []SourceLocation) tea.Cmd {
+	if len(locs) == 0 {
+		return nil
+	}
+	if len(locs) == 1 {
+		return Open(locs[0])
+	}
+
+	ed := detectEditor()
+	bin, editorArgs := splitCommand(ed)
+	baseLower := strings.ToLower(filepath.Base(bin))
+
+	// VS Code supports multiple --goto args
+	if strings.Contains(baseLower, "code") {
+		var args []string
+		args = append(args, editorArgs...)
+		for _, loc := range locs {
+			if loc.Line > 0 {
+				args = append(args, "--goto", fmt.Sprintf("%s:%d", loc.File, loc.Line))
+			} else {
+				args = append(args, loc.File)
+			}
+		}
+		if !hasFlag(editorArgs, "--wait") {
+			args = append(args, "--wait")
+		}
+
+		c := exec.Command(bin, args...)
+		return tea.ExecProcess(c, func(err error) tea.Msg {
+			return EditorClosedMsg{File: locs[0].File, Modified: true, Err: err}
+		})
+	}
+
+	// Fallback: open first file only
+	return Open(locs[0])
+}
+
 // OpenFile opens a file without jumping to a specific line.
 func OpenFile(file string) tea.Cmd {
 	return Open(SourceLocation{File: file, Line: 0})
