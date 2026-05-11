@@ -13,6 +13,7 @@ import (
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
+	"github.com/lmarqs/terraform-ui/internal/macro"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/source"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
@@ -40,7 +41,7 @@ func main() {
 	var cfg config.Config
 	var debug bool
 	var configOverrides []string
-	var planURI, stateURI string
+	var planURI, stateURI, macroURI string
 
 	rootCmd := &cobra.Command{
 		Use:          "tfui",
@@ -54,6 +55,9 @@ func main() {
 			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runMacro(cfg, macroURI, planURI, stateURI)
+			}
 			return runTUI(cfg, planURI, stateURI)
 		},
 	}
@@ -64,6 +68,7 @@ func main() {
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
+	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (requires --plan or --state)")
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "scope", "", "Select scope non-interactively (relative to project root)")
 
 	planCmd := &cobra.Command{
@@ -111,6 +116,10 @@ func main() {
 	}
 
 	if err := rootCmd.Execute(); err != nil {
+		if runErr, ok := err.(*macro.RunError); ok {
+			fmt.Fprintf(os.Stderr, "macro: %s\n", runErr.Error())
+			os.Exit(runErr.Code)
+		}
 		os.Exit(1)
 	}
 }
@@ -143,7 +152,15 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		svc = terraform.NewService(effectiveWorkDir(cfg), binary)
 	}
 
-	// Create and populate the plugin registry
+	registry := buildRegistry(svc, cfg)
+
+	app := ui.NewApp(cfg, svc, registry)
+	p := tea.NewProgram(app, tea.WithAltScreen())
+	_, err := p.Run()
+	return err
+}
+
+func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("context", tfuicontext.New, plugin.PluginMeta{Keybinding: "C", MenuVisible: true})
 	registry.RegisterFactory("scope", tfuiscope.New, plugin.PluginMeta{Keybinding: "", MenuVisible: false})
@@ -159,10 +176,8 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 	registry.RegisterFactory("blastradius", tfuiblast.New, plugin.PluginMeta{Keybinding: "B", MenuVisible: true})
 	registry.RegisterFactory("init", tfuiinit.New, plugin.PluginMeta{Keybinding: "i", MenuVisible: true})
 
-	// Build plugins from config
 	registry.Build(svc, cfg.Plugins)
 
-	// Inject config into context and scope plugins
 	if ctxPlugin, ok := registry.ByID("context"); ok {
 		if cp, ok := ctxPlugin.(*tfuicontext.Plugin); ok {
 			cp.SetConfig(cfg)
@@ -174,10 +189,52 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		}
 	}
 
+	return registry
+}
+
+func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
+	if planURI == "" && stateURI == "" {
+		return fmt.Errorf("--macro requires --plan or --state (read-only data source)")
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
+	}
+
+	resolver := source.NewResolver(
+		&source.LocalProvider{BaseDir: cwd},
+		&source.StdinProvider{},
+	)
+	ctx := context.Background()
+
+	tapeData, err := resolver.Resolve(ctx, macroURI)
+	if err != nil {
+		return fmt.Errorf("loading macro tape: %w", err)
+	}
+
+	commands, err := macro.ParseTape(tapeData)
+	if err != nil {
+		return &macro.RunError{Code: macro.ExitSyntaxError, Message: err.Error()}
+	}
+
+	if len(commands) == 0 {
+		return nil
+	}
+
+	cfg.ReadOnly = true
+	svc, err := buildStaticService(cfg, planURI, stateURI)
+	if err != nil {
+		return err
+	}
+
+	registry := buildRegistry(svc, cfg)
 	app := ui.NewApp(cfg, svc, registry)
-	p := tea.NewProgram(app, tea.WithAltScreen())
-	_, err := p.Run()
-	return err
+
+	driver := macro.NewDriver(app, 80, 24)
+	runner := macro.NewRunner(driver)
+
+	return runner.Execute(commands)
 }
 
 func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Service, error) {
