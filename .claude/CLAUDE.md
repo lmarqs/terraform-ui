@@ -459,6 +459,7 @@ mise run run             # Run TUI in dev mode
 | `test-writer` | Generate table-driven tests | New/modified plugin or internal code needing test coverage |
 | `code-checker` | Audit CLAUDE.md code conventions | Before commits, during PR review, after large refactors |
 | `ux-checker` | Validate hint placement and UX rules | Changes to `View()`, `Hints()`, frames, or new plugins |
+| `macro-runner` | Run macro tapes to verify UI rendering | After modifying `View()`, layout, or plugin navigation |
 | `architect` | Design implementation plans | New plugins or cross-cutting features (before coding) |
 | `security-checker` | Terraform-specific security audit | PRs touching terraform service, state display, or AI integration |
 
