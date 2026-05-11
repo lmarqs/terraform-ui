@@ -11,7 +11,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	tfjson "github.com/hashicorp/terraform-json"
-	"github.com/mattn/go-isatty"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
@@ -40,6 +39,7 @@ var version = "1.0.0-dev"
 func main() {
 	var cfg config.Config
 	var debug bool
+	var forceTTY bool
 	var configOverrides []string
 	var planURI, stateURI string
 
@@ -55,7 +55,7 @@ func main() {
 			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runTUI(cfg, planURI, stateURI)
+			return runTUI(cfg, planURI, stateURI, forceTTY)
 		},
 	}
 
@@ -66,6 +66,7 @@ func main() {
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "scope", "", "Select scope non-interactively (relative to project root)")
+	rootCmd.Flags().BoolVarP(&forceTTY, "tty", "t", false, "Force TTY mode (bypass terminal detection)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -116,9 +117,9 @@ func main() {
 	}
 }
 
-func runTUI(cfg config.Config, planURI, stateURI string) error {
-	if !isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()) {
-		return fmt.Errorf("no TTY detected (stdout is not a terminal)\n\nFor non-interactive use:\n  tfui plan --mode agent    (JSON output)\n  tfui plan --mode silent   (tree output)")
+func runTUI(cfg config.Config, planURI, stateURI string, forceTTY bool) error {
+	if !forceTTY && !hasTTY() {
+		return fmt.Errorf("no TTY detected\n\nUse -t to force, or for non-interactive use:\n  tfui plan --mode agent    (JSON output)\n  tfui plan --mode silent   (tree output)")
 	}
 
 	if cfg.ActiveScope != "" {
@@ -211,6 +212,15 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Servic
 	}
 
 	return terraform.NewStaticService(plan, resources, state), nil
+}
+
+func hasTTY() bool {
+	f, err := os.Open("/dev/tty")
+	if err != nil {
+		return false
+	}
+	f.Close()
+	return true
 }
 
 func effectiveWorkDir(cfg config.Config) string {
