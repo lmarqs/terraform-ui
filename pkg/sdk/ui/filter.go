@@ -2,14 +2,12 @@ package ui
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/junegunn/fzf/src/algo"
 	"github.com/junegunn/fzf/src/util"
 )
 
 // FuzzyFilter provides fzf-based filtering over a typed collection.
-// It supports multi-term AND matching and both score-sorted and original-order results.
 type FuzzyFilter[T any] struct {
 	items   []T
 	getText func(T) string
@@ -103,27 +101,15 @@ func (f *FuzzyFilter[T]) filter() {
 		return
 	}
 
-	terms := strings.Fields(strings.ToLower(f.query))
+	pattern := []rune(f.query)
 	slab := util.MakeSlab(100*1024, 2048)
 	f.scored = nil
 
 	for i, item := range f.items {
-		text := strings.ToLower(f.getText(item))
-		input := util.RunesToChars([]rune(text))
-		totalScore := 0
-		matched := true
-
-		for _, term := range terms {
-			res, _ := algo.FuzzyMatchV2(false, true, true, &input, []rune(term), false, slab)
-			if res.Score <= 0 {
-				matched = false
-				break
-			}
-			totalScore += res.Score
-		}
-
-		if matched {
-			f.scored = append(f.scored, scoredItem[T]{item: item, index: i, score: totalScore})
+		input := util.RunesToChars([]rune(f.getText(item)))
+		res, _ := algo.FuzzyMatchV2(false, true, true, &input, pattern, false, slab)
+		if res.Score > 0 {
+			f.scored = append(f.scored, scoredItem[T]{item: item, index: i, score: res.Score})
 		}
 	}
 }

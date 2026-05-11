@@ -274,7 +274,7 @@ Use these instead of reimplementing common patterns:
 | `Status` | `pkg/sdk/status.go` | Shared enum (Idle/Loading/Done/Error) with predicates | all plugins |
 | `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + bounds + viewport windowing | plan, output, validate, workspaces, scope |
 | `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices in lists | plan, validate, phantom, blastradius |
-| `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + multi-term AND + score-sorted results | state, output |
+| `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + score-sorted results | state, output |
 
 **Rules:**
 - Use `ScopeGuard` instead of reading `SessionKeyActiveScopeAbs` manually

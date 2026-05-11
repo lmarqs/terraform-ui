@@ -76,22 +76,6 @@ func TestFuzzyFilter_OriginalOrder(t *testing.T) {
 	}
 }
 
-func TestFuzzyFilter_MultiTerm(t *testing.T) {
-	f := NewFuzzyFilter(func(s string) string { return s })
-	f.SetItems([]string{
-		"aws_instance.web",
-		"aws_instance.api",
-		"aws_s3_bucket.web_assets",
-	})
-
-	f.SetQuery("aws web")
-	results := f.Results()
-
-	// "aws" AND "web" must both match
-	if len(results) != 2 {
-		t.Fatalf("multi-term: Results() len = %d, want 2", len(results))
-	}
-}
 
 func TestFuzzyFilter_IsActive(t *testing.T) {
 	f := NewFuzzyFilter(func(s string) string { return s })
