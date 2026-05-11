@@ -5,6 +5,15 @@ import (
 	"strings"
 )
 
+// PinState represents the pin/selection state of a node.
+type PinState int
+
+const (
+	PinNone    PinState = iota // no children pinned
+	PinPartial                 // some children pinned
+	PinFull                    // all children pinned (or leaf is pinned)
+)
+
 // Item is implemented by anything that can appear in a tree.
 type Item interface {
 	Address() string
@@ -114,19 +123,9 @@ func (t *Tree) findChild(parent *treeNode, label string) *treeNode {
 
 func (t *Tree) sortNodes(node *treeNode) {
 	sort.SliceStable(node.children, func(i, j int) bool {
-		pi := t.pinned[node.children[i].path]
-		pj := t.pinned[node.children[j].path]
-		if pi != pj {
-			return pi
-		}
 		return node.children[i].label < node.children[j].label
 	})
 	sort.SliceStable(node.items, func(i, j int) bool {
-		pi := t.pinned[node.items[i].Address()]
-		pj := t.pinned[node.items[j].Address()]
-		if pi != pj {
-			return pi
-		}
 		return node.items[i].Address() < node.items[j].Address()
 	})
 	for _, c := range node.children {
@@ -302,15 +301,91 @@ func (t *Tree) CollapseAll() {
 // Pinning
 
 func (t *Tree) TogglePin() {
-	if n := t.CursorNode(); n != nil {
+	n := t.CursorNode()
+	if n == nil {
+		return
+	}
+	if n.Kind == KindLeaf {
 		if t.pinned[n.Path] {
 			delete(t.pinned, n.Path)
 		} else {
 			t.pinned[n.Path] = true
 		}
-		t.sortNodes(t.root)
-		t.flatten()
+	} else {
+		node := t.findNode(t.root, n.Path)
+		if node == nil {
+			return
+		}
+		state := t.nodePinState(node)
+		pin := state != PinFull
+		t.setPinRecursive(node, pin)
 	}
+	t.flatten()
+}
+
+func (t *Tree) findNode(parent *treeNode, path string) *treeNode {
+	if parent.path == path {
+		return parent
+	}
+	for _, c := range parent.children {
+		if found := t.findNode(c, path); found != nil {
+			return found
+		}
+	}
+	return nil
+}
+
+func (t *Tree) setPinRecursive(node *treeNode, pin bool) {
+	for _, item := range node.items {
+		if pin {
+			t.pinned[item.Address()] = true
+		} else {
+			delete(t.pinned, item.Address())
+		}
+	}
+	for _, child := range node.children {
+		t.setPinRecursive(child, pin)
+	}
+}
+
+func (t *Tree) nodePinState(node *treeNode) PinState {
+	total := 0
+	pinned := 0
+	t.countPinState(node, &total, &pinned)
+	if total == 0 {
+		return PinNone
+	}
+	if pinned == total {
+		return PinFull
+	}
+	if pinned > 0 {
+		return PinPartial
+	}
+	return PinNone
+}
+
+func (t *Tree) countPinState(node *treeNode, total, pinned *int) {
+	for _, item := range node.items {
+		*total++
+		if t.pinned[item.Address()] {
+			*pinned++
+		}
+	}
+	for _, child := range node.children {
+		t.countPinState(child, total, pinned)
+	}
+}
+
+// NodePinState returns the pin state for a given path.
+func (t *Tree) NodePinState(path string) PinState {
+	node := t.findNode(t.root, path)
+	if node == nil {
+		if t.pinned[path] {
+			return PinFull
+		}
+		return PinNone
+	}
+	return t.nodePinState(node)
 }
 
 func (t *Tree) IsPinned(path string) bool { return t.pinned[path] }
@@ -320,7 +395,6 @@ func (t *Tree) SetPinned(paths []string) {
 	for _, p := range paths {
 		t.pinned[p] = true
 	}
-	t.sortNodes(t.root)
 	t.flatten()
 }
 
