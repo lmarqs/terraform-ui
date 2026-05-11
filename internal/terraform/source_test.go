@@ -275,6 +275,9 @@ func TestStripModulePrefix(t *testing.T) {
 		{"module.foo.data.aws_ami.latest", "data.aws_ami.latest"},
 		{"data.aws_ami.latest", "data.aws_ami.latest"},
 		{"module.x", "module.x"},
+		{`module.user["github.com"].aws_iam_user.this`, "aws_iam_user.this"},
+		{`module.user["devin.ai"].aws_iam_access_key.this_no_pgp`, "aws_iam_access_key.this_no_pgp"},
+		{`module.a["x.y"].module.b["z"].aws_instance.web`, "aws_instance.web"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
@@ -284,6 +287,39 @@ func TestStripModulePrefix(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLookup_IndexedResources(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_iam_user" "this" {
+  name = "test"
+}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	t.Run("indexed resource falls back to base", func(t *testing.T) {
+		loc, ok := idx.Lookup("aws_iam_user.this[0]")
+		if !ok {
+			t.Fatal("Lookup() should find indexed resource via base fallback")
+		}
+		if loc.Line != 2 {
+			t.Errorf("Line = %d, want 2", loc.Line)
+		}
+	})
+
+	t.Run("module plus index falls back", func(t *testing.T) {
+		loc, ok := idx.Lookup(`module.user["github.com"].aws_iam_user.this[0]`)
+		if !ok {
+			t.Fatal("Lookup() should find module+indexed address")
+		}
+		if loc.Line != 2 {
+			t.Errorf("Line = %d, want 2", loc.Line)
+		}
+	})
 }
 
 func TestSourceIndexLookupFile(t *testing.T) {

@@ -49,7 +49,7 @@ func NewSourceIndex(dir string) (*SourceIndex, error) {
 
 // Lookup returns the source location for a resource address.
 // Supports addresses like "aws_s3_bucket.main", "module.foo.aws_s3_bucket.bar".
-// Falls back to stripping module prefix for nested module resources.
+// Falls back to stripping module prefix and index suffixes for nested module resources.
 func (idx *SourceIndex) Lookup(address string) (editor.SourceLocation, bool) {
 	if loc, ok := idx.locations[address]; ok {
 		return loc, true
@@ -61,21 +61,55 @@ func (idx *SourceIndex) Lookup(address string) (editor.SourceLocation, bool) {
 			return loc, true
 		}
 	}
+	// Strip index suffixes: "aws_instance.web[0]" → "aws_instance.web"
+	bare := stripIndex(leaf)
+	if bare != leaf {
+		if loc, ok := idx.locations[bare]; ok {
+			return loc, true
+		}
+	}
 	return editor.SourceLocation{}, false
 }
 
-// stripModulePrefix removes all "module.name." prefixes and "data." awareness.
+// stripIndex removes bracket index suffixes from each segment of an address.
+// "aws_iam_user.this[0]" → "aws_iam_user.this"
+func stripIndex(address string) string {
+	idx := strings.Index(address, "[")
+	if idx < 0 {
+		return address
+	}
+	return address[:idx]
+}
+
+// stripModulePrefix removes all "module.name." prefixes, respecting brackets.
 func stripModulePrefix(address string) string {
 	for strings.HasPrefix(address, "module.") {
-		// Skip "module.<name>."
 		rest := address[len("module."):]
-		dot := strings.Index(rest, ".")
+		dot := dotAfterSegment(rest)
 		if dot < 0 {
 			return address
 		}
 		address = rest[dot+1:]
 	}
 	return address
+}
+
+// dotAfterSegment finds the first '.' that is not inside brackets.
+func dotAfterSegment(s string) int {
+	depth := 0
+	for i, ch := range s {
+		switch ch {
+		case '[':
+			depth++
+		case ']':
+			depth--
+		case '.':
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
 }
 
 // LookupFile returns the directory's main.tf (or first .tf file) as a fallback.
