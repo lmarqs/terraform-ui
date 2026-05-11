@@ -123,6 +123,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if r.Address != "" {
 			return f, f.plugin.requestEdit(r.Address)
 		}
+		node := f.plugin.CursorNode()
+		if node != nil {
+			return f, f.plugin.requestEdit(node.Path)
+		}
 	case "!":
 		targets := f.plugin.actionTargets()
 		if len(targets) > 0 {
