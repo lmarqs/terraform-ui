@@ -1,0 +1,19 @@
+---
+layout: default
+---
+<article>
+  <header>
+    <h1>{{ page.title }}</h1>
+    <p class="meta">
+      <span class="status status-{{ page.status }}">{{ page.status }}</span>
+      <span class="priority">{{ page.priority }} priority</span>
+      <span class="effort">{{ page.effort }} effort</span>
+      <time>{{ page.created }}</time>
+    </p>
+    {% if page.tags.size > 0 %}
+    <p class="tags">{% for tag in page.tags %}<code>{{ tag }}</code> {% endfor %}</p>
+    {% endif %}
+  </header>
+
+  {{ content }}
+</article>

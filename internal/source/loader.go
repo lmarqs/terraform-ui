@@ -75,8 +75,8 @@ func parseShowState(data []byte, uri string) ([]sdk.Resource, *tfjson.State, err
 
 // rawState represents the raw terraform.tfstate format (output of `terraform state pull`).
 type rawState struct {
-	Version   int            `json:"version"`
-	Resources []rawResource  `json:"resources"`
+	Version   int           `json:"version"`
+	Resources []rawResource `json:"resources"`
 }
 
 type rawResource struct {

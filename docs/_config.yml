@@ -20,6 +20,9 @@ collections:
   plugins:
     output: true
     permalink: /plugins/:name/
+  roadmap:
+    output: true
+    permalink: /roadmap/:name/
 
 defaults:
   - scope:
@@ -27,6 +30,11 @@ defaults:
       type: "plugins"
     values:
       layout: plugin
+  - scope:
+      path: "_roadmap"
+      type: "roadmap"
+    values:
+      layout: roadmap
 
 jekyll_plugins:
   - jekyll-seo-tag
