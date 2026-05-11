@@ -10,20 +10,17 @@ type KeyHint struct {
 
 // Common hints reusable across plugins.
 var (
-	HintNavigate = KeyHint{Key: "↑↓", Description: "navigate"}
-	HintScroll   = KeyHint{Key: "↑↓", Description: "scroll"}
-	HintPan      = KeyHint{Key: "←→", Description: "pan"}
-	HintBack     = KeyHint{Key: "q", Description: "back"}
-	HintRefresh  = KeyHint{Key: "r", Description: "refresh"}
-	HintRetry    = KeyHint{Key: "r", Description: "retry"}
-	HintFilter   = KeyHint{Key: "/", Description: "filter"}
-	HintPin      = KeyHint{Key: "Space", Description: "pin"}
-	HintDelete   = KeyHint{Key: "d", Description: "delete"}
-	HintEdit     = KeyHint{Key: "e", Description: "edit"}
-	HintInspect  = KeyHint{Key: "Enter", Description: "inspect"}
-	HintSelect   = KeyHint{Key: "Enter", Description: "select"}
-	HintConfirm  = KeyHint{Key: "Enter", Description: "confirm"}
-	HintCancel   = KeyHint{Key: "Esc", Description: "cancel"}
+	HintBack    = KeyHint{Key: "q", Description: "back"}
+	HintRefresh = KeyHint{Key: "r", Description: "refresh"}
+	HintRetry   = KeyHint{Key: "r", Description: "retry"}
+	HintFilter  = KeyHint{Key: "/", Description: "filter"}
+	HintPin     = KeyHint{Key: "Space", Description: "pin"}
+	HintDelete  = KeyHint{Key: "d", Description: "delete"}
+	HintEdit    = KeyHint{Key: "e", Description: "edit"}
+	HintInspect = KeyHint{Key: "Enter", Description: "inspect"}
+	HintSelect  = KeyHint{Key: "Enter", Description: "select"}
+	HintConfirm = KeyHint{Key: "Enter", Description: "confirm"}
+	HintCancel  = KeyHint{Key: "Esc", Description: "cancel"}
 )
 
 // Frame is a composable view layer that lives in a navigation stack.
@@ -61,29 +58,26 @@ type FramePushMsg struct {
 type HintSet uint32
 
 const (
-	HintSetNavigate HintSet = 1 << iota // ↑↓ navigate
-	HintSetScroll                        // ↑↓ scroll
-	HintSetPan                           // ←→ pan
-	HintSetInspect                       // Enter inspect
-	HintSetSelect                        // Enter select
-	HintSetConfirm                       // Enter confirm
-	HintSetPin                           // Space pin
-	HintSetFilter                        // / filter
-	HintSetTree                          // ^t flat/tree (dynamic label)
-	HintSetCollapse                      // [/] collapse/expand
-	HintSetWrap                          // ^w wrap(on/off) (dynamic label)
-	HintSetRefresh                       // r refresh
-	HintSetRetry                         // r retry
-	HintSetDelete                        // d delete
-	HintSetEdit                          // e edit
-	HintSetApply                         // a apply
-	HintSetNew                           // n new
-	HintSetUnlock                        // u force-unlock
-	HintSetPinnedFilter                  // ^p pinned(on/off) (dynamic label)
-	HintSetClearPins                     // ^u unpin all
-	HintSetActions                       // a actions
-	HintSetCancel                        // Esc cancel
-	HintSetBack                          // q back
+	HintSetInspect HintSet = 1 << iota // Enter inspect
+	HintSetSelect                       // Enter select
+	HintSetConfirm                      // Enter confirm
+	HintSetPin                          // Space pin
+	HintSetFilter                       // / filter
+	HintSetTree                         // ^t flat/tree (dynamic label)
+	HintSetCollapse                     // [/] collapse/expand
+	HintSetWrap                         // ^w wrap(on/off) (dynamic label)
+	HintSetRefresh                      // r refresh
+	HintSetRetry                        // r retry
+	HintSetDelete                       // d delete
+	HintSetEdit                         // e edit
+	HintSetApply                        // a apply
+	HintSetNew                          // n new
+	HintSetUnlock                       // u force-unlock
+	HintSetPinnedFilter                 // ^p pinned(on/off) (dynamic label)
+	HintSetClearPins                    // ^u unpin all
+	HintSetActions                      // ! actions
+	HintSetCancel                       // Esc cancel
+	HintSetBack                         // q back
 )
 
 // HintSetOpts provides dynamic state for hints that need it.
@@ -103,9 +97,6 @@ type hintDef struct {
 
 // hintOrder defines the fixed rendering order for all standard hints.
 var hintOrder = []hintDef{
-	{bit: HintSetNavigate, hint: KeyHint{Key: "↑↓", Description: "navigate"}},
-	{bit: HintSetScroll, hint: KeyHint{Key: "↑↓", Description: "scroll"}},
-	{bit: HintSetPan, hint: KeyHint{Key: "←→", Description: "pan"}},
 	{bit: HintSetInspect, hint: KeyHint{Key: "Enter", Description: "inspect"}},
 	{bit: HintSetSelect, hint: KeyHint{Key: "Enter", Description: "select"}},
 	{bit: HintSetConfirm, hint: KeyHint{Key: "Enter", Description: "confirm"}},
@@ -123,7 +114,7 @@ var hintOrder = []hintDef{
 	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
 	{bit: HintSetPinnedFilter, dynamic: true},
 	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
-	{bit: HintSetActions, hint: KeyHint{Key: "^a", Description: "actions"}},
+	{bit: HintSetActions, hint: KeyHint{Key: "!", Description: "actions"}},
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
 	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
 }

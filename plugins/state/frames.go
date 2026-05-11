@@ -123,7 +123,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if r.Address != "" {
 			return f, f.plugin.requestEdit(r.Address)
 		}
-	case "ctrl+a":
+	case "!":
 		targets := f.plugin.actionTargets()
 		if len(targets) > 0 {
 			f.plugin.stack.Push(f.plugin.buildActionFrame(targets[0], true))
@@ -167,10 +167,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints()
 	default:
-		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPinnedFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetActions | sdk.HintSetBack
-		if !f.plugin.listWrap {
-			set |= sdk.HintSetPan
-		}
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPinnedFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetActions | sdk.HintSetBack
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse
 		}
@@ -226,7 +223,7 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, f.plugin.requestDelete(f.plugin.detailAddr)
 	case "e":
 		return f, f.plugin.requestEdit(f.plugin.detailAddr)
-	case "ctrl+a":
+	case "!":
 		f.plugin.stack.Push(f.plugin.buildActionFrame(f.plugin.detailAddr, false))
 	case "m":
 		return f, f.plugin.requestMove(f.plugin.detailAddr)
@@ -245,10 +242,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetScroll | sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetActions | sdk.HintSetCancel
-	if !f.plugin.detailWrap {
-		set |= sdk.HintSetPan
-	}
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetActions | sdk.HintSetCancel
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
@@ -310,7 +304,7 @@ func (f *stateFilterFrame) View(width, height int) string {
 }
 
 func (f *stateFilterFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
+	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
 	if f.plugin.treeMode {
 		set |= sdk.HintSetCollapse
 	}

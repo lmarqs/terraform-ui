@@ -18,9 +18,6 @@ func TestHintSet_WhenSingleHint_ShouldReturnCorrectKeyHint(t *testing.T) {
 		wantKey  string
 		wantDesc string
 	}{
-		{"ShouldShowNavigate", HintSetNavigate, "↑↓", "navigate"},
-		{"ShouldShowScroll", HintSetScroll, "↑↓", "scroll"},
-		{"ShouldShowPan", HintSetPan, "←→", "pan"},
 		{"ShouldShowInspect", HintSetInspect, "Enter", "inspect"},
 		{"ShouldShowSelect", HintSetSelect, "Enter", "select"},
 		{"ShouldShowConfirm", HintSetConfirm, "Enter", "confirm"},
@@ -63,29 +60,29 @@ func TestHintSet_WhenCombined_ShouldProduceFixedOrder(t *testing.T) {
 		wantDescs []string
 	}{
 		{
-			"ShouldOrderNavigateBeforeBack",
-			HintSetBack | HintSetNavigate,
-			[]string{"navigate", "back"},
+			"ShouldOrderInspectBeforeBack",
+			HintSetBack | HintSetInspect,
+			[]string{"inspect", "back"},
 		},
 		{
 			"ShouldOrderRegardlessOfBitCombinationOrder",
-			HintSetBack | HintSetFilter | HintSetNavigate | HintSetPin,
-			[]string{"navigate", "pin", "filter", "back"},
+			HintSetBack | HintSetFilter | HintSetInspect | HintSetPin,
+			[]string{"inspect", "pin", "filter", "back"},
 		},
 		{
 			"ShouldMatchStateListPattern",
-			HintSetNavigate | HintSetInspect | HintSetPin | HintSetFilter | HintSetTree | HintSetBack,
-			[]string{"navigate", "inspect", "pin", "filter", "flat", "back"},
+			HintSetInspect | HintSetPin | HintSetFilter | HintSetTree | HintSetBack,
+			[]string{"inspect", "pin", "filter", "flat", "back"},
 		},
 		{
 			"ShouldMatchStateDetailPattern",
-			HintSetCancel | HintSetScroll | HintSetPan | HintSetWrap | HintSetPin | HintSetDelete | HintSetEdit,
-			[]string{"scroll", "pan", "pin", "wrap(off)", "delete", "edit", "cancel"},
+			HintSetCancel | HintSetWrap | HintSetPin | HintSetDelete | HintSetEdit,
+			[]string{"pin", "wrap(off)", "delete", "edit", "cancel"},
 		},
 		{
 			"ShouldMatchPlanDonePattern",
-			HintSetNavigate | HintSetInspect | HintSetPin | HintSetApply | HintSetRefresh | HintSetBack,
-			[]string{"navigate", "inspect", "pin", "refresh", "apply", "back"},
+			HintSetInspect | HintSetPin | HintSetApply | HintSetRefresh | HintSetBack,
+			[]string{"inspect", "pin", "refresh", "apply", "back"},
 		},
 		{
 			"ShouldMatchPlanErrorPattern",
@@ -137,11 +134,11 @@ func TestHintSet_WhenDynamicHintsWithOpts_ShouldReflectState(t *testing.T) {
 }
 
 func TestHintSet_WhenPinnedOptSet_ShouldAppendPinnedIndicator(t *testing.T) {
-	set := HintSetNavigate | HintSetBack
+	set := HintSetInspect | HintSetBack
 	hints := set.Hints(HintSetOpts{Pinned: true})
 
 	if len(hints) < 3 {
-		t.Fatalf("expected at least 3 hints (navigate + back + pinned), got %d", len(hints))
+		t.Fatalf("expected at least 3 hints (inspect + back + pinned), got %d", len(hints))
 	}
 	last := hints[len(hints)-1]
 	if last.Description != "[pinned]" {
@@ -153,7 +150,7 @@ func TestHintSet_WhenPinnedOptSet_ShouldAppendPinnedIndicator(t *testing.T) {
 }
 
 func TestHintSet_WhenPinnedOptFalse_ShouldNotAppendPinnedIndicator(t *testing.T) {
-	set := HintSetNavigate | HintSetBack
+	set := HintSetInspect | HintSetBack
 	hints := set.Hints(HintSetOpts{Pinned: false})
 
 	for _, h := range hints {
@@ -191,13 +188,13 @@ func TestHintSet_Has_WhenSubsetPresent_ShouldReturnTrue(t *testing.T) {
 		other  HintSet
 		expect bool
 	}{
-		{"ShouldReturnTrueForSingleBitPresent", HintSetNavigate | HintSetBack, HintSetNavigate, true},
-		{"ShouldReturnTrueForMultipleBitsPresent", HintSetNavigate | HintSetBack | HintSetFilter, HintSetNavigate | HintSetBack, true},
-		{"ShouldReturnTrueForSameSet", HintSetNavigate | HintSetBack, HintSetNavigate | HintSetBack, true},
-		{"ShouldReturnTrueForZeroSubset", HintSetNavigate, HintSet(0), true},
-		{"ShouldReturnFalseForMissingBit", HintSetNavigate | HintSetBack, HintSetFilter, false},
-		{"ShouldReturnFalseForPartialSubset", HintSetNavigate | HintSetBack, HintSetNavigate | HintSetFilter, false},
-		{"ShouldReturnFalseForZeroHasNonZero", HintSet(0), HintSetNavigate, false},
+		{"ShouldReturnTrueForSingleBitPresent", HintSetInspect | HintSetBack, HintSetInspect, true},
+		{"ShouldReturnTrueForMultipleBitsPresent", HintSetInspect | HintSetBack | HintSetFilter, HintSetInspect | HintSetBack, true},
+		{"ShouldReturnTrueForSameSet", HintSetInspect | HintSetBack, HintSetInspect | HintSetBack, true},
+		{"ShouldReturnTrueForZeroSubset", HintSetInspect, HintSet(0), true},
+		{"ShouldReturnFalseForMissingBit", HintSetInspect | HintSetBack, HintSetFilter, false},
+		{"ShouldReturnFalseForPartialSubset", HintSetInspect | HintSetBack, HintSetInspect | HintSetFilter, false},
+		{"ShouldReturnFalseForZeroHasNonZero", HintSet(0), HintSetInspect, false},
 	}
 
 	for _, tt := range tests {
@@ -210,48 +207,21 @@ func TestHintSet_Has_WhenSubsetPresent_ShouldReturnTrue(t *testing.T) {
 	}
 }
 
-func TestHintSet_WhenNavigateAndScrollBothSet_ShouldProduceBothHints(t *testing.T) {
-	set := HintSetNavigate | HintSetScroll
-	hints := set.Hints()
-
-	if len(hints) != 2 {
-		t.Fatalf("expected 2 hints, got %d", len(hints))
-	}
-
-	descs := hintsDescs(hints)
-	hasNavigate := false
-	hasScroll := false
-	for _, d := range descs {
-		if d == "navigate" {
-			hasNavigate = true
-		}
-		if d == "scroll" {
-			hasScroll = true
-		}
-	}
-	if !hasNavigate {
-		t.Error("expected navigate hint to be present")
-	}
-	if !hasScroll {
-		t.Error("expected scroll hint to be present")
-	}
-}
-
 func TestHintSet_WhenAllBitsSet_ShouldProduceAllHints(t *testing.T) {
-	all := HintSetNavigate | HintSetScroll | HintSetPan | HintSetInspect |
+	all := HintSetInspect |
 		HintSetSelect | HintSetConfirm | HintSetPin | HintSetFilter |
 		HintSetTree | HintSetCollapse | HintSetWrap | HintSetRefresh |
 		HintSetRetry | HintSetDelete | HintSetEdit | HintSetApply |
 		HintSetNew | HintSetUnlock | HintSetCancel | HintSetBack
 
 	hints := all.Hints()
-	if len(hints) != 20 {
-		t.Fatalf("expected 20 hints, got %d", len(hints))
+	if len(hints) != 17 {
+		t.Fatalf("expected 17 hints, got %d", len(hints))
 	}
 }
 
 func TestHintSet_WhenDynamicOptsWithCombination_ShouldApplyToCorrectHints(t *testing.T) {
-	set := HintSetNavigate | HintSetTree | HintSetWrap | HintSetBack
+	set := HintSetInspect | HintSetTree | HintSetWrap | HintSetBack
 	opts := HintSetOpts{TreeMode: true, WrapMode: true}
 
 	hints := set.Hints(opts)
@@ -270,8 +240,8 @@ func TestHintSet_WhenDynamicOptsWithCombination_ShouldApplyToCorrectHints(t *tes
 	if !found["wrap(on)"] {
 		t.Error("expected 'wrap(on)' hint (WrapMode=true)")
 	}
-	if !found["navigate"] {
-		t.Error("expected 'navigate' hint")
+	if !found["inspect"] {
+		t.Error("expected 'inspect' hint")
 	}
 	if !found["back"] {
 		t.Error("expected 'back' hint")
@@ -279,12 +249,12 @@ func TestHintSet_WhenDynamicOptsWithCombination_ShouldApplyToCorrectHints(t *tes
 }
 
 func TestHintSet_WhenPinnedWithDynamicOpts_ShouldAppendAfterAll(t *testing.T) {
-	set := HintSetNavigate | HintSetTree | HintSetBack
+	set := HintSetInspect | HintSetTree | HintSetBack
 	opts := HintSetOpts{TreeMode: true, Pinned: true}
 
 	hints := set.Hints(opts)
 	if len(hints) != 4 {
-		t.Fatalf("expected 4 hints (navigate + tree + back + pinned), got %d: %v", len(hints), hintsDescs(hints))
+		t.Fatalf("expected 4 hints (inspect + tree + back + pinned), got %d: %v", len(hints), hintsDescs(hints))
 	}
 
 	last := hints[len(hints)-1]

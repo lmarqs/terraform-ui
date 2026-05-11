@@ -75,10 +75,10 @@ func (p *Plugin) ScopeCount() int     { return len(p.scopes) }
 // Hints returns context-sensitive key hints for the status bar.
 func (p *Plugin) Hints() []sdk.KeyHint {
 	if p.filtering {
-		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetCancel).Hints()
+		return (sdk.HintSetSelect | sdk.HintSetCancel).Hints()
 	}
 	if p.status == StatusDone && len(p.scopes) > 0 {
-		return (sdk.HintSetNavigate | sdk.HintSetFilter | sdk.HintSetSelect | sdk.HintSetBack).Hints()
+		return (sdk.HintSetFilter | sdk.HintSetSelect | sdk.HintSetBack).Hints()
 	}
 	return (sdk.HintSetBack).Hints()
 }

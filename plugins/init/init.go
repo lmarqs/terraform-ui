@@ -74,11 +74,11 @@ func (p *Plugin) Ready() bool         { return p.status == StatusDone }
 func (p *Plugin) Hints() []sdk.KeyHint {
 	switch p.status {
 	case StatusMenu:
-		return (sdk.HintSetNavigate | sdk.HintSetSelect | sdk.HintSetBack).Hints()
+		return (sdk.HintSetSelect | sdk.HintSetBack).Hints()
 	case StatusDetecting:
 		return (sdk.HintSetBack).Hints()
 	case StatusReview:
-		return (sdk.HintSetNavigate | sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
+		return (sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
 	case StatusConfirm:
 		return (sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
 	case StatusDone:

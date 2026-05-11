@@ -79,7 +79,7 @@ func (e *Plugin) Count() (int, int)   { return len(e.modules), e.total }
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
 	if e.status == StatusReady && len(e.modules) > 0 {
-		return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetBack).Hints()
+		return (sdk.HintSetInspect | sdk.HintSetBack).Hints()
 	}
 	return (sdk.HintSetBack).Hints()
 }

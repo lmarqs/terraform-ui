@@ -75,7 +75,7 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 		if len(p.diagnostics) == 0 {
 			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 		}
-		return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+		return (sdk.HintSetInspect | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
 	}

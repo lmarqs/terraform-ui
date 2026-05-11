@@ -52,7 +52,7 @@ func (e *Plugin) Overall() sdk.RiskLevel {
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
 	if e.status == StatusReady && len(e.groups) > 0 {
-		return (sdk.HintSetNavigate | sdk.HintSetBack).Hints()
+		return (sdk.HintSetBack).Hints()
 	}
 	return (sdk.HintSetBack).Hints()
 }

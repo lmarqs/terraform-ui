@@ -40,8 +40,6 @@ func (s StatusBar) Render(width int) string {
 			sdk.StyleKey.Render("esc") + " back  " +
 			sdk.StyleKey.Render("^w") + " wrap  " +
 			sdk.StyleKey.Render("/") + " search  " +
-			sdk.StyleKey.Render("↑↓") + " navigate  " +
-			sdk.StyleKey.Render("←→") + " pan  " +
 			sdk.StyleKey.Render("?") + " help"
 	}
 

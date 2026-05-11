@@ -40,7 +40,7 @@ func TestStatusBar_Render_ContainsLabels(t *testing.T) {
 
 	output := sb.Render(120)
 
-	expectedLabels := []string{"quit", "back", "wrap", "help", "search", "navigate"}
+	expectedLabels := []string{"quit", "back", "wrap", "help", "search"}
 	for _, label := range expectedLabels {
 		if !strings.Contains(output, label) {
 			t.Errorf("Render() should contain label %q", label)

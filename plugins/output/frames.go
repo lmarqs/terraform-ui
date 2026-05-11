@@ -68,13 +68,13 @@ func (f *listFrame) View(width, height int) string {
 
 func (f *listFrame) Hints() []sdk.KeyHint {
 	if f.plugin.filtering {
-		return (sdk.HintSetNavigate | sdk.HintSetCancel).Hints()
+		return (sdk.HintSetCancel).Hints()
 	}
 	switch f.plugin.status {
 	case StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	case StatusDone:
-		return (sdk.HintSetNavigate | sdk.HintSetFilter | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+		return (sdk.HintSetFilter | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
 	}
