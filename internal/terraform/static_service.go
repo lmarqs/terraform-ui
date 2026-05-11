@@ -13,6 +13,12 @@ import (
 // ErrReadOnly is returned by mutating operations on a StaticService.
 var ErrReadOnly = errors.New("operation not available in read-only mode")
 
+// readOnlyHint returns an error containing the equivalent terraform CLI command.
+// The command is on its own line so it can be piped to sh.
+func readOnlyHint(command string) error {
+	return fmt.Errorf("%w\n%s", ErrReadOnly, command)
+}
+
 // StaticService implements sdk.Service with pre-loaded plan and state data.
 // All mutating operations return ErrReadOnly.
 type StaticService struct {
@@ -38,8 +44,12 @@ func (s *StaticService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, e
 	return s.plan, nil
 }
 
-func (s *StaticService) Apply(_ context.Context, _ []string) error {
-	return fmt.Errorf("apply: %w", ErrReadOnly)
+func (s *StaticService) Apply(_ context.Context, targets []string) error {
+	cmd := "terraform apply"
+	for _, t := range targets {
+		cmd += " -target=" + t
+	}
+	return readOnlyHint(cmd)
 }
 
 func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {
@@ -102,24 +112,24 @@ func (s *StaticService) WorkspaceDelete(_ context.Context, _ string) error {
 	return fmt.Errorf("workspace delete: %w", ErrReadOnly)
 }
 
-func (s *StaticService) StateRm(_ context.Context, _ string) error {
-	return fmt.Errorf("state rm: %w", ErrReadOnly)
+func (s *StaticService) StateRm(_ context.Context, address string) error {
+	return readOnlyHint("terraform state rm " + address)
 }
 
-func (s *StaticService) StateMove(_ context.Context, _, _ string) error {
-	return fmt.Errorf("state mv: %w", ErrReadOnly)
+func (s *StaticService) StateMove(_ context.Context, src, dst string) error {
+	return readOnlyHint("terraform state mv " + src + " " + dst)
 }
 
-func (s *StaticService) Import(_ context.Context, _, _ string) error {
-	return fmt.Errorf("import: %w", ErrReadOnly)
+func (s *StaticService) Import(_ context.Context, address, id string) error {
+	return readOnlyHint("terraform import " + address + " " + id)
 }
 
-func (s *StaticService) Taint(_ context.Context, _ string) error {
-	return fmt.Errorf("taint: %w", ErrReadOnly)
+func (s *StaticService) Taint(_ context.Context, address string) error {
+	return readOnlyHint("terraform taint " + address)
 }
 
-func (s *StaticService) Untaint(_ context.Context, _ string) error {
-	return fmt.Errorf("untaint: %w", ErrReadOnly)
+func (s *StaticService) Untaint(_ context.Context, address string) error {
+	return readOnlyHint("terraform untaint " + address)
 }
 
 func (s *StaticService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
