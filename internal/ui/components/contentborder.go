@@ -61,7 +61,7 @@ func formatBorderTitle(title string, filtered, total, pinned int) string {
 		s = fmt.Sprintf("%s (%d/%d)", title, filtered, total)
 	}
 	if pinned > 0 {
-		s += fmt.Sprintf(" 📌%d", pinned)
+		s += fmt.Sprintf(" ⌖%d", pinned)
 	}
 	return s
 }

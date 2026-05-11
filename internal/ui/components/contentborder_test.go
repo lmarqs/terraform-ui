@@ -101,8 +101,8 @@ func TestFormatBorderTitle(t *testing.T) {
 		{"TotalOnly", "State", 100, 100, 0, "State (100)"},
 		{"FilteredTotal", "State", 30, 1549, 0, "State (30/1549)"},
 		{"ZeroTotal", "Plan", 0, 0, 0, "Plan"},
-		{"WithPinned", "State", 1549, 1549, 5, "State (1549) 📌5"},
-		{"FilteredWithPinned", "State", 30, 1549, 3, "State (30/1549) 📌3"},
+		{"WithPinned", "State", 1549, 1549, 5, "State (1549) ⌖5"},
+		{"FilteredWithPinned", "State", 30, 1549, 3, "State (30/1549) ⌖3"},
 		{"PinnedZeroNotShown", "State", 100, 100, 0, "State (100)"},
 	}
 
