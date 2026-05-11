@@ -128,6 +128,7 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 - `Esc` exits filter mode
 - `Enter` inspects (leaf) or expands (branch)
 - Backspace on empty filter: stays in filter mode (doesn't exit)
+- Filter bar renders at the **top** of the list (above items, below any header)
 
 ## 7. Tree Navigation
 

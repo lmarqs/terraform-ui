@@ -20,6 +20,18 @@ You audit terraform-ui plugin views for UX consistency per `.claude/ux-guideline
 
 ## Checks
 
+### Filter bar position (top, not bottom)
+
+The filter bar (`/ query█` or `filter: query`) must render **above** the list content in every plugin. Check that filter output is concatenated before the item list, never after:
+
+```bash
+# BAD: filter appended to footer (renders at bottom)
+grep -n 'items.*+.*filter\|b\.String().*+.*filter' plugins/*/*.go
+
+# GOOD: filter prepended before items
+grep -n 'filterLine.*+.*tree\|filterLine.*+.*b\.String' plugins/*/*.go
+```
+
 ### No standard keys in View() output
 
 Standard `HintSet` vocabulary must NEVER appear inline in plugin views:

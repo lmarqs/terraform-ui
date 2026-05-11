@@ -200,6 +200,9 @@ func (p *Plugin) updateFilter(msg tea.KeyMsg) (sdk.Plugin, tea.Cmd) {
 	if result == nil {
 		p.filtering = false
 		p.filterFrm = nil
+		if p.filter == "" {
+			p.filtered = p.scopes
+		}
 		return p, cmd
 	}
 	return p, cmd
@@ -292,11 +295,16 @@ func (p *Plugin) renderScopes(width, height int) string {
 		)
 	}
 
-	var b strings.Builder
+	filterLine := ""
+	if p.filtering && p.filterFrm != nil {
+		filterLine = p.filterFrm.View(width, 1) + "\n\n"
+	} else if p.filter != "" {
+		filterLine = sdk.StyleKey.Render("filter: ") + p.filter + "\n\n"
+	}
 
 	filterHeight := 0
-	if p.filtering {
-		filterHeight = 1
+	if filterLine != "" {
+		filterHeight = 2
 	}
 
 	maxVisible := height - 4 - filterHeight
@@ -320,6 +328,7 @@ func (p *Plugin) renderScopes(width, height int) string {
 		activeScope = p.scopes[p.active].Path
 	}
 
+	var b strings.Builder
 	for i := startIdx; i < endIdx; i++ {
 		s := items[i]
 		indicator := "  "
@@ -337,11 +346,7 @@ func (p *Plugin) renderScopes(width, height int) string {
 	}
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d/%d scope(s)", len(items), len(p.scopes)))
-	footer := "\n" + count
-	if p.filtering && p.filterFrm != nil {
-		footer = "\n" + p.filterFrm.View(width, 1) + "\n" + count
-	}
-	return b.String() + footer
+	return filterLine + b.String() + "\n" + count
 }
 
 func deriveScopeName(path string) string {
