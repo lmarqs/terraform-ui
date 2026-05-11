@@ -41,6 +41,7 @@ type Plugin struct {
 	confirmed      bool
 	totalResources int
 	scopedContext  string
+	guard          *sdk.ScopeGuard
 }
 
 // New creates a new apply plugin.
@@ -95,6 +96,7 @@ func (e *Plugin) SetTargets(targets []string) {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.session = ctx.Session
+	e.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
 	if e.session != nil {
 		if summary, ok := sdk.GetTyped[*sdk.PlanSummary](e.session, sdk.SessionKeyPlanSummary); ok {
 			e.totalResources = len(summary.Changes)
@@ -105,27 +107,25 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate scopes the service to the active context before apply operations.
 func (e *Plugin) Activate() tea.Cmd {
-	// Check if the active context changed since last activation
-	if e.session != nil {
-		currentContext, _ := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != e.scopedContext {
-			// Context changed — reset status
-			e.status = StatusIdle
-			e.errMsg = ""
-			e.scopedContext = currentContext
-			if currentContext != "" {
-				e.svc = e.svc.WithDir(currentContext)
-			}
-		}
-
-		if e.scopedContext == "" {
-			if count, ok := sdk.GetTyped[int](e.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-				e.status = StatusError
-				e.errMsg = "Select a context first (press c)"
-				return nil
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if e.scopedContext != "" && e.guard.CurrentScope() == "" {
+		e.guard.SetTracked(e.scopedContext)
 	}
+
+	scopeStatus, svc := e.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		e.svc = svc
+		e.scopedContext = e.guard.CurrentScope()
+		// Apply intentionally preserves targets/confirmed/totalResources across scope changes
+		e.status = StatusIdle
+		e.errMsg = ""
+	case sdk.ScopeRequired:
+		e.status = StatusError
+		e.errMsg = "Select a context first (press c)"
+		return nil
+	}
+
 	return nil
 }
 
