@@ -146,14 +146,69 @@ mise run test:integration # Integration tests (need terraform)
 mise run run              # Launch TUI in dev mode
 ```
 
-## Key Decisions
+## Key Design Decisions
+
+### Architecture
 
 | Decision | Rationale |
 |----------|-----------|
 | `pkg/sdk` as public contract | Plugins never import internal/. Enables future extraction and gRPC plugins. |
 | Plugin = feature | Every capability is a plugin. Core app is just routing. |
 | Dependency injection | Service interface enables mocking. Plugins receive context, not concrete types. |
+| Plugins invocation-agnostic | Same plugin works via keybinding, command bar, CLI, macro. No coupling to navigation. |
 | hashicorp/go-plugin (future) | Third-party plugins as separate binaries over gRPC. Same interface, different transport. |
-| semantic-release + goreleaser | Automatic versioning from commits + cross-platform binary distribution. |
 | 100% coverage (excl cmd/) | Pipeline enforced. Untestable layers kept minimal via DI. |
 | OpenTofu first-class | Auto-detect, configurable. Test matrix includes both. |
+
+### UX
+
+| Decision | Rationale |
+|----------|-----------|
+| Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. Can take 10+ minutes. |
+| Pins = targets | Visual selection (space) is the TUI equivalent of `--target`. Pin then apply = apply only pinned. |
+| `a` from Plan = apply with pins | Seamless flow: review → select → execute. No address typing. |
+| StaticService returns commands, not errors | Read-only mode becomes a command builder. User sees the terraform command to run manually. |
+| CLI and TUI produce identical state | Testable invariant. The equivalence guarantee. |
+| Macros test UI, integration tests outcomes | Different concerns, different tools. Macros are fast/deterministic. Integration tests are authoritative. |
+
+### Command Type (`pkg/sdk/command.go`)
+
+Every service operation maps to a `sdk.Command`:
+
+```go
+type Command struct {
+    Binary string   // "terraform" or "tofu"
+    Verb   string   // "plan", "apply", "state rm", etc.
+    Args   []string // positional (addresses, IDs)
+    Flags  []string // flags like "-target=X"
+    Dir    string   // working directory
+}
+```
+
+This makes the tool's relationship to terraform explicit: **tfui is a command builder with a visual interface**. The TUI helps you construct the right terraform command. The CLI gives you a concise alternative. Both produce the same command, same outcome.
+
+In read-only mode, mutating operations return `CommandErr` — the user sees what they'd need to run:
+```
+terraform state rm aws_instance.old
+terraform apply -target=aws_instance.web
+```
+
+### Data Flow: Plan → Pin → Apply
+
+```
+User presses 'p' → Plan plugin activates
+  → svc.Plan(ctx, nil) → terraform plan
+  → Shows changes with risk badges
+
+User presses 'space' on resources → pins in session
+
+User presses 'a' → Plan emits ApplyRequestMsg
+  → App reads pins from session
+  → Activates Apply plugin with pins as targets
+  → Re-plans with --target (only pinned)
+  → Shows confirmation: "Apply 2 of 12 changes?"
+
+User presses 'y' → svc.Apply(ctx, targets)
+  → terraform apply (targeted plan)
+  → Shows elapsed time → success/error
+```
