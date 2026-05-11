@@ -383,6 +383,79 @@ func TestFlatMode_PinTargetsSelectedResource(t *testing.T) {
 	}
 }
 
+func TestStateFilterFrame_PanRightLeft(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+
+	// Enter filter mode
+	f := &listFrame{plugin: p}
+	f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if !p.filtering {
+		t.Fatal("expected filtering mode after /")
+	}
+
+	t.Run("ShouldPanRightInFilterMode", func(t *testing.T) {
+		p.listHScroll = 0
+		p.Update(tea.KeyMsg{Type: tea.KeyRight})
+		if p.listHScroll != 10 {
+			t.Errorf("expected listHScroll=10 after right, got %d", p.listHScroll)
+		}
+	})
+
+	t.Run("ShouldPanLeftInFilterMode", func(t *testing.T) {
+		p.listHScroll = 10
+		p.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		if p.listHScroll != 0 {
+			t.Errorf("expected listHScroll=0 after left, got %d", p.listHScroll)
+		}
+	})
+
+	t.Run("ShouldNotAddArrowsToFilter", func(t *testing.T) {
+		p.listHScroll = 0
+		p.Update(tea.KeyMsg{Type: tea.KeyRight})
+		p.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		if p.filter != "" {
+			t.Errorf("expected filter to remain empty, got %q", p.filter)
+		}
+	})
+}
+
+func TestListFrame_PanRightLeft(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	t.Run("ShouldPanRight", func(t *testing.T) {
+		p.listHScroll = 0
+		f.Update(tea.KeyMsg{Type: tea.KeyRight})
+		if p.listHScroll != 10 {
+			t.Errorf("expected listHScroll=10 after right, got %d", p.listHScroll)
+		}
+	})
+
+	t.Run("ShouldPanLeft", func(t *testing.T) {
+		p.listHScroll = 10
+		f.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		if p.listHScroll != 0 {
+			t.Errorf("expected listHScroll=0 after left, got %d", p.listHScroll)
+		}
+	})
+
+	t.Run("ShouldNotPanBelowZero", func(t *testing.T) {
+		p.listHScroll = 0
+		f.Update(tea.KeyMsg{Type: tea.KeyLeft})
+		if p.listHScroll != 0 {
+			t.Errorf("expected listHScroll=0, got %d", p.listHScroll)
+		}
+	})
+}
+
 func TestListFrame_Hints_FlatMode(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "module.a.aws_instance.one", Type: "aws_instance"},

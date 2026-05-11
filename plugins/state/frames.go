@@ -223,6 +223,12 @@ func (f *stateFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 				f.plugin.tree.CollapseAll()
 			}
 			return f, nil
+		case "right":
+			f.plugin.panListRight()
+			return f, nil
+		case "left":
+			f.plugin.panListLeft()
+			return f, nil
 		}
 	}
 
