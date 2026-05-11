@@ -28,6 +28,10 @@ type Config struct {
 	// Set via --scope flag for non-interactive scope selection.
 	ActiveScope string `yaml:"-"`
 
+	// ReadOnly indicates data was loaded from external source (--plan/--state).
+	// Disables scope picker and mutating UI elements.
+	ReadOnly bool `yaml:"-"`
+
 	// Terraform holds terraform-specific configuration (binary path, etc.).
 	Terraform TerraformConfig `yaml:"terraform"`
 

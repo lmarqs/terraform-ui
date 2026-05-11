@@ -132,6 +132,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 	var svc sdk.Service
 
 	if planURI != "" || stateURI != "" {
+		cfg.ReadOnly = true
 		staticSvc, err := buildStaticService(cfg, planURI, stateURI)
 		if err != nil {
 			return err
