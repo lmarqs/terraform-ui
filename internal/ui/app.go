@@ -41,6 +41,7 @@ type App struct {
 	commandInput  string
 
 	inputActive   bool
+	inputMode     sdk.InputRequestMode
 	inputPrompt   string
 	inputAnswer   string
 	inputCallback func(string) tea.Cmd
@@ -148,6 +149,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.RequestInputMsg:
 		a.inputActive = true
+		a.inputMode = msg.Request.Mode
 		a.inputPrompt = msg.Request.Prompt
 		a.inputAnswer = msg.Request.Default
 		a.inputCallback = msg.Request.Callback
@@ -223,37 +225,54 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Input prompt mode
 	if a.inputActive {
-		switch msg.String() {
-		case "y":
-			if a.inputCallback != nil {
-				cmd := a.inputCallback("y")
+		switch {
+		case a.inputMode == sdk.InputRequestBool:
+			// Confirmation mode: only handle y/n/esc
+			switch msg.String() {
+			case "y":
+				if a.inputCallback != nil {
+					cmd := a.inputCallback("y")
+					a.inputActive = false
+					a.inputMode = 0
+					a.inputPrompt = ""
+					a.inputAnswer = ""
+					a.inputCallback = nil
+					return a, cmd
+				}
+			case "n", "esc":
 				a.inputActive = false
+				a.inputMode = 0
 				a.inputPrompt = ""
 				a.inputAnswer = ""
 				a.inputCallback = nil
-				return a, cmd
-			}
-		case "n", "esc":
-			a.inputActive = false
-			a.inputPrompt = ""
-			a.inputAnswer = ""
-			a.inputCallback = nil
-		case "enter":
-			if a.inputCallback != nil {
-				cmd := a.inputCallback(a.inputAnswer)
-				a.inputActive = false
-				a.inputPrompt = ""
-				a.inputAnswer = ""
-				a.inputCallback = nil
-				return a, cmd
-			}
-		case "backspace", "ctrl+h":
-			if len(a.inputAnswer) > 0 {
-				a.inputAnswer = a.inputAnswer[:len(a.inputAnswer)-1]
 			}
 		default:
-			if len(msg.String()) == 1 && msg.String() >= " " {
-				a.inputAnswer += msg.String()
+			// Text/select mode: enter submits, esc cancels, everything else is input
+			switch msg.String() {
+			case "esc":
+				a.inputActive = false
+				a.inputMode = 0
+				a.inputPrompt = ""
+				a.inputAnswer = ""
+				a.inputCallback = nil
+			case "enter":
+				if a.inputCallback != nil {
+					cmd := a.inputCallback(a.inputAnswer)
+					a.inputActive = false
+					a.inputMode = 0
+					a.inputPrompt = ""
+					a.inputAnswer = ""
+					a.inputCallback = nil
+					return a, cmd
+				}
+			case "backspace", "ctrl+h":
+				if len(a.inputAnswer) > 0 {
+					a.inputAnswer = a.inputAnswer[:len(a.inputAnswer)-1]
+				}
+			default:
+				if len(msg.String()) == 1 && msg.String() >= " " {
+					a.inputAnswer += msg.String()
+				}
 			}
 		}
 		return a, nil
