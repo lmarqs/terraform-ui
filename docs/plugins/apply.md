@@ -3,24 +3,133 @@ layout: plugin
 title: Apply
 id: apply
 key: a
-description: Apply terraform changes with confirmation and elapsed time tracking
+description: Apply terraform changes with confirmation, targeting, and elapsed time tracking
 category: operations
 default_enabled: true
 ---
 
-## Overview
+## Why This Screen Exists
 
-The Apply plugin executes `terraform apply` with an interactive confirmation prompt. It tracks elapsed time during the apply and reports success or failure with duration. Targets can be scoped to specific resources.
+Terraform's `apply` prompt says "Do you want to perform these actions?" with no context — the same prompt whether you're creating 1 resource or deleting 50. You type "yes" based on faith, not understanding.
 
-## Usage
+The Apply screen adds:
 
-Press `a` from the Plan view (or any view) to start an apply. You will be prompted for confirmation before any changes are made.
+- **Context-aware confirmation** — shows resource count and whether targeting is active
+- **Elapsed time tracking** — long applies (10+ minutes) need progress feedback
+- **Pin-scoped execution** — apply only pinned resources without typing `--target` addresses
+- **Error recovery** — retry from same session without re-running the full command
 
-| Key | Action |
-|-----|--------|
-| `y` / `Enter` | Confirm apply |
-| `n` / `Esc` | Cancel apply |
-| `r` | Retry after failure |
+## Interactive (TUI)
+
+### Entry Points
+
+- **From Plan:** Press `a` after reviewing changes. If resources are pinned, apply targets only those.
+- **From Home:** Press `a` directly. Shows idle state until you confirm.
+
+### Keybindings
+
+| Key | Action | When |
+|-----|--------|------|
+| `Enter` | Start apply (shows confirmation) | Idle state |
+| `y` / `Enter` | Confirm and execute | Confirming state |
+| `n` / `Esc` | Cancel | Confirming state |
+| `r` | Retry after failure | Error state |
+| `Esc` / `q` | Back to home | Any state |
+
+### Flow
+
+```
+Plan ──a──→ Apply (confirming)
+               │
+               ├── y → Apply (running) → Apply (success)
+               │                       → Apply (error) ──r──→ retry
+               └── n → Apply (idle)
+```
+
+### Screenshots
+
+**Confirmation (targeted):**
+```
+Apply
+
+Are you sure you want to apply these changes?
+Targeting 3 resource(s).
+
+[y]es / [n]o
+```
+
+**Running:**
+```
+Apply
+
+>>> Applying changes... 1m23s
+```
+
+**Success:**
+```
+Apply
+
+Apply complete! Resources are up-to-date.
+Duration: 2m45s
+```
+
+## Command Line (CLI)
+
+```bash
+# Default: plan first, then apply (with progress)
+tfui plan --project ./infra
+tfui apply --project ./infra
+
+# Silent: no animation
+tfui apply --project ./infra --mode silent
+
+# Agent: JSON output
+tfui apply --project ./infra --mode agent
+
+# Targeted: apply only specific resources
+tfui plan --project ./infra --target aws_instance.web
+tfui apply --project ./infra
+
+# With scope (monorepo)
+tfui apply --project ./infra --scope modules/networking
+```
+
+### Output Examples
+
+**Silent mode:**
+```
+Apply complete.
+```
+
+**Agent mode (JSON):**
+```json
+{
+  "status": "complete"
+}
+```
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Apply succeeded |
+| 1 | Apply failed (terraform error, no plan file, etc.) |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Apply all changes | `tfui plan && tfui apply` | `p` → `a` → `y` |
+| Apply specific resources | `tfui plan --target X && tfui apply` | `p` → pin X → `a` → `y` |
+| Check apply result | Exit code + stdout | Success/error screen |
+
+## How Targeting Works
+
+**CLI:** Pass `--target` to the `plan` command. The saved plan file already contains only targeted changes. Apply then applies that plan.
+
+**TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
+
+**Key insight:** You don't pass `--target` to `apply`. Targeting happens at plan time — apply always executes the saved plan file exactly.
 
 ## Configuration
 
@@ -36,39 +145,7 @@ plugins:
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-| `targets` | list | `[]` | Resource targets passed to `terraform apply -target` |
-
-## Screenshots/Output
-
-Confirmation prompt:
-
-```
-Apply
-
-Are you sure you want to apply these changes?
-This will modify your infrastructure.
-
-[y]es / [n]o
-```
-
-Running state:
-
-```
-Apply
-
->>> Applying changes... 12s
-```
-
-Success state:
-
-```
-Apply
-
-Apply complete! Resources are up-to-date.
-Duration: 45s
-
-Press Esc to go back
-```
+| `targets` | list | `[]` | Default resource targets (used when no pins active) |
 
 ## Related
 
