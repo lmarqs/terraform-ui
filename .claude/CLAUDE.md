@@ -27,7 +27,9 @@ cmd/tfui/              — CLI entry point (cobra commands, plugin registration)
 pkg/sdk/               — Public SDK: Plugin interface, Service interface, types, UI primitives
 internal/
   config/              — Config loading (tfui.yaml with dot-notation access)
-  terraform/           — TerraformService implementation (terraform-exec wrapper)
+  terraform/           — TerraformService + StaticService (read-only mode)
+  source/              — Universal source abstraction (URI resolution, providers)
+  macro/               — Macro engine (Driver, tape DSL parser)
   ui/                  — App model, input handling, layout components
   editor/              — Editor integration ($EDITOR at file:line)
   ai/                  — AI provider (Claude via Bedrock, auto-detection)
@@ -108,6 +110,79 @@ The home menu and command bar are independent consumers of registry metadata. Th
 ### Service Interface (`pkg/sdk/service.go`)
 
 All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `WithDir`.
+
+Two implementations:
+- `TerraformService` — wraps terraform-exec, calls real terraform binary
+- `StaticService` — pre-loaded data, read-only (mutating methods return `ErrReadOnly`)
+
+### Source Abstraction (`internal/source/`)
+
+Universal I/O layer for loading external data (plan, state, macros). All external inputs resolve through the same pipeline.
+
+```
+Consumer (LoadPlan, LoadState, tape parser)
+    ↓
+Resolver (URI dispatch)
+    ↓
+Provider (LocalProvider, StdinProvider, future: HTTP, S3)
+```
+
+**URI resolution rules (strict, no heuristics):**
+- `-` → stdin (only one flag per invocation)
+- `/path` → absolute local path
+- `./path` or `../path` → relative local path (relative to CWD)
+- `scheme://...` → dispatches to matching provider (RFC 3986 scheme validation)
+- `file://...` → normalized to local path
+- Anything else → **error** with actionable suggestion
+
+**Providers implement:**
+```go
+type Provider interface {
+    Scheme() string
+    Read(ctx context.Context, uri string) ([]byte, error)
+}
+```
+
+**Extending:** register new providers (HTTP, S3, GCS) without changing consumers or existing providers (Open/Closed).
+
+### Macro Engine (`internal/macro/`)
+
+Programmatic TUI driver + tape DSL for automated testing and CI.
+
+**Driver** — synchronous BubbleTea model controller:
+```go
+d := macro.NewDriver(app, 80, 24)
+d.Init()
+d.SendKey("p")
+d.WaitUntil(func(v string) bool { return strings.Contains(v, "create") }, 5*time.Second)
+```
+
+**Tape DSL** — line-oriented commands:
+```
+key p
+wait ready
+wait view to add
+assert view create
+screenshot /tmp/plan.txt
+resize 120 40
+sleep 500ms
+```
+
+### CLI: Read-Only Mode (`--plan`, `--state`)
+
+```bash
+tfui --plan ./plan.json                      # local file
+tfui --plan /absolute/path/plan.json         # absolute
+tfui --state ../terraform.tfstate            # relative
+terraform show -json tfplan.out | tfui --plan -   # stdin pipe
+tfui --plan ./plan.json --state ./state.json      # both
+```
+
+When `--plan` or `--state` provided:
+- `StaticService` replaces `TerraformService`
+- All mutating operations return `ErrReadOnly`
+- Header shows `[read-only]` badge
+- Mutating hints hidden from status bar
 
 ### Config (`tfui.yaml`)
 

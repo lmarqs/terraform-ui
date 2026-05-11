@@ -1,0 +1,202 @@
+---
+layout: default
+title: Macro Language
+description: Tape DSL reference for automated TUI interaction
+---
+
+# Macro Language
+
+tfui includes a macro system for automated TUI interaction. Macros are used for testing, CI visual regression, and repeatable workflows.
+
+## Invocation
+
+```bash
+# From file (explicit path required)
+tfui --macro ./scripts/verify-plan.tape
+
+# From stdin
+cat script.tape | tfui --macro -
+
+# Combined with plan/state loading
+tfui --plan ./plan.json --macro ./scripts/check-risk.tape
+```
+
+## Tape Format
+
+One command per line. Empty lines and lines starting with `#` are ignored.
+
+```tape
+# This is a comment
+
+key p
+wait ready
+assert view create
+screenshot /tmp/plan-view.txt
+```
+
+Inline mode uses semicolons as separators (single line):
+
+```bash
+tfui --macro "key p; wait ready; assert view create"
+```
+
+## Commands
+
+### `key <key>`
+
+Send a key event to the TUI.
+
+```tape
+key p          # single character
+key enter      # special key
+key esc        # escape
+key space      # space bar
+key ctrl+c     # ctrl combination
+key /          # punctuation
+key :          # command mode
+```
+
+**Supported special keys:** `enter`, `esc`, `tab`, `backspace`, `up`, `down`, `left`, `right`, `space`, `ctrl+c`, `ctrl+w`, `ctrl+t`, `ctrl+s`
+
+**Single characters:** any single printable character (`a`–`z`, `0`–`9`, punctuation)
+
+### `wait ready`
+
+Block until the active plugin reports `Ready() == true`. Times out after a configurable duration.
+
+```tape
+key p
+wait ready     # wait for plan plugin to finish loading
+```
+
+### `wait view <substring>`
+
+Block until the rendered view contains the specified substring.
+
+```tape
+key p
+wait view to add    # wait until "to add" appears in the view
+```
+
+The substring is everything after `view ` (spaces preserved):
+
+```tape
+wait view 3 resources to create    # matches "3 resources to create"
+```
+
+### `assert view <substring>`
+
+Immediately check that the rendered view contains the substring. Fails the macro if not found.
+
+```tape
+assert view create          # fail if "create" not in view
+assert view aws_instance    # fail if "aws_instance" not in view
+```
+
+### `screenshot <path>`
+
+Write the current rendered view (ANSI-stripped) to a file.
+
+```tape
+screenshot /tmp/plan-output.txt
+screenshot ./golden/state-view.txt
+```
+
+### `resize <width> <height>`
+
+Change the terminal dimensions for rendering.
+
+```tape
+resize 120 40    # wide terminal
+resize 80 24     # default size
+```
+
+### `sleep <duration>`
+
+Pause execution. Use sparingly — primarily for demos and recordings.
+
+```tape
+sleep 500ms
+sleep 2s
+```
+
+Accepts Go duration format: `100ms`, `1s`, `1m30s`.
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All assertions passed |
+| 1 | Assertion failure |
+| 2 | Syntax error in tape |
+| 3 | Timeout waiting for condition |
+
+## Examples
+
+### Verify plan view renders correctly
+
+```tape
+# Navigate to plan plugin
+key p
+wait ready
+
+# Check expected content
+assert view create
+assert view aws_instance
+
+# Capture for golden file comparison
+screenshot ./golden/plan-basic.txt
+```
+
+### Navigate and inspect a resource
+
+```tape
+key s
+wait ready
+key enter
+wait view values
+assert view instance_type
+screenshot ./golden/state-detail.txt
+key esc
+```
+
+### CI visual regression
+
+```bash
+#!/bin/bash
+terraform show -json tfplan.out > plan.json
+tfui --plan ./plan.json --macro ./tests/macros/verify-plan.tape
+```
+
+## Programmatic Driver (Go API)
+
+For Go test files, use the driver directly instead of tape:
+
+```go
+import "github.com/lmarqs/terraform-ui/internal/macro"
+
+func TestPlanView(t *testing.T) {
+    app := buildTestApp(mockService)
+    d := macro.NewDriver(app, 80, 24)
+    d.Init()
+
+    d.SendKey("p")
+    err := d.WaitUntil(func(v string) bool {
+        return strings.Contains(v, "create")
+    }, 5*time.Second)
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    if !d.ViewContains("aws_instance") {
+        t.Error("expected aws_instance in view")
+    }
+}
+```
+
+## Limitations
+
+- No loops, conditionals, or variables (use Go tests for complex logic)
+- No interactive input simulation (text fields, prompts)
+- `wait ready` depends on plugin implementing `Ready()` correctly
+- Screenshots are ANSI-stripped plain text, not terminal renders
