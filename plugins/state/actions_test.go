@@ -1038,3 +1038,54 @@ func TestUpdate_WhenStateImportedMsg_ShouldTriggerRefresh(t *testing.T) {
 		t.Errorf("expected StatusLoading after refresh, got %v", p.status)
 	}
 }
+
+func TestRequestEditMultiple_ShouldProduceStateEditMsgWithAddresses(t *testing.T) {
+	svc := &trackingMockService{}
+	p := newTrackingPlugin(svc, nil)
+
+	addresses := []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
+	cmd := p.requestEditMultiple(addresses)
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	editMsg, ok := msg.(StateEditMsg)
+	if !ok {
+		t.Fatalf("expected StateEditMsg, got %T", msg)
+	}
+	if len(editMsg.Addresses) != 3 {
+		t.Errorf("expected 3 addresses, got %d", len(editMsg.Addresses))
+	}
+	if editMsg.Addresses[0] != "aws_instance.a" {
+		t.Errorf("expected first address 'aws_instance.a', got %q", editMsg.Addresses[0])
+	}
+}
+
+func TestBuildActionFrame_EditHandler_MultiTarget(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "aws_instance.a", Type: "aws_instance"},
+		{Address: "aws_instance.b", Type: "aws_instance"},
+	}
+	svc := &trackingMockService{}
+	p := newTrackingPlugin(svc, resources)
+	p.pins.Toggle("aws_instance.a")
+	p.pins.Toggle("aws_instance.b")
+	p.syncPinnedToTree()
+
+	frame := p.buildActionFrame("aws_instance.a", true)
+	result, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	if result != nil {
+		t.Error("expected frame to pop after 'e'")
+	}
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd from multi-target edit handler")
+	}
+	msg := cmd()
+	editMsg, ok := msg.(StateEditMsg)
+	if !ok {
+		t.Fatalf("expected StateEditMsg, got %T", msg)
+	}
+	if len(editMsg.Addresses) != 2 {
+		t.Errorf("expected 2 addresses in multi-target edit, got %d", len(editMsg.Addresses))
+	}
+}

@@ -245,6 +245,51 @@ func TestEditorClosedMsgFields(t *testing.T) {
 	}
 }
 
+func TestOpenMultiple_EmptyReturnsNil(t *testing.T) {
+	cmd := OpenMultiple(nil)
+	if cmd != nil {
+		t.Error("OpenMultiple(nil) should return nil")
+	}
+	cmd = OpenMultiple([]SourceLocation{})
+	if cmd != nil {
+		t.Error("OpenMultiple([]) should return nil")
+	}
+}
+
+func TestOpenMultiple_SingleDelegatesToOpen(t *testing.T) {
+	t.Setenv("EDITOR", "vim")
+	locs := []SourceLocation{{File: "/tmp/test.tf", Line: 5}}
+	cmd := OpenMultiple(locs)
+	if cmd == nil {
+		t.Error("OpenMultiple with 1 loc should return non-nil cmd")
+	}
+}
+
+func TestOpenMultiple_CodeMultipleFiles(t *testing.T) {
+	t.Setenv("EDITOR", "code --wait")
+	locs := []SourceLocation{
+		{File: "/tmp/a.tf", Line: 10},
+		{File: "/tmp/b.tf", Line: 20},
+		{File: "/tmp/c.tf", Line: 0},
+	}
+	cmd := OpenMultiple(locs)
+	if cmd == nil {
+		t.Error("OpenMultiple with code editor should return non-nil cmd")
+	}
+}
+
+func TestOpenMultiple_NonCodeFallsBackToFirst(t *testing.T) {
+	t.Setenv("EDITOR", "vim")
+	locs := []SourceLocation{
+		{File: "/tmp/a.tf", Line: 10},
+		{File: "/tmp/b.tf", Line: 20},
+	}
+	cmd := OpenMultiple(locs)
+	if cmd == nil {
+		t.Error("OpenMultiple with vim should return non-nil cmd (first file)")
+	}
+}
+
 type testError struct{}
 
 func (e *testError) Error() string { return "test error" }
