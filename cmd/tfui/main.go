@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/mattn/go-isatty"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
@@ -116,6 +117,10 @@ func main() {
 }
 
 func runTUI(cfg config.Config, planURI, stateURI string) error {
+	if !isatty.IsTerminal(os.Stdout.Fd()) && !isatty.IsCygwinTerminal(os.Stdout.Fd()) {
+		return fmt.Errorf("no TTY detected (stdout is not a terminal)\n\nFor non-interactive use:\n  tfui plan --mode agent    (JSON output)\n  tfui plan --mode silent   (tree output)")
+	}
+
 	if cfg.ActiveScope != "" {
 		if err := validateScope(cfg); err != nil {
 			return err
