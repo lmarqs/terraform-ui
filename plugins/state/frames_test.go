@@ -475,6 +475,56 @@ func TestListFrame_WrapToggle(t *testing.T) {
 	})
 }
 
+func TestListFrame_PanDisabledWhenWrapOn(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+	p.listWrap = true
+	f := &listFrame{plugin: p}
+
+	f.Update(tea.KeyMsg{Type: tea.KeyRight})
+	if p.listHScroll != 0 {
+		t.Errorf("expected pan disabled when wrap is on, got listHScroll=%d", p.listHScroll)
+	}
+}
+
+func TestStateFilterFrame_WrapToggle(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.a.aws_instance.one", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+
+	f := &listFrame{plugin: p}
+	f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+	p.listWrap = false
+	p.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+	if !p.listWrap {
+		t.Error("expected ctrl+w to toggle wrap in filter mode")
+	}
+}
+
+func TestStateFilterFrame_PanDisabledWhenWrapOn(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+
+	f := &listFrame{plugin: p}
+	f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+	p.listWrap = true
+	p.listHScroll = 0
+	p.Update(tea.KeyMsg{Type: tea.KeyRight})
+	if p.listHScroll != 0 {
+		t.Errorf("expected pan disabled in filter mode when wrap is on, got listHScroll=%d", p.listHScroll)
+	}
+}
+
 func TestListFrame_PanRightLeft(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},

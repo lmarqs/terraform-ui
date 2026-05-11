@@ -82,9 +82,13 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "g":
 		f.plugin.MoveToStart()
 	case "right":
-		f.plugin.panListRight()
+		if !f.plugin.listWrap {
+			f.plugin.panListRight()
+		}
 	case "left":
-		f.plugin.panListLeft()
+		if !f.plugin.listWrap {
+			f.plugin.panListLeft()
+		}
 	case "ctrl+w":
 		f.plugin.listWrap = !f.plugin.listWrap
 		f.plugin.listHScroll = 0
@@ -133,7 +137,10 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints()
 	default:
-		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPan | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetBack
+		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetBack
+		if !f.plugin.listWrap {
+			set |= sdk.HintSetPan
+		}
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse
 		}
@@ -169,9 +176,13 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			f.plugin.detailScroll--
 		}
 	case "right":
-		f.plugin.panDetailRight()
+		if !f.plugin.detailWrap {
+			f.plugin.panDetailRight()
+		}
 	case "left":
-		f.plugin.panDetailLeft()
+		if !f.plugin.detailWrap {
+			f.plugin.panDetailLeft()
+		}
 	case "ctrl+w":
 		f.plugin.detailWrap = !f.plugin.detailWrap
 		f.plugin.detailScroll = 0
@@ -191,7 +202,10 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetScroll | sdk.HintSetPan | sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetCancel
+	set := sdk.HintSetScroll | sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetCancel
+	if !f.plugin.detailWrap {
+		set |= sdk.HintSetPan
+	}
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
@@ -219,11 +233,19 @@ func (f *stateFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 				f.plugin.tree.CollapseAll()
 			}
 			return f, nil
+		case "ctrl+w":
+			f.plugin.listWrap = !f.plugin.listWrap
+			f.plugin.listHScroll = 0
+			return f, nil
 		case "right":
-			f.plugin.panListRight()
+			if !f.plugin.listWrap {
+				f.plugin.panListRight()
+			}
 			return f, nil
 		case "left":
-			f.plugin.panListLeft()
+			if !f.plugin.listWrap {
+				f.plugin.panListLeft()
+			}
 			return f, nil
 		}
 	}
