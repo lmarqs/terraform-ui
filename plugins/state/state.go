@@ -687,7 +687,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 	e.viewWidth = width
 	address := sdk.StyleKey.Render(e.detailAddr)
 
-	headerLines := 3
+	headerLines := 2
 	contentWidth := width - 6
 	if contentWidth < 40 {
 		contentWidth = 40
@@ -709,7 +709,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		}
 	}
 
-	maxLines := height - headerLines - 4
+	maxLines := height - headerLines
 	if maxLines < 5 {
 		maxLines = 5
 	}

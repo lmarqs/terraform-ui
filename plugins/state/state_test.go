@@ -1559,3 +1559,29 @@ func TestFilterForTree_ScoreThreshold(t *testing.T) {
 		}
 	}
 }
+
+func TestRenderDetailUsesFullHeight(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+
+	var lines []string
+	for i := range 30 {
+		lines = append(lines, strings.Repeat("x", 10)+" line "+string(rune('A'+i%26)))
+	}
+	p.detail = strings.Join(lines, "\n")
+	p.detailAddr = "aws_instance.web"
+	p.status = StatusShowingDetail
+
+	output := p.renderDetail(80, 20)
+	outputLines := strings.Split(output, "\n")
+
+	// Header = address + blank line (2 lines), rest is content
+	wantContentLines := 18
+	wantTotal := 2 + wantContentLines
+	if len(outputLines) != wantTotal {
+		t.Errorf("renderDetail(80, 20) produced %d lines, want %d (2 header + %d content)",
+			len(outputLines), wantTotal, wantContentLines)
+	}
+}
