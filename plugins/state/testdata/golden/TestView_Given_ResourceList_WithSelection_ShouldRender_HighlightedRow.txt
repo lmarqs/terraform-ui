@@ -4,5 +4,4 @@
 [ ] aws_security_group.allow_ssh  aws_security_group
 [ ] aws_iam_role.lambda_exec  aws_iam_role
 
-
 5 resources

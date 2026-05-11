@@ -1375,6 +1375,49 @@ func TestHandleKeyFilterMode(t *testing.T) {
 	}
 }
 
+func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	resources := make([]sdk.Resource, 50)
+	for i := range resources {
+		resources[i] = sdk.Resource{
+			Address: "aws_instance.server",
+			Type:    "aws_instance",
+		}
+	}
+	p.status = StatusDone
+	p.resources = resources
+	p.filtered = resources
+	p.rebuildTree()
+
+	tests := []struct {
+		name           string
+		height         int
+		wantListLines  int
+	}{
+		{"ShouldShow18LinesInHeight20", 20, 18},
+		{"ShouldShow8LinesInHeight10", 10, 8},
+		{"ShouldShow28LinesInHeight30", 30, 28},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			output := p.View(80, tt.height)
+			lines := strings.Split(output, "\n")
+			resourceLines := 0
+			for _, line := range lines {
+				if strings.Contains(line, "[ ] ") {
+					resourceLines++
+				}
+			}
+			if resourceLines != tt.wantListLines {
+				t.Errorf("height=%d: got %d resource lines, want %d", tt.height, resourceLines, tt.wantListLines)
+			}
+		})
+	}
+}
+
 func TestFilterForTree_ScoreThreshold(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)

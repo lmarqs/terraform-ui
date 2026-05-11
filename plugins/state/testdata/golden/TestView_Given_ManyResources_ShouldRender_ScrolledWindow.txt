@@ -15,5 +15,4 @@
 [ ] aws_instance.server_19  aws_instance
 [ ] aws_instance.server_20  aws_instance
 
-
 30 resources

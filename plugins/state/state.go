@@ -544,6 +544,9 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 	}
 
 	for i := startIdx; i < endIdx; i++ {
+		if i > startIdx {
+			b.WriteByte('\n')
+		}
 		r := e.filtered[i]
 		pinMark := "[ ] "
 		if e.isPinnedAddress(r.Address) {
@@ -554,7 +557,6 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 			row = sdk.StyleSelected.Width(contentWidth).Render(row)
 		}
 		b.WriteString(row)
-		b.WriteByte('\n')
 	}
 	return b.String()
 }
