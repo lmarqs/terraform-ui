@@ -81,6 +81,7 @@ const (
 	HintSetUnlock                        // u force-unlock
 	HintSetPinnedFilter                  // ^p pinned(on/off) (dynamic label)
 	HintSetClearPins                     // ^u unpin all
+	HintSetActions                       // a actions
 	HintSetCancel                        // Esc cancel
 	HintSetBack                          // q back
 )
@@ -122,6 +123,7 @@ var hintOrder = []hintDef{
 	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
 	{bit: HintSetPinnedFilter, dynamic: true},
 	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
+	{bit: HintSetActions, hint: KeyHint{Key: "^a", Description: "actions"}},
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
 	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
 }
