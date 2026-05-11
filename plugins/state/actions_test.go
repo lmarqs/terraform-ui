@@ -860,9 +860,9 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 	p.pins = sdk.NewPinService(p.session)
 	p.rebuildTree()
 
-	t.Run("ShouldPushActionFrameOnCtrlA", func(t *testing.T) {
+	t.Run("ShouldPushActionFrameOnBang", func(t *testing.T) {
 		f := &listFrame{plugin: p}
-		f.Update(tea.KeyMsg{Type: tea.KeyCtrlA})
+		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 		if p.stack.Peek().ID() != "actions" {
 			t.Errorf("expected 'actions' frame on stack, got %q", p.stack.Peek().ID())
 		}
@@ -910,7 +910,7 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 		}
 	})
 
-	t.Run("ShouldPushActionFrameOnCtrlA_WithPinnedOnBranchNode", func(t *testing.T) {
+	t.Run("ShouldPushActionFrameOnBang_WithPinnedOnBranchNode", func(t *testing.T) {
 		treeResources := []sdk.Resource{
 			{Address: "module.a.aws_instance.one", Type: "aws_instance"},
 			{Address: "module.a.aws_instance.two", Type: "aws_instance"},
@@ -925,7 +925,7 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 		tp.syncPinnedToTree()
 		// Cursor is on branch node "module.a" — SelectedResource() returns empty
 		f := &listFrame{plugin: tp}
-		f.Update(tea.KeyMsg{Type: tea.KeyCtrlA})
+		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 		if tp.stack.Peek().ID() != "actions" {
 			t.Errorf("expected 'actions' frame on stack when pinned targets exist, got %q", tp.stack.Peek().ID())
 		}
@@ -945,9 +945,9 @@ func TestDetailFrame_WhenActionKeyPressed_ShouldTriggerAction(t *testing.T) {
 	p.detail = `{"id": "i-123"}`
 	p.rebuildTree()
 
-	t.Run("ShouldPushActionFrameOnCtrlA", func(t *testing.T) {
+	t.Run("ShouldPushActionFrameOnBang", func(t *testing.T) {
 		f := &detailFrame{plugin: p}
-		f.Update(tea.KeyMsg{Type: tea.KeyCtrlA})
+		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 		if p.stack.Peek().ID() != "actions" {
 			t.Errorf("expected 'actions' frame on stack, got %q", p.stack.Peek().ID())
 		}
