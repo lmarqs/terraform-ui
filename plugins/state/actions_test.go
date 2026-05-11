@@ -945,15 +945,6 @@ func TestDetailFrame_WhenActionKeyPressed_ShouldTriggerAction(t *testing.T) {
 	p.detail = `{"id": "i-123"}`
 	p.rebuildTree()
 
-	t.Run("ShouldPushActionFrameOnBang", func(t *testing.T) {
-		f := &detailFrame{plugin: p}
-		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
-		if p.stack.Peek().ID() != "actions" {
-			t.Errorf("expected 'actions' frame on stack, got %q", p.stack.Peek().ID())
-		}
-		p.stack.Pop()
-	})
-
 	t.Run("ShouldReturnMoveCmdOnM", func(t *testing.T) {
 		f := &detailFrame{plugin: p}
 		_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})

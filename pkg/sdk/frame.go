@@ -114,7 +114,7 @@ var hintOrder = []hintDef{
 	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
 	{bit: HintSetPinnedFilter, dynamic: true},
 	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
-	{bit: HintSetActions, hint: KeyHint{Key: "!", Description: "actions"}},
+	{bit: HintSetActions, hint: KeyHint{Key: "!", Description: "batch"}},
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
 	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
 }

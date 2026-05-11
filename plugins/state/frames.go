@@ -119,10 +119,6 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			return f, f.plugin.requestDelete(r.Address)
 		}
 	case "e":
-		targets := f.plugin.actionTargets()
-		if len(targets) > 1 {
-			return f, f.plugin.requestEditMultiple(targets)
-		}
 		r := f.plugin.SelectedResource()
 		if r.Address != "" {
 			return f, f.plugin.requestEdit(r.Address)
@@ -130,11 +126,6 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		node := f.plugin.CursorNode()
 		if node != nil {
 			return f, f.plugin.requestEdit(node.Path)
-		}
-	case "!":
-		targets := f.plugin.actionTargets()
-		if len(targets) > 0 {
-			f.plugin.stack.Push(f.plugin.buildActionFrame(targets[0], true))
 		}
 	case "m":
 		r := f.plugin.SelectedResource()
@@ -156,6 +147,11 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if r.Address != "" {
 			return f, f.plugin.requestImport(r.Address)
 		}
+	case "!":
+		targets := f.plugin.actionTargets()
+		if len(targets) > 0 {
+			f.plugin.stack.Push(f.plugin.buildActionFrame(targets[0], true))
+		}
 	}
 	return f, nil
 }
@@ -175,12 +171,12 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints()
 	default:
-		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPinnedFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetActions | sdk.HintSetBack
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetBack
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse
 		}
 		if f.plugin.PinnedCount() > 0 {
-			set |= sdk.HintSetClearPins
+			set |= sdk.HintSetActions | sdk.HintSetClearPins
 		}
 		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap, PinnedFilter: f.plugin.pinnedOnly})
 	}
@@ -231,8 +227,6 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, f.plugin.requestDelete(f.plugin.detailAddr)
 	case "e":
 		return f, f.plugin.requestEdit(f.plugin.detailAddr)
-	case "!":
-		f.plugin.stack.Push(f.plugin.buildActionFrame(f.plugin.detailAddr, false))
 	case "m":
 		return f, f.plugin.requestMove(f.plugin.detailAddr)
 	case "t":
@@ -250,7 +244,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetActions | sdk.HintSetCancel
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetCancel
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
