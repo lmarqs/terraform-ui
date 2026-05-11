@@ -41,12 +41,13 @@ type Node struct {
 
 // Tree is an interactive tree navigator built from flat addressed items.
 type Tree struct {
-	root      *treeNode
-	flattened []*Node
-	cursor    int
-	expanded  map[string]bool
-	pinned    map[string]bool
-	splitFunc func(string) []string
+	root          *treeNode
+	flattened     []*Node
+	cursor        int
+	expanded      map[string]bool
+	pinned        map[string]bool
+	splitFunc     func(string) []string
+	preserveOrder bool
 }
 
 // treeNode is the internal recursive structure used for building.
@@ -63,6 +64,11 @@ type Option func(*Tree)
 // WithSplitFunc sets a custom function for splitting addresses into segments.
 func WithSplitFunc(fn func(string) []string) Option {
 	return func(t *Tree) { t.splitFunc = fn }
+}
+
+// WithPreserveOrder disables sorting so items stay in insertion order.
+func WithPreserveOrder() Option {
+	return func(t *Tree) { t.preserveOrder = true }
 }
 
 // New creates a tree from flat items.
@@ -122,6 +128,9 @@ func (t *Tree) findChild(parent *treeNode, label string) *treeNode {
 }
 
 func (t *Tree) sortNodes(node *treeNode) {
+	if t.preserveOrder {
+		return
+	}
 	sort.SliceStable(node.children, func(i, j int) bool {
 		return node.children[i].label < node.children[j].label
 	})

@@ -934,6 +934,98 @@ func TestVisibleCount_ShouldChangeWithExpansion(t *testing.T) {
 	}
 }
 
+func TestWithPreserveOrder_ShouldKeepInsertionOrder(t *testing.T) {
+	items := []Item{
+		testItem{"zebra.resource"},
+		testItem{"alpha.resource"},
+		testItem{"middle.resource"},
+	}
+
+	t.Run("ShouldSortAlphabeticallyByDefault", func(t *testing.T) {
+		tr := New(items)
+		nodes := tr.Nodes()
+		if len(nodes) != 3 {
+			t.Fatalf("expected 3 nodes, got %d", len(nodes))
+		}
+		if nodes[0].Path != "alpha.resource" {
+			t.Fatalf("expected first node to be alpha.resource, got %q", nodes[0].Path)
+		}
+		if nodes[1].Path != "middle.resource" {
+			t.Fatalf("expected second node to be middle.resource, got %q", nodes[1].Path)
+		}
+		if nodes[2].Path != "zebra.resource" {
+			t.Fatalf("expected third node to be zebra.resource, got %q", nodes[2].Path)
+		}
+	})
+
+	t.Run("ShouldPreserveInsertionOrder", func(t *testing.T) {
+		tr := New(items, WithPreserveOrder())
+		nodes := tr.Nodes()
+		if len(nodes) != 3 {
+			t.Fatalf("expected 3 nodes, got %d", len(nodes))
+		}
+		if nodes[0].Path != "zebra.resource" {
+			t.Fatalf("expected first node to be zebra.resource, got %q", nodes[0].Path)
+		}
+		if nodes[1].Path != "alpha.resource" {
+			t.Fatalf("expected second node to be alpha.resource, got %q", nodes[1].Path)
+		}
+		if nodes[2].Path != "middle.resource" {
+			t.Fatalf("expected third node to be middle.resource, got %q", nodes[2].Path)
+		}
+	})
+
+	t.Run("ShouldNavigateInInsertionOrder", func(t *testing.T) {
+		tr := New(items, WithPreserveOrder())
+		tr.MoveToStart()
+		node := tr.CursorNode()
+		if node.Path != "zebra.resource" {
+			t.Fatalf("expected cursor to start at zebra.resource, got %q", node.Path)
+		}
+		tr.MoveDown()
+		node = tr.CursorNode()
+		if node.Path != "alpha.resource" {
+			t.Fatalf("expected cursor at alpha.resource after MoveDown, got %q", node.Path)
+		}
+		tr.MoveDown()
+		node = tr.CursorNode()
+		if node.Path != "middle.resource" {
+			t.Fatalf("expected cursor at middle.resource after second MoveDown, got %q", node.Path)
+		}
+	})
+
+	t.Run("ShouldPreserveOrderWithIdentitySplit", func(t *testing.T) {
+		identity := func(addr string) []string { return []string{addr} }
+		tr := New(items, WithSplitFunc(identity), WithPreserveOrder())
+		nodes := tr.Nodes()
+		if len(nodes) != 3 {
+			t.Fatalf("expected 3 nodes, got %d", len(nodes))
+		}
+		if nodes[0].Path != "zebra.resource" {
+			t.Fatalf("expected first node zebra.resource, got %q", nodes[0].Path)
+		}
+		if nodes[1].Path != "alpha.resource" {
+			t.Fatalf("expected second node alpha.resource, got %q", nodes[1].Path)
+		}
+		if nodes[2].Path != "middle.resource" {
+			t.Fatalf("expected third node middle.resource, got %q", nodes[2].Path)
+		}
+	})
+
+	t.Run("CursorItemShouldMatchPosition", func(t *testing.T) {
+		identity := func(addr string) []string { return []string{addr} }
+		tr := New(items, WithSplitFunc(identity), WithPreserveOrder())
+		tr.MoveDown()
+		item := tr.CursorItem()
+		if item == nil {
+			t.Fatal("expected non-nil CursorItem")
+		}
+		if item.Address() != "alpha.resource" {
+			t.Fatalf("expected CursorItem at position 1 to be alpha.resource, got %q", item.Address())
+		}
+	})
+}
+
 func TestBranchNodeCount_ShouldReflectDescendants(t *testing.T) {
 	items := []Item{
 		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
