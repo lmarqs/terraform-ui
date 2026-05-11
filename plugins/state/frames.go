@@ -210,6 +210,21 @@ type stateFilterFrame struct {
 func (f *stateFilterFrame) ID() string { return "filter" }
 
 func (f *stateFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "]":
+			if f.plugin.treeMode {
+				f.plugin.tree.ExpandAll()
+			}
+			return f, nil
+		case "[":
+			if f.plugin.treeMode {
+				f.plugin.tree.CollapseAll()
+			}
+			return f, nil
+		}
+	}
+
 	result, cmd := f.inner.Update(msg)
 	if result == nil {
 		f.plugin.filtering = false
@@ -223,5 +238,9 @@ func (f *stateFilterFrame) View(width, height int) string {
 }
 
 func (f *stateFilterFrame) Hints() []sdk.KeyHint {
-	return (sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel).Hints()
+	set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
+	if f.plugin.treeMode {
+		set |= sdk.HintSetCollapse
+	}
+	return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
 }
