@@ -322,6 +322,51 @@ resource "aws_iam_user" "this" {
 	})
 }
 
+func TestLookup_ModuleCallFallback(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+module "user" {
+  source   = "../modules/user"
+  for_each = var.users
+}
+
+module "vpc" {
+  source = "../modules/vpc"
+}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	t.Run("external resource resolves to module call", func(t *testing.T) {
+		loc, ok := idx.Lookup(`module.user["github.com"].aws_iam_user.this[0]`)
+		if !ok {
+			t.Fatal("Lookup() should fall back to module.user declaration")
+		}
+		if loc.Line != 2 {
+			t.Errorf("Line = %d, want 2 (module block line)", loc.Line)
+		}
+	})
+
+	t.Run("nested module resolves to outermost known call", func(t *testing.T) {
+		loc, ok := idx.Lookup("module.vpc.module.subnets.aws_subnet.private[0]")
+		if !ok {
+			t.Fatal("Lookup() should fall back to module.vpc declaration")
+		}
+		if loc.Line != 7 {
+			t.Errorf("Line = %d, want 7 (module vpc block line)", loc.Line)
+		}
+	})
+
+	t.Run("completely unknown address returns false", func(t *testing.T) {
+		_, ok := idx.Lookup("aws_nonexistent.thing")
+		if ok {
+			t.Error("Lookup() should return false for completely unknown address")
+		}
+	})
+}
+
 func TestSourceIndexLookupFile(t *testing.T) {
 	t.Run("directory with main.tf returns main.tf", func(t *testing.T) {
 		dir := t.TempDir()

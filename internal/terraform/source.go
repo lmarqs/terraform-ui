@@ -48,8 +48,11 @@ func NewSourceIndex(dir string) (*SourceIndex, error) {
 }
 
 // Lookup returns the source location for a resource address.
-// Supports addresses like "aws_s3_bucket.main", "module.foo.aws_s3_bucket.bar".
-// Falls back to stripping module prefix and index suffixes for nested module resources.
+// Walks up the address tree trying progressively less specific lookups:
+// 1. Exact match
+// 2. Strip module prefix → leaf resource
+// 3. Strip index suffixes → base resource
+// 4. Walk up module hierarchy → find the module call declaration
 func (idx *SourceIndex) Lookup(address string) (editor.SourceLocation, bool) {
 	if loc, ok := idx.locations[address]; ok {
 		return loc, true
@@ -67,6 +70,36 @@ func (idx *SourceIndex) Lookup(address string) (editor.SourceLocation, bool) {
 		if loc, ok := idx.locations[bare]; ok {
 			return loc, true
 		}
+	}
+	// Walk up module hierarchy: try to find the module call declaration
+	if loc, ok := idx.lookupModuleCall(address); ok {
+		return loc, true
+	}
+	return editor.SourceLocation{}, false
+}
+
+// lookupModuleCall walks up the module hierarchy trying to find where
+// the module is declared. For "module.a.module.b.aws_instance.x", tries:
+// "module.a.module.b", then "module.a".
+func (idx *SourceIndex) lookupModuleCall(address string) (editor.SourceLocation, bool) {
+	remaining := address
+	for strings.HasPrefix(remaining, "module.") {
+		rest := remaining[len("module."):]
+		dot := dotAfterSegment(rest)
+		if dot < 0 {
+			break
+		}
+		modulePath := remaining[:len("module.")+dot]
+		bare := stripIndex(modulePath)
+		if loc, ok := idx.locations[bare]; ok {
+			return loc, true
+		}
+		if bare != modulePath {
+			if loc, ok := idx.locations[modulePath]; ok {
+				return loc, true
+			}
+		}
+		remaining = rest[dot+1:]
 	}
 	return editor.SourceLocation{}, false
 }
