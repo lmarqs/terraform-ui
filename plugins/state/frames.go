@@ -85,7 +85,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.panListRight()
 	case "left":
 		f.plugin.panListLeft()
-	case "w", "ctrl+w":
+	case "ctrl+w":
 		f.plugin.listWrap = !f.plugin.listWrap
 		f.plugin.listHScroll = 0
 	case "ctrl+t":

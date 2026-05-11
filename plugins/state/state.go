@@ -541,6 +541,9 @@ func (e *Plugin) renderResources(width, height int) string {
 				return sdk.StyleSelected.Width(w).Render(s)
 			},
 			TruncateRow: func(s string, w int) string {
+				if e.listWrap {
+					return s
+				}
 				return lipgloss.NewStyle().MaxWidth(w).Render(s)
 			},
 		})
@@ -566,7 +569,6 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 		endIdx = len(e.filtered)
 	}
 
-	truncStyle := lipgloss.NewStyle().MaxWidth(contentWidth)
 	for i := startIdx; i < endIdx; i++ {
 		if i > startIdx {
 			b.WriteByte('\n')
@@ -576,7 +578,7 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 		if e.isPinnedAddress(r.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
-		row := e.formatResourceRow(pinMark, r, contentWidth, truncStyle)
+		row := e.formatResourceRow(pinMark, r, contentWidth)
 		if i == cursor {
 			row = sdk.StyleSelected.Width(contentWidth).Render(row)
 		}
@@ -585,8 +587,11 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 	return b.String()
 }
 
-func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource, contentWidth int, truncStyle lipgloss.Style) string {
+func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource, contentWidth int) string {
 	full := r.Address + "  " + r.Type
+	if e.listWrap {
+		return pinMark + full
+	}
 	if e.listHScroll > 0 {
 		if e.listHScroll < len(full) {
 			full = full[e.listHScroll:]

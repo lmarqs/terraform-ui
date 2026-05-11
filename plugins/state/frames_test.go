@@ -3,6 +3,7 @@ package state
 import (
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -419,6 +420,57 @@ func TestStateFilterFrame_PanRightLeft(t *testing.T) {
 		p.Update(tea.KeyMsg{Type: tea.KeyLeft})
 		if p.filter != "" {
 			t.Errorf("expected filter to remain empty, got %q", p.filter)
+		}
+	})
+}
+
+func TestListFrame_WrapToggle(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "aws_instance.short", Type: "aws_instance"},
+		{Address: "module.very_long_module_name.module.another_module.aws_instance.server_with_long_name", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	t.Run("ShouldToggleWrapOnCtrlW", func(t *testing.T) {
+		p.listWrap = false
+		f.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+		if !p.listWrap {
+			t.Error("expected listWrap=true after ctrl+w")
+		}
+	})
+
+	t.Run("ShouldResetHScrollOnWrap", func(t *testing.T) {
+		p.listHScroll = 20
+		p.listWrap = false
+		f.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+		if p.listHScroll != 0 {
+			t.Errorf("expected listHScroll=0 after wrap toggle, got %d", p.listHScroll)
+		}
+	})
+
+	t.Run("ShouldNotTruncateWhenWrapped", func(t *testing.T) {
+		p.listWrap = true
+		output := p.View(40, 10)
+		if !strings.Contains(output, "server_with_long_name") {
+			t.Error("expected full address visible when wrap is on")
+		}
+	})
+
+	t.Run("ShouldTruncateWhenNotWrapped", func(t *testing.T) {
+		p.listWrap = false
+		output := p.View(40, 10)
+		if strings.Contains(output, "server_with_long_name") {
+			t.Error("expected address to be truncated when wrap is off")
+		}
+	})
+
+	t.Run("WKeyShouldNotToggleWrap", func(t *testing.T) {
+		p.listWrap = false
+		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+		if p.listWrap {
+			t.Error("expected 'w' to not toggle wrap in list frame")
 		}
 	})
 }
