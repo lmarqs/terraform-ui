@@ -337,19 +337,19 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 
 	// Toggle expand with enter
 	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !pp.expanded[0] {
+	if !pp.IsExpanded(0) {
 		t.Error("after enter: expanded[0] = false, want true")
 	}
 
 	// Toggle again
 	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if pp.expanded[0] {
+	if pp.IsExpanded(0) {
 		t.Error("after enter,enter: expanded[0] = true, want false")
 	}
 
 	// Toggle with i
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	if !pp.expanded[0] {
+	if !pp.IsExpanded(0) {
 		t.Error("after i: expanded[0] = false, want true")
 	}
 }
@@ -498,7 +498,7 @@ func TestRefresh(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusDone
 	p.selected = 5
-	p.expanded[0] = true
+	p.expander.Toggle(0)
 
 	cmd := p.Refresh()
 	if cmd == nil {
@@ -584,7 +584,7 @@ func TestViewDoneWithExpandedDetail(t *testing.T) {
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Invalid reference", Detail: "The resource aws_instance.foo does not exist"},
 	}
-	p.expanded[0] = true
+	p.expander.Toggle(0)
 
 	view := p.View(80, 24)
 	if view == "" {

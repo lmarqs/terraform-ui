@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // Status represents the current state of the validate plugin.
@@ -32,18 +33,19 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	session       *sdk.Session
+	guard         *sdk.ScopeGuard
+	expander      *ui.ExpandSet
 	status        Status
 	diagnostics   []sdk.Diagnostic
 	errMsg        string
 	selected      int
-	expanded      map[int]bool
 	scopedContext string
 }
 
 // New creates a new validate plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
-		expanded: make(map[int]bool),
+		expander: ui.NewExpandSet(),
 		svc:      svc,
 		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -89,30 +91,40 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
+	p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	p.reset()
+	return nil
+}
+
+// reset clears all plugin state to initial values.
+func (p *Plugin) reset() {
 	p.status = StatusIdle
 	p.diagnostics = nil
 	p.errMsg = ""
 	p.selected = 0
-	p.expanded = make(map[int]bool)
-	return nil
+	p.expander.CollapseAll()
 }
 
 // Activate triggers validate when the user enters the plugin view.
 func (p *Plugin) Activate() tea.Cmd {
-	// Check if the active context changed since last activation
-	if p.session != nil {
-		currentContext, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs)
-		if currentContext != p.scopedContext {
-			p.status = StatusIdle
-			p.diagnostics = nil
-			p.errMsg = ""
-			p.selected = 0
-			p.expanded = make(map[int]bool)
-			p.scopedContext = currentContext
-			if currentContext != "" {
-				p.svc = p.svc.WithDir(currentContext)
-			}
-		}
+	// Sync guard with any externally-set scope (e.g., from prior activation)
+	if p.scopedContext != "" && p.guard.CurrentScope() == "" {
+		p.guard.SetTracked(p.scopedContext)
+	}
+
+	scopeStatus, svc := p.guard.Check()
+	switch scopeStatus {
+	case sdk.ScopeChanged:
+		p.svc = svc
+		p.scopedContext = p.guard.CurrentScope()
+		p.reset()
+		p.status = StatusLoading
+		p.log.Debug("validate.start")
+		return p.runValidate()
+	case sdk.ScopeRequired:
+		p.status = StatusError
+		p.errMsg = "Select a context first (press c)"
+		return nil
 	}
 
 	if p.status == StatusIdle || p.status == StatusError {
@@ -120,10 +132,6 @@ func (p *Plugin) Activate() tea.Cmd {
 			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
 				p.svc = p.svc.WithDir(dir)
 				p.scopedContext = dir
-			} else if count, ok := sdk.GetTyped[int](p.session, sdk.SessionKeyScopeCount); ok && count > 1 {
-				p.status = StatusError
-				p.errMsg = "Select a context first (press c)"
-				return nil
 			}
 		}
 		p.status = StatusLoading
@@ -139,7 +147,7 @@ func (p *Plugin) Refresh() tea.Cmd {
 	p.diagnostics = nil
 	p.errMsg = ""
 	p.selected = 0
-	p.expanded = make(map[int]bool)
+	p.expander.CollapseAll()
 	return p.runValidate()
 }
 
@@ -221,12 +229,12 @@ func (p *Plugin) MoveToEnd() {
 
 // ToggleExpand toggles detail expansion for the selected diagnostic.
 func (p *Plugin) ToggleExpand() {
-	p.expanded[p.selected] = !p.expanded[p.selected]
+	p.expander.Toggle(p.selected)
 }
 
 // IsExpanded returns whether a diagnostic row is expanded.
 func (p *Plugin) IsExpanded(idx int) bool {
-	return p.expanded[idx]
+	return p.expander.IsExpanded(idx)
 }
 
 // View renders the validate plugin.
@@ -282,7 +290,7 @@ func (p *Plugin) renderResults(width, height int) string {
 		b.WriteByte('\n')
 
 		// Render expanded detail
-		if p.expanded[i] && diag.Detail != "" {
+		if p.expander.IsExpanded(i) && diag.Detail != "" {
 			detail := sdk.StyleFaint.Render("    " + diag.Detail)
 			b.WriteString(detail)
 			b.WriteByte('\n')
