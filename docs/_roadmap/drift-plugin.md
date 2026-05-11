@@ -10,16 +10,28 @@ depends_on: []
 
 ## Summary
 
-A plugin that periodically runs `terraform plan` and reports drift between actual infrastructure and desired state. Shows which resources have changed outside of terraform.
+Detect and surface infrastructure drift — resources that changed outside of terraform.
 
-## Problem
+## Need
 
-Teams discover drift only when running plan manually. By then, changes may have compounded. A background drift check would surface issues early.
+Teams discover drift only when running `terraform plan` manually. By then:
+- Changes have compounded (multiple resources drifted independently)
+- Root cause is harder to find (who changed what, when?)
+- Surprise in the plan output ("I didn't change that, why is it updating?")
 
-## Design (sketch)
+Current workaround: run `tfui plan` periodically and eyeball the output.
 
-- New plugin: `plugins/drift/`
-- Configurable interval (e.g., every 30m)
-- Stores last-known drift state in session
-- Badge/count on home screen showing drift count
-- Detail view shows drifted resources with diff
+## Expected UX
+
+- Home screen shows drift badge: `drift (3)` — 3 resources have drifted
+- Press `D` to enter drift plugin
+- List view shows drifted resources with what changed
+- Detail view shows attribute diff (expected vs actual)
+- `r` refreshes (re-runs plan to check current drift)
+- Configurable check interval in tfui.yaml (e.g., `drift: { interval: 30m }`)
+
+## Advantages
+
+- Catches unmanaged changes before they cause production issues
+- Surfaces "who changed this?" questions early
+- Integrates naturally with existing plan infrastructure (drift IS a plan with no code changes)

@@ -71,30 +71,41 @@ depends_on: []
 
 One paragraph: what is this and why does it matter?
 
-## Problem
+## Need
 
 What user pain does this solve? What's the current workaround?
+This section is PERMANENT — it doesn't change as design evolves.
+
+## Expected UX
+
+How the user interacts with this feature. CLI examples, TUI behavior,
+error messages, edge cases. This is the contract — design must satisfy it.
+
+## Advantages
+
+Why this is worth doing. Business value, user impact, technical leverage.
+
+## Effort Justification
+
+Why the effort estimate is what it is. What makes it small/medium/large?
 
 ## Design
 
-Technical approach. Enough detail to implement without clarification:
-- Key interfaces/types that change
-- Which packages are affected
-- Decisions already made (and why)
+Technical approach. THIS SECTION CAN CHANGE over time as understanding
+deepens. It's a snapshot of current thinking, not a commitment.
 
 ## Open Questions
 
-- Unresolved decisions (remove as resolved, move to Design)
+- Unresolved decisions (remove as resolved)
 
 ## Tasks
 
 - [ ] Implementation step 1
 - [ ] Implementation step 2
-
-## References
-
-- Links to related issues, PRs, docs
 ```
+
+**Key principle:** The Need and Expected UX are stable anchors. Design and Tasks evolve.
+Don't over-invest in design for `idea` status items — capture the need, the rest comes later.
 
 ## Conventions
 
