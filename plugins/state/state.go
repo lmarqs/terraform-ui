@@ -578,7 +578,11 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 		}
 		row := e.formatResourceRow(pinMark, r, contentWidth)
 		if i == cursor {
-			row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			if e.listWrap {
+				row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			} else {
+				row = sdk.StyleSelected.MaxWidth(contentWidth).Width(contentWidth).Render(row)
+			}
 		}
 		rowLines := strings.Count(row, "\n") + 1
 		if e.listWrap && linesUsed+rowLines > maxVisible {
