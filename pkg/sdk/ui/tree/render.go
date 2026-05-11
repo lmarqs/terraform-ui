@@ -43,16 +43,13 @@ func (t *Tree) Render(opts RenderOpts) string {
 		height = len(t.flattened)
 	}
 
-	startIdx := 0
-	if t.cursor >= height {
-		startIdx = t.cursor - height + 1
-	}
+	t.adjustViewport(height)
+	startIdx := t.viewOffset
 	endIdx := startIdx + height
 	if endIdx > len(t.flattened) {
 		endIdx = len(t.flattened)
 	}
 
-	// Build ancestor connector state for tree lines
 	var lines []string
 	for i := startIdx; i < endIdx; i++ {
 		node := t.flattened[i]
@@ -63,6 +60,27 @@ func (t *Tree) Render(opts RenderOpts) string {
 		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
+}
+
+// adjustViewport ensures the cursor is visible within the viewport window,
+// only scrolling when the cursor reaches the viewport edge.
+func (t *Tree) adjustViewport(height int) {
+	if t.cursor < t.viewOffset {
+		t.viewOffset = t.cursor
+	}
+	if t.cursor >= t.viewOffset+height {
+		t.viewOffset = t.cursor - height + 1
+	}
+	maxOffset := len(t.flattened) - height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if t.viewOffset > maxOffset {
+		t.viewOffset = maxOffset
+	}
+	if t.viewOffset < 0 {
+		t.viewOffset = 0
+	}
 }
 
 func (t *Tree) renderNode(node *Node, opts RenderOpts) string {

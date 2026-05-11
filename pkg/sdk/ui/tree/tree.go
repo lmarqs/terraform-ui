@@ -44,6 +44,7 @@ type Tree struct {
 	root          *treeNode
 	flattened     []*Node
 	cursor        int
+	viewOffset    int
 	expanded      map[string]bool
 	pinned        map[string]bool
 	splitFunc     func(string) []string
@@ -418,8 +419,32 @@ func (t *Tree) PinnedPaths() []string {
 
 // Query methods
 
-func (t *Tree) Cursor() int          { return t.cursor }
-func (t *Tree) VisibleCount() int    { return len(t.flattened) }
+func (t *Tree) Cursor() int       { return t.cursor }
+func (t *Tree) VisibleCount() int  { return len(t.flattened) }
+
+// ViewOffset returns the current viewport offset, adjusting if needed for the given height.
+func (t *Tree) ViewOffset(height int) int {
+	if height <= 0 {
+		return 0
+	}
+	if t.cursor < t.viewOffset {
+		t.viewOffset = t.cursor
+	}
+	if t.cursor >= t.viewOffset+height {
+		t.viewOffset = t.cursor - height + 1
+	}
+	maxOffset := len(t.flattened) - height
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if t.viewOffset > maxOffset {
+		t.viewOffset = maxOffset
+	}
+	if t.viewOffset < 0 {
+		t.viewOffset = 0
+	}
+	return t.viewOffset
+}
 
 func (t *Tree) CursorNode() *Node {
 	if t.cursor >= 0 && t.cursor < len(t.flattened) {

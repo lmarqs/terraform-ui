@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -1040,5 +1041,148 @@ func TestBranchNodeCount_ShouldReflectDescendants(t *testing.T) {
 	}
 	if node.Count != 3 {
 		t.Fatalf("expected branch count to be 3 (all leaves), got %d", node.Count)
+	}
+}
+
+func TestViewport_WhenCursorMovesWithinViewport_ShouldNotScroll(t *testing.T) {
+	items := make([]Item, 20)
+	for i := range items {
+		items[i] = testItem{addr: fmt.Sprintf("aws_s3_bucket.item_%02d", i)}
+	}
+	tr := New(items)
+	viewportHeight := 10
+
+	t.Run("ShouldNotScrollWhenMovingDownWithinViewport", func(t *testing.T) {
+		tr.MoveToStart()
+		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		for i := 0; i < viewportHeight-1; i++ {
+			tr.MoveDown()
+		}
+		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		if !strings.Contains(output, "item_00") {
+			t.Fatal("expected first item to remain visible while cursor is within viewport")
+		}
+		if !strings.Contains(output, "item_09") {
+			t.Fatal("expected item at cursor position to be visible")
+		}
+	})
+
+	t.Run("ShouldScrollWhenCursorExceedsViewportBottom", func(t *testing.T) {
+		tr.MoveToStart()
+		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		for i := 0; i < viewportHeight; i++ {
+			tr.MoveDown()
+		}
+		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		if strings.Contains(output, "item_00") {
+			t.Fatal("expected first item to be scrolled out of view")
+		}
+		if !strings.Contains(output, "item_10") {
+			t.Fatal("expected cursor item to be visible after scroll")
+		}
+	})
+
+	t.Run("ShouldNotScrollWhenMovingUpWithinViewport", func(t *testing.T) {
+		tr.MoveToEnd()
+		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		for i := 0; i < viewportHeight-1; i++ {
+			tr.MoveUp()
+		}
+		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		if !strings.Contains(output, "item_19") {
+			t.Fatal("expected last item to remain visible while cursor is within viewport")
+		}
+	})
+
+	t.Run("ShouldScrollWhenCursorExceedsViewportTop", func(t *testing.T) {
+		tr.MoveToEnd()
+		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		for i := 0; i < viewportHeight; i++ {
+			tr.MoveUp()
+		}
+		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
+		if !strings.Contains(output, "item_09") {
+			t.Fatal("expected cursor item to be visible after scrolling up")
+		}
+		if strings.Contains(output, "item_19") {
+			t.Fatal("expected last item to be scrolled out of view")
+		}
+	})
+}
+
+func TestViewport_WhenAllItemsFitInView_ShouldShowAll(t *testing.T) {
+	items := make([]Item, 5)
+	for i := range items {
+		items[i] = testItem{addr: fmt.Sprintf("aws_s3_bucket.item_%02d", i)}
+	}
+	tr := New(items)
+
+	output := tr.Render(RenderOpts{Width: 80, Height: 10})
+	lines := strings.Split(output, "\n")
+	if len(lines) != 5 {
+		t.Fatalf("expected 5 lines when all items fit, got %d", len(lines))
+	}
+	for i := 0; i < 5; i++ {
+		expected := fmt.Sprintf("item_%02d", i)
+		if !strings.Contains(output, expected) {
+			t.Fatalf("expected %q to be visible", expected)
+		}
+	}
+}
+
+func TestViewOffset_WhenCursorAtStart_ShouldReturnZero(t *testing.T) {
+	items := make([]Item, 20)
+	for i := range items {
+		items[i] = testItem{addr: fmt.Sprintf("item_%02d", i)}
+	}
+	tr := New(items)
+	tr.MoveToStart()
+
+	offset := tr.ViewOffset(10)
+	if offset != 0 {
+		t.Fatalf("expected offset 0 when cursor is at start, got %d", offset)
+	}
+}
+
+func TestViewOffset_WhenCursorAtEnd_ShouldReturnMaxOffset(t *testing.T) {
+	items := make([]Item, 20)
+	for i := range items {
+		items[i] = testItem{addr: fmt.Sprintf("item_%02d", i)}
+	}
+	tr := New(items)
+	tr.MoveToEnd()
+
+	offset := tr.ViewOffset(10)
+	expected := 10 // 20 items - 10 viewport height
+	if offset != expected {
+		t.Fatalf("expected offset %d when cursor is at end, got %d", expected, offset)
+	}
+}
+
+func TestViewOffset_WhenMovingBackFromEnd_ShouldNotScrollUntilTopEdge(t *testing.T) {
+	items := make([]Item, 20)
+	for i := range items {
+		items[i] = testItem{addr: fmt.Sprintf("item_%02d", i)}
+	}
+	tr := New(items)
+	tr.MoveToEnd()
+	tr.ViewOffset(10) // establish viewport at bottom
+
+	// Move up 5 positions (still within the viewport)
+	for i := 0; i < 5; i++ {
+		tr.MoveUp()
+	}
+	offset := tr.ViewOffset(10)
+	if offset != 10 {
+		t.Fatalf("expected offset to remain at 10 while cursor is within viewport, got %d", offset)
+	}
+
+	// Move up 5 more (now cursor is at pos 9, hits top edge of viewport at offset 10)
+	for i := 0; i < 5; i++ {
+		tr.MoveUp()
+	}
+	offset = tr.ViewOffset(10)
+	if offset != 9 {
+		t.Fatalf("expected offset to decrease to 9 when cursor hits top edge, got %d", offset)
 	}
 }
