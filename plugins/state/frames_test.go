@@ -293,6 +293,96 @@ func TestListFrame_Hints_TreeMode(t *testing.T) {
 	}
 }
 
+func TestFlatMode_SelectionMatchesCursorPosition(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.z.aws_instance.web", Type: "aws_instance"},
+		{Address: "module.a.aws_s3_bucket.data", Type: "aws_s3_bucket"},
+		{Address: "module.m.aws_lambda_function.api", Type: "aws_lambda_function"},
+	}
+	p := newTestPlugin(resources)
+	p.treeMode = false
+	p.rebuildTree()
+
+	tests := []struct {
+		name     string
+		moves    int
+		expected string
+	}{
+		{"ShouldSelectFirstItem", 0, "module.z.aws_instance.web"},
+		{"ShouldSelectSecondItem", 1, "module.a.aws_s3_bucket.data"},
+		{"ShouldSelectThirdItem", 2, "module.m.aws_lambda_function.api"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p.treeMode = false
+			p.rebuildTree()
+			for i := 0; i < tt.moves; i++ {
+				p.MoveDown()
+			}
+			r := p.SelectedResource()
+			if r.Address != tt.expected {
+				t.Errorf("after %d moves, selected %q, want %q", tt.moves, r.Address, tt.expected)
+			}
+		})
+	}
+}
+
+func TestFlatMode_SelectionMatchesFuzzyFilterOrder(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.vpc.aws_subnet.main", Type: "aws_subnet"},
+		{Address: "module.rds.aws_db_instance.primary", Type: "aws_db_instance"},
+		{Address: "module.lambda.aws_lambda_function.api", Type: "aws_lambda_function"},
+		{Address: "module.s3.aws_s3_bucket.data", Type: "aws_s3_bucket"},
+	}
+	p := newTestPlugin(resources)
+	p.treeMode = false
+	p.rebuildTree()
+
+	p.SetFilter("lambda")
+
+	if len(p.filtered) == 0 {
+		t.Fatal("expected filter to match at least one resource")
+	}
+
+	p.MoveToStart()
+	r := p.SelectedResource()
+	if r.Address != p.filtered[0].Address {
+		t.Errorf("cursor at 0 selected %q, want %q (first filtered result)", r.Address, p.filtered[0].Address)
+	}
+
+	if len(p.filtered) > 1 {
+		p.MoveDown()
+		r = p.SelectedResource()
+		if r.Address != p.filtered[1].Address {
+			t.Errorf("cursor at 1 selected %q, want %q (second filtered result)", r.Address, p.filtered[1].Address)
+		}
+	}
+}
+
+func TestFlatMode_PinTargetsSelectedResource(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.z.aws_instance.web", Type: "aws_instance"},
+		{Address: "module.a.aws_s3_bucket.data", Type: "aws_s3_bucket"},
+		{Address: "module.m.aws_lambda_function.api", Type: "aws_lambda_function"},
+	}
+	p := newTestPlugin(resources)
+	p.treeMode = false
+	p.session = sdk.NewSession()
+	p.rebuildTree()
+
+	p.MoveDown()
+	p.MoveDown()
+
+	node := p.CursorNode()
+	if node == nil {
+		t.Fatal("expected non-nil cursor node")
+	}
+	if node.Path != "module.m.aws_lambda_function.api" {
+		t.Fatalf("expected cursor at module.m.aws_lambda_function.api, got %q", node.Path)
+	}
+}
+
 func TestListFrame_Hints_FlatMode(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "module.a.aws_instance.one", Type: "aws_instance"},

@@ -405,7 +405,7 @@ func (e *Plugin) rebuildTree() {
 	} else {
 		e.tree = tree.New(items, tree.WithSplitFunc(func(addr string) []string {
 			return []string{addr}
-		}))
+		}), tree.WithPreserveOrder())
 	}
 	e.syncPinnedToTree()
 	if e.treeMode && e.filter != "" {
