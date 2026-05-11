@@ -184,7 +184,7 @@ func TestBuildArgs(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := buildArgs(tt.editor, tt.loc)
+			result := buildArgs(tt.editor, tt.loc, nil)
 			if len(result) != len(tt.expected) {
 				t.Fatalf("buildArgs(%q, %+v) returned %d args %v, want %d args %v",
 					tt.editor, tt.loc, len(result), result, len(tt.expected), tt.expected)
@@ -248,3 +248,66 @@ func TestEditorClosedMsgFields(t *testing.T) {
 type testError struct{}
 
 func (e *testError) Error() string { return "test error" }
+
+func TestSplitCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		wantBin  string
+		wantArgs []string
+	}{
+		{"simple binary", "vim", "vim", nil},
+		{"binary with path", "/usr/bin/vim", "/usr/bin/vim", nil},
+		{"binary with args", "code --wait", "code", []string{"--wait"}},
+		{"binary with multiple args", "emacsclient -n -c", "emacsclient", []string{"-n", "-c"}},
+		{"empty string", "", "vi", nil},
+		{"extra whitespace", "  code   --wait  ", "code", []string{"--wait"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bin, args := splitCommand(tt.input)
+			if bin != tt.wantBin {
+				t.Errorf("splitCommand(%q) bin = %q, want %q", tt.input, bin, tt.wantBin)
+			}
+			if len(args) != len(tt.wantArgs) {
+				t.Fatalf("splitCommand(%q) args = %v, want %v", tt.input, args, tt.wantArgs)
+			}
+			for i := range args {
+				if args[i] != tt.wantArgs[i] {
+					t.Errorf("splitCommand(%q) args[%d] = %q, want %q", tt.input, i, args[i], tt.wantArgs[i])
+				}
+			}
+		})
+	}
+}
+
+func TestBuildArgs_CodeWithExistingWait(t *testing.T) {
+	loc := SourceLocation{File: "/tmp/main.tf", Line: 10}
+
+	t.Run("ShouldNotDuplicateWaitFlag", func(t *testing.T) {
+		result := buildArgs("code", loc, []string{"--wait"})
+		waitCount := 0
+		for _, a := range result {
+			if a == "--wait" {
+				waitCount++
+			}
+		}
+		if waitCount != 0 {
+			t.Errorf("expected no --wait in locArgs (already in editorArgs), got %v", result)
+		}
+	})
+
+	t.Run("ShouldAddWaitWhenNotPresent", func(t *testing.T) {
+		result := buildArgs("code", loc, nil)
+		hasWait := false
+		for _, a := range result {
+			if a == "--wait" {
+				hasWait = true
+			}
+		}
+		if !hasWait {
+			t.Errorf("expected --wait in result, got %v", result)
+		}
+	})
+}

@@ -29,7 +29,9 @@ type EditorClosedMsg struct {
 // Uses tea.ExecProcess for proper terminal handoff.
 func Open(loc SourceLocation) tea.Cmd {
 	editor := detectEditor()
-	args := buildArgs(editor, loc)
+	bin, editorArgs := splitCommand(editor)
+	locArgs := buildArgs(bin, loc, editorArgs)
+	args := append(editorArgs, locArgs...)
 
 	// Record mtime before opening
 	var mtimeBefore time.Time
@@ -37,7 +39,7 @@ func Open(loc SourceLocation) tea.Cmd {
 		mtimeBefore = info.ModTime()
 	}
 
-	c := exec.Command(editor, args...)
+	c := exec.Command(bin, args...)
 	return tea.ExecProcess(c, func(err error) tea.Msg {
 		modified := false
 		if info, statErr := os.Stat(loc.File); statErr == nil {
@@ -49,6 +51,15 @@ func Open(loc SourceLocation) tea.Cmd {
 			Err:      err,
 		}
 	})
+}
+
+// splitCommand splits an editor string like "code --wait" into binary and args.
+func splitCommand(editor string) (string, []string) {
+	parts := strings.Fields(editor)
+	if len(parts) == 0 {
+		return "vi", nil
+	}
+	return parts[0], parts[1:]
 }
 
 // OpenFile opens a file without jumping to a specific line.
@@ -73,23 +84,26 @@ func DetectEditor() string {
 }
 
 // buildArgs constructs editor-specific command line arguments for line jumping.
-func buildArgs(editor string, loc SourceLocation) []string {
+func buildArgs(bin string, loc SourceLocation, existingArgs []string) []string {
 	if loc.Line <= 0 {
 		return []string{loc.File}
 	}
 
-	base := filepath.Base(editor)
-	// Handle editors that might have path prefixes or suffixes
+	base := filepath.Base(bin)
 	baseLower := strings.ToLower(base)
 
 	switch {
 	case strings.Contains(baseLower, "nvim") || strings.Contains(baseLower, "vim"):
 		return []string{fmt.Sprintf("+%d", loc.Line), loc.File}
 	case strings.Contains(baseLower, "code"):
+		args := []string{"--goto", fmt.Sprintf("%s:%d", loc.File, loc.Line)}
 		if loc.Col > 0 {
-			return []string{"--goto", fmt.Sprintf("%s:%d:%d", loc.File, loc.Line, loc.Col), "--wait"}
+			args = []string{"--goto", fmt.Sprintf("%s:%d:%d", loc.File, loc.Line, loc.Col)}
 		}
-		return []string{"--goto", fmt.Sprintf("%s:%d", loc.File, loc.Line), "--wait"}
+		if !hasFlag(existingArgs, "--wait") {
+			args = append(args, "--wait")
+		}
+		return args
 	case strings.Contains(baseLower, "nano"):
 		return []string{fmt.Sprintf("+%d", loc.Line), loc.File}
 	case strings.Contains(baseLower, "emacs"), strings.Contains(baseLower, "emacsclient"):
@@ -101,7 +115,15 @@ func buildArgs(editor string, loc SourceLocation) []string {
 	case strings.Contains(baseLower, "hx"), strings.Contains(baseLower, "helix"):
 		return []string{fmt.Sprintf("%s:%d", loc.File, loc.Line)}
 	default:
-		// Fallback: try +line syntax (works for many editors)
 		return []string{fmt.Sprintf("+%d", loc.Line), loc.File}
 	}
+}
+
+func hasFlag(args []string, flag string) bool {
+	for _, a := range args {
+		if a == flag {
+			return true
+		}
+	}
+	return false
 }
