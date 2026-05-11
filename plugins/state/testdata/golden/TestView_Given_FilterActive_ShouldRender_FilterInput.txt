@@ -1,5 +1,3 @@
 / s3█
 
 [ ] aws_s3_bucket.data  aws_s3_bucket
-
-1/5 resources

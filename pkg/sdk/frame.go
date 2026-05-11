@@ -79,15 +79,18 @@ const (
 	HintSetApply                         // a apply
 	HintSetNew                           // n new
 	HintSetUnlock                        // u force-unlock
+	HintSetPinnedFilter                  // ^p pinned(on/off) (dynamic label)
+	HintSetClearPins                     // ^u unpin all
 	HintSetCancel                        // Esc cancel
 	HintSetBack                          // q back
 )
 
 // HintSetOpts provides dynamic state for hints that need it.
 type HintSetOpts struct {
-	TreeMode bool // for HintSetTree: true → shows "tree", false → shows "flat"
-	WrapMode bool // for HintSetWrap: true → shows "wrap(on)", false → shows "wrap(off)"
-	Pinned   bool // appends [pinned] indicator at the end
+	TreeMode       bool // for HintSetTree: true → shows "tree", false → shows "flat"
+	WrapMode       bool // for HintSetWrap: true → shows "wrap(on)", false → shows "wrap(off)"
+	PinnedFilter   bool // for HintSetPinnedFilter: true → shows "pinned(on)", false → shows "pinned(off)"
+	Pinned         bool // appends [pinned] indicator at the end
 }
 
 // hintDef maps a HintSet bit to its KeyHint representation.
@@ -117,6 +120,8 @@ var hintOrder = []hintDef{
 	{bit: HintSetApply, hint: KeyHint{Key: "a", Description: "apply"}},
 	{bit: HintSetNew, hint: KeyHint{Key: "n", Description: "new"}},
 	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
+	{bit: HintSetPinnedFilter, dynamic: true},
+	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
 	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
 }
@@ -167,6 +172,11 @@ func resolveDynamic(bit HintSet, opts HintSetOpts) KeyHint {
 			return KeyHint{Key: "^w", Description: "wrap(on)"}
 		}
 		return KeyHint{Key: "^w", Description: "wrap(off)"}
+	case HintSetPinnedFilter:
+		if opts.PinnedFilter {
+			return KeyHint{Key: "^p", Description: "pinned(on)"}
+		}
+		return KeyHint{Key: "^p", Description: "pinned(off)"}
 	default:
 		return KeyHint{}
 	}

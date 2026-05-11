@@ -92,6 +92,11 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "ctrl+w":
 		f.plugin.listWrap = !f.plugin.listWrap
 		f.plugin.listHScroll = 0
+	case "ctrl+p":
+		f.plugin.pinnedOnly = !f.plugin.pinnedOnly
+		f.plugin.SetFilter(f.plugin.filter)
+	case "ctrl+u":
+		f.plugin.clearAllPins()
 	case "ctrl+t":
 		f.plugin.treeMode = !f.plugin.treeMode
 		f.plugin.SetFilter(f.plugin.filter)
@@ -137,14 +142,17 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints()
 	default:
-		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetBack
+		set := sdk.HintSetNavigate | sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetPinnedFilter | sdk.HintSetWrap | sdk.HintSetTree | sdk.HintSetBack
 		if !f.plugin.listWrap {
 			set |= sdk.HintSetPan
 		}
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse
 		}
-		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap})
+		if f.plugin.PinnedCount() > 0 {
+			set |= sdk.HintSetClearPins
+		}
+		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap, PinnedFilter: f.plugin.pinnedOnly})
 	}
 }
 
@@ -236,6 +244,10 @@ func (f *stateFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		case "ctrl+w":
 			f.plugin.listWrap = !f.plugin.listWrap
 			f.plugin.listHScroll = 0
+			return f, nil
+		case "ctrl+p":
+			f.plugin.pinnedOnly = !f.plugin.pinnedOnly
+			f.plugin.SetFilter(f.plugin.filter)
 			return f, nil
 		case "right":
 			if !f.plugin.listWrap {

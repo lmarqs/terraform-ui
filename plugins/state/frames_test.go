@@ -475,6 +475,94 @@ func TestListFrame_WrapToggle(t *testing.T) {
 	})
 }
 
+func TestListFrame_PinnedFilter(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "aws_instance.a", Type: "aws_instance"},
+		{Address: "aws_instance.b", Type: "aws_instance"},
+		{Address: "aws_instance.c", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.session = sdk.NewSession()
+	p.pins = sdk.NewPinService(p.session)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	// Pin one resource
+	p.pins.Toggle("aws_instance.b")
+	p.syncPinnedToTree()
+
+	t.Run("ShouldFilterToPinnedOnly", func(t *testing.T) {
+		f.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+		if !p.pinnedOnly {
+			t.Fatal("expected pinnedOnly=true after ctrl+p")
+		}
+		if len(p.filtered) != 1 {
+			t.Errorf("expected 1 filtered resource, got %d", len(p.filtered))
+		}
+		if p.filtered[0].Address != "aws_instance.b" {
+			t.Errorf("expected pinned resource, got %q", p.filtered[0].Address)
+		}
+	})
+
+	t.Run("ShouldToggleBackToAll", func(t *testing.T) {
+		f.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
+		if p.pinnedOnly {
+			t.Fatal("expected pinnedOnly=false after second ctrl+p")
+		}
+		if len(p.filtered) != 3 {
+			t.Errorf("expected 3 filtered resources, got %d", len(p.filtered))
+		}
+	})
+}
+
+func TestListFrame_ClearAllPins(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "aws_instance.a", Type: "aws_instance"},
+		{Address: "aws_instance.b", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.session = sdk.NewSession()
+	p.pins = sdk.NewPinService(p.session)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	p.pins.Toggle("aws_instance.a")
+	p.pins.Toggle("aws_instance.b")
+	p.syncPinnedToTree()
+
+	if p.PinnedCount() != 2 {
+		t.Fatalf("expected 2 pinned, got %d", p.PinnedCount())
+	}
+
+	f.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+
+	if p.PinnedCount() != 0 {
+		t.Errorf("expected 0 pinned after ctrl+u, got %d", p.PinnedCount())
+	}
+}
+
+func TestListFrame_ClearAllPins_ExitsPinnedFilter(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "aws_instance.a", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.session = sdk.NewSession()
+	p.pins = sdk.NewPinService(p.session)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	p.pins.Toggle("aws_instance.a")
+	p.syncPinnedToTree()
+	p.pinnedOnly = true
+	p.SetFilter("")
+
+	f.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+
+	if p.pinnedOnly {
+		t.Error("expected pinnedOnly=false after clearing all pins")
+	}
+}
+
 func TestListFrame_PanDisabledWhenWrapOn(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},

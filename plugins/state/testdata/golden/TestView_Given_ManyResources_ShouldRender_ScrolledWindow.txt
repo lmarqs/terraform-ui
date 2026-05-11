@@ -1,3 +1,5 @@
+[ ] aws_instance.server_03  aws_instance
+[ ] aws_instance.server_04  aws_instance
 [ ] aws_instance.server_05  aws_instance
 [ ] aws_instance.server_06  aws_instance
 [ ] aws_instance.server_07  aws_instance
@@ -14,5 +16,3 @@
 [ ] aws_instance.server_18  aws_instance
 [ ] aws_instance.server_19  aws_instance
 [ ] aws_instance.server_20  aws_instance
-
-30 resources

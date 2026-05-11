@@ -82,6 +82,7 @@ type Plugin struct {
 	viewWidth     int
 	listHScroll   int
 	listWrap      bool
+	pinnedOnly    bool
 	detail        string
 	detailAddr    string
 	detailScroll  int
@@ -341,19 +342,35 @@ func (e *Plugin) panDetailLeft() {
 	}
 }
 
+// sourceResources returns the base set of resources to filter from,
+// applying the pinnedOnly pre-filter if active.
+func (e *Plugin) sourceResources() []sdk.Resource {
+	if !e.pinnedOnly {
+		return e.resources
+	}
+	var result []sdk.Resource
+	for _, r := range e.resources {
+		if e.isPinnedAddress(r.Address) {
+			result = append(result, r)
+		}
+	}
+	return result
+}
+
 // SetFilter filters resources. In tree mode, uses fzf matching preserving original order.
 // In flat mode, uses fzf fuzzy matching sorted by score.
 func (e *Plugin) SetFilter(filter string) {
 	e.filter = filter
+	source := e.sourceResources()
 	if filter == "" {
-		e.filtered = e.resources
+		e.filtered = source
 		e.filterScores = nil
 		e.rebuildTree()
-		e.log.Debug("state.filter", "filter", "", "results", len(e.resources))
+		e.log.Debug("state.filter", "filter", "", "results", len(source))
 		return
 	}
 
-	e.fuzzy.SetItems(e.resources)
+	e.fuzzy.SetItems(source)
 	e.fuzzy.SetQuery(filter)
 	if e.treeMode {
 		e.filtered = e.fuzzy.OriginalOrder()
@@ -486,9 +503,20 @@ func (e *Plugin) renderResources(width, height int) string {
 
 	filterLine := ""
 	if e.filtering {
-		filterLine = sdk.StyleKey.Render("/ ") + e.filter + "█\n\n"
-	} else if e.filter != "" {
-		filterLine = sdk.StyleKey.Render("filter: ") + e.filter + "\n\n"
+		filterLine = sdk.StyleKey.Render("/ ") + e.filter + "█"
+		if e.pinnedOnly {
+			filterLine += " " + sdk.StyleSuccess.Render("[pinned]")
+		}
+		filterLine += "\n\n"
+	} else if e.filter != "" || e.pinnedOnly {
+		parts := []string{}
+		if e.filter != "" {
+			parts = append(parts, sdk.StyleKey.Render("filter: ")+e.filter)
+		}
+		if e.pinnedOnly {
+			parts = append(parts, sdk.StyleSuccess.Render("[pinned]"))
+		}
+		filterLine = strings.Join(parts, " ") + "\n\n"
 	}
 
 	if len(e.filtered) == 0 {
@@ -500,8 +528,7 @@ func (e *Plugin) renderResources(width, height int) string {
 	if e.filtering || e.filter != "" {
 		filterHeight = 2
 	}
-	footerHeight := 2 // blank line + count line
-	maxVisible := height - filterHeight - footerHeight
+	maxVisible := height - filterHeight
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -558,13 +585,7 @@ func (e *Plugin) renderResources(width, height int) string {
 		treeContent = e.renderFlatList(contentWidth, maxVisible)
 	}
 
-	count := sdk.StyleFaint.Render(fmt.Sprintf("%d resources", len(e.filtered)))
-	if len(e.filtered) != len(e.resources) {
-		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d resources", len(e.filtered), len(e.resources)))
-	}
-
-	content := filterLine + treeContent + "\n\n" + count
-	return content
+	return filterLine + treeContent
 }
 
 func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
@@ -703,6 +724,18 @@ func wrapLines(lines []string, width int) []string {
 }
 
 // --- Context actions ---
+
+func (e *Plugin) clearAllPins() {
+	if e.pins != nil {
+		e.pins.Set(nil)
+	}
+	e.tree.SetPinned(nil)
+	if e.pinnedOnly {
+		e.pinnedOnly = false
+		e.SetFilter(e.filter)
+	}
+	e.log.Debug("state.pin.clear-all")
+}
 
 func (e *Plugin) togglePin(address string) tea.Cmd {
 	if e.session == nil {

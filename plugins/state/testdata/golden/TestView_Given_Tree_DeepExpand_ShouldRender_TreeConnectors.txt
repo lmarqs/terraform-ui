@@ -7,5 +7,3 @@
 [ ] └─▶ module.postgresql_proxy (3)
 [ ] aws_dynamodb_table.terraform_locks  aws_dynamodb_table
 [ ] aws_s3_bucket.terraform_state  aws_s3_bucket
-
-11 resources

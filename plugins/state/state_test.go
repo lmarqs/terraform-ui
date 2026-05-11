@@ -1396,9 +1396,9 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 		height        int
 		wantListLines int
 	}{
-		{"ShouldShow18LinesInHeight20", 20, 18},
-		{"ShouldShow8LinesInHeight10", 10, 8},
-		{"ShouldShow28LinesInHeight30", 30, 28},
+		{"ShouldShow20LinesInHeight20", 20, 20},
+		{"ShouldShow10LinesInHeight10", 10, 10},
+		{"ShouldShow30LinesInHeight30", 30, 30},
 	}
 
 	for _, tt := range tests {
@@ -1457,7 +1457,7 @@ func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 	})
 }
 
-func TestRenderFlatList_WrapMode_ShouldShowCountAndNotOverflow(t *testing.T) {
+func TestRenderFlatList_WrapMode_ShouldNotOverflow(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -1479,9 +1479,6 @@ func TestRenderFlatList_WrapMode_ShouldShowCountAndNotOverflow(t *testing.T) {
 
 	if len(lines) > 20 {
 		t.Errorf("wrap mode caused line overflow: got %d lines, want <= 20", len(lines))
-	}
-	if !strings.Contains(output, "resources") {
-		t.Error("expected resource count to be visible in wrap mode")
 	}
 }
 
