@@ -172,10 +172,6 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.panDetailRight()
 	case "left":
 		f.plugin.panDetailLeft()
-	case "w":
-		f.plugin.detailWrap = !f.plugin.detailWrap
-		f.plugin.detailScroll = 0
-		f.plugin.detailHScroll = 0
 	case "ctrl+w":
 		f.plugin.detailWrap = !f.plugin.detailWrap
 		f.plugin.detailScroll = 0
