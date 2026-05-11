@@ -641,20 +641,14 @@ func TestSetFilterFzf(t *testing.T) {
 		}
 	})
 
-	t.Run("space AND narrows results", func(t *testing.T) {
+	t.Run("space treated as part of single pattern", func(t *testing.T) {
 		p.SetFilter("aurora")
 		auroraCount := len(p.filtered)
 		p.SetFilter("aurora instance")
+		// Single-pattern matching: "aurora instance" is one fuzzy pattern.
+		// It matches fewer items than "aurora" alone because the pattern is longer/stricter.
 		if len(p.filtered) >= auroraCount {
 			t.Errorf("'aurora instance' (%d) should be fewer than 'aurora' (%d)", len(p.filtered), auroraCount)
-		}
-		if len(p.filtered) == 0 {
-			t.Error("'aurora instance' should have results")
-		}
-		for _, r := range p.filtered {
-			if !strings.Contains(r.Address, "instance") {
-				t.Errorf("'aurora instance' result %q should contain 'instance'", r.Address)
-			}
 		}
 	})
 

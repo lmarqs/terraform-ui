@@ -2,6 +2,7 @@ package ui
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/junegunn/fzf/src/algo"
 	"github.com/junegunn/fzf/src/util"
@@ -36,7 +37,7 @@ func (f *FuzzyFilter[T]) SetItems(items []T) {
 
 // SetQuery updates the search query and re-filters.
 func (f *FuzzyFilter[T]) SetQuery(query string) {
-	f.query = query
+	f.query = strings.ToLower(query)
 	f.filter()
 }
 
@@ -106,7 +107,7 @@ func (f *FuzzyFilter[T]) filter() {
 	f.scored = nil
 
 	for i, item := range f.items {
-		input := util.RunesToChars([]rune(f.getText(item)))
+		input := util.RunesToChars([]rune(strings.ToLower(f.getText(item))))
 		res, _ := algo.FuzzyMatchV2(false, true, true, &input, pattern, false, slab)
 		if res.Score > 0 {
 			f.scored = append(f.scored, scoredItem[T]{item: item, index: i, score: res.Score})
