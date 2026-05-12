@@ -4,77 +4,28 @@ on:
   workflow_call:
 
 env:
-  # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
-  # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  unit:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
-    permissions:
-      checks: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Prepare Environment
-        uses: ./.github/actions/prepare-env
-
-      - name: Test
-        run: mise run test:run
-
-      - name: Test Report
-        uses: dorny/test-reporter@v1
-        if: always()
-        with:
-          name: Tests (${{ matrix.os }})
-          path: reports/*.xml
-          reporter: java-junit
-
-      - name: Upload Test Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-report-${{ matrix.os }}
-          path: reports/
-
-  coverage:
+  macro:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Prepare Environment
-        uses: ./.github/actions/prepare-env
-
-      - name: Coverage
-        run: mise run coverage:run
-
-      - name: Coverage Report
-        if: always()
-        run: |
-          if [ -f coverage/kcov-merged/cobertura.xml ]; then
-            LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' coverage/kcov-merged/cobertura.xml | head -1)
-            PERCENT=$(awk "BEGIN {printf \"%.1f\", $LINE_RATE * 100}")
-            echo "## Coverage: ${PERCENT}%" >> "$GITHUB_STEP_SUMMARY"
-            echo "" >> "$GITHUB_STEP_SUMMARY"
-            echo "Full report available as artifact." >> "$GITHUB_STEP_SUMMARY"
-          elif [ -d coverage/bats.*/cobertura.xml ]; then
-            LINE_RATE=$(grep -oP 'line-rate="\K[^"]+' coverage/bats.*/cobertura.xml | head -1)
-            PERCENT=$(awk "BEGIN {printf \"%.1f\", $LINE_RATE * 100}")
-            echo "## Coverage: ${PERCENT}%" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "## Coverage: report generated" >> "$GITHUB_STEP_SUMMARY"
-            echo "Check artifacts for details." >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-      - name: Upload Coverage Artifact
-        if: always()
-        uses: actions/upload-artifact@v4
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-env
+      - uses: actions/download-artifact@v4
         with:
-          name: coverage-report
-          path: coverage/
+          name: binaries
+          path: dist/
+      - run: chmod +x dist/tfui_linux_amd64_v1/tfui
+      - run: mise run test:macro dist/tfui_linux_amd64_v1/tfui
+
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/prepare-env
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14"
+          terraform_wrapper: false
+      - run: mise run test:integration

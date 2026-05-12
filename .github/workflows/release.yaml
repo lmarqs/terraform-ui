@@ -12,16 +12,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
-
-      - name: Prepare Environment
-        uses: ./.github/actions/prepare-env
-
-      - name: Release
+      - uses: ./.github/actions/prepare-env
+      - run: mise run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: mise run release

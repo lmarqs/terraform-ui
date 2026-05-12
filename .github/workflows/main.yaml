@@ -1,31 +1,31 @@
-name: Main
+name: CI
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    types:
-      - opened
-      - synchronize
-    branches:
-      - main
+    types: [opened, synchronize]
+    branches: [main]
 
 env:
-  # Required until actions (checkout, upload-artifact, etc.) ship Node 24 natively
-  # https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  test:
-    uses: ./.github/workflows/test.yaml
+  build:
+    uses: ./.github/workflows/build.yaml
     permissions:
       checks: write
       contents: read
 
+  test:
+    needs: build
+    uses: ./.github/workflows/test.yaml
+    permissions:
+      contents: read
+
   release:
     if: github.event_name == 'push'
-    uses: ./.github/workflows/release.yaml
     needs: test
+    uses: ./.github/workflows/release.yaml
     permissions:
       contents: write
