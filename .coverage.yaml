@@ -1,28 +1,57 @@
 # Coverage thresholds per layer.
-# Enforced by `mise run test:coverage`. Raise as tests are added.
-
-global: 70
+# 100% is the default — anything less indicates either:
+#   1. Code that's structurally untestable (I/O boundaries, CLI glue)
+#   2. Architecture that needs refactoring to separate pure logic from side effects
+#
+# Enforced by `mise run test:coverage`.
 
 layers:
   pkg/sdk:
-    threshold: 80
-    current: 84
-    excludes: [pkg/sdk/sdktest]
-
-  internal:
-    threshold: 60
-    current: 66
-    excludes: [internal/ai, internal/logging]
+    threshold: 100
+    note: "Public API. No excuses — pure logic, no I/O."
 
   plugins:
-    threshold: 80
-    current: 82
-    excludes: [plugins/init]
+    threshold: 100
+    note: "Feature code. Plugins receive injected services — fully testable."
 
-  cmd:
-    threshold: 0
-    note: "CLI glue — tested via integration and macro tapes"
+  internal/plugin:
+    threshold: 100
+    note: "Registry and routing. Pure logic."
+
+  internal/macro:
+    threshold: 100
+    note: "Tape parser and driver. Pure logic."
+
+  internal/source:
+    threshold: 100
+    note: "URI resolution and loading. Providers are mockable."
+
+  internal/config:
+    threshold: 100
+    note: "YAML parsing and dot-notation access. Pure logic."
+
+  internal/editor:
+    threshold: 100
+    note: "Path resolution logic. ExecProcess is at the boundary."
+
+  internal/ui:
+    threshold: 100
+    note: "App model, input routing, layout. BubbleTea is testable."
+
+  # ── Excluded from unit coverage (tested by integration/macros) ──
 
   internal/terraform:
     threshold: 0
-    note: "terraform-exec I/O — tested via integration tests"
+    note: "terraform-exec I/O boundary. Tested by integration tests."
+
+  internal/ai:
+    threshold: 0
+    note: "HTTP/streaming boundary. Tested manually + integration."
+
+  internal/logging:
+    threshold: 0
+    note: "slog setup. Trivial glue."
+
+  cmd:
+    threshold: 0
+    note: "CLI wiring. Tested by macro tapes and integration tests."
