@@ -5,10 +5,8 @@ description: Build Go binary (mise run build)
 
 ## Mise task: `build`
 
-Run `mise run build` to compile the Go binary to `dist/tfui`.
+Run `mise run build` to build cross-platform binaries via goreleaser snapshot.
 
-Runs `fmt` and `lint` first as dependencies.
+Outputs to `dist/tfui_{os}_{arch}/tfui`.
 
-Accepts an optional version argument: `mise run build 1.0.0`
-
-Related commands: /fmt, /lint, /test, /run
+Related commands: /fmt, /lint, /test

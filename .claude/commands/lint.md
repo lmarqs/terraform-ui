@@ -1,10 +1,12 @@
 ---
-allowed-tools: Bash(mise run:*), Bash(go vet:*)
-description: Lint Go code (mise run lint)
+allowed-tools: Bash(mise run:*), Bash(golangci-lint:*)
+description: Lint Go code (mise run check:lint)
 ---
 
-## Mise task: `lint`
+## Mise task: `check:lint`
 
-Run `mise run lint` to run go vet on all packages.
+Run `mise run check:lint` to run golangci-lint on all packages.
 
-Related commands: /build, /fmt
+For a quick check: `mise run check:vet`
+
+Related commands: /build, /fmt, /test

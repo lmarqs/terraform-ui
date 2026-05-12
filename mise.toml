@@ -1,75 +1,97 @@
 [tools]
-go = "1.22"
+go = "1.25"
+golangci-lint = "2.12"
+goreleaser = "2.15"
 terraform = "1.14"
 node = "22"
 
-[tasks.fmt]
-run = "gofmt -w cmd/ internal/ plugins/"
-description = "Format Go source files"
-
-[tasks.build]
-depends = ["fmt", "lint"]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-version="${1:-$(cat VERSION)}"
-go build -ldflags "-X main.version=${version}" -o dist/tfui ./cmd/tfui
-"""
-description = "Build Go binary to dist/tfui (runs fmt + lint first)"
-
-[tasks.setup]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-npm ci
-go install gotest.tools/gotestsum@latest
-"""
-description = "Install dependencies (npm + go tools)"
-
-[tasks.test]
-run = "go test ./..."
-description = "Run Go unit tests"
-
-[tasks."test:run"]
-depends = ["lint"]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-mkdir -p reports
-gotestsum --junitfile reports/junit.xml -- ./...
-"""
-description = "Run tests with JUnit XML output (CI)"
-
-[tasks.lint]
-run = "go vet ./..."
-description = "Run go vet on all packages"
-
-[tasks."coverage:run"]
-run = """
-#!/usr/bin/env bash
-set -euo pipefail
-# Exclude cmd/ and internal/terraform (terraform-exec I/O) from coverage
-packages=$(go list ./... | grep -v '/cmd/' | grep -v 'internal/terraform$')
-go test -coverprofile=coverage.out $packages
-go tool cover -func=coverage.out
-total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
-echo "Total coverage: ${total}%"
-if awk "BEGIN {exit !($total < 90)}"; then
-  echo "ERROR: Coverage is below 90% (got ${total}%)"
-  exit 1
-fi
-echo "Coverage OK (target: 90%, excluding cmd/ and internal/terraform)"
-"""
-description = "Run Go tests with 90% coverage (excludes cmd/ and terraform-exec I/O)"
+# ─── Developer tools ────────────────────────────────────────────────────────────
 
 [tasks.run]
 run = "go run ./cmd/tfui"
-description = "Run tfui TUI in development mode"
+description = "Run TUI in development mode"
+
+[tasks.fmt]
+run = "gofmt -w cmd/ internal/ plugins/ pkg/"
+description = "Format Go source files"
+
+[tasks.setup]
+run = """
+npm ci
+go install gotest.tools/gotestsum@latest
+"""
+description = "Install CI dependencies (npm + gotestsum)"
+
+# ─── Check (static analysis) ───────────────────────────────────────────────────
+
+[tasks."check:vet"]
+run = "go vet ./..."
+description = "Go vet"
+
+[tasks."check:lint"]
+run = "golangci-lint run ./..."
+description = "Full lint suite (golangci-lint)"
+
+# ─── Build (produce artifacts) ──────────────────────────────────────────────────
+
+[tasks.build]
+run = "goreleaser build --snapshot --clean"
+description = "Build cross-platform binaries (goreleaser snapshot)"
+
+# ─── Test (verify correctness) ──────────────────────────────────────────────────
+
+[tasks."test:unit"]
+run = """
+mkdir -p reports
+gotestsum --junitfile reports/junit.xml -- ./...
+"""
+description = "Unit tests (JUnit XML in reports/)"
+
+[tasks."test:coverage"]
+run = """
+packages=$(go list ./... | grep -v '/cmd/' | grep -v 'internal/terraform$')
+go test -coverprofile=coverage.out $packages
+total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+echo "Coverage: ${total}%"
+if awk "BEGIN {exit !($total < 90)}"; then
+  echo "FAIL: below 90% threshold"
+  exit 1
+fi
+"""
+description = "Coverage enforcement (90%, excludes cmd/ and internal/terraform)"
 
 [tasks."test:integration"]
 run = "go test -tags integration -timeout 300s ./tests/integration/..."
-description = "Run integration tests (requires terraform on PATH)"
+description = "Integration tests (requires terraform on PATH)"
+
+[tasks."test:macro"]
+run = """
+TFUI="${1:-dist/tfui_$(go env GOOS)_$(go env GOARCH)*/tfui}"
+TFUI=$(ls $TFUI 2>/dev/null | head -1)
+if [ -z "$TFUI" ] || [ ! -x "$TFUI" ]; then
+  echo "ERROR: no binary found at $TFUI — run 'mise run build:all' first"
+  exit 1
+fi
+failed=0
+for tape in tests/fixtures/tapes/*.tape; do
+  case "$(basename "$tape")" in
+    assertion_fail.tape|state_tree.tape) continue ;;
+  esac
+  echo "=== $(basename "$tape") ==="
+  if ! "$TFUI" --plan ./tests/fixtures/plan.json --state ./tests/fixtures/state.json --macro "./$tape"; then
+    failed=$((failed + 1))
+  fi
+done
+if [ $failed -gt 0 ]; then
+  echo "FAIL: $failed tape(s) failed"
+  exit 1
+fi
+echo "All tapes passed."
+"""
+description = "Macro tapes against built binary (blackbox)"
+
+# ─── Release (CI only) ─────────────────────────────────────────────────────────
 
 [tasks.release]
 run = "npx semantic-release"
-description = "Run semantic-release (CI only)"
+description = "Semantic-release (CI only, requires GITHUB_TOKEN)"

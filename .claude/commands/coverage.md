@@ -1,12 +1,12 @@
 ---
 allowed-tools: Bash(mise run:*), Bash(go test:*), Bash(go tool:*)
-description: Run Go coverage report (mise run coverage)
+description: Run Go coverage report (mise run test:coverage)
 ---
 
-## Mise task: `coverage`
+## Mise task: `test:coverage`
 
-Run `mise run coverage` to generate a coverage report.
+Run `mise run test:coverage` to generate a coverage report with 90% threshold enforcement.
 
-Outputs coverage.out and prints per-function coverage to stdout.
+Excludes cmd/ and internal/terraform from coverage.
 
-Related commands: /test
+Related commands: /test, /lint
