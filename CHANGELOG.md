@@ -1,3 +1,16 @@
+# [1.3.0](https://github.com/lmarqs/terraform-ui/compare/v1.2.0...v1.3.0) (2026-05-12)
+
+
+### Bug Fixes
+
+* re-enable GPG signing in release task ([ac2d8ed](https://github.com/lmarqs/terraform-ui/commit/ac2d8edb9627b65ebbf05188e9db31d0ddd27b59))
+* remove @semantic-release/github plugin (goreleaser owns the release) ([e9c1bf6](https://github.com/lmarqs/terraform-ui/commit/e9c1bf63d9680cd6ec33b9e49e05d03d8d9975f1))
+
+
+### Features
+
+* remove @semantic-release/github dependency ([b6696ea](https://github.com/lmarqs/terraform-ui/commit/b6696ea9599651f3eb98049ad21154ac0d99b9c9))
+
 # [1.2.0](https://github.com/lmarqs/terraform-ui/compare/v1.1.0...v1.2.0) (2026-05-12)
 
 
