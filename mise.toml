@@ -95,9 +95,5 @@ description = "Macro tapes against built binary (blackbox)"
 # ─── Release (CI only) ─────────────────────────────────────────────────────────
 
 [tasks.release]
-run = """
-git config --local tag.gpgSign false
-git config --local commit.gpgSign false
-npx semantic-release
-"""
+run = "npx semantic-release"
 description = "Semantic-release (CI only, requires GITHUB_TOKEN)"
