@@ -40,7 +40,7 @@ func TestStaticServiceReadMethods(t *testing.T) {
 		},
 	}
 
-	svc := NewStaticService(plan, resources, state)
+	svc := NewStaticService(plan, resources, state, "")
 	ctx := context.Background()
 
 	t.Run("Plan returns pre-loaded summary", func(t *testing.T) {
@@ -131,7 +131,7 @@ func TestStaticServiceNilData(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("nil plan returns empty summary", func(t *testing.T) {
-		svc := NewStaticService(nil, nil, nil)
+		svc := NewStaticService(nil, nil, nil, "")
 		got, err := svc.Plan(ctx, nil)
 		if err != nil {
 			t.Fatal(err)
@@ -142,7 +142,7 @@ func TestStaticServiceNilData(t *testing.T) {
 	})
 
 	t.Run("nil resources returns empty slice", func(t *testing.T) {
-		svc := NewStaticService(nil, nil, nil)
+		svc := NewStaticService(nil, nil, nil, "")
 		got, err := svc.StateList(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -153,7 +153,7 @@ func TestStaticServiceNilData(t *testing.T) {
 	})
 
 	t.Run("nil state Show returns error", func(t *testing.T) {
-		svc := NewStaticService(nil, nil, nil)
+		svc := NewStaticService(nil, nil, nil, "")
 		_, err := svc.Show(ctx, "anything")
 		if err == nil {
 			t.Error("expected error")
@@ -162,7 +162,7 @@ func TestStaticServiceNilData(t *testing.T) {
 }
 
 func TestStaticServiceMutatingMethods(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil)
+	svc := NewStaticService(nil, nil, nil, "")
 	ctx := context.Background()
 
 	mutators := []struct {
@@ -219,4 +219,218 @@ func TestStaticServiceMutatingMethods(t *testing.T) {
 
 func TestStaticServiceImplementsInterface(t *testing.T) {
 	var _ sdk.Service = (*StaticService)(nil)
+}
+
+func TestStaticServiceCommands(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("custom binary", func(t *testing.T) {
+		svc := NewStaticService(nil, nil, nil, "tofu")
+		_ = svc.Apply(ctx, []string{"aws_instance.web"})
+		cmds := svc.Commands()
+		if len(cmds) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(cmds))
+		}
+		if cmds[0].Binary != "tofu" {
+			t.Errorf("binary = %q, want tofu", cmds[0].Binary)
+		}
+		if cmds[0].String() != "tofu apply -target=aws_instance.web" {
+			t.Errorf("string = %q", cmds[0].String())
+		}
+	})
+
+	t.Run("execution order", func(t *testing.T) {
+		svc := NewStaticService(nil, nil, nil, "terraform")
+		_ = svc.Taint(ctx, "aws_instance.a")
+		_ = svc.Apply(ctx, nil)
+		_ = svc.StateRm(ctx, "aws_instance.b")
+		cmds := svc.Commands()
+		if len(cmds) != 3 {
+			t.Fatalf("expected 3 commands, got %d", len(cmds))
+		}
+		if cmds[0].Verb != "taint" {
+			t.Errorf("first verb = %q, want taint", cmds[0].Verb)
+		}
+		if cmds[1].Verb != "apply" {
+			t.Errorf("second verb = %q, want apply", cmds[1].Verb)
+		}
+		if cmds[2].Verb != "state rm" {
+			t.Errorf("third verb = %q, want state rm", cmds[2].Verb)
+		}
+	})
+
+	t.Run("read methods do not collect", func(t *testing.T) {
+		plan := &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
+		resources := []sdk.Resource{{Address: "a"}}
+		svc := NewStaticService(plan, resources, nil, "")
+		_, _ = svc.Plan(ctx, nil)
+		_, _ = svc.StateList(ctx)
+		_, _ = svc.Workspace(ctx)
+		_, _ = svc.WorkspaceList(ctx)
+		if len(svc.Commands()) != 0 {
+			t.Errorf("expected 0 commands, got %d", len(svc.Commands()))
+		}
+	})
+
+	t.Run("default binary when empty", func(t *testing.T) {
+		svc := NewStaticService(nil, nil, nil, "")
+		_ = svc.Refresh(ctx)
+		cmds := svc.Commands()
+		if len(cmds) != 1 {
+			t.Fatalf("expected 1 command, got %d", len(cmds))
+		}
+		if cmds[0].Binary != "terraform" {
+			t.Errorf("binary = %q, want terraform", cmds[0].Binary)
+		}
+	})
+
+	t.Run("Commands returns nil when nothing triggered", func(t *testing.T) {
+		svc := NewStaticService(nil, nil, nil, "terraform")
+		cmds := svc.Commands()
+		if cmds != nil {
+			t.Errorf("expected nil, got %v", cmds)
+		}
+	})
+
+	t.Run("multiple calls accumulate", func(t *testing.T) {
+		svc := NewStaticService(nil, nil, nil, "terraform")
+		_ = svc.Apply(ctx, nil)
+		_ = svc.Apply(ctx, []string{"aws_instance.a"})
+		cmds := svc.Commands()
+		if len(cmds) != 2 {
+			t.Fatalf("expected 2 commands, got %d", len(cmds))
+		}
+		if cmds[0].String() != "terraform apply" {
+			t.Errorf("first = %q, want %q", cmds[0].String(), "terraform apply")
+		}
+		if cmds[1].String() != "terraform apply -target=aws_instance.a" {
+			t.Errorf("second = %q, want %q", cmds[1].String(), "terraform apply -target=aws_instance.a")
+		}
+	})
+
+	t.Run("WithDir does not affect command collection", func(t *testing.T) {
+		svc := NewStaticService(nil, nil, nil, "terraform")
+		sub := svc.WithDir("/some/other/dir")
+		subSvc := sub.(*StaticService)
+		_ = subSvc.Taint(ctx, "aws_instance.x")
+		_ = svc.Untaint(ctx, "aws_instance.y")
+		cmds := svc.Commands()
+		if len(cmds) != 2 {
+			t.Fatalf("expected 2 commands, got %d", len(cmds))
+		}
+		if cmds[0].Verb != "taint" {
+			t.Errorf("first verb = %q, want taint", cmds[0].Verb)
+		}
+		if cmds[1].Verb != "untaint" {
+			t.Errorf("second verb = %q, want untaint", cmds[1].Verb)
+		}
+	})
+
+	t.Run("all mutating methods produce correct command strings", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			invoke   func(svc *StaticService) error
+			expected string
+		}{
+			{
+				"Apply without targets",
+				func(svc *StaticService) error { return svc.Apply(ctx, nil) },
+				"terraform apply",
+			},
+			{
+				"Apply with single target",
+				func(svc *StaticService) error { return svc.Apply(ctx, []string{"aws_instance.web"}) },
+				"terraform apply -target=aws_instance.web",
+			},
+			{
+				"Apply with multiple targets",
+				func(svc *StaticService) error {
+					return svc.Apply(ctx, []string{"aws_instance.web", "aws_s3_bucket.data"})
+				},
+				"terraform apply -target=aws_instance.web -target=aws_s3_bucket.data",
+			},
+			{
+				"StateRm",
+				func(svc *StaticService) error { return svc.StateRm(ctx, "aws_instance.web") },
+				"terraform state rm aws_instance.web",
+			},
+			{
+				"StateMove",
+				func(svc *StaticService) error { return svc.StateMove(ctx, "aws_instance.old", "aws_instance.new") },
+				"terraform state mv aws_instance.old aws_instance.new",
+			},
+			{
+				"Import",
+				func(svc *StaticService) error { return svc.Import(ctx, "aws_instance.web", "i-1234567890") },
+				"terraform import aws_instance.web i-1234567890",
+			},
+			{
+				"Taint",
+				func(svc *StaticService) error { return svc.Taint(ctx, "aws_instance.web") },
+				"terraform taint aws_instance.web",
+			},
+			{
+				"Untaint",
+				func(svc *StaticService) error { return svc.Untaint(ctx, "aws_instance.web") },
+				"terraform untaint aws_instance.web",
+			},
+			{
+				"Validate",
+				func(svc *StaticService) error { _, err := svc.Validate(ctx); return err },
+				"terraform validate",
+			},
+			{
+				"Output",
+				func(svc *StaticService) error { _, err := svc.Output(ctx); return err },
+				"terraform output",
+			},
+			{
+				"Refresh",
+				func(svc *StaticService) error { return svc.Refresh(ctx) },
+				"terraform refresh",
+			},
+			{
+				"Init",
+				func(svc *StaticService) error { return svc.Init(ctx) },
+				"terraform init",
+			},
+			{
+				"ForceUnlock",
+				func(svc *StaticService) error { return svc.ForceUnlock(ctx, "abc-123") },
+				"terraform force-unlock -force abc-123",
+			},
+			{
+				"WorkspaceSelect",
+				func(svc *StaticService) error { return svc.WorkspaceSelect(ctx, "production") },
+				"terraform workspace select production",
+			},
+			{
+				"WorkspaceNew",
+				func(svc *StaticService) error { return svc.WorkspaceNew(ctx, "staging") },
+				"terraform workspace new staging",
+			},
+			{
+				"WorkspaceDelete",
+				func(svc *StaticService) error { return svc.WorkspaceDelete(ctx, "old-env") },
+				"terraform workspace delete old-env",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				svc := NewStaticService(nil, nil, nil, "")
+				err := tt.invoke(svc)
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				cmds := svc.Commands()
+				if len(cmds) != 1 {
+					t.Fatalf("expected 1 command, got %d", len(cmds))
+				}
+				if cmds[0].String() != tt.expected {
+					t.Errorf("got %q, want %q", cmds[0].String(), tt.expected)
+				}
+			})
+		}
+	})
 }

@@ -247,10 +247,17 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 	driver := macro.NewDriver(app, 80, 24)
 	runner := macro.NewRunner(driver)
 
-	return runner.Execute(commands)
+	if err := runner.Execute(commands); err != nil {
+		return err
+	}
+
+	for _, cmd := range svc.Commands() {
+		fmt.Println(cmd.String())
+	}
+	return nil
 }
 
-func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Service, error) {
+func buildStaticService(cfg config.Config, planURI, stateURI string) (*terraform.StaticService, error) {
 	if planURI == "-" && stateURI == "-" {
 		return nil, fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
 	}
@@ -283,7 +290,7 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (sdk.Servic
 		}
 	}
 
-	return terraform.NewStaticService(plan, resources, state), nil
+	return terraform.NewStaticService(plan, resources, state, cfg.TerraformBinary()), nil
 }
 
 func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error {
