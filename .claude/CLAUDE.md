@@ -541,7 +541,7 @@ ldflags (-X main.version=...) → debug.ReadBuildInfo().Main.Version → "0.0.0-
 
 | Agent | Purpose | When to use |
 |-------|---------|-------------|
-| `test-writer` | Generate table-driven tests | New/modified plugin or internal code needing test coverage |
+| `test-writer` | Generate table-driven tests | **MUST be invoked BEFORE any implementation edit** — failing test first, always |
 | `code-checker` | Audit CLAUDE.md code conventions | Before commits, during PR review, after large refactors |
 | `ux-checker` | Validate hint placement and UX rules | Changes to `View()`, `Hints()`, frames, or new plugins |
 | `macro-runner` | Run macro tapes to verify UI rendering | After modifying `View()`, layout, or plugin navigation |
@@ -552,6 +552,7 @@ Agents run in isolation and can be spawned in parallel. Unlike commands, they do
 
 ## Important Rules
 
+- **TDD is non-negotiable**: spawn `test-writer` agent to produce a failing test BEFORE writing any implementation code. Never edit production files without a failing test already in place.
 - Plugins import ONLY `pkg/sdk` — never `internal/`
 - All state mutations go through `TerraformContext` (thread-safe)
 - Destructive ops require staleness check + user confirmation
