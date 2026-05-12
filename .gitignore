@@ -16,5 +16,8 @@ vendor/
 # Node (semantic-release only)
 node_modules/
 
+# Terraform
+.terraform/
+
 # Generated
 coverage/
