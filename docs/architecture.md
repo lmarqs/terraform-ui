@@ -143,7 +143,7 @@ mise run build            # Build (runs fmt + lint first)
 mise run test             # Unit tests
 mise run coverage         # Coverage with 100% enforcement
 mise run test:integration # Integration tests (need terraform)
-mise run run              # Launch TUI in dev mode
+mise run dev              # Launch TUI in dev mode
 ```
 
 ## Key Design Decisions

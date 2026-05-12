@@ -431,7 +431,7 @@ Before destructive operations (apply, state rm, state mv, import), check data fr
 ## Development Workflow
 
 ```bash
-mise run run              # Run TUI in development mode
+mise run dev              # Run TUI in development mode
 mise run fmt              # Format source files (gofmt)
 mise run check:lint       # Full lint suite (golangci-lint v2)
 mise run check:vet        # Quick go vet
