@@ -129,36 +129,50 @@ URIs must be explicit — no bare filenames:
 
 ### Read-Only Behavior
 
-When `--plan` or `--state` is provided:
+When `--plan` or `--state` is provided (interactive TUI mode):
 
 - Header displays `[read-only]` badge
 - Workspace reported as `"readonly"`
-- Mutating actions hidden from hint bar (`d`, `t`, `T`, `m`, `a`)
-- Attempting mutations shows: "operation not available in read-only mode"
+- Mutating actions show the equivalent terraform command as an error message
 - Risk classification and phantom detection still run on loaded plan data
-- `r` (refresh) returns same data (idempotent)
+
+When combined with `--macro`, mutating actions collect commands and print them to stdout (see [Macro Mode](#macro-mode-macro)).
 
 ## Macro Mode (`--macro`)
 
-Run automated TUI interactions from a tape file. See [Macro Language](macro-language.md) for the full DSL reference.
+Run automated TUI interactions from a tape file. Mutating terraform operations triggered during playback are printed to stdout. See [Macro Language](macro-language.md) for the full DSL reference.
 
 ```bash
 # From file
-tfui --macro ./scripts/verify-plan.tape
+tfui --plan ./plan.json --macro ./scripts/verify-plan.tape
 
 # From stdin
-cat script.tape | tfui --macro -
+echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --macro -
 
-# Combined with read-only mode
-tfui --plan ./plan.json --macro ./scripts/check-risk.tape
+# Pipe commands to shell (apply via macro)
+tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape | sh
 
-# CI pipeline
-terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify.tape
+# Use tofu binary
+tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape --terraform-bin tofu | sh
 ```
 
 | Flag | Description |
 |------|-------------|
-| `--macro` | Run tape file (path or `-` for stdin) |
+| `--macro` | Run tape file (path or `-` for stdin). Requires `--plan` or `--state`. |
+
+### Stdout Output
+
+When the macro triggers mutating operations (apply, state rm, taint, untaint, move, import), the equivalent terraform CLI command is printed to stdout after completion:
+
+```bash
+$ tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
+terraform taint aws_instance.web
+
+$ tfui --plan ./plan.json --state ./state.json --macro ./apply.tape
+terraform apply -target=aws_instance.web
+```
+
+If no mutating operations are triggered, stdout is empty.
 
 ### Exit Codes (macro mode)
 

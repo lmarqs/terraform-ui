@@ -39,9 +39,27 @@ terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
 
 No TTY is required — macro mode drives the BubbleTea model directly without opening a terminal.
 
+## Command Output (stdout)
+
+When a macro triggers a mutating terraform operation (apply, state rm, taint, etc.), the equivalent CLI command is collected and printed to stdout after the macro completes. This enables piping macros into a shell:
+
+```bash
+# Generate and execute terraform commands via macro
+tfui --plan ./plan.json --state ./state.json --macro ./apply.tape | sh
+
+# Use tofu instead of terraform
+tfui --plan ./plan.json --state ./state.json --macro ./apply.tape --terraform-bin tofu | sh
+
+# Preview what would run (don't pipe to sh)
+tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
+# stdout: terraform taint aws_instance.web
+```
+
+If the macro only reads data (no mutating actions), stdout is empty.
+
 ## Safety
 
-Macro mode **always runs read-only** — `--plan` or `--state` is required, which forces `StaticService` where all mutating operations (apply, state rm, taint, etc.) return `ErrReadOnly`. This prevents a tape from accidentally triggering destructive terraform operations on real infrastructure. There is no way to bypass this: macros cannot run against a live terraform project.
+Macro mode **never executes real terraform commands** — `--plan` or `--state` is required, which forces `StaticService` where all mutating operations return the equivalent CLI command instead of executing it. The user explicitly chooses to run the commands by piping stdout to `sh`. Without the pipe, macros are purely read-only.
 
 ## Tape Format
 
@@ -155,31 +173,71 @@ Accepts Go duration format: `100ms`, `1s`, `1m30s`.
 
 ## Examples
 
-### Verify plan view renders correctly
+### Apply all planned changes
 
 ```tape
-# Navigate to plan plugin
+wait ready
 key p
 wait ready
-
-# Check expected content
-assert view create
-assert view aws_instance
-
-# Capture for golden file comparison
-screenshot ./golden/plan-basic.txt
+key a
+wait view Apply plan
+key y
+wait view Are you sure
+key y
 ```
 
-### Navigate and inspect a resource
+```bash
+# Outputs: terraform apply
+tfui --plan ./plan.json --state ./state.json --macro ./apply.tape | sh
+```
+
+### Apply targeted (pinned resource)
 
 ```tape
-key s
 wait ready
-key enter
-wait view values
-assert view instance_type
-screenshot ./golden/state-detail.txt
-key esc
+key p
+wait ready
+key space
+key a
+wait view Apply plan
+key y
+wait view Are you sure
+key y
+```
+
+```bash
+# Outputs: terraform apply -target=aws_instance.web
+tfui --plan ./plan.json --state ./state.json --macro ./apply-targeted.tape | sh
+```
+
+### Taint a resource
+
+```tape
+wait ready
+key s
+wait view aws_instance.web
+key t
+wait view Taint
+key y
+```
+
+```bash
+# Outputs: terraform taint aws_instance.web
+```
+
+### Delete from state
+
+```tape
+wait ready
+key s
+wait view aws_instance.web
+key d
+wait view Remove
+key y
+```
+
+```bash
+# Outputs: terraform state rm aws_instance.web
 ```
 
 ### CI visual regression
@@ -188,6 +246,15 @@ key esc
 #!/bin/bash
 terraform show -json tfplan.out > plan.json
 tfui --plan ./plan.json --macro ./tests/macros/verify-plan.tape
+```
+
+### CI apply via macro
+
+```bash
+#!/bin/bash
+terraform show -json tfplan.out > plan.json
+terraform state pull > state.json
+tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape | sh
 ```
 
 ## Programmatic Driver (Go API)
