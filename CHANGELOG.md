@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/lmarqs/terraform-ui/compare/v1.3.0...v1.4.0) (2026-05-12)
+
+
+### Features
+
+* macro mode outputs terraform commands to stdout ([a1e6375](https://github.com/lmarqs/terraform-ui/commit/a1e6375602ff8da3c124c69837a6596491e8bfb8))
+
 # [1.3.0](https://github.com/lmarqs/terraform-ui/compare/v1.2.0...v1.3.0) (2026-05-12)
 
 
