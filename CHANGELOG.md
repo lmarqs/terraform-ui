@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/lmarqs/terraform-ui/compare/v1.4.0...v1.5.0) (2026-05-12)
+
+
+### Features
+
+* record all operations consistently (no read/write distinction) ([f4073b4](https://github.com/lmarqs/terraform-ui/commit/f4073b42eb484d51d5c942766edfc3623095fa44))
+
 # [1.4.0](https://github.com/lmarqs/terraform-ui/compare/v1.3.0...v1.4.0) (2026-05-12)
 
 
