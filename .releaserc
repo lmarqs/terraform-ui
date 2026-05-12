@@ -5,7 +5,8 @@
     "@semantic-release/release-notes-generator",
     "@semantic-release/changelog",
     ["@semantic-release/exec", {
-      "prepareCmd": "echo ${nextRelease.version} > VERSION"
+      "prepareCmd": "echo ${nextRelease.version} > VERSION",
+      "publishCmd": "goreleaser release --clean"
     }],
     ["@semantic-release/git", {
       "assets": ["CHANGELOG.md", "VERSION"],

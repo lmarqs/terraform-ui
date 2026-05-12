@@ -23,25 +23,7 @@ jobs:
         with:
           go-version-file: go.mod
 
-      - name: Semantic Release
-        id: version
-        run: |
-          npx semantic-release
-          if git describe --exact-match HEAD 2>/dev/null; then
-            TAG=$(git describe --exact-match HEAD)
-            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-            echo "released=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "released=false" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Publish binaries
-        if: steps.version.outputs.released == 'true'
-        uses: goreleaser/goreleaser-action@v6
-        with:
-          args: release --clean
-          version: "~> v2"
+      - name: Release
+        run: mise run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

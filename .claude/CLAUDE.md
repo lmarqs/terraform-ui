@@ -492,18 +492,17 @@ PR / push to main → main.yaml
 
 ### How semantic-release and goreleaser work together
 
-They run in sequence within a single job in `release.yaml`:
+goreleaser is invoked by semantic-release via `@semantic-release/exec.publishCmd`:
 
 1. semantic-release analyzes conventional commits since last release
-2. If releasable commits exist: bumps version, writes CHANGELOG.md + VERSION, commits with `[skip ci]`, creates git tag (e.g. `v0.40.0`), creates GitHub release with release notes
-3. The job detects the new tag and runs goreleaser in the same step
-4. goreleaser builds cross-platform binaries from the tagged commit
-5. goreleaser uploads archives to the **existing** GitHub release (`release.mode: append`)
+2. If releasable: bumps version, writes CHANGELOG.md + VERSION, creates git tag + GitHub release
+3. `publishCmd: "goreleaser release --clean"` runs — builds 4 binaries and uploads archives to the GitHub release
 
-Key config decisions:
-- `.releaserc`: `prepareCmd` only writes VERSION (no binary build)
-- `.goreleaser.yaml`: `release.mode: append` (doesn't create its own release), `changelog.disable: true` (semantic-release owns the changelog)
-- `release.yaml` uses `go-version-file: go.mod` (always matches project Go version)
+Single orchestrator (semantic-release), single config (`.releaserc`), no detection logic.
+
+Key config:
+- `.releaserc`: `publishCmd` invokes goreleaser (it has the tag context already)
+- `.goreleaser.yaml`: `release.mode: append` (SR owns the release), `changelog.disable: true` (SR owns the changelog)
 
 ### Versioning
 
