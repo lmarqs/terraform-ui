@@ -479,10 +479,7 @@ Rules:
 PR / push to main → main.yaml
   ├── build.yaml    lint → unit tests (ubuntu+macos) → coverage → binaries
   ├── test.yaml     macro tapes + integration tests (against built artifacts)
-  └── release.yaml  semantic-release → creates tag + CHANGELOG + GitHub release
-
-Tag push (v*) → publish.yaml
-  └── goreleaser → builds + uploads 4 archives + updates Homebrew tap
+  └── release.yaml  semantic-release → goreleaser (if new version)
 ```
 
 ### Stage Responsibilities
@@ -491,25 +488,22 @@ Tag push (v*) → publish.yaml
 |-------|------|-------------|-----------------|
 | **Build** | `build.yaml` | Lint, unit tests, coverage, compile | `dist/` artifact (4 binaries) |
 | **Test** | `test.yaml` | Blackbox: macro tapes + integration | Pass/fail (no artifacts) |
-| **Release** | `release.yaml` | semantic-release: analyze commits, version bump | Git tag, CHANGELOG.md, VERSION, GitHub release |
-| **Publish** | `publish.yaml` | goreleaser: compile + archive + upload | `.tar.gz` on GitHub release, Homebrew formula |
+| **Release** | `release.yaml` | Version + publish binaries | Git tag, CHANGELOG.md, GitHub release with archives |
 
 ### How semantic-release and goreleaser work together
 
-They have **separate concerns** with a tag as the handoff point:
+They run in sequence within a single job in `release.yaml`:
 
-1. `release.yaml` runs on push to main (after tests pass)
-2. semantic-release analyzes conventional commits since last release
-3. If releasable commits exist: bumps version, writes CHANGELOG.md + VERSION, commits with `[skip ci]`, creates git tag (e.g. `v0.40.0`), creates GitHub release with release notes
-4. The tag push triggers `publish.yaml`
-5. goreleaser builds cross-platform binaries from the tagged commit
-6. goreleaser uploads archives to the **existing** GitHub release (`release.mode: append`)
-7. goreleaser updates the Homebrew tap formula
+1. semantic-release analyzes conventional commits since last release
+2. If releasable commits exist: bumps version, writes CHANGELOG.md + VERSION, commits with `[skip ci]`, creates git tag (e.g. `v0.40.0`), creates GitHub release with release notes
+3. The job detects the new tag and runs goreleaser in the same step
+4. goreleaser builds cross-platform binaries from the tagged commit
+5. goreleaser uploads archives to the **existing** GitHub release (`release.mode: append`)
 
 Key config decisions:
 - `.releaserc`: `prepareCmd` only writes VERSION (no binary build)
 - `.goreleaser.yaml`: `release.mode: append` (doesn't create its own release), `changelog.disable: true` (semantic-release owns the changelog)
-- `publish.yaml` uses `actions/setup-go` with `go-version-file: go.mod` (always matches project Go version)
+- `release.yaml` uses `go-version-file: go.mod` (always matches project Go version)
 
 ### Versioning
 

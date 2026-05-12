@@ -7,7 +7,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  semantic-release:
+  release:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -16,7 +16,32 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+
       - uses: ./.github/actions/prepare-env
-      - run: mise run release
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Semantic Release
+        id: version
+        run: |
+          npx semantic-release
+          if git describe --exact-match HEAD 2>/dev/null; then
+            TAG=$(git describe --exact-match HEAD)
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish binaries
+        if: steps.version.outputs.released == 'true'
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          args: release --clean
+          version: "~> v2"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
