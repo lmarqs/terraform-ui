@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/lmarqs/terraform-ui/compare/v1.1.0...v1.1.1) (2026-05-12)
+
+
+### Bug Fixes
+
+* disable gpg signing in release task for CI compatibility ([9fad880](https://github.com/lmarqs/terraform-ui/commit/9fad88032a38652d4885641800c0a67a949c1c16))
+
 # [1.1.0](https://github.com/lmarqs/terraform-ui/compare/v1.0.0...v1.1.0) (2026-05-12)
 
 
