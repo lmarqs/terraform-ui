@@ -1,0 +1,28 @@
+# Coverage thresholds per layer.
+# Enforced by `mise run test:coverage`. Raise as tests are added.
+
+global: 70
+
+layers:
+  pkg/sdk:
+    threshold: 80
+    current: 84
+    excludes: [pkg/sdk/sdktest]
+
+  internal:
+    threshold: 60
+    current: 66
+    excludes: [internal/ai, internal/logging]
+
+  plugins:
+    threshold: 80
+    current: 82
+    excludes: [plugins/init]
+
+  cmd:
+    threshold: 0
+    note: "CLI glue — tested via integration and macro tapes"
+
+  internal/terraform:
+    threshold: 0
+    note: "terraform-exec I/O — tested via integration tests"
