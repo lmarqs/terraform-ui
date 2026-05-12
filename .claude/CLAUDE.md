@@ -547,6 +547,7 @@ ldflags (-X main.version=...) → debug.ReadBuildInfo().Main.Version → "0.0.0-
 | `macro-runner` | Run macro tapes to verify UI rendering | After modifying `View()`, layout, or plugin navigation |
 | `architect` | Design implementation plans | New plugins or cross-cutting features (before coding) |
 | `security-checker` | Terraform-specific security audit | PRs touching terraform service, state display, or AI integration |
+| `exploratory-tester` | Drive tfui via macros against real plan/state | After bug fixes, before releases, smoke-testing user flows end-to-end |
 
 Agents run in isolation and can be spawned in parallel. Unlike commands, they don't need conversation context and produce self-contained reports.
 
