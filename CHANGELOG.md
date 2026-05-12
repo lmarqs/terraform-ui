@@ -10,6 +10,18 @@
 
 * ci/cd pipeline with cross-platform releases ([aa75998](https://github.com/lmarqs/terraform-ui/commit/aa759984a0ce751cbcd90df00fb8486b2267dbc4))
 
+# [1.1.0](https://github.com/lmarqs/terraform-ui/compare/v1.0.0...v1.1.0) (2026-05-12)
+
+
+### Bug Fixes
+
+* correct coverage parsing and set realistic threshold (70%) ([caab9c7](https://github.com/lmarqs/terraform-ui/commit/caab9c77e3bc2efd0f2a3890e8c04bdc184c9c9e))
+
+
+### Features
+
+* ci/cd pipeline with cross-platform releases ([aa75998](https://github.com/lmarqs/terraform-ui/commit/aa759984a0ce751cbcd90df00fb8486b2267dbc4))
+
 # [1.0.0](https://github.com/lmarqs/terraform-ui/compare/v0.39.0...v1.0.0) (2026-05-12)
 
 
