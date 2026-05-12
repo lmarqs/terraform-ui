@@ -15,12 +15,15 @@ func TestMacro(t *testing.T) {
 	projectRoot := findProjectRoot()
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
 
+	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
+
 	tests := []struct {
 		name       string
 		tape       string
 		args       []string
 		wantExit   int
 		wantStderr string
+		wantStdout string
 	}{
 		{
 			name:     "home menu visible after init",
@@ -73,6 +76,62 @@ func TestMacro(t *testing.T) {
 			args:     []string{"--plan", planFixture},
 			wantExit: 0,
 		},
+		{
+			name:       "apply outputs command to stdout",
+			tape:       "wait ready\nkey p\nwait view aws_instance\nkey a\nwait view Apply plan\nkey y\nwait view Are you sure\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform apply",
+		},
+		{
+			name:       "targeted apply outputs command with targets",
+			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view Apply plan\nkey y\nwait view Are you sure\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform apply -target=",
+		},
+		{
+			name:       "no mutating ops produces no stdout",
+			tape:       "wait ready\nkey p\nwait view aws_instance\nassert view aws_instance",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "",
+		},
+		{
+			name:       "state delete outputs state rm command",
+			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey d\nwait view Remove\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform state rm aws_instance.web",
+		},
+		{
+			name:       "state taint outputs taint command",
+			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey t\nwait view Taint\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform taint aws_instance.web",
+		},
+		{
+			name:       "state untaint outputs untaint command",
+			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey T\nwait view Untaint\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform untaint aws_instance.web",
+		},
+		{
+			name:       "state import outputs import command",
+			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey n\nwait view Resource ID\nkey i\nkey -\nkey 1\nkey 2\nkey 3\nkey enter\nwait view Import\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform import aws_instance.web i-123",
+		},
+		{
+			name:       "state move outputs state mv command",
+			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey m\nwait view Move to\nkey backspace\nkey backspace\nkey backspace\nkey n\nkey e\nkey w\nkey enter\nwait view Move\nkey y",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform state mv aws_instance.web aws_instance.new",
+		},
 	}
 
 	for _, tt := range tests {
@@ -90,7 +149,7 @@ func TestMacro(t *testing.T) {
 			}
 
 			args := append([]string{"--macro", tapeFile}, tt.args...)
-			_, stderr, err := runTfui(args...)
+			stdout, stderr, err := runTfui(args...)
 
 			exitCode := 0
 			if err != nil {
@@ -107,6 +166,13 @@ func TestMacro(t *testing.T) {
 
 			if tt.wantStderr != "" && !strings.Contains(stderr, tt.wantStderr) {
 				t.Errorf("stderr = %q, want to contain %q", stderr, tt.wantStderr)
+			}
+
+			if tt.wantStdout != "" && !strings.Contains(stdout, tt.wantStdout) {
+				t.Errorf("stdout = %q, want to contain %q", stdout, tt.wantStdout)
+			}
+			if tt.wantStdout == "" && tt.wantExit == 0 && stdout != "" {
+				t.Errorf("stdout = %q, want empty", stdout)
 			}
 
 			if screenshotPath != "" {
