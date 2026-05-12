@@ -45,8 +45,6 @@ linters:
       - path: _test\.go
         linters:
           - errcheck
-    paths:
-      - tests/helpers
 
 formatters:
   enable:
