@@ -133,10 +133,10 @@ When `--plan` or `--state` is provided (interactive TUI mode):
 
 - Header displays `[read-only]` badge
 - Workspace reported as `"readonly"`
-- Mutating actions show the equivalent terraform command as an error message
+- Actions show the equivalent terraform command as an error message
 - Risk classification and phantom detection still run on loaded plan data
 
-When combined with `--macro`, mutating actions collect commands and print them to stdout (see [Macro Mode](#macro-mode-macro)).
+When combined with `--macro`, all operations are recorded and printed to stdout (see [Macro Mode](#macro-mode-macro)).
 
 ## Macro Mode (`--macro`)
 
@@ -162,17 +162,19 @@ tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape --terraform-b
 
 ### Stdout Output
 
-When the macro triggers mutating operations (apply, state rm, taint, untaint, move, import), the equivalent terraform CLI command is printed to stdout after completion:
+Every terraform operation triggered during macro playback is printed to stdout after completion:
 
 ```bash
 $ tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
+terraform workspace show
+terraform state list
 terraform taint aws_instance.web
 
 $ tfui --plan ./plan.json --state ./state.json --macro ./apply.tape
+terraform workspace show
+terraform plan
 terraform apply -target=aws_instance.web
 ```
-
-If no mutating operations are triggered, stdout is empty.
 
 ### Exit Codes (macro mode)
 

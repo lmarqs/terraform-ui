@@ -41,7 +41,7 @@ No TTY is required — macro mode drives the BubbleTea model directly without op
 
 ## Command Output (stdout)
 
-When a macro triggers a mutating terraform operation (apply, state rm, taint, etc.), the equivalent CLI command is collected and printed to stdout after the macro completes. This enables piping macros into a shell:
+Every terraform operation triggered during macro playback is recorded and printed to stdout after the macro completes. This enables piping macros into a shell:
 
 ```bash
 # Generate and execute terraform commands via macro
@@ -50,16 +50,17 @@ tfui --plan ./plan.json --state ./state.json --macro ./apply.tape | sh
 # Use tofu instead of terraform
 tfui --plan ./plan.json --state ./state.json --macro ./apply.tape --terraform-bin tofu | sh
 
-# Preview what would run (don't pipe to sh)
+# Preview what would run
 tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
-# stdout: terraform taint aws_instance.web
+# stdout:
+# terraform workspace show
+# terraform state list
+# terraform taint aws_instance.web
 ```
-
-If the macro only reads data (no mutating actions), stdout is empty.
 
 ## Safety
 
-Macro mode **never executes real terraform commands** — `--plan` or `--state` is required, which forces `StaticService` where all mutating operations return the equivalent CLI command instead of executing it. The user explicitly chooses to run the commands by piping stdout to `sh`. Without the pipe, macros are purely read-only.
+Macro mode **never executes real terraform commands** — `--plan` or `--state` is required, which loads data from files. All operations are recorded as commands and printed to stdout. The user chooses whether to execute them by piping to `sh`.
 
 ## Tape Format
 

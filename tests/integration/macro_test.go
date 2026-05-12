@@ -81,7 +81,7 @@ func TestMacro(t *testing.T) {
 			tape:       "wait ready\nkey p\nwait view aws_instance\nkey a\nwait view Apply plan\nkey y\nwait view Are you sure\nkey y",
 			args:       []string{"--plan", planFixture, "--state", stateFixture},
 			wantExit:   0,
-			wantStdout: "terraform apply",
+			wantStdout: "terraform apply\n",
 		},
 		{
 			name:       "targeted apply outputs command with targets",
@@ -91,11 +91,18 @@ func TestMacro(t *testing.T) {
 			wantStdout: "terraform apply -target=",
 		},
 		{
-			name:       "no mutating ops produces no stdout",
-			tape:       "wait ready\nkey p\nwait view aws_instance\nassert view aws_instance",
+			name:       "plan records plan command",
+			tape:       "wait ready\nkey p\nwait view aws_instance",
 			args:       []string{"--plan", planFixture, "--state", stateFixture},
 			wantExit:   0,
-			wantStdout: "",
+			wantStdout: "terraform plan\n",
+		},
+		{
+			name:       "state list records state list command",
+			tape:       "wait ready\nkey s\nwait view aws_instance.web",
+			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit:   0,
+			wantStdout: "terraform state list\n",
 		},
 		{
 			name:       "state delete outputs state rm command",
@@ -170,9 +177,6 @@ func TestMacro(t *testing.T) {
 
 			if tt.wantStdout != "" && !strings.Contains(stdout, tt.wantStdout) {
 				t.Errorf("stdout = %q, want to contain %q", stdout, tt.wantStdout)
-			}
-			if tt.wantStdout == "" && tt.wantExit == 0 && stdout != "" {
-				t.Errorf("stdout = %q, want empty", stdout)
 			}
 
 			if screenshotPath != "" {

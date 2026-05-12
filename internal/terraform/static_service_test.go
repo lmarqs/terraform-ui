@@ -259,7 +259,7 @@ func TestStaticServiceCommands(t *testing.T) {
 		}
 	})
 
-	t.Run("read methods do not collect", func(t *testing.T) {
+	t.Run("read methods also collect", func(t *testing.T) {
 		plan := &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 		resources := []sdk.Resource{{Address: "a"}}
 		svc := NewStaticService(plan, resources, nil, "")
@@ -267,8 +267,21 @@ func TestStaticServiceCommands(t *testing.T) {
 		_, _ = svc.StateList(ctx)
 		_, _ = svc.Workspace(ctx)
 		_, _ = svc.WorkspaceList(ctx)
-		if len(svc.Commands()) != 0 {
-			t.Errorf("expected 0 commands, got %d", len(svc.Commands()))
+		cmds := svc.Commands()
+		if len(cmds) != 4 {
+			t.Fatalf("expected 4 commands, got %d", len(cmds))
+		}
+		if cmds[0].Verb != "plan" {
+			t.Errorf("cmds[0].Verb = %q, want plan", cmds[0].Verb)
+		}
+		if cmds[1].Verb != "state list" {
+			t.Errorf("cmds[1].Verb = %q, want state list", cmds[1].Verb)
+		}
+		if cmds[2].Verb != "workspace show" {
+			t.Errorf("cmds[2].Verb = %q, want workspace show", cmds[2].Verb)
+		}
+		if cmds[3].Verb != "workspace list" {
+			t.Errorf("cmds[3].Verb = %q, want workspace list", cmds[3].Verb)
 		}
 	})
 
@@ -423,6 +436,59 @@ func TestStaticServiceCommands(t *testing.T) {
 				if err == nil {
 					t.Fatal("expected error")
 				}
+				cmds := svc.Commands()
+				if len(cmds) != 1 {
+					t.Fatalf("expected 1 command, got %d", len(cmds))
+				}
+				if cmds[0].String() != tt.expected {
+					t.Errorf("got %q, want %q", cmds[0].String(), tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("read methods produce correct command strings", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			invoke   func(svc *StaticService)
+			expected string
+		}{
+			{
+				"Plan without targets",
+				func(svc *StaticService) { svc.Plan(ctx, nil) },
+				"terraform plan",
+			},
+			{
+				"Plan with targets",
+				func(svc *StaticService) { svc.Plan(ctx, []string{"aws_instance.web"}) },
+				"terraform plan -target=aws_instance.web",
+			},
+			{
+				"StateList",
+				func(svc *StaticService) { svc.StateList(ctx) },
+				"terraform state list",
+			},
+			{
+				"Show",
+				func(svc *StaticService) { svc.Show(ctx, "aws_instance.web") },
+				"terraform state show aws_instance.web",
+			},
+			{
+				"Workspace",
+				func(svc *StaticService) { svc.Workspace(ctx) },
+				"terraform workspace show",
+			},
+			{
+				"WorkspaceList",
+				func(svc *StaticService) { svc.WorkspaceList(ctx) },
+				"terraform workspace list",
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				svc := NewStaticService(nil, nil, nil, "")
+				tt.invoke(svc)
 				cmds := svc.Commands()
 				if len(cmds) != 1 {
 					t.Fatalf("expected 1 command, got %d", len(cmds))

@@ -40,6 +40,15 @@ func NewStaticService(plan *sdk.PlanSummary, resources []sdk.Resource, state *tf
 	}
 }
 
+func (s *StaticService) record(verb string, args []string, flags []string) {
+	s.commands = append(s.commands, sdk.Command{
+		Binary: s.binary,
+		Verb:   verb,
+		Args:   args,
+		Flags:  flags,
+	})
+}
+
 func (s *StaticService) commandErr(verb string, args []string, flags []string) error {
 	cmd := sdk.Command{
 		Binary: s.binary,
@@ -56,7 +65,12 @@ func (s *StaticService) Commands() []sdk.Command {
 	return s.commands
 }
 
-func (s *StaticService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, error) {
+func (s *StaticService) Plan(_ context.Context, targets []string) (*sdk.PlanSummary, error) {
+	var flags []string
+	for _, t := range targets {
+		flags = append(flags, "-target="+t)
+	}
+	s.record("plan", nil, flags)
 	if s.plan == nil {
 		return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
 	}
@@ -72,6 +86,7 @@ func (s *StaticService) Apply(_ context.Context, targets []string) error {
 }
 
 func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {
+	s.record("state list", nil, nil)
 	if s.resources == nil {
 		return []sdk.Resource{}, nil
 	}
@@ -79,6 +94,7 @@ func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {
 }
 
 func (s *StaticService) Show(_ context.Context, address string) (string, error) {
+	s.record("state show", []string{address}, nil)
 	if s.state == nil || s.state.Values == nil {
 		return "", fmt.Errorf("no state available")
 	}
@@ -112,10 +128,12 @@ func (s *StaticService) Show(_ context.Context, address string) (string, error) 
 }
 
 func (s *StaticService) Workspace(_ context.Context) (string, error) {
+	s.record("workspace show", nil, nil)
 	return "readonly", nil
 }
 
 func (s *StaticService) WorkspaceList(_ context.Context) ([]string, error) {
+	s.record("workspace list", nil, nil)
 	return []string{"readonly"}, nil
 }
 
