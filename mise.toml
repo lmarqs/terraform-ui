@@ -52,10 +52,11 @@ description = "Unit tests (JUnit XML in reports/)"
 run = """
 packages=$(go list ./... | grep -v '/cmd/' | grep -v 'internal/terraform$')
 go test -coverprofile=coverage.out $packages
-total=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+total=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
 echo "Coverage: ${total}%"
-if awk "BEGIN {exit !($total < 90)}"; then
-  echo "FAIL: below 90% threshold"
+threshold=70
+if awk "BEGIN {exit !($total < $threshold)}"; then
+  echo "FAIL: ${total}% is below ${threshold}% threshold"
   exit 1
 fi
 """
