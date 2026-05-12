@@ -202,7 +202,7 @@ func (f *replacingFrame) Update(msg tea.Msg) (Frame, tea.Cmd) {
 	return f.replacement, nil
 }
 func (f *replacingFrame) View(width, height int) string { return f.id }
-func (f *replacingFrame) Hints() []KeyHint             { return nil }
+func (f *replacingFrame) Hints() []KeyHint              { return nil }
 
 func TestStack_UpdateReplacesFrame(t *testing.T) {
 	s := NewStack()

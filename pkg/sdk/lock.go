@@ -64,22 +64,22 @@ func FormatLockInfo(lock *StateLock) string {
 	var b strings.Builder
 	b.WriteString("State Lock Detected\n")
 	b.WriteString(strings.Repeat("-", 40) + "\n")
-	b.WriteString(fmt.Sprintf("  Lock ID:    %s\n", lock.ID))
+	fmt.Fprintf(&b, "  Lock ID:    %s\n", lock.ID)
 	if lock.Who != "" {
-		b.WriteString(fmt.Sprintf("  Who:        %s\n", lock.Who))
+		fmt.Fprintf(&b, "  Who:        %s\n", lock.Who)
 	}
 	if lock.Operation != "" {
-		b.WriteString(fmt.Sprintf("  Operation:  %s\n", lock.Operation))
+		fmt.Fprintf(&b, "  Operation:  %s\n", lock.Operation)
 	}
 	if !lock.Created.IsZero() {
-		b.WriteString(fmt.Sprintf("  Created:    %s\n", lock.Created.Format(time.RFC3339)))
-		b.WriteString(fmt.Sprintf("  Age:        %s\n", formatLockAge(lock.Age())))
+		fmt.Fprintf(&b, "  Created:    %s\n", lock.Created.Format(time.RFC3339))
+		fmt.Fprintf(&b, "  Age:        %s\n", formatLockAge(lock.Age()))
 	}
 	if lock.Path != "" {
-		b.WriteString(fmt.Sprintf("  Path:       %s\n", lock.Path))
+		fmt.Fprintf(&b, "  Path:       %s\n", lock.Path)
 	}
 	if lock.Version != "" {
-		b.WriteString(fmt.Sprintf("  Version:    %s\n", lock.Version))
+		fmt.Fprintf(&b, "  Version:    %s\n", lock.Version)
 	}
 
 	return b.String()

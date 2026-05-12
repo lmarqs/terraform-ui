@@ -273,8 +273,8 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	// Input prompt mode
 	if a.inputActive {
-		switch {
-		case a.inputMode == sdk.InputRequestBool:
+		switch a.inputMode {
+		case sdk.InputRequestBool:
 			// Confirmation mode: only handle y/n/esc
 			switch msg.String() {
 			case "y":

@@ -288,13 +288,13 @@ func (p *AnthropicProvider) stream(ctx context.Context, userPrompt string, onChu
 
 func formatChangePrompt(change sdk.PlanChange) string {
 	var b strings.Builder
-	b.WriteString(fmt.Sprintf("Explain this terraform plan change in 2-3 sentences:\n\n"))
-	b.WriteString(fmt.Sprintf("Action: %s\n", change.Action))
-	b.WriteString(fmt.Sprintf("Resource: %s (type: %s)\n", change.Resource.Address, change.Resource.Type))
+	b.WriteString("Explain this terraform plan change in 2-3 sentences:\n\n")
+	fmt.Fprintf(&b, "Action: %s\n", change.Action)
+	fmt.Fprintf(&b, "Resource: %s (type: %s)\n", change.Resource.Address, change.Resource.Type)
 	if change.Resource.Module != "" {
-		b.WriteString(fmt.Sprintf("Module: %s\n", change.Resource.Module))
+		fmt.Fprintf(&b, "Module: %s\n", change.Resource.Module)
 	}
-	b.WriteString(fmt.Sprintf("Risk: %s\n", change.Risk.String()))
+	fmt.Fprintf(&b, "Risk: %s\n", change.Risk.String())
 	if change.IsPhantom {
 		b.WriteString("This is a phantom/cosmetic change.\n")
 	}
@@ -302,9 +302,9 @@ func formatChangePrompt(change sdk.PlanChange) string {
 		b.WriteString("\nAttribute changes:\n")
 		for _, diff := range change.AttributeDiffs {
 			if diff.Sensitive {
-				b.WriteString(fmt.Sprintf("  %s: (sensitive)\n", diff.Key))
+				fmt.Fprintf(&b, "  %s: (sensitive)\n", diff.Key)
 			} else {
-				b.WriteString(fmt.Sprintf("  %s: %s → %s\n", diff.Key, diff.OldValue, diff.NewValue))
+				fmt.Fprintf(&b, "  %s: %s → %s\n", diff.Key, diff.OldValue, diff.NewValue)
 			}
 		}
 	}
@@ -314,11 +314,11 @@ func formatChangePrompt(change sdk.PlanChange) string {
 func formatPlanPrompt(summary *sdk.PlanSummary) string {
 	var b strings.Builder
 	b.WriteString("Summarize this terraform plan in 3-5 sentences. Focus on what's happening and potential impact:\n\n")
-	b.WriteString(fmt.Sprintf("Summary: %d to create, %d to update, %d to delete, %d to replace\n\n",
-		summary.ToCreate, summary.ToUpdate, summary.ToDelete, summary.ToReplace))
+	fmt.Fprintf(&b, "Summary: %d to create, %d to update, %d to delete, %d to replace\n\n",
+		summary.ToCreate, summary.ToUpdate, summary.ToDelete, summary.ToReplace)
 	b.WriteString("Changes:\n")
 	for _, c := range summary.Changes {
-		b.WriteString(fmt.Sprintf("  %s %s [risk: %s]", c.Action, c.Resource.Address, c.Risk.String()))
+		fmt.Fprintf(&b, "  %s %s [risk: %s]", c.Action, c.Resource.Address, c.Risk.String())
 		if c.IsPhantom {
 			b.WriteString(" (phantom)")
 		}
@@ -333,7 +333,7 @@ func formatRiskPrompt(changes []sdk.PlanChange) string {
 	b.WriteString("Respond with: overall risk level, top concerns (2-3 bullets), and any recommendations.\n\n")
 	b.WriteString("Changes:\n")
 	for _, c := range changes {
-		b.WriteString(fmt.Sprintf("  %s %s (type: %s, risk: %s)\n", c.Action, c.Resource.Address, c.Resource.Type, c.Risk.String()))
+		fmt.Fprintf(&b, "  %s %s (type: %s, risk: %s)\n", c.Action, c.Resource.Address, c.Resource.Type, c.Risk.String())
 		if len(c.AttributeDiffs) > 0 {
 			diffs := c.AttributeDiffs
 			if len(diffs) > 5 {
@@ -341,11 +341,11 @@ func formatRiskPrompt(changes []sdk.PlanChange) string {
 			}
 			for _, d := range diffs {
 				if d.Sensitive {
-					b.WriteString(fmt.Sprintf("    %s: (sensitive)\n", d.Key))
+					fmt.Fprintf(&b, "    %s: (sensitive)\n", d.Key)
 				} else {
 					old := truncate(d.OldValue, 50)
 					new := truncate(d.NewValue, 50)
-					b.WriteString(fmt.Sprintf("    %s: %s → %s\n", d.Key, old, new))
+					fmt.Fprintf(&b, "    %s: %s → %s\n", d.Key, old, new)
 				}
 			}
 		}
@@ -357,7 +357,7 @@ func formatRiskPrompt(changes []sdk.PlanChange) string {
 		Updates int
 		Deletes int
 	}{len(changes), countAction(changes, sdk.ActionCreate), countAction(changes, sdk.ActionUpdate), countAction(changes, sdk.ActionDelete)})
-	b.WriteString(fmt.Sprintf("\nAggregate: %s\n", string(changeJSON)))
+	fmt.Fprintf(&b, "\nAggregate: %s\n", string(changeJSON))
 
 	return b.String()
 }

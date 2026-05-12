@@ -133,7 +133,7 @@ func (s *TerraformService) Apply(ctx context.Context, targets []string) error {
 		return fmt.Errorf("running terraform apply: %w", err)
 	}
 
-	os.Remove(planFilePath)
+	_ = os.Remove(planFilePath)
 	logging.Logger().Debug("terraform.result", "cmd", "apply", "duration", time.Since(start).String())
 	return nil
 }

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -35,7 +36,19 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var version = "1.0.0-dev"
+var version string
+
+func init() {
+	if version == "" {
+		if info, ok := debug.ReadBuildInfo(); ok {
+			if info.Main.Version != "" && info.Main.Version != "(devel)" {
+				version = info.Main.Version
+				return
+			}
+		}
+		version = "0.0.0-SNAPSHOT"
+	}
+}
 
 func main() {
 	var cfg config.Config
@@ -311,7 +324,7 @@ func hasTTY() bool {
 	if err != nil {
 		return false
 	}
-	f.Close()
+	_ = f.Close()
 	return true
 }
 

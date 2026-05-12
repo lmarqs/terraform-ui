@@ -284,9 +284,7 @@ func (p *Plugin) renderREPL(width, height int) string {
 			histLines = append(histLines, sdk.StyleError.Render("Error: "+entry.Error))
 		} else if entry.Result != "" {
 			resultLines := strings.Split(entry.Result, "\n")
-			for _, rl := range resultLines {
-				histLines = append(histLines, rl)
-			}
+			histLines = append(histLines, resultLines...)
 		}
 		histLines = append(histLines, "")
 	}

@@ -76,7 +76,6 @@ func TestFuzzyFilter_OriginalOrder(t *testing.T) {
 	}
 }
 
-
 func TestFuzzyFilter_IsActive(t *testing.T) {
 	f := NewFuzzyFilter(func(s string) string { return s })
 	f.SetItems([]string{"a", "b"})

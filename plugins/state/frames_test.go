@@ -126,7 +126,6 @@ func TestStateFilterFrame_CollapseAll(t *testing.T) {
 	p.treeMode = true
 	p.rebuildTree()
 	p.tree.ExpandAll()
-	expanded := p.tree.VisibleCount()
 
 	// Enter filter mode — this rebuilds tree and auto-expands since filter=""
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
@@ -136,7 +135,7 @@ func TestStateFilterFrame_CollapseAll(t *testing.T) {
 
 	// Expand all to ensure fully expanded
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{']'}})
-	expanded = p.tree.VisibleCount()
+	expanded := p.tree.VisibleCount()
 
 	// Press [ while in filter mode
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'['}})

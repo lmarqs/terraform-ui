@@ -222,7 +222,7 @@ func (p *Plugin) MoveToStart() {
 
 // MoveToEnd moves selection to the last item.
 func (p *Plugin) MoveToEnd() {
-	if p.diagnostics != nil && len(p.diagnostics) > 0 {
+	if len(p.diagnostics) > 0 {
 		p.selected = len(p.diagnostics) - 1
 	}
 }

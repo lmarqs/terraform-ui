@@ -75,8 +75,8 @@ func WithPreserveOrder() Option {
 // New creates a tree from flat items.
 func New(items []Item, opts ...Option) *Tree {
 	t := &Tree{
-		expanded: make(map[string]bool),
-		pinned:   make(map[string]bool),
+		expanded:  make(map[string]bool),
+		pinned:    make(map[string]bool),
 		splitFunc: SplitTerraform,
 	}
 	for _, opt := range opts {
@@ -420,7 +420,7 @@ func (t *Tree) PinnedPaths() []string {
 // Query methods
 
 func (t *Tree) Cursor() int       { return t.cursor }
-func (t *Tree) VisibleCount() int  { return len(t.flattened) }
+func (t *Tree) VisibleCount() int { return len(t.flattened) }
 
 // ViewOffset returns the current viewport offset, adjusting if needed for the given height.
 func (t *Tree) ViewOffset(height int) int {

@@ -58,36 +58,36 @@ type FramePushMsg struct {
 type HintSet uint32
 
 const (
-	HintSetInspect HintSet = 1 << iota // Enter inspect
-	HintSetSelect                       // Enter select
-	HintSetConfirm                      // Enter confirm
-	HintSetPin                          // Space pin
-	HintSetFilter                       // / filter
-	HintSetTree                         // ^t flat/tree (dynamic label)
-	HintSetCollapse                     // [/] collapse/expand
-	HintSetWrap                         // ^w wrap(on/off) (dynamic label)
-	HintSetRefresh                      // r refresh
-	HintSetRetry                        // r retry
-	HintSetDelete                       // d delete
-	HintSetEdit                         // e edit
-	HintSetTaint                        // t taint
-	HintSetUntaint                      // T untaint
-	HintSetApply                        // a apply
-	HintSetNew                          // n new
-	HintSetUnlock                       // u force-unlock
-	HintSetPinnedFilter                 // ^p pinned(on/off) (dynamic label)
-	HintSetClearPins                    // ^u unpin all
-	HintSetActions                      // ! actions
-	HintSetCancel                       // Esc cancel
-	HintSetBack                         // q back
+	HintSetInspect      HintSet = 1 << iota // Enter inspect
+	HintSetSelect                           // Enter select
+	HintSetConfirm                          // Enter confirm
+	HintSetPin                              // Space pin
+	HintSetFilter                           // / filter
+	HintSetTree                             // ^t flat/tree (dynamic label)
+	HintSetCollapse                         // [/] collapse/expand
+	HintSetWrap                             // ^w wrap(on/off) (dynamic label)
+	HintSetRefresh                          // r refresh
+	HintSetRetry                            // r retry
+	HintSetDelete                           // d delete
+	HintSetEdit                             // e edit
+	HintSetTaint                            // t taint
+	HintSetUntaint                          // T untaint
+	HintSetApply                            // a apply
+	HintSetNew                              // n new
+	HintSetUnlock                           // u force-unlock
+	HintSetPinnedFilter                     // ^p pinned(on/off) (dynamic label)
+	HintSetClearPins                        // ^u unpin all
+	HintSetActions                          // ! actions
+	HintSetCancel                           // Esc cancel
+	HintSetBack                             // q back
 )
 
 // HintSetOpts provides dynamic state for hints that need it.
 type HintSetOpts struct {
-	TreeMode       bool // for HintSetTree: true → shows "tree", false → shows "flat"
-	WrapMode       bool // for HintSetWrap: true → shows "wrap(on)", false → shows "wrap(off)"
-	PinnedFilter   bool // for HintSetPinnedFilter: true → shows "pinned(on)", false → shows "pinned(off)"
-	Pinned         bool // appends [pinned] indicator at the end
+	TreeMode     bool // for HintSetTree: true → shows "tree", false → shows "flat"
+	WrapMode     bool // for HintSetWrap: true → shows "wrap(on)", false → shows "wrap(off)"
+	PinnedFilter bool // for HintSetPinnedFilter: true → shows "pinned(on)", false → shows "pinned(off)"
+	Pinned       bool // appends [pinned] indicator at the end
 }
 
 // hintDef maps a HintSet bit to its KeyHint representation.

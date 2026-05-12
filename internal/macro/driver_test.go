@@ -135,12 +135,13 @@ type asyncModel struct {
 func (m asyncModel) Init() tea.Cmd { return nil }
 
 func (m asyncModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch msg.(type) {
+	switch v := msg.(type) {
 	case tea.KeyMsg:
+		_ = v
 		m.count++
 		return m, func() tea.Msg { return countMsg(m.count) }
 	case countMsg:
-		m.content = "count: " + strings.Repeat("x", int(msg.(countMsg)))
+		m.content = "count: " + strings.Repeat("x", int(v))
 		return m, nil
 	}
 	return m, nil

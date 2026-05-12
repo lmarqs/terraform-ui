@@ -89,7 +89,7 @@ func parseScheme(uri string) (string, error) {
 	if idx := strings.Index(uri, "://"); idx > 0 {
 		scheme := uri[:idx]
 		if !isValidScheme(scheme) {
-			return "", fmt.Errorf("invalid URI scheme in %q: scheme must start with a letter and contain only letters, digits, +, -, .", uri)
+			return "", fmt.Errorf("invalid URI scheme in %q: scheme must start with a letter and contain only [a-z0-9+.-]", uri)
 		}
 		if scheme == "file" {
 			return "", nil

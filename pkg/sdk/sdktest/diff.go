@@ -28,10 +28,10 @@ func unifiedDiff(expected, actual string) string {
 
 		if exp != act {
 			if i < len(expectedLines) {
-				b.WriteString(fmt.Sprintf("-%d: %s\n", i+1, exp))
+				fmt.Fprintf(&b, "-%d: %s\n", i+1, exp)
 			}
 			if i < len(actualLines) {
-				b.WriteString(fmt.Sprintf("+%d: %s\n", i+1, act))
+				fmt.Fprintf(&b, "+%d: %s\n", i+1, act)
 			}
 		}
 	}

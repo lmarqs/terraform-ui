@@ -55,7 +55,7 @@ func isShowJSON(data []byte) bool {
 	var probe struct {
 		FormatVersion string `json:"format_version"`
 	}
-	json.Unmarshal(data, &probe)
+	_ = json.Unmarshal(data, &probe)
 	return probe.FormatVersion != ""
 }
 

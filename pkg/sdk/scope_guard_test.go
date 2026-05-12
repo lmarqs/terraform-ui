@@ -4,12 +4,12 @@ import "testing"
 
 func TestScopeGuard_Check(t *testing.T) {
 	tests := []struct {
-		name           string
-		sessionScope   string
-		sessionCount   int
-		wantStatus     ScopeStatus
-		wantScopedDir  string
-		desc           string
+		name          string
+		sessionScope  string
+		sessionCount  int
+		wantStatus    ScopeStatus
+		wantScopedDir string
+		desc          string
 	}{
 		{
 			name:          "first activation with scope set",

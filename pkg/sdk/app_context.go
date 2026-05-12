@@ -211,7 +211,6 @@ func (u *UIContext) GetInputMode() InputMode {
 	return u.InputMode
 }
 
-
 // NewAppContext creates a new AppContext with initialized sub-contexts.
 func NewAppContext(dir, workspace string, svc Service, logger *slog.Logger) *AppContext {
 	return &AppContext{

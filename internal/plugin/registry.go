@@ -62,7 +62,7 @@ func (r *Registry) Build(svc sdk.Service, configs map[string]config.PluginConfig
 		if !exists || cfg.IsEnabled() {
 			plg := factory(svc)
 			if exists && cfg.Options != nil {
-				plg.Configure(cfg.Options)
+				_ = plg.Configure(cfg.Options)
 			}
 
 			r.plugins = append(r.plugins, plg)
