@@ -1,3 +1,16 @@
+# [1.2.0](https://github.com/lmarqs/terraform-ui/compare/v1.1.0...v1.2.0) (2026-05-12)
+
+
+### Bug Fixes
+
+* disable gpg signing in release task for CI compatibility ([9fad880](https://github.com/lmarqs/terraform-ui/commit/9fad88032a38652d4885641800c0a67a949c1c16))
+* skip goreleaser validation in publishCmd ([aee5758](https://github.com/lmarqs/terraform-ui/commit/aee57583b8afac0496dffbf90735717497a7dfe8))
+
+
+### Features
+
+* ci/cd pipeline with cross-platform releases ([09822d7](https://github.com/lmarqs/terraform-ui/commit/09822d7dae49c1e75b875f8495bee827c2248acb))
+
 ## [1.1.1](https://github.com/lmarqs/terraform-ui/compare/v1.1.0...v1.1.1) (2026-05-12)
 
 
