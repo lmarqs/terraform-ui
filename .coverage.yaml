@@ -5,6 +5,8 @@
 #
 # Enforced by `mise run test:coverage`.
 
+global: 100
+
 layers:
   pkg/sdk:
     threshold: 100
