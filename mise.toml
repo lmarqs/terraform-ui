@@ -8,7 +8,7 @@ terraform = "1.14"
 
 # ─── Developer tools ────────────────────────────────────────────────────────────
 
-[tasks.run]
+[tasks.dev]
 run = "go run ./cmd/tfui"
 description = "Run TUI in development mode"
 
