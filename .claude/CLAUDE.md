@@ -431,13 +431,105 @@ Before destructive operations (apply, state rm, state mv, import), check data fr
 ## Development Workflow
 
 ```bash
-go build ./...           # Build everything
-go test ./...            # Run all tests
-go test -race ./...      # Test with race detector
-mise run build           # Build binary with version
-mise run test            # Run tests via mise
-mise run run             # Run TUI in dev mode
+mise run run              # Run TUI in development mode
+mise run fmt              # Format source files (gofmt)
+mise run check:lint       # Full lint suite (golangci-lint v2)
+mise run check:vet        # Quick go vet
+mise run test:unit        # Unit tests (produces reports/junit.xml)
+mise run test:coverage    # Coverage enforcement (90% threshold)
+mise run test:integration # Integration tests (requires terraform)
+mise run build            # Cross-platform binaries (goreleaser snapshot)
+mise run test:macro       # Macro tapes against built binary
+mise run setup            # Install CI deps (npm + gotestsum)
 ```
+
+### Mise Task Convention
+
+Tasks are namespaced by pipeline stage:
+
+| Namespace | Purpose | Examples |
+|-----------|---------|----------|
+| `check:*` | Static analysis (no build) | `check:lint`, `check:vet` |
+| `build` | Produce artifacts | `build` (goreleaser snapshot) |
+| `test:*` | Verify correctness | `test:unit`, `test:coverage`, `test:integration`, `test:macro` |
+| `release` | Publish (CI only) | `release` (semantic-release) |
+| _(top-level)_ | Developer tools | `run`, `fmt`, `setup` |
+
+Rules:
+- Each task does ONE thing — no implicit dependencies between stages
+- CI orchestrates execution order, not mise
+- All tasks are callable standalone (no hidden prerequisites)
+- Task names map directly to what CI workflows call
+
+### Toolchain (managed by mise)
+
+| Tool | Version | Purpose |
+|------|---------|---------|
+| `go` | 1.25 | Build + test |
+| `golangci-lint` | 2.12 | Lint (6 linters: importas, govet, errcheck, staticcheck, unused + goimports formatter) |
+| `goreleaser` | 2.15 | Cross-platform builds + release archives |
+| `terraform` | 1.14 | Integration tests |
+| `node` | 22 | semantic-release (CI only) |
+
+## CI/CD Pipeline
+
+### Flow
+
+```
+PR / push to main → main.yaml
+  ├── build.yaml    lint → unit tests (ubuntu+macos) → coverage → binaries
+  ├── test.yaml     macro tapes + integration tests (against built artifacts)
+  └── release.yaml  semantic-release → creates tag + CHANGELOG + GitHub release
+
+Tag push (v*) → publish.yaml
+  └── goreleaser → builds + uploads 4 archives + updates Homebrew tap
+```
+
+### Stage Responsibilities
+
+| Stage | File | What it does | What it produces |
+|-------|------|-------------|-----------------|
+| **Build** | `build.yaml` | Lint, unit tests, coverage, compile | `dist/` artifact (4 binaries) |
+| **Test** | `test.yaml` | Blackbox: macro tapes + integration | Pass/fail (no artifacts) |
+| **Release** | `release.yaml` | semantic-release: analyze commits, version bump | Git tag, CHANGELOG.md, VERSION, GitHub release |
+| **Publish** | `publish.yaml` | goreleaser: compile + archive + upload | `.tar.gz` on GitHub release, Homebrew formula |
+
+### How semantic-release and goreleaser work together
+
+They have **separate concerns** with a tag as the handoff point:
+
+1. `release.yaml` runs on push to main (after tests pass)
+2. semantic-release analyzes conventional commits since last release
+3. If releasable commits exist: bumps version, writes CHANGELOG.md + VERSION, commits with `[skip ci]`, creates git tag (e.g. `v0.40.0`), creates GitHub release with release notes
+4. The tag push triggers `publish.yaml`
+5. goreleaser builds cross-platform binaries from the tagged commit
+6. goreleaser uploads archives to the **existing** GitHub release (`release.mode: append`)
+7. goreleaser updates the Homebrew tap formula
+
+Key config decisions:
+- `.releaserc`: `prepareCmd` only writes VERSION (no binary build)
+- `.goreleaser.yaml`: `release.mode: append` (doesn't create its own release), `changelog.disable: true` (semantic-release owns the changelog)
+- `publish.yaml` uses `actions/setup-go` with `go-version-file: go.mod` (always matches project Go version)
+
+### Versioning
+
+| Context | Version source | Example |
+|---------|---------------|---------|
+| goreleaser build (CI) | git tag via ldflags | `0.40.0` |
+| `go install ...@v0.40.0` | module metadata (ReadBuildInfo) | `v0.40.0` |
+| `go run ./cmd/tfui` (dev) | fallback | `0.0.0-SNAPSHOT` |
+| goreleaser snapshot | git describe | `0.39.0-SNAPSHOT-2d0d9dc` |
+
+Resolution chain in `cmd/tfui/main.go`:
+```
+ldflags (-X main.version=...) → debug.ReadBuildInfo().Main.Version → "0.0.0-SNAPSHOT"
+```
+
+### Adding a new CI check
+
+1. Create a mise task in `mise.toml` under the appropriate namespace
+2. Call it from the relevant workflow stage (`build.yaml` for fast checks, `test.yaml` for artifact-dependent tests)
+3. Workflow files stay thin — just `mise run <task>`
 
 ## Key Dependencies
 
