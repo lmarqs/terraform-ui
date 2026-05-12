@@ -6,7 +6,7 @@
     "@semantic-release/changelog",
     ["@semantic-release/exec", {
       "prepareCmd": "echo ${nextRelease.version} > VERSION",
-      "publishCmd": "goreleaser release --clean"
+      "publishCmd": "goreleaser release --clean --skip=validate"
     }],
     ["@semantic-release/git", {
       "assets": ["CHANGELOG.md", "VERSION"],
