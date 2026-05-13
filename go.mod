@@ -13,7 +13,6 @@ require (
 	github.com/junegunn/fzf v0.72.0
 	github.com/spf13/cobra v1.8.1
 	github.com/zclconf/go-cty v1.18.1
-	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -65,4 +64,5 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.31.0 // indirect
 	golang.org/x/tools v0.43.0 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )

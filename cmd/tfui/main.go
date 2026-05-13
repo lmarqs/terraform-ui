@@ -30,7 +30,7 @@ import (
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuirepl "github.com/lmarqs/terraform-ui/plugins/repl"
 	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
-	tfuiscope "github.com/lmarqs/terraform-ui/plugins/scope"
+	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
 	tfuiworkspaces "github.com/lmarqs/terraform-ui/plugins/workspaces"
@@ -96,7 +96,7 @@ func main() {
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (requires --plan or --state)")
-	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "scope", "", "Select scope non-interactively (relative to project root)")
+	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select chdir member (validated against chdir.members in project mode)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
@@ -192,7 +192,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("context", tfuicontext.New, plugin.PluginMeta{Keybinding: "C", MenuVisible: true})
-	registry.RegisterFactory("scope", tfuiscope.New, plugin.PluginMeta{Keybinding: "", MenuVisible: false})
+	registry.RegisterFactory("chdir", tfuichdir.New, plugin.PluginMeta{Keybinding: "", MenuVisible: false})
 	registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.RegisterFactory("plan", tfuiplan.New, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.RegisterFactory("apply", tfuiapply.New, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
@@ -212,9 +212,11 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 			cp.SetConfig(cfg)
 		}
 	}
-	if scopePlugin, ok := registry.ByID("scope"); ok {
-		if sp, ok := scopePlugin.(*tfuiscope.Plugin); ok {
-			sp.SetConfig(cfg)
+	if chdirPlugin, ok := registry.ByID("chdir"); ok {
+		if cp, ok := chdirPlugin.(*tfuichdir.Plugin); ok {
+			if rootCfg, err := config.LoadRoot(cfg.Dir); err == nil && len(rootCfg.Chdir.Members) > 0 {
+				cp.SetMembers(rootCfg.Chdir.Members, cfg.Dir)
+			}
 		}
 	}
 

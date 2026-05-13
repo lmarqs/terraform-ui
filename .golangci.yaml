@@ -15,6 +15,8 @@ linters:
           alias: tfuiapply
         - pkg: github.com/lmarqs/terraform-ui/plugins/blastradius
           alias: tfuiblast
+        - pkg: github.com/lmarqs/terraform-ui/plugins/chdir
+          alias: tfuichdir
         - pkg: github.com/lmarqs/terraform-ui/plugins/context
           alias: tfuicontext
         - pkg: github.com/lmarqs/terraform-ui/plugins/init
