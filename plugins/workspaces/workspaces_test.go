@@ -97,8 +97,8 @@ func TestInit(t *testing.T) {
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", pp.status)
+	if pp.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", pp.status)
 	}
 }
 
@@ -172,7 +172,7 @@ func TestUpdateWorkspaceListMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceListMsg{
 		Workspaces: []string{"default", "staging", "production"},
@@ -184,8 +184,8 @@ func TestUpdateWorkspaceListMsgSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if len(updated.workspaces) != 3 {
 		t.Errorf("len(workspaces) = %d, want 3", len(updated.workspaces))
@@ -206,7 +206,7 @@ func TestUpdateWorkspaceListMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceListMsg{Err: errors.New("error loading")})
 	if cmd != nil {
@@ -214,8 +214,8 @@ func TestUpdateWorkspaceListMsgError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusError {
-		t.Errorf("status = %v, want StatusError", updated.status)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
 	}
 	if updated.errMsg != "error loading" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "error loading")
@@ -229,7 +229,7 @@ func TestUpdateWorkspaceSwitchMsgSuccess(t *testing.T) {
 	}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.svc = svc
 
 	result, cmd := p.Update(WorkspaceSwitchMsg{Name: "staging", Err: nil})
@@ -250,7 +250,7 @@ func TestUpdateWorkspaceSwitchMsgError(t *testing.T) {
 	}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.svc = svc
 
 	result, cmd := p.Update(WorkspaceSwitchMsg{Name: "x", Err: errors.New("switch failed")})
@@ -260,8 +260,8 @@ func TestUpdateWorkspaceSwitchMsgError(t *testing.T) {
 
 	// After error, Refresh() is called which resets errMsg
 	updated := result.(*Plugin)
-	if updated.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading (refresh triggered)", updated.status)
+	if updated.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading (refresh triggered)", updated.status)
 	}
 	_ = updated
 }
@@ -269,7 +269,7 @@ func TestUpdateWorkspaceSwitchMsgError(t *testing.T) {
 func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging", "production"}
 	p.current = "default"
 
@@ -301,7 +301,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 func TestUpdateKeyMsgEnter_SwitchWorkspace(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
 	p.selected = 1
@@ -315,7 +315,7 @@ func TestUpdateKeyMsgEnter_SwitchWorkspace(t *testing.T) {
 func TestUpdateKeyMsgEnter_SameWorkspace(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
 	p.selected = 0
@@ -329,7 +329,7 @@ func TestUpdateKeyMsgEnter_SameWorkspace(t *testing.T) {
 func TestUpdateKeyMsgN_CreateMode(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
@@ -344,7 +344,7 @@ func TestUpdateKeyMsgN_CreateMode(t *testing.T) {
 func TestUpdateKeyMsgCreating_Enter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.creating = true
 	p.newName = "my-workspace"
 
@@ -360,7 +360,7 @@ func TestUpdateKeyMsgCreating_Enter(t *testing.T) {
 func TestUpdateKeyMsgCreating_EnterEmpty(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.creating = true
 	p.newName = ""
 
@@ -373,7 +373,7 @@ func TestUpdateKeyMsgCreating_EnterEmpty(t *testing.T) {
 func TestUpdateKeyMsgCreating_Esc(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.creating = true
 	p.newName = "partial"
 
@@ -389,7 +389,7 @@ func TestUpdateKeyMsgCreating_Esc(t *testing.T) {
 func TestUpdateKeyMsgCreating_Backspace(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.creating = true
 	p.newName = "abc"
 
@@ -409,7 +409,7 @@ func TestUpdateKeyMsgCreating_Backspace(t *testing.T) {
 func TestUpdateKeyMsgCreating_TypeChar(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.creating = true
 	p.newName = ""
 
@@ -429,7 +429,7 @@ func TestUpdateKeyMsgD_DeleteSelected(t *testing.T) {
 		workspace:     "default",
 	}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
 	p.selected = 1
@@ -443,7 +443,7 @@ func TestUpdateKeyMsgD_DeleteSelected(t *testing.T) {
 func TestUpdateKeyMsgD_DeleteCurrent(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
 	p.selected = 0 // trying to delete current
@@ -457,7 +457,7 @@ func TestUpdateKeyMsgD_DeleteCurrent(t *testing.T) {
 func TestUpdateKeyMsgD_DeleteDefault(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "staging"
 	p.selected = 0 // "default"
@@ -474,7 +474,7 @@ func TestUpdateKeyMsgR_Refresh(t *testing.T) {
 		workspace:     "default",
 	}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.svc = svc
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
@@ -650,7 +650,7 @@ func TestRefresh(t *testing.T) {
 		workspace:     "default",
 	}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.selected = 5
 	p.creating = true
 	p.newName = "test"
@@ -659,8 +659,8 @@ func TestRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("Refresh() returned nil cmd")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after Refresh: status = %v, want sdk.StatusLoading", p.status)
 	}
 	if p.creating {
 		t.Error("after Refresh: creating = true, want false")
@@ -674,49 +674,49 @@ func TestViewIdleAndLoading(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 	view = p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusLoading) returned empty string")
+		t.Error("View(sdk.StatusLoading) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "connection failed"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
 func TestViewDone(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging", "production"}
 	p.current = "staging"
 	p.selected = 1
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone) returned empty string")
+		t.Error("View(sdk.StatusDone) returned empty string")
 	}
 }
 
 func TestViewDoneCreating(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 	p.current = "default"
 	p.creating = true
@@ -724,14 +724,14 @@ func TestViewDoneCreating(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, creating) returned empty string")
+		t.Error("View(sdk.StatusDone, creating) returned empty string")
 	}
 }
 
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -742,7 +742,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.current = "ws-0"
 
 	workspaces := make([]string, 50)
@@ -779,7 +779,7 @@ func TestWorkspaces(t *testing.T) {
 func TestUpdateKeyMsgDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"a", "b"}
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -796,7 +796,7 @@ func TestUpdateKeyMsgDown(t *testing.T) {
 func TestViewDoneWithDefaultWorkspace(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "other"}
 	p.current = "other"
 	p.selected = 0
@@ -810,7 +810,7 @@ func TestViewDoneWithDefaultWorkspace(t *testing.T) {
 func TestUpdateKeyMsgCreating_DeleteKey(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.creating = true
 	p.newName = "abc"
 
@@ -823,8 +823,8 @@ func TestUpdateKeyMsgCreating_DeleteKey(t *testing.T) {
 func TestStatusGetter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -842,14 +842,14 @@ func TestHandleChdirChanged(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc}
 	p.Init(ctx)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.scopedContext = "/old/ctx"
 	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
 	if p.scopedContext != "/new/ctx" {
 		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new/ctx")
 	}
-	if p.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle after HandleChdirChanged", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle after HandleChdirChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
 	cmd := p.Activate()
@@ -863,7 +863,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc}
 	p.Init(ctx)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.scopedContext = "/same"
 	cmd := p.Activate()
 	if cmd != nil {
@@ -881,8 +881,8 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	if cmd == nil {
 		t.Error("Activate() multi-context no selection: want non-nil cmd (loads workspaces)")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 

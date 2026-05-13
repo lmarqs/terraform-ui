@@ -29,26 +29,26 @@ func testResources() []sdk.Resource {
 
 func TestView_Given_Idle_ShouldRender_LoadingPlaceholder(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Loading_ShouldRender_LoadingMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "Failed to read state: no state file found"
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_ErrorWithLock_ShouldRender_LockPanel(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{
 		ID:        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
 		Who:       "user@machine",
@@ -59,7 +59,7 @@ func TestView_Given_ErrorWithLock_ShouldRender_LockPanel(t *testing.T) {
 
 func TestView_Given_ResourceList_ShouldRender_AllResources(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
 	p.rebuildTree()
@@ -68,7 +68,7 @@ func TestView_Given_ResourceList_ShouldRender_AllResources(t *testing.T) {
 
 func TestView_Given_ResourceList_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
 	p.rebuildTree()
@@ -79,7 +79,7 @@ func TestView_Given_ResourceList_WithSelection_ShouldRender_HighlightedRow(t *te
 
 func TestView_Given_FilterActive_ShouldRender_FilterInput(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = []sdk.Resource{
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data"},
@@ -92,7 +92,7 @@ func TestView_Given_FilterActive_ShouldRender_FilterInput(t *testing.T) {
 
 func TestView_Given_FilterInactive_ShouldRender_FilterLabel(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = []sdk.Resource{
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data"},
@@ -105,7 +105,7 @@ func TestView_Given_FilterInactive_ShouldRender_FilterLabel(t *testing.T) {
 
 func TestView_Given_EmptyResourceList_ShouldRender_NoResourcesMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
 	p.rebuildTree()
@@ -114,7 +114,7 @@ func TestView_Given_EmptyResourceList_ShouldRender_NoResourcesMessage(t *testing
 
 func TestView_Given_PinnedResources_ShouldRender_PinMarkers(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
 	p.pins = sdk.NewPinService()
@@ -168,7 +168,7 @@ func realisticResources() []sdk.Resource {
 
 func TestView_Given_Tree_AllCollapsed_ShouldRender_ModuleGroups(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -178,7 +178,7 @@ func TestView_Given_Tree_AllCollapsed_ShouldRender_ModuleGroups(t *testing.T) {
 
 func TestView_Given_Tree_OneModuleExpanded_ShouldRender_Children(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -190,7 +190,7 @@ func TestView_Given_Tree_OneModuleExpanded_ShouldRender_Children(t *testing.T) {
 
 func TestView_Given_Tree_NestedExpanded_ShouldRender_FullHierarchy(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -202,7 +202,7 @@ func TestView_Given_Tree_NestedExpanded_ShouldRender_FullHierarchy(t *testing.T)
 
 func TestView_Given_Tree_PinnedModule_ShouldRender_PinOnGroup(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -217,7 +217,7 @@ func TestView_Given_Tree_PinnedModule_ShouldRender_PinOnGroup(t *testing.T) {
 
 func TestView_Given_Tree_PartiallyPinnedModule_ShouldRender_PartialIndicator(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -230,7 +230,7 @@ func TestView_Given_Tree_PartiallyPinnedModule_ShouldRender_PartialIndicator(t *
 
 func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -243,7 +243,7 @@ func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {
 
 func TestView_Given_Tree_DeepExpand_ShouldRender_TreeConnectors(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
@@ -266,7 +266,7 @@ func TestView_Given_ManyResources_ShouldRender_ScrolledWindow(t *testing.T) {
 		}
 	}
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
 	p.rebuildTree()

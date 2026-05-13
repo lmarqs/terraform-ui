@@ -116,8 +116,8 @@ func TestConfirm(t *testing.T) {
 	if cmd == nil {
 		t.Error("Confirm() returned nil cmd, want non-nil (batch)")
 	}
-	if p.status != StatusRunning {
-		t.Errorf("status = %v, want StatusRunning", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", p.status)
 	}
 	if !p.confirmed {
 		t.Error("confirmed = false, want true")
@@ -131,8 +131,8 @@ func TestCancel(t *testing.T) {
 	p.confirmed = true
 
 	p.Cancel()
-	if p.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
 	}
 	if p.confirmed {
 		t.Error("confirmed = true after cancel, want false")
@@ -142,7 +142,7 @@ func TestCancel(t *testing.T) {
 func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusRunning
+	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
 	if cmd != nil {
@@ -150,8 +150,8 @@ func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusSuccess {
-		t.Errorf("status = %v, want StatusSuccess", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if updated.elapsed != 5*time.Second {
 		t.Errorf("elapsed = %v, want 5s", updated.elapsed)
@@ -164,7 +164,7 @@ func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 func TestUpdateApplyResultMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusRunning
+	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(ApplyResultMsg{Err: errors.New("apply failed"), Duration: 3 * time.Second})
 	if cmd != nil {
@@ -172,8 +172,8 @@ func TestUpdateApplyResultMsgError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusError {
-		t.Errorf("status = %v, want StatusError", updated.status)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
 	}
 	if updated.errMsg != "apply failed" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "apply failed")
@@ -183,12 +183,12 @@ func TestUpdateApplyResultMsgError(t *testing.T) {
 func TestUpdateTickMsgRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusRunning
+	p.status = sdk.StatusLoading
 	p.startTime = time.Now().Add(-5 * time.Second)
 
 	_, cmd := p.Update(TickMsg(time.Now()))
 	if cmd == nil {
-		t.Error("Update(TickMsg) in StatusRunning: cmd = nil, want non-nil (next tick)")
+		t.Error("Update(TickMsg) in sdk.StatusLoading: cmd = nil, want non-nil (next tick)")
 	}
 	if p.elapsed < 4*time.Second {
 		t.Errorf("elapsed = %v, want >= 4s", p.elapsed)
@@ -198,18 +198,18 @@ func TestUpdateTickMsgRunning(t *testing.T) {
 func TestUpdateTickMsgNotRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusSuccess
+	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(TickMsg(time.Now()))
 	if cmd != nil {
-		t.Error("Update(TickMsg) in StatusSuccess: cmd != nil, want nil")
+		t.Error("Update(TickMsg) in sdk.StatusDone: cmd != nil, want nil")
 	}
 }
 
 func TestUpdateKeyMsgIdle_Enter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if p.status != StatusConfirming {
@@ -226,8 +226,8 @@ func TestUpdateKeyMsgConfirming_Yes(t *testing.T) {
 	if cmd == nil {
 		t.Error("after y in confirming: cmd = nil, want non-nil")
 	}
-	if p.status != StatusRunning {
-		t.Errorf("after y: status = %v, want StatusRunning", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after y: status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 
@@ -259,8 +259,8 @@ func TestUpdateKeyMsgConfirming_No(t *testing.T) {
 	p.status = StatusConfirming
 
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
-	if p.status != StatusIdle {
-		t.Errorf("after n in confirming: status = %v, want StatusIdle", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("after n in confirming: status = %v, want sdk.StatusIdle", p.status)
 	}
 }
 
@@ -270,8 +270,8 @@ func TestUpdateKeyMsgConfirming_NUppercase(t *testing.T) {
 	p.status = StatusConfirming
 
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}})
-	if p.status != StatusIdle {
-		t.Errorf("after N in confirming: status = %v, want StatusIdle", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("after N in confirming: status = %v, want sdk.StatusIdle", p.status)
 	}
 }
 
@@ -281,22 +281,22 @@ func TestUpdateKeyMsgConfirming_Esc(t *testing.T) {
 	p.status = StatusConfirming
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if p.status != StatusIdle {
-		t.Errorf("after esc in confirming: status = %v, want StatusIdle", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("after esc in confirming: status = %v, want sdk.StatusIdle", p.status)
 	}
 }
 
 func TestUpdateKeyMsgError_Retry(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
 		t.Error("after r in error: cmd = nil, want non-nil (retry)")
 	}
-	if p.status != StatusRunning {
-		t.Errorf("after r in error: status = %v, want StatusRunning", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after r in error: status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 
@@ -317,11 +317,11 @@ func TestUpdateUnknownMsg(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
@@ -351,43 +351,43 @@ func TestViewConfirmingWithTargets(t *testing.T) {
 func TestViewRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusRunning
+	p.status = sdk.StatusLoading
 	p.elapsed = 10 * time.Second
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusRunning) returned empty string")
+		t.Error("View(sdk.StatusLoading) returned empty string")
 	}
 }
 
 func TestViewSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusSuccess
+	p.status = sdk.StatusDone
 	p.elapsed = 30 * time.Second
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusSuccess) returned empty string")
+		t.Error("View(sdk.StatusDone) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "something failed"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -440,8 +440,8 @@ func TestIsConfirming(t *testing.T) {
 func TestStatusGetter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -484,22 +484,22 @@ func TestRunApplyCmdError(t *testing.T) {
 func TestUpdateKeyMsgIdle_OtherKey(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	// A key other than enter in idle should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if cmd != nil {
 		t.Error("after x in idle: cmd != nil, want nil")
 	}
-	if p.status != StatusIdle {
-		t.Errorf("after x in idle: status = %v, want StatusIdle", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("after x in idle: status = %v, want sdk.StatusIdle", p.status)
 	}
 }
 
 func TestUpdateKeyMsgError_OtherKey(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 
 	// A key other than r in error should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
@@ -526,7 +526,7 @@ func TestUpdateKeyMsgConfirming_OtherKey(t *testing.T) {
 func TestUpdateKeyMsgRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusRunning
+	p.status = sdk.StatusLoading
 
 	// Keys during running state should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
@@ -538,7 +538,7 @@ func TestUpdateKeyMsgRunning(t *testing.T) {
 func TestUpdateKeyMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusSuccess
+	p.status = sdk.StatusDone
 
 	// Keys during success state should do nothing (no handler)
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})

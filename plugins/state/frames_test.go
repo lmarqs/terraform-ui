@@ -13,7 +13,7 @@ import (
 func newTestPlugin(resources []sdk.Resource) *Plugin {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))

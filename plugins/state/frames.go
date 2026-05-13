@@ -70,11 +70,11 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		})
 		return f, nil
 	case "r":
-		if f.plugin.status == StatusError || f.plugin.status == StatusDone {
+		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
 		}
 	case "u":
-		if f.plugin.status == StatusError && f.plugin.lockInfo != nil {
+		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
 			return f, f.plugin.requestForceUnlock()
 		}
 	case "G":
@@ -162,9 +162,9 @@ func (f *listFrame) View(width, height int) string {
 
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
-	case StatusLoading:
+	case sdk.StatusLoading:
 		return (sdk.HintSetBack).Hints()
-	case StatusError:
+	case sdk.StatusError:
 		set := sdk.HintSetRetry | sdk.HintSetBack
 		if f.plugin.lockInfo != nil {
 			set |= sdk.HintSetUnlock
@@ -197,7 +197,7 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 
 	switch keyMsg.String() {
 	case "esc":
-		f.plugin.status = StatusDone
+		f.plugin.status = sdk.StatusDone
 		f.plugin.detail = ""
 		f.plugin.detailAddr = ""
 		f.plugin.detailScroll = 0

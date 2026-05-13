@@ -15,14 +15,14 @@ func newGoldenPlugin() *Plugin {
 
 func TestView_Given_Idle_ShouldRender_NoPlanMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_NoChanges_ShouldRender_NoRiskMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.groups = nil
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -30,7 +30,7 @@ func TestView_Given_NoChanges_ShouldRender_NoRiskMessage(t *testing.T) {
 
 func TestView_Given_MixedRisk_ShouldRender_GroupedChanges(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
 	p.total = 4
 	p.groups = []RiskGroup{
@@ -60,7 +60,7 @@ func TestView_Given_MixedRisk_ShouldRender_GroupedChanges(t *testing.T) {
 
 func TestView_Given_CriticalRisk_ShouldRender_CriticalBanner(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskCritical
 	p.total = 1
 	p.groups = []RiskGroup{

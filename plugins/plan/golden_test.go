@@ -18,21 +18,21 @@ func newGoldenPlugin() *Plugin {
 
 func TestView_Given_Idle_ShouldRender_PromptToRun(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Loading_ShouldRender_RunningMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "Error running plan: insufficient permissions"
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -40,7 +40,7 @@ func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
 
 func TestView_Given_NoChanges_ShouldRender_UpToDateMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: nil}
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -48,7 +48,7 @@ func TestView_Given_NoChanges_ShouldRender_UpToDateMessage(t *testing.T) {
 
 func TestView_Given_Changes_ShouldRender_ChangeList(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
@@ -65,7 +65,7 @@ func TestView_Given_Changes_ShouldRender_ChangeList(t *testing.T) {
 
 func TestView_Given_Changes_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.selected = 1
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -83,7 +83,7 @@ func TestView_Given_Changes_WithSelection_ShouldRender_HighlightedRow(t *testing
 
 func TestView_Given_ExpandedChange_ShouldRender_AttributeDiffs(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.selected = 0
 	p.expander.Toggle(0)
 	p.summary = &sdk.PlanSummary{
@@ -107,7 +107,7 @@ func TestView_Given_ExpandedChange_ShouldRender_AttributeDiffs(t *testing.T) {
 
 func TestView_Given_PhantomChange_ShouldRender_PhantomMarker(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate, IsPhantom: true},
@@ -122,7 +122,7 @@ func TestView_Given_PhantomChange_ShouldRender_PhantomMarker(t *testing.T) {
 
 func TestView_Given_CriticalRisk_ShouldRender_RiskWarning(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_rds_cluster.production"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical},
@@ -135,7 +135,7 @@ func TestView_Given_CriticalRisk_ShouldRender_RiskWarning(t *testing.T) {
 
 func TestView_Given_PinnedChange_ShouldRender_PinMarker(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.pins = sdk.NewPinService()
 	p.pins.Toggle("aws_instance.web")
 	p.summary = &sdk.PlanSummary{

@@ -131,8 +131,8 @@ func TestInit(t *testing.T) {
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", pp.status)
+	if pp.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", pp.status)
 	}
 }
 
@@ -186,7 +186,7 @@ func TestUpdateOutputResultMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	outputs := sampleOutputs()
 
@@ -196,8 +196,8 @@ func TestUpdateOutputResultMsgSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if len(updated.outputs) != 3 {
 		t.Errorf("len(outputs) = %d, want 3", len(updated.outputs))
@@ -214,7 +214,7 @@ func TestUpdateOutputResultMsgSorted(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	outputs := sampleOutputs()
 	p.Update(OutputResultMsg{Outputs: outputs, Err: nil})
@@ -235,7 +235,7 @@ func TestUpdateOutputResultMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, cmd := p.Update(OutputResultMsg{Outputs: nil, Err: errors.New("load failed")})
 	if cmd != nil {
@@ -243,8 +243,8 @@ func TestUpdateOutputResultMsgError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusError {
-		t.Errorf("status = %v, want StatusError", updated.status)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
 	}
 	if updated.errMsg != "load failed" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "load failed")
@@ -254,7 +254,7 @@ func TestUpdateOutputResultMsgError(t *testing.T) {
 func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a", Type: "string", Value: "1"},
 		{Name: "b", Type: "string", Value: "2"},
@@ -290,7 +290,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 func TestUpdateKeyMsgJK(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a", Type: "string", Value: "1"},
 		{Name: "b", Type: "string", Value: "2"},
@@ -313,7 +313,7 @@ func TestUpdateKeyMsgJK(t *testing.T) {
 func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a"},
 		{Name: "b"},
@@ -337,33 +337,33 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 func TestUpdateKeyMsgRefresh(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 
 	// r triggers refresh in normal mode
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r works in error state too
-	p.status = StatusError
+	p.status = sdk.StatusError
 	cmd = p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r does nothing in Loading
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 	cmd = p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
-		t.Error("after r in StatusLoading: cmd != nil, want nil")
+		t.Error("after r in sdk.StatusLoading: cmd != nil, want nil")
 	}
 }
 
 func TestUpdateKeyMsgEscDeactivates(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{{Name: "a"}}
 	p.filtered = p.outputs
 
@@ -381,7 +381,7 @@ func TestUpdateKeyMsgEscDeactivates(t *testing.T) {
 func TestUpdateKeyMsgFilterMode(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "vpc_id", Type: "string", Value: "vpc-123"},
 		{Name: "db_password", Type: "string", Value: "secret", Sensitive: true},
@@ -410,7 +410,7 @@ func TestUpdateKeyMsgFilterMode(t *testing.T) {
 func TestUpdateKeyMsgFilterModeEscExits(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{{Name: "a"}}
 	p.filtered = p.outputs
 	p.filtering = true
@@ -424,7 +424,7 @@ func TestUpdateKeyMsgFilterModeEscExits(t *testing.T) {
 func TestUpdateKeyMsgBackspace(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "vpc_id", Type: "string", Value: "vpc-123"},
 	}
@@ -441,7 +441,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 func TestUpdateKeyMsgDelete(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{{Name: "a"}}
 	p.filtered = p.outputs
 	p.filter = "ab"
@@ -456,7 +456,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 func TestFilterModeBlocksHotkeys(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "vpc_id", Type: "string", Value: "vpc-123"},
 		{Name: "region", Type: "string", Value: "us-east-1"},
@@ -469,15 +469,15 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 	if p.filter != "r" {
 		t.Errorf("filter = %q, want %q", p.filter, "r")
 	}
-	if p.status != StatusDone {
-		t.Errorf("status should remain StatusDone, got %v", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status should remain sdk.StatusDone, got %v", p.status)
 	}
 }
 
 func TestFilterModeNavigationDown(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a", Type: "string", Value: "1"},
 		{Name: "b", Type: "string", Value: "2"},
@@ -501,7 +501,7 @@ func TestFilterModeNavigationDown(t *testing.T) {
 func TestFilterModeJKAppendsToFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a", Type: "string", Value: "1"},
 		{Name: "b", Type: "string", Value: "2"},
@@ -719,54 +719,54 @@ func TestFormatValue(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewLoading(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusLoading) returned empty string")
+		t.Error("View(sdk.StatusLoading) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "some error"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
 func TestViewDoneNoOutputs(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{}
 	p.filtered = []sdk.OutputValue{}
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, no outputs) returned empty string")
+		t.Error("View(sdk.StatusDone, no outputs) returned empty string")
 	}
 }
 
 func TestViewDoneWithOutputs(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "vpc_id", Type: "string", Value: "vpc-abc123", Sensitive: false},
 		{Name: "db_password", Type: "string", Value: "secret", Sensitive: true},
@@ -775,7 +775,7 @@ func TestViewDoneWithOutputs(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with outputs) returned empty string")
+		t.Error("View(sdk.StatusDone, with outputs) returned empty string")
 	}
 	// Sensitive value should not appear in view
 	if strings.Contains(view, "secret") {
@@ -794,7 +794,7 @@ func TestViewDoneWithOutputs(t *testing.T) {
 func TestViewDoneWithFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "vpc_id", Type: "string", Value: "vpc-123"},
 	}
@@ -803,14 +803,14 @@ func TestViewDoneWithFilter(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with filter) returned empty string")
+		t.Error("View(sdk.StatusDone, with filter) returned empty string")
 	}
 }
 
 func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a", Type: "string", Value: "1"},
 		{Name: "b", Type: "string", Value: "2"},
@@ -832,7 +832,7 @@ func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -843,7 +843,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 
 	outputs := make([]sdk.OutputValue, 50)
 	for i := range outputs {
@@ -862,7 +862,7 @@ func TestViewScrolling(t *testing.T) {
 func TestViewFilteringMode(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "vpc_id", Type: "string", Value: "vpc-123"},
 	}
@@ -897,7 +897,7 @@ func TestTotalCount(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.selected = 5
 	p.filter = "something"
 
@@ -905,8 +905,8 @@ func TestRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("Refresh() returned nil cmd")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after Refresh: status = %v, want sdk.StatusLoading", p.status)
 	}
 	if p.selected != 0 {
 		t.Errorf("after Refresh: selected = %d, want 0", p.selected)
@@ -935,14 +935,14 @@ func TestHandleChdirChanged(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.scopedContext = "/old/ctx"
 	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
 	if p.scopedContext != "/new/ctx" {
 		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new/ctx")
 	}
-	if p.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle after HandleChdirChanged", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle after HandleChdirChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
 	cmd := p.Activate()
@@ -956,7 +956,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.scopedContext = "/same"
 	cmd := p.Activate()
 	if cmd != nil {
@@ -974,8 +974,8 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	if cmd == nil {
 		t.Error("Activate() multi-context no selection: want non-nil cmd (loads outputs)")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 
@@ -1003,8 +1003,8 @@ func TestActivateNoSession(t *testing.T) {
 
 func TestStatusGetter(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -1069,7 +1069,7 @@ func TestSortedOutputsEmpty(t *testing.T) {
 func TestFilterModeGgAppendsToFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.outputs = []sdk.OutputValue{
 		{Name: "a", Type: "string", Value: "1"},
 		{Name: "b", Type: "string", Value: "2"},

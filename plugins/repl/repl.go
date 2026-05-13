@@ -11,15 +11,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the REPL plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusReady
-	StatusEvaluating
-	StatusError
-)
+const StatusEvaluating = sdk.Status(10)
 
 // replEntry holds a single expression and its result.
 type replEntry struct {
@@ -39,7 +31,7 @@ type ReplResultMsg struct {
 type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
-	status        Status
+	status        sdk.Status
 	history       []replEntry
 	input         string
 	historyIdx    int // -1 means current input, 0+ means recalling from history
@@ -64,19 +56,19 @@ func New(svc sdk.Service) sdk.Plugin {
 func (p *Plugin) ID() string          { return "repl" }
 func (p *Plugin) Name() string        { return "Console" }
 func (p *Plugin) Description() string { return "Terraform console (REPL)" }
-func (p *Plugin) Ready() bool         { return p.status == StatusReady }
+func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (p *Plugin) Hints() []sdk.KeyHint {
 	switch p.status {
-	case StatusReady, StatusEvaluating:
+	case sdk.StatusDone, StatusEvaluating:
 		return []sdk.KeyHint{
 			{Key: "Enter", Description: "evaluate"},
 			{Key: "↑↓", Description: "history"},
 			{Key: "^C", Description: "clear"},
 			{Key: "q", Description: "exit"},
 		}
-	case StatusError:
+	case sdk.StatusError:
 		return (sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
@@ -93,7 +85,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.dir = ctx.WorkingDir
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 	p.reset()
 	return nil
 }
@@ -125,7 +117,7 @@ func (p *Plugin) Activate() tea.Cmd {
 		p.binaryPath = detectBinary()
 	}
 
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	return nil
 }
 
@@ -133,7 +125,7 @@ func (p *Plugin) Activate() tea.Cmd {
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ReplResultMsg:
-		p.status = StatusReady
+		p.status = sdk.StatusDone
 		entry := replEntry{Expr: msg.Expr}
 		if msg.Err != nil {
 			entry.Error = msg.Err.Error()
@@ -240,13 +232,13 @@ func (p *Plugin) evaluate(expr string) tea.Cmd {
 // View renders the REPL plugin UI.
 func (p *Plugin) View(width, height int) string {
 	switch p.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Activating...")
 
-	case StatusError:
+	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + p.errMsg)
 
-	case StatusReady, StatusEvaluating:
+	case sdk.StatusDone, StatusEvaluating:
 		return p.renderREPL(width, height)
 
 	default:
@@ -313,7 +305,7 @@ func detectBinary() string {
 
 // Exported getters for testing.
 
-func (p *Plugin) Status() Status       { return p.status }
+func (p *Plugin) Status() sdk.Status   { return p.status }
 func (p *Plugin) Input() string        { return p.input }
 func (p *Plugin) History() []replEntry { return p.history }
 func (p *Plugin) HistoryIdx() int      { return p.historyIdx }

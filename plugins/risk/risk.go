@@ -8,14 +8,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the risk plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusReady
-)
-
 // RiskGroup holds changes grouped by risk level.
 type RiskGroup struct {
 	Level   sdk.RiskLevel
@@ -25,7 +17,7 @@ type RiskGroup struct {
 // Plugin implements the risk analysis feature.
 type Plugin struct {
 	svc      sdk.Service
-	status   Status
+	status   sdk.Status
 	groups   []RiskGroup
 	overall  sdk.RiskLevel
 	selected int
@@ -42,8 +34,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "risk" }
 func (e *Plugin) Name() string        { return "Risk Analysis" }
 func (e *Plugin) Description() string { return "Analyze risk levels of planned changes" }
-func (e *Plugin) Ready() bool         { return e.status == StatusReady }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Overall() sdk.RiskLevel {
 	return e.overall
@@ -51,7 +43,7 @@ func (e *Plugin) Overall() sdk.RiskLevel {
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
-	if e.status == StatusReady && len(e.groups) > 0 {
+	if e.status == sdk.StatusDone && len(e.groups) > 0 {
 		return (sdk.HintSetBack).Hints()
 	}
 	return (sdk.HintSetBack).Hints()
@@ -71,7 +63,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Analyze processes a plan summary and groups changes by risk.
 func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
-		e.status = StatusReady
+		e.status = sdk.StatusDone
 		e.groups = nil
 		e.overall = sdk.RiskNone
 		e.total = 0
@@ -111,7 +103,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 		}
 	}
 
-	e.status = StatusReady
+	e.status = sdk.StatusDone
 	e.selected = 0
 }
 
@@ -161,10 +153,10 @@ func (e *Plugin) totalItems() int {
 // View renders the risk analysis plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
 
-	case StatusReady:
+	case sdk.StatusDone:
 		return e.renderAnalysis(width, height)
 
 	default:

@@ -113,8 +113,8 @@ func TestInit(t *testing.T) {
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", pp.status)
+	if pp.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", pp.status)
 	}
 }
 
@@ -165,7 +165,7 @@ func TestUpdateStateListMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -177,8 +177,8 @@ func TestUpdateStateListMsgSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if len(updated.resources) != 1 {
 		t.Errorf("len(resources) = %d, want 1", len(updated.resources))
@@ -195,7 +195,7 @@ func TestUpdateStateListMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, cmd := p.Update(StateListMsg{Resources: nil, Err: errors.New("load failed")})
 	if cmd != nil {
@@ -203,8 +203,8 @@ func TestUpdateStateListMsgError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusError {
-		t.Errorf("status = %v, want StatusError", updated.status)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
 	}
 	if updated.errMsg != "load failed" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "load failed")
@@ -215,7 +215,7 @@ func TestUpdateResourceDetailMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 
 	result, cmd := p.Update(ResourceDetailMsg{Address: "aws_instance.web", Detail: `{"id": "i-123"}`, Err: nil})
 	if cmd != nil {
@@ -241,7 +241,7 @@ func TestUpdateResourceDetailMsgError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 
 	result, cmd := p.Update(ResourceDetailMsg{Address: "x", Detail: "", Err: errors.New("not found")})
 	if cmd != nil {
@@ -249,8 +249,8 @@ func TestUpdateResourceDetailMsgError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if updated.errMsg != "not found" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "not found")
@@ -260,7 +260,7 @@ func TestUpdateResourceDetailMsgError(t *testing.T) {
 func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a", Type: "t1"},
 		{Address: "b", Type: "t2"},
@@ -297,7 +297,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a"},
 		{Address: "b"},
@@ -322,7 +322,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
 	svc := &mockService{showResult: `{"id": "i-123"}`}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
@@ -338,7 +338,7 @@ func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
 func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
 	p.rebuildTree()
@@ -352,33 +352,33 @@ func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
 func TestUpdateKeyMsgRefresh(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 
 	// r triggers refresh in normal mode
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r works in error state too
-	p.status = StatusError
+	p.status = sdk.StatusError
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r does nothing in Loading
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
-		t.Error("after r in StatusLoading: cmd != nil, want nil")
+		t.Error("after r in sdk.StatusLoading: cmd != nil, want nil")
 	}
 }
 
 func TestUpdateKeyMsgBackspace(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
@@ -401,7 +401,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
@@ -423,7 +423,7 @@ func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
 func TestFilterModeBlocksHotkeys(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 		{Address: "aws_rds_instance.db", Type: "aws_rds_instance"},
@@ -439,8 +439,8 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 	if p.filter != "rds" {
 		t.Errorf("filter = %q, want %q", p.filter, "rds")
 	}
-	if p.status != StatusDone {
-		t.Errorf("status should remain StatusDone, got %v", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status should remain sdk.StatusDone, got %v", p.status)
 	}
 }
 
@@ -454,8 +454,8 @@ func TestUpdateKeyMsgDetailViewEsc(t *testing.T) {
 	p.stack.Push(&detailFrame{plugin: p})
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if p.status != StatusDone {
-		t.Errorf("after esc in detail: status = %v, want StatusDone", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("after esc in detail: status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.detail != "" {
 		t.Errorf("after esc in detail: detail = %q, want empty", p.detail)
@@ -899,7 +899,7 @@ func TestInspectSelectedEmptyAddress(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	// Set up some items and move cursor to simulate non-zero selection
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}, {Address: "d"}, {Address: "e"}, {Address: "f"}}
 	p.filtered = p.resources
@@ -913,8 +913,8 @@ func TestRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("Refresh() returned nil cmd")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after Refresh: status = %v, want sdk.StatusLoading", p.status)
 	}
 	if p.Selected() != 0 {
 		t.Errorf("after Refresh: selected = %d, want 0", p.Selected())
@@ -927,34 +927,34 @@ func TestRefresh(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewLoading(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusLoading) returned empty string")
+		t.Error("View(sdk.StatusLoading) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "some error"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
@@ -993,21 +993,21 @@ func TestViewShowingDetailLong(t *testing.T) {
 func TestViewDoneNoResources(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
 	p.rebuildTree()
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, no resources) returned empty string")
+		t.Error("View(sdk.StatusDone, no resources) returned empty string")
 	}
 }
 
 func TestViewDoneWithResources(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Module: ""},
 		{Address: "module.vpc.aws_subnet.a", Type: "aws_subnet", Module: "module.vpc"},
@@ -1017,14 +1017,14 @@ func TestViewDoneWithResources(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with resources) returned empty string")
+		t.Error("View(sdk.StatusDone, with resources) returned empty string")
 	}
 }
 
 func TestViewDoneWithFilter(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
@@ -1034,14 +1034,14 @@ func TestViewDoneWithFilter(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with filter) returned empty string")
+		t.Error("View(sdk.StatusDone, with filter) returned empty string")
 	}
 }
 
 func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a"},
 		{Address: "b"},
@@ -1059,7 +1059,7 @@ func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -1070,7 +1070,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 
 	resources := make([]sdk.Resource, 50)
 	for i := range resources {
@@ -1119,7 +1119,7 @@ func TestFilter(t *testing.T) {
 func TestUpdateKeyMsgDelete(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1138,7 +1138,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 func TestUpdateKeyMsgSlash(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1153,7 +1153,7 @@ func TestUpdateKeyMsgSlash(t *testing.T) {
 func TestUpdateKeyMsgDownKey(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1194,7 +1194,7 @@ func TestInspectSelectedCmdError(t *testing.T) {
 func TestUpdateKeyMsgCtrlH(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1209,7 +1209,7 @@ func TestUpdateKeyMsgCtrlH(t *testing.T) {
 func TestHandleKeyDefaultPrintable(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
@@ -1248,7 +1248,7 @@ func TestHandleKeyDetailIgnoresOtherKeys(t *testing.T) {
 func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 
 	// In loading state, 'r' should not trigger refresh (only works in Done/Error)
 	cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -1259,8 +1259,8 @@ func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
 
 func TestStatusGetter(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -1289,14 +1289,14 @@ func TestHandleChdirChanged(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.scopedContext = "/old/ctx"
 	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
 	if p.scopedContext != "/new/ctx" {
 		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new/ctx")
 	}
-	if p.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle after HandleChdirChanged", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle after HandleChdirChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
 	cmd := p.Activate()
@@ -1310,7 +1310,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.scopedContext = "/same"
 	cmd := p.Activate()
 	if cmd != nil {
@@ -1328,8 +1328,8 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	if cmd == nil {
 		t.Error("Activate() multi-context no selection: want non-nil cmd (loads state)")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 
@@ -1358,7 +1358,7 @@ func TestActivateNoPins(t *testing.T) {
 func TestHandleKeyFilterMode(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_s3_bucket.b"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1381,7 +1381,7 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 			Type:    "aws_instance",
 		}
 	}
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
 	p.rebuildTree()
@@ -1417,7 +1417,7 @@ func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
 	}
@@ -1463,7 +1463,7 @@ func TestRenderFlatList_WrapMode_ShouldNotOverflow(t *testing.T) {
 			Type:    "aws_cloudwatch_metric_alarm",
 		}
 	}
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
 	p.listWrap = true
@@ -1488,7 +1488,7 @@ func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 			Type:    "aws_cloudwatch_metric_alarm",
 		}
 	}
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
 	p.rebuildTree()

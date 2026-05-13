@@ -89,8 +89,8 @@ func TestInit(t *testing.T) {
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", pp.status)
+	if pp.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", pp.status)
 	}
 }
 
@@ -109,8 +109,8 @@ func TestActivate(t *testing.T) {
 	if cmd == nil {
 		t.Error("Activate() returned nil cmd, want non-nil")
 	}
-	if pp.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", pp.status)
+	if pp.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", pp.status)
 	}
 }
 
@@ -160,7 +160,7 @@ func TestUpdateValidateResultSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	diags := []sdk.Diagnostic{
 		{Severity: "warning", Summary: "Deprecated attribute"},
@@ -173,8 +173,8 @@ func TestUpdateValidateResultSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if updated.diagnostics == nil {
 		t.Error("diagnostics = nil, want non-nil")
@@ -188,7 +188,7 @@ func TestUpdateValidateResultErrorsSortedFirst(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	diags := []sdk.Diagnostic{
 		{Severity: "warning", Summary: "Deprecated attribute"},
@@ -219,7 +219,7 @@ func TestUpdateValidateResultError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, cmd := p.Update(ValidateResultMsg{Diagnostics: nil, Err: errors.New("terraform error")})
 	if cmd != nil {
@@ -227,8 +227,8 @@ func TestUpdateValidateResultError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusError {
-		t.Errorf("status = %v, want StatusError", updated.status)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
 	}
 	if updated.errMsg != "terraform error" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "terraform error")
@@ -239,13 +239,13 @@ func TestUpdateValidateResultZeroDiagnostics(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, _ := p.Update(ValidateResultMsg{Diagnostics: []sdk.Diagnostic{}, Err: nil})
 	updated := result.(*Plugin)
 
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if len(updated.diagnostics) != 0 {
 		t.Errorf("len(diagnostics) = %d, want 0", len(updated.diagnostics))
@@ -256,7 +256,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "a"},
 		{Severity: "error", Summary: "b"},
@@ -304,7 +304,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "a"},
 		{Severity: "error", Summary: "b"},
@@ -328,7 +328,7 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Invalid reference", Detail: "The resource does not exist"},
 	}
@@ -356,26 +356,26 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	svc := &mockService{validateResult: []sdk.Diagnostic{}}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 
 	// r triggers refresh when status is Done
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r triggers refresh when status is Error
-	pp.status = StatusError
+	pp.status = sdk.StatusError
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r does nothing when Loading
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
-		t.Error("after r in StatusLoading: cmd != nil, want nil")
+		t.Error("after r in sdk.StatusLoading: cmd != nil, want nil")
 	}
 }
 
@@ -494,7 +494,7 @@ func TestIsExpanded(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	svc := &mockService{validateResult: []sdk.Diagnostic{}}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.selected = 5
 	p.expander.Toggle(0)
 
@@ -502,8 +502,8 @@ func TestRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("Refresh() returned nil cmd")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after Refresh: status = %v, want sdk.StatusLoading", p.status)
 	}
 	if p.selected != 0 {
 		t.Errorf("after Refresh: selected = %d, want 0", p.selected)
@@ -513,56 +513,56 @@ func TestRefresh(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewLoading(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusLoading) returned empty string")
+		t.Error("View(sdk.StatusLoading) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "some error"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
 func TestViewDoneNoDiagnostics(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, no diagnostics) returned empty string")
+		t.Error("View(sdk.StatusDone, no diagnostics) returned empty string")
 	}
 	if !strings.Contains(view, "Configuration is valid") {
-		t.Error("View(StatusDone, no diagnostics) should contain success message")
+		t.Error("View(sdk.StatusDone, no diagnostics) should contain success message")
 	}
 }
 
 func TestViewDoneWithDiagnostics(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Invalid reference", File: "main.tf", Line: 10, Detail: "Resource not found"},
 		{Severity: "warning", Summary: "Deprecated attribute", File: "vars.tf", Line: 5},
@@ -571,14 +571,14 @@ func TestViewDoneWithDiagnostics(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with diagnostics) returned empty string")
+		t.Error("View(sdk.StatusDone, with diagnostics) returned empty string")
 	}
 }
 
 func TestViewDoneWithExpandedDetail(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Invalid reference", Detail: "The resource aws_instance.foo does not exist"},
 	}
@@ -593,7 +593,7 @@ func TestViewDoneWithExpandedDetail(t *testing.T) {
 func TestViewDoneScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 
 	// Create many diagnostics to trigger scrolling
 	diags := make([]sdk.Diagnostic, 50)
@@ -612,7 +612,7 @@ func TestViewDoneScrolling(t *testing.T) {
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99) // invalid status
+	p.status = sdk.Status(99) // invalid status
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -623,7 +623,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewSmallHeight(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Invalid reference"},
 	}
@@ -691,8 +691,8 @@ func TestStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -709,7 +709,7 @@ func TestSelected(t *testing.T) {
 func TestViewDiagnosticWithFileNoLine(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "warning", Summary: "Deprecated", File: "main.tf", Line: 0},
 	}

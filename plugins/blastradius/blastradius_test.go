@@ -100,8 +100,8 @@ func TestAnalyzeNilSummary(t *testing.T) {
 	p := New(svc).(*Plugin)
 
 	p.Analyze(nil)
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.modules != nil {
 		t.Error("modules = non-nil, want nil")
@@ -119,8 +119,8 @@ func TestAnalyzeEmptyChanges(t *testing.T) {
 	p := New(svc).(*Plugin)
 
 	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.modules != nil {
 		t.Error("modules = non-nil after empty changes, want nil")
@@ -142,8 +142,8 @@ func TestAnalyzeWithChanges(t *testing.T) {
 
 	p.Analyze(summary)
 
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.TotalChanges() != 4 {
 		t.Errorf("TotalChanges() = %d, want 4", p.TotalChanges())
@@ -180,8 +180,8 @@ func TestAnalyzeSingleModule(t *testing.T) {
 func TestStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -372,42 +372,42 @@ func TestSelectedModuleOutOfBounds(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewReady_NoModules(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.modules = nil
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, no modules) returned empty string")
+		t.Error("View(sdk.StatusDone, no modules) returned empty string")
 	}
 }
 
 func TestViewReady_EmptyModules(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.modules = []ModuleImpact{}
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, empty modules) returned empty string")
+		t.Error("View(sdk.StatusDone, empty modules) returned empty string")
 	}
 }
 
 func TestViewReady_WithModules(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 4
 	p.modules = []ModuleImpact{
 		{
@@ -445,14 +445,14 @@ func TestViewReady_WithModules(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, with modules) returned empty string")
+		t.Error("View(sdk.StatusDone, with modules) returned empty string")
 	}
 }
 
 func TestViewReady_WithExpanded(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 2
 	p.modules = []ModuleImpact{
 		{
@@ -478,7 +478,7 @@ func TestViewReady_WithExpanded(t *testing.T) {
 func TestViewReady_WithReplaceAction(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 1
 	p.modules = []ModuleImpact{
 		{
@@ -503,7 +503,7 @@ func TestViewReady_WithReplaceAction(t *testing.T) {
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -514,7 +514,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewSmallHeight(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 1
 	p.modules = []ModuleImpact{
 		{Group: sdk.ModuleGroup{Module: "root", Changes: []sdk.PlanChange{{}}}, Score: ImpactMinimal},
@@ -529,7 +529,7 @@ func TestViewSmallHeight(t *testing.T) {
 func TestViewScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 20
 
 	modules := make([]ModuleImpact, 20)

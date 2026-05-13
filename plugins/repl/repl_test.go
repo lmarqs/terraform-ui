@@ -79,8 +79,8 @@ func TestConfigure(t *testing.T) {
 func TestInit(t *testing.T) {
 	p := newTestPlugin()
 
-	if p.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
 	}
 	if p.dir != "/tmp/test" {
 		t.Errorf("dir = %q, want %q", p.dir, "/tmp/test")
@@ -100,8 +100,8 @@ func TestActivate(t *testing.T) {
 	p := newTestPlugin()
 	p.Activate()
 
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.binaryPath == "" {
 		t.Error("binaryPath should be set after Activate")
@@ -124,9 +124,9 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 
 	p.Activate()
 
-	// Without ChdirGuard, Activate proceeds to StatusReady (no scope gating)
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	// Without ChdirGuard, Activate proceeds to sdk.StatusDone (no scope gating)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 }
 
@@ -143,8 +143,8 @@ func TestActivateWithScopeDir(t *testing.T) {
 
 	p.Activate()
 
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.dir != "/my/project" {
 		t.Errorf("dir = %q, want %q", p.dir, "/my/project")
@@ -153,7 +153,7 @@ func TestActivateWithScopeDir(t *testing.T) {
 
 func TestInputTyping(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.binaryPath = "terraform"
 
 	// Type characters
@@ -175,7 +175,7 @@ func TestInputTyping(t *testing.T) {
 
 func TestInputBackspace(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.input = "hello"
 
 	p.Update(tea.KeyMsg{Type: tea.KeyBackspace})
@@ -193,7 +193,7 @@ func TestInputBackspace(t *testing.T) {
 
 func TestInputEnter(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.binaryPath = "terraform"
 	p.input = "local.env"
 
@@ -217,7 +217,7 @@ func TestInputEnter(t *testing.T) {
 
 func TestInputEnterEmpty(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.input = ""
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -228,7 +228,7 @@ func TestInputEnterEmpty(t *testing.T) {
 
 func TestInputEnterWhitespace(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.input = "   "
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -250,7 +250,7 @@ func TestInputEnterDuringEvaluating(t *testing.T) {
 
 func TestCtrlCClearsInput(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.input = "some expr"
 	p.historyIdx = 2
 
@@ -265,7 +265,7 @@ func TestCtrlCClearsInput(t *testing.T) {
 
 func TestEscDeactivates(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
@@ -297,8 +297,8 @@ func TestReplResultMsgSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if updated.HistoryLen() != 1 {
 		t.Errorf("len(history) = %d, want 1", updated.HistoryLen())
@@ -326,8 +326,8 @@ func TestReplResultMsgError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if updated.HistoryLen() != 1 {
 		t.Errorf("len(history) = %d, want 1", updated.HistoryLen())
@@ -347,7 +347,7 @@ func TestReplResultMsgError(t *testing.T) {
 
 func TestHistoryNavigation(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.binaryPath = "terraform"
 	p.pastInputs = []string{"expr1", "expr2", "expr3"}
 	p.input = "current"
@@ -409,7 +409,7 @@ func TestHistoryNavigation(t *testing.T) {
 
 func TestHistoryNavigationEmpty(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.pastInputs = nil
 	p.input = "current"
 
@@ -428,7 +428,7 @@ func TestHistoryNavigationEmpty(t *testing.T) {
 
 func TestMultipleResults(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 
 	// Simulate multiple evaluations
 	p.Update(ReplResultMsg{Expr: "1+1", Output: "2\n", Err: nil})
@@ -457,7 +457,7 @@ func TestMultipleResults(t *testing.T) {
 
 func TestScrollingWithLongHistory(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 
 	// Add many entries to trigger scrolling
 	for i := 0; i < 50; i++ {
@@ -481,33 +481,33 @@ func TestScrollingWithLongHistory(t *testing.T) {
 
 func TestViewIdle(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "something went wrong"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
 func TestViewReady(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.input = "local.env"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady) returned empty string")
+		t.Error("View(sdk.StatusDone) returned empty string")
 	}
 }
 
@@ -523,7 +523,7 @@ func TestViewEvaluating(t *testing.T) {
 
 func TestViewWithHistory(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.history = []replEntry{
 		{Expr: "local.env", Result: "\"production\""},
 		{Expr: "bad", Error: "some error"},
@@ -537,7 +537,7 @@ func TestViewWithHistory(t *testing.T) {
 
 func TestViewDefaultStatus(t *testing.T) {
 	p := newTestPlugin()
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -547,7 +547,7 @@ func TestViewDefaultStatus(t *testing.T) {
 
 func TestUnknownMsg(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 
 	type unknownMsg struct{}
 	result, cmd := p.Update(unknownMsg{})
@@ -598,7 +598,7 @@ func TestFormatHistoryEntry(t *testing.T) {
 
 func TestExportedGetters(t *testing.T) {
 	p := newTestPlugin()
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.input = "test"
 	p.historyIdx = 2
 	p.dir = "/a/b"
@@ -606,8 +606,8 @@ func TestExportedGetters(t *testing.T) {
 	p.errMsg = "oops"
 	p.pastInputs = []string{"x", "y"}
 
-	if p.Status() != StatusReady {
-		t.Errorf("Status() = %v, want StatusReady", p.Status())
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("Status() = %v, want sdk.StatusDone", p.Status())
 	}
 	if p.Input() != "test" {
 		t.Errorf("Input() = %q, want %q", p.Input(), "test")

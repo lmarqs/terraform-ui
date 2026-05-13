@@ -9,17 +9,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the workspaces plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusLoading
-	StatusDone
-	StatusError
-	StatusCreating
-)
-
 // WorkspaceListMsg is sent when workspace list completes.
 type WorkspaceListMsg struct {
 	Workspaces []string
@@ -37,7 +26,7 @@ type WorkspaceSwitchMsg struct {
 type Plugin struct {
 	svc           sdk.Service
 	stack         *sdk.Stack
-	status        Status
+	status        sdk.Status
 	workspaces    []string
 	current       string
 	selected      int
@@ -60,8 +49,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "workspaces" }
 func (e *Plugin) Name() string        { return "Workspaces" }
 func (e *Plugin) Description() string { return "Manage terraform workspaces" }
-func (e *Plugin) Ready() bool         { return e.status == StatusDone }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Current() string     { return e.current }
 func (e *Plugin) Workspaces() []string {
@@ -92,7 +81,7 @@ func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 
 // reset clears all plugin state to initial values.
 func (e *Plugin) reset() {
-	e.status = StatusIdle
+	e.status = sdk.StatusIdle
 	e.workspaces = nil
 	e.current = ""
 	e.errMsg = ""
@@ -103,8 +92,8 @@ func (e *Plugin) reset() {
 
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.status == StatusIdle || e.status == StatusError {
-		e.status = StatusLoading
+	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
+		e.status = sdk.StatusLoading
 		return e.loadWorkspaces()
 	}
 	return nil
@@ -112,7 +101,7 @@ func (e *Plugin) Activate() tea.Cmd {
 
 // Refresh reloads the workspace list.
 func (e *Plugin) Refresh() tea.Cmd {
-	e.status = StatusLoading
+	e.status = sdk.StatusLoading
 	e.errMsg = ""
 	e.creating = false
 	e.newName = ""
@@ -139,10 +128,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case WorkspaceListMsg:
 		if msg.Err != nil {
-			e.status = StatusError
+			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
 		} else {
-			e.status = StatusDone
+			e.status = sdk.StatusDone
 			e.workspaces = msg.Workspaces
 			e.current = msg.Current
 			// Select current workspace
@@ -235,13 +224,13 @@ func (e *Plugin) DeleteSelected() tea.Cmd {
 // View renders the workspaces plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle, StatusLoading:
+	case sdk.StatusIdle, sdk.StatusLoading:
 		return sdk.StyleFaintItalic.Render("Loading workspaces...")
 
-	case StatusError:
+	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + e.errMsg)
 
-	case StatusDone:
+	case sdk.StatusDone:
 		return e.renderWorkspaces(width, height)
 
 	default:

@@ -55,7 +55,7 @@ func (m *trackingMockService) Import(_ context.Context, addr, id string) error {
 func newTrackingPlugin(svc *trackingMockService, resources []sdk.Resource) *Plugin {
 	p := New(svc).(*Plugin)
 	p.svc = svc
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
 	p.pins = sdk.NewPinService()
@@ -982,8 +982,8 @@ func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("expected non-nil cmd (refresh) after StateMovedMsg")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("expected StatusLoading after refresh, got %v", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("expected sdk.StatusLoading after refresh, got %v", p.status)
 	}
 }
 
@@ -995,8 +995,8 @@ func TestUpdate_WhenStateTaintedMsg_ShouldTriggerRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("expected non-nil cmd (refresh) after StateTaintedMsg")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("expected StatusLoading after refresh, got %v", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("expected sdk.StatusLoading after refresh, got %v", p.status)
 	}
 }
 
@@ -1008,8 +1008,8 @@ func TestUpdate_WhenStateUntaintedMsg_ShouldTriggerRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("expected non-nil cmd (refresh) after StateUntaintedMsg")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("expected StatusLoading after refresh, got %v", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("expected sdk.StatusLoading after refresh, got %v", p.status)
 	}
 }
 
@@ -1021,8 +1021,8 @@ func TestUpdate_WhenStateImportedMsg_ShouldTriggerRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("expected non-nil cmd (refresh) after StateImportedMsg")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("expected StatusLoading after refresh, got %v", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("expected sdk.StatusLoading after refresh, got %v", p.status)
 	}
 }
 

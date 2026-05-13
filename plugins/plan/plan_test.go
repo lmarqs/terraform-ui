@@ -110,8 +110,8 @@ func TestInit(t *testing.T) {
 	}
 
 	pp := p.(*Plugin)
-	if pp.status != StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", pp.status)
+	if pp.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", pp.status)
 	}
 }
 
@@ -133,8 +133,8 @@ func TestActivate(t *testing.T) {
 	if cmd == nil {
 		t.Error("Activate() returned nil cmd, want non-nil")
 	}
-	if pp.status != StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", pp.status)
+	if pp.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", pp.status)
 	}
 }
 
@@ -194,7 +194,7 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -221,8 +221,8 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusDone {
-		t.Errorf("status = %v, want StatusDone", updated.status)
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
 	if updated.summary == nil {
 		t.Error("summary = nil, want non-nil")
@@ -236,7 +236,7 @@ func TestUpdatePlanResultError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 
 	result, cmd := p.Update(PlanResultMsg{Summary: nil, Err: errors.New("terraform error")})
 	if cmd != nil {
@@ -244,8 +244,8 @@ func TestUpdatePlanResultError(t *testing.T) {
 	}
 
 	updated := result.(*Plugin)
-	if updated.status != StatusError {
-		t.Errorf("status = %v, want StatusError", updated.status)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
 	}
 	if updated.errMsg != "terraform error" {
 		t.Errorf("errMsg = %q, want %q", updated.errMsg, "terraform error")
@@ -256,7 +256,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -306,7 +306,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -332,7 +332,7 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 	pp.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, AttributeDiffs: []sdk.AttributeDiff{{Key: "name"}}},
@@ -356,26 +356,26 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	svc := &mockService{planResult: &sdk.PlanSummary{}}
 	p := New(svc)
 	pp := p.(*Plugin)
-	pp.status = StatusDone
+	pp.status = sdk.StatusDone
 
 	// r triggers refresh when status is Done
 	cmd := pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r triggers refresh when status is Error
-	pp.status = StatusError
+	pp.status = sdk.StatusError
 	cmd = pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd == nil {
-		t.Error("after r in StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
 	// r does nothing when Loading
-	pp.status = StatusLoading
+	pp.status = sdk.StatusLoading
 	cmd = pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	if cmd != nil {
-		t.Error("after r in StatusLoading: cmd != nil, want nil")
+		t.Error("after r in sdk.StatusLoading: cmd != nil, want nil")
 	}
 }
 
@@ -540,7 +540,7 @@ func TestSetTargets(t *testing.T) {
 func TestRefresh(t *testing.T) {
 	svc := &mockService{planResult: &sdk.PlanSummary{}}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.selected = 5
 	p.expander.Toggle(0)
 
@@ -548,8 +548,8 @@ func TestRefresh(t *testing.T) {
 	if cmd == nil {
 		t.Error("Refresh() returned nil cmd")
 	}
-	if p.status != StatusLoading {
-		t.Errorf("after Refresh: status = %v, want StatusLoading", p.status)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after Refresh: status = %v, want sdk.StatusLoading", p.status)
 	}
 	if p.selected != 0 {
 		t.Errorf("after Refresh: selected = %d, want 0", p.selected)
@@ -559,65 +559,65 @@ func TestRefresh(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewLoading(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusLoading) returned empty string")
+		t.Error("View(sdk.StatusLoading) returned empty string")
 	}
 }
 
 func TestViewError(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusError
+	p.status = sdk.StatusError
 	p.errMsg = "some error"
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusError) returned empty string")
+		t.Error("View(sdk.StatusError) returned empty string")
 	}
 }
 
 func TestViewDoneNoChanges(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, no changes) returned empty string")
+		t.Error("View(sdk.StatusDone, no changes) returned empty string")
 	}
 }
 
 func TestViewDoneNilSummary(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = nil
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, nil summary) returned empty string")
+		t.Error("View(sdk.StatusDone, nil summary) returned empty string")
 	}
 }
 
 func TestViewDoneWithChanges(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
@@ -661,14 +661,14 @@ func TestViewDoneWithChanges(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusDone, with changes) returned empty string")
+		t.Error("View(sdk.StatusDone, with changes) returned empty string")
 	}
 }
 
 func TestViewDoneWithExpandedAttributeDiffs(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
@@ -694,7 +694,7 @@ func TestViewDoneWithExpandedAttributeDiffs(t *testing.T) {
 func TestViewDoneScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 
 	// Create many changes to trigger scrolling
 	changes := make([]sdk.PlanChange, 50)
@@ -717,7 +717,7 @@ func TestViewDoneScrolling(t *testing.T) {
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99) // invalid status
+	p.status = sdk.Status(99) // invalid status
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -863,8 +863,8 @@ func TestStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -905,7 +905,7 @@ func TestSummary(t *testing.T) {
 func TestViewSmallHeight(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusDone
+	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},

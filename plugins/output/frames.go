@@ -51,7 +51,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.filtered = f.plugin.outputs
 		f.plugin.selected = 0
 	case "r":
-		if f.plugin.status == StatusError || f.plugin.status == StatusDone {
+		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
 		}
 	case "G":
@@ -71,9 +71,9 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		return (sdk.HintSetCancel).Hints()
 	}
 	switch f.plugin.status {
-	case StatusError:
+	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
-	case StatusDone:
+	case sdk.StatusDone:
 		return (sdk.HintSetFilter | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()

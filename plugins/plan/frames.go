@@ -32,15 +32,15 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			f.plugin.togglePin(change.Resource.Address)
 		}
 	case "a":
-		if f.plugin.status == StatusDone && f.plugin.summary != nil && len(f.plugin.summary.Changes) > 0 {
+		if f.plugin.status == sdk.StatusDone && f.plugin.summary != nil && len(f.plugin.summary.Changes) > 0 {
 			return f, f.plugin.requestApply()
 		}
 	case "u":
-		if f.plugin.status == StatusError && f.plugin.lockInfo != nil {
+		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
 			return f, f.plugin.requestForceUnlock()
 		}
 	case "r":
-		if f.plugin.status == StatusError || f.plugin.status == StatusDone {
+		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
 		}
 	case "G":
@@ -57,17 +57,17 @@ func (f *listFrame) View(width, height int) string {
 
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
-	case StatusLoading:
+	case sdk.StatusLoading:
 		return (sdk.HintSetBack).Hints()
-	case StatusError:
+	case sdk.StatusError:
 		set := sdk.HintSetRetry | sdk.HintSetBack
 		if f.plugin.lockInfo != nil {
 			set |= sdk.HintSetUnlock
 		}
 		return set.Hints()
-	case StatusDone:
+	case sdk.StatusDone:
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
 			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 		}

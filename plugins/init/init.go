@@ -12,16 +12,10 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the init wizard.
-type Status int
-
 const (
-	StatusMenu Status = iota
-	StatusDetecting
-	StatusReview
-	StatusConfirm
-	StatusDone
-	StatusError
+	StatusMenu    = sdk.Status(10)
+	StatusReview  = sdk.Status(11)
+	StatusConfirm = sdk.Status(12)
 )
 
 // DetectedPattern represents a filesystem pattern found during scanning.
@@ -47,7 +41,7 @@ type WriteCompleteMsg struct {
 type Plugin struct {
 	svc        sdk.Service
 	dir        string
-	status     Status
+	status     sdk.Status
 	binary     string
 	patterns   []DetectedPattern
 	selected   int
@@ -68,22 +62,22 @@ func New(svc sdk.Service) sdk.Plugin {
 func (p *Plugin) ID() string          { return "init" }
 func (p *Plugin) Name() string        { return "Init" }
 func (p *Plugin) Description() string { return "Generate tfui.yaml configuration interactively" }
-func (p *Plugin) Ready() bool         { return p.status == StatusDone }
+func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (p *Plugin) Hints() []sdk.KeyHint {
 	switch p.status {
 	case StatusMenu:
 		return (sdk.HintSetSelect | sdk.HintSetBack).Hints()
-	case StatusDetecting:
+	case sdk.StatusLoading:
 		return (sdk.HintSetBack).Hints()
 	case StatusReview:
 		return (sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
 	case StatusConfirm:
 		return (sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
-	case StatusDone:
+	case sdk.StatusDone:
 		return (sdk.HintSetBack).Hints()
-	case StatusError:
+	case sdk.StatusError:
 		return (sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
@@ -128,7 +122,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case DetectionCompleteMsg:
 		if msg.Err != nil {
-			p.status = StatusError
+			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
 		} else {
 			p.status = StatusReview
@@ -139,10 +133,10 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 	case WriteCompleteMsg:
 		if msg.Err != nil {
-			p.status = StatusError
+			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
 		} else {
-			p.status = StatusDone
+			p.status = sdk.StatusDone
 		}
 		return p, nil
 
@@ -167,11 +161,11 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return p.handleReviewKey(msg)
 	case StatusConfirm:
 		return p.handleConfirmKey(msg)
-	case StatusDone:
+	case sdk.StatusDone:
 		if msg.String() == "esc" {
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
-	case StatusError:
+	case sdk.StatusError:
 		if msg.String() == "esc" {
 			p.status = StatusMenu
 		}
@@ -199,7 +193,7 @@ func (p *Plugin) handleMenuKey(msg tea.KeyMsg) tea.Cmd {
 			return p.openEditor()
 		}
 		if (p.menuItem == 1 && p.hasConfig) || (p.menuItem == 0 && !p.hasConfig) {
-			p.status = StatusDetecting
+			p.status = sdk.StatusLoading
 			return p.detect()
 		}
 	case "e":
@@ -254,10 +248,10 @@ func (p *Plugin) View(width, height int) string {
 	case StatusMenu:
 		return p.renderMenu(width, height)
 
-	case StatusDetecting:
+	case sdk.StatusLoading:
 		return sdk.StyleFaintItalic.Render("Scanning filesystem for terraform projects...")
 
-	case StatusError:
+	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + p.errMsg)
 
 	case StatusReview:
@@ -266,7 +260,7 @@ func (p *Plugin) View(width, height int) string {
 	case StatusConfirm:
 		return p.renderConfirm(width, height)
 
-	case StatusDone:
+	case sdk.StatusDone:
 		return p.renderDone(width, height)
 
 	default:

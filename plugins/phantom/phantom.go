@@ -8,14 +8,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the phantom plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusReady
-)
-
 // PhantomChange holds a phantom change with its explanation.
 type PhantomChange struct {
 	Change      sdk.PlanChange
@@ -26,7 +18,7 @@ type PhantomChange struct {
 // Plugin implements the phantom change detection feature.
 type Plugin struct {
 	svc      sdk.Service
-	status   Status
+	status   sdk.Status
 	phantoms []PhantomChange
 	selected int
 	expanded map[int]bool
@@ -45,8 +37,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "phantom" }
 func (e *Plugin) Name() string        { return "Phantom Changes" }
 func (e *Plugin) Description() string { return "Detect and explain phantom (no-op) changes" }
-func (e *Plugin) Ready() bool         { return e.status == StatusReady }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) PhantomCount() int   { return len(e.phantoms) }
 func (e *Plugin) RealCount() int      { return e.real }
@@ -54,7 +46,7 @@ func (e *Plugin) TotalCount() int     { return e.total }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
-	if e.status == StatusReady && len(e.phantoms) > 0 {
+	if e.status == sdk.StatusDone && len(e.phantoms) > 0 {
 		return (sdk.HintSetInspect | sdk.HintSetBack).Hints()
 	}
 	return (sdk.HintSetBack).Hints()
@@ -74,7 +66,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Analyze processes a plan summary and identifies phantom changes.
 func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
-		e.status = StatusReady
+		e.status = sdk.StatusDone
 		e.phantoms = nil
 		e.total = 0
 		e.real = 0
@@ -96,7 +88,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	}
 
 	e.real = e.total - len(e.phantoms)
-	e.status = StatusReady
+	e.status = sdk.StatusDone
 	e.selected = 0
 	e.expanded = make(map[int]bool)
 }
@@ -144,10 +136,10 @@ func (e *Plugin) ToggleExpand() {
 // View renders the phantom change detection plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to detect phantom changes...")
 
-	case StatusReady:
+	case sdk.StatusDone:
 		return e.renderPhantoms(width, height)
 
 	default:

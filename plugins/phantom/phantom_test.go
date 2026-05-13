@@ -82,8 +82,8 @@ func TestAnalyzeNilSummary(t *testing.T) {
 	p := New(svc).(*Plugin)
 
 	p.Analyze(nil)
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.phantoms != nil {
 		t.Error("phantoms = non-nil, want nil")
@@ -104,8 +104,8 @@ func TestAnalyzeEmptyChanges(t *testing.T) {
 	p := New(svc).(*Plugin)
 
 	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.phantoms != nil {
 		t.Error("phantoms = non-nil after empty changes, want nil")
@@ -130,8 +130,8 @@ func TestAnalyzeWithPhantoms(t *testing.T) {
 
 	p.Analyze(summary)
 
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.PhantomCount() != 2 {
 		t.Errorf("PhantomCount() = %d, want 2", p.PhantomCount())
@@ -170,8 +170,8 @@ func TestAnalyzeNoPhantoms(t *testing.T) {
 func TestStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -327,31 +327,31 @@ func TestToggleExpand(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewReady_NoPhantoms(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.phantoms = []PhantomChange{}
 	p.total = 5
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, no phantoms) returned empty string")
+		t.Error("View(sdk.StatusDone, no phantoms) returned empty string")
 	}
 }
 
 func TestViewReady_WithPhantoms(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 3
 	p.real = 1
 	p.phantoms = []PhantomChange{
@@ -372,14 +372,14 @@ func TestViewReady_WithPhantoms(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, with phantoms) returned empty string")
+		t.Error("View(sdk.StatusDone, with phantoms) returned empty string")
 	}
 }
 
 func TestViewReady_WithExpandedPhantom(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 2
 	p.real = 1
 	p.phantoms = []PhantomChange{
@@ -403,7 +403,7 @@ func TestViewReady_WithExpandedPhantom(t *testing.T) {
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -414,7 +414,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewSmallHeight(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 1
 	p.phantoms = []PhantomChange{
 		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}, Explanation: "test"},
@@ -429,7 +429,7 @@ func TestViewSmallHeight(t *testing.T) {
 func TestViewScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.total = 20
 
 	phantoms := make([]PhantomChange, 20)

@@ -82,8 +82,8 @@ func TestAnalyzeNilSummary(t *testing.T) {
 	p := New(svc).(*Plugin)
 
 	p.Analyze(nil)
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.groups != nil {
 		t.Error("groups = non-nil, want nil")
@@ -104,8 +104,8 @@ func TestAnalyzeEmptyChanges(t *testing.T) {
 	p := New(svc).(*Plugin)
 
 	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.groups != nil {
 		t.Error("groups = non-nil after empty changes, want nil")
@@ -128,8 +128,8 @@ func TestAnalyzeWithChanges(t *testing.T) {
 
 	p.Analyze(summary)
 
-	if p.status != StatusReady {
-		t.Errorf("status = %v, want StatusReady", p.status)
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
 	if p.total != 5 {
 		t.Errorf("total = %d, want 5", p.total)
@@ -173,8 +173,8 @@ func TestAnalyzeGroupsAllLevels(t *testing.T) {
 func TestStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	if p.Status() != StatusIdle {
-		t.Errorf("Status() = %v, want StatusIdle", p.Status())
+	if p.Status() != sdk.StatusIdle {
+		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
@@ -299,42 +299,42 @@ func TestMoveDownEmptyGroups(t *testing.T) {
 func TestViewIdle(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusIdle) returned empty string")
+		t.Error("View(sdk.StatusIdle) returned empty string")
 	}
 }
 
 func TestViewReady_NoGroups(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.groups = nil
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, no groups) returned empty string")
+		t.Error("View(sdk.StatusDone, no groups) returned empty string")
 	}
 }
 
 func TestViewReady_EmptyGroups(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.groups = []RiskGroup{}
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, empty groups) returned empty string")
+		t.Error("View(sdk.StatusDone, empty groups) returned empty string")
 	}
 }
 
 func TestViewReady_WithGroups(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
 	p.total = 3
 	p.groups = []RiskGroup{
@@ -360,14 +360,14 @@ func TestViewReady_WithGroups(t *testing.T) {
 
 	view := p.View(80, 24)
 	if view == "" {
-		t.Error("View(StatusReady, with groups) returned empty string")
+		t.Error("View(sdk.StatusDone, with groups) returned empty string")
 	}
 }
 
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = Status(99)
+	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -378,7 +378,7 @@ func TestViewDefaultStatus(t *testing.T) {
 func TestViewSmallHeight(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskMedium
 	p.total = 1
 	p.groups = []RiskGroup{
@@ -537,7 +537,7 @@ func TestRenderStats(t *testing.T) {
 func TestViewReadyWithScrolling(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
 	p.total = 30
 
@@ -581,7 +581,7 @@ func TestRiskReasonUpdateCriticalRisk(t *testing.T) {
 func TestViewReadyMaxVisibleOverflow(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
 	p.total = 50
 
@@ -607,7 +607,7 @@ func TestViewReadyMaxVisibleOverflow(t *testing.T) {
 func TestViewReadyMultipleGroupsOverflow(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskCritical
 	p.total = 20
 
@@ -636,7 +636,7 @@ func TestViewReadyMultipleGroupsOverflow(t *testing.T) {
 func TestViewReadyHeaderBeyondMaxVisible(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.status = StatusReady
+	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
 	p.total = 10
 

@@ -13,16 +13,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-// Status represents the current state of the output plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusLoading
-	StatusDone
-	StatusError
-)
-
 // OutputResultMsg is sent when the output fetch completes.
 type OutputResultMsg struct {
 	Outputs map[string]sdk.OutputValue
@@ -35,7 +25,7 @@ type Plugin struct {
 	log           *slog.Logger
 	stack         *sdk.Stack
 	fuzzy         *ui.FuzzyFilter[sdk.OutputValue]
-	status        Status
+	status        sdk.Status
 	outputs       []sdk.OutputValue
 	filtered      []sdk.OutputValue
 	filter        string
@@ -60,8 +50,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (p *Plugin) ID() string          { return "output" }
 func (p *Plugin) Name() string        { return "Outputs" }
 func (p *Plugin) Description() string { return "View terraform outputs" }
-func (p *Plugin) Ready() bool         { return p.status == StatusDone }
-func (p *Plugin) Status() Status      { return p.status }
+func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
+func (p *Plugin) Status() sdk.Status  { return p.status }
 func (p *Plugin) Selected() int       { return p.selected }
 func (p *Plugin) Filter() string      { return p.filter }
 func (p *Plugin) Filtering() bool     { return p.filtering }
@@ -93,7 +83,7 @@ func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 
 // reset clears all plugin state to initial values.
 func (p *Plugin) reset() {
-	p.status = StatusIdle
+	p.status = sdk.StatusIdle
 	p.outputs = nil
 	p.filtered = nil
 	p.filter = ""
@@ -105,8 +95,8 @@ func (p *Plugin) reset() {
 
 // Activate triggers output loading when the user enters the plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	if p.status == StatusIdle || p.status == StatusError {
-		p.status = StatusLoading
+	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {
+		p.status = sdk.StatusLoading
 		return p.loadOutputs()
 	}
 	return nil
@@ -115,7 +105,7 @@ func (p *Plugin) Activate() tea.Cmd {
 // Refresh reloads the outputs.
 func (p *Plugin) Refresh() tea.Cmd {
 	p.reset()
-	p.status = StatusLoading
+	p.status = sdk.StatusLoading
 	return p.loadOutputs()
 }
 
@@ -132,11 +122,11 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case OutputResultMsg:
 		if msg.Err != nil {
-			p.status = StatusError
+			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
 			p.log.Debug("output.load.error", "error", msg.Err.Error())
 		} else {
-			p.status = StatusDone
+			p.status = sdk.StatusDone
 			p.outputs = sortedOutputs(msg.Outputs)
 			p.filtered = p.outputs
 			p.log.Debug("output.load.complete", "outputs", len(p.outputs))
@@ -220,16 +210,16 @@ func FormatValue(o sdk.OutputValue) string {
 // View renders the output plugin's UI.
 func (p *Plugin) View(width, height int) string {
 	switch p.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Loading outputs...")
 
-	case StatusLoading:
+	case sdk.StatusLoading:
 		return sdk.StyleFaintItalic.Render("Loading terraform outputs...")
 
-	case StatusError:
+	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + p.errMsg)
 
-	case StatusDone:
+	case sdk.StatusDone:
 		return p.renderOutputs(width, height)
 
 	default:

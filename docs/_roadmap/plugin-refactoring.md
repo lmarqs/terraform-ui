@@ -10,13 +10,11 @@ depends_on: []
 
 ## Summary
 
-12 plugins duplicate the same patterns (Status enum, logger setup) instead of using shared SDK primitives. Several plugin files exceed 800 lines mixing rendering, logic, and actions. Error handling is inconsistent (60% of errors returned bare without context wrapping).
+Several plugin files exceed 800 lines mixing rendering, logic, and actions. Error handling is inconsistent (60% of errors returned bare without context wrapping). Status enum migration is complete — all plugins now use `sdk.Status`.
 
 ## Need
 
-1. **Duplicate Status enum in 12 plugins** — Each plugin defines its own `type Status int` with `StatusIdle`, `StatusLoading`, `StatusDone`, etc. The SDK already has a shared `Status` type at `pkg/sdk/status.go` with predicates, but plugins don't use it.
-
-2. **Monolithic plugin files** — `plugins/state/state.go` is 862 lines mixing filtering, rendering, and state operations. `internal/terraform/service.go` is 746 lines with multiple concerns.
+1. **Monolithic plugin files** — `plugins/state/state.go` is 862 lines mixing filtering, rendering, and state operations. `internal/terraform/service.go` is 746 lines with multiple concerns.
 
 3. **Inconsistent logger initialization** — Some plugins create `slog.New(slog.NewTextHandler(io.Discard, nil))`, others use `ctx.Logger`, and `apply` doesn't initialize a logger at all. No standard pattern.
 
@@ -133,7 +131,6 @@ This prevents future bare error returns.
 
 ## Tasks
 
-- [ ] Migrate all 12 plugins from local Status enum to `sdk.Status` (apply, blastradius, init, output, phantom, plan, repl, risk, chdir, state, validate, workspaces)
 - [ ] Split `plugins/state/state.go` (862 lines) into: `state.go` (core), `view.go` (rendering), `filter.go` (filtering logic)
 - [ ] Split `internal/terraform/service.go` (746 lines) into: `service.go` (core), `state_ops.go` (state mutations), `workspace_ops.go` (workspace management)
 - [ ] Standardize logger injection: all plugins use `ctx.Logger.With("plugin", p.ID())`

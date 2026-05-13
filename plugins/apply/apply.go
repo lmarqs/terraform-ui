@@ -9,16 +9,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the apply plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusConfirming
-	StatusRunning
-	StatusSuccess
-	StatusError
-)
+const StatusConfirming = sdk.Status(10)
 
 // ApplyResultMsg is sent when apply completes.
 type ApplyResultMsg struct {
@@ -33,7 +24,7 @@ type TickMsg time.Time
 type Plugin struct {
 	svc            sdk.Service
 	options        *sdk.ResolvedOptions
-	status         Status
+	status         sdk.Status
 	errMsg         string
 	targets        []string
 	startTime      time.Time
@@ -53,8 +44,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "apply" }
 func (e *Plugin) Name() string        { return "Apply" }
 func (e *Plugin) Description() string { return "Apply terraform changes to infrastructure" }
-func (e *Plugin) Ready() bool         { return e.status == StatusSuccess }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Elapsed() time.Duration {
 	return e.elapsed
 }
@@ -63,18 +54,18 @@ func (e *Plugin) IsConfirming() bool { return e.status == StatusConfirming }
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
 	case StatusConfirming:
 		return []sdk.KeyHint{
 			{Key: "y/n", Description: "confirm"},
 			sdk.HintCancel,
 		}
-	case StatusRunning:
+	case sdk.StatusLoading:
 		return (sdk.HintSetBack).Hints()
-	case StatusSuccess:
+	case sdk.StatusDone:
 		return (sdk.HintSetBack).Hints()
-	case StatusError:
+	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
@@ -108,7 +99,7 @@ func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 	e.svc = e.svc.WithDir(evt.AbsPath)
 	e.scopedContext = evt.AbsPath
 	// Apply intentionally preserves targets/confirmed/totalResources across scope changes
-	e.status = StatusIdle
+	e.status = sdk.StatusIdle
 	e.errMsg = ""
 	return nil
 }
@@ -139,7 +130,7 @@ func (e *Plugin) RequestApply() {
 // Confirm executes the apply after user confirmation.
 func (e *Plugin) Confirm() tea.Cmd {
 	e.confirmed = true
-	e.status = StatusRunning
+	e.status = sdk.StatusLoading
 	e.startTime = time.Now()
 	e.errMsg = ""
 	return tea.Batch(e.runApply(), e.tick())
@@ -147,7 +138,7 @@ func (e *Plugin) Confirm() tea.Cmd {
 
 // Cancel aborts the apply confirmation.
 func (e *Plugin) Cancel() {
-	e.status = StatusIdle
+	e.status = sdk.StatusIdle
 	e.confirmed = false
 }
 
@@ -173,15 +164,15 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case ApplyResultMsg:
 		e.elapsed = msg.Duration
 		if msg.Err != nil {
-			e.status = StatusError
+			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
 		} else {
-			e.status = StatusSuccess
+			e.status = sdk.StatusDone
 		}
 		return e, nil
 
 	case TickMsg:
-		if e.status == StatusRunning {
+		if e.status == sdk.StatusLoading {
 			e.elapsed = time.Since(e.startTime)
 			return e, e.tick()
 		}
@@ -196,7 +187,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		switch msg.String() {
 		case "enter":
 			e.RequestApply()
@@ -208,7 +199,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "n", "N", "esc":
 			e.Cancel()
 		}
-	case StatusError:
+	case sdk.StatusError:
 		switch msg.String() {
 		case "r":
 			return e.Confirm()
@@ -220,25 +211,25 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 // View renders the apply plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.")
 
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
 
-	case StatusRunning:
+	case sdk.StatusLoading:
 		elapsed := formatDuration(e.elapsed)
 		running := sdk.StyleFaintItalic.Render("Applying changes... " + elapsed)
 		spinner := sdk.StyleUpdate.Render(">>>")
 		return spinner + " " + running
 
-	case StatusSuccess:
+	case sdk.StatusDone:
 		elapsed := formatDuration(e.elapsed)
 		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
 		duration := sdk.StyleFaint.Render("Duration: " + elapsed)
 		return success + "\n" + duration
 
-	case StatusError:
+	case sdk.StatusError:
 		return sdk.StyleError.Render("Apply failed: " + e.errMsg)
 
 	default:

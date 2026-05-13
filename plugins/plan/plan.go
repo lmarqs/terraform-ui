@@ -12,16 +12,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-// Status represents the current state of the plan plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusLoading
-	StatusDone
-	StatusError
-)
-
 // PlanResultMsg is sent when the plan operation completes.
 type PlanResultMsg struct {
 	Summary *sdk.PlanSummary
@@ -36,7 +26,7 @@ type Plugin struct {
 	stack         *sdk.Stack
 	pins          *sdk.PinService
 	expander      *ui.ExpandSet
-	status        Status
+	status        sdk.Status
 	summary       *sdk.PlanSummary
 	errMsg        string
 	lockInfo      *sdk.StateLock
@@ -60,8 +50,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "plan" }
 func (e *Plugin) Name() string        { return "Plan" }
 func (e *Plugin) Description() string { return "Review terraform plan changes" }
-func (e *Plugin) Ready() bool         { return e.status == StatusDone }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Targets() []string   { return e.targets }
 func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
@@ -112,7 +102,7 @@ func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 
 // reset clears all plugin state to initial values.
 func (e *Plugin) reset() {
-	e.status = StatusIdle
+	e.status = sdk.StatusIdle
 	e.summary = nil
 	e.errMsg = ""
 	e.selected = 0
@@ -121,8 +111,8 @@ func (e *Plugin) reset() {
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.status == StatusIdle || e.status == StatusError {
-		e.status = StatusLoading
+	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
+		e.status = sdk.StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
 		return e.runPlan()
 	}
@@ -131,7 +121,7 @@ func (e *Plugin) Activate() tea.Cmd {
 
 // Refresh re-runs the plan.
 func (e *Plugin) Refresh() tea.Cmd {
-	e.status = StatusLoading
+	e.status = sdk.StatusLoading
 	e.summary = nil
 	e.errMsg = ""
 	e.lockInfo = nil
@@ -154,12 +144,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case PlanResultMsg:
 		if msg.Err != nil {
-			e.status = StatusError
+			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("plan.error", "error", msg.Err.Error())
 		} else {
-			e.status = StatusDone
+			e.status = sdk.StatusDone
 			e.summary = msg.Summary
 			changes := 0
 			if msg.Summary != nil {
@@ -240,19 +230,19 @@ func (e *Plugin) SelectedChange() *sdk.PlanChange {
 // View renders the plan plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Ready to plan.")
 
-	case StatusLoading:
+	case sdk.StatusLoading:
 		return sdk.StyleFaintItalic.Render("Running terraform plan...")
 
-	case StatusError:
+	case sdk.StatusError:
 		if e.lockInfo != nil {
 			return sdk.FormatLockInfo(e.lockInfo)
 		}
 		return sdk.StyleError.Render("Error: " + e.errMsg)
 
-	case StatusDone:
+	case sdk.StatusDone:
 		return e.renderResults(width, height)
 
 	default:

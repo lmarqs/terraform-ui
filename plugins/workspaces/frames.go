@@ -71,9 +71,9 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		return (sdk.HintSetConfirm | sdk.HintSetCancel).Hints()
 	}
 	switch f.plugin.status {
-	case StatusError:
+	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
-	case StatusDone:
+	case sdk.StatusDone:
 		return (sdk.HintSetSelect | sdk.HintSetNew | sdk.HintSetDelete | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()

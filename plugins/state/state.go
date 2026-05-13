@@ -14,16 +14,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
-// Status represents the current state of the state browser plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusLoading
-	StatusDone
-	StatusError
-	StatusShowingDetail
-)
+const StatusShowingDetail = sdk.Status(10)
 
 // StateListMsg is sent when state list completes.
 type StateListMsg struct {
@@ -90,7 +81,7 @@ type Plugin struct {
 	stack         *sdk.Stack
 	pins          *sdk.PinService
 	fuzzy         *ui.FuzzyFilter[sdk.Resource]
-	status        Status
+	status        sdk.Status
 	resources     []sdk.Resource
 	filtered      []sdk.Resource
 	tree          *tree.Tree
@@ -128,8 +119,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "state" }
 func (e *Plugin) Name() string        { return "State Browser" }
 func (e *Plugin) Description() string { return "Browse and inspect terraform state resources" }
-func (e *Plugin) Ready() bool         { return e.status == StatusDone || e.status == StatusShowingDetail }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone || e.status == StatusShowingDetail }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.tree.Cursor() }
 func (e *Plugin) Filter() string      { return e.filter }
 func (e *Plugin) Filtering() bool     { return e.filtering }
@@ -170,7 +161,7 @@ func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 
 // reset clears all plugin state to initial values.
 func (e *Plugin) reset() {
-	e.status = StatusIdle
+	e.status = sdk.StatusIdle
 	e.resources = nil
 	e.filtered = nil
 	e.tree = tree.New(nil)
@@ -184,8 +175,8 @@ func (e *Plugin) reset() {
 
 // Activate triggers state loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.status == StatusIdle || e.status == StatusError {
-		e.status = StatusLoading
+	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
+		e.status = sdk.StatusLoading
 		return e.loadState()
 	}
 	return nil
@@ -194,7 +185,7 @@ func (e *Plugin) Activate() tea.Cmd {
 // Refresh reloads the state.
 func (e *Plugin) Refresh() tea.Cmd {
 	e.reset()
-	e.status = StatusLoading
+	e.status = sdk.StatusLoading
 	if e.stack != nil {
 		e.stack.Clear()
 	}
@@ -222,12 +213,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StateListMsg:
 		if msg.Err != nil {
-			e.status = StatusError
+			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("state.load.error", "error", msg.Err.Error())
 		} else {
-			e.status = StatusDone
+			e.status = sdk.StatusDone
 			e.resources = msg.Resources
 			e.filtered = msg.Resources
 			e.fuzzy.SetItems(msg.Resources)
@@ -271,7 +262,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case ResourceDetailMsg:
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()
-			e.status = StatusDone
+			e.status = sdk.StatusDone
 			e.log.Debug("state.inspect.error", "address", msg.Address, "error", msg.Err.Error())
 		} else {
 			e.detail = msg.Detail
@@ -460,7 +451,7 @@ func (e *Plugin) CursorNode() *tree.Node {
 
 // InspectSelected loads detail for the selected resource.
 func (e *Plugin) InspectSelected() tea.Cmd {
-	if e.status == StatusLoading {
+	if e.status == sdk.StatusLoading {
 		return nil
 	}
 	r := e.SelectedResource()
@@ -469,7 +460,7 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 		return nil
 	}
 	e.log.Debug("state.inspect.start", "address", r.Address)
-	e.status = StatusLoading
+	e.status = sdk.StatusLoading
 	e.filtering = false
 	if e.stack.Peek() != nil && e.stack.Peek().ID() == "filter" {
 		e.stack.Pop()
@@ -481,17 +472,17 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 // View renders the state browser plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Loading state...")
 
-	case StatusLoading:
+	case sdk.StatusLoading:
 		msg := "Loading terraform state..."
 		if e.errMsg != "" {
 			msg = e.errMsg
 		}
 		return sdk.StyleFaintItalic.Render(msg)
 
-	case StatusError:
+	case sdk.StatusError:
 		if e.lockInfo != nil {
 			lockPanel := sdk.FormatLockInfo(e.lockInfo)
 			hint := sdk.StyleFaintItalic.Render("u force-unlock")
@@ -502,7 +493,7 @@ func (e *Plugin) View(width, height int) string {
 	case StatusShowingDetail:
 		return e.renderDetail(width, height)
 
-	case StatusDone:
+	case sdk.StatusDone:
 		return e.renderResources(width, height)
 
 	default:

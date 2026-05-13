@@ -9,14 +9,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Status represents the current state of the blast radius plugin.
-type Status int
-
-const (
-	StatusIdle Status = iota
-	StatusReady
-)
-
 // ImpactScore represents the calculated impact of a module group.
 type ImpactScore int
 
@@ -51,7 +43,7 @@ type ModuleImpact struct {
 // Plugin implements the blast radius visualization feature.
 type Plugin struct {
 	svc      sdk.Service
-	status   Status
+	status   sdk.Status
 	modules  []ModuleImpact
 	selected int
 	expanded map[int]bool
@@ -69,8 +61,8 @@ func New(svc sdk.Service) sdk.Plugin {
 func (e *Plugin) ID() string          { return "blastradius" }
 func (e *Plugin) Name() string        { return "Blast Radius" }
 func (e *Plugin) Description() string { return "Visualize module-grouped changes with impact scores" }
-func (e *Plugin) Ready() bool         { return e.status == StatusReady }
-func (e *Plugin) Status() Status      { return e.status }
+func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) ModuleCount() int    { return len(e.modules) }
 func (e *Plugin) TotalChanges() int   { return e.total }
@@ -78,7 +70,7 @@ func (e *Plugin) Count() (int, int)   { return len(e.modules), e.total }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
-	if e.status == StatusReady && len(e.modules) > 0 {
+	if e.status == sdk.StatusDone && len(e.modules) > 0 {
 		return (sdk.HintSetInspect | sdk.HintSetBack).Hints()
 	}
 	return (sdk.HintSetBack).Hints()
@@ -98,7 +90,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Analyze processes a plan summary, groups by module, and calculates impact scores.
 func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	if summary == nil || len(summary.Changes) == 0 {
-		e.status = StatusReady
+		e.status = sdk.StatusDone
 		e.modules = nil
 		e.total = 0
 		return
@@ -120,7 +112,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	// Sort by impact score descending (highest impact first)
 	sortByImpact(e.modules)
 
-	e.status = StatusReady
+	e.status = sdk.StatusDone
 	e.selected = 0
 	e.expanded = make(map[int]bool)
 }
@@ -176,10 +168,10 @@ func (e *Plugin) SelectedModule() *ModuleImpact {
 // View renders the blast radius plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
-	case StatusIdle:
+	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
 
-	case StatusReady:
+	case sdk.StatusDone:
 		return e.renderBlastRadius(width, height)
 
 	default:
