@@ -8,25 +8,27 @@ terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Sin
 
 | Term | Definition | Example | Where shown |
 |------|-----------|---------|-------------|
-| **Project** | Root directory where tfui.yaml lives | `../medprev-cloud-iac` | Header line 1 |
-| **Scope** | Selected subdirectory within a project (terraform root module) | `modules/sa-east-1` | Header line 2 |
-| **Workspace** | Terraform workspace within a scope | `default`, `staging` | Header line 3 |
-| **Context** | The full working state: Project + Scope + Workspace combined | — | Plugin name (umbrella) |
+| **Project** | Root directory where `tfui.hcl` lives (or `--project` dir) | `/home/user/infra` | Header line 1 |
+| **Chdir** | Selected member directory within a project | `modules/vpc` | Header line 2 |
+| **Workspace** | Terraform workspace within a chdir | `default`, `production` | Header line 3 |
+| **Context** | The full working state: Project + Chdir + Workspace combined | — | Plugin name (umbrella) |
+| **Standalone** | No tfui.hcl, no --project: just a TUI over terraform | — | No header decoration |
 
 Rules:
 - "Context" is ONLY used as the umbrella concept (the plugin managing all three selections)
-- Code referring to subdirectory selection uses "scope" (never "context")
-- Config YAML key: `scope:` (not `context:`)
-- SDK fields: `Scopes`, `ActiveScope`, `ActiveScopeAbs` (in `ProjectContext`)
-- Session keys: `scope.active`, `scope.active_abs`, `scope.count`
+- Code referring to member directory selection uses "chdir" (never "scope")
+- Config HCL key: `chdir { members = [...] }`
+- SDK fields: `Chdirs`, `ActiveChdir`, `ActiveChdirAbs` (in `ProjectContext`)
+- Session keys: `chdir.active`, `chdir.active_abs`, `chdir.count`
+- SDK type: `ChdirGuard` (not ScopeGuard)
 
 ## Architecture
 
 ```
-cmd/tfui/              — CLI entry point (cobra commands, plugin registration)
+cmd/tfui/              — CLI entry point (cobra commands, plugin registration, normalizeArgs)
 pkg/sdk/               — Public SDK: Plugin interface, Service interface, types, UI primitives
 internal/
-  config/              — Config loading (tfui.yaml with dot-notation access)
+  config/              — HCL config loading (LoadRoot, LoadChild, Resolve)
   terraform/           — TerraformService + StaticService (read-only mode)
   source/              — Universal source abstraction (URI resolution, providers)
   macro/               — Macro engine (Driver, tape DSL parser)
@@ -36,8 +38,8 @@ internal/
   plugin/              — Registry (factory pattern, config-driven enablement)
   logging/             — Structured logger setup
 plugins/               — All features as plugins (one dir per plugin)
-  context/             — Context dashboard: shows Project + Scope + Workspace (FormFrame)
-  scope/               — Scope picker: select subdirectory within project
+  context/             — Context dashboard: shows Project + Chdir + Workspace (FormFrame)
+  chdir/               — Chdir picker: select member from explicit list
   state/               — State browser (list, inspect, pin, delete, move, edit)
   plan/                — Plan review (diff view, expand attributes, risk)
   apply/               — Apply executor
@@ -48,10 +50,10 @@ plugins/               — All features as plugins (one dir per plugin)
   risk/                — Risk classification (decorates plan)
   phantom/             — Phantom change detection (decorates plan)
   blastradius/         — Blast radius visualization
-  init/                — Config generator (CLI only)
+  init/                — Config generator (CLI only, only place auto-detection lives)
 tests/
-  integration/         — Integration tests with real terraform
-  fixtures/            — Real terraform projects for testing
+  integration/         — Integration tests with real terraform + HCL config
+  fixtures/            — Real terraform projects and config fixtures for testing
 ```
 
 ## Core Abstractions
@@ -62,8 +64,8 @@ Single source of truth for the application, partitioned by domain:
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `Project` | `ProjectContext` | Immutable: dir, discovered scopes, active scope |
-| `Config` | `*ConfigContext` | Read-only: dot-notation access to tfui.yaml |
+| `Project` | `ProjectContext` | Immutable: dir, chdir members, active chdir |
+| `Config` | `*ConfigContext` | Read-only: dot-notation access to plugin config |
 | `Terraform` | `*TerraformContext` | Mutable: workspace, pinned targets, cached state/plan |
 | `UI` | `*UIContext` | Mutable: window size, active plugin, input mode |
 | `Cache` | `*CacheContext` | Generic TTL cache |
@@ -109,11 +111,13 @@ The home menu and command bar are independent consumers of registry metadata. Th
 
 ### Service Interface (`pkg/sdk/service.go`)
 
-All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `WithDir`.
+All terraform operations: `Plan(ctx, PlanOptions)`, `Apply(ctx, ApplyOptions)`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `WithDir`.
+
+`PlanOptions`/`ApplyOptions` carry: targets, var-files, vars, replace, destroy, refresh-only, parallelism, lock, lock-timeout, extra-args.
 
 Two implementations:
-- `TerraformService` — wraps terraform-exec, calls real terraform binary
-- `StaticService` — pre-loaded data, read-only (mutating methods return `ErrReadOnly`)
+- `TerraformService` — wraps terraform-exec, maps options to tfexec option types
+- `StaticService` — pre-loaded data, builds command flags from options for recording
 
 ### Source Abstraction (`internal/source/`)
 
@@ -184,26 +188,46 @@ When `--plan` or `--state` provided:
 - Header shows `[read-only]` badge
 - Mutating hints hidden from status bar
 
-### Config (`tfui.yaml`)
+### Config (`tfui.hcl`)
 
-```yaml
-terraform:
-  bin: tofu                    # auto-detects if empty (tofu → terraform)
-cache:
-  staleness_threshold: 5m      # prompt before destructive ops on stale data
-ai:
-  enabled: true
-  provider: ""                 # auto-detect (bedrock if AWS creds, anthropic if API key)
-  model: ""                    # auto-detect per provider
-  region: us-east-1            # for Bedrock
-scope:
-  paths: ["modules/*"]         # glob patterns for monorepo scope discovery
-plugins:
-  risk:
-    enabled: true
+HCL format. Everything optional. No config file = standalone mode.
+
+```hcl
+terraform {
+  bin = "terraform"         # no auto-detection; empty = let terraform-exec handle
+}
+
+chdir {
+  members = ["modules/vpc", "modules/ecs"]   # explicit list, no globs
+}
+
+cache {
+  staleness_threshold = "5m"
+}
+
+ai {
+  enabled  = true
+  provider = "bedrock"
+  region   = "us-east-1"
+}
+
+defaults {
+  parallelism = 10
+  lock        = true
+  var_file "common/tags.tfvars" {}
+  plugin "risk" { level = "high" }
+}
 ```
 
-Access via `ConfigContext.GetString("terraform.bin", "")`, `GetBool("ai.enabled", false)`, etc.
+**Two modes:**
+- Standalone (no tfui.hcl): CWD = terraform dir, `--chdir` = raw passthrough
+- Project (tfui.hcl found): full resolution, chdir validated against members
+
+**Resolution chain:** Root defaults → Child top-level → Workspace block → CLI flags → `--` passthrough
+
+**Key functions:** `config.LoadRoot(dir)`, `config.LoadChild(dir)`, `config.Resolve(root, child, workspace)`
+
+Access plugin config via `ConfigContext.GetString("ai.model", "")`, `GetBool("ai.enabled", false)`, etc.
 
 ## Conventions
 
@@ -253,9 +277,9 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 Every plugin follows the same shape:
 
 ```go
-type Plugin struct { svc sdk.Service; log *slog.Logger; guard *sdk.ScopeGuard; pins *sdk.PinService; ... }
+type Plugin struct { svc sdk.Service; log *slog.Logger; guard *sdk.ChdirGuard; pins *sdk.PinService; ... }
 func New(svc sdk.Service) sdk.Plugin { ... }
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service); ... }
+func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service); ... }
 func (p *Plugin) Activate() tea.Cmd { /* use guard.Check(), load data */ }
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) { /* handle result msgs + keys */ }
 func (p *Plugin) View(w, h int) string { /* switch on status */ }
@@ -269,15 +293,15 @@ Use these instead of reimplementing common patterns:
 
 | Utility | Location | Purpose | Used by |
 |---------|----------|---------|---------|
-| `ScopeGuard` | `pkg/sdk/scope_guard.go` | Detect scope changes in Activate(), auto-rescope service | state, plan, output, validate, workspaces, apply |
+| `ChdirGuard` | `pkg/sdk/chdir_guard.go` | Detect chdir changes in Activate(), auto-rescope service | state, plan, output, validate, workspaces, apply |
 | `PinService` | `pkg/sdk/pin_service.go` | Toggle/query/bulk-set pinned resource addresses | state, plan |
 | `Status` | `pkg/sdk/status.go` | Shared enum (Idle/Loading/Done/Error) with predicates | all plugins |
-| `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + bounds + viewport windowing | plan, output, validate, workspaces, scope |
+| `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + bounds + viewport windowing | plan, output, validate, workspaces, chdir |
 | `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices in lists | plan, validate, phantom, blastradius |
 | `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + score-sorted results | state, output |
 
 **Rules:**
-- Use `ScopeGuard` instead of reading `SessionKeyActiveScopeAbs` manually
+- Use `ChdirGuard` instead of reading `SessionKeyActiveChdirAbs` manually
 - Use `PinService` instead of raw `session.Set("terraform.pinned", ...)`
 - Use `Cursor.VisibleWindow(h)` instead of manual startIdx/endIdx calculation
 - Use `FuzzyFilter[T]` instead of importing `fzf/src/algo` directly

@@ -6,86 +6,196 @@ description: Configure terraform-ui for your project
 
 # Configuration
 
-terraform-ui uses a `tfui.yaml` file for project configuration. Place it in your repository root — tfui walks up the directory tree to find it (like `.gitignore`).
+terraform-ui uses an optional `tfui.hcl` file for project configuration. Place it in your project root directory. Config is purely additive — tfui works with zero configuration.
+
+## Two Modes
+
+| Mode | When | Behavior |
+|------|------|----------|
+| **Standalone** | No `tfui.hcl` in CWD, no `--project` | TUI skin over terraform. CWD = working dir. |
+| **Project** | `tfui.hcl` in CWD (or `--project`) | Full config resolution, chdir members, workspace overrides. |
 
 ## Config File
 
-```yaml
-# tfui.yaml
+```hcl
+# tfui.hcl
 
-# Path to terraform (or tofu) binary
-terraform_binary: terraform
+terraform {
+  bin = "terraform"    # or "tofu", or full path
+}
 
-# Scope discovery for monorepos
-scope:
-  paths:
-    - "modules/*"
-    - "envs/*"
+chdir {
+  members = [
+    "modules/vpc",
+    "modules/ecs",
+    "environments/prod",
+  ]
+}
+
+cache {
+  staleness_threshold = "5m"
+}
+
+ai {
+  enabled  = true
+  provider = "bedrock"
+  region   = "us-east-1"
+}
+
+defaults {
+  parallelism = 10
+  lock        = true
+
+  var_file "common/tags.tfvars" {}
+
+  plugin "risk" {
+    enabled = true
+    level   = "high"
+  }
+}
 ```
 
-## Options
+Every block is optional. An empty `tfui.hcl` is valid.
 
-### `terraform_binary`
+## Child Config (per chdir member)
 
-Path to the terraform binary. Defaults to `terraform`. Set to `tofu` for OpenTofu support.
+Place a `tfui.hcl` in any chdir member directory for per-module overrides:
 
-```yaml
-terraform_binary: tofu
+```hcl
+# modules/vpc/tfui.hcl
+
+var_file "base.tfvars" {}
+
+plugin "risk" {
+  level = "critical"
+}
+
+workspace "production" {
+  var_file "prod.tfvars" {}
+  var "environment" { value = "prod" }
+}
+
+workspace "staging" {
+  var_file "staging.tfvars" {}
+  var "environment" { value = "staging" }
+}
+
+workspace "dev-*" {
+  plugin "risk" {
+    level = "low"
+  }
+}
 ```
 
-### `scope`
+### Locked Fields
 
-Defines glob patterns to discover independent terraform scopes in a monorepo. Each matched directory that contains `.tf` or `.tofu` files is treated as a selectable scope.
+Child configs **cannot** declare these blocks (they're root-only):
+- `terraform` — binary must be consistent across all members
+- `chdir` — membership is project-level identity
+- `cache` — safety invariants apply project-wide
+- `ai` — credential scope is project-wide
+- `defaults` — inheritance root
 
-```yaml
-scope:
-  paths:
-    - "modules/*"        # matches modules/vpc, modules/ecs, etc.
-    - "envs/**"          # matches envs/dev, envs/staging/us-east-1, etc.
-    - "infra/shared"     # exact path
+## Resolution Chain
+
+```
+Root defaults → Child top-level → Workspace block → CLI flags → [-- passthrough]
 ```
 
-When configured, the TUI shows a scope selector (`c` key) that lets you switch between terraform roots without leaving the app.
+- **Var-files**: concatenated in order (all levels stacked)
+- **Vars**: map merge (later level wins for same key)
+- **Plugins**: per-plugin option merge (later wins)
+- **Scalars** (parallelism, lock): last writer wins
+
+## Workspace Matching
+
+Workspace blocks match by name. Glob patterns supported:
+
+```hcl
+workspace "production" { ... }  # exact match
+workspace "dev-*" { ... }       # matches dev-us-east-1, dev-staging, etc.
+```
+
+Rules:
+- Exact match beats glob
+- First glob match wins (declaration order)
+- No match → workspace block skipped, child top-level still applies
 
 ## CLI Flags
 
-CLI flags override config file values:
+```bash
+# Project mode
+tfui --project ./infra                 # explicit project root
+tfui --chdir modules/vpc               # select member (validated against config)
+tfui --workspace production            # active workspace
+tfui --terraform-bin /usr/local/bin/tofu
+
+# Terraform flags (single or double dash)
+tfui plan -target=aws_instance.web     # terraform-style
+tfui plan --target=aws_instance.web    # cobra-style (both work)
+tfui plan -var-file=prod.tfvars -var=env=prod
+tfui plan -destroy
+tfui plan -parallelism=5 -lock=false
+
+# Passthrough (everything after -- goes to terraform unmodified)
+tfui plan -- -no-color -compact-warnings
+```
+
+## Standalone Mode
+
+When no `tfui.hcl` exists and no `--project` is passed:
+
+- tfui runs from CWD
+- `--chdir` acts like terraform's `-chdir` (raw dir change)
+- No member validation, no child configs, no resolution chain
+- Just a TUI shell over terraform
+
+## Binary Resolution
+
+| State | What happens |
+|-------|-------------|
+| `terraform.bin = "tofu"` in config | Passed to terraform-exec |
+| `--terraform-bin terraform` flag | Flag wins over config |
+| Nothing configured | Empty string → terraform-exec errors → tfui appends hint |
+
+No auto-detection. Only `tfui init` can detect binaries.
+
+## Examples
+
+### Single-module project (minimal)
 
 ```bash
-tfui --dir ./infra                    # override working directory
-tfui --terraform-bin /usr/local/bin/tofu   # override binary path
-tfui plan --mode agent                # non-interactive mode
-tfui plan --target aws_instance.web   # target specific resources
+cd my-terraform-project
+tfui                        # just works, no config needed
 ```
 
-## Monorepo Examples
+### Monorepo with workspaces
 
-### Regional modules (like medprev-cloud-iac)
+```hcl
+# tfui.hcl (project root)
+terraform {
+  bin = "terraform"
+}
 
-```yaml
-scope:
-  paths:
-    - "modules/*"
+chdir {
+  members = ["modules/vpc", "modules/ecs", "modules/rds"]
+}
+
+defaults {
+  var_file "common/tags.tfvars" {}
+}
 ```
 
-Discovers: `modules/global`, `modules/sa-east-1`, `modules/us-east-1`, `modules/us-east-2`
-
-### Environment-based (staging/production)
-
-```yaml
-scope:
-  paths:
-    - "envs/*"
+```hcl
+# modules/vpc/tfui.hcl (child)
+workspace "production" {
+  var_file "prod.tfvars" {}
+  var "lock_timeout" { value = "30s" }
+}
 ```
 
-Discovers: `envs/dev`, `envs/staging`, `envs/production`
-
-### Mixed layout
-
-```yaml
-scope:
-  paths:
-    - "infra/*"
-    - "services/*/terraform"
-    - "platform/**"
+Running:
+```bash
+tfui --chdir modules/vpc           # selects vpc member
+tfui                                # shows chdir picker
 ```
