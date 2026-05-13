@@ -5,7 +5,7 @@ priority: high
 created: 2026-05-11
 effort: large
 tags: [source, service, ux]
-depends_on: [source-abstraction]
+depends_on: []
 ---
 
 ## Summary
@@ -25,10 +25,10 @@ Today when a user passes `--plan ./plan.json` or `--state ./state.json`, the ent
 
 ```bash
 # Review a CI-generated plan, state comes live from terraform
-tfui --plan ./plan.json --scope modules/global
+tfui --plan ./plan.json --chdir modules/global
 
 # Browse state from a pulled file, plan runs live
-tfui --state ./state.json --scope modules/global
+tfui --state ./state.json --chdir modules/global
 
 # Fully file-based review (both overridden)
 tfui --plan ./plan.json --state ./state.json
