@@ -71,7 +71,7 @@ run = """
 TFUI="${1:-dist/tfui_$(go env GOOS)_$(go env GOARCH)*/tfui}"
 TFUI=$(ls $TFUI 2>/dev/null | head -1)
 if [ -z "$TFUI" ] || [ ! -x "$TFUI" ]; then
-  echo "ERROR: no binary found at $TFUI — run 'mise run build:all' first"
+  echo "ERROR: no binary found at $TFUI — run 'mise run build' first"
   exit 1
 fi
 failed=0
