@@ -270,6 +270,13 @@ Access plugin config via `ConfigContext.GetString("ai.model", "")`, `GetBool("ai
 
 Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `chore:`
 
+### Roadmap
+
+- Items live in `docs/_roadmap/` as individual markdown files
+- Delete items immediately once completed — don't mark "done", just remove the file
+- Roadmap reflects only what's left to do
+- Don't introduce filtering, categorization, or feature flags unless explicitly needed — keep things uniform and minimal
+
 ### Go Package Layout
 
 | Package | Purpose | Import rule |
