@@ -23,6 +23,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiblast "github.com/lmarqs/terraform-ui/plugins/blastradius"
+	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
@@ -30,10 +31,10 @@ import (
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuirepl "github.com/lmarqs/terraform-ui/plugins/repl"
 	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
-	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
 	tfuiworkspaces "github.com/lmarqs/terraform-ui/plugins/workspaces"
+	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
 
@@ -301,7 +302,11 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (*terraform
 
 	var plan *sdk.PlanSummary
 	if planURI != "" {
-		plan, err = source.LoadPlan(ctx, resolver, planURI)
+		data, resolveErr := resolver.Resolve(ctx, planURI)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("loading plan: %w", resolveErr)
+		}
+		plan, err = terraform.LoadPlan(data)
 		if err != nil {
 			return nil, err
 		}
@@ -310,7 +315,11 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (*terraform
 	var resources []sdk.Resource
 	var state *tfjson.State
 	if stateURI != "" {
-		resources, state, err = source.LoadState(ctx, resolver, stateURI)
+		data, resolveErr := resolver.Resolve(ctx, stateURI)
+		if resolveErr != nil {
+			return nil, fmt.Errorf("loading state: %w", resolveErr)
+		}
+		resources, state, err = terraform.LoadState(data)
 		if err != nil {
 			return nil, err
 		}
@@ -353,12 +362,7 @@ func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error 
 }
 
 func hasTTY() bool {
-	f, err := os.Open("/dev/tty")
-	if err != nil {
-		return false
-	}
-	_ = f.Close()
-	return true
+	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
 }
 
 func effectiveWorkDir(cfg config.Config) string {
