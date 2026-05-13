@@ -15,7 +15,8 @@ type Context struct {
 	// Logger is the structured logger for debug output. Plugins should use this
 	// instead of the global slog to enable testability (inject a discard or buffer logger).
 	Logger *slog.Logger
-	// Session is the session-level cache shared between all plugins.
-	// Plugins can use it to exchange data within a single TUI session.
-	Session *Session
+	// Pins is the shared pin service for resource targeting across plugins.
+	Pins *PinService
+	// Options holds resolved CLI/config options (var-files, vars, extra-args).
+	Options *ResolvedOptions
 }

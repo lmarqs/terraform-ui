@@ -136,8 +136,8 @@ func TestView_Given_CriticalRisk_ShouldRender_RiskWarning(t *testing.T) {
 func TestView_Given_PinnedChange_ShouldRender_PinMarker(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = StatusDone
-	p.session = sdk.NewSession()
-	p.session.Set("terraform.pinned", []string{"aws_instance.web"})
+	p.pins = sdk.NewPinService()
+	p.pins.Toggle("aws_instance.web")
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},

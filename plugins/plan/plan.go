@@ -32,7 +32,7 @@ type PlanResultMsg struct {
 type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
-	session       *sdk.Session
+	options       *sdk.ResolvedOptions
 	stack         *sdk.Stack
 	pins          *sdk.PinService
 	expander      *ui.ExpandSet
@@ -90,8 +90,8 @@ func (e *Plugin) SetTargets(targets []string) {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
-	e.session = ctx.Session
-	e.pins = sdk.NewPinService(ctx.Session)
+	e.options = ctx.Options
+	e.pins = ctx.Pins
 	e.reset()
 	return nil
 }
@@ -121,16 +121,6 @@ func (e *Plugin) reset() {
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.scopedContext == "" {
-		// Check session for initial scope (set at startup before bus is active)
-		if e.session != nil {
-			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
-				e.svc = e.svc.WithDir(dir)
-				e.scopedContext = dir
-			}
-		}
-	}
-
 	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
@@ -152,7 +142,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 
 func (e *Plugin) runPlan() tea.Cmd {
 	svc := e.svc
-	opts := sdk.BuildPlanOptions(e.session, e.targets)
+	opts := sdk.BuildPlanOptions(e.options, e.targets)
 	return func() tea.Msg {
 		summary, err := svc.Plan(context.Background(), opts)
 		return PlanResultMsg{Summary: summary, Err: err}
@@ -412,37 +402,12 @@ func (e *Plugin) togglePin(address string) {
 	if e.pins != nil {
 		e.pins.Toggle(address)
 		e.log.Debug("plan.pin.toggle", "address", address)
-		return
 	}
-	if e.session == nil {
-		return
-	}
-	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	for i, a := range pinned {
-		if a == address {
-			pinned = append(pinned[:i], pinned[i+1:]...)
-			e.session.Set("terraform.pinned", pinned)
-			e.log.Debug("plan.unpin", "address", address)
-			return
-		}
-	}
-	pinned = append(pinned, address)
-	e.session.Set("terraform.pinned", pinned)
-	e.log.Debug("plan.pin", "address", address)
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
 	if e.pins != nil {
 		return e.pins.IsPinned(address)
-	}
-	if e.session == nil {
-		return false
-	}
-	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	for _, a := range pinned {
-		if a == address {
-			return true
-		}
 	}
 	return false
 }

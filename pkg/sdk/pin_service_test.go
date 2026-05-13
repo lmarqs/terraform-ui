@@ -3,8 +3,7 @@ package sdk
 import "testing"
 
 func TestPinService_Toggle(t *testing.T) {
-	session := NewSession()
-	ps := NewPinService(session)
+	ps := NewPinService()
 
 	// Pin an address
 	if got := ps.Toggle("aws_instance.web"); got != true {
@@ -35,8 +34,7 @@ func TestPinService_Toggle(t *testing.T) {
 }
 
 func TestPinService_All(t *testing.T) {
-	session := NewSession()
-	ps := NewPinService(session)
+	ps := NewPinService()
 
 	if got := ps.All(); len(got) != 0 {
 		t.Errorf("All() on empty = %v, want empty", got)
@@ -59,8 +57,7 @@ func TestPinService_All(t *testing.T) {
 }
 
 func TestPinService_Set(t *testing.T) {
-	session := NewSession()
-	ps := NewPinService(session)
+	ps := NewPinService()
 
 	ps.Toggle("old_address")
 
@@ -81,8 +78,7 @@ func TestPinService_Set(t *testing.T) {
 }
 
 func TestPinService_Count(t *testing.T) {
-	session := NewSession()
-	ps := NewPinService(session)
+	ps := NewPinService()
 
 	if ps.Count() != 0 {
 		t.Errorf("Count() empty = %d, want 0", ps.Count())
@@ -100,32 +96,15 @@ func TestPinService_Count(t *testing.T) {
 	}
 }
 
-func TestPinService_SessionPersistence(t *testing.T) {
-	session := NewSession()
-	ps1 := NewPinService(session)
-	ps1.Toggle("shared_resource")
+func TestPinService_SharedInstance(t *testing.T) {
+	ps := NewPinService()
+	ps.Toggle("shared_resource")
 
-	// A second PinService on the same session should see the same state
-	ps2 := NewPinService(session)
-	if !ps2.IsPinned("shared_resource") {
-		t.Error("expected second PinService to see pins from first")
+	// Same instance is shared — verify state is visible
+	if !ps.IsPinned("shared_resource") {
+		t.Error("expected shared_resource to be pinned")
 	}
-}
-
-func TestPinService_NilSession(t *testing.T) {
-	ps := NewPinService(nil)
-
-	// Should not panic
-	if got := ps.Toggle("x"); got != false {
-		t.Error("Toggle on nil session should return false")
-	}
-	if ps.IsPinned("x") {
-		t.Error("IsPinned on nil session should return false")
-	}
-	if got := ps.All(); len(got) != 0 {
-		t.Error("All on nil session should return empty")
-	}
-	if ps.Count() != 0 {
-		t.Error("Count on nil session should return 0")
+	if ps.Count() != 1 {
+		t.Errorf("Count() = %d, want 1", ps.Count())
 	}
 }

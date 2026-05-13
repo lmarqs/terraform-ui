@@ -36,7 +36,6 @@ type WorkspaceSwitchMsg struct {
 // Plugin implements the workspace management feature.
 type Plugin struct {
 	svc           sdk.Service
-	session       *sdk.Session
 	stack         *sdk.Stack
 	status        Status
 	workspaces    []string
@@ -79,7 +78,6 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init initializes the plugin with shared context. Does not auto-load.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
-	e.session = ctx.Session
 	e.reset()
 	return nil
 }
@@ -105,16 +103,6 @@ func (e *Plugin) reset() {
 
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	// Initial scope bootstrap (for startup, before bus delivers events)
-	if e.scopedContext == "" {
-		if e.session != nil {
-			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
-				e.svc = e.svc.WithDir(dir)
-				e.scopedContext = dir
-			}
-		}
-	}
-
 	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
 		return e.loadWorkspaces()

@@ -25,7 +25,8 @@ type App struct {
 	cfg         config.Config
 	svc         sdk.Service
 	registry    *plugin.Registry
-	session     *sdk.Session
+	pins        *sdk.PinService
+	options     *sdk.ResolvedOptions
 	bus         *sdk.EventBus
 	sourceIndex *terraform.SourceIndex
 	width       int
@@ -58,20 +59,11 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		header = header.WithScope(cfg.BaseDir)
 	}
 
-	session := sdk.NewSession()
-	if cfg.ActiveScope != "" {
-		absScope := filepath.Join(cfg.Dir, cfg.ActiveScope)
-		session.Set(sdk.SessionKeyActiveChdir, cfg.ActiveScope)
-		session.Set(sdk.SessionKeyActiveChdirAbs, absScope)
-	}
-	if len(cfg.VarFiles) > 0 {
-		session.Set(sdk.SessionKeyVarFiles, cfg.VarFiles)
-	}
-	if len(cfg.Vars) > 0 {
-		session.Set(sdk.SessionKeyVars, cfg.Vars)
-	}
-	if len(cfg.ExtraArgs) > 0 {
-		session.Set(sdk.SessionKeyExtraArgs, cfg.ExtraArgs)
+	pins := sdk.NewPinService()
+	opts := &sdk.ResolvedOptions{
+		VarFiles:  cfg.VarFiles,
+		Vars:      cfg.Vars,
+		ExtraArgs: cfg.ExtraArgs,
 	}
 
 	bus := sdk.NewEventBus(registry.All())
@@ -80,7 +72,8 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		cfg:           cfg,
 		svc:           svc,
 		registry:      registry,
-		session:       session,
+		pins:          pins,
+		options:       opts,
 		bus:           bus,
 		sourceIndex:   sourceIndex,
 		header:        header,
@@ -100,8 +93,16 @@ func (a App) Init() tea.Cmd {
 		Workspace:  "default",
 		Service:    a.svc,
 		Logger:     logging.Logger(),
-		Session:    a.session,
+		Pins:       a.pins,
+		Options:    a.options,
 	}
+
+	// If scope was pre-configured, scope the service for plugins
+	if a.cfg.ActiveScope != "" {
+		absScope := filepath.Join(a.cfg.Dir, a.cfg.ActiveScope)
+		ctx.Service = a.svc.WithDir(absScope)
+	}
+
 	for _, p := range a.registry.All() {
 		if cmd := p.Init(ctx); cmd != nil {
 			cmds = append(cmds, cmd)
@@ -155,21 +156,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sdk.ChdirChangedEvent:
 		a.activeScope = msg.RelPath
 		a.header = a.header.WithScope(msg.RelPath)
-		// Dual-write to session for backward compat during migration
-		a.session.Set(sdk.SessionKeyActiveChdir, msg.RelPath)
-		a.session.Set(sdk.SessionKeyActiveChdirAbs, msg.AbsPath)
-		a.session.Set(sdk.SessionKeyChdirCount, msg.Count)
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.PlanCompletedEvent:
-		// Dual-write to session for backward compat during migration
-		a.session.Set(sdk.SessionKeyPlanSummary, msg.Summary)
-		a.session.Set(sdk.SessionKeyResourceCount, msg.ResourceCount)
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.WorkspaceChangedEvent:
 		a.header = components.NewHeader(a.cfg.Dir, msg.Name)
-		a.session.Set(sdk.SessionKeyWorkspace, msg.Name)
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.PlanInvalidatedEvent:
@@ -177,7 +170,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.OverlayDismissMsg:
 		a.activeOverlay = nil
-		a.syncActiveScope()
 		return a, nil
 
 	case sdk.DeactivateMsg:
@@ -186,7 +178,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.activePlugin = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 		}
-		a.syncActiveScope()
 		return a, nil
 
 	case tfuicontext.NavigateToMsg:
@@ -239,11 +230,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tfuiplan.ApplyRequestMsg:
 		if p, ok := a.registry.ByID("apply"); ok {
 			applyPlugin := p.(*tfuiapply.Plugin)
-			if a.session != nil {
-				pins := sdk.NewPinService(a.session)
-				if pinned := pins.All(); len(pinned) > 0 {
-					applyPlugin.SetTargets(pinned)
-				}
+			if pinned := a.pins.All(); len(pinned) > 0 {
+				applyPlugin.SetTargets(pinned)
 			}
 			a.activePlugin = p
 			cmd := a.activatePlugin(p)
@@ -273,8 +261,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.activeOverlay.Update(msg)
 		if updated == nil {
 			a.activeOverlay = nil
-			a.syncActiveScope()
-		} else {
+			} else {
 			a.activeOverlay = updated
 		}
 		return a, cmd
@@ -284,7 +271,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
-		a.syncActiveScope()
 		return a, cmd
 	}
 
@@ -303,8 +289,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.activeOverlay.Update(msg)
 		if updated == nil {
 			a.activeOverlay = nil
-			a.syncActiveScope()
-		} else {
+			} else {
 			a.activeOverlay = updated
 		}
 		return a, cmd
@@ -438,12 +423,10 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// For stackable plugins, route keys through the navigation stack
 		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
 			cmd := stackable.Stack().Update(msg)
-			a.syncActiveScope()
-			return a, cmd
+				return a, cmd
 		}
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
-		a.syncActiveScope()
 		return a, cmd
 	}
 
@@ -478,18 +461,6 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// syncActiveScope checks if the active scope changed in session and updates the header.
-func (a *App) syncActiveScope() {
-	if a.session == nil {
-		return
-	}
-	if scope, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveChdir); ok {
-		if scope != a.activeScope {
-			a.activeScope = scope
-			a.header = a.header.WithScope(scope)
-		}
-	}
-}
 
 func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
 	if activatable, ok := p.(sdk.Activatable); ok {

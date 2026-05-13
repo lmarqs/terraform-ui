@@ -81,8 +81,7 @@ func TestInit(t *testing.T) {
 		Workspace:  "default",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    sdk.NewSession(),
-	}
+			}
 
 	cmd := p.Init(ctx)
 	if cmd != nil {
@@ -102,8 +101,7 @@ func TestActivate(t *testing.T) {
 		WorkingDir: "/tmp",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    sdk.NewSession(),
-	}
+			}
 	p.Init(ctx)
 
 	pp := p.(*Plugin)
@@ -122,7 +120,7 @@ func TestActivateCmdReturnsValidateResultMsg(t *testing.T) {
 	}
 	svc := &mockService{validateResult: diags}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Session: sdk.NewSession()}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()
@@ -143,7 +141,7 @@ func TestActivateCmdReturnsValidateResultMsg(t *testing.T) {
 func TestActivateCmdReturnsError(t *testing.T) {
 	svc := &mockService{validateErr: errors.New("validate failed")}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Session: sdk.NewSession()}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()

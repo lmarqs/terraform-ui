@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 func TestNew(t *testing.T) {
@@ -26,7 +25,6 @@ func TestReady(t *testing.T) {
 
 func TestActivate_PushesFormFrame(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.session = sdk.NewSession()
 	p.Activate()
 
 	if p.stack.Depth() != 1 {
@@ -36,7 +34,6 @@ func TestActivate_PushesFormFrame(t *testing.T) {
 
 func TestFormNavigation_EnterOnScope_NavigatesToScope(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.session = sdk.NewSession()
 	p.Activate()
 
 	// First selectable field is Scope (cursor starts there)
@@ -57,7 +54,6 @@ func TestFormNavigation_EnterOnScope_NavigatesToScope(t *testing.T) {
 
 func TestFormNavigation_EnterOnWorkspace_NavigatesToWorkspaces(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.session = sdk.NewSession()
 	p.Activate()
 
 	// Move down to workspace field
@@ -79,9 +75,8 @@ func TestFormNavigation_EnterOnWorkspace_NavigatesToWorkspaces(t *testing.T) {
 
 func TestView_ShowsProjectScopeWorkspace(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.session = sdk.NewSession()
 	p.cfg.Dir = "/my/project"
-	p.session.Set(sdk.SessionKeyActiveChdir, "modules/east")
+	p.scope = "modules/east"
 	p.Activate()
 
 	output := p.View(80, 20)

@@ -87,7 +87,6 @@ func (r resourceItem) Address() string { return r.resource.Address }
 type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
-	session       *sdk.Session
 	stack         *sdk.Stack
 	pins          *sdk.PinService
 	fuzzy         *ui.FuzzyFilter[sdk.Resource]
@@ -155,8 +154,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
-	e.session = ctx.Session
-	e.pins = sdk.NewPinService(ctx.Session)
+	e.pins = ctx.Pins
 	e.stack.Clear()
 	e.reset()
 	return nil
@@ -186,16 +184,6 @@ func (e *Plugin) reset() {
 
 // Activate triggers state loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	// Initial scope bootstrap (for startup, before bus delivers events)
-	if e.scopedContext == "" {
-		if e.session != nil {
-			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
-				e.svc = e.svc.WithDir(dir)
-				e.scopedContext = dir
-			}
-		}
-	}
-
 	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
 		return e.loadState()
@@ -437,17 +425,11 @@ func (e *Plugin) rebuildTree() {
 	}
 }
 
-// syncPinnedToTree updates the tree's pinned set from the PinService or session.
+// syncPinnedToTree updates the tree's pinned set from the PinService.
 func (e *Plugin) syncPinnedToTree() {
 	if e.pins != nil {
 		e.tree.SetPinned(e.pins.All())
-		return
 	}
-	if e.session == nil {
-		return
-	}
-	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	e.tree.SetPinned(pinned)
 }
 
 // AppendFilter adds a character to the filter.
@@ -768,27 +750,17 @@ func (e *Plugin) clearAllPins() {
 }
 
 func (e *Plugin) togglePin(address string) tea.Cmd {
-	if e.session == nil {
-		return nil
-	}
 	e.tree.TogglePin()
-	e.pins.Set(e.tree.PinnedPaths())
-	e.log.Debug("state.pin.toggle", "address", address, "pinned_count", e.pins.Count())
+	if e.pins != nil {
+		e.pins.Set(e.tree.PinnedPaths())
+		e.log.Debug("state.pin.toggle", "address", address, "pinned_count", e.pins.Count())
+	}
 	return nil
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
 	if e.pins != nil {
 		return e.pins.IsPinned(address)
-	}
-	if e.session == nil {
-		return false
-	}
-	pinned, _ := sdk.GetTyped[[]string](e.session, "terraform.pinned")
-	for _, a := range pinned {
-		if a == address {
-			return true
-		}
 	}
 	return false
 }

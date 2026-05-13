@@ -368,7 +368,7 @@ func TestFlatMode_PinTargetsSelectedResource(t *testing.T) {
 	}
 	p := newTestPlugin(resources)
 	p.treeMode = false
-	p.session = sdk.NewSession()
+	p.pins = sdk.NewPinService()
 	p.rebuildTree()
 
 	p.MoveDown()
@@ -481,8 +481,7 @@ func TestListFrame_PinnedFilter(t *testing.T) {
 		{Address: "aws_instance.c", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.session = sdk.NewSession()
-	p.pins = sdk.NewPinService(p.session)
+	p.pins = sdk.NewPinService()
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 
@@ -520,8 +519,7 @@ func TestListFrame_ClearAllPins(t *testing.T) {
 		{Address: "aws_instance.b", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.session = sdk.NewSession()
-	p.pins = sdk.NewPinService(p.session)
+	p.pins = sdk.NewPinService()
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 
@@ -545,8 +543,7 @@ func TestListFrame_ClearAllPins_ExitsPinnedFilter(t *testing.T) {
 		{Address: "aws_instance.a", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.session = sdk.NewSession()
-	p.pins = sdk.NewPinService(p.session)
+	p.pins = sdk.NewPinService()
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 

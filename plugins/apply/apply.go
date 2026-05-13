@@ -32,7 +32,7 @@ type TickMsg time.Time
 // Plugin implements the terraform apply feature.
 type Plugin struct {
 	svc            sdk.Service
-	session        *sdk.Session
+	options        *sdk.ResolvedOptions
 	status         Status
 	errMsg         string
 	targets        []string
@@ -99,7 +99,7 @@ func (e *Plugin) Targets() []string {
 // Init initializes the plugin with shared context.
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
-	e.session = ctx.Session
+	e.options = ctx.Options
 	return nil
 }
 
@@ -121,16 +121,6 @@ func (e *Plugin) HandlePlanCompleted(evt sdk.PlanCompletedEvent) tea.Cmd {
 
 // Activate scopes the service to the active context before apply operations.
 func (e *Plugin) Activate() tea.Cmd {
-	// Initial scope bootstrap (for startup, before bus delivers events)
-	if e.scopedContext == "" {
-		if e.session != nil {
-			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
-				e.svc = e.svc.WithDir(dir)
-				e.scopedContext = dir
-			}
-		}
-	}
-
 	return nil
 }
 
@@ -163,7 +153,7 @@ func (e *Plugin) Cancel() {
 
 func (e *Plugin) runApply() tea.Cmd {
 	svc := e.svc
-	opts := sdk.BuildApplyOptions(e.session, e.targets)
+	opts := sdk.BuildApplyOptions(e.options, e.targets)
 	start := e.startTime
 	return func() tea.Msg {
 		err := svc.Apply(context.Background(), opts)

@@ -1,38 +1,33 @@
 package sdk
 
-// BuildPlanOptions constructs PlanOptions from the current session state + explicit targets.
-// This ensures plan always uses the latest resolved config (var-files, vars, extra-args).
-func BuildPlanOptions(session *Session, targets []string) PlanOptions {
+// ResolvedOptions holds CLI/config values resolved at startup.
+// Shared across plugins via Context — immutable after boot.
+type ResolvedOptions struct {
+	VarFiles  []string
+	Vars      map[string]string
+	ExtraArgs []string
+}
+
+// BuildPlanOptions constructs PlanOptions from resolved options + explicit targets.
+func BuildPlanOptions(resolved *ResolvedOptions, targets []string) PlanOptions {
 	opts := PlanOptions{Targets: targets}
-	if session == nil {
+	if resolved == nil {
 		return opts
 	}
-	if vf, ok := GetTyped[[]string](session, SessionKeyVarFiles); ok {
-		opts.VarFiles = vf
-	}
-	if v, ok := GetTyped[map[string]string](session, SessionKeyVars); ok {
-		opts.Vars = v
-	}
-	if ea, ok := GetTyped[[]string](session, SessionKeyExtraArgs); ok {
-		opts.ExtraArgs = ea
-	}
+	opts.VarFiles = resolved.VarFiles
+	opts.Vars = resolved.Vars
+	opts.ExtraArgs = resolved.ExtraArgs
 	return opts
 }
 
-// BuildApplyOptions constructs ApplyOptions from the current session state + explicit targets.
-func BuildApplyOptions(session *Session, targets []string) ApplyOptions {
+// BuildApplyOptions constructs ApplyOptions from resolved options + explicit targets.
+func BuildApplyOptions(resolved *ResolvedOptions, targets []string) ApplyOptions {
 	opts := ApplyOptions{Targets: targets}
-	if session == nil {
+	if resolved == nil {
 		return opts
 	}
-	if vf, ok := GetTyped[[]string](session, SessionKeyVarFiles); ok {
-		opts.VarFiles = vf
-	}
-	if v, ok := GetTyped[map[string]string](session, SessionKeyVars); ok {
-		opts.Vars = v
-	}
-	if ea, ok := GetTyped[[]string](session, SessionKeyExtraArgs); ok {
-		opts.ExtraArgs = ea
-	}
+	opts.VarFiles = resolved.VarFiles
+	opts.Vars = resolved.Vars
+	opts.ExtraArgs = resolved.ExtraArgs
 	return opts
 }

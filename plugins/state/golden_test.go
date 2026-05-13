@@ -117,8 +117,9 @@ func TestView_Given_PinnedResources_ShouldRender_PinMarkers(t *testing.T) {
 	p.status = StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
-	p.session = sdk.NewSession()
-	p.session.Set("terraform.pinned", []string{"aws_instance.web", "aws_s3_bucket.data"})
+	p.pins = sdk.NewPinService()
+	p.pins.Toggle("aws_instance.web")
+	p.pins.Toggle("aws_s3_bucket.data")
 	p.rebuildTree()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -144,8 +145,8 @@ func TestView_Given_DetailView_WithPinned_ShouldRender_PinnedIndicator(t *testin
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "i-0abc123def456"}`
-	p.session = sdk.NewSession()
-	p.session.Set("terraform.pinned", []string{"aws_instance.web"})
+	p.pins = sdk.NewPinService()
+	p.pins.Toggle("aws_instance.web")
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -205,12 +206,10 @@ func TestView_Given_Tree_PinnedModule_ShouldRender_PinOnGroup(t *testing.T) {
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
-	p.session = sdk.NewSession()
-	p.session.Set("terraform.pinned", []string{
-		"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
-		"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high",
-		"module.cloudwatch.aws_cloudwatch_dashboard.main",
-	})
+	p.pins = sdk.NewPinService()
+	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high")
+	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high")
+	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_dashboard.main")
 	p.rebuildTree()
 	p.tree.ExpandAll()
 	sdktest.AssertGolden(t, p.View(80, 24))
@@ -222,10 +221,8 @@ func TestView_Given_Tree_PartiallyPinnedModule_ShouldRender_PartialIndicator(t *
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
-	p.session = sdk.NewSession()
-	p.session.Set("terraform.pinned", []string{
-		"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
-	})
+	p.pins = sdk.NewPinService()
+	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high")
 	p.rebuildTree()
 	p.tree.ExpandAll()
 	sdktest.AssertGolden(t, p.View(80, 24))

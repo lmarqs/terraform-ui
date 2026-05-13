@@ -20,7 +20,6 @@ type Plugin struct {
 	svc       sdk.Service
 	cfg       config.Config
 	log       *slog.Logger
-	session   *sdk.Session
 	stack     *sdk.Stack
 	scope     string
 	workspace string
@@ -58,7 +57,6 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	if ctx.Logger != nil {
 		p.log = ctx.Logger
 	}
-	p.session = ctx.Session
 	p.workspace = ctx.Workspace
 	return nil
 }
@@ -116,11 +114,6 @@ func (p *Plugin) projectValue() string {
 func (p *Plugin) scopeValue() string {
 	if p.scope != "" {
 		return p.scope
-	}
-	if p.session != nil {
-		if v, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdir); ok && v != "" {
-			return v
-		}
 	}
 	return "-"
 }

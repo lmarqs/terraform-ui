@@ -2,7 +2,7 @@ package sdk
 
 import "testing"
 
-func TestBuildPlanOptions_WhenNilSession_ShouldReturnTargetsOnly(t *testing.T) {
+func TestBuildPlanOptions_WhenNilResolved_ShouldReturnTargetsOnly(t *testing.T) {
 	opts := BuildPlanOptions(nil, []string{"aws_instance.web"})
 	if len(opts.Targets) != 1 || opts.Targets[0] != "aws_instance.web" {
 		t.Errorf("Targets = %v, want [aws_instance.web]", opts.Targets)
@@ -12,13 +12,14 @@ func TestBuildPlanOptions_WhenNilSession_ShouldReturnTargetsOnly(t *testing.T) {
 	}
 }
 
-func TestBuildPlanOptions_WhenSessionHasVarFiles_ShouldInclude(t *testing.T) {
-	session := NewSession()
-	session.Set(SessionKeyVarFiles, []string{"prod.tfvars", "common.tfvars"})
-	session.Set(SessionKeyVars, map[string]string{"env": "prod"})
-	session.Set(SessionKeyExtraArgs, []string{"-no-color"})
+func TestBuildPlanOptions_WhenResolvedHasVarFiles_ShouldInclude(t *testing.T) {
+	resolved := &ResolvedOptions{
+		VarFiles:  []string{"prod.tfvars", "common.tfvars"},
+		Vars:      map[string]string{"env": "prod"},
+		ExtraArgs: []string{"-no-color"},
+	}
 
-	opts := BuildPlanOptions(session, []string{"aws_instance.web"})
+	opts := BuildPlanOptions(resolved, []string{"aws_instance.web"})
 
 	if len(opts.VarFiles) != 2 {
 		t.Fatalf("VarFiles length = %d, want 2", len(opts.VarFiles))
@@ -34,12 +35,13 @@ func TestBuildPlanOptions_WhenSessionHasVarFiles_ShouldInclude(t *testing.T) {
 	}
 }
 
-func TestBuildApplyOptions_WhenSessionHasVarFiles_ShouldInclude(t *testing.T) {
-	session := NewSession()
-	session.Set(SessionKeyVarFiles, []string{"staging.tfvars"})
-	session.Set(SessionKeyVars, map[string]string{"region": "us-west-2"})
+func TestBuildApplyOptions_WhenResolvedHasVarFiles_ShouldInclude(t *testing.T) {
+	resolved := &ResolvedOptions{
+		VarFiles: []string{"staging.tfvars"},
+		Vars:     map[string]string{"region": "us-west-2"},
+	}
 
-	opts := BuildApplyOptions(session, nil)
+	opts := BuildApplyOptions(resolved, nil)
 
 	if len(opts.VarFiles) != 1 || opts.VarFiles[0] != "staging.tfvars" {
 		t.Errorf("VarFiles = %v, want [staging.tfvars]", opts.VarFiles)
@@ -49,9 +51,9 @@ func TestBuildApplyOptions_WhenSessionHasVarFiles_ShouldInclude(t *testing.T) {
 	}
 }
 
-func TestBuildPlanOptions_WhenEmptySession_ShouldReturnEmpty(t *testing.T) {
-	session := NewSession()
-	opts := BuildPlanOptions(session, nil)
+func TestBuildPlanOptions_WhenEmptyResolved_ShouldReturnEmpty(t *testing.T) {
+	resolved := &ResolvedOptions{}
+	opts := BuildPlanOptions(resolved, nil)
 
 	if len(opts.VarFiles) != 0 {
 		t.Errorf("VarFiles = %v, want empty", opts.VarFiles)

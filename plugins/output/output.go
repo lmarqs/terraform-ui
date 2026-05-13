@@ -33,7 +33,6 @@ type OutputResultMsg struct {
 type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
-	session       *sdk.Session
 	stack         *sdk.Stack
 	fuzzy         *ui.FuzzyFilter[sdk.OutputValue]
 	status        Status
@@ -80,7 +79,6 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
-	p.session = ctx.Session
 	p.reset()
 	return nil
 }
@@ -107,16 +105,6 @@ func (p *Plugin) reset() {
 
 // Activate triggers output loading when the user enters the plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	// Initial scope bootstrap (for startup, before bus delivers events)
-	if p.scopedContext == "" {
-		if p.session != nil {
-			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
-				p.svc = p.svc.WithDir(dir)
-				p.scopedContext = dir
-			}
-		}
-	}
-
 	if p.status == StatusIdle || p.status == StatusError {
 		p.status = StatusLoading
 		return p.loadOutputs()

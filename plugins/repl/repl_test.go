@@ -113,15 +113,12 @@ func TestActivate(t *testing.T) {
 
 func TestActivateMultiContextNoSelection(t *testing.T) {
 	svc := &mockService{}
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyChdirCount, 3)
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp/test",
 		Workspace:  "default",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    session,
 	}
 	p.Init(ctx)
 
@@ -135,16 +132,12 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 
 func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{}
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyChdirCount, 2)
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/my/project")
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
-		WorkingDir: "/tmp/test",
+		WorkingDir: "/my/project",
 		Workspace:  "default",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    session,
 	}
 	p.Init(ctx)
 
@@ -646,15 +639,12 @@ func TestSetBinaryPath(t *testing.T) {
 
 func TestHandleChdirChanged(t *testing.T) {
 	svc := &mockService{}
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/old/ctx")
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
-		WorkingDir: "/tmp/test",
+		WorkingDir: "/old/ctx",
 		Workspace:  "default",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    session,
 	}
 	p.Init(ctx)
 

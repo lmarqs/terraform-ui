@@ -840,8 +840,7 @@ func TestSelectedGetter(t *testing.T) {
 func TestHandleChdirChanged(t *testing.T) {
 	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	ctx := &sdk.Context{Service: svc, Session: session}
+	ctx := &sdk.Context{Service: svc}
 	p.Init(ctx)
 	p.status = StatusDone
 	p.scopedContext = "/old/ctx"
@@ -862,9 +861,7 @@ func TestHandleChdirChanged(t *testing.T) {
 func TestActivateWithSameContext(t *testing.T) {
 	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/same")
-	ctx := &sdk.Context{Service: svc, Session: session}
+	ctx := &sdk.Context{Service: svc}
 	p.Init(ctx)
 	p.status = StatusDone
 	p.scopedContext = "/same"
@@ -877,9 +874,7 @@ func TestActivateWithSameContext(t *testing.T) {
 func TestActivateMultiContextNoSelection(t *testing.T) {
 	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyChdirCount, 3)
-	ctx := &sdk.Context{Service: svc, Session: session}
+	ctx := &sdk.Context{Service: svc}
 	p.Init(ctx)
 	cmd := p.Activate()
 	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
@@ -894,9 +889,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/my/ctx")
-	ctx := &sdk.Context{Service: svc, Session: session}
+	ctx := &sdk.Context{Service: svc}
 	p.Init(ctx)
 	cmd := p.Activate()
 	if cmd == nil {

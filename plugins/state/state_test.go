@@ -1287,8 +1287,7 @@ func TestFilteringGetter(t *testing.T) {
 func TestHandleChdirChanged(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}}}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
 	p.status = StatusDone
 	p.scopedContext = "/old/ctx"
@@ -1309,9 +1308,7 @@ func TestHandleChdirChanged(t *testing.T) {
 func TestActivateWithSameContext(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/same")
-	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
 	p.status = StatusDone
 	p.scopedContext = "/same"
@@ -1324,9 +1321,7 @@ func TestActivateWithSameContext(t *testing.T) {
 func TestActivateMultiContextNoSelection(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyChdirCount, 3)
-	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
 	cmd := p.Activate()
 	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
@@ -1341,9 +1336,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
-	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/my/ctx")
-	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
 	cmd := p.Activate()
 	if cmd == nil {
@@ -1351,14 +1344,14 @@ func TestActivateWithScopeDir(t *testing.T) {
 	}
 }
 
-func TestActivateNoSession(t *testing.T) {
+func TestActivateNoPins(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Error("Activate() no session: want non-nil cmd")
+		t.Error("Activate() no pins: want non-nil cmd")
 	}
 }
 

@@ -101,7 +101,7 @@ func TestInit(t *testing.T) {
 		Workspace:  "default",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    sdk.NewSession(),
+		Pins:       sdk.NewPinService(),
 	}
 
 	cmd := p.Init(ctx)
@@ -124,7 +124,7 @@ func TestActivate(t *testing.T) {
 		WorkingDir: "/tmp",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Session:    sdk.NewSession(),
+		Pins:       sdk.NewPinService(),
 	}
 	p.Init(ctx)
 
@@ -151,7 +151,7 @@ func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 	}
 	svc := &mockService{planResult: summary}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Session: sdk.NewSession()}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()
@@ -175,7 +175,7 @@ func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 func TestActivateCmdReturnsError(t *testing.T) {
 	svc := &mockService{planErr: errors.New("plan failed")}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Session: sdk.NewSession()}
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()
@@ -942,11 +942,11 @@ func TestRequestApply_WhenPinsExist_ShouldShowTargetedCount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &mockService{}
 			p := New(svc).(*Plugin)
-			session := sdk.NewSession()
+			pins := sdk.NewPinService()
 			ctx := &sdk.Context{
 				Service: svc,
 				Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-				Session: session,
+				Pins:    pins,
 			}
 			p.Init(ctx)
 

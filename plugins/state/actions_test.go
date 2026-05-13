@@ -58,8 +58,7 @@ func newTrackingPlugin(svc *trackingMockService, resources []sdk.Resource) *Plug
 	p.status = StatusDone
 	p.resources = resources
 	p.filtered = resources
-	p.session = sdk.NewSession()
-	p.pins = sdk.NewPinService(p.session)
+	p.pins = sdk.NewPinService()
 	p.rebuildTree()
 	return p
 }
@@ -856,8 +855,7 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.session = sdk.NewSession()
-	p.pins = sdk.NewPinService(p.session)
+	p.pins = sdk.NewPinService()
 	p.rebuildTree()
 
 	t.Run("ShouldPushActionFrameOnBang", func(t *testing.T) {
@@ -916,8 +914,7 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 			{Address: "module.a.aws_instance.two", Type: "aws_instance"},
 		}
 		tp := newTestPlugin(treeResources)
-		tp.session = sdk.NewSession()
-		tp.pins = sdk.NewPinService(tp.session)
+		tp.pins = sdk.NewPinService()
 		tp.treeMode = true
 		tp.rebuildTree()
 		// Pin a resource
@@ -938,8 +935,7 @@ func TestDetailFrame_WhenActionKeyPressed_ShouldTriggerAction(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.session = sdk.NewSession()
-	p.pins = sdk.NewPinService(p.session)
+	p.pins = sdk.NewPinService()
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "i-123"}`
