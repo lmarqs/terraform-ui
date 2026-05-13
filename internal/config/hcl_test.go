@@ -8,8 +8,6 @@ import (
 	"testing"
 )
 
-const HCLConfigFileName = "tfui.hcl"
-
 func writeHCL(t *testing.T, dir, content string) {
 	t.Helper()
 	err := os.WriteFile(filepath.Join(dir, HCLConfigFileName), []byte(content), 0644)
@@ -125,48 +123,67 @@ terraform {
 	}
 }
 
+// --- LoadRoot: empty file is valid ---
+
+func TestLoadRoot_WhenEmptyFile_ShouldReturnEmptyConfig(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, ``)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	if cfg.Terraform.Bin != "" {
+		t.Errorf("Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
+	}
+	if len(cfg.Chdir.Members) != 0 {
+		t.Errorf("Chdir.Members should be empty, got %v", cfg.Chdir.Members)
+	}
+}
+
+// --- LoadRoot: no terraform block is valid ---
+
+func TestLoadRoot_WhenOnlyDefaults_ShouldSucceed(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  parallelism = 5
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	if cfg.Terraform.Bin != "" {
+		t.Errorf("Terraform.Bin = %q, want empty (not required)", cfg.Terraform.Bin)
+	}
+	if cfg.Defaults.Parallelism != 5 {
+		t.Errorf("Defaults.Parallelism = %d, want 5", cfg.Defaults.Parallelism)
+	}
+}
+
+// --- LoadRoot: terraform.bin empty is valid (passthrough) ---
+
+func TestLoadRoot_WhenNoTerraformBin_ShouldReturnEmptyBin(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+terraform {}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	if cfg.Terraform.Bin != "" {
+		t.Errorf("Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
+	}
+}
+
 // --- LoadRoot validation ---
-
-func TestLoadRoot_WhenTerraformBlockMissing_ShouldReturnError(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-cache {
-  staleness_threshold = "5m"
-}
-`)
-
-	_, err := LoadRoot(dir)
-	if err == nil {
-		t.Error("LoadRoot() should return error when terraform block is missing")
-	}
-}
-
-func TestLoadRoot_WhenTerraformBinMissing_ShouldReturnError(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-terraform {
-}
-`)
-
-	_, err := LoadRoot(dir)
-	if err == nil {
-		t.Error("LoadRoot() should return error when terraform.bin is not set")
-	}
-}
-
-func TestLoadRoot_WhenTerraformBinEmpty_ShouldReturnError(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-terraform {
-  bin = ""
-}
-`)
-
-	_, err := LoadRoot(dir)
-	if err == nil {
-		t.Error("LoadRoot() should return error when terraform.bin is empty")
-	}
-}
 
 func TestLoadRoot_WhenInvalidHCLSyntax_ShouldReturnError(t *testing.T) {
 	dir := t.TempDir()
@@ -212,6 +229,51 @@ func TestLoadRoot_WhenPermissionDenied_ShouldReturnError(t *testing.T) {
 	_, err = LoadRoot(dir)
 	if err == nil {
 		t.Error("LoadRoot() should return error for unreadable config file")
+	}
+}
+
+// --- LoadRoot: no walk-up (explicit only) ---
+
+func TestLoadRoot_WhenFileInParentDir_ShouldNotWalkUp(t *testing.T) {
+	root := t.TempDir()
+	subDir := filepath.Join(root, "a", "b", "c")
+	err := os.MkdirAll(subDir, 0755)
+	if err != nil {
+		t.Fatalf("failed to create subdirectory: %v", err)
+	}
+
+	writeHCL(t, root, `
+terraform {
+  bin = "/usr/bin/terraform"
+}
+`)
+
+	_, err = LoadRoot(subDir)
+	if err == nil {
+		t.Fatal("LoadRoot() should NOT walk up directories")
+	}
+
+	var notFound *ConfigNotFoundError
+	if !errors.As(err, &notFound) {
+		t.Errorf("error should be *ConfigNotFoundError, got %T: %v", err, err)
+	}
+}
+
+func TestLoadRoot_WhenFileInCurrentDir_ShouldLoadDirectly(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+terraform {
+  bin = "tofu"
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	if cfg.Terraform.Bin != "tofu" {
+		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "tofu")
 	}
 }
 
@@ -1029,69 +1091,6 @@ func TestResolve_WhenLockTimeoutNotSet_ShouldReturnEmpty(t *testing.T) {
 	}
 }
 
-// --- File discovery ---
-
-func TestLoadRoot_WhenFileInParentDir_ShouldWalkUpToFind(t *testing.T) {
-	root := t.TempDir()
-	subDir := filepath.Join(root, "a", "b", "c")
-	err := os.MkdirAll(subDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create subdirectory: %v", err)
-	}
-
-	writeHCL(t, root, `
-terraform {
-  bin = "/usr/bin/terraform"
-}
-`)
-
-	cfg, err := LoadRoot(subDir)
-	if err != nil {
-		t.Fatalf("LoadRoot() error: %v", err)
-	}
-
-	if cfg.Terraform.Bin != "/usr/bin/terraform" {
-		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/bin/terraform")
-	}
-}
-
-func TestLoadRoot_WhenFileInCurrentDir_ShouldLoadDirectly(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-terraform {
-  bin = "tofu"
-}
-`)
-
-	cfg, err := LoadRoot(dir)
-	if err != nil {
-		t.Fatalf("LoadRoot() error: %v", err)
-	}
-
-	if cfg.Terraform.Bin != "tofu" {
-		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "tofu")
-	}
-}
-
-func TestLoadChild_WhenFileInMemberDir_ShouldLoadFromThatDir(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-plugin "risk" {
-  level = "high"
-}
-`)
-
-	cfg, err := LoadChild(dir)
-	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
-	}
-
-	risk := cfg.PluginConfig("risk")
-	if risk.Options["level"] != "high" {
-		t.Errorf("plugin risk level = %v, want %q", risk.Options["level"], "high")
-	}
-}
-
 // --- Optional config: no file returns specific error type ---
 
 func TestConfigNotFoundError_ShouldImplementErrorInterface(t *testing.T) {
@@ -1220,134 +1219,4 @@ func TestResolve_WhenEmptyWorkspaceName_ShouldSkipWorkspaceMatching(t *testing.T
 	if varFiles[0] != "base.tfvars" {
 		t.Errorf("VarFiles()[0] = %q, want %q", varFiles[0], "base.tfvars")
 	}
-}
-
-// --- Types needed for compilation ---
-
-type ConfigNotFoundError struct {
-	Dir string
-}
-
-func (e *ConfigNotFoundError) Error() string {
-	return "config file not found in " + e.Dir
-}
-
-type RootTerraformConfig struct {
-	Bin string
-}
-
-type ChdirConfig struct {
-	Members []string
-}
-
-type CacheConfig struct {
-	StalenessThreshold string
-}
-
-type AIConfig struct {
-	Enabled  bool
-	Provider string
-	Model    string
-	Region   string
-}
-
-type PluginSettings struct {
-	Enabled bool
-	Options map[string]interface{}
-}
-
-type DefaultsConfig struct {
-	Parallelism int
-	Lock        *bool
-	VarFiles    []string
-	Vars        map[string]string
-	Plugins     map[string]PluginSettings
-}
-
-func (d *DefaultsConfig) PluginConfig(id string) PluginSettings {
-	if d.Plugins == nil {
-		return PluginSettings{}
-	}
-	ps, ok := d.Plugins[id]
-	if !ok {
-		return PluginSettings{}
-	}
-	return ps
-}
-
-type RootConfig struct {
-	Terraform RootTerraformConfig
-	Chdir     ChdirConfig
-	Cache     CacheConfig
-	AI        AIConfig
-	Defaults  DefaultsConfig
-}
-
-type WorkspaceConfig struct {
-	Name        string
-	VarFiles    []string
-	Vars        map[string]string
-	Plugins     map[string]PluginSettings
-	LockTimeout string
-}
-
-type ChildConfig struct {
-	VarFiles   []string
-	Vars       map[string]string
-	Plugins    map[string]PluginSettings
-	Workspaces []WorkspaceConfig
-}
-
-func (c *ChildConfig) PluginConfig(id string) PluginSettings {
-	if c.Plugins == nil {
-		return PluginSettings{}
-	}
-	ps, ok := c.Plugins[id]
-	if !ok {
-		return PluginSettings{}
-	}
-	return ps
-}
-
-type ResolvedConfig struct {
-	varFiles    []string
-	vars        map[string]string
-	parallelism int
-	lock        *bool
-	lockTimeout string
-	plugins     map[string]PluginSettings
-}
-
-func (r *ResolvedConfig) VarFiles() []string      { return r.varFiles }
-func (r *ResolvedConfig) Vars() map[string]string { return r.vars }
-func (r *ResolvedConfig) Parallelism() int        { return r.parallelism }
-func (r *ResolvedConfig) Lock() *bool             { return r.lock }
-func (r *ResolvedConfig) LockTimeout() string     { return r.lockTimeout }
-
-func (r *ResolvedConfig) PluginConfig(id string) PluginSettings {
-	if r.plugins == nil {
-		return PluginSettings{}
-	}
-	ps, ok := r.plugins[id]
-	if !ok {
-		return PluginSettings{}
-	}
-	return ps
-}
-
-// --- Stub implementations (to be replaced by real implementation) ---
-
-func LoadRoot(_ string) (*RootConfig, error) {
-	return nil, &ConfigNotFoundError{Dir: "stub"}
-}
-
-func LoadChild(_ string) (*ChildConfig, error) {
-	return nil, &ConfigNotFoundError{Dir: "stub"}
-}
-
-func Resolve(root *RootConfig, child *ChildConfig, workspace string) *ResolvedConfig {
-	_ = root
-	_ = child
-	_ = workspace
-	return &ResolvedConfig{}
 }
