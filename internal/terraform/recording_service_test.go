@@ -162,44 +162,7 @@ func TestRecordingService_DelegatesToInner(t *testing.T) {
 	})
 }
 
-func TestRecordingService_RecordsMutateCommands(t *testing.T) {
-	svc := NewRecordingService(&stubService{}, "terraform")
-	ctx := context.Background()
-
-	tests := []struct {
-		name     string
-		invoke   func()
-		expected string
-	}{
-		{"Apply", func() { svc.Apply(ctx, sdk.ApplyOptions{}) }, "terraform apply"},
-		{"StateRm", func() { svc.StateRm(ctx, "aws_instance.web") }, "terraform state rm aws_instance.web"},
-		{"StateMove", func() { svc.StateMove(ctx, "old", "new") }, "terraform state mv old new"},
-		{"Import", func() { svc.Import(ctx, "aws_instance.web", "i-123") }, "terraform import aws_instance.web i-123"},
-		{"Taint", func() { svc.Taint(ctx, "aws_instance.web") }, "terraform taint aws_instance.web"},
-		{"Untaint", func() { svc.Untaint(ctx, "aws_instance.web") }, "terraform untaint aws_instance.web"},
-		{"WorkspaceSelect", func() { svc.WorkspaceSelect(ctx, "prod") }, "terraform workspace select prod"},
-		{"WorkspaceNew", func() { svc.WorkspaceNew(ctx, "staging") }, "terraform workspace new staging"},
-		{"WorkspaceDelete", func() { svc.WorkspaceDelete(ctx, "old") }, "terraform workspace delete old"},
-		{"Refresh", func() { svc.Refresh(ctx) }, "terraform refresh"},
-		{"Init", func() { svc.Init(ctx) }, "terraform init"},
-		{"ForceUnlock", func() { svc.ForceUnlock(ctx, "abc-123") }, "terraform force-unlock -force abc-123"},
-	}
-
-	for i, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.invoke()
-			cmds := svc.Commands(nil)
-			if len(cmds) != i+1 {
-				t.Fatalf("expected %d commands, got %d", i+1, len(cmds))
-			}
-			if cmds[i].String() != tt.expected {
-				t.Errorf("got %q, want %q", cmds[i].String(), tt.expected)
-			}
-		})
-	}
-}
-
-func TestRecordingService_RecordsReadCommands(t *testing.T) {
+func TestRecordingService_RecordsAllCommands(t *testing.T) {
 	svc := NewRecordingService(&stubService{}, "terraform")
 	ctx := context.Background()
 
@@ -209,18 +172,30 @@ func TestRecordingService_RecordsReadCommands(t *testing.T) {
 		expected string
 	}{
 		{"Plan", func() { svc.Plan(ctx, sdk.PlanOptions{}) }, "terraform plan"},
+		{"Apply", func() { svc.Apply(ctx, sdk.ApplyOptions{}) }, "terraform apply"},
 		{"StateList", func() { svc.StateList(ctx) }, "terraform state list"},
 		{"Show", func() { svc.Show(ctx, "aws_instance.web") }, "terraform state show aws_instance.web"},
 		{"Workspace", func() { svc.Workspace(ctx) }, "terraform workspace show"},
 		{"WorkspaceList", func() { svc.WorkspaceList(ctx) }, "terraform workspace list"},
+		{"WorkspaceSelect", func() { svc.WorkspaceSelect(ctx, "prod") }, "terraform workspace select prod"},
+		{"WorkspaceNew", func() { svc.WorkspaceNew(ctx, "staging") }, "terraform workspace new staging"},
+		{"WorkspaceDelete", func() { svc.WorkspaceDelete(ctx, "old") }, "terraform workspace delete old"},
+		{"StateRm", func() { svc.StateRm(ctx, "aws_instance.web") }, "terraform state rm aws_instance.web"},
+		{"StateMove", func() { svc.StateMove(ctx, "old", "new") }, "terraform state mv old new"},
+		{"Import", func() { svc.Import(ctx, "aws_instance.web", "i-123") }, "terraform import aws_instance.web i-123"},
+		{"Taint", func() { svc.Taint(ctx, "aws_instance.web") }, "terraform taint aws_instance.web"},
+		{"Untaint", func() { svc.Untaint(ctx, "aws_instance.web") }, "terraform untaint aws_instance.web"},
 		{"Validate", func() { svc.Validate(ctx) }, "terraform validate"},
 		{"Output", func() { svc.Output(ctx) }, "terraform output"},
+		{"Refresh", func() { svc.Refresh(ctx) }, "terraform refresh"},
+		{"Init", func() { svc.Init(ctx) }, "terraform init"},
+		{"ForceUnlock", func() { svc.ForceUnlock(ctx, "abc-123") }, "terraform force-unlock -force abc-123"},
 	}
 
 	for i, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.invoke()
-			cmds := svc.Commands(nil)
+			cmds := svc.Commands()
 			if len(cmds) != i+1 {
 				t.Fatalf("expected %d commands, got %d", i+1, len(cmds))
 			}
@@ -233,44 +208,9 @@ func TestRecordingService_RecordsReadCommands(t *testing.T) {
 
 func TestRecordingService_CommandsReturnsNilWhenEmpty(t *testing.T) {
 	svc := NewRecordingService(&stubService{}, "terraform")
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if cmds != nil {
 		t.Errorf("expected nil, got %v", cmds)
-	}
-}
-
-func TestRecordingService_FilterMutateOnly(t *testing.T) {
-	svc := NewRecordingService(&stubService{}, "terraform")
-	ctx := context.Background()
-
-	svc.Plan(ctx, sdk.PlanOptions{})
-	svc.Apply(ctx, sdk.ApplyOptions{})
-	svc.StateList(ctx)
-	svc.Taint(ctx, "aws_instance.web")
-	svc.Workspace(ctx)
-
-	cmds := svc.Commands(MutateOnly)
-	if len(cmds) != 2 {
-		t.Fatalf("expected 2 mutate commands, got %d", len(cmds))
-	}
-	if cmds[0].Verb != "apply" {
-		t.Errorf("first = %q, want apply", cmds[0].Verb)
-	}
-	if cmds[1].Verb != "taint" {
-		t.Errorf("second = %q, want taint", cmds[1].Verb)
-	}
-}
-
-func TestRecordingService_FilterReturnsNilWhenNoMatches(t *testing.T) {
-	svc := NewRecordingService(&stubService{}, "terraform")
-	ctx := context.Background()
-
-	svc.Plan(ctx, sdk.PlanOptions{})
-	svc.StateList(ctx)
-
-	cmds := svc.Commands(MutateOnly)
-	if cmds != nil {
-		t.Errorf("expected nil when no mutate commands, got %v", cmds)
 	}
 }
 
@@ -282,7 +222,7 @@ func TestRecordingService_WithDirSharesStore(t *testing.T) {
 	child.Taint(ctx, "aws_instance.a")
 	svc.Untaint(ctx, "aws_instance.b")
 
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 2 {
 		t.Fatalf("expected 2 commands, got %d", len(cmds))
 	}
@@ -311,20 +251,16 @@ func TestRecordingService_ConcurrentAccess(t *testing.T) {
 	ctx := context.Background()
 
 	var wg sync.WaitGroup
-	for i := range 100 {
+	for range 100 {
 		wg.Add(1)
-		go func(n int) {
+		go func() {
 			defer wg.Done()
-			if n%2 == 0 {
-				svc.Taint(ctx, "res")
-			} else {
-				svc.Plan(ctx, sdk.PlanOptions{})
-			}
-		}(i)
+			svc.Taint(ctx, "res")
+		}()
 	}
 	wg.Wait()
 
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 100 {
 		t.Fatalf("expected 100 commands, got %d", len(cmds))
 	}
@@ -344,7 +280,7 @@ func TestRecordingService_PlanFlagsRecorded(t *testing.T) {
 	}
 	svc.Plan(ctx, opts)
 
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1, got %d", len(cmds))
 	}
@@ -364,7 +300,7 @@ func TestRecordingService_ApplyFlagsRecorded(t *testing.T) {
 	}
 	svc.Apply(ctx, opts)
 
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1, got %d", len(cmds))
 	}
@@ -379,7 +315,7 @@ func TestRecordingService_CustomBinary(t *testing.T) {
 	ctx := context.Background()
 
 	svc.Apply(ctx, sdk.ApplyOptions{})
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1, got %d", len(cmds))
 	}
@@ -396,31 +332,8 @@ func TestRecordingService_DefaultBinary(t *testing.T) {
 	ctx := context.Background()
 
 	svc.Refresh(ctx)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if cmds[0].Binary != "terraform" {
 		t.Errorf("binary = %q, want terraform", cmds[0].Binary)
-	}
-}
-
-func TestRecordingService_ExecutionOrder(t *testing.T) {
-	svc := NewRecordingService(&stubService{}, "terraform")
-	ctx := context.Background()
-
-	svc.Plan(ctx, sdk.PlanOptions{})
-	svc.Taint(ctx, "a")
-	svc.Apply(ctx, sdk.ApplyOptions{})
-
-	cmds := svc.Commands(nil)
-	if len(cmds) != 3 {
-		t.Fatalf("expected 3, got %d", len(cmds))
-	}
-	if cmds[0].Verb != "plan" {
-		t.Errorf("[0] = %q", cmds[0].Verb)
-	}
-	if cmds[1].Verb != "taint" {
-		t.Errorf("[1] = %q", cmds[1].Verb)
-	}
-	if cmds[2].Verb != "apply" {
-		t.Errorf("[2] = %q", cmds[2].Verb)
 	}
 }

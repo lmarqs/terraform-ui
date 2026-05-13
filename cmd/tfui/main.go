@@ -57,7 +57,6 @@ func main() {
 	var debug bool
 	var configOverrides []string
 	var planURI, stateURI, macroURI string
-	var macroVerbose bool
 	var extraArgs []string
 
 	rootCmd := &cobra.Command{
@@ -91,7 +90,7 @@ func main() {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if macroURI != "" {
-				return runMacro(cfg, macroURI, planURI, stateURI, macroVerbose)
+				return runMacro(cfg, macroURI, planURI, stateURI)
 			}
 			return runTUI(cfg, planURI, stateURI)
 		},
@@ -104,7 +103,6 @@ func main() {
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (requires --plan or --state)")
-	rootCmd.Flags().BoolVar(&macroVerbose, "macro-verbose", false, "Include read commands in macro output")
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select chdir member (validated against chdir.members in project mode)")
 
 	planCmd := &cobra.Command{
@@ -234,7 +232,7 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	return registry
 }
 
-func runMacro(cfg config.Config, macroURI, planURI, stateURI string, verbose bool) error {
+func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 	if planURI == "" && stateURI == "" {
 		return fmt.Errorf("--macro requires --plan or --state (read-only data source)")
 	}
@@ -281,11 +279,7 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string, verbose boo
 		return err
 	}
 
-	var filter terraform.CommandFilter
-	if !verbose {
-		filter = terraform.MutateOnly
-	}
-	for _, cmd := range recorder.Commands(filter) {
+	for _, cmd := range recorder.Commands() {
 		fmt.Println(cmd.String())
 	}
 	return nil

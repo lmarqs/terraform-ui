@@ -17,7 +17,7 @@ func TestPlanOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
 	ctx := context.Background()
 
 	_, _ = svc.Plan(ctx, sdk.PlanOptions{})
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -48,7 +48,7 @@ func TestPlanOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newRecorder()
 			_, _ = svc.Plan(context.Background(), tt.opts)
-			cmds := svc.Commands(nil)
+			cmds := svc.Commands()
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -81,7 +81,7 @@ func TestPlanOptions_WhenVarFilesProvided_ShouldEmitVarFileFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newRecorder()
 			_, _ = svc.Plan(context.Background(), tt.opts)
-			cmds := svc.Commands(nil)
+			cmds := svc.Commands()
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -96,7 +96,7 @@ func TestPlanOptions_WhenVarsProvided_ShouldEmitVarFlags(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Vars: map[string]string{"region": "us-east-1"}}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -131,7 +131,7 @@ func TestPlanOptions_WhenReplaceProvided_ShouldEmitReplaceFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newRecorder()
 			_, _ = svc.Plan(context.Background(), tt.opts)
-			cmds := svc.Commands(nil)
+			cmds := svc.Commands()
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -146,7 +146,7 @@ func TestPlanOptions_WhenDestroyTrue_ShouldEmitDestroyFlag(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Destroy: true}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -159,7 +159,7 @@ func TestPlanOptions_WhenDestroyFalse_ShouldNotEmitDestroyFlag(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Destroy: false}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -172,7 +172,7 @@ func TestPlanOptions_WhenRefreshOnlyTrue_ShouldEmitRefreshOnlyFlag(t *testing.T)
 	svc := newRecorder()
 	opts := sdk.PlanOptions{RefreshOnly: true}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -186,7 +186,7 @@ func TestPlanOptions_WhenRefreshSetToFalse_ShouldEmitRefreshFalseFlag(t *testing
 	refreshFalse := false
 	opts := sdk.PlanOptions{Refresh: &refreshFalse}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -199,7 +199,7 @@ func TestPlanOptions_WhenRefreshNil_ShouldNotEmitRefreshFlag(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Refresh: nil}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -213,7 +213,7 @@ func TestPlanOptions_WhenRefreshSetToTrue_ShouldNotEmitRefreshFlag(t *testing.T)
 	refreshTrue := true
 	opts := sdk.PlanOptions{Refresh: &refreshTrue}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -226,7 +226,7 @@ func TestPlanOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T) 
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Parallelism: 5}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -239,7 +239,7 @@ func TestPlanOptions_WhenParallelismZero_ShouldNotEmitParallelismFlag(t *testing
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Parallelism: 0}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -253,7 +253,7 @@ func TestPlanOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
 	lockFalse := false
 	opts := sdk.PlanOptions{Lock: &lockFalse}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -266,7 +266,7 @@ func TestPlanOptions_WhenLockNil_ShouldNotEmitLockFlag(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Lock: nil}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -279,7 +279,7 @@ func TestPlanOptions_WhenLockTimeoutSet_ShouldEmitLockTimeoutFlag(t *testing.T) 
 	svc := newRecorder()
 	opts := sdk.PlanOptions{LockTimeout: "30s"}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -292,7 +292,7 @@ func TestPlanOptions_WhenLockTimeoutEmpty_ShouldNotEmitLockTimeoutFlag(t *testin
 	svc := newRecorder()
 	opts := sdk.PlanOptions{LockTimeout: ""}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -305,7 +305,7 @@ func TestPlanOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{ExtraArgs: []string{"-compact-warnings", "-no-color"}}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -329,7 +329,7 @@ func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) 
 		ExtraArgs:   []string{"-no-color"},
 	}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -360,7 +360,7 @@ func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) 
 func TestApplyOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
 	svc := newRecorder()
 	_ = svc.Apply(context.Background(), sdk.ApplyOptions{})
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -391,7 +391,7 @@ func TestApplyOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newRecorder()
 			_ = svc.Apply(context.Background(), tt.opts)
-			cmds := svc.Commands(nil)
+			cmds := svc.Commands()
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -406,7 +406,7 @@ func TestApplyOptions_WhenVarFilesProvided_ShouldEmitVarFileFlags(t *testing.T) 
 	svc := newRecorder()
 	opts := sdk.ApplyOptions{VarFiles: []string{"prod.tfvars", "secrets.tfvars"}}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -419,7 +419,7 @@ func TestApplyOptions_WhenVarsProvided_ShouldEmitVarFlags(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.ApplyOptions{Vars: map[string]string{"name": "test"}}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -436,7 +436,7 @@ func TestApplyOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T)
 	svc := newRecorder()
 	opts := sdk.ApplyOptions{Parallelism: 10}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -450,7 +450,7 @@ func TestApplyOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
 	lockFalse := false
 	opts := sdk.ApplyOptions{Lock: &lockFalse}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -463,7 +463,7 @@ func TestApplyOptions_WhenLockTimeoutSet_ShouldEmitLockTimeoutFlag(t *testing.T)
 	svc := newRecorder()
 	opts := sdk.ApplyOptions{LockTimeout: "1m"}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -476,7 +476,7 @@ func TestApplyOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.ApplyOptions{ExtraArgs: []string{"-no-color", "-input=false"}}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -498,7 +498,7 @@ func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T)
 		ExtraArgs:   []string{"-no-color"},
 	}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -530,7 +530,7 @@ func TestApplyOptions_ShouldRecordCommand(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -546,7 +546,7 @@ func TestPlanOptions_WhenCustomBinary_ShouldUseCorrectBinary(t *testing.T) {
 	svc := NewRecordingService(&stubService{}, "tofu")
 	opts := sdk.PlanOptions{Targets: []string{"aws_instance.web"}, Destroy: true}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -566,7 +566,7 @@ func TestPlanOptions_WhenOnlyTargets_ShouldBeBackwardCompatible(t *testing.T) {
 	svc := newRecorder()
 	opts := sdk.PlanOptions{Targets: []string{"aws_instance.web", "aws_s3_bucket.logs"}}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands(nil)
+	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}

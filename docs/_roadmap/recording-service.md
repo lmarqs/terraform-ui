@@ -24,11 +24,7 @@ This violates single responsibility, duplicates knowledge (verb strings exist bo
 
 ## Expected UX
 
-Macro output behavior changes:
-- Default: show only mutations (apply, taint, state rm) — clean pipeline for `| sh`
-- `--macro-verbose`: include all commands (plan, state list, workspace show)
-
-No change to plugin or TUI behavior. Internal architecture only.
+All commands executed during a macro are output to stdout. No change to plugin or TUI behavior. Internal architecture only.
 
 ## Advantages
 
@@ -38,19 +34,9 @@ No change to plugin or TUI behavior. Internal architecture only.
 - **Testable**: Each layer tested in isolation
 - **Eliminates duplication**: Command verbs defined once
 
-## Effort Justification
-
-Medium effort:
-- New service decorator with thread-safe shared store (1 day)
-- StaticService simplification removes 100+ lines (0.5 days)
-- Command filtering logic + flag (0.5 days)
-- Integration test updates for new default (0.5 days)
-
-Core abstraction is clean decorator pattern. Risk is minimal — wraps existing contracts.
-
 ## Design
 
-### RecordingService (new file: `internal/terraform/recording_service.go`)
+### RecordingService (`internal/terraform/recording_service.go`)
 
 A decorator implementing `sdk.Service` that:
 - Wraps any inner `sdk.Service`
@@ -86,19 +72,6 @@ recorder := terraform.NewRecordingService(staticSvc, cfg.TerraformBinary())
 registry := buildRegistry(recorder, cfg)
 ```
 
-### Command Filtering
-
-Classification:
-- **Read** (suppress by default): Plan, StateList, Show, Workspace, WorkspaceList, Validate, Output
-- **Mutate** (always record): Apply, StateRm, StateMove, Import, Taint, Untaint, WorkspaceSelect, WorkspaceNew, WorkspaceDelete, Refresh, Init, ForceUnlock
-
-Add `--macro-verbose` flag for full trace output.
-
-## Open Questions
-
-- Should RecordingService also track timing/duration for each command?
-- Do we want structured output format (JSON) as an alternative to shell script?
-
 ## Interaction with Other Roadmap Items
 
 | Item | Interaction |
@@ -109,16 +82,16 @@ Add `--macro-verbose` flag for full trace output.
 
 ## Tasks
 
-- [ ] Create `internal/terraform/recording_service.go` with `commandStore` shared pattern
-- [ ] Create `internal/terraform/recording_service_test.go` (table-driven, concurrency, WithDir)
-- [ ] Wire `RecordingService` into `runMacro()`
-- [ ] Strip command logic from `StaticService` (return nil for mutations)
-- [ ] Add `CommandFilter` enum and `--macro-verbose` flag
-- [ ] Update integration tests for mutations-only default
+- [x] Create `internal/terraform/recording_service.go` with `commandStore` shared pattern
+- [x] Create `internal/terraform/recording_service_test.go` (table-driven, concurrency, WithDir)
+- [x] Wire `RecordingService` into `runMacro()`
+- [x] Strip command logic from `StaticService` (return nil for mutations)
+- [x] Migrate options tests to exercise through RecordingService
+- [x] Update integration tests
 
 ## References
 
-- Current: `internal/terraform/static_service.go`
+- Current: `internal/terraform/recording_service.go`
 - Service interface: `pkg/sdk/service.go`
 - Command type: `pkg/sdk/command.go`
 - Macro wiring: `cmd/tfui/main.go` (`runMacro()`)
