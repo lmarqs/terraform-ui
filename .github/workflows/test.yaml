@@ -28,4 +28,4 @@ jobs:
         with:
           terraform_version: "1.14"
           terraform_wrapper: false
-      - run: mise run test:integration
+      - run: mise run test:integration:terraform
