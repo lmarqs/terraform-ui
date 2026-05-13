@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -61,11 +62,24 @@ func main() {
 		Short:        "Terminal UI for Terraform operations",
 		Long:         "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
 		SilenceUsage: true,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Dir = resolveProjectDir(cfg.Dir)
 			cfg.ApplyOverrides(configOverrides)
+
+			rootCfg, err := config.LoadRoot(cfg.Dir)
+			if err != nil {
+				var notFound *config.ConfigNotFoundError
+				if !errors.As(err, &notFound) {
+					return fmt.Errorf("%w\n\nhint: check HCL syntax in tfui.hcl", err)
+				}
+			}
+			if rootCfg != nil && rootCfg.Terraform.Bin != "" && cfg.Terraform.Bin == "" {
+				cfg.Terraform.Bin = rootCfg.Terraform.Bin
+			}
+
 			binary := cfg.TerraformBinary()
 			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
+			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if macroURI != "" {
@@ -76,8 +90,8 @@ func main() {
 	}
 
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
-	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.yaml lives)")
-	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary (auto-detects if empty)")
+	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.hcl lives)")
+	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary")
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
@@ -106,8 +120,8 @@ func main() {
 
 	initCmd := &cobra.Command{
 		Use:   "init",
-		Short: "Generate tfui.yaml configuration",
-		Long:  "Detect terraform project patterns and generate a tfui.yaml config file in the working directory.",
+		Short: "Generate tfui.hcl configuration",
+		Long:  "Detect terraform project patterns and generate a tfui.hcl config file in the working directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(cfg)
 		},
@@ -127,6 +141,8 @@ func main() {
 	for _, cmd := range buildPluginCommands(&cfg) {
 		rootCmd.AddCommand(cmd)
 	}
+
+	os.Args = normalizeArgs(os.Args)
 
 	if err := rootCmd.Execute(); err != nil {
 		if runErr, ok := err.(*macro.RunError); ok {
@@ -302,7 +318,7 @@ func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error 
 	ctx := context.Background()
 
 	if planURI != "" {
-		summary, err := staticSvc.Plan(ctx, nil)
+		summary, err := staticSvc.Plan(ctx, sdk.PlanOptions{})
 		if err != nil {
 			return err
 		}
@@ -530,7 +546,7 @@ func runPlan(cfg config.Config) error {
 
 	switch cfg.Mode {
 	case "silent":
-		summary, err := svc.Plan(ctx, cfg.Targets)
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
 		}
@@ -539,7 +555,7 @@ func runPlan(cfg config.Config) error {
 	case "spinner":
 		s := newSpinner("Running terraform plan...", false)
 		s.run()
-		summary, err := svc.Plan(ctx, cfg.Targets)
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
@@ -549,7 +565,7 @@ func runPlan(cfg config.Config) error {
 	case "progress":
 		s := newSpinner("Running terraform plan...", true)
 		s.run()
-		summary, err := svc.Plan(ctx, cfg.Targets)
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
@@ -557,7 +573,7 @@ func runPlan(cfg config.Config) error {
 		printTreeView(summary)
 
 	case "agent":
-		summary, err := svc.Plan(ctx, cfg.Targets)
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
 		}
@@ -582,7 +598,7 @@ func runApply(cfg config.Config) error {
 
 	switch cfg.Mode {
 	case "silent":
-		err := svc.Apply(ctx, cfg.Targets)
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
 		}
@@ -591,7 +607,7 @@ func runApply(cfg config.Config) error {
 	case "spinner":
 		s := newSpinner("Running terraform apply...", false)
 		s.run()
-		err := svc.Apply(ctx, cfg.Targets)
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
@@ -601,7 +617,7 @@ func runApply(cfg config.Config) error {
 	case "progress":
 		s := newSpinner("Running terraform apply...", true)
 		s.run()
-		err := svc.Apply(ctx, cfg.Targets)
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
@@ -609,7 +625,7 @@ func runApply(cfg config.Config) error {
 		fmt.Println("Apply complete.")
 
 	case "agent":
-		err := svc.Apply(ctx, cfg.Targets)
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
 		}
