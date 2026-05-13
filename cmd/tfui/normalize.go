@@ -70,3 +70,12 @@ func extractFlagName(s string) (name string, hasEquals bool) {
 	}
 	return s, false
 }
+
+func splitPassthrough(args []string) (before, after []string) {
+	for i, arg := range args {
+		if arg == "--" {
+			return args[:i], args[i+1:]
+		}
+	}
+	return args, nil
+}

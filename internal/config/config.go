@@ -51,6 +51,10 @@ type Config struct {
 	// Overrides holds key=value pairs from --config CLI flag.
 	// Applied after yaml loading, overriding any matching values.
 	Overrides map[string]string `yaml:"-"`
+
+	// ExtraArgs holds raw arguments passed after -- separator.
+	// These are passed through to terraform unmodified.
+	ExtraArgs []string `yaml:"-"`
 }
 
 // LoggerConfig holds logging configuration.

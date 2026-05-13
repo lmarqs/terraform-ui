@@ -56,6 +56,7 @@ func main() {
 	var debug bool
 	var configOverrides []string
 	var planURI, stateURI, macroURI string
+	var extraArgs []string
 
 	rootCmd := &cobra.Command{
 		Use:          "tfui",
@@ -142,7 +143,9 @@ func main() {
 		rootCmd.AddCommand(cmd)
 	}
 
+	os.Args, extraArgs = splitPassthrough(os.Args)
 	os.Args = normalizeArgs(os.Args)
+	cfg.ExtraArgs = extraArgs
 
 	if err := rootCmd.Execute(); err != nil {
 		if runErr, ok := err.(*macro.RunError); ok {
@@ -548,7 +551,7 @@ func runPlan(cfg config.Config) error {
 
 	switch cfg.Mode {
 	case "silent":
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
 		}
@@ -557,7 +560,7 @@ func runPlan(cfg config.Config) error {
 	case "spinner":
 		s := newSpinner("Running terraform plan...", false)
 		s.run()
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
@@ -567,7 +570,7 @@ func runPlan(cfg config.Config) error {
 	case "progress":
 		s := newSpinner("Running terraform plan...", true)
 		s.run()
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
@@ -575,7 +578,7 @@ func runPlan(cfg config.Config) error {
 		printTreeView(summary)
 
 	case "agent":
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets})
+		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		if err != nil {
 			return fmt.Errorf("plan failed: %w", err)
 		}
@@ -600,7 +603,7 @@ func runApply(cfg config.Config) error {
 
 	switch cfg.Mode {
 	case "silent":
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
 		}
@@ -609,7 +612,7 @@ func runApply(cfg config.Config) error {
 	case "spinner":
 		s := newSpinner("Running terraform apply...", false)
 		s.run()
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
@@ -619,7 +622,7 @@ func runApply(cfg config.Config) error {
 	case "progress":
 		s := newSpinner("Running terraform apply...", true)
 		s.run()
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		s.halt()
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
@@ -627,7 +630,7 @@ func runApply(cfg config.Config) error {
 		fmt.Println("Apply complete.")
 
 	case "agent":
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets})
+		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
 		if err != nil {
 			return fmt.Errorf("apply failed: %w", err)
 		}
