@@ -171,7 +171,7 @@ terraform state pull | tfui --state -
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   state:
     enabled: true

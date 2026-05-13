@@ -48,7 +48,7 @@ Plugins for navigating terraform state, workspaces, and projects.
 
 ## Enabling/Disabling Plugins
 
-All plugins are enabled by default. To disable one, set `enabled: false` in `tfui.yaml`:
+All plugins are enabled by default. To disable one, set `enabled: false` in `tfui.hcl`:
 
 ```yaml
 plugins:

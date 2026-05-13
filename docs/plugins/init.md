@@ -3,14 +3,14 @@ layout: plugin
 title: Init
 id: init
 key: i
-description: Generate tfui.yaml configuration interactively
+description: Generate tfui.hcl configuration interactively
 category: setup
 default_enabled: true
 ---
 
 ## Overview
 
-The Init plugin provides an interactive wizard to generate a `tfui.yaml` configuration file, similar to `npm init`. It detects the terraform binary, scans for common monorepo project patterns, and writes a config file to the current directory.
+The Init plugin provides an interactive wizard to generate a `tfui.hcl` configuration file, similar to `npm init`. It detects the terraform binary, scans for common monorepo project patterns, and writes a config file to the current directory.
 
 ## Usage
 
@@ -38,7 +38,7 @@ The wizard progresses through these states:
 tfui init --dir ./my-project
 ```
 
-This runs detection and writes `tfui.yaml` without prompting.
+This runs detection and writes `tfui.hcl` without prompting.
 
 ## Detection Logic
 

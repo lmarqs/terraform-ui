@@ -17,7 +17,7 @@ Steps:
 
 Key patterns:
 - Subcommands preserve the existing CLI interface
-- Mode flags: --mode silent|spinner|progress|agent
+- `--ci` suppresses spinner, `--output text|json` controls format
 - Use the terraform service for operations
-- Spinner/progress output goes to stderr, data to stdout
-- Agent mode always outputs JSON
+- Spinner goes to stderr (auto-detects TTY), data to stdout
+- `--output json` produces enriched JSON (risk, phantoms, changes)

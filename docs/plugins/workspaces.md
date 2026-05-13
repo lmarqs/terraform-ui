@@ -30,7 +30,7 @@ When creating a new workspace, type the name and press `Enter` to confirm or `Es
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   workspaces:
     enabled: true

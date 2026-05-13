@@ -24,7 +24,7 @@ Current workaround: fork the repo, add your plugin, maintain the fork forever.
 ## Expected UX
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   my-compliance:
     path: ~/.tfui/plugins/compliance-checker

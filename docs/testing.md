@@ -123,10 +123,10 @@ func TestApply_MyScenario(t *testing.T) {
     dir := copyFixture(t, "my-scenario")  // isolate from other tests
     
     // Plan first
-    runTfui("plan", "--project", dir, "--mode", "silent")
+    runTfui("plan", "--project", dir, "--ci")
     
     // Apply
-    stdout, _, err := runTfui("apply", "--project", dir, "--mode", "silent")
+    stdout, _, err := runTfui("apply", "--project", dir, "--ci")
     if err != nil {
         t.Fatalf("apply failed: %v", err)
     }
@@ -159,8 +159,8 @@ func TestState_Rm(t *testing.T) {
 func TestEquivalence_Apply(t *testing.T) {
     // Path 1: CLI
     dir1 := copyFixture(t, "apply-create")
-    runTfui("plan", "--project", dir1, "--mode", "silent")
-    runTfui("apply", "--project", dir1, "--mode", "silent")
+    runTfui("plan", "--project", dir1, "--ci")
+    runTfui("apply", "--project", dir1, "--ci")
     
     // Path 2: Macro (TUI simulation)
     dir2 := copyFixture(t, "apply-create")

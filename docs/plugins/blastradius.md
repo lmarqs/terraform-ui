@@ -25,7 +25,7 @@ Press `b` to open the Blast Radius view. It requires a completed plan to analyze
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   blastradius:
     enabled: true

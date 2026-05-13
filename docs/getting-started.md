@@ -56,26 +56,26 @@ Use subcommands for scripts and CI pipelines:
 
 ```bash
 # Plan with progress bar
-tfui plan --dir ./infra --mode progress
+tfui plan --dir ./infra 
 
 # Plan with JSON output for automation
-tfui plan --dir ./infra --mode agent | jq .
+tfui plan --dir ./infra --output json | jq .
 
 # Apply with spinner
-tfui apply --dir ./infra --mode spinner
+tfui apply --dir ./infra --ci
 
 # Silent (no UI, just exit code)
-tfui plan --dir ./infra --mode silent
+tfui plan --dir ./infra --ci
 ```
 
 Exit code `2` means "changes detected" — useful for CI gates.
 
 ## Configuring a Monorepo
 
-Create a `tfui.yaml` in your repository root:
+Create a `tfui.hcl` in your repository root:
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 projects:
   paths:
     - "envs/*"

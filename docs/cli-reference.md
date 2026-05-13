@@ -30,7 +30,7 @@ Run terraform plan with animated terminal feedback.
 
 ```bash
 tfui plan --project ./infra
-tfui plan --project ./infra --mode agent | jq .
+tfui plan --project ./infra --output json | jq .
 tfui plan --project ./infra --target aws_instance.web
 ```
 
@@ -38,7 +38,8 @@ tfui plan --project ./infra --target aws_instance.web
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--mode` | `progress` | UI mode: `silent`, `spinner`, `progress`, `agent` |
+| `--ci` | `false` | Suppress spinner (CI-friendly) |
+| `--output` | `text` | Output format: `text`, `json` |
 | `--target` | | Resource target (repeatable) |
 
 ### `tfui apply`
@@ -47,14 +48,14 @@ Run terraform apply with animated terminal feedback.
 
 ```bash
 tfui apply --project ./infra
-tfui apply --project ./infra --mode spinner
+tfui apply --project ./infra --ci
 ```
 
 **Flags:** Same as `plan`.
 
 ### `tfui init`
 
-Generate a `tfui.yaml` configuration file by detecting terraform project patterns.
+Generate a `tfui.hcl` configuration file by detecting terraform project patterns.
 
 ```bash
 tfui init
@@ -74,8 +75,8 @@ Available on all commands:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--project` | `.` | Project root directory (where tfui.yaml lives) |
-| `--terraform-bin` | auto-detect | Path to terraform/tofu binary |
+| `--project` | `.` | Project root directory (where tfui.hcl lives) |
+| `--terraform-bin` | `terraform` | Path to terraform/tofu/terragrunt binary |
 | `--config` | | Override config values (repeatable, `key=value`) |
 | `--debug` | `false` | Enable debug logging to `~/.tfui/logs/` |
 
@@ -184,15 +185,6 @@ terraform apply -target=aws_instance.web
 | 1 | Assertion failure |
 | 2 | Syntax error in tape file |
 | 3 | Timeout waiting for condition |
-
-## Modes
-
-| Mode | Description |
-|------|-------------|
-| `silent` | No UI, plain tree-view output |
-| `spinner` | One-line animated spinner |
-| `progress` | Spinner + elapsed time (default) |
-| `agent` | Structured JSON output for automation |
 
 ## Environment Variables
 

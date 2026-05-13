@@ -10,7 +10,7 @@ default_enabled: true
 
 ## Overview
 
-The Context plugin discovers and lists terraform scopes within a monorepo based on glob patterns defined in `tfui.yaml`. You can filter, select, and switch between scopes. The active scope determines the working directory for all other plugins (plan, apply, state, etc.).
+The Context plugin discovers and lists terraform scopes within a monorepo based on glob patterns defined in `tfui.hcl`. You can filter, select, and switch between scopes. The active scope determines the working directory for all other plugins (plan, apply, state, etc.).
 
 ## Usage
 
@@ -28,7 +28,7 @@ Press `c` to open the Context view. It scans for scopes matching your configured
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   context:
     enabled: true

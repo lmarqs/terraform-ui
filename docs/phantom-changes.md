@@ -40,7 +40,7 @@ Phantom changes are:
 
 ```bash
 # Agent mode includes phantom detection in JSON output
-tfui plan --dir ./infra --mode agent | jq '.phantom_changes'
+tfui plan --dir ./infra --output json | jq '.phantom_changes'
 ```
 
 Output:

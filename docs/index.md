@@ -40,7 +40,7 @@ tfui
 
 # Or use non-interactive mode (backward compatible)
 tfui plan --dir ./infra
-tfui apply --dir ./infra --mode progress
+tfui apply --dir ./infra 
 ```
 
 ## Home Screen
@@ -71,7 +71,7 @@ tfui apply --dir ./infra --mode progress
 - **Live Apply** — Per-resource progress tracking with real-time status
 - **State Browser** — Navigate and inspect terraform state resources
 - **Workspace Management** — List, switch, and manage workspaces
-- **Monorepo Support** — Discover and select projects via `tfui.yaml`
+- **Monorepo Support** — Discover and select projects via `tfui.hcl`
 - **Phantom Change Detection** — Identify no-op changes that terraform incorrectly reports
 
 ## How It Works

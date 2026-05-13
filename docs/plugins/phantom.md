@@ -25,7 +25,7 @@ Press `P` (uppercase) to open the Phantom Changes view. It requires a completed 
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   phantom:
     enabled: true

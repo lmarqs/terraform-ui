@@ -24,7 +24,7 @@ Press `R` (uppercase) to open the Risk Analysis view. It requires a completed pl
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   risk:
     enabled: true

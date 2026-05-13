@@ -70,10 +70,10 @@ Enter expand  Space pin  a apply  r refresh  q back
 tfui plan --project ./infra
 
 # Silent: tree-view text output (no animation)
-tfui plan --project ./infra --mode silent
+tfui plan --project ./infra --ci
 
 # Agent: structured JSON for automation/AI
-tfui plan --project ./infra --mode agent
+tfui plan --project ./infra --output json
 
 # Targeted: plan only specific resources
 tfui plan --project ./infra --target aws_instance.web --target aws_s3_bucket.old
@@ -122,15 +122,15 @@ Risk: CRITICAL
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| See what will change | `tfui plan --mode silent` | Press `p` |
-| Get plan as JSON | `tfui plan --mode agent` | N/A (TUI is visual) |
+| See what will change | `tfui plan --ci` | Press `p` |
+| Get plan as JSON | `tfui plan --output json` | N/A (TUI is visual) |
 | Plan specific resources | `tfui plan --target X` | Press `p`, pin resources |
 | Plan then apply | `tfui plan && tfui apply` | `p` → review → `a` → `y` |
 
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   plan:
     enabled: true

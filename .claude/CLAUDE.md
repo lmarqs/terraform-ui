@@ -50,7 +50,7 @@ plugins/               — All features as plugins (one dir per plugin)
   risk/                — Risk classification (decorates plan)
   phantom/             — Phantom change detection (decorates plan)
   blastradius/         — Blast radius visualization
-  init/                — Config generator (CLI only, only place auto-detection lives)
+  init/                — Config generator (CLI + TUI, generates tfui.hcl)
 tests/
   integration/         — Integration tests with real terraform + HCL config
   fixtures/            — Real terraform projects and config fixtures for testing
@@ -557,16 +557,19 @@ Before destructive operations (apply, state rm, state mv, import), check data fr
 ## Development Workflow
 
 ```bash
-mise run dev              # Run TUI in development mode
-mise run fmt              # Format source files (gofmt)
-mise run check:lint       # Full lint suite (golangci-lint v2)
-mise run check:vet        # Quick go vet
-mise run test:unit        # Unit tests (produces reports/junit.xml)
-mise run test:coverage    # Coverage enforcement (90% threshold)
-mise run test:integration # Integration tests (requires terraform)
-mise run build            # Cross-platform binaries (goreleaser snapshot)
-mise run test:macro       # Macro tapes against built binary
-mise run setup            # Install CI deps (npm + gotestsum)
+mise run dev                        # Run TUI in development mode
+mise run fmt                        # Format source files (gofmt)
+mise run check:lint                 # Full lint suite (golangci-lint v2)
+mise run check:vet                  # Quick go vet
+mise run test:unit                  # Unit tests (produces reports/junit.xml)
+mise run test:coverage              # Coverage enforcement (90% threshold)
+mise run test:integration:terraform # Integration tests (requires terraform)
+mise run test:integration:tofu      # Integration tests (requires tofu)
+mise run test:integration:terragrunt # Integration tests (requires terragrunt)
+mise run 'test:integration:*'       # Run all integration tests
+mise run build                      # Cross-platform binaries (goreleaser snapshot)
+mise run test:macro                 # Macro tapes against built binary
+mise run setup                      # Install CI deps (npm + gotestsum)
 ```
 
 ### Mise Task Convention
@@ -577,7 +580,7 @@ Tasks are namespaced by pipeline stage:
 |-----------|---------|----------|
 | `check:*` | Static analysis (no build) | `check:lint`, `check:vet` |
 | `build` | Produce artifacts | `build` (goreleaser snapshot) |
-| `test:*` | Verify correctness | `test:unit`, `test:coverage`, `test:integration`, `test:macro` |
+| `test:*` | Verify correctness | `test:unit`, `test:coverage`, `test:integration:terraform`, `test:macro` |
 | `release` | Publish (CI only) | `release` (semantic-release) |
 | _(top-level)_ | Developer tools | `run`, `fmt`, `setup` |
 
@@ -595,6 +598,8 @@ Rules:
 | `golangci-lint` | 2.12 | Lint (6 linters: importas, govet, errcheck, staticcheck, unused + goimports formatter) |
 | `goreleaser` | 2.15 | Cross-platform builds + release archives |
 | `terraform` | 1.14 | Integration tests |
+| `opentofu` | 1.9 | Integration tests (tofu compatibility) |
+| `terragrunt` | 0.77 | Integration tests (terragrunt compatibility) |
 | `node` | 22 | semantic-release (CI only) |
 
 ## CI/CD Pipeline

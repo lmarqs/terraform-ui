@@ -28,7 +28,7 @@ Current workaround: run `tfui plan` periodically and eyeball the output.
 - List view shows drifted resources with what changed
 - Detail view shows attribute diff (expected vs actual)
 - `r` refreshes (re-runs plan to check current drift)
-- Configurable check interval in tfui.yaml (e.g., `drift: { interval: 30m }`)
+- Configurable check interval in tfui.hcl (e.g., `drift: { interval: 30m }`)
 
 ## Advantages
 

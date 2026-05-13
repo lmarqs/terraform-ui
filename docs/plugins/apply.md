@@ -81,10 +81,10 @@ tfui plan --project ./infra
 tfui apply --project ./infra
 
 # Silent: no animation
-tfui apply --project ./infra --mode silent
+tfui apply --project ./infra --ci
 
 # Agent: JSON output
-tfui apply --project ./infra --mode agent
+tfui apply --project ./infra --output json
 
 # Targeted: apply only specific resources
 tfui plan --project ./infra --target aws_instance.web
@@ -134,7 +134,7 @@ Apply complete.
 ## Configuration
 
 ```yaml
-# tfui.yaml
+# tfui.hcl
 plugins:
   apply:
     enabled: true

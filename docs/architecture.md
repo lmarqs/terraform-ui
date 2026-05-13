@@ -83,7 +83,7 @@ Plugins can also implement handler interfaces (`ChdirHandler`, `WorkspaceHandler
 
 Plugins are:
 - **Self-contained** — own view logic, types, messages
-- **Configurable** — per-plugin options in `tfui.yaml`
+- **Configurable** — per-plugin options in `tfui.hcl`
 - **Independent** — import only `pkg/sdk`, never `internal/`
 - **Testable** — mock the `sdk.Service` interface
 

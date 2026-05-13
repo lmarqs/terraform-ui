@@ -23,16 +23,16 @@ For each core operation, run it via CLI and verify the final .tfstate matches ex
 ```go
 func TestEquivalence_Apply_CLI(t *testing.T) {
     dir := copyFixture(t, "apply-create")
-    runTfui("plan", "--project", dir, "--mode", "silent")
-    runTfui("apply", "--project", dir, "--mode", "silent")
+    runTfui("plan", "--project", dir, "--ci")
+    runTfui("apply", "--project", dir, "--ci")
     assertStateContains(t, dir, "local_file.result")
     assertFileExists(t, filepath.Join(dir, "out/result.txt"))
 }
 
 func TestEquivalence_Apply_Targeted(t *testing.T) {
     dir := copyFixture(t, "apply-targeted")
-    runTfui("plan", "--project", dir, "--mode", "silent", "--target", "local_file.alpha")
-    runTfui("apply", "--project", dir, "--mode", "silent")
+    runTfui("plan", "--project", dir, "--ci", "--target", "local_file.alpha")
+    runTfui("apply", "--project", dir, "--ci")
     assertStateContains(t, dir, "local_file.alpha")
     assertStateNotContains(t, dir, "local_file.beta")
 }

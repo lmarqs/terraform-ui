@@ -56,7 +56,7 @@ Error: loading plan from s3://bucket/key.json: NoSuchKey: The specified key does
   Check the bucket name and key path. Use `aws s3 ls s3://bucket/` to list available files.
 
 Error: loading state from https://example.com/state.json: 401 Unauthorized
-  The server requires authentication. Set TFUI_HTTP_TOKEN or configure auth in tfui.yaml.
+  The server requires authentication. Set TFUI_HTTP_TOKEN or configure auth in tfui.hcl.
 ```
 
 ## Advantages
@@ -90,7 +90,7 @@ resolver.Register(&S3Provider{client: s3Client})
 
 ## Open Questions
 
-- HTTP authentication: env var only, or also support tfui.yaml config?
+- HTTP authentication: env var only, or also support tfui.hcl config?
 - Should S3 support cross-account assume-role? (or just rely on AWS profile/config)
 - GCS/Azure in this phase or separate?
 - Progress bar or just byte count on stderr?

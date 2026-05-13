@@ -19,7 +19,7 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
 
    ```go
    type Plugin interface {
-       ID() string           // unique identifier, used as key in tfui.yaml plugins map
+       ID() string           // unique identifier, used as key in tfui.hcl plugins map
        Name() string         // human-readable display name
        Description() string  // one-line description for help/status bar
        KeyBinding() string   // single key to activate from home (e.g., "p", "R", "b")
@@ -28,7 +28,7 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
        Update(msg tea.Msg) (Plugin, tea.Cmd) // handle messages (bubbletea pattern)
        View(width, height int) string       // render the plugin view
 
-       Configure(cfg map[string]interface{}) error  // apply plugin-specific config from tfui.yaml
+       Configure(cfg map[string]interface{}) error  // apply plugin-specific config from tfui.hcl
        Ready() bool                                  // whether data is loaded and view is ready
    }
    ```
@@ -121,7 +121,7 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
    ---
    ```
 
-   Include sections: Overview, Usage (keybindings table), Configuration (tfui.yaml example), Screenshots/Output, Related.
+   Include sections: Overview, Usage (keybindings table), Configuration (tfui.hcl example), Screenshots/Output, Related.
 
 6. **Update the plugin index at `docs/plugins/index.md`**
 
