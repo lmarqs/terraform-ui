@@ -5,7 +5,7 @@ priority: medium
 created: 2026-05-11
 effort: small
 tags: [debt, testing, ci, docs]
-depends_on: [ci-pipeline-unification]
+depends_on: []
 ---
 
 ## Summary
@@ -174,7 +174,7 @@ Add to CLAUDE.md:
 ## Tasks
 
 - [ ] Add `test:integration` and `test:all` tasks to `mise.toml`
-- [ ] Add integration test job to CI workflow (after ci-pipeline-unification)
+- [ ] Add integration test job to CI workflow
 - [ ] Document test layers table in CLAUDE.md Testing section
 - [ ] Document golden file workflow (`-update` flag, `AssertGolden()`)
 - [ ] Document tape DSL syntax and macro test guidelines
