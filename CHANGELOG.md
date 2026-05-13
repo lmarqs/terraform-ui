@@ -1,3 +1,31 @@
+# [1.6.0](https://github.com/lmarqs/terraform-ui/compare/v1.5.0...v1.6.0) (2026-05-13)
+
+
+### Bug Fixes
+
+* **ci:** update workflow to use renamed integration task ([f1ce78f](https://github.com/lmarqs/terraform-ui/commit/f1ce78f42901a40b3f0e0a8442346931fbe99731))
+* init plugin generates HCL to tfui.hcl instead of YAML ([d055e77](https://github.com/lmarqs/terraform-ui/commit/d055e771c39ad9b2b6862ba52df3d5ba4d4d41aa))
+* process pending commands in macro WaitUntil loop ([d4f3f03](https://github.com/lmarqs/terraform-ui/commit/d4f3f03e40bbae422c8e96d3b8304d6c58818e5b))
+* remove command filtering from RecordingService ([045003a](https://github.com/lmarqs/terraform-ui/commit/045003a94e032a5b03f60f9332809fca3506611f))
+* replace StdinProvider consumed bool with sync.Once ([cd784f1](https://github.com/lmarqs/terraform-ui/commit/cd784f178d1246ccaa6a39beb4a93e02e09a53ab))
+* show targeted resource count in apply confirmation when pins exist ([cde8fef](https://github.com/lmarqs/terraform-ui/commit/cde8feffdbc53b5d3822b20f4863b776c08534aa))
+* **test:** correct apply_targeted.tape wait text for pinned resources ([e7a4396](https://github.com/lmarqs/terraform-ui/commit/e7a4396cf20b5144d2098038ca4662530cf58e73))
+* **test:** correct targeted apply wait text in integration test ([83cc809](https://github.com/lmarqs/terraform-ui/commit/83cc80968693c4d601a39b3f485bf009dedcda45))
+* use go-isatty for portable TTY detection ([5396a9b](https://github.com/lmarqs/terraform-ui/commit/5396a9b4ef13bb2821d87ea4075d25ec581bac7b))
+
+
+### Features
+
+* add argument normalizer and wire HCL config in CLI ([ef7795e](https://github.com/lmarqs/terraform-ui/commit/ef7795efc2b4e8579b380d29509fb24f5840cdc4))
+* add exploratory-tester agent for macro-driven smoke testing ([5d29746](https://github.com/lmarqs/terraform-ui/commit/5d29746eb48a263d966c111ec92010d528479e81))
+* add tofu and terragrunt to mise, per-binary integration tasks ([cb47504](https://github.com/lmarqs/terraform-ui/commit/cb47504300e3214ae0ec5b6ea042140a62a01c7d))
+* add typed event bus, replace session-key polling with reactive handlers ([306091a](https://github.com/lmarqs/terraform-ui/commit/306091abda0888ce3e5bf926c9b5b79974e7a9a2))
+* change Service interface to PlanOptions/ApplyOptions ([161f061](https://github.com/lmarqs/terraform-ui/commit/161f061c1acc3c898aac511cdd64c043afe2dd16))
+* implement HCL config parsing (LoadRoot, LoadChild, Resolve) ([9c42fa5](https://github.com/lmarqs/terraform-ui/commit/9c42fa5803d60da3818644c6cadb05922f29eb71))
+* live workspace re-resolve and remove all YAML vestiges ([bcb207c](https://github.com/lmarqs/terraform-ui/commit/bcb207c2e094a02f8f3e8318cfa6161ca8ad50c9))
+* replace scope plugin with chdir plugin ([fb53be2](https://github.com/lmarqs/terraform-ui/commit/fb53be2be998a2baf456c29de2d37e3be7722eaa))
+* wire -- passthrough to ExtraArgs in PlanOptions/ApplyOptions ([2450b28](https://github.com/lmarqs/terraform-ui/commit/2450b2833dcf8e20b13ca99be11589faef65484e))
+
 # [1.5.0](https://github.com/lmarqs/terraform-ui/compare/v1.4.0...v1.5.0) (2026-05-12)
 
 
