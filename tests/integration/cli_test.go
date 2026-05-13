@@ -58,28 +58,27 @@ func TestCLI_UnknownCommand(t *testing.T) {
 	}
 }
 
-func TestCLI_PlanInvalidMode(t *testing.T) {
-	_, stderr, err := runTfui("plan", "--mode", "bogus", "--project", fixtureDir("create"))
+func TestCLI_PlanInvalidOutput(t *testing.T) {
+	_, stderr, err := runTfui("plan", "--output", "bogus", "--project", fixtureDir("create"))
 	if err == nil {
-		t.Fatal("expected error for invalid mode, got nil")
+		t.Fatal("expected error for invalid output format, got nil")
 	}
-	combined := stderr
-	if !strings.Contains(combined, "unknown mode") {
-		t.Errorf("expected 'unknown mode' in error output, got: %q", combined)
+	if !strings.Contains(stderr, "unknown output format") {
+		t.Errorf("expected 'unknown output format' in error output, got: %q", stderr)
 	}
 }
 
 func TestCLI_PlanNonexistentDir(t *testing.T) {
-	_, _, err := runTfui("plan", "--project", "/nonexistent/path/does/not/exist", "--mode", "silent")
+	_, _, err := runTfui("plan", "--project", "/nonexistent/path/does/not/exist", "--ci")
 	if err == nil {
 		t.Fatal("expected error for nonexistent directory, got nil")
 	}
 }
 
-func TestCLI_PlanAgentModeOutputsValidJSON(t *testing.T) {
+func TestCLI_PlanOutputJSONValid(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--mode", "agent")
+	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--output", "json")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -98,10 +97,10 @@ func TestCLI_PlanAgentModeOutputsValidJSON(t *testing.T) {
 	}
 }
 
-func TestCLI_PlanSilentModeOutputsTreeView(t *testing.T) {
+func TestCLI_PlanCIModeOutputsTreeView(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--mode", "silent")
+	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--ci")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}

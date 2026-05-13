@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// agentJSON is the parsed structure of agent mode output.
+// agentJSON is the parsed structure of --output json output.
 type agentJSON struct {
 	Changes          []agentChange `json:"changes"`
 	Summary          agentSummary  `json:"summary"`
@@ -34,9 +34,9 @@ func runPlanAgent(t *testing.T, fixture string) agentJSON {
 	t.Helper()
 	initFixture(t, fixture)
 
-	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--mode", "agent")
+	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--output", "json")
 	if err != nil {
-		t.Fatalf("plan --mode agent failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
+		t.Fatalf("plan --output json failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
 	}
 
 	var result agentJSON
@@ -50,9 +50,9 @@ func runPlanSilent(t *testing.T, fixture string) string {
 	t.Helper()
 	initFixture(t, fixture)
 
-	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--mode", "silent")
+	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--ci")
 	if err != nil {
-		t.Fatalf("plan --mode silent failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
+		t.Fatalf("plan --ci failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
 	}
 	return stdout
 }
@@ -264,12 +264,12 @@ func TestPlan_MultiResourceFixture_SilentMode(t *testing.T) {
 	}
 }
 
-// -- Agent mode JSON structure tests --
+// -- Output JSON structure tests --
 
 func TestPlan_AgentMode_JSONStructure(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--mode", "agent")
+	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--output", "json")
 	if err != nil {
 		t.Fatalf("plan failed: %v", err)
 	}

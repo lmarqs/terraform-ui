@@ -71,7 +71,6 @@ func setupTestApp() App {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
-		Mode:      "progress",
 	}
 
 	svc := &mockService{workspace: "default"}
@@ -336,7 +335,6 @@ func TestApp_LoadWorkspace_Success(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
-		Mode:      "progress",
 	}
 
 	svc := &mockService{workspace: "production"}
@@ -359,7 +357,6 @@ func TestApp_LoadWorkspace_Error(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
-		Mode:      "progress",
 	}
 
 	svc := &mockService{workspace: "", workspaceErr: fmt.Errorf("connection failed")}
@@ -382,7 +379,6 @@ func TestApp_Init_WithPluginInitCmd(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
-		Mode:      "progress",
 	}
 
 	registry := plugin.NewRegistry()

@@ -1,7 +1,7 @@
 # Build output
 dist/
 *.out
-tfui
+/tfui
 
 # IDE
 .idea/

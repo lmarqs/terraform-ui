@@ -70,13 +70,13 @@ func TestApply_CreateFixture_SilentMode(t *testing.T) {
 	dir := copyFixture(t, "apply-create")
 
 	// Plan first
-	_, stderr, err := runTfui("plan", "--project", dir, "--mode", "silent")
+	_, stderr, err := runTfui("plan", "--project", dir, "--ci")
 	if err != nil {
 		t.Fatalf("plan failed: %v\nstderr: %s", err, stderr)
 	}
 
 	// Apply
-	stdout, stderr, err := runTfui("apply", "--project", dir, "--mode", "silent")
+	stdout, stderr, err := runTfui("apply", "--project", dir, "--ci")
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
 	}
@@ -92,15 +92,15 @@ func TestApply_CreateFixture_AgentMode(t *testing.T) {
 	dir := copyFixture(t, "apply-create")
 
 	// Plan first
-	_, _, err := runTfui("plan", "--project", dir, "--mode", "silent")
+	_, _, err := runTfui("plan", "--project", dir, "--ci")
 	if err != nil {
 		t.Fatalf("plan failed: %v", err)
 	}
 
-	// Apply in agent mode
-	stdout, stderr, err := runTfui("apply", "--project", dir, "--mode", "agent")
+	// Apply in --output json
+	stdout, stderr, err := runTfui("apply", "--project", dir, "--output", "json")
 	if err != nil {
-		t.Fatalf("apply --mode agent failed: %v\nstderr: %s", err, stderr)
+		t.Fatalf("apply --output json failed: %v\nstderr: %s", err, stderr)
 	}
 
 	if !strings.Contains(stdout, "complete") {
@@ -112,13 +112,13 @@ func TestApply_Targeted_OnlyAppliesTarget(t *testing.T) {
 	dir := copyFixture(t, "apply-targeted")
 
 	// Plan targeting only alpha
-	_, stderr, err := runTfui("plan", "--project", dir, "--mode", "silent", "--target", "local_file.alpha")
+	_, stderr, err := runTfui("plan", "--project", dir, "--ci", "--target", "local_file.alpha")
 	if err != nil {
 		t.Fatalf("targeted plan failed: %v\nstderr: %s", err, stderr)
 	}
 
 	// Apply (applies the targeted plan)
-	_, stderr, err = runTfui("apply", "--project", dir, "--mode", "silent")
+	_, stderr, err = runTfui("apply", "--project", dir, "--ci")
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s", err, stderr)
 	}
@@ -141,13 +141,13 @@ func TestApply_NoChanges_Succeeds(t *testing.T) {
 	initFixture(t, "no-changes")
 
 	// Plan (no changes expected)
-	_, _, err := runTfui("plan", "--project", fixtureDir("no-changes"), "--mode", "silent")
+	_, _, err := runTfui("plan", "--project", fixtureDir("no-changes"), "--ci")
 	if err != nil {
 		t.Fatalf("plan failed: %v", err)
 	}
 
 	// Apply should succeed even with no changes
-	_, stderr, err := runTfui("apply", "--project", fixtureDir("no-changes"), "--mode", "silent")
+	_, stderr, err := runTfui("apply", "--project", fixtureDir("no-changes"), "--ci")
 	if err != nil {
 		// No plan file means error — this is expected when there are no changes
 		if !strings.Contains(stderr, "no plan") && !strings.Contains(stderr, "plan file") {
