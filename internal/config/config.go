@@ -1,12 +1,9 @@
 package config
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
-
-	"gopkg.in/yaml.v3"
 )
 
 // Config holds all configuration for the tfui application, loaded from
@@ -129,9 +126,10 @@ type TerraformConfig struct {
 	Bin string `yaml:"bin"`
 }
 
-// TerraformBinary returns the resolved terraform binary path for backwards compatibility.
+// TerraformBinary returns the configured terraform binary path.
+// Returns empty string if not configured (let terraform-exec handle it).
 func (c Config) TerraformBinary() string {
-	return DetectBinary(c.Terraform.Bin)
+	return c.Terraform.Bin
 }
 
 // PluginConfig holds per-plugin configuration as declared in tfui.yaml.
@@ -153,15 +151,10 @@ func (c PluginConfig) IsEnabled() bool {
 
 // ScopeConfig defines how to discover terraform projects in a monorepo
 // by specifying glob patterns that match directories containing .tf files.
+// Deprecated: use chdir.members in tfui.hcl instead.
 type ScopeConfig struct {
-	// Paths is a list of glob patterns for module directories.
-	// Example: ["infra/*", "modules/**", "envs/production"]
 	Paths []string `yaml:"paths"`
 }
-
-// ConfigFileName is the expected filename for tfui configuration, searched
-// upward from the working directory.
-const ConfigFileName = "tfui.yaml"
 
 // DefaultConfig returns a Config with sensible defaults: current directory as
 // working dir and "progress" as the UI mode.
@@ -172,144 +165,6 @@ func DefaultConfig() Config {
 	}
 }
 
-// Load reads the tfui.yaml configuration file from the given directory or its
-// ancestor directories. It walks up the directory tree until it finds a config
-// file or reaches the filesystem root, similar to how pnpm-workspace.yaml is resolved.
-func Load(dir string) (Config, error) {
-	cfg := DefaultConfig()
-	cfg.Dir = dir
-
-	absDir, err := filepath.Abs(dir)
-	if err != nil {
-		return cfg, fmt.Errorf("resolving directory path: %w", err)
-	}
-
-	configPath := findConfigFile(absDir)
-	if configPath == "" {
-		return cfg, nil
-	}
-
-	data, err := os.ReadFile(configPath)
-	if err != nil {
-		return cfg, fmt.Errorf("reading config file %s: %w", configPath, err)
-	}
-
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return cfg, fmt.Errorf("parsing config file %s: %w", configPath, err)
-	}
-
-	cfg.Dir = dir
-	return cfg, nil
-}
-
-func findConfigFile(dir string) string {
-	for {
-		path := filepath.Join(dir, ConfigFileName)
-		if _, err := os.Stat(path); err == nil {
-			return path
-		}
-
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			break
-		}
-		dir = parent
-	}
-	return ""
-}
-
-// DiscoverScopes returns all terraform project directories matching the glob
-// patterns configured in Scope.Paths. If no patterns are configured, it
-// auto-discovers terraform subdirectories (one level deep). If only the root
-// directory contains terraform files, it returns just the root directory.
-func (c Config) DiscoverScopes() ([]string, error) {
-	absDir, err := filepath.Abs(c.Dir)
-	if err != nil {
-		return nil, err
-	}
-
-	if len(c.Scope.Paths) == 0 {
-		return c.autoDiscoverScopes(absDir)
-	}
-
-	var modules []string
-	seen := make(map[string]bool)
-
-	for _, pattern := range c.Scope.Paths {
-		fullPattern := filepath.Join(absDir, pattern)
-		matches, err := filepath.Glob(fullPattern)
-		if err != nil {
-			continue
-		}
-
-		for _, match := range matches {
-			if seen[match] {
-				continue
-			}
-			if HasTerraformFiles(match) {
-				seen[match] = true
-				rel, err := filepath.Rel(absDir, match)
-				if err != nil {
-					rel = match
-				}
-				modules = append(modules, rel)
-			}
-		}
-	}
-
-	return modules, nil
-}
-
-// autoDiscoverScopes walks the directory tree to find terraform projects.
-// Skips hidden directories and stops descending once a dir has .tf files.
-// If only the root directory has terraform files, returns just the root.
-func (c Config) autoDiscoverScopes(absDir string) ([]string, error) {
-	var projects []string
-
-	entries, err := os.ReadDir(absDir)
-	if err != nil {
-		return []string{c.Dir}, nil
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name()[0] == '.' {
-			continue
-		}
-		subPath := filepath.Join(absDir, entry.Name())
-		found := discoverTerraformDirs(subPath, absDir)
-		projects = append(projects, found...)
-	}
-
-	if len(projects) <= 1 {
-		return []string{c.Dir}, nil
-	}
-
-	return projects, nil
-}
-
-func discoverTerraformDirs(dir, root string) []string {
-	if HasTerraformFiles(dir) {
-		rel, err := filepath.Rel(root, dir)
-		if err != nil {
-			rel = dir
-		}
-		return []string{rel}
-	}
-
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return nil
-	}
-
-	var results []string
-	for _, entry := range entries {
-		if !entry.IsDir() || entry.Name()[0] == '.' {
-			continue
-		}
-		results = append(results, discoverTerraformDirs(filepath.Join(dir, entry.Name()), root)...)
-	}
-	return results
-}
 
 // DetectBinary returns the terraform binary to use. If configured is non-empty,
 // it is returned as-is. Otherwise, it prefers "tofu" (OpenTofu) if available on

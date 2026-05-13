@@ -107,7 +107,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.selected = 0
 	p.preview = ""
 	p.menuItem = 0
-	p.configPath = filepath.Join(p.dir, config.ConfigFileName)
+	p.configPath = filepath.Join(p.dir, config.HCLConfigFileName)
 	_, err := os.Stat(p.configPath)
 	p.hasConfig = err == nil
 	return nil
@@ -115,7 +115,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // Activate triggers the menu when the user enters the plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	p.configPath = filepath.Join(p.dir, config.ConfigFileName)
+	p.configPath = filepath.Join(p.dir, config.HCLConfigFileName)
 	_, err := os.Stat(p.configPath)
 	p.hasConfig = err == nil
 	p.status = StatusMenu

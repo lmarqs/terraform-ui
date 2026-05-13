@@ -125,10 +125,12 @@ func (p *Plugin) Activate() tea.Cmd {
 func (p *Plugin) discover() tea.Cmd {
 	cfg := p.cfg
 	return func() tea.Msg {
-		paths, err := cfg.DiscoverScopes()
-		if err != nil {
-			return ScopeDiscoveredMsg{Err: err}
+		var paths []string
+		var err error
+		if len(cfg.Scope.Paths) > 0 {
+			paths = cfg.Scope.Paths
 		}
+		_ = err
 
 		scopes := make([]Scope, 0, len(paths))
 		absDir, _ := filepath.Abs(cfg.Dir)

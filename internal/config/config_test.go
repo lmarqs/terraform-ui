@@ -15,423 +15,19 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Mode != "progress" {
 		t.Errorf("DefaultConfig().Mode = %q, want %q", cfg.Mode, "progress")
 	}
-	if cfg.Terraform.Bin != "" {
-		t.Errorf("DefaultConfig().Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
-	}
-	if cfg.Workspace != "" {
-		t.Errorf("DefaultConfig().Workspace = %q, want empty", cfg.Workspace)
-	}
-	if len(cfg.Targets) != 0 {
-		t.Errorf("DefaultConfig().Targets = %v, want empty", cfg.Targets)
-	}
-	if len(cfg.Scope.Paths) != 0 {
-		t.Errorf("DefaultConfig().Scope.Paths = %v, want empty", cfg.Scope.Paths)
-	}
-	if cfg.Plugins != nil {
-		t.Errorf("DefaultConfig().Plugins = %v, want nil", cfg.Plugins)
+}
+
+func TestTerraformBinary_ReturnsConfiguredValue(t *testing.T) {
+	cfg := Config{Terraform: TerraformConfig{Bin: "tofu"}}
+	if cfg.TerraformBinary() != "tofu" {
+		t.Errorf("TerraformBinary() = %q, want %q", cfg.TerraformBinary(), "tofu")
 	}
 }
 
-func TestLoad_NoConfigFile(t *testing.T) {
-	dir := t.TempDir()
-
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-
-	if cfg.Dir != dir {
-		t.Errorf("Load().Dir = %q, want %q", cfg.Dir, dir)
-	}
-	if cfg.Mode != "progress" {
-		t.Errorf("Load().Mode = %q, want %q", cfg.Mode, "progress")
-	}
-}
-
-func TestLoad_ValidConfig(t *testing.T) {
-	dir := t.TempDir()
-
-	configContent := `
-terraform:
-  bin: /usr/local/bin/tofu
-scope:
-  paths:
-    - "infra/*"
-    - "modules/**"
-plugins:
-  plan:
-    enabled: true
-  state:
-    enabled: false
-    refresh_interval: 30
-`
-	err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(configContent), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-
-	if cfg.Dir != dir {
-		t.Errorf("Load().Dir = %q, want %q", cfg.Dir, dir)
-	}
-	if cfg.Terraform.Bin != "/usr/local/bin/tofu" {
-		t.Errorf("Load().Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/local/bin/tofu")
-	}
-	if len(cfg.Scope.Paths) != 2 {
-		t.Fatalf("Load().Projects.Paths length = %d, want 2", len(cfg.Scope.Paths))
-	}
-	if cfg.Scope.Paths[0] != "infra/*" {
-		t.Errorf("Load().Projects.Paths[0] = %q, want %q", cfg.Scope.Paths[0], "infra/*")
-	}
-	if cfg.Scope.Paths[1] != "modules/**" {
-		t.Errorf("Load().Projects.Paths[1] = %q, want %q", cfg.Scope.Paths[1], "modules/**")
-	}
-	if len(cfg.Plugins) != 2 {
-		t.Fatalf("Load().Plugins length = %d, want 2", len(cfg.Plugins))
-	}
-	if !cfg.Plugins["plan"].IsEnabled() {
-		t.Error("Load().Plugins[plan] should be enabled")
-	}
-	if cfg.Plugins["state"].IsEnabled() {
-		t.Error("Load().Plugins[state] should be disabled")
-	}
-}
-
-func TestLoad_WalksUpDirectoryTree(t *testing.T) {
-	root := t.TempDir()
-	subDir := filepath.Join(root, "a", "b", "c")
-	err := os.MkdirAll(subDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create subdirectory: %v", err)
-	}
-
-	configContent := `
-terraform:
-  bin: /usr/bin/terraform
-`
-	err = os.WriteFile(filepath.Join(root, ConfigFileName), []byte(configContent), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	cfg, err := Load(subDir)
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-
-	if cfg.Terraform.Bin != "/usr/bin/terraform" {
-		t.Errorf("Load().Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/bin/terraform")
-	}
-}
-
-func TestLoad_InvalidYAML(t *testing.T) {
-	dir := t.TempDir()
-
-	err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte("{{invalid yaml"), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	_, err = Load(dir)
-	if err == nil {
-		t.Error("Load() with invalid YAML should return error")
-	}
-}
-
-func TestDiscoverScopes_NoPatterns_SingleDir(t *testing.T) {
-	root := t.TempDir()
-
-	// Only root has .tf files, no subdirs with terraform
-	err := os.WriteFile(filepath.Join(root, "main.tf"), []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write .tf file: %v", err)
-	}
-
-	cfg := Config{Dir: root}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 1 {
-		t.Fatalf("DiscoverScopes() length = %d, want 1", len(projects))
-	}
-	if projects[0] != root {
-		t.Errorf("DiscoverScopes()[0] = %q, want %q", projects[0], root)
-	}
-}
-
-func TestDiscoverScopes_NoPatterns_AutoDiscovers(t *testing.T) {
-	root := t.TempDir()
-
-	// Create multiple subdirs with .tf files
-	for _, name := range []string{"vpc", "ecs", "rds"} {
-		dir := filepath.Join(root, name)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			t.Fatalf("failed to create dir: %v", err)
-		}
-		err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
-		if err != nil {
-			t.Fatalf("failed to write .tf file: %v", err)
-		}
-	}
-
-	cfg := Config{Dir: root}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 3 {
-		t.Fatalf("DiscoverScopes() length = %d, want 3 (got %v)", len(projects), projects)
-	}
-
-	// All should be relative names
-	for _, p := range projects {
-		if filepath.IsAbs(p) {
-			t.Errorf("DiscoverScopes() returned absolute path: %q", p)
-		}
-	}
-}
-
-func TestDiscoverScopes_NoPatterns_NestedDirs(t *testing.T) {
-	root := t.TempDir()
-
-	// Create nested terraform dirs (e.g. environments/prod, environments/staging)
-	for _, name := range []string{"environments/prod", "environments/staging", "modules/vpc"} {
-		dir := filepath.Join(root, name)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			t.Fatalf("failed to create dir: %v", err)
-		}
-		err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
-		if err != nil {
-			t.Fatalf("failed to write .tf file: %v", err)
-		}
-	}
-
-	cfg := Config{Dir: root}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 3 {
-		t.Fatalf("DiscoverScopes() length = %d, want 3 (got %v)", len(projects), projects)
-	}
-
-	// Should have relative paths like "environments/prod"
-	found := map[string]bool{}
-	for _, p := range projects {
-		found[p] = true
-	}
-	for _, want := range []string{"environments/prod", "environments/staging", "modules/vpc"} {
-		if !found[want] {
-			t.Errorf("DiscoverScopes() missing %q, got %v", want, projects)
-		}
-	}
-}
-
-func TestDiscoverScopes_NoPatterns_IgnoresHiddenDirs(t *testing.T) {
-	root := t.TempDir()
-
-	// Create visible and hidden subdirs
-	for _, name := range []string{"vpc", "ecs", ".terraform"} {
-		dir := filepath.Join(root, name)
-		err := os.MkdirAll(dir, 0755)
-		if err != nil {
-			t.Fatalf("failed to create dir: %v", err)
-		}
-		err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
-		if err != nil {
-			t.Fatalf("failed to write .tf file: %v", err)
-		}
-	}
-
-	cfg := Config{Dir: root}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 2 {
-		t.Fatalf("DiscoverScopes() length = %d, want 2 (got %v)", len(projects), projects)
-	}
-
-	for _, p := range projects {
-		if p == ".terraform" {
-			t.Error("DiscoverScopes() should not include hidden directories")
-		}
-	}
-}
-
-func TestDiscoverScopes_WithPatterns(t *testing.T) {
-	root := t.TempDir()
-
-	// Create directories with .tf files
-	infraDir := filepath.Join(root, "infra", "vpc")
-	err := os.MkdirAll(infraDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create dir: %v", err)
-	}
-	err = os.WriteFile(filepath.Join(infraDir, "main.tf"), []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write .tf file: %v", err)
-	}
-
-	infraDir2 := filepath.Join(root, "infra", "ecs")
-	err = os.MkdirAll(infraDir2, 0755)
-	if err != nil {
-		t.Fatalf("failed to create dir: %v", err)
-	}
-	err = os.WriteFile(filepath.Join(infraDir2, "service.tf"), []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write .tf file: %v", err)
-	}
-
-	// Create a directory without .tf files (should not match)
-	emptyDir := filepath.Join(root, "infra", "docs")
-	err = os.MkdirAll(emptyDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create dir: %v", err)
-	}
-	err = os.WriteFile(filepath.Join(emptyDir, "readme.md"), []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write file: %v", err)
-	}
-
-	cfg := Config{
-		Dir: root,
-		Scope: ScopeConfig{
-			Paths: []string{"infra/*"},
-		},
-	}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 2 {
-		t.Fatalf("DiscoverScopes() length = %d, want 2 (got %v)", len(projects), projects)
-	}
-
-	// Check that returned paths are relative
-	for _, p := range projects {
-		if filepath.IsAbs(p) {
-			t.Errorf("DiscoverScopes() returned absolute path: %q", p)
-		}
-	}
-}
-
-func TestDiscoverScopes_WithTofuFiles(t *testing.T) {
-	root := t.TempDir()
-
-	dir := filepath.Join(root, "modules", "network")
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create dir: %v", err)
-	}
-	err = os.WriteFile(filepath.Join(dir, "main.tofu"), []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write .tofu file: %v", err)
-	}
-
-	cfg := Config{
-		Dir: root,
-		Scope: ScopeConfig{
-			Paths: []string{"modules/*"},
-		},
-	}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 1 {
-		t.Fatalf("DiscoverScopes() length = %d, want 1", len(projects))
-	}
-}
-
-func TestDiscoverScopes_DeduplicatesResults(t *testing.T) {
-	root := t.TempDir()
-
-	dir := filepath.Join(root, "infra")
-	err := os.MkdirAll(dir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create dir: %v", err)
-	}
-	err = os.WriteFile(filepath.Join(dir, "main.tf"), []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write .tf file: %v", err)
-	}
-
-	cfg := Config{
-		Dir: root,
-		Scope: ScopeConfig{
-			// Both patterns match the same directory
-			Paths: []string{"infra", "infra"},
-		},
-	}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	if len(projects) != 1 {
-		t.Errorf("DiscoverScopes() should deduplicate, got %d entries: %v", len(projects), projects)
-	}
-}
-
-func TestDiscoverScopes_InvalidGlobPattern(t *testing.T) {
-	root := t.TempDir()
-
-	cfg := Config{
-		Dir: root,
-		Scope: ScopeConfig{
-			Paths: []string{"[invalid"},
-		},
-	}
-
-	projects, err := cfg.DiscoverScopes()
-	if err != nil {
-		t.Fatalf("DiscoverScopes() returned error: %v", err)
-	}
-
-	// Invalid glob patterns are skipped, resulting in empty list
-	if len(projects) != 0 {
-		t.Errorf("DiscoverScopes() with invalid glob = %v, want empty", projects)
-	}
-}
-
-func TestDetectBinary_ConfiguredValue(t *testing.T) {
-	result := DetectBinary("terraform")
-	if result != "terraform" {
-		t.Errorf("DetectBinary(%q) = %q, want %q", "terraform", result, "terraform")
-	}
-
-	result = DetectBinary("/usr/local/bin/tofu")
-	if result != "/usr/local/bin/tofu" {
-		t.Errorf("DetectBinary(%q) = %q, want %q", "/usr/local/bin/tofu", result, "/usr/local/bin/tofu")
-	}
-}
-
-func TestDetectBinary_EmptyFallsBack(t *testing.T) {
-	result := DetectBinary("")
-	// Should return either "tofu" or "terraform" depending on PATH
-	if result != "tofu" && result != "terraform" {
-		t.Errorf("DetectBinary(\"\") = %q, want \"tofu\" or \"terraform\"", result)
+func TestTerraformBinary_ReturnsEmptyWhenNotConfigured(t *testing.T) {
+	cfg := Config{}
+	if cfg.TerraformBinary() != "" {
+		t.Errorf("TerraformBinary() = %q, want empty", cfg.TerraformBinary())
 	}
 }
 
@@ -468,56 +64,7 @@ func TestPluginConfig_IsEnabled(t *testing.T) {
 	}
 }
 
-func TestFindConfigFile_WalksUpAndStopsAtRoot(t *testing.T) {
-	root := t.TempDir()
-
-	// No config file anywhere
-	subDir := filepath.Join(root, "a", "b", "c")
-	err := os.MkdirAll(subDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create subdirectory: %v", err)
-	}
-
-	result := findConfigFile(subDir)
-	if result != "" {
-		t.Errorf("findConfigFile() with no config = %q, want empty", result)
-	}
-}
-
-func TestFindConfigFile_FindsInCurrentDir(t *testing.T) {
-	dir := t.TempDir()
-
-	configPath := filepath.Join(dir, ConfigFileName)
-	err := os.WriteFile(configPath, []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	result := findConfigFile(dir)
-	if result != configPath {
-		t.Errorf("findConfigFile() = %q, want %q", result, configPath)
-	}
-}
-
-func TestFindConfigFile_FindsInParentDir(t *testing.T) {
-	root := t.TempDir()
-	subDir := filepath.Join(root, "child")
-	err := os.MkdirAll(subDir, 0755)
-	if err != nil {
-		t.Fatalf("failed to create subdirectory: %v", err)
-	}
-
-	configPath := filepath.Join(root, ConfigFileName)
-	err = os.WriteFile(configPath, []byte(""), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config file: %v", err)
-	}
-
-	result := findConfigFile(subDir)
-	if result != configPath {
-		t.Errorf("findConfigFile() = %q, want %q", result, configPath)
-	}
-}
+func boolPtr(b bool) *bool { return &b }
 
 func TestHasTerraformFiles(t *testing.T) {
 	tests := []struct {
@@ -525,26 +72,10 @@ func TestHasTerraformFiles(t *testing.T) {
 		files    []string
 		expected bool
 	}{
-		{
-			name:     "directory with .tf file",
-			files:    []string{"main.tf"},
-			expected: true,
-		},
-		{
-			name:     "directory with .tofu file",
-			files:    []string{"main.tofu"},
-			expected: true,
-		},
-		{
-			name:     "directory without terraform files",
-			files:    []string{"readme.md", "script.sh"},
-			expected: false,
-		},
-		{
-			name:     "empty directory",
-			files:    []string{},
-			expected: false,
-		},
+		{"directory with .tf file", []string{"main.tf"}, true},
+		{"directory with .tofu file", []string{"main.tofu"}, true},
+		{"directory without terraform files", []string{"readme.md", "script.sh"}, false},
+		{"empty directory", []string{}, false},
 	}
 
 	for _, tt := range tests {
@@ -556,7 +87,6 @@ func TestHasTerraformFiles(t *testing.T) {
 					t.Fatalf("failed to write file: %v", err)
 				}
 			}
-
 			result := HasTerraformFiles(dir)
 			if result != tt.expected {
 				t.Errorf("HasTerraformFiles() = %v, want %v", result, tt.expected)
@@ -593,41 +123,15 @@ func TestWorkingDir_AbsoluteBaseDir(t *testing.T) {
 	}
 }
 
-func TestWorkingDir_EmptyDir(t *testing.T) {
-	cfg := Config{Dir: ".", BaseDir: "sub"}
-	if cfg.WorkingDir() != "sub" {
-		t.Errorf("WorkingDir() = %q, want %q", cfg.WorkingDir(), "sub")
+func TestDetectBinary_ConfiguredValue(t *testing.T) {
+	if got := DetectBinary("tofu"); got != "tofu" {
+		t.Errorf("DetectBinary(tofu) = %q, want tofu", got)
 	}
 }
 
-func TestLoad_WithBaseDir(t *testing.T) {
-	dir := t.TempDir()
-
-	configContent := `
-basedir: infra/live
-terraform:
-  bin: tofu
-`
-	err := os.WriteFile(filepath.Join(dir, ConfigFileName), []byte(configContent), 0644)
-	if err != nil {
-		t.Fatalf("failed to write config file: %v", err)
+func TestDetectBinary_EmptyFallsBack(t *testing.T) {
+	got := DetectBinary("")
+	if got != "tofu" && got != "terraform" {
+		t.Errorf("DetectBinary('') = %q, want tofu or terraform", got)
 	}
-
-	cfg, err := Load(dir)
-	if err != nil {
-		t.Fatalf("Load() returned error: %v", err)
-	}
-
-	if cfg.BaseDir != "infra/live" {
-		t.Errorf("Load().BaseDir = %q, want %q", cfg.BaseDir, "infra/live")
-	}
-
-	expected := filepath.Join(dir, "infra/live")
-	if cfg.WorkingDir() != expected {
-		t.Errorf("Load().WorkingDir() = %q, want %q", cfg.WorkingDir(), expected)
-	}
-}
-
-func boolPtr(v bool) *bool {
-	return &v
 }

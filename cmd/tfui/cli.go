@@ -217,7 +217,7 @@ func resolveProjectDir(project string) string {
 	} else {
 		// If it points to a file (or looks like it points to tfui.yaml), use parent dir
 		base := filepath.Base(dir)
-		if strings.EqualFold(base, config.ConfigFileName) {
+		if strings.EqualFold(base, config.HCLConfigFileName) {
 			dir = filepath.Dir(dir)
 		} else if info, err := os.Stat(dir); err == nil && !info.IsDir() {
 			// If it's an existing file (not a directory), use parent

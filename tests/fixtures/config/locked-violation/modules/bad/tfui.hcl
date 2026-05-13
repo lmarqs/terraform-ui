@@ -1,0 +1,3 @@
+terraform {
+  bin = "tofu"
+}
