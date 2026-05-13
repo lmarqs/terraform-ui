@@ -22,6 +22,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+          cache: false
+
+      - name: Download modules
+        run: go mod download
 
       - name: Release
         run: mise run release
