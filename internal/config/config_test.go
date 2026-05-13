@@ -12,9 +12,6 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Dir != "." {
 		t.Errorf("DefaultConfig().Dir = %q, want %q", cfg.Dir, ".")
 	}
-	if cfg.Mode != "progress" {
-		t.Errorf("DefaultConfig().Mode = %q, want %q", cfg.Mode, "progress")
-	}
 }
 
 func TestTerraformBinary_ReturnsConfiguredValue(t *testing.T) {
@@ -24,10 +21,10 @@ func TestTerraformBinary_ReturnsConfiguredValue(t *testing.T) {
 	}
 }
 
-func TestTerraformBinary_ReturnsEmptyWhenNotConfigured(t *testing.T) {
+func TestTerraformBinary_ReturnsDefaultWhenNotConfigured(t *testing.T) {
 	cfg := Config{}
-	if cfg.TerraformBinary() != "" {
-		t.Errorf("TerraformBinary() = %q, want empty", cfg.TerraformBinary())
+	if cfg.TerraformBinary() != "terraform" {
+		t.Errorf("TerraformBinary() = %q, want %q", cfg.TerraformBinary(), "terraform")
 	}
 }
 
@@ -120,18 +117,5 @@ func TestWorkingDir_AbsoluteBaseDir(t *testing.T) {
 	cfg := Config{Dir: "/project/root", BaseDir: "/other/path"}
 	if cfg.WorkingDir() != "/other/path" {
 		t.Errorf("WorkingDir() = %q, want %q", cfg.WorkingDir(), "/other/path")
-	}
-}
-
-func TestDetectBinary_ConfiguredValue(t *testing.T) {
-	if got := DetectBinary("tofu"); got != "tofu" {
-		t.Errorf("DetectBinary(tofu) = %q, want tofu", got)
-	}
-}
-
-func TestDetectBinary_EmptyFallsBack(t *testing.T) {
-	got := DetectBinary("")
-	if got != "tofu" && got != "terraform" {
-		t.Errorf("DetectBinary('') = %q, want tofu or terraform", got)
 	}
 }

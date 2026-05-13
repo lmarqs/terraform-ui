@@ -2,7 +2,6 @@ package config
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 )
 
@@ -16,7 +15,6 @@ type Config struct {
 	ReadOnly    bool
 	Terraform   TerraformConfig
 	Logger      LoggerConfig
-	Mode        string
 	Targets     []string
 	Plugins     map[string]PluginConfig
 	Overrides   map[string]string
@@ -90,9 +88,12 @@ type TerraformConfig struct {
 }
 
 // TerraformBinary returns the configured terraform binary path.
-// Returns empty string if not configured (let terraform-exec handle it).
+// Returns "terraform" when not explicitly configured.
 func (c Config) TerraformBinary() string {
-	return c.Terraform.Bin
+	if c.Terraform.Bin != "" {
+		return c.Terraform.Bin
+	}
+	return "terraform"
 }
 
 // PluginConfig holds per-plugin configuration.
@@ -113,21 +114,8 @@ func (c PluginConfig) IsEnabled() bool {
 // DefaultConfig returns a Config with sensible defaults.
 func DefaultConfig() Config {
 	return Config{
-		Dir:  ".",
-		Mode: "progress",
+		Dir: ".",
 	}
-}
-
-// DetectBinary returns the terraform binary to use.
-// Only used by the init wizard for auto-detection.
-func DetectBinary(configured string) string {
-	if configured != "" {
-		return configured
-	}
-	if _, err := exec.LookPath("tofu"); err == nil {
-		return "tofu"
-	}
-	return "terraform"
 }
 
 // HasTerraformFiles checks if a directory contains .tf or .tofu files.
