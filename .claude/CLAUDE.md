@@ -223,13 +223,72 @@ When `--plan` or `--state` provided:
 - Header shows `[read-only]` badge
 - Mutating hints hidden from status bar
 
+### CLI: Design Decisions
+
+tfui has three interfaces, each serving a distinct audience:
+
+| Interface | Command | Audience | Output |
+|-----------|---------|----------|--------|
+| TUI | `tfui` | Human (interactive) | BubbleTea screen |
+| CLI | `tfui plan`, `tfui apply` | Human (quick look) or CI | stdout text/JSON |
+| MCP | `tfui mcp` (future) | AI agents | Structured protocol |
+
+**CLI subcommand flags:**
+
+| Flag | Type | Values | Default | Purpose |
+|------|------|--------|---------|---------|
+| `--ci` | bool | — | `false` | Suppress spinner (audience signal) |
+| `--output` | string | `text`, `json` | `text` | Output format (like aws cli) |
+| `--terraform-bin` | string | path | `"terraform"` | Binary to use |
+| `--target` | []string | resource addr | — | Resource targets |
+
+**Behavior matrix:**
+
+| Command | stdout | stderr |
+|---------|--------|--------|
+| `tfui plan` | tree view | spinner + elapsed (if stderr is TTY) |
+| `tfui plan --ci` | tree view | nothing |
+| `tfui plan --output json` | enriched JSON | spinner + elapsed (if stderr is TTY) |
+| `tfui plan --output json --ci` | enriched JSON | nothing |
+
+The two flags are fully orthogonal:
+- `--output` → stdout format (`text` or `json`)
+- `--ci` → stderr behavior (suppress spinner)
+- `show_spinner = !ci && isStderrTTY()`
+
+**Why `--output` and not `--json`:**
+- terraform's `-json` produces NDJSON streaming events — fundamentally different from tfui's structured summary
+- `--output` avoids semantic collision, matches aws cli pattern, is extensible
+
+**terraform-exec and output ownership:**
+- terraform-exec discards terraform's human-readable stdout (plan text)
+- tfui reconstructs its own output from the structured plan JSON (`ShowPlanFile`)
+- Terraform flags that affect output format (`-json`, `-no-color`, `-compact-warnings`) are **not supported** — they affect stdout that tfui never sees
+- Flags that affect behavior (`-target`, `-var`, `-destroy`, etc.) are first-class tfui flags with single-dash normalization
+
+**Binary resolution:**
+- `--terraform-bin` flag > `--config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"` (default)
+- No auto-detection at runtime. Explicit configuration only.
+- `detectBinary()` exists only in the init wizard for suggesting a value during config generation
+
+**`--` passthrough:**
+- `splitPassthrough()` separates args at `--`
+- ExtraArgs are stored for `StaticService` (macro/recording mode)
+- `TerraformService` does not forward ExtraArgs — terraform-exec's typed API doesn't support raw arg passthrough
+- All behavioral terraform flags are already modeled as first-class tfui flags
+
+**Exit codes (terraform-compatible):**
+- `0` = success / no changes
+- `1` = error
+- `2` = changes present
+
 ### Config (`tfui.hcl`)
 
 HCL format. Everything optional. No config file = standalone mode.
 
 ```hcl
 terraform {
-  bin = "terraform"         # no auto-detection; empty = let terraform-exec handle
+  bin = "terraform"         # explicit binary; default is "terraform" when omitted
 }
 
 chdir {
