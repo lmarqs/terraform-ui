@@ -169,10 +169,10 @@ func (e *Plugin) Cancel() {
 
 func (e *Plugin) runApply() tea.Cmd {
 	svc := e.svc
-	targets := e.targets
+	opts := sdk.BuildApplyOptions(e.session, e.targets)
 	start := e.startTime
 	return func() tea.Msg {
-		err := svc.Apply(context.Background(), sdk.ApplyOptions{Targets: targets})
+		err := svc.Apply(context.Background(), opts)
 		return ApplyResultMsg{Err: err, Duration: time.Since(start)}
 	}
 }

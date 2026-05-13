@@ -18,4 +18,11 @@ const (
 
 	// SessionKeyWorkspace holds the current terraform workspace name (string).
 	SessionKeyWorkspace = "workspace.active"
+
+	// SessionKeyVarFiles holds the resolved var-file list ([]string) for current workspace.
+	SessionKeyVarFiles = "config.var_files"
+	// SessionKeyVars holds the resolved vars map (map[string]string) for current workspace.
+	SessionKeyVars = "config.vars"
+	// SessionKeyExtraArgs holds the -- passthrough args ([]string).
+	SessionKeyExtraArgs = "config.extra_args"
 )

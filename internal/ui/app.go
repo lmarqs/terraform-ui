@@ -63,6 +63,15 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		session.Set(sdk.SessionKeyActiveChdir, cfg.ActiveScope)
 		session.Set(sdk.SessionKeyActiveChdirAbs, absScope)
 	}
+	if len(cfg.VarFiles) > 0 {
+		session.Set(sdk.SessionKeyVarFiles, cfg.VarFiles)
+	}
+	if len(cfg.Vars) > 0 {
+		session.Set(sdk.SessionKeyVars, cfg.Vars)
+	}
+	if len(cfg.ExtraArgs) > 0 {
+		session.Set(sdk.SessionKeyExtraArgs, cfg.ExtraArgs)
+	}
 
 	return App{
 		cfg:           cfg,

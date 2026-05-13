@@ -74,8 +74,13 @@ func main() {
 					return fmt.Errorf("%w\n\nhint: check HCL syntax in tfui.hcl", err)
 				}
 			}
-			if rootCfg != nil && rootCfg.Terraform.Bin != "" && cfg.Terraform.Bin == "" {
-				cfg.Terraform.Bin = rootCfg.Terraform.Bin
+			if rootCfg != nil {
+				if rootCfg.Terraform.Bin != "" && cfg.Terraform.Bin == "" {
+					cfg.Terraform.Bin = rootCfg.Terraform.Bin
+				}
+				resolved := config.Resolve(rootCfg, nil, cfg.Workspace)
+				cfg.VarFiles = resolved.VarFiles()
+				cfg.Vars = resolved.Vars()
 			}
 
 			binary := cfg.TerraformBinary()

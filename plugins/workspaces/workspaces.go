@@ -181,6 +181,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 		} else {
 			e.current = msg.Name
+			if e.session != nil {
+				e.session.Set(sdk.SessionKeyWorkspace, msg.Name)
+			}
 		}
 		return e, e.Refresh()
 

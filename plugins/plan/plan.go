@@ -156,9 +156,9 @@ func (e *Plugin) Refresh() tea.Cmd {
 
 func (e *Plugin) runPlan() tea.Cmd {
 	svc := e.svc
-	targets := e.targets
+	opts := sdk.BuildPlanOptions(e.session, e.targets)
 	return func() tea.Msg {
-		summary, err := svc.Plan(context.Background(), sdk.PlanOptions{Targets: targets})
+		summary, err := svc.Plan(context.Background(), opts)
 		return PlanResultMsg{Summary: summary, Err: err}
 	}
 }
