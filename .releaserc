@@ -6,7 +6,7 @@
     "@semantic-release/changelog",
     ["@semantic-release/exec", {
       "prepareCmd": "echo ${nextRelease.version} > VERSION",
-      "publishCmd": "echo 'INTENTIONAL FAILURE FOR CI TEST' && exit 1"
+      "publishCmd": "goreleaser release --clean --skip=validate"
     }],
     ["@semantic-release/git", {
       "assets": ["CHANGELOG.md", "VERSION"],
