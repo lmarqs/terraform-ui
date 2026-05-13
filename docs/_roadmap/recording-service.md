@@ -1,8 +1,9 @@
 ---
 title: RecordingService Decorator (Command Recording Extraction)
-status: planned
+status: done
 priority: high
 created: 2026-05-12
+completed: 2026-05-13
 effort: medium
 tags: [architecture, macros, service]
 depends_on: []

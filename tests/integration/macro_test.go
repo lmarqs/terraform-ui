@@ -91,18 +91,24 @@ func TestMacro(t *testing.T) {
 			wantStdout: "terraform apply -target=",
 		},
 		{
-			name:       "plan records plan command",
+			name:       "plan records plan command with verbose",
 			tape:       "wait ready\nkey p\nwait view aws_instance",
-			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			args:       []string{"--plan", planFixture, "--state", stateFixture, "--macro-verbose"},
 			wantExit:   0,
 			wantStdout: "terraform plan\n",
 		},
 		{
-			name:       "state list records state list command",
+			name:       "state list records state list command with verbose",
 			tape:       "wait ready\nkey s\nwait view aws_instance.web",
-			args:       []string{"--plan", planFixture, "--state", stateFixture},
+			args:       []string{"--plan", planFixture, "--state", stateFixture, "--macro-verbose"},
 			wantExit:   0,
 			wantStdout: "terraform state list\n",
+		},
+		{
+			name:     "default mode suppresses read commands",
+			tape:     "wait ready\nkey p\nwait view aws_instance",
+			args:     []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit: 0,
 		},
 		{
 			name:       "state delete outputs state rm command",

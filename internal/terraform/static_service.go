@@ -12,67 +12,21 @@ import (
 const defaultBinary = "terraform"
 
 // StaticService implements sdk.Service with pre-loaded plan and state data.
-// All mutating operations return CommandErr and collect the command for later retrieval.
+// It serves data without executing terraform, returning nil from mutating operations.
 type StaticService struct {
 	plan      *sdk.PlanSummary
 	resources []sdk.Resource
 	state     *tfjson.State
-	binary    string
-	commands  []sdk.Command
 }
 
-// NewStaticService creates a read-only service pre-loaded with the given data.
+// NewStaticService creates a service pre-loaded with the given data.
 // Either plan or state (or both) may be nil.
-// Binary sets the terraform binary name in emitted commands (defaults to "terraform").
-func NewStaticService(plan *sdk.PlanSummary, resources []sdk.Resource, state *tfjson.State, binary string) *StaticService {
-	if binary == "" {
-		binary = defaultBinary
-	}
+func NewStaticService(plan *sdk.PlanSummary, resources []sdk.Resource, state *tfjson.State) *StaticService {
 	return &StaticService{
 		plan:      plan,
 		resources: resources,
 		state:     state,
-		binary:    binary,
 	}
-}
-
-func (s *StaticService) record(verb string, args []string, flags []string) {
-	s.commands = append(s.commands, sdk.Command{
-		Binary: s.binary,
-		Verb:   verb,
-		Args:   args,
-		Flags:  flags,
-	})
-}
-
-func (s *StaticService) commandErr(verb string, args []string, flags []string) error {
-	cmd := sdk.Command{
-		Binary: s.binary,
-		Verb:   verb,
-		Args:   args,
-		Flags:  flags,
-	}
-	s.commands = append(s.commands, cmd)
-	return &sdk.CommandErr{Cmd: cmd}
-}
-
-// Commands returns all commands collected during execution, in order.
-func (s *StaticService) Commands() []sdk.Command {
-	return s.commands
-}
-
-func (s *StaticService) Plan(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	flags := buildPlanFlags(opts)
-	s.record("plan", nil, flags)
-	if s.plan == nil {
-		return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
-	}
-	return s.plan, nil
-}
-
-func (s *StaticService) Apply(_ context.Context, opts sdk.ApplyOptions) error {
-	flags := buildApplyFlags(opts)
-	return s.commandErr("apply", nil, flags)
 }
 
 func buildPlanFlags(opts sdk.PlanOptions) []string {
@@ -135,8 +89,18 @@ func buildApplyFlags(opts sdk.ApplyOptions) []string {
 	return flags
 }
 
+func (s *StaticService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+	if s.plan == nil {
+		return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
+	}
+	return s.plan, nil
+}
+
+func (s *StaticService) Apply(_ context.Context, _ sdk.ApplyOptions) error {
+	return nil
+}
+
 func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {
-	s.record("state list", nil, nil)
 	if s.resources == nil {
 		return []sdk.Resource{}, nil
 	}
@@ -144,7 +108,6 @@ func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {
 }
 
 func (s *StaticService) Show(_ context.Context, address string) (string, error) {
-	s.record("state show", []string{address}, nil)
 	if s.state == nil || s.state.Values == nil {
 		return "", fmt.Errorf("no state available")
 	}
@@ -178,65 +141,63 @@ func (s *StaticService) Show(_ context.Context, address string) (string, error) 
 }
 
 func (s *StaticService) Workspace(_ context.Context) (string, error) {
-	s.record("workspace show", nil, nil)
 	return "readonly", nil
 }
 
 func (s *StaticService) WorkspaceList(_ context.Context) ([]string, error) {
-	s.record("workspace list", nil, nil)
 	return []string{"readonly"}, nil
 }
 
-func (s *StaticService) WorkspaceSelect(_ context.Context, name string) error {
-	return s.commandErr("workspace select", []string{name}, nil)
+func (s *StaticService) WorkspaceSelect(_ context.Context, _ string) error {
+	return nil
 }
 
-func (s *StaticService) WorkspaceNew(_ context.Context, name string) error {
-	return s.commandErr("workspace new", []string{name}, nil)
+func (s *StaticService) WorkspaceNew(_ context.Context, _ string) error {
+	return nil
 }
 
-func (s *StaticService) WorkspaceDelete(_ context.Context, name string) error {
-	return s.commandErr("workspace delete", []string{name}, nil)
+func (s *StaticService) WorkspaceDelete(_ context.Context, _ string) error {
+	return nil
 }
 
-func (s *StaticService) StateRm(_ context.Context, address string) error {
-	return s.commandErr("state rm", []string{address}, nil)
+func (s *StaticService) StateRm(_ context.Context, _ string) error {
+	return nil
 }
 
-func (s *StaticService) StateMove(_ context.Context, src, dst string) error {
-	return s.commandErr("state mv", []string{src, dst}, nil)
+func (s *StaticService) StateMove(_ context.Context, _, _ string) error {
+	return nil
 }
 
-func (s *StaticService) Import(_ context.Context, address, id string) error {
-	return s.commandErr("import", []string{address, id}, nil)
+func (s *StaticService) Import(_ context.Context, _, _ string) error {
+	return nil
 }
 
-func (s *StaticService) Taint(_ context.Context, address string) error {
-	return s.commandErr("taint", []string{address}, nil)
+func (s *StaticService) Taint(_ context.Context, _ string) error {
+	return nil
 }
 
-func (s *StaticService) Untaint(_ context.Context, address string) error {
-	return s.commandErr("untaint", []string{address}, nil)
+func (s *StaticService) Untaint(_ context.Context, _ string) error {
+	return nil
 }
 
 func (s *StaticService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
-	return nil, s.commandErr("validate", nil, nil)
+	return nil, nil
 }
 
 func (s *StaticService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, s.commandErr("output", nil, nil)
+	return nil, nil
 }
 
 func (s *StaticService) Refresh(_ context.Context) error {
-	return s.commandErr("refresh", nil, nil)
+	return nil
 }
 
 func (s *StaticService) Init(_ context.Context) error {
-	return s.commandErr("init", nil, nil)
+	return nil
 }
 
-func (s *StaticService) ForceUnlock(_ context.Context, lockID string) error {
-	return s.commandErr("force-unlock", nil, []string{"-force", lockID})
+func (s *StaticService) ForceUnlock(_ context.Context, _ string) error {
+	return nil
 }
 
 func (s *StaticService) WithDir(_ string) sdk.Service {

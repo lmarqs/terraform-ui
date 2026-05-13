@@ -8,12 +8,16 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
+func newRecorder() *RecordingService {
+	return NewRecordingService(&stubService{}, "terraform")
+}
+
 func TestPlanOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	ctx := context.Background()
 
 	_, _ = svc.Plan(ctx, sdk.PlanOptions{})
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -42,9 +46,9 @@ func TestPlanOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewStaticService(nil, nil, nil, "terraform")
+			svc := newRecorder()
 			_, _ = svc.Plan(context.Background(), tt.opts)
-			cmds := svc.Commands()
+			cmds := svc.Commands(nil)
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -75,9 +79,9 @@ func TestPlanOptions_WhenVarFilesProvided_ShouldEmitVarFileFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewStaticService(nil, nil, nil, "terraform")
+			svc := newRecorder()
 			_, _ = svc.Plan(context.Background(), tt.opts)
-			cmds := svc.Commands()
+			cmds := svc.Commands(nil)
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -89,10 +93,10 @@ func TestPlanOptions_WhenVarFilesProvided_ShouldEmitVarFileFlags(t *testing.T) {
 }
 
 func TestPlanOptions_WhenVarsProvided_ShouldEmitVarFlags(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Vars: map[string]string{"region": "us-east-1"}}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -125,9 +129,9 @@ func TestPlanOptions_WhenReplaceProvided_ShouldEmitReplaceFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewStaticService(nil, nil, nil, "terraform")
+			svc := newRecorder()
 			_, _ = svc.Plan(context.Background(), tt.opts)
-			cmds := svc.Commands()
+			cmds := svc.Commands(nil)
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -139,10 +143,10 @@ func TestPlanOptions_WhenReplaceProvided_ShouldEmitReplaceFlags(t *testing.T) {
 }
 
 func TestPlanOptions_WhenDestroyTrue_ShouldEmitDestroyFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Destroy: true}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -152,10 +156,10 @@ func TestPlanOptions_WhenDestroyTrue_ShouldEmitDestroyFlag(t *testing.T) {
 }
 
 func TestPlanOptions_WhenDestroyFalse_ShouldNotEmitDestroyFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Destroy: false}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -165,10 +169,10 @@ func TestPlanOptions_WhenDestroyFalse_ShouldNotEmitDestroyFlag(t *testing.T) {
 }
 
 func TestPlanOptions_WhenRefreshOnlyTrue_ShouldEmitRefreshOnlyFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{RefreshOnly: true}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -178,11 +182,11 @@ func TestPlanOptions_WhenRefreshOnlyTrue_ShouldEmitRefreshOnlyFlag(t *testing.T)
 }
 
 func TestPlanOptions_WhenRefreshSetToFalse_ShouldEmitRefreshFalseFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	refreshFalse := false
 	opts := sdk.PlanOptions{Refresh: &refreshFalse}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -192,10 +196,10 @@ func TestPlanOptions_WhenRefreshSetToFalse_ShouldEmitRefreshFalseFlag(t *testing
 }
 
 func TestPlanOptions_WhenRefreshNil_ShouldNotEmitRefreshFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Refresh: nil}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -205,11 +209,11 @@ func TestPlanOptions_WhenRefreshNil_ShouldNotEmitRefreshFlag(t *testing.T) {
 }
 
 func TestPlanOptions_WhenRefreshSetToTrue_ShouldNotEmitRefreshFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	refreshTrue := true
 	opts := sdk.PlanOptions{Refresh: &refreshTrue}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -219,10 +223,10 @@ func TestPlanOptions_WhenRefreshSetToTrue_ShouldNotEmitRefreshFlag(t *testing.T)
 }
 
 func TestPlanOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Parallelism: 5}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -232,10 +236,10 @@ func TestPlanOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T) 
 }
 
 func TestPlanOptions_WhenParallelismZero_ShouldNotEmitParallelismFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Parallelism: 0}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -245,11 +249,11 @@ func TestPlanOptions_WhenParallelismZero_ShouldNotEmitParallelismFlag(t *testing
 }
 
 func TestPlanOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	lockFalse := false
 	opts := sdk.PlanOptions{Lock: &lockFalse}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -259,10 +263,10 @@ func TestPlanOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
 }
 
 func TestPlanOptions_WhenLockNil_ShouldNotEmitLockFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Lock: nil}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -272,10 +276,10 @@ func TestPlanOptions_WhenLockNil_ShouldNotEmitLockFlag(t *testing.T) {
 }
 
 func TestPlanOptions_WhenLockTimeoutSet_ShouldEmitLockTimeoutFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{LockTimeout: "30s"}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -285,10 +289,10 @@ func TestPlanOptions_WhenLockTimeoutSet_ShouldEmitLockTimeoutFlag(t *testing.T) 
 }
 
 func TestPlanOptions_WhenLockTimeoutEmpty_ShouldNotEmitLockTimeoutFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{LockTimeout: ""}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -298,10 +302,10 @@ func TestPlanOptions_WhenLockTimeoutEmpty_ShouldNotEmitLockTimeoutFlag(t *testin
 }
 
 func TestPlanOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{ExtraArgs: []string{"-compact-warnings", "-no-color"}}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -311,7 +315,7 @@ func TestPlanOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
 }
 
 func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	lockFalse := false
 	opts := sdk.PlanOptions{
 		Targets:     []string{"aws_instance.web"},
@@ -325,7 +329,7 @@ func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) 
 		ExtraArgs:   []string{"-no-color"},
 	}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -354,9 +358,9 @@ func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) 
 }
 
 func TestApplyOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	_ = svc.Apply(context.Background(), sdk.ApplyOptions{})
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -385,9 +389,9 @@ func TestApplyOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewStaticService(nil, nil, nil, "terraform")
+			svc := newRecorder()
 			_ = svc.Apply(context.Background(), tt.opts)
-			cmds := svc.Commands()
+			cmds := svc.Commands(nil)
 			if len(cmds) != 1 {
 				t.Fatalf("expected 1 command, got %d", len(cmds))
 			}
@@ -399,10 +403,10 @@ func TestApplyOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
 }
 
 func TestApplyOptions_WhenVarFilesProvided_ShouldEmitVarFileFlags(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.ApplyOptions{VarFiles: []string{"prod.tfvars", "secrets.tfvars"}}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -412,10 +416,10 @@ func TestApplyOptions_WhenVarFilesProvided_ShouldEmitVarFileFlags(t *testing.T) 
 }
 
 func TestApplyOptions_WhenVarsProvided_ShouldEmitVarFlags(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.ApplyOptions{Vars: map[string]string{"name": "test"}}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -429,10 +433,10 @@ func TestApplyOptions_WhenVarsProvided_ShouldEmitVarFlags(t *testing.T) {
 }
 
 func TestApplyOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.ApplyOptions{Parallelism: 10}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -442,11 +446,11 @@ func TestApplyOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T)
 }
 
 func TestApplyOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	lockFalse := false
 	opts := sdk.ApplyOptions{Lock: &lockFalse}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -456,10 +460,10 @@ func TestApplyOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
 }
 
 func TestApplyOptions_WhenLockTimeoutSet_ShouldEmitLockTimeoutFlag(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.ApplyOptions{LockTimeout: "1m"}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -469,10 +473,10 @@ func TestApplyOptions_WhenLockTimeoutSet_ShouldEmitLockTimeoutFlag(t *testing.T)
 }
 
 func TestApplyOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.ApplyOptions{ExtraArgs: []string{"-no-color", "-input=false"}}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -482,7 +486,7 @@ func TestApplyOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
 }
 
 func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	lockFalse := false
 	opts := sdk.ApplyOptions{
 		Targets:     []string{"aws_instance.web"},
@@ -494,7 +498,7 @@ func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T)
 		ExtraArgs:   []string{"-no-color"},
 	}
 	_ = svc.Apply(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -520,29 +524,29 @@ func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T)
 	}
 }
 
-func TestApplyOptions_ShouldReturnCommandErr(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+func TestApplyOptions_ShouldRecordCommand(t *testing.T) {
+	svc := newRecorder()
 	err := svc.Apply(context.Background(), sdk.ApplyOptions{Targets: []string{"aws_instance.web"}})
-	if err == nil {
-		t.Fatal("expected error from Apply in read-only mode")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
-	cmd, ok := sdk.IsCommandErr(err)
-	if !ok {
-		t.Fatalf("expected CommandErr, got %T: %v", err, err)
+	cmds := svc.Commands(nil)
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
-	if cmd.Binary != "terraform" {
-		t.Errorf("binary = %q, want terraform", cmd.Binary)
+	if cmds[0].Binary != "terraform" {
+		t.Errorf("binary = %q, want terraform", cmds[0].Binary)
 	}
-	if cmd.Verb != "apply" {
-		t.Errorf("verb = %q, want apply", cmd.Verb)
+	if cmds[0].Verb != "apply" {
+		t.Errorf("verb = %q, want apply", cmds[0].Verb)
 	}
 }
 
 func TestPlanOptions_WhenCustomBinary_ShouldUseCorrectBinary(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "tofu")
+	svc := NewRecordingService(&stubService{}, "tofu")
 	opts := sdk.PlanOptions{Targets: []string{"aws_instance.web"}, Destroy: true}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -559,10 +563,10 @@ func TestPlanOptions_WhenCustomBinary_ShouldUseCorrectBinary(t *testing.T) {
 }
 
 func TestPlanOptions_WhenOnlyTargets_ShouldBeBackwardCompatible(t *testing.T) {
-	svc := NewStaticService(nil, nil, nil, "terraform")
+	svc := newRecorder()
 	opts := sdk.PlanOptions{Targets: []string{"aws_instance.web", "aws_s3_bucket.logs"}}
 	_, _ = svc.Plan(context.Background(), opts)
-	cmds := svc.Commands()
+	cmds := svc.Commands(nil)
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
@@ -576,7 +580,8 @@ func TestPlanOptions_WhenPreLoadedPlan_ShouldReturnPlanData(t *testing.T) {
 		Changes:  []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate}},
 		ToCreate: 1,
 	}
-	svc := NewStaticService(plan, nil, nil, "terraform")
+	inner := &stubService{plan: plan}
+	svc := NewRecordingService(inner, "terraform")
 	got, err := svc.Plan(context.Background(), sdk.PlanOptions{Destroy: true})
 	if err != nil {
 		t.Fatal(err)
@@ -590,11 +595,11 @@ func TestPlanOptions_WhenPreLoadedPlan_ShouldReturnPlanData(t *testing.T) {
 }
 
 func TestServiceInterface_WhenPlanOptionsSignature_ShouldCompile(t *testing.T) {
-	var svc sdk.Service = NewStaticService(nil, nil, nil, "terraform")
+	var svc sdk.Service = newRecorder()
 	_, _ = svc.Plan(context.Background(), sdk.PlanOptions{})
 }
 
 func TestServiceInterface_WhenApplyOptionsSignature_ShouldCompile(t *testing.T) {
-	var svc sdk.Service = NewStaticService(nil, nil, nil, "terraform")
+	var svc sdk.Service = newRecorder()
 	_ = svc.Apply(context.Background(), sdk.ApplyOptions{})
 }
