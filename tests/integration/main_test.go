@@ -95,17 +95,30 @@ func readAll(r interface{ Read([]byte) (int, error) }) ([]byte, error) {
 // initFixture runs terraform init on a fixture directory if .terraform doesn't exist.
 func initFixture(t *testing.T, fixtureName string) string {
 	t.Helper()
+	return initFixtureWith(t, fixtureName, "terraform")
+}
+
+// initFixtureWith runs the given binary's init on a fixture directory.
+func initFixtureWith(t *testing.T, fixtureName, binary string) string {
+	t.Helper()
 	dir := fixtureDir(fixtureName)
 
-	// Check if already initialized
 	if _, err := os.Stat(filepath.Join(dir, ".terraform")); err != nil {
-		cmd := exec.Command("terraform", "init")
+		cmd := exec.Command(binary, "init")
 		cmd.Dir = dir
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			t.Fatalf("terraform init failed for fixture %q: %v\n%s", fixtureName, err, out)
+			t.Fatalf("%s init failed for fixture %q: %v\n%s", binary, fixtureName, err, out)
 		}
 	}
 
 	return dir
+}
+
+// testBinary returns the binary to test with, from TFUI_TEST_BINARY env or "terraform".
+func testBinary() string {
+	if b := os.Getenv("TFUI_TEST_BINARY"); b != "" {
+		return b
+	}
+	return "terraform"
 }
