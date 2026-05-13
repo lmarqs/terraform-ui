@@ -209,6 +209,42 @@ func TestDriverHandlesBatchCommands(t *testing.T) {
 	}
 }
 
+// delayedProgressModel advances only when it receives a tickMsg from the driver.
+// It does NOT return commands from Update -- it relies on WaitUntil pumping
+// messages into it to make progress. This tests that WaitUntil sends messages
+// to the model on each iteration rather than just passively polling the view.
+type delayedProgressModel struct {
+	counter int
+}
+
+func (m delayedProgressModel) Init() tea.Cmd { return nil }
+
+func (m delayedProgressModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case tickMsg:
+		m.counter++
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m delayedProgressModel) View() string {
+	if m.counter >= 3 {
+		return "ready"
+	}
+	return "waiting"
+}
+
+func TestDriverWaitUntilProcessesCommands(t *testing.T) {
+	model := delayedProgressModel{}
+	d := NewDriver(model, 80, 24)
+
+	err := d.WaitUntil(func(v string) bool { return strings.Contains(v, "ready") }, 500*time.Millisecond)
+	if err != nil {
+		t.Errorf("WaitUntil should succeed by pumping ticks into the model, but got: %v", err)
+	}
+}
+
 func TestKeyToMsg(t *testing.T) {
 	tests := []struct {
 		key      string

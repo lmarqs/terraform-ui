@@ -52,8 +52,11 @@ func (d *Driver) View() string {
 	return d.model.View()
 }
 
-// WaitUntil repeatedly processes pending commands until the predicate returns true
-// or the timeout expires.
+// tickMsg is sent by WaitUntil to pump the model forward on each iteration.
+type tickMsg struct{}
+
+// WaitUntil repeatedly sends tick messages to advance the model until
+// the predicate returns true or the timeout expires.
 func (d *Driver) WaitUntil(predicate func(view string) bool, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 
@@ -64,6 +67,7 @@ func (d *Driver) WaitUntil(predicate func(view string) bool, timeout time.Durati
 		if time.Now().After(deadline) {
 			return fmt.Errorf("timeout after %v waiting for condition", timeout)
 		}
+		d.SendMsg(tickMsg{})
 		time.Sleep(10 * time.Millisecond)
 	}
 }
