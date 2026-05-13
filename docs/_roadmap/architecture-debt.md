@@ -1,6 +1,6 @@
 ---
 title: Architecture Debt Cleanup
-status: planned
+status: done
 priority: medium
 created: 2026-05-11
 effort: medium
@@ -35,10 +35,10 @@ No user-visible changes. These are internal quality improvements that prevent fu
 
 ## Tasks
 
-- [ ] Fix `WaitUntil`: process pending `tea.Cmd` results during wait loop
-- [ ] Move `LoadPlan`/`LoadState` parsing logic to `internal/terraform`, keep `internal/source` as pure byte resolution
-- [ ] Add table-driven tests for `parseRawState`: flat state, count/for_each, nested modules, data sources, empty state
-- [ ] Replace `StdinProvider.consumed` bool with `sync.Once`
-- [ ] Replace `hasTTY()` with `term.IsTerminal()` from `golang.org/x/term`
-- [ ] Fix `buildAddress` string key quoting (`%q` → terraform-style literal quotes)
-- [ ] Promote `ErrReadOnly` to `pkg/sdk` (plugins should be able to check it)
+- [x] Fix `WaitUntil`: process pending `tea.Cmd` results during wait loop
+- [x] Move `LoadPlan`/`LoadState` parsing logic to `internal/terraform`, keep `internal/source` as pure byte resolution
+- [x] Add table-driven tests for `parseRawState`: flat state, count/for_each, nested modules, data sources, empty state
+- [x] Replace `StdinProvider.consumed` bool with `sync.Once`
+- [x] Replace `hasTTY()` with `go-isatty` for cross-platform TTY detection
+- [x] Fix `buildAddress` string key quoting (`%q` → terraform-style literal quotes)
+- [x] Promote `ErrReadOnly` to `pkg/sdk` (plugins should be able to check it)
