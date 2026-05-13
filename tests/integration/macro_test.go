@@ -85,7 +85,7 @@ func TestMacro(t *testing.T) {
 		},
 		{
 			name:       "targeted apply outputs command with targets",
-			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view Apply plan\nkey y\nwait view Are you sure\nkey y",
+			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view targeted resource\nkey y\nwait view Are you sure\nkey y",
 			args:       []string{"--plan", planFixture, "--state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform apply -target=",
