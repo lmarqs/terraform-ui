@@ -1,54 +1,41 @@
-package source
+package terraform
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"strings"
 
 	tfjson "github.com/hashicorp/terraform-json"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// LoadPlan loads a terraform plan from the given URI and returns a parsed PlanSummary.
-// Supports JSON plan format (output of `terraform show -json <planfile>`).
-func LoadPlan(ctx context.Context, resolver *Resolver, uri string) (*sdk.PlanSummary, error) {
-	data, err := resolver.Resolve(ctx, uri)
-	if err != nil {
-		return nil, fmt.Errorf("loading plan: %w", err)
-	}
-
+// LoadPlan parses terraform plan JSON (output of `terraform show -json <planfile>`)
+// and returns a PlanSummary with risk classification and phantom detection applied.
+func LoadPlan(data []byte) (*PlanSummary, error) {
 	var plan tfjson.Plan
 	if err := json.Unmarshal(data, &plan); err != nil {
-		return nil, fmt.Errorf("parsing plan JSON from %q: %w (hint: use `terraform show -json <planfile>` to convert binary plans)", uri, err)
+		return nil, fmt.Errorf("parsing plan JSON: %w (hint: use `terraform show -json <planfile>` to convert binary plans)", err)
 	}
 
-	summary := terraform.ParsePlan(&plan)
+	summary := ParsePlan(&plan)
 
 	for i := range summary.Changes {
-		summary.Changes[i].Risk = terraform.ClassifyRisk(&summary.Changes[i])
+		summary.Changes[i].Risk = ClassifyRisk(&summary.Changes[i])
 	}
-	terraform.DetectPhantomChanges(summary.Changes)
+	DetectPhantomChanges(summary.Changes)
 
 	return summary, nil
 }
 
-// LoadState loads a terraform state from the given URI and returns parsed resources.
+// LoadState parses terraform state and returns resources and the parsed state.
 // Supports two formats:
-//   - Raw tfstate (output of `terraform state pull`): {"version": 4, "resources": [...]}
 //   - Show JSON (output of `terraform show -json`): {"format_version": "1.0", "values": {...}}
-func LoadState(ctx context.Context, resolver *Resolver, uri string) ([]sdk.Resource, *tfjson.State, error) {
-	data, err := resolver.Resolve(ctx, uri)
-	if err != nil {
-		return nil, nil, fmt.Errorf("loading state: %w", err)
-	}
-
-	// Detect format by checking for "format_version" (show -json) vs "version" (raw tfstate)
+//   - Raw tfstate (output of `terraform state pull`): {"version": 4, "resources": [...]}
+func LoadState(data []byte) ([]sdk.Resource, *tfjson.State, error) {
 	if isShowJSON(data) {
-		return parseShowState(data, uri)
+		return parseShowState(data)
 	}
-	return parseRawState(data, uri)
+	return parseRawState(data)
 }
 
 func isShowJSON(data []byte) bool {
@@ -59,21 +46,20 @@ func isShowJSON(data []byte) bool {
 	return probe.FormatVersion != ""
 }
 
-func parseShowState(data []byte, uri string) ([]sdk.Resource, *tfjson.State, error) {
+func parseShowState(data []byte) ([]sdk.Resource, *tfjson.State, error) {
 	var state tfjson.State
 	if err := json.Unmarshal(data, &state); err != nil {
-		return nil, nil, fmt.Errorf("parsing state JSON from %q: %w", uri, err)
+		return nil, nil, fmt.Errorf("parsing state JSON: %w", err)
 	}
 
 	if state.Values == nil {
 		return []sdk.Resource{}, &state, nil
 	}
 
-	resources := terraform.ParseStateResources(state.Values.RootModule)
+	resources := ParseStateResources(state.Values.RootModule)
 	return resources, &state, nil
 }
 
-// rawState represents the raw terraform.tfstate format (output of `terraform state pull`).
 type rawState struct {
 	Version   int           `json:"version"`
 	Resources []rawResource `json:"resources"`
@@ -94,17 +80,16 @@ type rawInstance struct {
 	SensitiveAttrs json.RawMessage        `json:"sensitive_attributes"`
 }
 
-func parseRawState(data []byte, uri string) ([]sdk.Resource, *tfjson.State, error) {
+func parseRawState(data []byte) ([]sdk.Resource, *tfjson.State, error) {
 	var raw rawState
 	if err := json.Unmarshal(data, &raw); err != nil {
-		return nil, nil, fmt.Errorf("parsing state from %q: %w", uri, err)
+		return nil, nil, fmt.Errorf("parsing state: %w", err)
 	}
 
 	if raw.Version == 0 {
-		return nil, nil, fmt.Errorf("parsing state from %q: not a valid terraform state file (no version field)", uri)
+		return nil, nil, fmt.Errorf("parsing state: not a valid terraform state file (no version field)")
 	}
 
-	// Convert raw state to tfjson.State for StaticService.Show() compatibility
 	stateResources := make([]*tfjson.StateResource, 0)
 	sdkResources := make([]sdk.Resource, 0)
 
@@ -129,7 +114,7 @@ func parseRawState(data []byte, uri string) ([]sdk.Resource, *tfjson.State, erro
 				Address:      address,
 				Type:         r.Type,
 				Name:         r.Name,
-				Module:       terraform.ExtractModule(address),
+				Module:       ExtractModule(address),
 				ProviderName: providerName,
 			})
 		}
@@ -160,7 +145,7 @@ func buildAddress(module, resourceType, name string, indexKey interface{}) strin
 		case float64:
 			addr = fmt.Sprintf("%s[%d]", addr, int(k))
 		case string:
-			addr = fmt.Sprintf("%s[%q]", addr, k)
+			addr = fmt.Sprintf(`%s["%s"]`, addr, k)
 		}
 	}
 
@@ -168,9 +153,7 @@ func buildAddress(module, resourceType, name string, indexKey interface{}) strin
 }
 
 func cleanProvider(provider string) string {
-	// Raw format: provider["registry.terraform.io/hashicorp/aws"]
-	// Clean to: registry.terraform.io/hashicorp/aws
-	p := strings.TrimPrefix(provider, "provider[\"")
-	p = strings.TrimSuffix(p, "\"]")
+	p := strings.TrimPrefix(provider, `provider["`)
+	p = strings.TrimSuffix(p, `"]`)
 	return p
 }
