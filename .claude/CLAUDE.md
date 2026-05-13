@@ -19,14 +19,14 @@ Rules:
 - Code referring to member directory selection uses "chdir" (never "scope")
 - Config HCL key: `chdir { members = [...] }`
 - SDK fields: `Chdirs`, `ActiveChdir`, `ActiveChdirAbs` (in `ProjectContext`)
-- Session keys: `chdir.active`, `chdir.active_abs`, `chdir.count`
-- SDK type: `ChdirGuard` (not ScopeGuard)
+- Event: `ChdirChangedEvent` notifies plugins when chdir changes
 
 ## Architecture
 
 ```
 cmd/tfui/              — CLI entry point (cobra commands, plugin registration, normalizeArgs)
 pkg/sdk/               — Public SDK: Plugin interface, Service interface, types, UI primitives
+                         (includes bus.go, events.go, options.go)
 internal/
   config/              — HCL config loading (LoadRoot, LoadChild, Resolve)
   terraform/           — TerraformService + StaticService (read-only mode)
@@ -58,19 +58,52 @@ tests/
 
 ## Core Abstractions
 
-### AppContext (`pkg/sdk/app_context.go`)
+### Plugin Context (`pkg/sdk/context.go`)
 
-Single source of truth for the application, partitioned by domain:
+Passed to `Init()` — gives each plugin its dependencies:
 
-| Field | Type | Purpose |
-|-------|------|---------|
-| `Project` | `ProjectContext` | Immutable: dir, chdir members, active chdir |
-| `Config` | `*ConfigContext` | Read-only: dot-notation access to plugin config |
-| `Terraform` | `*TerraformContext` | Mutable: workspace, pinned targets, cached state/plan |
-| `UI` | `*UIContext` | Mutable: window size, active plugin, input mode |
-| `Cache` | `*CacheContext` | Generic TTL cache |
-| `AI` | `AIProvider` | AI service (nil if disabled) |
-| `Logger` | `*slog.Logger` | Structured logger |
+```go
+type Context struct {
+    WorkingDir string
+    Workspace  string
+    Service    Service
+    Logger     *slog.Logger
+    Pins       *PinService
+    Options    *ResolvedOptions
+}
+```
+
+### Event Bus (`pkg/sdk/bus.go`, `pkg/sdk/events.go`)
+
+Typed pub/sub for inter-plugin communication. Plugins subscribe by implementing handler interfaces — no registration boilerplate.
+
+**Events:**
+- `ChdirChangedEvent` — chdir selection changed (carries `AbsPath`)
+- `WorkspaceChangedEvent` — workspace switched
+- `PlanCompletedEvent` — plan finished (carries result)
+- `PinsChangedEvent` — pin set modified
+- `PlanInvalidatedEvent` — cached plan is stale
+
+**Handler interfaces:**
+- `ChdirHandler` — `HandleChdirChanged(ChdirChangedEvent) tea.Cmd`
+- `WorkspaceHandler` — `HandleWorkspaceChanged(WorkspaceChangedEvent) tea.Cmd`
+- `PlanCompletedHandler` — `HandlePlanCompleted(PlanCompletedEvent) tea.Cmd`
+- `PinsHandler` — `HandlePinsChanged(PinsChangedEvent) tea.Cmd`
+- `PlanInvalidatedHandler` — `HandlePlanInvalidated(PlanInvalidatedEvent) tea.Cmd`
+
+**Flow:** App dispatches events to all plugins implementing the matching handler interface after processing its own reaction. Plugins that need to react to scope changes implement `ChdirHandler` instead of polling.
+
+### ResolvedOptions (`pkg/sdk/options.go`)
+
+```go
+type ResolvedOptions struct {
+    VarFiles  []string
+    Vars      map[string]string
+    ExtraArgs []string
+}
+```
+
+Replaces session-stored config. Shared via `Context.Options`. Used by `BuildPlanOptions` / `BuildApplyOptions`.
 
 ### Plugin Interface (`pkg/sdk/plugin.go`)
 
@@ -251,8 +284,8 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 | Plugin IDs | `"state"`, `"plan"` | lowercase, single word |
 | Plugin packages | `plugins/state/` | match the ID |
 | Messages | `StateListMsg`, `PlanResultMsg` | `{Subject}{Verb}Msg` |
-| Session keys | `"terraform.pinned"` | dot-separated namespace |
-| Config keys | `"ai.model"` | dot-separated, yaml structure |
+| Events | `ChdirChangedEvent`, `PlanCompletedEvent` | `{Subject}{Verb}Event` |
+| Config keys | `"ai.model"` | dot-separated, HCL structure |
 
 ### Imports
 
@@ -277,15 +310,16 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 Every plugin follows the same shape:
 
 ```go
-type Plugin struct { svc sdk.Service; log *slog.Logger; guard *sdk.ChdirGuard; pins *sdk.PinService; ... }
+type Plugin struct { svc sdk.Service; log *slog.Logger; pins *sdk.PinService; options *sdk.ResolvedOptions; ... }
 func New(svc sdk.Service) sdk.Plugin { ... }
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service); ... }
-func (p *Plugin) Activate() tea.Cmd { /* use guard.Check(), load data */ }
+func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.pins = ctx.Pins; p.options = ctx.Options; ... }
+func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd { p.svc = p.svc.WithDir(evt.AbsPath); ... }
+func (p *Plugin) Activate() tea.Cmd { /* load data */ }
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) { /* handle result msgs + keys */ }
 func (p *Plugin) View(w, h int) string { /* switch on status */ }
 ```
 
-Plugins are registered with external metadata — they never declare their own keybinding or menu visibility.
+Plugins subscribe to scope changes by implementing handler interfaces (e.g., `ChdirHandler`). They are registered with external metadata — they never declare their own keybinding or menu visibility.
 
 ### SDK Utilities (pkg/sdk/ and pkg/sdk/ui/)
 
@@ -293,16 +327,16 @@ Use these instead of reimplementing common patterns:
 
 | Utility | Location | Purpose | Used by |
 |---------|----------|---------|---------|
-| `ChdirGuard` | `pkg/sdk/chdir_guard.go` | Detect chdir changes in Activate(), auto-rescope service | state, plan, output, validate, workspaces, apply |
-| `PinService` | `pkg/sdk/pin_service.go` | Toggle/query/bulk-set pinned resource addresses | state, plan |
+| `EventBus` | `pkg/sdk/bus.go` | Typed event dispatch to handler interfaces | app (dispatches), all plugins (subscribe) |
+| `PinService` | `pkg/sdk/pin_service.go` | Self-contained storage, shared via `Context.Pins` | state, plan |
+| `ResolvedOptions` | `pkg/sdk/options.go` | Var-files, vars, extra-args for plan/apply | plan, apply |
 | `Status` | `pkg/sdk/status.go` | Shared enum (Idle/Loading/Done/Error) with predicates | all plugins |
 | `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + bounds + viewport windowing | plan, output, validate, workspaces, chdir |
 | `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices in lists | plan, validate, phantom, blastradius |
 | `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + score-sorted results | state, output |
 
 **Rules:**
-- Use `ChdirGuard` instead of reading `SessionKeyActiveChdirAbs` manually
-- Use `PinService` instead of raw `session.Set("terraform.pinned", ...)`
+- Implement `ChdirHandler` to react to chdir changes — do not store/poll working directory manually
 - Use `Cursor.VisibleWindow(h)` instead of manual startIdx/endIdx calculation
 - Use `FuzzyFilter[T]` instead of importing `fzf/src/algo` directly
 - Reference implementation: `plugins/state/` demonstrates all SDK primitives
@@ -559,7 +593,6 @@ ldflags (-X main.version=...) → debug.ReadBuildInfo().Main.Version → "0.0.0-
 | `github.com/junegunn/fzf` | Fuzzy search algorithm |
 | `github.com/spf13/cobra` | CLI framework |
 | `github.com/anthropics/anthropic-sdk-go` | Claude AI (Bedrock + direct) |
-| `gopkg.in/yaml.v3` | YAML config parsing |
 
 ## Agents (`.claude/agents/`)
 
@@ -579,9 +612,8 @@ Agents run in isolation and can be spawned in parallel. Unlike commands, they do
 
 - **TDD is non-negotiable**: spawn `test-writer` agent to produce a failing test BEFORE writing any implementation code. Never edit production files without a failing test already in place.
 - Plugins import ONLY `pkg/sdk` — never `internal/`
-- All state mutations go through `TerraformContext` (thread-safe)
+- Inter-plugin communication uses typed events (`ChdirHandler`, `WorkspaceHandler`, etc.) — no stringly-typed state sharing
 - Destructive ops require staleness check + user confirmation
 - AI features check `ctx.AI != nil` before offering
 - Config getters ALWAYS take a default value — no nil panics
-- Session keys use dot-notation namespacing
 - Editor integration uses `tea.ExecProcess` for proper terminal handoff
