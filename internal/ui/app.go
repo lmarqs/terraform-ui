@@ -261,7 +261,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.activeOverlay.Update(msg)
 		if updated == nil {
 			a.activeOverlay = nil
-			} else {
+		} else {
 			a.activeOverlay = updated
 		}
 		return a, cmd
@@ -289,7 +289,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		updated, cmd := a.activeOverlay.Update(msg)
 		if updated == nil {
 			a.activeOverlay = nil
-			} else {
+		} else {
 			a.activeOverlay = updated
 		}
 		return a, cmd
@@ -423,7 +423,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		// For stackable plugins, route keys through the navigation stack
 		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
 			cmd := stackable.Stack().Update(msg)
-				return a, cmd
+			return a, cmd
 		}
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
@@ -460,7 +460,6 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 	return a, nil
 }
-
 
 func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
 	if activatable, ok := p.(sdk.Activatable); ok {

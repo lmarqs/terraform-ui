@@ -87,10 +87,10 @@ type ResolvedConfig struct {
 }
 
 func (r *ResolvedConfig) VarFiles() []string      { return r.varFiles }
-func (r *ResolvedConfig) Vars() map[string]string  { return r.vars }
-func (r *ResolvedConfig) Parallelism() int         { return r.parallelism }
-func (r *ResolvedConfig) Lock() *bool              { return r.lock }
-func (r *ResolvedConfig) LockTimeout() string      { return r.lockTimeout }
+func (r *ResolvedConfig) Vars() map[string]string { return r.vars }
+func (r *ResolvedConfig) Parallelism() int        { return r.parallelism }
+func (r *ResolvedConfig) Lock() *bool             { return r.lock }
+func (r *ResolvedConfig) LockTimeout() string     { return r.lockTimeout }
 
 func (r *ResolvedConfig) PluginConfig(id string) PluginSettings {
 	if r.plugins == nil {

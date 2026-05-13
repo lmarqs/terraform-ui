@@ -20,7 +20,7 @@ type mockService struct {
 func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	return m.planResult, m.planErr
 }
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error           { return nil }
+func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error   { return nil }
 func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) { return nil, nil }
 func (m *mockService) Show(_ context.Context, _ string) (string, error)    { return "", nil }
 func (m *mockService) Workspace(_ context.Context) (string, error)         { return "default", nil }
@@ -922,9 +922,9 @@ func TestViewSmallHeight(t *testing.T) {
 
 func TestRequestApply_WhenPinsExist_ShouldShowTargetedCount(t *testing.T) {
 	tests := []struct {
-		name        string
-		pinAddrs    []string
-		wantPrompt  string
+		name       string
+		pinAddrs   []string
+		wantPrompt string
 	}{
 		{
 			name:       "ShouldShowTotalChangesWhenNoPins",

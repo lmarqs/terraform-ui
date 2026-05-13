@@ -22,7 +22,7 @@ type mockService struct {
 func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	return nil, nil
 }
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error           { return nil }
+func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error   { return nil }
 func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) { return nil, nil }
 func (m *mockService) Show(_ context.Context, _ string) (string, error)    { return "", nil }
 func (m *mockService) Workspace(_ context.Context) (string, error)         { return "default", nil }
@@ -81,7 +81,7 @@ func TestInit(t *testing.T) {
 		Workspace:  "default",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-			}
+	}
 
 	cmd := p.Init(ctx)
 	if cmd != nil {
@@ -101,7 +101,7 @@ func TestActivate(t *testing.T) {
 		WorkingDir: "/tmp",
 		Service:    svc,
 		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-			}
+	}
 	p.Init(ctx)
 
 	pp := p.(*Plugin)

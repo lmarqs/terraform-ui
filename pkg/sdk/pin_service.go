@@ -5,8 +5,8 @@ import "sync"
 // PinService provides shared pinning operations for terraform resource addresses.
 // A single instance is shared across all plugins via Context.
 type PinService struct {
-	mu      sync.RWMutex
-	pinned  []string
+	mu     sync.RWMutex
+	pinned []string
 }
 
 // NewPinService creates an empty pin service.
