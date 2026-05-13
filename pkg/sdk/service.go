@@ -5,13 +5,12 @@ import "context"
 // Service defines the interface for all terraform operations that tfui depends on.
 // Implementations wrap terraform-exec or similar backends.
 type Service interface {
-	// Plan runs terraform plan with optional resource targets and returns
+	// Plan runs terraform plan with the given options and returns
 	// the parsed plan summary including changes, risk levels, and phantom detection.
-	Plan(ctx context.Context, targets []string) (*PlanSummary, error)
+	Plan(ctx context.Context, opts PlanOptions) (*PlanSummary, error)
 
-	// Apply runs terraform apply on the previously saved plan file.
-	// If targets are provided, they scope the apply to specific resources.
-	Apply(ctx context.Context, targets []string) error
+	// Apply runs terraform apply with the given options.
+	Apply(ctx context.Context, opts ApplyOptions) error
 
 	// StateList returns all managed resources in the current terraform state.
 	StateList(ctx context.Context) ([]Resource, error)

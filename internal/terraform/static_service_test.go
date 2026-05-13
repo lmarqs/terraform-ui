@@ -44,7 +44,7 @@ func TestStaticServiceReadMethods(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Plan returns pre-loaded summary", func(t *testing.T) {
-		got, err := svc.Plan(ctx, nil)
+		got, err := svc.Plan(ctx, sdk.PlanOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -60,7 +60,7 @@ func TestStaticServiceReadMethods(t *testing.T) {
 	})
 
 	t.Run("Plan ignores targets", func(t *testing.T) {
-		got, err := svc.Plan(ctx, []string{"aws_instance.web"})
+		got, err := svc.Plan(ctx, sdk.PlanOptions{Targets: []string{"aws_instance.web"}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -132,7 +132,7 @@ func TestStaticServiceNilData(t *testing.T) {
 
 	t.Run("nil plan returns empty summary", func(t *testing.T) {
 		svc := NewStaticService(nil, nil, nil, "")
-		got, err := svc.Plan(ctx, nil)
+		got, err := svc.Plan(ctx, sdk.PlanOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -169,7 +169,7 @@ func TestStaticServiceMutatingMethods(t *testing.T) {
 		name string
 		fn   func() error
 	}{
-		{"Apply", func() error { return svc.Apply(ctx, nil) }},
+		{"Apply", func() error { return svc.Apply(ctx, sdk.ApplyOptions{}) }},
 		{"WorkspaceSelect", func() error { return svc.WorkspaceSelect(ctx, "x") }},
 		{"WorkspaceNew", func() error { return svc.WorkspaceNew(ctx, "x") }},
 		{"WorkspaceDelete", func() error { return svc.WorkspaceDelete(ctx, "x") }},
@@ -226,7 +226,7 @@ func TestStaticServiceCommands(t *testing.T) {
 
 	t.Run("custom binary", func(t *testing.T) {
 		svc := NewStaticService(nil, nil, nil, "tofu")
-		_ = svc.Apply(ctx, []string{"aws_instance.web"})
+		_ = svc.Apply(ctx, sdk.ApplyOptions{Targets: []string{"aws_instance.web"}})
 		cmds := svc.Commands()
 		if len(cmds) != 1 {
 			t.Fatalf("expected 1 command, got %d", len(cmds))
@@ -242,7 +242,7 @@ func TestStaticServiceCommands(t *testing.T) {
 	t.Run("execution order", func(t *testing.T) {
 		svc := NewStaticService(nil, nil, nil, "terraform")
 		_ = svc.Taint(ctx, "aws_instance.a")
-		_ = svc.Apply(ctx, nil)
+		_ = svc.Apply(ctx, sdk.ApplyOptions{})
 		_ = svc.StateRm(ctx, "aws_instance.b")
 		cmds := svc.Commands()
 		if len(cmds) != 3 {
@@ -263,7 +263,7 @@ func TestStaticServiceCommands(t *testing.T) {
 		plan := &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 		resources := []sdk.Resource{{Address: "a"}}
 		svc := NewStaticService(plan, resources, nil, "")
-		_, _ = svc.Plan(ctx, nil)
+		_, _ = svc.Plan(ctx, sdk.PlanOptions{})
 		_, _ = svc.StateList(ctx)
 		_, _ = svc.Workspace(ctx)
 		_, _ = svc.WorkspaceList(ctx)
@@ -307,8 +307,8 @@ func TestStaticServiceCommands(t *testing.T) {
 
 	t.Run("multiple calls accumulate", func(t *testing.T) {
 		svc := NewStaticService(nil, nil, nil, "terraform")
-		_ = svc.Apply(ctx, nil)
-		_ = svc.Apply(ctx, []string{"aws_instance.a"})
+		_ = svc.Apply(ctx, sdk.ApplyOptions{})
+		_ = svc.Apply(ctx, sdk.ApplyOptions{Targets: []string{"aws_instance.a"}})
 		cmds := svc.Commands()
 		if len(cmds) != 2 {
 			t.Fatalf("expected 2 commands, got %d", len(cmds))
@@ -347,18 +347,18 @@ func TestStaticServiceCommands(t *testing.T) {
 		}{
 			{
 				"Apply without targets",
-				func(svc *StaticService) error { return svc.Apply(ctx, nil) },
+				func(svc *StaticService) error { return svc.Apply(ctx, sdk.ApplyOptions{}) },
 				"terraform apply",
 			},
 			{
 				"Apply with single target",
-				func(svc *StaticService) error { return svc.Apply(ctx, []string{"aws_instance.web"}) },
+				func(svc *StaticService) error { return svc.Apply(ctx, sdk.ApplyOptions{Targets: []string{"aws_instance.web"}}) },
 				"terraform apply -target=aws_instance.web",
 			},
 			{
 				"Apply with multiple targets",
 				func(svc *StaticService) error {
-					return svc.Apply(ctx, []string{"aws_instance.web", "aws_s3_bucket.data"})
+					return svc.Apply(ctx, sdk.ApplyOptions{Targets: []string{"aws_instance.web", "aws_s3_bucket.data"}})
 				},
 				"terraform apply -target=aws_instance.web -target=aws_s3_bucket.data",
 			},
@@ -455,12 +455,12 @@ func TestStaticServiceCommands(t *testing.T) {
 		}{
 			{
 				"Plan without targets",
-				func(svc *StaticService) { svc.Plan(ctx, nil) },
+				func(svc *StaticService) { svc.Plan(ctx, sdk.PlanOptions{}) },
 				"terraform plan",
 			},
 			{
 				"Plan with targets",
-				func(svc *StaticService) { svc.Plan(ctx, []string{"aws_instance.web"}) },
+				func(svc *StaticService) { svc.Plan(ctx, sdk.PlanOptions{Targets: []string{"aws_instance.web"}}) },
 				"terraform plan -target=aws_instance.web",
 			},
 			{

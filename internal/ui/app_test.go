@@ -36,10 +36,10 @@ type mockService struct {
 	workspaceErr error
 }
 
-func (s *mockService) Plan(_ context.Context, _ []string) (*terraform.PlanSummary, error) {
+func (s *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*terraform.PlanSummary, error) {
 	return nil, nil
 }
-func (s *mockService) Apply(_ context.Context, _ []string) error { return nil }
+func (s *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
 func (s *mockService) StateList(_ context.Context) ([]terraform.Resource, error) {
 	return nil, nil
 }

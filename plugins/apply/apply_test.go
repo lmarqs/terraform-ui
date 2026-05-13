@@ -14,10 +14,10 @@ type mockService struct {
 	applyErr error
 }
 
-func (m *mockService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, error) {
+func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	return &sdk.PlanSummary{}, nil
 }
-func (m *mockService) Apply(_ context.Context, _ []string) error           { return m.applyErr }
+func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error           { return m.applyErr }
 func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) { return nil, nil }
 func (m *mockService) Show(_ context.Context, _ string) (string, error)    { return "", nil }
 func (m *mockService) Workspace(_ context.Context) (string, error)         { return "default", nil }

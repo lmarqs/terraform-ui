@@ -13,10 +13,10 @@ import (
 
 type mockService struct{}
 
-func (m *mockService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, error) {
+func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	return &sdk.PlanSummary{}, nil
 }
-func (m *mockService) Apply(_ context.Context, _ []string) error                    { return nil }
+func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error                    { return nil }
 func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error)          { return nil, nil }
 func (m *mockService) Show(_ context.Context, _ string) (string, error)             { return "", nil }
 func (m *mockService) Workspace(_ context.Context) (string, error)                  { return "default", nil }
@@ -114,7 +114,7 @@ func TestActivate(t *testing.T) {
 func TestActivateMultiContextNoSelection(t *testing.T) {
 	svc := &mockService{}
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyScopeCount, 3)
+	session.Set(sdk.SessionKeyChdirCount, 3)
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp/test",
@@ -138,8 +138,8 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{}
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyScopeCount, 2)
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/my/project")
+	session.Set(sdk.SessionKeyChdirCount, 2)
+	session.Set(sdk.SessionKeyActiveChdirAbs, "/my/project")
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp/test",
@@ -649,7 +649,7 @@ func TestSetBinaryPath(t *testing.T) {
 func TestActivateContextChange(t *testing.T) {
 	svc := &mockService{}
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/old/ctx")
+	session.Set(sdk.SessionKeyActiveChdirAbs, "/old/ctx")
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp/test",
@@ -668,7 +668,7 @@ func TestActivateContextChange(t *testing.T) {
 	p.pastInputs = []string{"old"}
 
 	// Change scope
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/new/ctx")
+	session.Set(sdk.SessionKeyActiveChdirAbs, "/new/ctx")
 
 	p.Activate()
 

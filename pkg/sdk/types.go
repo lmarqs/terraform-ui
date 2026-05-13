@@ -143,3 +143,29 @@ type StateLock struct {
 func (l *StateLock) Age() time.Duration {
 	return time.Since(l.Created)
 }
+
+// PlanOptions holds all options for a terraform plan operation.
+type PlanOptions struct {
+	Targets     []string
+	VarFiles    []string
+	Vars        map[string]string
+	Replace     []string
+	Destroy     bool
+	RefreshOnly bool
+	Refresh     *bool
+	Parallelism int
+	Lock        *bool
+	LockTimeout string
+	ExtraArgs   []string
+}
+
+// ApplyOptions holds all options for a terraform apply operation.
+type ApplyOptions struct {
+	Targets     []string
+	VarFiles    []string
+	Vars        map[string]string
+	Parallelism int
+	Lock        *bool
+	LockTimeout string
+	ExtraArgs   []string
+}

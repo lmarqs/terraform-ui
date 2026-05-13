@@ -65,11 +65,8 @@ func (s *StaticService) Commands() []sdk.Command {
 	return s.commands
 }
 
-func (s *StaticService) Plan(_ context.Context, targets []string) (*sdk.PlanSummary, error) {
-	var flags []string
-	for _, t := range targets {
-		flags = append(flags, "-target="+t)
-	}
+func (s *StaticService) Plan(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+	flags := buildPlanFlags(opts)
 	s.record("plan", nil, flags)
 	if s.plan == nil {
 		return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
@@ -77,12 +74,69 @@ func (s *StaticService) Plan(_ context.Context, targets []string) (*sdk.PlanSumm
 	return s.plan, nil
 }
 
-func (s *StaticService) Apply(_ context.Context, targets []string) error {
+func (s *StaticService) Apply(_ context.Context, opts sdk.ApplyOptions) error {
+	flags := buildApplyFlags(opts)
+	return s.commandErr("apply", nil, flags)
+}
+
+func buildPlanFlags(opts sdk.PlanOptions) []string {
 	var flags []string
-	for _, t := range targets {
+	for _, t := range opts.Targets {
 		flags = append(flags, "-target="+t)
 	}
-	return s.commandErr("apply", nil, flags)
+	for _, f := range opts.VarFiles {
+		flags = append(flags, "-var-file="+f)
+	}
+	for k, v := range opts.Vars {
+		flags = append(flags, "-var", k+"="+v)
+	}
+	for _, r := range opts.Replace {
+		flags = append(flags, "-replace="+r)
+	}
+	if opts.Destroy {
+		flags = append(flags, "-destroy")
+	}
+	if opts.RefreshOnly {
+		flags = append(flags, "-refresh-only")
+	}
+	if opts.Refresh != nil && !*opts.Refresh {
+		flags = append(flags, "-refresh=false")
+	}
+	if opts.Parallelism > 0 {
+		flags = append(flags, fmt.Sprintf("-parallelism=%d", opts.Parallelism))
+	}
+	if opts.Lock != nil && !*opts.Lock {
+		flags = append(flags, "-lock=false")
+	}
+	if opts.LockTimeout != "" {
+		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
+	}
+	flags = append(flags, opts.ExtraArgs...)
+	return flags
+}
+
+func buildApplyFlags(opts sdk.ApplyOptions) []string {
+	var flags []string
+	for _, t := range opts.Targets {
+		flags = append(flags, "-target="+t)
+	}
+	for _, f := range opts.VarFiles {
+		flags = append(flags, "-var-file="+f)
+	}
+	for k, v := range opts.Vars {
+		flags = append(flags, "-var", k+"="+v)
+	}
+	if opts.Parallelism > 0 {
+		flags = append(flags, fmt.Sprintf("-parallelism=%d", opts.Parallelism))
+	}
+	if opts.Lock != nil && !*opts.Lock {
+		flags = append(flags, "-lock=false")
+	}
+	if opts.LockTimeout != "" {
+		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
+	}
+	flags = append(flags, opts.ExtraArgs...)
+	return flags
 }
 
 func (s *StaticService) StateList(_ context.Context) ([]sdk.Resource, error) {

@@ -71,8 +71,8 @@ func (s *TerraformService) newTerraform() (*tfexec.Terraform, error) {
 }
 
 // Plan runs terraform plan and returns the parsed changes.
-func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSummary, error) {
-	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir, "targets", targets)
+func (s *TerraformService) Plan(ctx context.Context, opts sdk.PlanOptions) (*PlanSummary, error) {
+	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir)
 	start := time.Now()
 
 	tf, err := s.newTerraform()
@@ -86,8 +86,35 @@ func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSum
 	planOpts := []tfexec.PlanOption{
 		tfexec.Out(planFilePath),
 	}
-	for _, t := range targets {
+	for _, t := range opts.Targets {
 		planOpts = append(planOpts, tfexec.Target(t))
+	}
+	for _, f := range opts.VarFiles {
+		planOpts = append(planOpts, tfexec.VarFile(f))
+	}
+	for k, v := range opts.Vars {
+		planOpts = append(planOpts, tfexec.Var(k+"="+v))
+	}
+	for _, r := range opts.Replace {
+		planOpts = append(planOpts, tfexec.Replace(r))
+	}
+	if opts.Destroy {
+		planOpts = append(planOpts, tfexec.Destroy(true))
+	}
+	if opts.RefreshOnly {
+		planOpts = append(planOpts, tfexec.RefreshOnly(true))
+	}
+	if opts.Refresh != nil {
+		planOpts = append(planOpts, tfexec.Refresh(*opts.Refresh))
+	}
+	if opts.Parallelism > 0 {
+		planOpts = append(planOpts, tfexec.Parallelism(opts.Parallelism))
+	}
+	if opts.Lock != nil {
+		planOpts = append(planOpts, tfexec.Lock(*opts.Lock))
+	}
+	if opts.LockTimeout != "" {
+		planOpts = append(planOpts, tfexec.LockTimeout(opts.LockTimeout))
 	}
 
 	_, err = tf.Plan(ctx, planOpts...)
@@ -115,8 +142,8 @@ func (s *TerraformService) Plan(ctx context.Context, targets []string) (*PlanSum
 }
 
 // Apply runs terraform apply on the saved plan file.
-func (s *TerraformService) Apply(ctx context.Context, targets []string) error {
-	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir, "targets", targets)
+func (s *TerraformService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
+	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir)
 	start := time.Now()
 
 	tf, err := s.newTerraform()

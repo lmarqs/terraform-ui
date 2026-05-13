@@ -41,7 +41,7 @@ type Plugin struct {
 	confirmed      bool
 	totalResources int
 	scopedContext  string
-	guard          *sdk.ScopeGuard
+	guard          *sdk.ChdirGuard
 }
 
 // New creates a new apply plugin.
@@ -101,7 +101,7 @@ func (e *Plugin) Targets() []string {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.session = ctx.Session
-	e.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	e.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
 	if e.session != nil {
 		if summary, ok := sdk.GetTyped[*sdk.PlanSummary](e.session, sdk.SessionKeyPlanSummary); ok {
 			e.totalResources = len(summary.Changes)
@@ -113,19 +113,19 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // Activate scopes the service to the active context before apply operations.
 func (e *Plugin) Activate() tea.Cmd {
 	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if e.scopedContext != "" && e.guard.CurrentScope() == "" {
+	if e.scopedContext != "" && e.guard.CurrentChdir() == "" {
 		e.guard.SetTracked(e.scopedContext)
 	}
 
 	scopeStatus, svc := e.guard.Check()
 	switch scopeStatus {
-	case sdk.ScopeChanged:
+	case sdk.ChdirChanged:
 		e.svc = svc
-		e.scopedContext = e.guard.CurrentScope()
+		e.scopedContext = e.guard.CurrentChdir()
 		// Apply intentionally preserves targets/confirmed/totalResources across scope changes
 		e.status = StatusIdle
 		e.errMsg = ""
-	case sdk.ScopeRequired:
+	case sdk.ChdirRequired:
 		e.status = StatusError
 		e.errMsg = "Select a context first (press c)"
 		return nil
@@ -172,7 +172,7 @@ func (e *Plugin) runApply() tea.Cmd {
 	targets := e.targets
 	start := e.startTime
 	return func() tea.Msg {
-		err := svc.Apply(context.Background(), targets)
+		err := svc.Apply(context.Background(), sdk.ApplyOptions{Targets: targets})
 		return ApplyResultMsg{Err: err, Duration: time.Since(start)}
 	}
 }

@@ -18,10 +18,10 @@ type mockService struct {
 	outputErr    error
 }
 
-func (m *mockService) Plan(_ context.Context, _ []string) (*sdk.PlanSummary, error) {
+func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	return &sdk.PlanSummary{}, nil
 }
-func (m *mockService) Apply(_ context.Context, _ []string) error { return nil }
+func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
 func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) {
 	return nil, nil
 }
@@ -934,7 +934,7 @@ func TestActivateWithScopeChange(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/new/ctx")
+	session.Set(sdk.SessionKeyActiveChdirAbs, "/new/ctx")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	p.status = StatusDone
@@ -949,7 +949,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/same")
+	session.Set(sdk.SessionKeyActiveChdirAbs, "/same")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	p.status = StatusDone
@@ -964,7 +964,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyScopeCount, 3)
+	session.Set(sdk.SessionKeyChdirCount, 3)
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	cmd := p.Activate()
@@ -980,7 +980,7 @@ func TestActivateWithScopeDir(t *testing.T) {
 	svc := &mockService{outputResult: sampleOutputs()}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveScopeAbs, "/my/ctx")
+	session.Set(sdk.SessionKeyActiveChdirAbs, "/my/ctx")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	cmd := p.Activate()
