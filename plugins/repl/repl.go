@@ -49,7 +49,7 @@ type Plugin struct {
 	binaryPath    string
 	errMsg        string
 	scopedContext string
-	guard         *sdk.ScopeGuard
+	guard         *sdk.ChdirGuard
 	pastInputs    []string // previous expressions for up/down recall
 	savedInput    string   // saved current input when browsing history
 }
@@ -95,7 +95,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
-	p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	p.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
 	p.dir = ctx.WorkingDir
 	p.status = StatusIdle
 	p.reset()
@@ -116,18 +116,18 @@ func (p *Plugin) reset() {
 // Activate is called when the user navigates to this plugin.
 func (p *Plugin) Activate() tea.Cmd {
 	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if p.scopedContext != "" && p.guard.CurrentScope() == "" {
+	if p.scopedContext != "" && p.guard.CurrentChdir() == "" {
 		p.guard.SetTracked(p.scopedContext)
 	}
 
 	scopeStatus, svc := p.guard.Check()
 	switch scopeStatus {
-	case sdk.ScopeChanged:
+	case sdk.ChdirChanged:
 		p.svc = svc
-		p.scopedContext = p.guard.CurrentScope()
+		p.scopedContext = p.guard.CurrentChdir()
 		p.dir = p.scopedContext
 		p.reset()
-	case sdk.ScopeRequired:
+	case sdk.ChdirRequired:
 		p.status = StatusError
 		p.errMsg = "Select a context first (press c)"
 		return nil

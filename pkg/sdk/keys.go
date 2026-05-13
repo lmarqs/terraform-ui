@@ -9,13 +9,12 @@ const (
 	// SessionKeyResourceCount holds the total resource count (int) from the plan.
 	SessionKeyResourceCount = "plan.resource_count"
 
-	// SessionKeyActiveScope holds the relative path (string) of the active scope.
-	SessionKeyActiveScope = "scope.active"
-	// SessionKeyActiveScopeAbs holds the absolute path (string) of the active scope.
-	SessionKeyActiveScopeAbs = "scope.active_abs"
-	// SessionKeyScopeCount holds the number of discovered scopes (int).
-	// A value > 1 indicates a multi-scope (monorepo) environment.
-	SessionKeyScopeCount = "scope.count"
+	// SessionKeyActiveChdir holds the relative path (string) of the active chdir member.
+	SessionKeyActiveChdir = "chdir.active"
+	// SessionKeyActiveChdirAbs holds the absolute path (string) of the active chdir member.
+	SessionKeyActiveChdirAbs = "chdir.active_abs"
+	// SessionKeyChdirCount holds the number of configured chdir members (int).
+	SessionKeyChdirCount = "chdir.count"
 
 	// SessionKeyWorkspace holds the current terraform workspace name (string).
 	SessionKeyWorkspace = "workspace.active"

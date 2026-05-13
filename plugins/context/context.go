@@ -100,7 +100,7 @@ func (p *Plugin) projectValue() string {
 
 func (p *Plugin) scopeValue() string {
 	if p.session != nil {
-		if v, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScope); ok && v != "" {
+		if v, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdir); ok && v != "" {
 			return v
 		}
 	}

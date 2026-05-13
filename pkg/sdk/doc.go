@@ -35,7 +35,7 @@
 //
 // # Shared Services
 //
-//   - ScopeGuard: detects scope changes in Activate(), eliminates context-scoping boilerplate
+//   - ChdirGuard: detects chdir changes in Activate(), eliminates context-scoping boilerplate
 //   - PinService: thread-safe pinning backed by Session, shared across plugins
 //   - StalenessGuard: TTL-based cache freshness validation for destructive ops
 //

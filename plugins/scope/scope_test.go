@@ -121,7 +121,7 @@ func TestUpdate_Enter_SetsActiveAndDeactivates(t *testing.T) {
 	}
 
 	// Session should be updated
-	v, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScope)
+	v, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdir)
 	if v != "b" {
 		t.Errorf("session scope = %q, want %q", v, "b")
 	}
@@ -270,7 +270,7 @@ func TestFilter_SelectFromFiltered(t *testing.T) {
 	if p.active != 2 {
 		t.Errorf("active = %d, want 2 (index in original scopes)", p.active)
 	}
-	v, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScope)
+	v, _ := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdir)
 	if v != "envs/prod" {
 		t.Errorf("session scope = %q, want %q", v, "envs/prod")
 	}

@@ -60,8 +60,8 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	session := sdk.NewSession()
 	if cfg.ActiveScope != "" {
 		absScope := filepath.Join(cfg.Dir, cfg.ActiveScope)
-		session.Set(sdk.SessionKeyActiveScope, cfg.ActiveScope)
-		session.Set(sdk.SessionKeyActiveScopeAbs, absScope)
+		session.Set(sdk.SessionKeyActiveChdir, cfg.ActiveScope)
+		session.Set(sdk.SessionKeyActiveChdirAbs, absScope)
 	}
 
 	return App{
@@ -444,7 +444,7 @@ func (a *App) syncActiveScope() {
 	if a.session == nil {
 		return
 	}
-	if scope, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveScope); ok {
+	if scope, ok := sdk.GetTyped[string](a.session, sdk.SessionKeyActiveChdir); ok {
 		if scope != a.activeScope {
 			a.activeScope = scope
 			a.header = a.header.WithScope(scope)

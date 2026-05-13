@@ -157,7 +157,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			p.filtered = msg.Scopes
 			p.log.Debug("scope.discover.complete", "scopes", len(msg.Scopes))
 			if p.session != nil {
-				p.session.Set(sdk.SessionKeyScopeCount, len(msg.Scopes))
+				p.session.Set(sdk.SessionKeyChdirCount, len(msg.Scopes))
 			}
 		}
 		return p, nil
@@ -246,8 +246,8 @@ func (p *Plugin) selectCurrent() tea.Cmd {
 		}
 	}
 	if p.session != nil {
-		p.session.Set(sdk.SessionKeyActiveScope, s.Path)
-		p.session.Set(sdk.SessionKeyActiveScopeAbs, s.AbsPath)
+		p.session.Set(sdk.SessionKeyActiveChdir, s.Path)
+		p.session.Set(sdk.SessionKeyActiveChdirAbs, s.AbsPath)
 	}
 	return func() tea.Msg { return sdk.DeactivateMsg{} }
 }

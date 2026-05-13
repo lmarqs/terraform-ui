@@ -81,7 +81,7 @@ func TestView_ShowsProjectScopeWorkspace(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.session = sdk.NewSession()
 	p.cfg.Dir = "/my/project"
-	p.session.Set(sdk.SessionKeyActiveScope, "modules/east")
+	p.session.Set(sdk.SessionKeyActiveChdir, "modules/east")
 	p.Activate()
 
 	output := p.View(80, 20)

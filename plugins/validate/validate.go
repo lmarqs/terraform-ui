@@ -33,7 +33,7 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	session       *sdk.Session
-	guard         *sdk.ScopeGuard
+	guard         *sdk.ChdirGuard
 	expander      *ui.ExpandSet
 	status        Status
 	diagnostics   []sdk.Diagnostic
@@ -91,7 +91,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
-	p.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	p.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
 	p.reset()
 	return nil
 }
@@ -108,20 +108,20 @@ func (p *Plugin) reset() {
 // Activate triggers validate when the user enters the plugin view.
 func (p *Plugin) Activate() tea.Cmd {
 	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if p.scopedContext != "" && p.guard.CurrentScope() == "" {
+	if p.scopedContext != "" && p.guard.CurrentChdir() == "" {
 		p.guard.SetTracked(p.scopedContext)
 	}
 
 	scopeStatus, svc := p.guard.Check()
 	switch scopeStatus {
-	case sdk.ScopeChanged:
+	case sdk.ChdirChanged:
 		p.svc = svc
-		p.scopedContext = p.guard.CurrentScope()
+		p.scopedContext = p.guard.CurrentChdir()
 		p.reset()
 		p.status = StatusLoading
 		p.log.Debug("validate.start")
 		return p.runValidate()
-	case sdk.ScopeRequired:
+	case sdk.ChdirRequired:
 		p.status = StatusError
 		p.errMsg = "Select a context first (press c)"
 		return nil
@@ -129,7 +129,7 @@ func (p *Plugin) Activate() tea.Cmd {
 
 	if p.status == StatusIdle || p.status == StatusError {
 		if p.session != nil {
-			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
+			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
 				p.svc = p.svc.WithDir(dir)
 				p.scopedContext = dir
 			}

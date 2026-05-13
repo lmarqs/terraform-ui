@@ -89,7 +89,7 @@ type Plugin struct {
 	log           *slog.Logger
 	session       *sdk.Session
 	stack         *sdk.Stack
-	guard         *sdk.ScopeGuard
+	guard         *sdk.ChdirGuard
 	pins          *sdk.PinService
 	fuzzy         *ui.FuzzyFilter[sdk.Resource]
 	status        Status
@@ -157,7 +157,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
 	e.session = ctx.Session
-	e.guard = sdk.NewScopeGuard(ctx.Session, ctx.Service)
+	e.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
 	e.pins = sdk.NewPinService(ctx.Session)
 	e.stack.Clear()
 	e.reset()
@@ -181,19 +181,19 @@ func (e *Plugin) reset() {
 // Activate triggers state loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
 	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if e.scopedContext != "" && e.guard.CurrentScope() == "" {
+	if e.scopedContext != "" && e.guard.CurrentChdir() == "" {
 		e.guard.SetTracked(e.scopedContext)
 	}
 
 	scopeStatus, svc := e.guard.Check()
 	switch scopeStatus {
-	case sdk.ScopeChanged:
+	case sdk.ChdirChanged:
 		e.svc = svc
-		e.scopedContext = e.guard.CurrentScope()
+		e.scopedContext = e.guard.CurrentChdir()
 		e.reset()
 		e.status = StatusLoading
 		return e.loadState()
-	case sdk.ScopeRequired:
+	case sdk.ChdirRequired:
 		e.status = StatusError
 		e.errMsg = "Select a context first (press c)"
 		return nil
@@ -201,7 +201,7 @@ func (e *Plugin) Activate() tea.Cmd {
 
 	if e.status == StatusIdle || e.status == StatusError {
 		if e.session != nil {
-			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveScopeAbs); ok && dir != "" {
+			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
 			}
