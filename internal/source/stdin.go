@@ -5,27 +5,30 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 // StdinProvider reads bytes from standard input when URI is "-".
+// Thread-safe: concurrent calls return the same cached data.
 type StdinProvider struct {
-	consumed bool
+	once sync.Once
+	data []byte
+	err  error
 }
 
 func (p *StdinProvider) Scheme() string { return "stdin" }
 
 func (p *StdinProvider) Read(_ context.Context, _ string) ([]byte, error) {
-	if p.consumed {
-		return nil, fmt.Errorf("stdin already consumed: only one flag can read from stdin per invocation")
-	}
-	p.consumed = true
-
-	data, err := io.ReadAll(os.Stdin)
-	if err != nil {
-		return nil, fmt.Errorf("reading stdin: %w", err)
-	}
-	if len(data) == 0 {
-		return nil, fmt.Errorf("stdin is empty: no data received (pipe input with | or redirect with <)")
-	}
-	return data, nil
+	p.once.Do(func() {
+		p.data, p.err = io.ReadAll(os.Stdin)
+		if p.err != nil {
+			p.err = fmt.Errorf("reading stdin: %w", p.err)
+			return
+		}
+		if len(p.data) == 0 {
+			p.data = nil
+			p.err = fmt.Errorf("stdin is empty: no data received (pipe input with | or redirect with <)")
+		}
+	})
+	return p.data, p.err
 }

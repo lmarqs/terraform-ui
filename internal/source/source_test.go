@@ -267,11 +267,29 @@ func TestStdinProvider(t *testing.T) {
 		t.Errorf("scheme = %q, want 'stdin'", p.Scheme())
 	}
 
-	t.Run("consumed flag prevents double read", func(t *testing.T) {
-		p := &StdinProvider{consumed: true}
-		_, err := p.Read(context.Background(), "-")
-		if err == nil {
-			t.Error("expected error for double read")
+	t.Run("second read returns cached data", func(t *testing.T) {
+		r, w, err := os.Pipe()
+		if err != nil {
+			t.Fatal(err)
+		}
+		oldStdin := os.Stdin
+		os.Stdin = r
+		t.Cleanup(func() { os.Stdin = oldStdin })
+
+		w.WriteString("hello")
+		w.Close()
+
+		p := &StdinProvider{}
+		data1, err := p.Read(context.Background(), "-")
+		if err != nil {
+			t.Fatalf("first read: %v", err)
+		}
+		data2, err := p.Read(context.Background(), "-")
+		if err != nil {
+			t.Fatalf("second read: %v", err)
+		}
+		if string(data1) != string(data2) {
+			t.Errorf("second read returned different data: %q vs %q", data1, data2)
 		}
 	})
 }
