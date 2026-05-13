@@ -4,6 +4,14 @@
 ### Bug Fixes
 
 * **ci:** intentionally break publishCmd to verify CI failure reporting ([c78caf3](https://github.com/lmarqs/terraform-ui/commit/c78caf32f15fdb8ef2462305cda440a5055bac67))
+* **ci:** restore goreleaser publishCmd after CI failure verification ([3023c1a](https://github.com/lmarqs/terraform-ui/commit/3023c1af621d4b6b73f2eec483930c7a02f06802))
+
+## [1.3.1](https://github.com/lmarqs/terraform-ui/compare/v1.3.0...v1.3.1) (2026-05-13)
+
+
+### Bug Fixes
+
+* **ci:** intentionally break publishCmd to verify CI failure reporting ([c78caf3](https://github.com/lmarqs/terraform-ui/commit/c78caf32f15fdb8ef2462305cda440a5055bac67))
 
 # [1.3.0](https://github.com/lmarqs/terraform-ui/compare/v1.2.0...v1.3.0) (2026-05-13)
 
