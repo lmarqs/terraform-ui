@@ -114,7 +114,7 @@ Add `--macro-verbose` flag for full trace output.
 - [ ] Strip command logic from `StaticService` (return nil for mutations)
 - [ ] Add `CommandFilter` enum and `--macro-verbose` flag
 - [ ] Update integration tests for mutations-only default
-- [ ] Remove stale `ErrReadOnly` references
+- [x] Remove stale `ErrReadOnly` references (promoted to `pkg/sdk/errors.go`)
 
 ## References
 

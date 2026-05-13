@@ -154,15 +154,17 @@ Two implementations:
 
 ### Source Abstraction (`internal/source/`)
 
-Universal I/O layer for loading external data (plan, state, macros). All external inputs resolve through the same pipeline.
+Pure byte-resolution layer. Resolves URIs to raw bytes — no domain parsing.
 
 ```
-Consumer (LoadPlan, LoadState, tape parser)
+Caller (cmd/tfui, macro runner)
     ↓
 Resolver (URI dispatch)
     ↓
 Provider (LocalProvider, StdinProvider, future: HTTP, S3)
 ```
+
+Domain parsing lives in `internal/terraform/loader.go`: `LoadPlan([]byte)` and `LoadState([]byte)`.
 
 **URI resolution rules (strict, no heuristics):**
 - `-` → stdin (only one flag per invocation)
@@ -217,7 +219,7 @@ tfui --plan ./plan.json --state ./state.json      # both
 
 When `--plan` or `--state` provided:
 - `StaticService` replaces `TerraformService`
-- All mutating operations return `ErrReadOnly`
+- All mutating operations return `sdk.ErrReadOnly`
 - Header shows `[read-only]` badge
 - Mutating hints hidden from status bar
 
