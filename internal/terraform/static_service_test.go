@@ -352,7 +352,9 @@ func TestStaticServiceCommands(t *testing.T) {
 			},
 			{
 				"Apply with single target",
-				func(svc *StaticService) error { return svc.Apply(ctx, sdk.ApplyOptions{Targets: []string{"aws_instance.web"}}) },
+				func(svc *StaticService) error {
+					return svc.Apply(ctx, sdk.ApplyOptions{Targets: []string{"aws_instance.web"}})
+				},
 				"terraform apply -target=aws_instance.web",
 			},
 			{

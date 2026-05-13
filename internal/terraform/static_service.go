@@ -3,15 +3,11 @@ package terraform
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
-
-// ErrReadOnly is returned by mutating operations on a StaticService.
-var ErrReadOnly = errors.New("operation not available in read-only mode")
 
 const defaultBinary = "terraform"
 
