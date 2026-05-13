@@ -29,9 +29,12 @@ pkg/sdk/                   — Public SDK (the only dependency for plugins)
   context.go               — Shared context (service, dir, workspace)
   types.go                 — Domain types (Action, RiskLevel, Resource, PlanChange)
   service.go               — Service interface (terraform operations)
+  bus.go                   — EventBus typed dispatch
+  events.go                — Event types and handler interfaces
+  options.go               — ResolvedOptions + BuildPlanOptions/BuildApplyOptions
   styles.go                — Style constants for consistent rendering
 internal/
-  config/config.go         — tfui.yaml loading, project discovery, OpenTofu detection
+  config/config.go         — HCL config loading, project discovery
   plugin/registry.go       — Plugin registry (host-side only)
   terraform/
     service.go             — TerraformService (implements sdk.Service via terraform-exec)
@@ -76,6 +79,8 @@ type Plugin interface {
 
 Plugins are registered with external metadata (`PluginMeta`) that controls keybinding and menu visibility — plugins themselves are invocation-agnostic.
 
+Plugins can also implement handler interfaces (`ChdirHandler`, `WorkspaceHandler`, etc.) to receive typed events from other plugins via the EventBus. This enables reactive data loading without polling or stringly-typed session keys.
+
 Plugins are:
 - **Self-contained** — own view logic, types, messages
 - **Configurable** — per-plugin options in `tfui.yaml`
@@ -98,7 +103,7 @@ Future (v1.1+): hashicorp/go-plugin for external plugins over gRPC. Third-party 
 - `Show()` — terraform state show for resource detail
 - `Workspace()` / `WorkspaceList()` — workspace management
 
-OpenTofu is supported via auto-detection (`tofu` preferred if on PATH) or explicit `terraform_binary: tofu` in config.
+OpenTofu is supported via explicit `terraform.bin = "tofu"` in HCL config, or by letting terraform-exec resolve the binary from PATH. There is no auto-detection logic.
 
 ## Bubbletea Model/Update/View
 
@@ -138,12 +143,14 @@ Coverage enforcement: 100% on all packages except `cmd/` (glue layer) and terraf
 ## Development
 
 ```bash
-mise install              # Install Go, terraform, node
-mise run build            # Build (runs fmt + lint first)
-mise run test             # Unit tests
-mise run coverage         # Coverage with 100% enforcement
-mise run test:integration # Integration tests (need terraform)
 mise run dev              # Launch TUI in dev mode
+mise run build            # Cross-platform binaries
+mise run fmt              # Format source files
+mise run check:lint       # Lint (golangci-lint v2)
+mise run test:unit        # Unit tests
+mise run test:coverage    # Coverage enforcement (90%)
+mise run test:integration # Integration tests
+mise run test:macro       # Macro tapes
 ```
 
 ## Key Design Decisions
@@ -158,7 +165,8 @@ mise run dev              # Launch TUI in dev mode
 | Plugins invocation-agnostic | Same plugin works via keybinding, command bar, CLI, macro. No coupling to navigation. |
 | hashicorp/go-plugin (future) | Third-party plugins as separate binaries over gRPC. Same interface, different transport. |
 | 100% coverage (excl cmd/) | Pipeline enforced. Untestable layers kept minimal via DI. |
-| OpenTofu first-class | Auto-detect, configurable. Test matrix includes both. |
+| OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. Test matrix includes both. |
+| `EventBus` typed pub/sub | Plugins react to state changes (chdir, workspace, plan) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
 
 ### UX
 
@@ -200,10 +208,11 @@ User presses 'p' → Plan plugin activates
   → svc.Plan(ctx, nil) → terraform plan
   → Shows changes with risk badges
 
-User presses 'space' on resources → pins in session
+User presses 'space' on resources → pins via shared PinService
 
 User presses 'a' → Plan emits ApplyRequestMsg
-  → App reads pins from session
+  → plan emits PlanCompletedEvent
+  → App reads pins from PinService
   → Activates Apply plugin with pins as targets
   → Re-plans with --target (only pinned)
   → Shows confirmation: "Apply 2 of 12 changes?"
