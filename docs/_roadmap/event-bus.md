@@ -1,8 +1,9 @@
 ---
 title: Event Bus (replace session keys)
-status: planned
+status: done
 priority: high
 created: 2026-05-12
+completed: 2026-05-12
 effort: medium
 tags: [architecture, extensibility]
 depends_on: []
@@ -10,44 +11,34 @@ depends_on: []
 
 # Event Bus: Replace Session Keys
 
-## Problem
+## Status: Done
 
-`pkg/sdk/keys.go` defines static session key constants for inter-plugin communication. This creates coupling: adding a new communication channel requires touching a central file. Doesn't scale toward external plugin extensibility.
+Implemented a typed event bus (`pkg/sdk/bus.go`, `pkg/sdk/events.go`) that replaces stringly-typed session key communication with compile-time-safe handler interfaces dispatched through BubbleTea's message loop.
 
-Currently, persistent cross-plugin state (e.g., "last plan result", "active workspace") lives in a stringly-typed key-value session. Plugins read/write via `session.Set(key, value)` and `GetTyped[T](session, key)`.
+## What Was Done
 
-## Current Session Keys
+1. **Infrastructure**: `EventBus` type with typed dispatch table, `Event` marker interface, 5 event types, 5 handler interfaces
+2. **ChdirChanged migration**: All 8 plugins implement `ChdirHandler` — `ChdirGuard` deleted entirely
+3. **PlanCompleted migration**: Plan plugin publishes event, Apply plugin subscribes
+4. **WorkspaceChanged migration**: Workspaces plugin publishes event, Context plugin subscribes, App updates header
+5. **PlanInvalidated migration**: App publishes on editor close, Plan plugin subscribes to reset
 
-- `plan.summary` — *PlanSummary from last plan
-- `plan.file` — path to tfplan.out
-- `plan.resource_count` — int
-- `chdir.active` — relative chdir member path
-- `chdir.active_abs` — absolute path
-- `chdir.count` — number of members
-- `workspace.active` — current workspace name
-- `config.var_files` — resolved []string
-- `config.vars` — resolved map[string]string
-- `config.extra_args` — []string from --
+## Remaining Work
 
-## Proposed Design
+- `PinsChangedEvent`: deferred — PinService operates synchronously during key handling, would need API redesign
+- Session keys `config.var_files`, `config.vars`, `config.extra_args` remain — these are write-once boot config, not reactive
+- `syncActiveScope()` remains as safety net during migration; can be removed once validated
 
-Replace session keys with a typed event bus. Two kinds of state:
+## Architecture
 
-1. **Transient events** (already handled by `tea.Msg`): plan completed, workspace switched, chdir selected
-2. **Persistent state** (needs the bus): "what was the last plan?", "what's the active workspace?"
+```
+Plugin returns tea.Cmd → produces Event msg
+    ↓
+App.Update() switch case → app-level reaction + session dual-write
+    ↓
+bus.Dispatch(msg) → fan-out to all handler implementations
+    ↓
+Handlers return tea.Cmd → batched back to BubbleTea
+```
 
-Options:
-- **A)** Typed store with publish/subscribe — plugins register interest in specific state changes
-- **B)** Extend BubbleTea messages with "sticky" messages that persist in a store
-- **C)** Plugin-exported state interfaces — each plugin exposes its state as a typed interface, others query it
-
-## Decision
-
-TBD — requires design session focused on external plugin extensibility.
-
-## Success Criteria
-
-- `pkg/sdk/keys.go` deleted
-- No magic strings for inter-plugin communication
-- External plugins can participate without modifying core
-- Type safety at compile time
+Subscription is interface-based: plugins implement `ChdirHandler`, `WorkspaceHandler`, etc. The bus discovers handlers via type assertion at init time (zero registration boilerplate).

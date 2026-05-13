@@ -41,7 +41,6 @@ type Plugin struct {
 	confirmed      bool
 	totalResources int
 	scopedContext  string
-	guard          *sdk.ChdirGuard
 }
 
 // New creates a new apply plugin.
@@ -101,47 +100,42 @@ func (e *Plugin) Targets() []string {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.session = ctx.Session
-	e.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
-	if e.session != nil {
-		if summary, ok := sdk.GetTyped[*sdk.PlanSummary](e.session, sdk.SessionKeyPlanSummary); ok {
-			e.totalResources = len(summary.Changes)
-		}
-	}
+	return nil
+}
+
+// HandleChdirChanged implements sdk.ChdirHandler.
+func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
+	e.svc = e.svc.WithDir(evt.AbsPath)
+	e.scopedContext = evt.AbsPath
+	// Apply intentionally preserves targets/confirmed/totalResources across scope changes
+	e.status = StatusIdle
+	e.errMsg = ""
+	return nil
+}
+
+// HandlePlanCompleted implements sdk.PlanCompletedHandler.
+func (e *Plugin) HandlePlanCompleted(evt sdk.PlanCompletedEvent) tea.Cmd {
+	e.totalResources = evt.ResourceCount
 	return nil
 }
 
 // Activate scopes the service to the active context before apply operations.
 func (e *Plugin) Activate() tea.Cmd {
-	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if e.scopedContext != "" && e.guard.CurrentChdir() == "" {
-		e.guard.SetTracked(e.scopedContext)
-	}
-
-	scopeStatus, svc := e.guard.Check()
-	switch scopeStatus {
-	case sdk.ChdirChanged:
-		e.svc = svc
-		e.scopedContext = e.guard.CurrentChdir()
-		// Apply intentionally preserves targets/confirmed/totalResources across scope changes
-		e.status = StatusIdle
-		e.errMsg = ""
-	case sdk.ChdirRequired:
-		e.status = StatusError
-		e.errMsg = "Select a context first (press c)"
-		return nil
+	// Initial scope bootstrap (for startup, before bus delivers events)
+	if e.scopedContext == "" {
+		if e.session != nil {
+			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
+				e.svc = e.svc.WithDir(dir)
+				e.scopedContext = dir
+			}
+		}
 	}
 
 	return nil
 }
 
-// TotalResources returns the total resource count read from the session plan summary.
+// TotalResources returns the total resource count from the last completed plan.
 func (e *Plugin) TotalResources() int {
-	// Re-read from session in case plan ran after Init.
-	if e.session != nil {
-		if summary, ok := sdk.GetTyped[*sdk.PlanSummary](e.session, sdk.SessionKeyPlanSummary); ok {
-			e.totalResources = len(summary.Changes)
-		}
-	}
 	return e.totalResources
 }
 

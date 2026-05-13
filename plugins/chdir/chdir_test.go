@@ -31,41 +31,52 @@ func TestPlugin_WhenMembers_ShouldNotBeReadyUntilSelection(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenEnterPressed_ShouldSelectMember(t *testing.T) {
+func TestPlugin_WhenEnterPressed_ShouldPublishChdirChangedEvent(t *testing.T) {
 	p := New(nil).(*Plugin)
-	session := sdk.NewSession()
-	p.session = session
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
 
-	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if !p.Ready() {
 		t.Error("Ready() = false after enter, want true")
 	}
-
-	chdir, ok := sdk.GetTyped[string](session, sdk.SessionKeyActiveChdir)
-	if !ok || chdir != "modules/vpc" {
-		t.Errorf("SessionKeyActiveChdir = %q, want modules/vpc", chdir)
+	if cmd == nil {
+		t.Fatal("Update returned nil cmd, want ChdirChangedEvent cmd")
 	}
 
-	abs, ok := sdk.GetTyped[string](session, sdk.SessionKeyActiveChdirAbs)
-	if !ok || abs != "/project/modules/vpc" {
-		t.Errorf("SessionKeyActiveChdirAbs = %q, want /project/modules/vpc", abs)
+	msg := cmd()
+	evt, ok := msg.(sdk.ChdirChangedEvent)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want sdk.ChdirChangedEvent", msg)
+	}
+	if evt.RelPath != "modules/vpc" {
+		t.Errorf("event.RelPath = %q, want modules/vpc", evt.RelPath)
+	}
+	if evt.AbsPath != "/project/modules/vpc" {
+		t.Errorf("event.AbsPath = %q, want /project/modules/vpc", evt.AbsPath)
+	}
+	if evt.Count != 2 {
+		t.Errorf("event.Count = %d, want 2", evt.Count)
 	}
 }
 
 func TestPlugin_WhenNavigateDown_ShouldSelectSecondMember(t *testing.T) {
 	p := New(nil).(*Plugin)
-	session := sdk.NewSession()
-	p.session = session
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
 
 	p.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
-	chdir, _ := sdk.GetTyped[string](session, sdk.SessionKeyActiveChdir)
-	if chdir != "modules/ecs" {
-		t.Errorf("SessionKeyActiveChdir = %q, want modules/ecs", chdir)
+	if cmd == nil {
+		t.Fatal("Update returned nil cmd, want ChdirChangedEvent cmd")
+	}
+	msg := cmd()
+	evt, ok := msg.(sdk.ChdirChangedEvent)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want sdk.ChdirChangedEvent", msg)
+	}
+	if evt.RelPath != "modules/ecs" {
+		t.Errorf("event.RelPath = %q, want modules/ecs", evt.RelPath)
 	}
 }
 

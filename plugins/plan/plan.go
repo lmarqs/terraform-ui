@@ -34,7 +34,6 @@ type Plugin struct {
 	log           *slog.Logger
 	session       *sdk.Session
 	stack         *sdk.Stack
-	guard         *sdk.ChdirGuard
 	pins          *sdk.PinService
 	expander      *ui.ExpandSet
 	status        Status
@@ -92,8 +91,21 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.log = ctx.Logger
 	e.session = ctx.Session
-	e.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
 	e.pins = sdk.NewPinService(ctx.Session)
+	e.reset()
+	return nil
+}
+
+// HandleChdirChanged implements sdk.ChdirHandler.
+func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
+	e.svc = e.svc.WithDir(evt.AbsPath)
+	e.scopedContext = evt.AbsPath
+	e.reset()
+	return nil
+}
+
+// HandlePlanInvalidated implements sdk.PlanInvalidatedHandler.
+func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 	e.reset()
 	return nil
 }
@@ -109,33 +121,17 @@ func (e *Plugin) reset() {
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
-	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if e.scopedContext != "" && e.guard.CurrentChdir() == "" {
-		e.guard.SetTracked(e.scopedContext)
-	}
-
-	scopeStatus, svc := e.guard.Check()
-	switch scopeStatus {
-	case sdk.ChdirChanged:
-		e.svc = svc
-		e.scopedContext = e.guard.CurrentChdir()
-		e.reset()
-		e.status = StatusLoading
-		e.log.Debug("plan.start", "targets", e.targets)
-		return e.runPlan()
-	case sdk.ChdirRequired:
-		e.status = StatusError
-		e.errMsg = "Select a context first (press c)"
-		return nil
-	}
-
-	if e.status == StatusIdle || e.status == StatusError {
+	if e.scopedContext == "" {
+		// Check session for initial scope (set at startup before bus is active)
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
 			}
 		}
+	}
+
+	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
 		return e.runPlan()
@@ -180,9 +176,13 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				changes = len(msg.Summary.Changes)
 			}
 			e.log.Debug("plan.complete", "changes", changes)
-			if e.session != nil && msg.Summary != nil {
-				e.session.Set(sdk.SessionKeyPlanSummary, msg.Summary)
-				e.session.Set(sdk.SessionKeyResourceCount, len(msg.Summary.Changes))
+			if msg.Summary != nil {
+				return e, func() tea.Msg {
+					return sdk.PlanCompletedEvent{
+						Summary:       msg.Summary,
+						ResourceCount: changes,
+					}
+				}
 			}
 		}
 		return e, nil

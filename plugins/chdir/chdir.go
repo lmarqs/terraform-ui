@@ -9,12 +9,11 @@ import (
 )
 
 type Plugin struct {
-	svc       sdk.Service
-	session   *sdk.Session
-	members   []string
+	svc        sdk.Service
+	members    []string
 	projectDir string
-	cursor    *ui.Cursor
-	selected  bool
+	cursor     *ui.Cursor
+	selected   bool
 }
 
 func New(svc sdk.Service) sdk.Plugin {
@@ -40,7 +39,6 @@ func (p *Plugin) SetMembers(members []string, projectDir string) {
 }
 
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.session = ctx.Session
 	p.svc = ctx.Service
 	return nil
 }
@@ -85,15 +83,16 @@ func (p *Plugin) selectMember() tea.Cmd {
 
 	member := p.members[idx]
 	absPath := filepath.Join(p.projectDir, member)
-
-	if p.session != nil {
-		p.session.Set(sdk.SessionKeyActiveChdir, member)
-		p.session.Set(sdk.SessionKeyActiveChdirAbs, absPath)
-		p.session.Set(sdk.SessionKeyChdirCount, len(p.members))
-	}
+	count := len(p.members)
 
 	p.selected = true
-	return nil
+	return func() tea.Msg {
+		return sdk.ChdirChangedEvent{
+			RelPath: member,
+			AbsPath: absPath,
+			Count:   count,
+		}
+	}
 }
 
 func (p *Plugin) View(width, height int) string {

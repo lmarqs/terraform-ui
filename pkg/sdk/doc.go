@@ -35,7 +35,7 @@
 //
 // # Shared Services
 //
-//   - ChdirGuard: detects chdir changes in Activate(), eliminates context-scoping boilerplate
+//   - EventBus: typed pub/sub for inter-plugin communication (ChdirHandler, WorkspaceHandler, etc.)
 //   - PinService: thread-safe pinning backed by Session, shared across plugins
 //   - StalenessGuard: TTL-based cache freshness validation for destructive ops
 //

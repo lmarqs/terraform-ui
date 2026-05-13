@@ -26,6 +26,7 @@ type App struct {
 	svc         sdk.Service
 	registry    *plugin.Registry
 	session     *sdk.Session
+	bus         *sdk.EventBus
 	sourceIndex *terraform.SourceIndex
 	width       int
 	height      int
@@ -73,11 +74,14 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		session.Set(sdk.SessionKeyExtraArgs, cfg.ExtraArgs)
 	}
 
+	bus := sdk.NewEventBus(registry.All())
+
 	return App{
 		cfg:           cfg,
 		svc:           svc,
 		registry:      registry,
 		session:       session,
+		bus:           bus,
 		sourceIndex:   sourceIndex,
 		header:        header,
 		contentBorder: components.NewContentBorder(),
@@ -148,6 +152,29 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case sdk.ChdirChangedEvent:
+		a.activeScope = msg.RelPath
+		a.header = a.header.WithScope(msg.RelPath)
+		// Dual-write to session for backward compat during migration
+		a.session.Set(sdk.SessionKeyActiveChdir, msg.RelPath)
+		a.session.Set(sdk.SessionKeyActiveChdirAbs, msg.AbsPath)
+		a.session.Set(sdk.SessionKeyChdirCount, msg.Count)
+		return a, a.bus.Dispatch(msg)
+
+	case sdk.PlanCompletedEvent:
+		// Dual-write to session for backward compat during migration
+		a.session.Set(sdk.SessionKeyPlanSummary, msg.Summary)
+		a.session.Set(sdk.SessionKeyResourceCount, msg.ResourceCount)
+		return a, a.bus.Dispatch(msg)
+
+	case sdk.WorkspaceChangedEvent:
+		a.header = components.NewHeader(a.cfg.Dir, msg.Name)
+		a.session.Set(sdk.SessionKeyWorkspace, msg.Name)
+		return a, a.bus.Dispatch(msg)
+
+	case sdk.PlanInvalidatedEvent:
+		return a, a.bus.Dispatch(msg)
+
 	case sdk.OverlayDismissMsg:
 		a.activeOverlay = nil
 		a.syncActiveScope()
@@ -205,10 +232,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case editor.EditorClosedMsg:
 		if msg.Modified {
-			// Invalidate plan cache since file was edited
-			if a.session != nil {
-				a.session.Set("plan.invalidated", true)
-			}
+			return a, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
 		}
 		return a, nil
 
@@ -236,6 +260,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width = msg.Width
 		a.height = msg.Height
 		return a, nil
+	}
+
+	// Fan-out: broadcast events to all subscribing plugins
+	if _, ok := msg.(sdk.Event); ok {
+		busCmd := a.bus.Dispatch(msg)
+		return a, busCmd
 	}
 
 	// If an overlay is active, route messages to it

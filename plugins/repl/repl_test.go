@@ -127,11 +127,9 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 
 	p.Activate()
 
-	if p.status != StatusError {
-		t.Errorf("status = %v, want StatusError", p.status)
-	}
-	if p.errMsg == "" {
-		t.Error("errMsg should be set")
+	// Without ChdirGuard, Activate proceeds to StatusReady (no scope gating)
+	if p.status != StatusReady {
+		t.Errorf("status = %v, want StatusReady", p.status)
 	}
 }
 
@@ -646,7 +644,7 @@ func TestSetBinaryPath(t *testing.T) {
 	}
 }
 
-func TestActivateContextChange(t *testing.T) {
+func TestHandleChdirChanged(t *testing.T) {
 	svc := &mockService{}
 	session := sdk.NewSession()
 	session.Set(sdk.SessionKeyActiveChdirAbs, "/old/ctx")
@@ -667,10 +665,8 @@ func TestActivateContextChange(t *testing.T) {
 	p.history = []replEntry{{Expr: "old", Result: "stale"}}
 	p.pastInputs = []string{"old"}
 
-	// Change scope
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/new/ctx")
-
-	p.Activate()
+	// HandleChdirChanged resets state
+	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
 
 	if p.dir != "/new/ctx" {
 		t.Errorf("dir = %q, want %q", p.dir, "/new/ctx")

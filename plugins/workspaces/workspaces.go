@@ -38,7 +38,6 @@ type Plugin struct {
 	svc           sdk.Service
 	session       *sdk.Session
 	stack         *sdk.Stack
-	guard         *sdk.ChdirGuard
 	status        Status
 	workspaces    []string
 	current       string
@@ -81,7 +80,14 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.svc = ctx.Service
 	e.session = ctx.Session
-	e.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
+	e.reset()
+	return nil
+}
+
+// HandleChdirChanged implements sdk.ChdirHandler.
+func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
+	e.svc = e.svc.WithDir(evt.AbsPath)
+	e.scopedContext = evt.AbsPath
 	e.reset()
 	return nil
 }
@@ -99,32 +105,17 @@ func (e *Plugin) reset() {
 
 // Activate triggers workspace loading when the user enters the plugin.
 func (e *Plugin) Activate() tea.Cmd {
-	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if e.scopedContext != "" && e.guard.CurrentChdir() == "" {
-		e.guard.SetTracked(e.scopedContext)
-	}
-
-	scopeStatus, svc := e.guard.Check()
-	switch scopeStatus {
-	case sdk.ChdirChanged:
-		e.svc = svc
-		e.scopedContext = e.guard.CurrentChdir()
-		e.reset()
-		e.status = StatusLoading
-		return e.loadWorkspaces()
-	case sdk.ChdirRequired:
-		e.status = StatusError
-		e.errMsg = "Select a context first (press c)"
-		return nil
-	}
-
-	if e.status == StatusIdle || e.status == StatusError {
+	// Initial scope bootstrap (for startup, before bus delivers events)
+	if e.scopedContext == "" {
 		if e.session != nil {
 			if dir, ok := sdk.GetTyped[string](e.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
 				e.svc = e.svc.WithDir(dir)
 				e.scopedContext = dir
 			}
 		}
+	}
+
+	if e.status == StatusIdle || e.status == StatusError {
 		e.status = StatusLoading
 		return e.loadWorkspaces()
 	}
@@ -181,9 +172,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 		} else {
 			e.current = msg.Name
-			if e.session != nil {
-				e.session.Set(sdk.SessionKeyWorkspace, msg.Name)
+			refreshCmd := e.Refresh()
+			eventCmd := func() tea.Msg {
+				return sdk.WorkspaceChangedEvent{Name: msg.Name}
 			}
+			return e, tea.Batch(refreshCmd, eventCmd)
 		}
 		return e, e.Refresh()
 

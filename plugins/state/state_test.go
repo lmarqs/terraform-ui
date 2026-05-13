@@ -1284,18 +1284,25 @@ func TestFilteringGetter(t *testing.T) {
 	}
 }
 
-func TestActivateWithScopeChange(t *testing.T) {
+func TestHandleChdirChanged(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}}}
 	p := New(svc).(*Plugin)
 	session := sdk.NewSession()
-	session.Set(sdk.SessionKeyActiveChdirAbs, "/new/ctx")
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	p.status = StatusDone
 	p.scopedContext = "/old/ctx"
+	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
+	if p.scopedContext != "/new/ctx" {
+		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new/ctx")
+	}
+	if p.status != StatusIdle {
+		t.Errorf("status = %v, want StatusIdle after HandleChdirChanged", p.status)
+	}
+	// Activate should now trigger loading since status is Idle
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Error("Activate() context change: want non-nil cmd")
+		t.Error("Activate() after HandleChdirChanged: want non-nil cmd")
 	}
 }
 
@@ -1322,11 +1329,12 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	ctx := &sdk.Context{Service: svc, Session: session, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
 	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() multi-context no selection: want nil")
+	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
+	if cmd == nil {
+		t.Error("Activate() multi-context no selection: want non-nil cmd (loads state)")
 	}
-	if p.status != StatusError {
-		t.Errorf("status = %v, want StatusError", p.status)
+	if p.status != StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
 	}
 }
 

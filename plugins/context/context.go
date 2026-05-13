@@ -17,11 +17,13 @@ type NavigateToMsg struct {
 
 // Plugin implements the context dashboard — shows Project, Scope, Workspace.
 type Plugin struct {
-	svc     sdk.Service
-	cfg     config.Config
-	log     *slog.Logger
-	session *sdk.Session
-	stack   *sdk.Stack
+	svc       sdk.Service
+	cfg       config.Config
+	log       *slog.Logger
+	session   *sdk.Session
+	stack     *sdk.Stack
+	scope     string
+	workspace string
 }
 
 // New creates a new context plugin.
@@ -57,6 +59,19 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 		p.log = ctx.Logger
 	}
 	p.session = ctx.Session
+	p.workspace = ctx.Workspace
+	return nil
+}
+
+// HandleChdirChanged implements sdk.ChdirHandler.
+func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
+	p.scope = evt.RelPath
+	return nil
+}
+
+// HandleWorkspaceChanged implements sdk.WorkspaceHandler.
+func (p *Plugin) HandleWorkspaceChanged(evt sdk.WorkspaceChangedEvent) tea.Cmd {
+	p.workspace = evt.Name
 	return nil
 }
 
@@ -99,6 +114,9 @@ func (p *Plugin) projectValue() string {
 }
 
 func (p *Plugin) scopeValue() string {
+	if p.scope != "" {
+		return p.scope
+	}
 	if p.session != nil {
 		if v, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdir); ok && v != "" {
 			return v
@@ -108,10 +126,8 @@ func (p *Plugin) scopeValue() string {
 }
 
 func (p *Plugin) workspaceValue() string {
-	if p.session != nil {
-		if v, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyWorkspace); ok && v != "" {
-			return v
-		}
+	if p.workspace != "" {
+		return p.workspace
 	}
 	return "default"
 }

@@ -49,7 +49,6 @@ type Plugin struct {
 	binaryPath    string
 	errMsg        string
 	scopedContext string
-	guard         *sdk.ChdirGuard
 	pastInputs    []string // previous expressions for up/down recall
 	savedInput    string   // saved current input when browsing history
 }
@@ -95,9 +94,17 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.log = ctx.Logger
 	p.session = ctx.Session
-	p.guard = sdk.NewChdirGuard(ctx.Session, ctx.Service)
 	p.dir = ctx.WorkingDir
 	p.status = StatusIdle
+	p.reset()
+	return nil
+}
+
+// HandleChdirChanged implements sdk.ChdirHandler.
+func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
+	p.svc = p.svc.WithDir(evt.AbsPath)
+	p.scopedContext = evt.AbsPath
+	p.dir = evt.AbsPath
 	p.reset()
 	return nil
 }
@@ -115,22 +122,15 @@ func (p *Plugin) reset() {
 
 // Activate is called when the user navigates to this plugin.
 func (p *Plugin) Activate() tea.Cmd {
-	// Sync guard with any externally-set scope (e.g., from prior activation)
-	if p.scopedContext != "" && p.guard.CurrentChdir() == "" {
-		p.guard.SetTracked(p.scopedContext)
-	}
-
-	scopeStatus, svc := p.guard.Check()
-	switch scopeStatus {
-	case sdk.ChdirChanged:
-		p.svc = svc
-		p.scopedContext = p.guard.CurrentChdir()
-		p.dir = p.scopedContext
-		p.reset()
-	case sdk.ChdirRequired:
-		p.status = StatusError
-		p.errMsg = "Select a context first (press c)"
-		return nil
+	// Initial scope bootstrap (for startup, before bus delivers events)
+	if p.scopedContext == "" {
+		if p.session != nil {
+			if dir, ok := sdk.GetTyped[string](p.session, sdk.SessionKeyActiveChdirAbs); ok && dir != "" {
+				p.svc = p.svc.WithDir(dir)
+				p.scopedContext = dir
+				p.dir = dir
+			}
+		}
 	}
 
 	// Detect terraform binary if not already set
