@@ -105,30 +105,35 @@ func main() {
 	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (requires --plan or --state)")
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select chdir member (validated against chdir.members in project mode)")
 
+	var ciMode bool
+	var outputFormat string
+
 	planCmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Run terraform plan",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPlan(cfg)
+			return runPlan(cfg, ciMode, outputFormat)
 		},
 	}
-	planCmd.Flags().StringVar(&cfg.Mode, "mode", "progress", "UI mode: silent, spinner, progress, agent")
+	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
+	planCmd.Flags().StringVar(&outputFormat, "output", "text", "Output format: text, json")
 	planCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for plan")
 
 	applyCmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApply(cfg)
+			return runApply(cfg, ciMode, outputFormat)
 		},
 	}
-	applyCmd.Flags().StringVar(&cfg.Mode, "mode", "progress", "UI mode: silent, spinner, progress, agent")
+	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
+	applyCmd.Flags().StringVar(&outputFormat, "output", "text", "Output format: text, json")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
 
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Generate tfui.hcl configuration",
-		Long:  "Detect terraform project patterns and generate a tfui.hcl config file in the working directory.",
+		Long:  "Detect terraform project patterns and generate tfui.hcl in the working directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runInit(cfg)
 		},
@@ -167,7 +172,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		if planURI != "" || stateURI != "" {
 			return runStaticNonInteractive(cfg, planURI, stateURI)
 		}
-		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --mode agent    (JSON output)\n  tfui plan --mode silent   (tree output)\n  tfui --plan ./file.json   (auto-renders without TTY)")
+		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --output json   (JSON output)\n  tfui plan --ci            (tree output, no spinner)\n  tfui --plan ./file.json   (auto-renders without TTY)")
 	}
 
 	if cfg.ActiveScope != "" {
@@ -366,6 +371,10 @@ func hasTTY() bool {
 	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
 }
 
+func isStderrTTY() bool {
+	return isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd())
+}
+
 func effectiveWorkDir(cfg config.Config) string {
 	if cfg.ActiveScope != "" {
 		return filepath.Join(cfg.Dir, cfg.ActiveScope)
@@ -539,7 +548,7 @@ func runInit(cfg config.Config) error {
 		return fmt.Errorf("init failed: %w", err)
 	}
 
-	outPath := filepath.Join(cfg.Dir, "tfui.yaml")
+	outPath := filepath.Join(cfg.Dir, config.HCLConfigFileName)
 	if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", outPath, err)
 	}
@@ -549,111 +558,85 @@ func runInit(cfg config.Config) error {
 	return nil
 }
 
-func runPlan(cfg config.Config) error {
+func runPlan(cfg config.Config, ci bool, output string) error {
+	if output != "text" && output != "json" {
+		return fmt.Errorf("unknown output format: %s (valid: text, json)", output)
+	}
+
 	if cfg.ActiveScope != "" {
 		if err := validateScope(cfg); err != nil {
 			return err
 		}
 	}
+
 	binary := cfg.TerraformBinary()
 	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
 	ctx := context.Background()
 
-	switch cfg.Mode {
-	case "silent":
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		if err != nil {
-			return fmt.Errorf("plan failed: %w", err)
-		}
-		printTreeView(summary)
-
-	case "spinner":
-		s := newSpinner("Running terraform plan...", false)
+	showSpinner := !ci && isStderrTTY()
+	var s *spinner
+	if showSpinner {
+		s = newSpinner("Running terraform plan...", true)
 		s.run()
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		s.halt()
-		if err != nil {
-			return fmt.Errorf("plan failed: %w", err)
-		}
-		printTreeView(summary)
-
-	case "progress":
-		s := newSpinner("Running terraform plan...", true)
-		s.run()
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		s.halt()
-		if err != nil {
-			return fmt.Errorf("plan failed: %w", err)
-		}
-		printTreeView(summary)
-
-	case "agent":
-		summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		if err != nil {
-			return fmt.Errorf("plan failed: %w", err)
-		}
-		return printAgentJSON(summary)
-
-	default:
-		return fmt.Errorf("unknown mode: %s", cfg.Mode)
 	}
 
-	return nil
+	summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
+
+	if showSpinner {
+		s.halt()
+	}
+	if err != nil {
+		return fmt.Errorf("plan failed: %w", err)
+	}
+
+	switch output {
+	case "json":
+		return printAgentJSON(summary)
+	default:
+		printTreeView(summary)
+		return nil
+	}
 }
 
-func runApply(cfg config.Config) error {
+func runApply(cfg config.Config, ci bool, output string) error {
+	if output != "text" && output != "json" {
+		return fmt.Errorf("unknown output format: %s (valid: text, json)", output)
+	}
+
 	if cfg.ActiveScope != "" {
 		if err := validateScope(cfg); err != nil {
 			return err
 		}
 	}
+
 	binary := cfg.TerraformBinary()
 	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
 	ctx := context.Background()
 
-	switch cfg.Mode {
-	case "silent":
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		if err != nil {
-			return fmt.Errorf("apply failed: %w", err)
-		}
-		fmt.Println("Apply complete.")
-
-	case "spinner":
-		s := newSpinner("Running terraform apply...", false)
+	showSpinner := !ci && isStderrTTY()
+	var s *spinner
+	if showSpinner {
+		s = newSpinner("Running terraform apply...", true)
 		s.run()
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		s.halt()
-		if err != nil {
-			return fmt.Errorf("apply failed: %w", err)
-		}
-		fmt.Println("Apply complete.")
-
-	case "progress":
-		s := newSpinner("Running terraform apply...", true)
-		s.run()
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		s.halt()
-		if err != nil {
-			return fmt.Errorf("apply failed: %w", err)
-		}
-		fmt.Println("Apply complete.")
-
-	case "agent":
-		err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-		if err != nil {
-			return fmt.Errorf("apply failed: %w", err)
-		}
-		output := map[string]interface{}{
-			"status": "complete",
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(output)
-
-	default:
-		return fmt.Errorf("unknown mode: %s", cfg.Mode)
 	}
 
-	return nil
+	err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
+
+	if showSpinner {
+		s.halt()
+	}
+	if err != nil {
+		return fmt.Errorf("apply failed: %w", err)
+	}
+
+	switch output {
+	case "json":
+		result := map[string]interface{}{"status": "complete"}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(result)
+	default:
+		fmt.Println("Apply complete.")
+		return nil
+	}
 }
