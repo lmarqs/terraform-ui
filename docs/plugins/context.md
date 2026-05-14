@@ -53,7 +53,7 @@ Context
 
 5 member(s)
 
-Enter select  / filter  r refresh  Esc back
+Enter select  / filter  ^r refresh  Esc back
 ```
 
 With filter:
@@ -68,7 +68,7 @@ filter: net
 
 2/5 member(s)
 
-Enter select  / filter  r refresh  Esc back
+Enter select  / filter  ^r refresh  Esc back
 ```
 
 ## Related

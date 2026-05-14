@@ -39,7 +39,7 @@ You audit terraform-ui code for compliance with project conventions documented i
 - [ ] `/` = enter filter mode (if plugin has filtering)
 - [ ] `space` = pin/select toggle
 - [ ] `enter` = inspect/detail view
-- [ ] `r` = refresh/reload data
+- [ ] `ctrl+r` = refresh/reload data
 - [ ] No conflicts between plugin-specific keys and global keys
 
 ### Naming

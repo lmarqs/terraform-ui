@@ -131,7 +131,7 @@ Within views:
 - `space` → pin/unpin
 - `/` → filter mode
 - `a` → apply (from plan)
-- `r` → refresh
+- `ctrl+r` → refresh
 - `esc` → back from sub-state
 - `q` → back to home
 

@@ -12,7 +12,7 @@
 ┌────────────────────── State Browser (30/1549) ─────────────────────────────┐
 │ content...                                                                 │
 └────────────────────────────────────────────────────────────────────────────┘
- ↑↓ navigate  Enter expand/inspect  Space pin  / filter  ^t flat  q back    terraform
+ Enter inspect  / filter  Space pin  ^t flat  d delete  e edit  t taint  q back    terraform
 ```
 
 - **Header** (3 lines): left=Project/Scope/Workspace, right=ASCII logo. Always visible.
@@ -158,8 +158,8 @@ Transitions are always user-initiated:
 - `Idle → Loading`: user activates the plugin or triggers a command
 - `Loading → Done`: async response arrives
 - `Loading → Error`: async response is an error
-- `Error → Loading`: user presses `r` to retry
-- `Done → Loading`: user presses `r` to refresh
+- `Error → Loading`: user presses `ctrl+r` to retry
+- `Done → Loading`: user presses `ctrl+r` to refresh
 
 The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes without the user asking.
 
@@ -227,7 +227,7 @@ Every action the app takes must be a direct, visible result of something the use
 
 **Explicit behavior** = every side effect traces back to a user action. Examples:
 - User selects "Workspace" → app fetches workspace list → shows loading → shows picker
-- User presses `r` → app refreshes data
+- User presses `ctrl+r` → app refreshes data
 - User opens a plugin → app loads that plugin's data (because they asked for it)
 
 This means a picker with async items shows a loading state — that is honest UX. The user triggered the action, they see the consequence. A brief "Loading..." is infinitely better than hidden background magic that may silently fail, waste resources, or produce stale data the user never asked for.

@@ -51,16 +51,19 @@ Frame lifecycle:
 - **`T` untaint**: remove taint mark.
 - **`n` import**: import existing resource.
 - **`!` batch**: open batch action palette (only when pins > 0).
-- **`r` refresh**: reload data from terraform.
+- **`ctrl+r` refresh**: reload data from terraform.
 - **`ctrl+w` wrap**: toggle line wrapping.
 - **`←→` pan**: horizontal scroll (10 chars/press, when wrap is off).
 
 ## Keybinding Ergonomics
 
-- Capital letter = non-terraform feature (Context `C`, Risk `R`, Phantom `P`, Blast Radius `B`)
-- Lowercase = terraform operation (state `s`, plan `p`, apply `a`, workspaces `w`)
-- `ctrl+char` = modifier actions within a view (ctrl+w wrap, ctrl+s screen capture)
-- Punctuation = mode/overlay triggers (`/` filter, `!` actions, `?` AI explain, `:` command)
+Two layers — bare alpha keys talk to terraform, everything else talks to the interface:
+
+- Bare lowercase = terraform mutation on cursor resource (`d` delete, `t` taint, `e` edit, `a` apply, `n` import, `u` force-unlock)
+- Bare uppercase = non-terraform plugin switch (`C` Context, `R` Risk, `P` Phantom, `B` Blast Radius, `T` untaint)
+- `ctrl+key` = interface control — view modes and reload (`^t` tree, `^w` wrap, `^r` refresh, `^p` pinned, `^u` unpin all)
+- Non-alpha / punctuation = navigation and mode triggers (`/` filter, `!` batch, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect)
+- `q` / `Esc` = leave (universal TUI convention, exception to alpha rule)
 
 Redundant keybindings for accessibility (hints show only primary):
 - Inspect: `Enter` (shown), `i` (alias)

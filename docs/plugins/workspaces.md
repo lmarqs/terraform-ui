@@ -54,7 +54,7 @@ Workspaces
 
 3 workspace(s)  Current: production
 
-Enter switch  n new  d delete  r refresh  Esc back
+Enter switch  n new  d delete  ^r refresh  Esc back
 ```
 
 Creating a new workspace:

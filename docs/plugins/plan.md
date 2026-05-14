@@ -32,7 +32,7 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `Enter` / `i` | Expand/collapse attribute diffs |
 | `Space` | Pin/unpin selected resource |
 | `a` | Apply (confirms, then applies pinned or all) |
-| `r` | Re-run plan (refresh) |
+| `ctrl+r` | Re-run plan (refresh) |
 | `u` | Force-unlock (when state is locked) |
 | `Esc` / `q` | Back to home |
 
@@ -60,7 +60,7 @@ Plan Review
 Plan: 1 to add, 1 to change, 1 to destroy, 1 to replace
 Overall risk: CRITICAL
 
-Enter expand  Space pin  a apply  r refresh  q back
+Enter expand  Space pin  a apply  ^r refresh  q back
 ```
 
 ## Command Line (CLI)
