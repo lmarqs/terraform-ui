@@ -598,7 +598,13 @@ func (a App) View() string {
 			statusBar = a.statusBar.Render(a.width)
 		}
 	} else {
-		statusBar = a.statusBar.Render(a.width)
+		homeHints := []sdk.KeyHint{
+			{Key: "↑↓", Description: "navigate"},
+			{Key: "Enter", Description: "select"},
+			{Key: ":", Description: "command"},
+			{Key: "q", Description: "quit"},
+		}
+		statusBar = a.statusBar.RenderHints(homeHints, a.width)
 	}
 
 	if a.activeOverlay != nil {
