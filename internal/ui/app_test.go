@@ -1151,3 +1151,97 @@ func TestApp_DeactivateMsg_GoesHomeWhenNotPushed(t *testing.T) {
 		t.Errorf("after DeactivateMsg from non-pushed plugin, should go home, got %q", app.activePlugin.ID())
 	}
 }
+
+func TestApp_WorkspaceChanged_ShouldPreserveChdirInHeader(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 30
+
+	// Set a chdir first
+	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/modules/vpc", Count: 2})
+	app = model.(App)
+
+	// Verify chdir is in the header
+	view := app.View()
+	if !strings.Contains(view, "modules/vpc") {
+		t.Fatal("precondition: header should contain chdir before workspace change")
+	}
+
+	// Now change workspace
+	model, _ = app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	app = model.(App)
+
+	// Header should still show chdir
+	view = app.View()
+	if !strings.Contains(view, "modules/vpc") {
+		t.Error("after WorkspaceChangedEvent, header should still show chdir 'modules/vpc'")
+	}
+	if !strings.Contains(view, "staging") {
+		t.Error("after WorkspaceChangedEvent, header should show new workspace 'staging'")
+	}
+}
+
+func TestApp_WorkspaceLoaded_ShouldPreserveChdirInHeader(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 30
+
+	// Set a chdir first
+	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/ecs", AbsPath: "/test/modules/ecs", Count: 2})
+	app = model.(App)
+
+	// Now simulate workspace initial load
+	model, _ = app.Update(workspaceLoadedMsg{workspace: "production"})
+	app = model.(App)
+
+	// Header should still show chdir
+	view := app.View()
+	if !strings.Contains(view, "modules/ecs") {
+		t.Error("after workspaceLoadedMsg, header should still show chdir 'modules/ecs'")
+	}
+	if !strings.Contains(view, "production") {
+		t.Error("after workspaceLoadedMsg, header should show workspace 'production'")
+	}
+}
+
+func TestApp_WorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+	app.width = 120
+	app.height = 30
+
+	// Activate state, then navigate to workspaces (NavPush)
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	app = model.(App)
+
+	// Switch to workspaces via command mode
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "workspaces" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+		t.Fatal("precondition: workspaces should be active")
+	}
+
+	// Send WorkspaceCreatedEvent (not WorkspaceChangedEvent)
+	model, _ = app.Update(sdk.WorkspaceCreatedEvent{Name: "new-feature"})
+	app = model.(App)
+
+	// Should NOT pop back — workspace plugin stays active
+	if app.activePlugin == nil {
+		t.Fatal("after WorkspaceCreatedEvent, plugin should still be active")
+	}
+	if app.activePlugin.ID() != "workspaces" {
+		t.Errorf("after WorkspaceCreatedEvent, activePlugin = %q, want %q (should NOT pop)", app.activePlugin.ID(), "workspaces")
+	}
+
+	// Header should show new workspace
+	view := app.View()
+	if !strings.Contains(view, "new-feature") {
+		t.Error("after WorkspaceCreatedEvent, header should show new workspace name")
+	}
+}

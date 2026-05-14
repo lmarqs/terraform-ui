@@ -139,7 +139,7 @@ func (a App) loadWorkspace() tea.Msg {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
-		a.header = components.NewHeader(a.cfg.Dir, msg.workspace)
+		a.header = a.header.WithWorkspace(msg.workspace)
 		return a, nil
 
 	case openContextOnStartupMsg:
@@ -161,8 +161,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
 
+	case sdk.WorkspaceCreatedEvent:
+		a.header = a.header.WithWorkspace(msg.Name)
+		return a, a.bus.Dispatch(sdk.WorkspaceChangedEvent(msg))
+
 	case sdk.WorkspaceChangedEvent:
-		a.header = components.NewHeader(a.cfg.Dir, msg.Name)
+		a.header = a.header.WithWorkspace(msg.Name)
 		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanInvalidatedEvent:
