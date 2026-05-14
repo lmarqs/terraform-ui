@@ -8,6 +8,9 @@ type EventBus struct {
 	planCompletedHandlers   []PlanCompletedHandler
 	pinsHandlers            []PinsHandler
 	planInvalidatedHandlers []PlanInvalidatedHandler
+	lockDetectedHandlers    []LockDetectedHandler
+	lockClearedHandlers     []LockClearedHandler
+	stateRefreshedHandlers  []StateRefreshedHandler
 }
 
 func NewEventBus(plugins []Plugin) *EventBus {
@@ -27,6 +30,15 @@ func NewEventBus(plugins []Plugin) *EventBus {
 		}
 		if h, ok := p.(PlanInvalidatedHandler); ok {
 			b.planInvalidatedHandlers = append(b.planInvalidatedHandlers, h)
+		}
+		if h, ok := p.(LockDetectedHandler); ok {
+			b.lockDetectedHandlers = append(b.lockDetectedHandlers, h)
+		}
+		if h, ok := p.(LockClearedHandler); ok {
+			b.lockClearedHandlers = append(b.lockClearedHandlers, h)
+		}
+		if h, ok := p.(StateRefreshedHandler); ok {
+			b.stateRefreshedHandlers = append(b.stateRefreshedHandlers, h)
 		}
 	}
 	return b
@@ -63,6 +75,24 @@ func (b *EventBus) Dispatch(msg tea.Msg) tea.Cmd {
 	case PlanInvalidatedEvent:
 		for _, h := range b.planInvalidatedHandlers {
 			if cmd := h.HandlePlanInvalidated(e); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+	case LockDetectedEvent:
+		for _, h := range b.lockDetectedHandlers {
+			if cmd := h.HandleLockDetected(e); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+	case LockClearedEvent:
+		for _, h := range b.lockClearedHandlers {
+			if cmd := h.HandleLockCleared(e); cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+	case StateRefreshedEvent:
+		for _, h := range b.stateRefreshedHandlers {
+			if cmd := h.HandleStateRefreshed(e); cmd != nil {
 				cmds = append(cmds, cmd)
 			}
 		}

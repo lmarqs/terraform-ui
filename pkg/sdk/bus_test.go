@@ -381,6 +381,62 @@ func (p *cmdReturningPlanInvalidatedPlugin) HandlePlanInvalidated(_ PlanInvalida
 	return func() tea.Msg { return testResultMsg{} }
 }
 
+type lockDetectedHandlerPlugin struct {
+	baseMockPlugin
+	called bool
+	event  LockDetectedEvent
+}
+
+func (p *lockDetectedHandlerPlugin) HandleLockDetected(e LockDetectedEvent) tea.Cmd {
+	p.called = true
+	p.event = e
+	return nil
+}
+
+type lockClearedHandlerPlugin struct {
+	baseMockPlugin
+	called bool
+}
+
+func (p *lockClearedHandlerPlugin) HandleLockCleared(_ LockClearedEvent) tea.Cmd {
+	p.called = true
+	return nil
+}
+
+type stateRefreshedHandlerPlugin struct {
+	baseMockPlugin
+	called bool
+}
+
+func (p *stateRefreshedHandlerPlugin) HandleStateRefreshed(_ StateRefreshedEvent) tea.Cmd {
+	p.called = true
+	return nil
+}
+
+type cmdReturningLockDetectedPlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningLockDetectedPlugin) HandleLockDetected(_ LockDetectedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
+type cmdReturningLockClearedPlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningLockClearedPlugin) HandleLockCleared(_ LockClearedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
+type cmdReturningStateRefreshedPlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningStateRefreshedPlugin) HandleStateRefreshed(_ StateRefreshedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
 func TestDispatch_WhenWorkspaceHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
 	p := &cmdReturningWorkspacePlugin{}
 	bus := NewEventBus([]Plugin{p})
@@ -416,6 +472,76 @@ func TestDispatch_WhenPlanInvalidatedHandlerReturnsCmd_ShouldReturnCmd(t *testin
 	bus := NewEventBus([]Plugin{p})
 
 	cmd := bus.Dispatch(PlanInvalidatedEvent{})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
+
+func TestDispatch_WhenLockDetectedEvent_ShouldRouteToLockDetectedHandler(t *testing.T) {
+	p := &lockDetectedHandlerPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	lock := &StateLock{ID: "abc-123", Who: "user@host", Operation: "OperationTypePlan"}
+	bus.Dispatch(LockDetectedEvent{Lock: lock})
+
+	if !p.called {
+		t.Fatal("HandleLockDetected was not called")
+	}
+	if p.event.Lock.ID != "abc-123" {
+		t.Errorf("event.Lock.ID = %q, want %q", p.event.Lock.ID, "abc-123")
+	}
+	if p.event.Lock.Who != "user@host" {
+		t.Errorf("event.Lock.Who = %q, want %q", p.event.Lock.Who, "user@host")
+	}
+}
+
+func TestDispatch_WhenLockClearedEvent_ShouldRouteToLockClearedHandler(t *testing.T) {
+	p := &lockClearedHandlerPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	bus.Dispatch(LockClearedEvent{})
+
+	if !p.called {
+		t.Fatal("HandleLockCleared was not called")
+	}
+}
+
+func TestDispatch_WhenStateRefreshedEvent_ShouldRouteToStateRefreshedHandler(t *testing.T) {
+	p := &stateRefreshedHandlerPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	bus.Dispatch(StateRefreshedEvent{})
+
+	if !p.called {
+		t.Fatal("HandleStateRefreshed was not called")
+	}
+}
+
+func TestDispatch_WhenLockDetectedHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningLockDetectedPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(LockDetectedEvent{Lock: &StateLock{ID: "x"}})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
+
+func TestDispatch_WhenLockClearedHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningLockClearedPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(LockClearedEvent{})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
+
+func TestDispatch_WhenStateRefreshedHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningStateRefreshedPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(StateRefreshedEvent{})
 	if cmd == nil {
 		t.Fatal("Dispatch returned nil cmd, want non-nil")
 	}
