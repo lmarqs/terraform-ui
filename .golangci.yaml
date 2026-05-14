@@ -11,8 +11,6 @@ linters:
     importas:
       no-unaliased: false
       alias:
-        - pkg: github.com/lmarqs/terraform-ui/plugins/blastradius
-          alias: tfuiblast
         - pkg: github.com/lmarqs/terraform-ui/plugins/(.+)
           alias: tfui$1
         - pkg: github.com/charmbracelet/bubbletea
