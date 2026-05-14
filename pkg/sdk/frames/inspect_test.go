@@ -131,5 +131,59 @@ func TestInspectFrame_ID(t *testing.T) {
 	}
 }
 
+func TestInspectFrame_ActionWithNilHandler(t *testing.T) {
+	f := NewInspectFrame(InspectOpts{
+		Content: "details",
+		Actions: []InspectAction{
+			{Key: "d", Label: "delete", Handler: nil},
+		},
+	})
+
+	result, cmd := f.Update(keyMsg("d"))
+	if result == nil {
+		t.Fatal("action with nil handler should not pop frame")
+	}
+	if cmd != nil {
+		t.Fatal("action with nil handler should not produce cmd")
+	}
+}
+
+func TestInspectFrame_NonKeyMsgIgnored(t *testing.T) {
+	f := NewInspectFrame(InspectOpts{Content: "details"})
+
+	result, cmd := f.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if result != f {
+		t.Fatal("non-key msg should return same frame")
+	}
+	if cmd != nil {
+		t.Fatal("non-key msg should not produce cmd")
+	}
+}
+
+func TestInspectFrame_HintsWithNilIsPinned(t *testing.T) {
+	f := NewInspectFrame(InspectOpts{
+		Content:  "details",
+		IsPinned: nil,
+	})
+
+	hints := f.Hints()
+	for _, h := range hints {
+		if h.Description == "[pinned]" {
+			t.Fatal("should not show [pinned] when IsPinned is nil")
+		}
+	}
+}
+
+func TestInspectFrame_View(t *testing.T) {
+	f := NewInspectFrame(InspectOpts{
+		Content: "line1\nline2",
+	})
+
+	view := f.View(80, 24)
+	if view == "" {
+		t.Fatal("view should not be empty")
+	}
+}
+
 // Verify InspectFrame satisfies the Frame interface at compile time.
 var _ sdk.Frame = (*InspectFrame)(nil)

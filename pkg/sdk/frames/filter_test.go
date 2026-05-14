@@ -209,5 +209,163 @@ func TestFilterFrame_View(t *testing.T) {
 	}
 }
 
+func TestFilterFrame_CtrlT_WithOnToggle(t *testing.T) {
+	toggled := false
+	f := NewFilterFrame(FilterOpts{
+		OnToggle: func() { toggled = true },
+	})
+
+	result, cmd := f.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	if result == nil {
+		t.Fatal("ctrl+t should not pop frame")
+	}
+	if cmd != nil {
+		t.Fatal("ctrl+t should not produce cmd")
+	}
+	if !toggled {
+		t.Fatal("ctrl+t should call onToggle")
+	}
+}
+
+func TestFilterFrame_CtrlT_WithNilOnToggle(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{
+		OnToggle: nil,
+	})
+
+	result, cmd := f.Update(tea.KeyMsg{Type: tea.KeyCtrlT})
+	if result == nil {
+		t.Fatal("ctrl+t with nil onToggle should not pop frame")
+	}
+	if cmd != nil {
+		t.Fatal("ctrl+t with nil onToggle should not produce cmd")
+	}
+}
+
+func TestFilterFrame_EnterWithNilOnSelect(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{
+		OnSelect: nil,
+	})
+
+	result, cmd := f.Update(keyMsg("enter"))
+	if result == nil {
+		t.Fatal("enter with nil OnSelect should not pop frame")
+	}
+	if cmd != nil {
+		t.Fatal("enter with nil OnSelect should not produce cmd")
+	}
+}
+
+func TestFilterFrame_NavigationWithNilOnNavigate(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{
+		OnNavigate: nil,
+	})
+
+	result, cmd := f.Update(keyMsg("down"))
+	if result == nil {
+		t.Fatal("down with nil onNavigate should not pop")
+	}
+	if cmd != nil {
+		t.Fatal("down with nil onNavigate should not produce cmd")
+	}
+
+	result, cmd = f.Update(keyMsg("up"))
+	if result == nil {
+		t.Fatal("up with nil onNavigate should not pop")
+	}
+	if cmd != nil {
+		t.Fatal("up with nil onNavigate should not produce cmd")
+	}
+}
+
+func TestFilterFrame_SpaceWithOnPin(t *testing.T) {
+	pinCalled := false
+	f := NewFilterFrame(FilterOpts{
+		OnPin: func() tea.Cmd {
+			pinCalled = true
+			return nil
+		},
+	})
+
+	result, _ := f.Update(keyMsg(" "))
+	if result == nil {
+		t.Fatal("space with OnPin should not pop frame")
+	}
+	if !pinCalled {
+		t.Fatal("space should call OnPin when set")
+	}
+	if f.Query != "" {
+		t.Fatal("space with OnPin should not add to query")
+	}
+}
+
+func TestFilterFrame_TypeWithNilOnFilter(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{
+		OnFilter: nil,
+	})
+
+	result, _ := f.Update(keyMsg("a"))
+	if result == nil {
+		t.Fatal("typing with nil onFilter should not pop")
+	}
+	if f.Query != "a" {
+		t.Fatalf("expected query 'a', got %q", f.Query)
+	}
+}
+
+func TestFilterFrame_BackspaceWithNilOnFilter(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{
+		OnFilter: nil,
+	})
+	f.Query = "abc"
+
+	result, _ := f.Update(keyMsg("backspace"))
+	if result == nil {
+		t.Fatal("backspace with nil onFilter should not pop")
+	}
+	if f.Query != "ab" {
+		t.Fatalf("expected query 'ab', got %q", f.Query)
+	}
+}
+
+func TestFilterFrame_SpaceWithNilOnFilter(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{
+		OnFilter: nil,
+	})
+	f.Query = "foo"
+
+	result, _ := f.Update(keyMsg(" "))
+	if result == nil {
+		t.Fatal("space with nil onFilter should not pop")
+	}
+	if f.Query != "foo " {
+		t.Fatalf("expected 'foo ', got %q", f.Query)
+	}
+}
+
+func TestFilterFrame_NonKeyMsgIgnored(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{})
+
+	result, cmd := f.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if result != f {
+		t.Fatal("non-key msg should return same frame")
+	}
+	if cmd != nil {
+		t.Fatal("non-key msg should not produce cmd")
+	}
+}
+
+func TestFilterFrame_NonFilterCharsIgnored(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{})
+
+	// Tab produces a multi-char string representation, so it won't be a single char
+	result, _ := f.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if result == nil {
+		t.Fatal("tab should not pop frame")
+	}
+	if f.Query != "" {
+		t.Fatalf("tab should not add to query, got %q", f.Query)
+	}
+}
+
 // Verify FilterFrame satisfies the Frame interface at compile time.
 var _ sdk.Frame = (*FilterFrame)(nil)

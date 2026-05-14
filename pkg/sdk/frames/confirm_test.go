@@ -93,6 +93,46 @@ func TestConfirmFrame_NilOnNo(t *testing.T) {
 	}
 }
 
+func TestConfirmFrame_NilOnYes(t *testing.T) {
+	f := NewConfirmFrame("Delete?", nil, nil)
+
+	result, cmd := f.Update(keyMsg("y"))
+	if result != nil {
+		t.Fatal("y should still pop with nil onYes")
+	}
+	if cmd != nil {
+		t.Fatal("y with nil onYes should not produce cmd")
+	}
+}
+
+func TestConfirmFrame_UpperN(t *testing.T) {
+	noCalled := false
+	f := NewConfirmFrame("Delete?", nil, func() tea.Cmd {
+		noCalled = true
+		return nil
+	})
+
+	result, _ := f.Update(keyMsg("N"))
+	if result != nil {
+		t.Fatal("N should pop confirm frame")
+	}
+	if !noCalled {
+		t.Fatal("N should call onNo")
+	}
+}
+
+func TestConfirmFrame_NonKeyMsgIgnored(t *testing.T) {
+	f := NewConfirmFrame("Delete?", nil, nil)
+
+	result, cmd := f.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+	if result != f {
+		t.Fatal("non-key msg should return same frame")
+	}
+	if cmd != nil {
+		t.Fatal("non-key msg should not produce cmd")
+	}
+}
+
 func TestConfirmFrame_View(t *testing.T) {
 	f := NewConfirmFrame("Delete resource?", func() tea.Cmd { return nil }, nil)
 	view := f.View(80, 24)
