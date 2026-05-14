@@ -27,6 +27,7 @@ import (
 	tfuiblastradius "github.com/lmarqs/terraform-ui/plugins/blastradius"
 	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
+	tfuiforceunlock "github.com/lmarqs/terraform-ui/plugins/forceunlock"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiphantom "github.com/lmarqs/terraform-ui/plugins/phantom"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
@@ -219,6 +220,7 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.RegisterFactory("risk", tfuirisk.New, plugin.PluginMeta{Keybinding: "R", MenuVisible: true})
 	registry.RegisterFactory("phantom", tfuiphantom.New, plugin.PluginMeta{Keybinding: "P", MenuVisible: true})
 	registry.RegisterFactory("blastradius", tfuiblastradius.New, plugin.PluginMeta{Keybinding: "B", MenuVisible: true})
+	registry.RegisterFactory("forceunlock", tfuiforceunlock.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 	registry.RegisterFactory("version", tfuiversion.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 
 	registry.Build(svc, cfg.Plugins)
