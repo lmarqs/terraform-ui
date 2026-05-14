@@ -5,7 +5,7 @@ description: Add a new plugin to the application
 
 ## Add a new plugin
 
-Create a new plugin that implements the `Plugin` interface from `internal/plugin/plugin.go`.
+Create a new plugin that implements the `Plugin` interface from `pkg/sdk/plugin.go`.
 
 ### Steps
 
@@ -15,25 +15,24 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
 
 2. **Implement the Plugin interface**
 
-   The plugin must satisfy this interface (defined in `internal/plugin/plugin.go`):
+   The plugin must satisfy this interface (defined in `pkg/sdk/plugin.go`):
 
    ```go
    type Plugin interface {
-       ID() string           // unique identifier, used as key in tfui.hcl plugins map
-       Name() string         // human-readable display name
-       Description() string  // one-line description for help/status bar
-       KeyBinding() string   // single key to activate from home (e.g., "p", "R", "b")
-
-       Init(ctx *Context) tea.Cmd           // initialize with shared context
-       Update(msg tea.Msg) (Plugin, tea.Cmd) // handle messages (bubbletea pattern)
-       View(width, height int) string       // render the plugin view
-
-       Configure(cfg map[string]interface{}) error  // apply plugin-specific config from tfui.hcl
-       Ready() bool                                  // whether data is loaded and view is ready
+       ID() string
+       Name() string
+       Description() string
+       Init(ctx *Context) tea.Cmd
+       Update(msg tea.Msg) (Plugin, tea.Cmd)
+       View(width, height int) string
+       Configure(cfg map[string]interface{}) error
+       Ready() bool
    }
    ```
 
-   Reference implementation: `plugins/risk/risk.go`
+   Optional interfaces: `Activatable`, `Countable`, `Hintable`, `Pinnable`, `Stackable`.
+
+   Reference implementation: `plugins/state/state.go`
 
 3. **Follow the standard plugin structure**
 
@@ -42,66 +41,55 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
 
    import (
        tea "github.com/charmbracelet/bubbletea"
-       "github.com/lmarqs/terraform-ui/internal/plugin"
-       "github.com/lmarqs/terraform-ui/internal/terraform"
-       "github.com/lmarqs/terraform-ui/internal/ui/styles"
-   )
-
-   type Status int
-
-   const (
-       StatusIdle Status = iota
-       StatusLoading
-       StatusDone
-       StatusError
+       "github.com/lmarqs/terraform-ui/pkg/sdk"
    )
 
    type Plugin struct {
-       svc    terraform.Service
-       status Status
-       // plugin-specific fields...
+       svc     sdk.Service
+       log     *slog.Logger
+       pins    *sdk.PinService
+       options *sdk.ResolvedOptions
+       status  sdk.Status
    }
 
-   func New(svc terraform.Service) plugin.Plugin {
+   func New(svc sdk.Service) sdk.Plugin {
        return &Plugin{svc: svc}
    }
 
    func (p *Plugin) ID() string          { return "<id>" }
    func (p *Plugin) Name() string        { return "<Display Name>" }
    func (p *Plugin) Description() string { return "<one-line description>" }
-   func (p *Plugin) KeyBinding() string  { return "<key>" }
-   func (p *Plugin) Ready() bool         { return p.status == StatusDone }
+   func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
 
    func (p *Plugin) Configure(cfg map[string]interface{}) error {
        return nil
    }
 
-   func (p *Plugin) Init(ctx *plugin.Context) tea.Cmd {
+   func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
        p.svc = ctx.Service
+       p.log = ctx.Logger
+       p.pins = ctx.Pins
+       p.options = ctx.Options
        return nil
    }
 
-   func (p *Plugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
-       // handle tea.KeyMsg and custom messages
+   func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
        return p, nil
    }
 
    func (p *Plugin) View(width, height int) string {
-       // use styles.StyleTitle, styles.StylePadded, etc.
        return ""
    }
    ```
 
 4. **Register the plugin factory in `cmd/tfui/main.go`**
 
-   Add the import and register the factory with the plugin registry:
-
    ```go
-   import "<name>plugin" "github.com/lmarqs/terraform-ui/plugins/<name>"
+   import tfui<name> "github.com/lmarqs/terraform-ui/plugins/<name>"
 
    // In the plugin registration section:
-   registry.RegisterFactory("<name>", func(svc terraform.Service) plugin.Plugin {
-       return <name>plugin.New()
+   registry.RegisterFactory("<name>", tfui<name>.New, plugin.PluginMeta{
+       Keybinding: "<key>", MenuVisible: true,
    })
    ```
 
@@ -121,7 +109,7 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
    ---
    ```
 
-   Include sections: Overview, Usage (keybindings table), Configuration (tfui.hcl example), Screenshots/Output, Related.
+   Include sections: Overview, Usage (keybindings table), Configuration (tfui.hcl example), Related.
 
 6. **Update the plugin index at `docs/plugins/index.md`**
 
@@ -134,9 +122,9 @@ Create a new plugin that implements the `Plugin` interface from `internal/plugin
 ### Key patterns
 
 - Plugin types are named `Plugin` by convention
-- Constructor is `New(svc terraform.Service)` returning `plugin.Plugin`
-- Use `styles.*` from `internal/ui/styles` for all formatting (never inline lipgloss)
+- Constructor is `New(svc sdk.Service)` returning `sdk.Plugin`
+- Use `sdk.Style*` from `pkg/sdk/styles.go` for formatting
 - Use `strings.Builder` for render loops
-- Async operations return `tea.Cmd` functions that produce custom message types
-- Key bindings: lowercase for primary operations (p, a, s, w, m, b), uppercase for analysis (R, P)
-- Categories: `operations` (modifies infra), `analysis` (read-only insight), `navigation` (state/workspace browsing)
+- Async operations return `tea.Cmd` that produce custom message types
+- Keybindings: lowercase for terraform ops, uppercase for analysis features
+- Plugins import ONLY `pkg/sdk` — never `internal/`

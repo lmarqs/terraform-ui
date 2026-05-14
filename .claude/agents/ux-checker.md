@@ -9,11 +9,11 @@ tools:
 
 # UX Checker Agent
 
-You audit terraform-ui plugin views for UX consistency per `.claude/ux-guidelines.md` §11-12. You are read-only — never modify files.
+You audit terraform-ui plugin views for UX consistency per `.claude/ux-guidelines.md` (hint placement rules in §11-12) and `.claude/rules/ux.md` (action model, keybinding conventions). You are read-only — never modify files.
 
 ## Process
 
-1. **Read `.claude/ux-guidelines.md`** sections 11-12 for the rules.
+1. **Read `.claude/ux-guidelines.md`** sections 11-12 and `.claude/rules/ux.md`** for the rules.
 2. **Scan each plugin's `View()` method** for violations.
 3. **Verify hint bar implementation** is state-aware.
 4. **Report violations** grouped by severity.
