@@ -12,7 +12,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/macro"
@@ -184,12 +183,11 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 	var svc sdk.Service
 
 	if planURI != "" || stateURI != "" {
-		cfg.ReadOnly = true
-		staticSvc, err := buildStaticService(cfg, planURI, stateURI)
+		compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
 		if err != nil {
 			return err
 		}
-		svc = staticSvc
+		svc = compositeSvc
 	} else {
 		binary := cfg.TerraformBinary()
 		svc = terraform.NewService(effectiveWorkDir(cfg), binary)
@@ -267,13 +265,12 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 		return nil
 	}
 
-	cfg.ReadOnly = true
-	staticSvc, err := buildStaticService(cfg, planURI, stateURI)
+	compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
 	if err != nil {
 		return err
 	}
 
-	recorder := terraform.NewRecordingService(staticSvc, cfg.TerraformBinary())
+	recorder := terraform.NewRecordingService(compositeSvc, cfg.TerraformBinary())
 	registry := buildRegistry(recorder, cfg)
 	app := ui.NewApp(cfg, recorder, registry)
 
@@ -290,7 +287,7 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 	return nil
 }
 
-func buildStaticService(cfg config.Config, planURI, stateURI string) (*terraform.StaticService, error) {
+func buildCompositeService(cfg config.Config, planURI, stateURI string) (*terraform.CompositeService, error) {
 	if planURI == "-" && stateURI == "-" {
 		return nil, fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
 	}
@@ -306,36 +303,70 @@ func buildStaticService(cfg config.Config, planURI, stateURI string) (*terraform
 	)
 	ctx := context.Background()
 
-	var plan *sdk.PlanSummary
+	var planFile string
+	var stdinPlan []byte
 	if planURI != "" {
-		data, resolveErr := resolver.Resolve(ctx, planURI)
-		if resolveErr != nil {
-			return nil, fmt.Errorf("loading plan: %w", resolveErr)
-		}
-		plan, err = terraform.LoadPlan(data)
-		if err != nil {
-			return nil, err
+		if planURI == "-" {
+			data, resolveErr := resolver.Resolve(ctx, planURI)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("loading plan: %w", resolveErr)
+			}
+			stdinPlan = data
+		} else {
+			planFile, err = resolveToAbsPath(cwd, planURI)
+			if err != nil {
+				return nil, fmt.Errorf("resolving plan path: %w", err)
+			}
 		}
 	}
 
-	var resources []sdk.Resource
-	var state *tfjson.State
+	var stateFile string
+	var stdinState []byte
 	if stateURI != "" {
-		data, resolveErr := resolver.Resolve(ctx, stateURI)
-		if resolveErr != nil {
-			return nil, fmt.Errorf("loading state: %w", resolveErr)
-		}
-		resources, state, err = terraform.LoadState(data)
-		if err != nil {
-			return nil, err
+		if stateURI == "-" {
+			data, resolveErr := resolver.Resolve(ctx, stateURI)
+			if resolveErr != nil {
+				return nil, fmt.Errorf("loading state: %w", resolveErr)
+			}
+			stdinState = data
+		} else {
+			stateFile, err = resolveToAbsPath(cwd, stateURI)
+			if err != nil {
+				return nil, fmt.Errorf("resolving state path: %w", err)
+			}
 		}
 	}
 
-	return terraform.NewStaticService(plan, resources, state), nil
+	binary := cfg.TerraformBinary()
+	var live sdk.Service
+	if stateFile != "" {
+		live = terraform.NewServiceWithState(effectiveWorkDir(cfg), binary, stateFile)
+	} else {
+		live = terraform.NewService(effectiveWorkDir(cfg), binary)
+	}
+
+	return terraform.NewCompositeService(live, planFile, stateFile, stdinPlan, stdinState), nil
+}
+
+func resolveToAbsPath(baseDir, uri string) (string, error) {
+	if filepath.IsAbs(uri) {
+		return uri, nil
+	}
+	clean := uri
+	if len(clean) > 2 && clean[:2] == "./" {
+		clean = clean[2:]
+	}
+	if len(clean) > 7 && clean[:7] == "file://" {
+		clean = clean[7:]
+		if filepath.IsAbs(clean) {
+			return clean, nil
+		}
+	}
+	return filepath.Abs(filepath.Join(baseDir, clean))
 }
 
 func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error {
-	staticSvc, err := buildStaticService(cfg, planURI, stateURI)
+	compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
 	if err != nil {
 		return err
 	}
@@ -343,7 +374,7 @@ func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error 
 	ctx := context.Background()
 
 	if planURI != "" {
-		summary, err := staticSvc.Plan(ctx, sdk.PlanOptions{})
+		summary, err := compositeSvc.Plan(ctx, sdk.PlanOptions{})
 		if err != nil {
 			return err
 		}
@@ -351,7 +382,7 @@ func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error 
 	}
 
 	if stateURI != "" {
-		resources, err := staticSvc.StateList(ctx)
+		resources, err := compositeSvc.StateList(ctx)
 		if err != nil {
 			return err
 		}
