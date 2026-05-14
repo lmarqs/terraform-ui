@@ -475,6 +475,38 @@ func TestApp_OpenContextOnStartup_SkipsWhenPreloadedData(t *testing.T) {
 	}
 }
 
+func TestApp_ChdirChangedEvent_DeactivatesPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := &mockService{workspace: "default"}
+
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{MenuVisible: false})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry)
+
+	// Simulate chdir plugin being active (as if startup activated it)
+	model, _ := app.Update(openContextOnStartupMsg{})
+	app = model.(App)
+	if app.activePlugin == nil {
+		t.Fatal("precondition: chdir plugin should be active")
+	}
+
+	// ChdirChangedEvent should deactivate the plugin and return to home
+	model, _ = app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	updated := model.(App)
+
+	if updated.activePlugin != nil {
+		t.Errorf("ChdirChangedEvent should deactivate plugin, got %q", updated.activePlugin.ID())
+	}
+}
+
 // customMsg is a tea.Msg that doesn't match any case in Update.
 type customMsg struct{}
 

@@ -154,6 +154,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.ChdirChangedEvent:
 		a.activeChdir = msg.RelPath
+		a.activePlugin = nil
 		a.header = a.header.WithChdir(msg.RelPath)
 		return a, a.bus.Dispatch(msg)
 
