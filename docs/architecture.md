@@ -37,7 +37,9 @@ internal/
   config/config.go         — HCL config loading, project discovery
   plugin/registry.go       — Plugin registry (host-side only)
   terraform/
-    service.go             — TerraformService (implements sdk.Service via terraform-exec)
+    service.go             — ExecService (implements sdk.Service via terraform-exec)
+    macro_service.go       — MacroService (records commands, reads from cache)
+    service_cache.go       — ServiceCache (typed, source-aware data cache)
     state_ops.go           — State operations (rm, mv, import, taint, untaint)
     workspace_ops.go       — Workspace operations
     plan_parser.go         — Plan JSON parsing

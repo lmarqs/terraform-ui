@@ -81,10 +81,11 @@ registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{
 
 All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `ForceUnlock`, `WithDir`.
 
-Three implementations:
-- `TerraformService` — wraps terraform-exec (service.go, state_ops.go, workspace_ops.go)
-- `RecordingService` — pre-loaded data, builds command flags from options
-- `CompositeService` — hybrid: pre-loaded for reads, delegates writes to TerraformService
+Two implementations:
+- `ExecService` — wraps terraform-exec, uses ServiceCache for reads (service.go, state_ops.go, workspace_ops.go)
+- `MacroService` — records commands as sdk.Command, reads from ServiceCache, never executes (macro_service.go)
+
+`ServiceCache` (service_cache.go) is a typed, source-aware cache pre-seeded from `--plan`/`--state` flags at startup. Three source kinds: file (re-reads on invalidate), stdin (immutable), exec (cleared on invalidate).
 
 ## Source Abstraction (`internal/source/`)
 

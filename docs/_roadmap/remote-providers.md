@@ -100,7 +100,7 @@ resolver.Register(&S3Provider{client: s3Client})
 - [ ] Add `aws-sdk-go-v2/service/s3` to go.mod
 - [ ] Implement S3Provider (~50 lines)
 - [ ] Implement HTTPProvider (~50 lines)
-- [ ] Register providers in `buildStaticService` / `buildCompositeService`
+- [ ] Register providers in source resolver (used by `seedCache`)
 - [ ] Progress indication on stderr
 - [ ] Auth: `TFUI_HTTP_TOKEN` env var for HTTP
 - [ ] Error messages with actionable suggestions

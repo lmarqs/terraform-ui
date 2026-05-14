@@ -15,7 +15,7 @@ tfui --plan ./plan.json --state ./state.json
 ```
 
 When `--plan` or `--state` provided:
-- `RecordingService` replaces `TerraformService` (pre-loaded data, read-only)
+- `ServiceCache` is pre-seeded with parsed data; `ExecService` serves reads from cache
 - Header shows `[read-only]` badge
 - Mutating hints hidden from status bar
 
@@ -47,8 +47,8 @@ Binary resolution:
 
 `--` passthrough:
 - `splitPassthrough()` separates args at `--`
-- ExtraArgs stored for `RecordingService`
-- `TerraformService` does NOT forward ExtraArgs (terraform-exec typed API)
+- ExtraArgs stored for `MacroService` (recorded in command flags)
+- `ExecService` does NOT forward ExtraArgs (terraform-exec typed API)
 
 Exit codes: `0` = success, `1` = error, `2` = changes present
 
