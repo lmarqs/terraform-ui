@@ -121,7 +121,7 @@ func (f *FormFrame) renderField(field FormField, selected bool) string {
 	}
 
 	suffix := ""
-	if field.Selectable && !selected {
+	if field.Selectable {
 		suffix = "  " + sdk.StyleFaint.Render("▸")
 	}
 
