@@ -1,3 +1,19 @@
+# [1.4.0](https://github.com/lmarqs/terraform-ui/compare/v1.3.1...v1.4.0) (2026-05-14)
+
+
+### Bug Fixes
+
+* enforce macro safety contract and remove --plan/--state requirement ([e543666](https://github.com/lmarqs/terraform-ui/commit/e543666c492aac99f871a73a498de6b504a37bd2))
+* update add-plugin command and ux-checker agent for pkg/sdk ([539df9f](https://github.com/lmarqs/terraform-ui/commit/539df9f8dfd10c4df59dacfa5cee55fe0c412c0e))
+
+
+### Features
+
+* add ServiceCache for typed, source-aware terraform data caching ([6e1e59f](https://github.com/lmarqs/terraform-ui/commit/6e1e59f82e779adc1938c02ef47e53dafe2a56e8))
+* **cli:** wire CompositeService into TUI and macro modes ([759ce89](https://github.com/lmarqs/terraform-ui/commit/759ce89a304fa97324f46192cc0afd2b16898e28))
+* **terraform:** add statePath support to TerraformService ([517db0f](https://github.com/lmarqs/terraform-ui/commit/517db0f197905f7ed74a6789d35e672275cb1072))
+* **terraform:** implement CompositeService for hybrid read/write mode ([5b68f7d](https://github.com/lmarqs/terraform-ui/commit/5b68f7d2a6abba925c0ef54c5c5a25881c838dfe))
+
 ## [1.3.1](https://github.com/lmarqs/terraform-ui/compare/v1.3.0...v1.3.1) (2026-05-13)
 
 
