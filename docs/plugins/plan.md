@@ -21,7 +21,7 @@ The Plan screen transforms plan output from a data dump into a decision-support 
 
 ## Interactive (TUI)
 
-Press `p` from the home menu. The plugin immediately runs `terraform plan` against the current scope.
+Press `p` from the home menu. The plugin immediately runs `terraform plan` against the current context.
 
 ### Keybindings
 

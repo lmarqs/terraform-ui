@@ -15,7 +15,7 @@ var logo = [3]string{
 	" ╩ ╚  ╚═╝╩",
 }
 
-// Header renders a 3-line info block with project, scope, workspace on
+// Header renders a 3-line info block with project, chdir, workspace on
 // the left, and an ASCII logo on the right.
 type Header struct {
 	dir         string

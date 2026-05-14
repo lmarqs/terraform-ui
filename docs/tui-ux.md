@@ -15,7 +15,7 @@
  Enter inspect  / filter  Space pin  ^t flat  d delete  e edit  t taint  q back    terraform
 ```
 
-- **Header** (3 lines): left=Project/Scope/Workspace, right=ASCII logo. Always visible.
+- **Header** (3 lines): left=Project/Chdir/Workspace, right=ASCII logo. Always visible.
 - **Command bar**: bordered `:` input, visible only when active.
 - **Content**: bordered box, view title + count embedded in top border.
 - **Footer**: single hint line (left), binary name right-aligned faint.
