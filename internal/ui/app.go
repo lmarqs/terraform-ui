@@ -156,30 +156,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sdk.ChdirChangedEvent:
 		a.activeChdir = msg.RelPath
 		a.header = a.header.WithChdir(msg.RelPath)
-		busCmd := a.bus.Dispatch(msg)
-		if a.activePlugin != nil && a.registry.NavBehaviorFor(a.activePlugin.ID()) == plugin.NavPush {
-			if a.returnTo != nil {
-				a.navigateBack()
-				return a, tea.Batch(busCmd, a.activate(a.activePlugin))
-			}
-			a.activePlugin = nil
-		}
-		return a, busCmd
+		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.WorkspaceChangedEvent:
 		a.header = components.NewHeader(a.cfg.Dir, msg.Name)
-		busCmd := a.bus.Dispatch(msg)
-		if a.activePlugin != nil && a.registry.NavBehaviorFor(a.activePlugin.ID()) == plugin.NavPush {
-			if a.returnTo != nil {
-				a.navigateBack()
-				return a, tea.Batch(busCmd, a.activate(a.activePlugin))
-			}
-			a.activePlugin = nil
-		}
-		return a, busCmd
+		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanInvalidatedEvent:
 		return a, a.bus.Dispatch(msg)
@@ -498,8 +482,28 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 }
 
 func (a *App) navigateBack() {
+	from := ""
+	if a.activePlugin != nil {
+		from = a.activePlugin.ID()
+	}
+	to := "home"
+	if a.returnTo != nil {
+		to = a.returnTo.ID()
+	}
 	a.activePlugin = a.returnTo
 	a.returnTo = nil
+	logging.Logger().Debug("view.transition", "from", from, "to", to)
+}
+
+func (a *App) popIfPushed(busCmd tea.Cmd) tea.Cmd {
+	if a.activePlugin != nil && a.registry.NavBehaviorFor(a.activePlugin.ID()) == plugin.NavPush {
+		if a.returnTo != nil {
+			a.navigateBack()
+			return tea.Batch(busCmd, a.activate(a.activePlugin))
+		}
+		a.activePlugin = nil
+	}
+	return busCmd
 }
 
 func (a App) activate(p sdk.Plugin) tea.Cmd {
