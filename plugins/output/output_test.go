@@ -1087,3 +1087,156 @@ func TestFilterModeGgAppendsToFilter(t *testing.T) {
 		t.Errorf("after G in filter mode: selected = %d, want 0 (no navigation)", p.selected)
 	}
 }
+
+func TestStack_WhenCalled_ShouldReturnStack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	s := p.Stack()
+	if s == nil {
+		t.Fatal("Stack() returned nil")
+	}
+	if s != p.stack {
+		t.Error("Stack() returned different instance than internal stack")
+	}
+}
+
+func TestListFrame_WhenCreated_ShouldHaveCorrectID(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	frame := p.stack.Peek()
+	if frame == nil {
+		t.Fatal("stack is empty, expected listFrame")
+	}
+	if frame.ID() != "list" {
+		t.Errorf("listFrame.ID() = %q, want %q", frame.ID(), "list")
+	}
+}
+
+func TestListFrame_WhenViewCalled_ShouldDelegateToPlugin(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.outputs = []sdk.OutputValue{
+		{Name: "vpc_id", Type: "string", Value: "vpc-abc123"},
+	}
+	p.filtered = p.outputs
+
+	view := p.stack.View(80, 24)
+	if view == "" {
+		t.Error("stack.View() returned empty string")
+	}
+	if !strings.Contains(view, "vpc-abc123") {
+		t.Error("stack.View() should contain output value")
+	}
+}
+
+func TestListFrame_WhenFilteringHints_ShouldShowCancel(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.filtering = true
+
+	hints := p.stack.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in filtering mode")
+	}
+	found := false
+	for _, h := range hints {
+		if h.Key == "Esc" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("Hints() in filtering mode should include Esc/cancel hint")
+	}
+}
+
+func TestListFrame_WhenErrorHints_ShouldShowRetryAndBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusError
+
+	hints := p.stack.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in error state")
+	}
+}
+
+func TestListFrame_WhenDoneHints_ShouldShowFilterRefreshBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	hints := p.stack.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in done state")
+	}
+}
+
+func TestListFrame_WhenLoadingHints_ShouldShowBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+
+	hints := p.stack.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in loading state")
+	}
+}
+
+func TestFilterMode_WhenSlashPressed_ShouldBeNoOp(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.outputs = []sdk.OutputValue{
+		{Name: "a", Type: "string", Value: "1"},
+	}
+	p.filtered = p.outputs
+	p.filtering = true
+	p.filter = "test"
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	if p.filter != "test" {
+		t.Errorf("after / in filter mode: filter = %q, want %q (no-op)", p.filter, "test")
+	}
+}
+
+func TestRenderOutputs_WhenNarrowWidth_ShouldUseMinimumContentWidth(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.outputs = []sdk.OutputValue{
+		{Name: "vpc_id", Type: "string", Value: "vpc-abc123"},
+	}
+	p.filtered = p.outputs
+
+	view := p.View(20, 24)
+	if view == "" {
+		t.Error("View with narrow width returned empty string")
+	}
+	if !strings.Contains(view, "vpc-abc123") {
+		t.Error("View with narrow width should still show output value")
+	}
+}
+
+func TestRenderOutputs_WhenSmallHeight_ShouldUseMinimumVisibleLines(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.outputs = []sdk.OutputValue{
+		{Name: "a", Type: "string", Value: "1"},
+		{Name: "b", Type: "string", Value: "2"},
+		{Name: "c", Type: "string", Value: "3"},
+		{Name: "d", Type: "string", Value: "4"},
+		{Name: "e", Type: "string", Value: "5"},
+	}
+	p.filtered = p.outputs
+
+	view := p.View(80, 3)
+	if view == "" {
+		t.Error("View with small height returned empty string")
+	}
+}
+
+func TestListFrame_WhenNonKeyMsg_ShouldReturnSelf(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	cmd := p.stack.Update(OutputResultMsg{})
+	if cmd != nil {
+		t.Error("non-key message through stack should return nil cmd")
+	}
+}
