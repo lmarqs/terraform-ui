@@ -295,6 +295,31 @@ func TestMenuItems_DisabledPlugin(t *testing.T) {
 	}
 }
 
+func TestNavBehaviorFor(t *testing.T) {
+	r := NewRegistry()
+	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true, Nav: NavReplace})
+	r.RegisterFactory("workspaces", newMockFactory("workspaces", "Workspaces"), PluginMeta{Keybinding: "w", MenuVisible: true, Nav: NavPush})
+	r.Build(nil, nil)
+
+	t.Run("ShouldReturnNavPushForPushPlugin", func(t *testing.T) {
+		if got := r.NavBehaviorFor("workspaces"); got != NavPush {
+			t.Errorf("NavBehaviorFor(\"workspaces\") = %d, want NavPush (%d)", got, NavPush)
+		}
+	})
+
+	t.Run("ShouldReturnNavReplaceForReplacePlugin", func(t *testing.T) {
+		if got := r.NavBehaviorFor("state"); got != NavReplace {
+			t.Errorf("NavBehaviorFor(\"state\") = %d, want NavReplace (%d)", got, NavReplace)
+		}
+	})
+
+	t.Run("ShouldReturnNavReplaceForUnknownPlugin", func(t *testing.T) {
+		if got := r.NavBehaviorFor("nonexistent"); got != NavReplace {
+			t.Errorf("NavBehaviorFor(\"nonexistent\") = %d, want NavReplace (%d)", got, NavReplace)
+		}
+	})
+}
+
 func TestBuild_PreservesRegistrationOrder(t *testing.T) {
 	r := NewRegistry()
 	r.RegisterFactory("alpha", newMockFactory("alpha", "Alpha"), PluginMeta{Keybinding: "a", MenuVisible: true})
