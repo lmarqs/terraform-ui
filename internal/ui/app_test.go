@@ -1250,3 +1250,90 @@ func TestApp_WorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
 		t.Error("after WorkspaceCreatedEvent, header should show new workspace name")
 	}
 }
+
+func TestApp_LockDetectedEvent_SetsLockInfoAndUpdatesHeader(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 30
+
+	lock := &sdk.StateLock{ID: "abc-123", Who: "user@host"}
+	model, _ := app.Update(sdk.LockDetectedEvent{Lock: lock})
+	app = model.(App)
+
+	if app.lockInfo == nil {
+		t.Fatal("LockDetectedEvent should set lockInfo")
+	}
+	if app.lockInfo.ID != "abc-123" {
+		t.Errorf("lockInfo.ID = %q, want %q", app.lockInfo.ID, "abc-123")
+	}
+
+	view := app.View()
+	if !strings.Contains(view, "locked") {
+		t.Error("header should contain 'locked' badge after LockDetectedEvent")
+	}
+}
+
+func TestApp_LockClearedEvent_ClearsLockInfoAndUpdatesHeader(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 30
+
+	// Set lock first
+	lock := &sdk.StateLock{ID: "abc-123", Who: "user@host"}
+	model, _ := app.Update(sdk.LockDetectedEvent{Lock: lock})
+	app = model.(App)
+
+	// Clear it
+	model, _ = app.Update(sdk.LockClearedEvent{})
+	app = model.(App)
+
+	if app.lockInfo != nil {
+		t.Error("LockClearedEvent should clear lockInfo")
+	}
+
+	view := app.View()
+	if strings.Contains(view, "locked") {
+		t.Error("header should not contain 'locked' badge after LockClearedEvent")
+	}
+}
+
+func TestApp_PlanInvalidatedEvent_SetsStaleBadge(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 30
+
+	model, _ := app.Update(sdk.PlanInvalidatedEvent{})
+	app = model.(App)
+
+	if !app.staleState {
+		t.Error("PlanInvalidatedEvent should set staleState to true")
+	}
+
+	view := app.View()
+	if !strings.Contains(view, "stale") {
+		t.Error("header should contain 'stale' badge after PlanInvalidatedEvent")
+	}
+}
+
+func TestApp_StateRefreshedEvent_ClearsStaleBadge(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 30
+
+	// Set stale first
+	model, _ := app.Update(sdk.PlanInvalidatedEvent{})
+	app = model.(App)
+
+	// Clear it
+	model, _ = app.Update(sdk.StateRefreshedEvent{})
+	app = model.(App)
+
+	if app.staleState {
+		t.Error("StateRefreshedEvent should set staleState to false")
+	}
+
+	view := app.View()
+	if strings.Contains(view, "stale") {
+		t.Error("header should not contain 'stale' badge after StateRefreshedEvent")
+	}
+}

@@ -221,6 +221,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("state.load.error", "error", msg.Err.Error())
+			if e.lockInfo != nil {
+				return e, func() tea.Msg { return sdk.LockDetectedEvent{Lock: e.lockInfo} }
+			}
 		} else {
 			e.status = sdk.StatusDone
 			e.resources = msg.Resources
@@ -228,6 +231,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.fuzzy.SetItems(msg.Resources)
 			e.rebuildTree()
 			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
+			return e, func() tea.Msg { return sdk.StateRefreshedEvent{} }
 		}
 		return e, nil
 
@@ -239,7 +243,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		} else {
 			e.lockInfo = nil
 			e.log.Debug("state.force-unlock.success")
-			return e, e.Refresh()
+			return e, tea.Batch(
+				func() tea.Msg { return sdk.LockClearedEvent{} },
+				e.Refresh(),
+			)
 		}
 		return e, nil
 

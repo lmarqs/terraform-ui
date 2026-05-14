@@ -16,6 +16,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
+	tfuiforceunlock "github.com/lmarqs/terraform-ui/plugins/forceunlock"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 )
@@ -41,6 +42,8 @@ type App struct {
 	returnTo      sdk.Plugin // destination after a NavPush plugin completes; nil for NavReplace
 	activeOverlay sdk.Overlay
 	activeChdir   string // tracks last known active chdir for header updates
+	lockInfo      *sdk.StateLock
+	staleState    bool
 	commandMode   bool
 	commandInput  string
 	commandError  string
@@ -170,6 +173,23 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanInvalidatedEvent:
+		a.staleState = true
+		a.header = a.header.WithStale(true)
+		return a, a.bus.Dispatch(msg)
+
+	case sdk.LockDetectedEvent:
+		a.lockInfo = msg.Lock
+		a.header = a.header.WithLockInfo(msg.Lock)
+		return a, a.bus.Dispatch(msg)
+
+	case sdk.LockClearedEvent:
+		a.lockInfo = nil
+		a.header = a.header.WithLockInfo(nil)
+		return a, a.bus.Dispatch(msg)
+
+	case sdk.StateRefreshedEvent:
+		a.staleState = false
+		a.header = a.header.WithStale(false)
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.OverlayDismissMsg:
@@ -245,6 +265,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			applyPlugin.RequestApply()
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
 			return a, cmd
+		}
+		return a, nil
+
+	case tfuiforceunlock.ForceUnlockResultMsg:
+		if msg.Err == nil {
+			a.lockInfo = nil
+			a.header = a.header.WithLockInfo(nil)
+			return a, tea.Batch(
+				func() tea.Msg { return sdk.LockClearedEvent{} },
+				func() tea.Msg { return sdk.PlanInvalidatedEvent{} },
+			)
 		}
 		return a, nil
 

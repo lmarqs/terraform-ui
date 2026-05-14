@@ -177,8 +177,12 @@ func TestUpdateStateListMsgSuccess(t *testing.T) {
 	}
 
 	result, cmd := p.Update(StateListMsg{Resources: resources, Err: nil})
-	if cmd != nil {
-		t.Errorf("Update(StateListMsg) cmd = %v, want nil", cmd)
+	if cmd == nil {
+		t.Fatal("Update(StateListMsg) cmd = nil, want StateRefreshedEvent cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.StateRefreshedEvent); !ok {
+		t.Errorf("cmd() = %T, want sdk.StateRefreshedEvent", msg)
 	}
 
 	updated := result.(*Plugin)

@@ -209,14 +209,21 @@ func TestPlugin_WhenForceUnlockFails_ShouldShowError(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenPlanResultNilSummary_ShouldNotEmitEvent(t *testing.T) {
+func TestPlugin_WhenPlanResultNilSummary_ShouldNotEmitPlanCompletedEvent(t *testing.T) {
 	svc := &mockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
 	_, cmd := p.Update(PlanResultMsg{Summary: nil, Err: nil})
-	if cmd != nil {
-		t.Error("Update(PlanResultMsg with nil Summary and nil Err) cmd != nil, want nil")
+	if cmd == nil {
+		t.Fatal("Update(PlanResultMsg) cmd = nil, want StateRefreshedEvent cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.PlanCompletedEvent); ok {
+		t.Error("nil summary should not emit PlanCompletedEvent")
+	}
+	if _, ok := msg.(sdk.StateRefreshedEvent); !ok {
+		t.Errorf("cmd() = %T, want sdk.StateRefreshedEvent", msg)
 	}
 	if p.status != sdk.StatusDone {
 		t.Errorf("status = %v, want Done", p.status)

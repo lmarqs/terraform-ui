@@ -3,6 +3,9 @@ package components
 import (
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 func TestHeader_Render_IsThreeLines(t *testing.T) {
@@ -151,5 +154,79 @@ func TestHeader_Render_VeryNarrowWidth(t *testing.T) {
 	lines := strings.Split(output, "\n")
 	if len(lines) != 3 {
 		t.Errorf("expected 3 lines even with narrow width, got %d", len(lines))
+	}
+}
+
+func TestHeader_WithLockInfo_ShowsLockedBadge(t *testing.T) {
+	lock := &sdk.StateLock{
+		ID:  "abc-123",
+		Who: "user@host",
+	}
+	h := NewHeader("/project", "default").WithLockInfo(lock)
+	output := h.Render(120)
+	if !strings.Contains(output, "locked") {
+		t.Error("should show 'locked' badge when lock info is set")
+	}
+	if !strings.Contains(output, "user@host") {
+		t.Error("should show lock owner in badge")
+	}
+}
+
+func TestHeader_WithLockInfo_ShowsAge(t *testing.T) {
+	lock := &sdk.StateLock{
+		ID:      "abc-123",
+		Who:     "user@host",
+		Created: time.Now().Add(-10 * time.Minute),
+	}
+	h := NewHeader("/project", "default").WithLockInfo(lock)
+	output := h.Render(120)
+	if !strings.Contains(output, "10m ago") {
+		t.Errorf("should show age in badge, got: %s", output)
+	}
+}
+
+func TestHeader_WithLockInfo_Nil_HidesBadge(t *testing.T) {
+	h := NewHeader("/project", "default").WithLockInfo(nil)
+	output := h.Render(80)
+	if strings.Contains(output, "locked") {
+		t.Error("should not show locked badge when lock info is nil")
+	}
+}
+
+func TestHeader_WithStale_ShowsStaleBadge(t *testing.T) {
+	h := NewHeader("/project", "default").WithStale(true)
+	output := h.Render(80)
+	if !strings.Contains(output, "stale") {
+		t.Error("should show 'stale' badge when stale is true")
+	}
+}
+
+func TestHeader_WithStale_False_HidesBadge(t *testing.T) {
+	h := NewHeader("/project", "default").WithStale(false)
+	output := h.Render(80)
+	if strings.Contains(output, "stale") {
+		t.Error("should not show stale badge when stale is false")
+	}
+}
+
+func TestHeader_WithLockInfo_PreservesOtherFields(t *testing.T) {
+	lock := &sdk.StateLock{ID: "x", Who: "user"}
+	h := NewHeader("/project", "prod").
+		WithChdir("modules/vpc").
+		WithPinnedCount(3).
+		WithLockInfo(lock).
+		WithStale(true)
+
+	if h.chdir != "modules/vpc" {
+		t.Error("WithLockInfo should preserve chdir")
+	}
+	if h.pinnedCount != 3 {
+		t.Error("WithLockInfo should preserve pinnedCount")
+	}
+	if h.workspace != "prod" {
+		t.Error("WithLockInfo should preserve workspace")
+	}
+	if !h.stale {
+		t.Error("WithStale should preserve stale")
 	}
 }

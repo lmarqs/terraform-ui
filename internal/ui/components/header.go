@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -22,6 +23,8 @@ type Header struct {
 	workspace   string
 	chdir       string
 	pinnedCount int
+	lockInfo    *sdk.StateLock
+	stale       bool
 }
 
 // NewHeader creates a header.
@@ -50,6 +53,18 @@ func (h Header) WithPinnedCount(count int) Header {
 	return h
 }
 
+// WithLockInfo returns a copy with the lock indicator set (nil to clear).
+func (h Header) WithLockInfo(lock *sdk.StateLock) Header {
+	h.lockInfo = lock
+	return h
+}
+
+// WithStale returns a copy with the stale indicator set.
+func (h Header) WithStale(stale bool) Header {
+	h.stale = stale
+	return h
+}
+
 var headerLabelStyle = lipgloss.NewStyle().
 	Foreground(sdk.ColorFaint)
 
@@ -71,9 +86,17 @@ func (h Header) Render(width int) string {
 	if h.pinnedCount > 0 {
 		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}
+	if h.lockInfo != nil {
+		projectParts = append(projectParts, sdk.StyleError.Render(formatLockBadge(h.lockInfo)))
+	}
 	line1Left := headerLabelStyle.Render(" Project:") + " " + headerValueStyle.Render(strings.Join(projectParts, " │ "))
 	line2Left := headerLabelStyle.Render(" Chdir:") + " " + headerValueStyle.Render(chdirVal)
-	line3Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(h.workspace)
+
+	wsParts := []string{h.workspace}
+	if h.stale {
+		wsParts = append(wsParts, sdk.StyleUpdate.Render("stale"))
+	}
+	line3Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(strings.Join(wsParts, " │ "))
 
 	logoWidth := lipgloss.Width(logo[0])
 
@@ -90,4 +113,39 @@ func (h Header) Render(width int) string {
 	}
 
 	return strings.Join(result, "\n")
+}
+
+func formatLockBadge(lock *sdk.StateLock) string {
+	parts := []string{"locked"}
+	detail := ""
+	if lock.Who != "" {
+		detail = lock.Who
+	}
+	if !lock.Created.IsZero() {
+		age := time.Since(lock.Created)
+		ageStr := formatBadgeAge(age)
+		if detail != "" {
+			detail += " " + ageStr
+		} else {
+			detail = ageStr
+		}
+	}
+	if detail != "" {
+		parts = append(parts, "("+detail+")")
+	}
+	return strings.Join(parts, " ")
+}
+
+func formatBadgeAge(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("%ds ago", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("%dm ago", int(d.Minutes()))
+	}
+	hours := int(d.Hours())
+	if hours >= 24 {
+		return fmt.Sprintf("%dd ago", hours/24)
+	}
+	return fmt.Sprintf("%dh ago", hours)
 }

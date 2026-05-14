@@ -210,19 +210,39 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 
 	result, cmd := p.Update(PlanResultMsg{Summary: summary, Err: nil})
 	if cmd == nil {
-		t.Fatal("Update(PlanResultMsg) cmd = nil, want PlanCompletedEvent cmd")
+		t.Fatal("Update(PlanResultMsg) cmd = nil, want batched cmd")
 	}
 
 	msg := cmd()
-	evt, ok := msg.(sdk.PlanCompletedEvent)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("cmd() = %T, want sdk.PlanCompletedEvent", msg)
+		t.Fatalf("cmd() = %T, want tea.BatchMsg", msg)
 	}
-	if evt.ResourceCount != 1 {
-		t.Errorf("event.ResourceCount = %d, want 1", evt.ResourceCount)
+	foundPlanCompleted := false
+	foundStateRefreshed := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		subMsg := subCmd()
+		switch evt := subMsg.(type) {
+		case sdk.PlanCompletedEvent:
+			foundPlanCompleted = true
+			if evt.ResourceCount != 1 {
+				t.Errorf("event.ResourceCount = %d, want 1", evt.ResourceCount)
+			}
+			if evt.Summary != summary {
+				t.Error("event.Summary does not match")
+			}
+		case sdk.StateRefreshedEvent:
+			foundStateRefreshed = true
+		}
 	}
-	if evt.Summary != summary {
-		t.Error("event.Summary does not match")
+	if !foundPlanCompleted {
+		t.Error("batched cmd should contain PlanCompletedEvent")
+	}
+	if !foundStateRefreshed {
+		t.Error("batched cmd should contain StateRefreshedEvent")
 	}
 
 	updated := result.(*Plugin)

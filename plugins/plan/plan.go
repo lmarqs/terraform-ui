@@ -149,6 +149,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("plan.error", "error", msg.Err.Error())
+			if e.lockInfo != nil {
+				return e, func() tea.Msg { return sdk.LockDetectedEvent{Lock: e.lockInfo} }
+			}
 		} else {
 			e.status = sdk.StatusDone
 			e.summary = msg.Summary
@@ -158,13 +161,17 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			}
 			e.log.Debug("plan.complete", "changes", changes)
 			if msg.Summary != nil {
-				return e, func() tea.Msg {
-					return sdk.PlanCompletedEvent{
-						Summary:       msg.Summary,
-						ResourceCount: changes,
-					}
-				}
+				return e, tea.Batch(
+					func() tea.Msg {
+						return sdk.PlanCompletedEvent{
+							Summary:       msg.Summary,
+							ResourceCount: changes,
+						}
+					},
+					func() tea.Msg { return sdk.StateRefreshedEvent{} },
+				)
 			}
+			return e, func() tea.Msg { return sdk.StateRefreshedEvent{} }
 		}
 		return e, nil
 
@@ -176,7 +183,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		} else {
 			e.lockInfo = nil
 			e.log.Debug("plan.force-unlock.success")
-			return e, e.Refresh()
+			return e, tea.Batch(
+				func() tea.Msg { return sdk.LockClearedEvent{} },
+				e.Refresh(),
+			)
 		}
 		return e, nil
 
