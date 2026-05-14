@@ -410,7 +410,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			return a, nil
 		}
-		return a, tea.Quit
+		return a, a.cmdQuit()
 	}
 
 	// If a plugin is active, delegate key to it

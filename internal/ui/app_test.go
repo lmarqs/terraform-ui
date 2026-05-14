@@ -853,3 +853,18 @@ func TestApp_CommandError_ClearedOnKeypress(t *testing.T) {
 		t.Errorf("commandError should be cleared on keypress, got %q", app.commandError)
 	}
 }
+
+func TestApp_HandleKey_QuitFromHomeBlockedWhenBusy(t *testing.T) {
+	app := setupTestAppWithBusyPlugin(true)
+
+	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
+	model, cmd := app.Update(msg)
+	app = model.(App)
+
+	if cmd != nil {
+		t.Fatal("q from home should NOT quit when a plugin is busy")
+	}
+	if app.commandError == "" {
+		t.Fatal("q from home should set commandError when blocked")
+	}
+}
