@@ -397,6 +397,84 @@ func TestApp_Init_WithPluginInitCmd(t *testing.T) {
 	}
 }
 
+func TestApp_OpenContextOnStartup_ActivatesChdirPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := &mockService{workspace: "default"}
+
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{MenuVisible: false})
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("openContextOnStartupMsg should activate chdir plugin")
+	}
+	if updated.activePlugin.ID() != "chdir" {
+		t.Errorf("active plugin = %q, want %q", updated.activePlugin.ID(), "chdir")
+	}
+}
+
+func TestApp_OpenContextOnStartup_SkipsWhenScopeSet(t *testing.T) {
+	cfg := config.Config{
+		Dir:         "/test/dir",
+		ActiveScope: "modules/vpc",
+		Terraform:   config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := &mockService{workspace: "default"}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{MenuVisible: false})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin != nil {
+		t.Error("openContextOnStartupMsg should not activate chdir when ActiveScope is set")
+	}
+}
+
+func TestApp_OpenContextOnStartup_SkipsWhenPreloadedData(t *testing.T) {
+	cfg := config.Config{
+		Dir:           "/test/dir",
+		PreloadedData: true,
+		Terraform:     config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := &mockService{workspace: "default"}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{MenuVisible: false})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin != nil {
+		t.Error("openContextOnStartupMsg should not activate chdir when PreloadedData is true")
+	}
+}
+
 // customMsg is a tea.Msg that doesn't match any case in Update.
 type customMsg struct{}
 
