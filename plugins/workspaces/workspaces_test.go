@@ -1004,3 +1004,197 @@ func TestSwitchWorkspaceCmdError(t *testing.T) {
 		t.Error("switchWorkspace error: want non-nil Err")
 	}
 }
+
+func TestStack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	s := p.Stack()
+	if s == nil {
+		t.Fatal("Stack() = nil, want non-nil")
+	}
+	if s.Depth() != 1 {
+		t.Errorf("Stack().Depth() = %d, want 1", s.Depth())
+	}
+}
+
+func TestUpdateWorkspaceSwitchMsg_EmitsWorkspaceChangedEvent(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.workspaces = []string{"default", "staging"}
+	p.current = "default"
+
+	_, cmd := p.Update(WorkspaceSwitchMsg{Name: "staging", Err: nil})
+	if cmd == nil {
+		t.Fatal("Update(WorkspaceSwitchMsg success) cmd = nil, want non-nil")
+	}
+	msg := cmd()
+	evt, ok := msg.(sdk.WorkspaceChangedEvent)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want sdk.WorkspaceChangedEvent", msg)
+	}
+	if evt.Name != "staging" {
+		t.Errorf("WorkspaceChangedEvent.Name = %q, want %q", evt.Name, "staging")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle after switch", p.status)
+	}
+}
+
+func TestRenderWorkspaces_WhenHeightVerySmall_ShouldUseMinimumVisibleArea(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.workspaces = []string{"default", "staging", "production", "dev", "test"}
+	p.current = "default"
+	p.selected = 0
+
+	view := p.View(80, 3)
+	if view == "" {
+		t.Error("View with very small height returned empty string")
+	}
+}
+
+func TestListFrame_ID(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	frame := p.stack.Peek()
+	lf, ok := frame.(*listFrame)
+	if !ok {
+		t.Fatalf("top frame is %T, want *listFrame", frame)
+	}
+	if lf.ID() != "list" {
+		t.Errorf("listFrame.ID() = %q, want %q", lf.ID(), "list")
+	}
+}
+
+func TestListFrame_View(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.workspaces = []string{"default", "staging"}
+	p.current = "default"
+
+	frame := p.stack.Peek()
+	view := frame.View(80, 24)
+	if view == "" {
+		t.Error("listFrame.View() returned empty string")
+	}
+}
+
+func TestListFrame_Hints_WhenCreating(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.creating = true
+
+	frame := p.stack.Peek()
+	hints := frame.Hints()
+	if hints == nil {
+		t.Fatal("listFrame.Hints() returned nil when creating")
+	}
+	if len(hints) == 0 {
+		t.Error("listFrame.Hints() returned empty slice when creating")
+	}
+}
+
+func TestListFrame_Hints_WhenError(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+
+	frame := p.stack.Peek()
+	hints := frame.Hints()
+	if hints == nil {
+		t.Fatal("listFrame.Hints() returned nil in error state")
+	}
+	if len(hints) == 0 {
+		t.Error("listFrame.Hints() returned empty slice in error state")
+	}
+}
+
+func TestListFrame_Hints_WhenDone(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+
+	frame := p.stack.Peek()
+	hints := frame.Hints()
+	if hints == nil {
+		t.Fatal("listFrame.Hints() returned nil in done state")
+	}
+	if len(hints) == 0 {
+		t.Error("listFrame.Hints() returned empty slice in done state")
+	}
+}
+
+func TestListFrame_Hints_WhenLoading(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusLoading
+
+	frame := p.stack.Peek()
+	hints := frame.Hints()
+	if hints == nil {
+		t.Fatal("listFrame.Hints() returned nil in loading state")
+	}
+}
+
+func TestListFrame_Update_WhenNonKeyMsg_ShouldReturnSelf(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+
+	frame := p.stack.Peek()
+	type customMsg struct{}
+	result, cmd := frame.Update(customMsg{})
+	if result != frame {
+		t.Error("Update(non-key msg) returned different frame")
+	}
+	if cmd != nil {
+		t.Error("Update(non-key msg) returned non-nil cmd")
+	}
+}
+
+func TestListFrame_Update_WhenCreating_CtrlH_ShouldBackspace(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.creating = true
+	p.newName = "xyz"
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlH})
+	if p.newName != "xy" {
+		t.Errorf("after ctrl+h in creating: newName = %q, want %q", p.newName, "xy")
+	}
+}
+
+func TestListFrame_Update_WhenCreating_NonPrintableKey_ShouldIgnore(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.creating = true
+	p.newName = "test"
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if p.newName != "test" {
+		t.Errorf("after tab in creating: newName = %q, want %q (should be unchanged)", p.newName, "test")
+	}
+}
+
+func TestListFrame_Update_WhenEsc_ShouldDeactivate(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.workspaces = []string{"default"}
+	p.current = "default"
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("after esc: cmd = nil, want non-nil (deactivate)")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("esc cmd returned %T, want sdk.DeactivateMsg", msg)
+	}
+}
