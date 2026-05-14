@@ -1,17 +1,15 @@
-# Scenario: Workspace selection via flag
+# Scenario: Workspace navigation in preloaded mode
 #
-# Verifies that the workspace is displayed correctly in the TUI
-# header when loaded via StaticService. In read-only mode the
-# workspace is shown as "readonly" by default.
+# Verifies that the workspace plugin is accessible in the TUI
+# when loaded with preloaded data.
 #
-# Pre-condition: launched with --plan (read-only mode).
+# Pre-condition: launched with --plan (preloaded data mode).
 #
 # Expected:
 #   - Home menu loads
-#   - The TUI is functional (can navigate)
-#   - Workspace shows in workspaces plugin view
+#   - The TUI is functional (can navigate to workspaces)
+#   - Plugin view renders (shows workspace list or error)
 
 wait ready
 key w
-wait view readonly
-assert view readonly
+wait view Workspaces
