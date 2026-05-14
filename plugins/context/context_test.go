@@ -32,14 +32,14 @@ func TestActivate_PushesFormFrame(t *testing.T) {
 	}
 }
 
-func TestFormNavigation_EnterOnScope_NavigatesToScope(t *testing.T) {
+func TestFormNavigation_EnterOnChdir_NavigatesToChdir(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.Activate()
 
-	// First selectable field is Scope (cursor starts there)
+	// First selectable field is Chdir (cursor starts there)
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Fatal("expected a command from Enter on scope field")
+		t.Fatal("expected a command from Enter on chdir field")
 	}
 
 	msg := cmd()
@@ -47,8 +47,8 @@ func TestFormNavigation_EnterOnScope_NavigatesToScope(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected NavigateToMsg, got %T", msg)
 	}
-	if nav.PluginID != "scope" {
-		t.Errorf("PluginID = %q, want %q", nav.PluginID, "scope")
+	if nav.PluginID != "chdir" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "chdir")
 	}
 }
 

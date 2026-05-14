@@ -89,10 +89,10 @@ func (p *Plugin) buildForm() *frames.FormFrame {
 				Selectable: false,
 			},
 			{
-				Label:      "Scope",
-				Value:      p.scopeValue,
+				Label:      "Chdir",
+				Value:      p.chdirValue,
 				Selectable: true,
-				OnSelect:   func() tea.Cmd { return func() tea.Msg { return NavigateToMsg{PluginID: "scope"} } },
+				OnSelect:   func() tea.Cmd { return func() tea.Msg { return NavigateToMsg{PluginID: "chdir"} } },
 			},
 			{
 				Label:      "Workspace",
@@ -111,7 +111,7 @@ func (p *Plugin) projectValue() string {
 	return "."
 }
 
-func (p *Plugin) scopeValue() string {
+func (p *Plugin) chdirValue() string {
 	if p.scope != "" {
 		return p.scope
 	}
