@@ -719,3 +719,222 @@ func TestViewDiagnosticWithFileNoLine(t *testing.T) {
 		t.Error("View with file but no line returned empty string")
 	}
 }
+
+func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for Idle status")
+	}
+	descs := hintDescs(hints)
+	assertContains(t, descs, "confirm")
+	assertContains(t, descs, "back")
+}
+
+func TestHints_WhenLoading_ShouldReturnBackOnly(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for Loading status")
+	}
+	descs := hintDescs(hints)
+	assertContains(t, descs, "back")
+}
+
+func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusError
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for Error status")
+	}
+	descs := hintDescs(hints)
+	assertContains(t, descs, "retry")
+	assertContains(t, descs, "back")
+}
+
+func TestHints_WhenDoneWithDiagnostics_ShouldReturnInspectRefreshBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{
+		{Severity: "error", Summary: "some error"},
+	}
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for Done status with diagnostics")
+	}
+	descs := hintDescs(hints)
+	assertContains(t, descs, "inspect")
+	assertContains(t, descs, "refresh")
+	assertContains(t, descs, "back")
+}
+
+func TestHints_WhenDoneWithoutDiagnostics_ShouldReturnRefreshAndBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{}
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for Done status without diagnostics")
+	}
+	descs := hintDescs(hints)
+	assertContains(t, descs, "refresh")
+	assertContains(t, descs, "back")
+	assertNotContains(t, descs, "inspect")
+}
+
+func TestHints_WhenUnknownStatus_ShouldReturnBackOnly(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.Status(99)
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for unknown status")
+	}
+	descs := hintDescs(hints)
+	assertContains(t, descs, "back")
+}
+
+func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {
+	svc := &mockService{validateResult: []sdk.Diagnostic{
+		{Severity: "error", Summary: "old error"},
+	}}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{{Severity: "error", Summary: "old"}}
+	p.errMsg = "old error"
+	p.selected = 3
+	p.expander.Toggle(0)
+
+	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{
+		RelPath: "modules/vpc",
+		AbsPath: "/project/modules/vpc",
+	})
+
+	if cmd != nil {
+		t.Error("HandleChdirChanged() should return nil cmd")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
+	}
+	if p.diagnostics != nil {
+		t.Errorf("diagnostics = %v, want nil", p.diagnostics)
+	}
+	if p.errMsg != "" {
+		t.Errorf("errMsg = %q, want empty", p.errMsg)
+	}
+	if p.selected != 0 {
+		t.Errorf("selected = %d, want 0", p.selected)
+	}
+	if p.IsExpanded(0) {
+		t.Error("expanded[0] = true, want false after reset")
+	}
+	if p.scopedContext != "/project/modules/vpc" {
+		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/project/modules/vpc")
+	}
+}
+
+func TestHandleChdirChanged_ShouldCallWithDir(t *testing.T) {
+	originalSvc := &mockService{}
+	p := New(originalSvc).(*Plugin)
+	ctx := &sdk.Context{
+		Service: originalSvc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	p.Init(ctx)
+
+	p.HandleChdirChanged(sdk.ChdirChangedEvent{
+		RelPath: "modules/vpc",
+		AbsPath: "/project/modules/vpc",
+	})
+
+	if p.svc == nil {
+		t.Fatal("svc should not be nil after HandleChdirChanged")
+	}
+}
+
+func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{
+		Service: svc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	p.Init(ctx)
+	p.status = sdk.StatusLoading
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() when Loading should return nil cmd")
+	}
+}
+
+func TestActivate_WhenDone_ShouldReturnNil(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{
+		Service: svc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	p.Init(ctx)
+	p.status = sdk.StatusDone
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() when Done should return nil cmd")
+	}
+}
+
+func TestActivate_WhenError_ShouldRetriggerValidation(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{
+		Service: svc,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	p.Init(ctx)
+	p.status = sdk.StatusError
+
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() when Error should return non-nil cmd")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want sdk.StatusLoading", p.status)
+	}
+}
+
+func hintDescs(hints []sdk.KeyHint) []string {
+	descs := make([]string, len(hints))
+	for i, h := range hints {
+		descs[i] = h.Description
+	}
+	return descs
+}
+
+func assertContains(t *testing.T, descs []string, want string) {
+	t.Helper()
+	for _, d := range descs {
+		if d == want {
+			return
+		}
+	}
+	t.Errorf("expected hints to contain %q, got %v", want, descs)
+}
+
+func assertNotContains(t *testing.T, descs []string, notWant string) {
+	t.Helper()
+	for _, d := range descs {
+		if d == notWant {
+			t.Errorf("expected hints to NOT contain %q, got %v", notWant, descs)
+			return
+		}
+	}
+}
