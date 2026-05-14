@@ -34,14 +34,15 @@ func TestPlugin_WhenMembers_ShouldNotBeReadyUntilSelection(t *testing.T) {
 func TestPlugin_WhenEnterPressed_ShouldPublishChdirChangedEvent(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.Activate()
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if !p.Ready() {
 		t.Error("Ready() = false after enter, want true")
 	}
 	if cmd == nil {
-		t.Fatal("Update returned nil cmd, want ChdirChangedEvent cmd")
+		t.Fatal("expected ChdirChangedEvent cmd")
 	}
 
 	msg := cmd()
@@ -63,12 +64,13 @@ func TestPlugin_WhenEnterPressed_ShouldPublishChdirChangedEvent(t *testing.T) {
 func TestPlugin_WhenNavigateDown_ShouldSelectSecondMember(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.Activate()
 
-	p.Update(tea.KeyMsg{Type: tea.KeyDown})
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if cmd == nil {
-		t.Fatal("Update returned nil cmd, want ChdirChangedEvent cmd")
+		t.Fatal("expected ChdirChangedEvent cmd")
 	}
 	msg := cmd()
 	evt, ok := msg.(sdk.ChdirChangedEvent)
@@ -80,17 +82,35 @@ func TestPlugin_WhenNavigateDown_ShouldSelectSecondMember(t *testing.T) {
 	}
 }
 
+func TestPlugin_EscPopsFrame(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.SetMembers([]string{"modules/vpc"}, "/project")
+	p.Activate()
+
+	if p.stack.Depth() != 1 {
+		t.Fatalf("stack depth = %d, want 1", p.stack.Depth())
+	}
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if p.stack.Depth() != 0 {
+		t.Errorf("stack depth = %d, want 0 after esc", p.stack.Depth())
+	}
+}
+
 func TestPlugin_View_WhenNoMembers_ShouldShowMessage(t *testing.T) {
 	p := New(nil).(*Plugin)
+	p.Activate()
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View() should not be empty when no members")
+	if view != "" {
+		t.Error("View() should be empty when no members (stack is empty)")
 	}
 }
 
 func TestPlugin_View_WhenMembers_ShouldRenderList(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.Activate()
 	view := p.View(80, 24)
 	if view == "" {
 		t.Error("View() should not be empty with members")
@@ -99,11 +119,24 @@ func TestPlugin_View_WhenMembers_ShouldRenderList(t *testing.T) {
 
 func TestPlugin_Hints_ShouldIncludeEnterAndBack(t *testing.T) {
 	p := New(nil).(*Plugin)
-	hints := p.Hints()
+	p.SetMembers([]string{"modules/vpc"}, "/project")
+	p.Activate()
+
+	hints := p.stack.Hints()
 	if len(hints) != 2 {
 		t.Fatalf("Hints() length = %d, want 2", len(hints))
 	}
 	if hints[0].Key != "enter" {
 		t.Errorf("Hints()[0].Key = %q, want enter", hints[0].Key)
+	}
+	if hints[1].Key != "esc" {
+		t.Errorf("Hints()[1].Key = %q, want esc", hints[1].Key)
+	}
+}
+
+func TestPlugin_Stackable(t *testing.T) {
+	p := New(nil).(*Plugin)
+	if p.Stack() == nil {
+		t.Error("Stack() should not be nil")
 	}
 }

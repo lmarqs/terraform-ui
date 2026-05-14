@@ -13,20 +13,24 @@ type Plugin struct {
 	members    []string
 	projectDir string
 	cursor     *ui.Cursor
+	stack      *sdk.Stack
 	selected   bool
 }
 
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
+	p := &Plugin{
 		svc:    svc,
 		cursor: ui.NewCursor(),
 	}
+	p.stack = sdk.NewStack()
+	return p
 }
 
 func (p *Plugin) ID() string          { return "chdir" }
 func (p *Plugin) Name() string        { return "Chdir" }
 func (p *Plugin) Description() string { return "Select working directory from configured members" }
 func (p *Plugin) Ready() bool         { return p.selected }
+func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
 
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -46,31 +50,14 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (p *Plugin) Activate() tea.Cmd {
 	if len(p.members) == 0 {
 		p.selected = true
+		return nil
 	}
+	p.stack.Clear()
+	p.stack.Push(&listFrame{plugin: p})
 	return nil
 }
 
-func (p *Plugin) Hints() []sdk.KeyHint {
-	return []sdk.KeyHint{
-		{Key: "enter", Description: "select"},
-		{Key: "esc", Description: "back"},
-	}
-}
-
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "up", "k":
-			p.cursor.MoveUp()
-		case "down", "j":
-			p.cursor.MoveDown()
-		case "enter":
-			return p, p.selectMember()
-		case "esc":
-			return p, func() tea.Msg { return sdk.DeactivateMsg{} }
-		}
-	}
 	return p, nil
 }
 
@@ -98,28 +85,5 @@ func (p *Plugin) selectMember() tea.Cmd {
 }
 
 func (p *Plugin) View(width, height int) string {
-	if len(p.members) == 0 {
-		return sdk.StyleFaintItalic.Render("No chdir members configured.")
-	}
-
-	lines := make([]string, 0, len(p.members))
-	start, end := p.cursor.VisibleWindow(height)
-
-	for i := start; i < end; i++ {
-		member := p.members[i]
-		if i == p.cursor.Pos() {
-			lines = append(lines, sdk.StyleSelected.Render("▸ "+member))
-		} else {
-			lines = append(lines, "  "+member)
-		}
-	}
-
-	result := ""
-	for i, line := range lines {
-		if i > 0 {
-			result += "\n"
-		}
-		result += line
-	}
-	return result
+	return p.stack.View(width, height)
 }
