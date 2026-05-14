@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"os"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -666,5 +668,220 @@ func TestHandleChdirChanged(t *testing.T) {
 	}
 	if len(p.pastInputs) != 0 {
 		t.Errorf("pastInputs should be reset on context change, got %d entries", len(p.pastInputs))
+	}
+}
+
+func TestHints_WhenStatusDone_ShouldReturnREPLHints(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+
+	hints := p.Hints()
+	if len(hints) != 4 {
+		t.Fatalf("Hints() returned %d hints, want 4", len(hints))
+	}
+	if hints[0].Key != "Enter" || hints[0].Description != "evaluate" {
+		t.Errorf("hints[0] = {%q, %q}, want {\"Enter\", \"evaluate\"}", hints[0].Key, hints[0].Description)
+	}
+	if hints[1].Key != "↑↓" || hints[1].Description != "history" {
+		t.Errorf("hints[1] = {%q, %q}, want {\"↑↓\", \"history\"}", hints[1].Key, hints[1].Description)
+	}
+	if hints[2].Key != "^C" || hints[2].Description != "clear" {
+		t.Errorf("hints[2] = {%q, %q}, want {\"^C\", \"clear\"}", hints[2].Key, hints[2].Description)
+	}
+	if hints[3].Key != "q" || hints[3].Description != "exit" {
+		t.Errorf("hints[3] = {%q, %q}, want {\"q\", \"exit\"}", hints[3].Key, hints[3].Description)
+	}
+}
+
+func TestHints_WhenStatusEvaluating_ShouldReturnREPLHints(t *testing.T) {
+	p := newTestPlugin()
+	p.status = StatusEvaluating
+
+	hints := p.Hints()
+	if len(hints) != 4 {
+		t.Fatalf("Hints() returned %d hints, want 4", len(hints))
+	}
+	if hints[0].Key != "Enter" {
+		t.Errorf("hints[0].Key = %q, want \"Enter\"", hints[0].Key)
+	}
+}
+
+func TestHints_WhenStatusError_ShouldReturnBackHints(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusError
+
+	hints := p.Hints()
+	expected := (sdk.HintSetBack).Hints()
+	if len(hints) != len(expected) {
+		t.Fatalf("Hints() returned %d hints, want %d", len(hints), len(expected))
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("hints[0] = {%q, %q}, want {\"q\", \"back\"}", hints[0].Key, hints[0].Description)
+	}
+}
+
+func TestHints_WhenStatusIdle_ShouldReturnBackHints(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	expected := (sdk.HintSetBack).Hints()
+	if len(hints) != len(expected) {
+		t.Fatalf("Hints() returned %d hints, want %d", len(hints), len(expected))
+	}
+}
+
+func TestEvaluate_WhenBinaryExists_ShouldReturnCmd(t *testing.T) {
+	dir := t.TempDir()
+	scriptPath := dir + "/faketerraform"
+	script := "#!/bin/sh\ncat\n"
+	if err := os.WriteFile(scriptPath, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	p := newTestPlugin()
+	p.binaryPath = scriptPath
+	p.dir = dir
+
+	cmd := p.Evaluate("hello world")
+	if cmd == nil {
+		t.Fatal("Evaluate() returned nil cmd")
+	}
+
+	msg := cmd()
+	result, ok := msg.(ReplResultMsg)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want ReplResultMsg", msg)
+	}
+	if result.Expr != "hello world" {
+		t.Errorf("result.Expr = %q, want %q", result.Expr, "hello world")
+	}
+	if result.Err != nil {
+		t.Errorf("result.Err = %v, want nil", result.Err)
+	}
+	if strings.TrimSpace(result.Output) != "hello world" {
+		t.Errorf("result.Output = %q, want %q", strings.TrimSpace(result.Output), "hello world")
+	}
+}
+
+func TestEvaluate_WhenBinaryNotFound_ShouldReturnError(t *testing.T) {
+	p := newTestPlugin()
+	p.binaryPath = "/nonexistent/binary/path"
+	p.dir = t.TempDir()
+
+	cmd := p.Evaluate("test")
+	if cmd == nil {
+		t.Fatal("Evaluate() returned nil cmd")
+	}
+
+	msg := cmd()
+	result, ok := msg.(ReplResultMsg)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want ReplResultMsg", msg)
+	}
+	if result.Expr != "test" {
+		t.Errorf("result.Expr = %q, want %q", result.Expr, "test")
+	}
+	if result.Err == nil {
+		t.Error("result.Err = nil, want error for nonexistent binary")
+	}
+}
+
+func TestDetectBinary_WhenTofuOnPath_ShouldReturnTofu(t *testing.T) {
+	dir := t.TempDir()
+	tofuPath := dir + "/tofu"
+	if err := os.WriteFile(tofuPath, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	result := detectBinary()
+	if result != "tofu" {
+		t.Errorf("detectBinary() = %q, want %q", result, "tofu")
+	}
+}
+
+func TestDetectBinary_WhenTofuNotOnPath_ShouldReturnTerraform(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+
+	result := detectBinary()
+	if result != "terraform" {
+		t.Errorf("detectBinary() = %q, want %q", result, "terraform")
+	}
+}
+
+func TestHistory_ShouldReturnHistorySlice(t *testing.T) {
+	p := newTestPlugin()
+	p.history = []replEntry{
+		{Expr: "a", Result: "1"},
+		{Expr: "b", Error: "fail"},
+	}
+
+	h := p.History()
+	if len(h) != 2 {
+		t.Fatalf("History() returned %d entries, want 2", len(h))
+	}
+	if h[0].Expr != "a" || h[0].Result != "1" {
+		t.Errorf("History()[0] = {%q, %q}, want {\"a\", \"1\"}", h[0].Expr, h[0].Result)
+	}
+	if h[1].Expr != "b" || h[1].Error != "fail" {
+		t.Errorf("History()[1] = {%q, err=%q}, want {\"b\", \"fail\"}", h[1].Expr, h[1].Error)
+	}
+}
+
+func TestRenderREPL_WhenHeightVerySmall_ShouldUseMinHistoryLines(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.history = []replEntry{
+		{Expr: "a", Result: "1"},
+		{Expr: "b", Result: "2"},
+		{Expr: "c", Result: "3"},
+	}
+
+	view := p.View(80, 2)
+	if view == "" {
+		t.Error("View with height=2 returned empty string")
+	}
+}
+
+func TestRenderREPL_WhenHeightExactlyAtThreshold_ShouldNotPanic(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.history = []replEntry{
+		{Expr: "x", Result: "y"},
+	}
+
+	view := p.View(80, 5)
+	if view == "" {
+		t.Error("View with height=5 returned empty string")
+	}
+}
+
+func TestRenderREPL_WhenEntryHasEmptyResult_ShouldRenderWithoutResultLine(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.history = []replEntry{
+		{Expr: "null_expr", Result: "", Error: ""},
+	}
+
+	view := p.View(80, 24)
+	if view == "" {
+		t.Error("View with empty result entry returned empty string")
+	}
+}
+
+func TestRenderREPL_WhenHistoryHasMultilineResult_ShouldSplitLines(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.history = []replEntry{
+		{Expr: "multiline", Result: "line1\nline2\nline3"},
+	}
+
+	view := p.View(80, 24)
+	if !strings.Contains(view, "line1") {
+		t.Error("View should contain first line of multiline result")
+	}
+	if !strings.Contains(view, "line3") {
+		t.Error("View should contain last line of multiline result")
 	}
 }

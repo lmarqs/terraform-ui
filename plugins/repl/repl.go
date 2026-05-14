@@ -272,9 +272,6 @@ func (p *Plugin) renderREPL(width, height int) string {
 	visible := histLines
 	if len(histLines) > maxHistoryLines {
 		start := len(histLines) - maxHistoryLines
-		if start < 0 {
-			start = 0
-		}
 		visible = histLines[start:]
 	}
 
