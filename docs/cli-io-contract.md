@@ -93,11 +93,11 @@ Layer 3: Novel (ADD)
 | `tfui output` | `name` | — | Single value | — | 0/1 | Identical |
 | `tfui refresh` | | — | Refresh results | Spinner | 0/1 | Identical |
 | `tfui scaffold` | `--yes` | — | HCL content | — | 0/1 | Novel |
-| `tfui workspaces show` | | — | Workspace name | — | 0/1 | Identical |
-| `tfui workspaces list` | | — | Workspace names | — | 0/1 | Identical |
-| `tfui workspaces select` | `name` | — | — | — | 0/1 | Identical |
-| `tfui workspaces new` | `name` | `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
-| `tfui workspaces delete` | `name` | `-force`, `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
+| `tfui workspace show` | | — | Workspace name | — | 0/1 | Identical |
+| `tfui workspace list` | | — | Workspace names | — | 0/1 | Identical |
+| `tfui workspace select` | `name` | — | — | — | 0/1 | Identical |
+| `tfui workspace new` | `name` | `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
+| `tfui workspace delete` | `name` | `-force`, `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
 | `tfui version` | | — | Version text | — | 0/1 | Added: includes tfui version + terraform + providers |
 | `tfui version` | `-json` | — | Version JSON | — | 0/1 | Added: structured JSON with all version info |
 

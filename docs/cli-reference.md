@@ -72,18 +72,18 @@ tfui state taint <address>          # mark for recreation
 tfui state untaint <address>        # remove taint mark
 ```
 
-### `tfui workspaces`
+### `tfui workspace`
 
 Workspace management operations.
 
 ```bash
-tfui workspaces show                    # print current workspace name
-tfui workspaces list                    # list all workspaces
-tfui workspaces select <name>           # switch to workspace
-tfui workspaces new <name>              # create and switch to workspace
-tfui workspaces new <name> -lock=false  # create without locking state
-tfui workspaces delete <name>           # delete workspace
-tfui workspaces delete <name> -force    # delete non-empty workspace
+tfui workspace show                    # print current workspace name
+tfui workspace list                    # list all workspaces
+tfui workspace select <name>           # switch to workspace
+tfui workspace new <name>              # create and switch to workspace
+tfui workspace new <name> -lock=false  # create without locking state
+tfui workspace delete <name>           # delete workspace
+tfui workspace delete <name> -force    # delete non-empty workspace
 ```
 
 | Flag | Applies to | Description |

@@ -114,7 +114,7 @@ func buildStateCommands(cfg *config.Config) *cobra.Command {
 
 func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 	wsCmd := &cobra.Command{
-		Use:   "workspaces",
+		Use:   "workspace",
 		Short: "Terraform workspace operations",
 	}
 
