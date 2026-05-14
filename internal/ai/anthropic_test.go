@@ -515,6 +515,25 @@ func TestHasAWSCredentials_WhenNone(t *testing.T) {
 	}
 }
 
+func TestHasAWSCredentials_WhenAWSCLIInPath(t *testing.T) {
+	t.Setenv("AWS_ACCESS_KEY_ID", "")
+	t.Setenv("AWS_PROFILE", "")
+	t.Setenv("AWS_ROLE_ARN", "")
+
+	tmpHome := t.TempDir()
+	t.Setenv("HOME", tmpHome)
+
+	binDir := tmpHome + "/bin"
+	_ = makeDir(t, binDir)
+	_ = writeFile(t, binDir+"/aws", "#!/bin/sh\n")
+	_ = os.Chmod(binDir+"/aws", 0o755)
+	t.Setenv("PATH", binDir)
+
+	if !hasAWSCredentials() {
+		t.Error("expected true when aws CLI is in PATH")
+	}
+}
+
 // --- NewAnthropicProvider tests ---
 
 func TestNewAnthropicProvider_WhenNoCredentials(t *testing.T) {
