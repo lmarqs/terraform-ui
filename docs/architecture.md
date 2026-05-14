@@ -200,7 +200,7 @@ main.go
 | `cmd/tfui` | Excluded (thin glue) | N/A |
 | `tests/integration` | Integration (build tag, need terraform) | Behavioral coverage |
 
-Coverage enforcement: 100% on all packages except `cmd/` (glue layer) and terraform-exec I/O calls. Pipeline fails if coverage drops.
+Coverage enforcement: 100% gate on all packages except `cmd/` (glue layer) and terraform-exec I/O calls. Pipeline fails if coverage drops.
 
 ## Development
 
@@ -210,7 +210,7 @@ mise run build            # Cross-platform binaries
 mise run fmt              # Format source files
 mise run check:lint       # Lint (golangci-lint v2)
 mise run test:unit        # Unit tests
-mise run test:coverage    # Coverage enforcement (90%)
+mise run test:coverage    # Coverage enforcement (100%)
 mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
 mise run test:macro       # Macro tapes
 ```

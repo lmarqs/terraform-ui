@@ -56,13 +56,13 @@ packages=$(go list ./... | grep -v '/cmd/' | grep -v 'internal/terraform$')
 go test -coverprofile=coverage.out $packages
 total=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
 echo "Coverage: ${total}%"
-threshold=70
+threshold=100
 if awk "BEGIN {exit !($total < $threshold)}"; then
   echo "FAIL: ${total}% is below ${threshold}% threshold"
   exit 1
 fi
 """
-description = "Coverage enforcement (90%, excludes cmd/ and internal/terraform)"
+description = "Coverage enforcement (100%, excludes cmd/ and internal/terraform)"
 
 [tasks."test:integration:terraform"]
 run = "go test -tags integration -timeout 300s ./tests/integration/..."

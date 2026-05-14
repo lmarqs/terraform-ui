@@ -12,7 +12,7 @@ mise run fmt              # Format (gofmt)
 mise run check:lint       # Lint (golangci-lint v2)
 mise run check:vet        # Quick go vet
 mise run test:unit        # Unit tests
-mise run test:coverage    # Coverage (90% threshold)
+mise run test:coverage    # Coverage (100% threshold)
 mise run build            # Cross-platform binaries
 mise run test:macro       # Macro tapes against binary
 mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
@@ -64,7 +64,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 ### Testing
 
 - **TDD workflow**: write a failing test first, then implement
-- 100% coverage on all packages excluding `cmd/` glue
+- 100% coverage gate on all packages excluding `cmd/` glue
 - Table-driven tests preferred
 - Mock services implement `sdk.Service` with no-op methods
 - Integration tests in `tests/integration/`
@@ -83,7 +83,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 
 IMPORTANT: Before considering work complete, run:
 ```bash
-mise run check:lint && mise run test:unit
+mise run check:vet && mise run check:lint && mise run test:unit
 ```
 
 For UI changes, also run `mise run test:macro` to verify rendering.
@@ -97,6 +97,8 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - TUI UX spec: `docs/tui-ux.md`
 - CLI UX spec: `docs/cli-ux.md`
 - Full I/O contract: `docs/cli-io-contract.md`
+- CLI reference: `docs/cli-reference.md`
+- Architecture overview: `docs/architecture.md`
 - Macro DSL reference: `docs/macro-language.md`
 - Configuration reference: `docs/configuration.md`
 - Testing strategy: `docs/testing.md`
@@ -141,8 +143,10 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 
 ## Learnings
 
+When encountering undocumented patterns or decisions that caused rework, suggest additions to this section.
+
 - 2025-04: Renamed "scope" → "chdir" everywhere; legacy ProjectContext fields (Scopes, ActiveScope, ActiveScopeAbs) pending rename
 - 2025-05: CompositeService eliminated — ServiceCache pre-seeded at startup replaces multi-implementation composition
 - 2025-05: "init" plugin renamed → "scaffold" to free `init` for terraform passthrough
 - 2025-05: Config syntax changed from `chdir { members = [...] }` to top-level `member "path" {}` blocks
-- 2025-05: Navigation architecture: `NavBehavior` (push/replace) on `PluginMeta` controls app-level routing. `returnTo` field enables k9s-style "go back" for NavPush plugins (chdir, workspaces). Context plugin delegates to standalone plugins via `NavigateMsg` instead of internal pickers.
+- 2025-05: Navigation architecture uses `NavBehavior` (push/replace) on `PluginMeta`. Details in `.claude/rules/architecture.md` and `.claude/rules/ux.md`.

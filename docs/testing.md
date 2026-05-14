@@ -43,7 +43,7 @@ mise run test:unit
 go test -tags integration -timeout 120s ./tests/integration/
 mise run 'test:integration:*'
 
-# Coverage report (90% gate, excludes cmd/)
+# Coverage report (100% gate, excludes cmd/)
 mise run test:coverage
 ```
 
@@ -230,4 +230,4 @@ assert view aws_s3_bucket.data
 - **Temp files:** use `t.TempDir()` for filesystem tests
 - **Env vars:** use `t.Setenv()` for environment-dependent tests
 - **Same package:** test files in same package (white-box access)
-- **Coverage target:** 100% on packages excluding `cmd/` glue
+- **Coverage target:** 100% gate on packages excluding `cmd/` glue
