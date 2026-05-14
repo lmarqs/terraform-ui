@@ -101,7 +101,7 @@ Bare `tfui` opens the full-screen TUI. Subcommands (`plan`, `apply`) run in non-
 | `C` | Context (project/chdir/workspace) |
 | `I` | Scaffold wizard |
 | `/` | Filter |
-| `:` | Command mode (`:q` quit, `:q!` force quit) |
+| `:` | Command mode (`:q` quit — guarded during ops, `:q!` force quit) |
 | `q` | Quit / back |
 | `↑↓` or `jk` | Navigate |
 | `Enter` | Inspect / expand |
