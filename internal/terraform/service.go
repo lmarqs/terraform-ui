@@ -26,6 +26,7 @@ type Service = sdk.Service
 type TerraformService struct {
 	workingDir string
 	binaryPath string
+	statePath  string
 	stateCache *tfjson.State
 }
 
@@ -38,11 +39,20 @@ func NewService(workingDir, binaryPath string) *TerraformService {
 	}
 }
 
+func NewServiceWithState(workingDir, binaryPath, statePath string) *TerraformService {
+	return &TerraformService{
+		workingDir: workingDir,
+		binaryPath: binaryPath,
+		statePath:  statePath,
+	}
+}
+
 // WithDir returns a new TerraformService scoped to the given working directory.
 func (s *TerraformService) WithDir(dir string) Service {
 	return &TerraformService{
 		workingDir: dir,
 		binaryPath: s.binaryPath,
+		statePath:  s.statePath,
 	}
 }
 
@@ -313,7 +323,11 @@ func (s *TerraformService) StateRm(ctx context.Context, address string) error {
 		return err
 	}
 
-	if err := tf.StateRm(ctx, address); err != nil {
+	var rmOpts []tfexec.StateRmCmdOption
+	if s.statePath != "" {
+		rmOpts = append(rmOpts, tfexec.State(s.statePath))
+	}
+	if err := tf.StateRm(ctx, address, rmOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "state rm", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("removing %q from state: %w", address, err)
 	}
@@ -333,7 +347,11 @@ func (s *TerraformService) StateMove(ctx context.Context, source, dest string) e
 		return err
 	}
 
-	if err := tf.StateMv(ctx, source, dest); err != nil {
+	var mvOpts []tfexec.StateMvCmdOption
+	if s.statePath != "" {
+		mvOpts = append(mvOpts, tfexec.State(s.statePath))
+	}
+	if err := tf.StateMv(ctx, source, dest, mvOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "state mv", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("moving %q to %q: %w", source, dest, err)
 	}
@@ -353,7 +371,11 @@ func (s *TerraformService) Import(ctx context.Context, address, id string) error
 		return err
 	}
 
-	if err := tf.Import(ctx, address, id); err != nil {
+	var importOpts []tfexec.ImportOption
+	if s.statePath != "" {
+		importOpts = append(importOpts, tfexec.State(s.statePath))
+	}
+	if err := tf.Import(ctx, address, id, importOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "import", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("importing %q with id %q: %w", address, id, err)
 	}
@@ -375,7 +397,11 @@ func (s *TerraformService) Taint(ctx context.Context, address string) error {
 		return err
 	}
 
-	if err := tf.Taint(ctx, address); err != nil {
+	var taintOpts []tfexec.TaintOption
+	if s.statePath != "" {
+		taintOpts = append(taintOpts, tfexec.State(s.statePath))
+	}
+	if err := tf.Taint(ctx, address, taintOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "taint", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("tainting %q: %w", address, err)
 	}
@@ -395,7 +421,11 @@ func (s *TerraformService) Untaint(ctx context.Context, address string) error {
 		return err
 	}
 
-	if err := tf.Untaint(ctx, address); err != nil {
+	var untaintOpts []tfexec.UntaintOption
+	if s.statePath != "" {
+		untaintOpts = append(untaintOpts, tfexec.State(s.statePath))
+	}
+	if err := tf.Untaint(ctx, address, untaintOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "untaint", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("untainting %q: %w", address, err)
 	}
