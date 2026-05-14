@@ -145,3 +145,4 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 - 2025-05: CompositeService eliminated — ServiceCache pre-seeded at startup replaces multi-implementation composition
 - 2025-05: "init" plugin renamed → "scaffold" to free `init` for terraform passthrough
 - 2025-05: Config syntax changed from `chdir { members = [...] }` to top-level `member "path" {}` blocks
+- 2025-05: Navigation architecture: `NavBehavior` (push/replace) on `PluginMeta` controls app-level routing. `returnTo` field enables k9s-style "go back" for NavPush plugins (chdir, workspaces). Context plugin delegates to standalone plugins via `NavigateMsg` instead of internal pickers.

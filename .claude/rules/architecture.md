@@ -64,9 +64,16 @@ Optional interfaces: `Activatable`, `Countable`, `Hintable`, `Pinnable`, `Stacka
 Plugins are invocation-agnostic. Routing metadata is external:
 
 ```go
+type NavBehavior int
+const (
+    NavReplace NavBehavior = iota  // lateral switch, no history
+    NavPush                        // preserves return context
+)
+
 type PluginMeta struct {
     Keybinding  string
     MenuVisible bool
+    Nav         NavBehavior
 }
 ```
 
@@ -75,7 +82,38 @@ Registration in `cmd/tfui/main.go`:
 registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{
     Keybinding: "s", MenuVisible: true,
 })
+registry.RegisterFactory("workspaces", tfuiworkspaces.New, plugin.PluginMeta{
+    Keybinding: "w", MenuVisible: true, Nav: plugin.NavPush,
+})
 ```
+
+## App Navigation (`internal/ui/app.go`)
+
+Central routing with three private methods:
+
+```go
+navigateTo(p)    // checks NavBehaviorFor(p.ID()), saves returnTo if NavPush
+navigateBack()   // restores returnTo as activePlugin, logs transition
+popIfPushed(cmd) // called by event handlers; pops NavPush plugin if active
+```
+
+`returnTo sdk.Plugin` — single-level return address. Set only by `NavPush` transitions. Consumed by:
+- Event handlers (`ChdirChangedEvent`, `WorkspaceChangedEvent`) via `popIfPushed`
+- `DeactivateMsg` handler (esc cancel path)
+
+Naming rationale (benchmarked against React Router, iOS UIKit, Flutter Navigator, lazygit, k9s):
+- `NavBehavior` over "NavMode" — "behavior" fits static metadata; "mode" implies runtime toggle
+- `NavPush`/`NavReplace` — universal terms across all frameworks studied
+- `returnTo` over "previousPlugin" — communicates intent (destination), not time (temporal)
+
+## Inter-Plugin Navigation (`pkg/sdk/plugin.go`)
+
+```go
+type NavigateMsg struct { PluginID string }  // request app navigate to plugin
+type DeactivateMsg struct{}                   // request app deactivate current plugin
+```
+
+Plugins emit `NavigateMsg` to delegate to another plugin (e.g., context → workspaces). The app applies the target's `NavBehavior`. This keeps plugins decoupled — they never hold references to each other.
 
 ## Service Interface (`pkg/sdk/service.go`)
 

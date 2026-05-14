@@ -7,26 +7,45 @@ Full spec: `docs/tui-ux.md`
 
 # UX Rules
 
-## Navigation Stack (Android-style)
+## Navigation Architecture
 
-Plugins use a nested navigation stack. Input always routes to the topmost frame.
+Two layers of navigation, each with distinct operation types:
+
+### App-Level Navigation (plugin routing)
+
+Controls which plugin occupies the screen. Two behaviors declared via `NavBehavior`:
+
+| Behavior | Constant | Effect | Example |
+|----------|----------|--------|---------|
+| **Replace** | `NavReplace` (default) | Lateral switch, clears return context | `:state`, `:plan`, `:context` |
+| **Push** | `NavPush` | Preserves origin in `returnTo`; returns after completion or cancel | `:chdir`, `:workspaces` |
+
+Key semantics at app level:
+- `esc` — pops back to `returnTo` if set, otherwise does nothing (handled by frame stack)
+- `q` — always goes home (app root), clears `returnTo`
+- `:` — command mode, applies target's `NavBehavior`
+
+Inter-plugin navigation: plugins emit `sdk.NavigateMsg{PluginID}` to request the app navigate to another plugin. The app applies the target's `NavBehavior`.
+
+### Plugin-Level Navigation (frame stack)
+
+Controls sub-views within a plugin. Input always routes to the topmost frame.
 
 ```
-App Stack: [Home] → [State Plugin]
-                      └── Plugin Stack: [List] → [Filter]
-                                                → [Inspect] → [Confirm]
+App: [Home] → [State Plugin (NavReplace)]
+                └── Frame Stack: [List] → [Filter]
+                                         → [Inspect] → [Confirm]
 ```
 
 - Input goes to the deepest leaf frame only
-- `esc` always pops the innermost frame (universal "back")
-- `q` pops to app root (deactivate plugin)
-- `:` side-navigates at app level (replaces plugin)
+- `esc` pops the innermost frame (if stack depth > 1) or triggers plugin deactivation
+- `q` pops to app root (bypasses frame stack entirely)
 - Each frame declares its own `Hints() []KeyHint`
 
 SDK types (`pkg/sdk/`):
 - `Frame` interface: `ID()`, `Update(msg) (Frame, Cmd)`, `View(w,h)`, `Hints()`
 - `Stack`: LIFO container with `Push`, `Pop`, `Update`, `View`, `Hints`
-- `Stackable` interface: optional on plugins, returns their internal `*Stack`
+- `Stackable` interface: on plugins that use frame-based navigation
 
 Reusable frames (`pkg/sdk/frames/`):
 - `FilterFrame`: consumes ALL printable keys; only esc/enter/arrows escape
@@ -37,6 +56,15 @@ Frame lifecycle:
 - Return `nil` from `Update` → frame is popped
 - Return a different `Frame` → in-place replacement
 - Return self → no change
+
+### Navigation Flow Summary
+
+```
+:state → :workspaces (NavPush, returnTo=state)
+  ├── User selects → WorkspaceChangedEvent → popIfPushed → back to state
+  ├── User presses esc → DeactivateMsg → returnTo exists → back to state
+  └── User presses q → global handler → home (returnTo cleared)
+```
 
 ## UX Model (k9s-inspired)
 
