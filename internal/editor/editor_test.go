@@ -1,7 +1,11 @@
 package editor
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDetectEditor(t *testing.T) {
@@ -57,7 +61,6 @@ func TestBuildArgs(t *testing.T) {
 		loc      SourceLocation
 		expected []string
 	}{
-		// vim/nvim
 		{
 			name:     "vim produces +LINE FILE",
 			editor:   "vim",
@@ -76,7 +79,6 @@ func TestBuildArgs(t *testing.T) {
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 5},
 			expected: []string{"+5", "/tmp/main.tf"},
 		},
-		// code/vscode
 		{
 			name:     "code produces --goto FILE:LINE --wait",
 			editor:   "code",
@@ -95,14 +97,12 @@ func TestBuildArgs(t *testing.T) {
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 7},
 			expected: []string{"--goto", "/tmp/main.tf:7", "--wait"},
 		},
-		// nano
 		{
 			name:     "nano produces +LINE FILE",
 			editor:   "nano",
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 20},
 			expected: []string{"+20", "/tmp/main.tf"},
 		},
-		// emacs
 		{
 			name:     "emacs produces +LINE FILE",
 			editor:   "emacs",
@@ -115,7 +115,6 @@ func TestBuildArgs(t *testing.T) {
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 12},
 			expected: []string{"+12", "/tmp/main.tf"},
 		},
-		// helix/hx
 		{
 			name:     "hx produces FILE:LINE",
 			editor:   "hx",
@@ -128,7 +127,6 @@ func TestBuildArgs(t *testing.T) {
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 99},
 			expected: []string{"/tmp/main.tf:99"},
 		},
-		// sublime
 		{
 			name:     "subl produces FILE:LINE",
 			editor:   "subl",
@@ -141,21 +139,18 @@ func TestBuildArgs(t *testing.T) {
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 55},
 			expected: []string{"/tmp/main.tf:55"},
 		},
-		// micro
 		{
 			name:     "micro produces FILE +LINE",
 			editor:   "micro",
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 17},
 			expected: []string{"/tmp/main.tf", "+17"},
 		},
-		// unknown editor
 		{
 			name:     "unknown editor defaults to +LINE FILE",
 			editor:   "ed",
 			loc:      SourceLocation{File: "/tmp/main.tf", Line: 3},
 			expected: []string{"+3", "/tmp/main.tf"},
 		},
-		// Line = 0 (no line)
 		{
 			name:     "line 0 produces FILE only for vim",
 			editor:   "vim",
@@ -234,11 +229,10 @@ func TestEditorClosedMsgFields(t *testing.T) {
 		t.Errorf("Err = %v, want nil", msg.Err)
 	}
 
-	// Test with error
 	errMsg := EditorClosedMsg{
 		File:     "/other/file.tf",
 		Modified: false,
-		Err:      &testError{},
+		Err:      errors.New("test error"),
 	}
 	if errMsg.Err == nil {
 		t.Error("Err = nil, want non-nil")
@@ -257,6 +251,7 @@ func TestOpenMultiple_EmptyReturnsNil(t *testing.T) {
 }
 
 func TestOpenMultiple_SingleDelegatesToOpen(t *testing.T) {
+	t.Setenv("VISUAL", "")
 	t.Setenv("EDITOR", "vim")
 	locs := []SourceLocation{{File: "/tmp/test.tf", Line: 5}}
 	cmd := OpenMultiple(locs)
@@ -266,6 +261,7 @@ func TestOpenMultiple_SingleDelegatesToOpen(t *testing.T) {
 }
 
 func TestOpenMultiple_CodeMultipleFiles(t *testing.T) {
+	t.Setenv("VISUAL", "")
 	t.Setenv("EDITOR", "code --wait")
 	locs := []SourceLocation{
 		{File: "/tmp/a.tf", Line: 10},
@@ -278,7 +274,21 @@ func TestOpenMultiple_CodeMultipleFiles(t *testing.T) {
 	}
 }
 
+func TestOpenMultiple_CodeWithoutWaitFlag(t *testing.T) {
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "code")
+	locs := []SourceLocation{
+		{File: "/tmp/a.tf", Line: 10},
+		{File: "/tmp/b.tf", Line: 20},
+	}
+	cmd := OpenMultiple(locs)
+	if cmd == nil {
+		t.Error("OpenMultiple with code (no --wait) should return non-nil cmd")
+	}
+}
+
 func TestOpenMultiple_NonCodeFallsBackToFirst(t *testing.T) {
+	t.Setenv("VISUAL", "")
 	t.Setenv("EDITOR", "vim")
 	locs := []SourceLocation{
 		{File: "/tmp/a.tf", Line: 10},
@@ -289,10 +299,6 @@ func TestOpenMultiple_NonCodeFallsBackToFirst(t *testing.T) {
 		t.Error("OpenMultiple with vim should return non-nil cmd (first file)")
 	}
 }
-
-type testError struct{}
-
-func (e *testError) Error() string { return "test error" }
 
 func TestSplitCommand(t *testing.T) {
 	tests := []struct {
@@ -355,4 +361,203 @@ func TestBuildArgs_CodeWithExistingWait(t *testing.T) {
 			t.Errorf("expected --wait in result, got %v", result)
 		}
 	})
+}
+
+func TestOpen_WhenFileExists_ShouldReturnNonNilCmd(t *testing.T) {
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "vim")
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "main.tf")
+	if err := os.WriteFile(file, []byte("resource {}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := Open(SourceLocation{File: file, Line: 10})
+	if cmd == nil {
+		t.Error("Open() should return non-nil cmd for valid file")
+	}
+}
+
+func TestOpen_WhenFileDoesNotExist_ShouldReturnNonNilCmd(t *testing.T) {
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "vim")
+
+	cmd := Open(SourceLocation{File: "/nonexistent/file.tf", Line: 5})
+	if cmd == nil {
+		t.Error("Open() should return non-nil cmd even for nonexistent file")
+	}
+}
+
+func TestOpenFile_ShouldReturnNonNilCmd(t *testing.T) {
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "vim")
+
+	dir := t.TempDir()
+	file := filepath.Join(dir, "main.tf")
+	if err := os.WriteFile(file, []byte("resource {}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := OpenFile(file)
+	if cmd == nil {
+		t.Error("OpenFile() should return non-nil cmd")
+	}
+}
+
+func TestOpenFile_WhenFileDoesNotExist_ShouldReturnNonNilCmd(t *testing.T) {
+	t.Setenv("VISUAL", "")
+	t.Setenv("EDITOR", "vim")
+
+	cmd := OpenFile("/nonexistent/path/file.tf")
+	if cmd == nil {
+		t.Error("OpenFile() should return non-nil cmd even for nonexistent file")
+	}
+}
+
+func TestMakeEditorCallback_WhenFileModified_ShouldReportModified(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "test.tf")
+	if err := os.WriteFile(file, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	mtimeBefore := time.Now().Add(-1 * time.Second)
+
+	cb := makeEditorCallback(file, mtimeBefore)
+	msg := cb(nil)
+
+	closedMsg, ok := msg.(EditorClosedMsg)
+	if !ok {
+		t.Fatalf("expected EditorClosedMsg, got %T", msg)
+	}
+	if closedMsg.File != file {
+		t.Errorf("File = %q, want %q", closedMsg.File, file)
+	}
+	if !closedMsg.Modified {
+		t.Error("Modified = false, want true (file mtime is after mtimeBefore)")
+	}
+	if closedMsg.Err != nil {
+		t.Errorf("Err = %v, want nil", closedMsg.Err)
+	}
+}
+
+func TestMakeEditorCallback_WhenFileNotModified_ShouldReportUnmodified(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "test.tf")
+	if err := os.WriteFile(file, []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	info, err := os.Stat(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mtimeBefore := info.ModTime()
+
+	cb := makeEditorCallback(file, mtimeBefore)
+	msg := cb(nil)
+
+	closedMsg, ok := msg.(EditorClosedMsg)
+	if !ok {
+		t.Fatalf("expected EditorClosedMsg, got %T", msg)
+	}
+	if closedMsg.Modified {
+		t.Error("Modified = true, want false (file was not modified)")
+	}
+}
+
+func TestMakeEditorCallback_WhenFileDoesNotExist_ShouldReportUnmodified(t *testing.T) {
+	cb := makeEditorCallback("/nonexistent/path/file.tf", time.Now())
+	msg := cb(nil)
+
+	closedMsg, ok := msg.(EditorClosedMsg)
+	if !ok {
+		t.Fatalf("expected EditorClosedMsg, got %T", msg)
+	}
+	if closedMsg.Modified {
+		t.Error("Modified = true, want false (file does not exist)")
+	}
+	if closedMsg.Err != nil {
+		t.Errorf("Err = %v, want nil", closedMsg.Err)
+	}
+}
+
+func TestMakeEditorCallback_WhenEditorReturnsError_ShouldPropagateError(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "test.tf")
+	if err := os.WriteFile(file, []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	editorErr := errors.New("editor crashed")
+	cb := makeEditorCallback(file, time.Now().Add(-1*time.Second))
+	msg := cb(editorErr)
+
+	closedMsg, ok := msg.(EditorClosedMsg)
+	if !ok {
+		t.Fatalf("expected EditorClosedMsg, got %T", msg)
+	}
+	if closedMsg.Err != editorErr {
+		t.Errorf("Err = %v, want %v", closedMsg.Err, editorErr)
+	}
+}
+
+func TestMakeMultiFileCallback_WhenNoError_ShouldReportModifiedTrue(t *testing.T) {
+	cb := makeMultiFileCallback("/tmp/primary.tf")
+	msg := cb(nil)
+
+	closedMsg, ok := msg.(EditorClosedMsg)
+	if !ok {
+		t.Fatalf("expected EditorClosedMsg, got %T", msg)
+	}
+	if closedMsg.File != "/tmp/primary.tf" {
+		t.Errorf("File = %q, want %q", closedMsg.File, "/tmp/primary.tf")
+	}
+	if !closedMsg.Modified {
+		t.Error("Modified = false, want true")
+	}
+	if closedMsg.Err != nil {
+		t.Errorf("Err = %v, want nil", closedMsg.Err)
+	}
+}
+
+func TestMakeMultiFileCallback_WhenError_ShouldPropagateError(t *testing.T) {
+	editorErr := errors.New("code exited with error")
+	cb := makeMultiFileCallback("/tmp/primary.tf")
+	msg := cb(editorErr)
+
+	closedMsg, ok := msg.(EditorClosedMsg)
+	if !ok {
+		t.Fatalf("expected EditorClosedMsg, got %T", msg)
+	}
+	if closedMsg.Err != editorErr {
+		t.Errorf("Err = %v, want %v", closedMsg.Err, editorErr)
+	}
+	if !closedMsg.Modified {
+		t.Error("Modified = false, want true (always true for multi-file)")
+	}
+}
+
+func TestHasFlag(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		flag string
+		want bool
+	}{
+		{"found in args", []string{"--wait", "--goto"}, "--wait", true},
+		{"not found in args", []string{"--goto"}, "--wait", false},
+		{"nil args", nil, "--wait", false},
+		{"empty args", []string{}, "--wait", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasFlag(tt.args, tt.flag)
+			if got != tt.want {
+				t.Errorf("hasFlag(%v, %q) = %v, want %v", tt.args, tt.flag, got, tt.want)
+			}
+		})
+	}
 }

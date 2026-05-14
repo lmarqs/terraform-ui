@@ -40,17 +40,31 @@ func Open(loc SourceLocation) tea.Cmd {
 	}
 
 	c := exec.Command(bin, args...)
-	return tea.ExecProcess(c, func(err error) tea.Msg {
+	return tea.ExecProcess(c, makeEditorCallback(loc.File, mtimeBefore))
+}
+
+// makeEditorCallback returns a callback function that checks whether the file
+// was modified during editing (by comparing mtime).
+func makeEditorCallback(file string, mtimeBefore time.Time) func(error) tea.Msg {
+	return func(err error) tea.Msg {
 		modified := false
-		if info, statErr := os.Stat(loc.File); statErr == nil {
+		if info, statErr := os.Stat(file); statErr == nil {
 			modified = info.ModTime().After(mtimeBefore)
 		}
 		return EditorClosedMsg{
-			File:     loc.File,
+			File:     file,
 			Modified: modified,
 			Err:      err,
 		}
-	})
+	}
+}
+
+// makeMultiFileCallback returns a callback for multi-file editor invocations.
+// It always reports modified=true since tracking multiple files is impractical.
+func makeMultiFileCallback(primaryFile string) func(error) tea.Msg {
+	return func(err error) tea.Msg {
+		return EditorClosedMsg{File: primaryFile, Modified: true, Err: err}
+	}
 }
 
 // splitCommand splits an editor string like "code --wait" into binary and args.
@@ -93,9 +107,7 @@ func OpenMultiple(locs []SourceLocation) tea.Cmd {
 		}
 
 		c := exec.Command(bin, args...)
-		return tea.ExecProcess(c, func(err error) tea.Msg {
-			return EditorClosedMsg{File: locs[0].File, Modified: true, Err: err}
-		})
+		return tea.ExecProcess(c, makeMultiFileCallback(locs[0].File))
 	}
 
 	// Fallback: open first file only
