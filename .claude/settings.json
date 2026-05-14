@@ -6,17 +6,31 @@
         "hooks": [
           {
             "type": "agent",
-            "if": "Edit(internal/ui/**)",
-            "prompt": "A UI file was just edited. Quickly check: (1) Are keybindings consistent with the project convention (q=back to home, esc=exit sub-state, enter/i=inspect, space=pin, /=filter, r=refresh)? (2) Does the hint text at the bottom match actual keybindings? (3) Are error states handled with an escape route? Only report ISSUES found, nothing else. If all good, say nothing.",
+            "if": "Edit(internal/ui/**)|Write(internal/ui/**)",
+            "prompt": "A UI file was just edited. Quickly check: (1) Are keybindings consistent with the project convention (q=back to home, esc=exit sub-state, enter/i=inspect, space=pin, /=filter, r=refresh)? (2) Does the hint text at the bottom match actual keybindings? (3) Are error states handled with an escape route? (4) Hint bar is state-aware (switches on status). Only report ISSUES found, nothing else. If all good, say nothing.",
             "timeout": 15,
-            "statusMessage": "UX quick-check..."
+            "statusMessage": "TUI quick-check..."
           },
           {
             "type": "agent",
-            "if": "Edit(plugins/**)",
-            "prompt": "A plugin file was just edited. Quickly check: (1) Are keybindings consistent with the project convention (q=back to home, esc=exit sub-state, enter/i=inspect, space=pin, /=filter, r=refresh)? (2) Does the hint text at the bottom match actual keybindings? (3) Are error states handled with an escape route? Only report ISSUES found, nothing else. If all good, say nothing.",
+            "if": "Edit(plugins/**)|Write(plugins/**)",
+            "prompt": "A plugin file was just edited. Check: (1) Keybindings consistent (q=back, esc=exit sub-state, enter/i=inspect, space=pin, /=filter, r=refresh)? (2) Hint text matches actual keybindings? (3) Error states have escape routes? (4) No import of 'internal/' packages (must use pkg/sdk only)? (5) No direct import of other plugins (use EventBus)? (6) Plugin constructor is `func New(svc sdk.Service) sdk.Plugin`? Only report ISSUES. If all good, say nothing.",
             "timeout": 15,
-            "statusMessage": "UX quick-check..."
+            "statusMessage": "Plugin quick-check..."
+          },
+          {
+            "type": "agent",
+            "if": "Edit(cmd/tfui/**)|Write(cmd/tfui/**)",
+            "prompt": "A CLI file was just edited. Check: (1) Data output goes to stdout, progress/status to stderr? (2) No stderr writes in JSON mode paths? (3) Exit codes correct (0=success, 1=error, 2=changes present for plan only)? (4) Error messages lowercase (Go convention)? (5) No 'Press X to Y' patterns? Only report ISSUES. If all good, say nothing.",
+            "timeout": 15,
+            "statusMessage": "CLI quick-check..."
+          },
+          {
+            "type": "agent",
+            "if": "Edit(pkg/sdk/**)|Write(pkg/sdk/**)",
+            "prompt": "An SDK file was just edited. Check: (1) If service.go was changed, do ExecService and MacroService still satisfy the interface? Run `go vet ./...` to verify. (2) If a new event type was added, is there a matching handler interface? (3) If a new optional plugin interface was added, is it documented in CLAUDE.md? Only report ISSUES. If all good, say nothing.",
+            "timeout": 15,
+            "statusMessage": "SDK quick-check..."
           }
         ]
       }
@@ -25,10 +39,10 @@
       {
         "hooks": [
           {
-            "type": "agent",
-            "prompt": "Run a UX consistency review of the terraform-ui TUI. Check: (1) q=back to home at top-level, esc=exit sub-state (filter, detail, confirm). (2) enter/i=inspect consistently across all list views, space=pin only. (3) Error views offer r=retry and q=back. (4) Keybinding hints match actual handleKey implementations. (5) No plugin starts in filter mode by default. (6) No dead-end states where user gets stuck. Read the plugin handleKey methods and compare with hint text in View(). Report only ISSUES as a short bulleted list. If everything is consistent, output nothing.",
-            "timeout": 30,
-            "statusMessage": "Running UX review..."
+            "type": "command",
+            "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/stop-verify.sh",
+            "timeout": 60000,
+            "statusMessage": "Verifying build..."
           }
         ]
       }
