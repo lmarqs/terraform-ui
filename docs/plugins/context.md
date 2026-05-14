@@ -73,6 +73,6 @@ Enter select  / filter  ^r refresh  Esc back
 
 ## Related
 
-- [Workspaces](workspaces.md) -- manage workspaces within the active chdir
+- [Workspace](workspace.md) -- manage workspace within the active chdir
 - [State Browser](state.md) -- browse state for the active chdir
 - [Plan](plan.md) -- plan runs against the active chdir directory

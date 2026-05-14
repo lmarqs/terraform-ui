@@ -1,9 +1,9 @@
 ---
 layout: plugin
-title: Workspaces
-id: workspaces
+title: Workspace
+id: workspace
 key: w
-description: Manage terraform workspaces (list, switch, create, delete)
+description: Manage terraform workspace (list, switch, create, delete)
 category: navigation
 default_enabled: true
 ---
@@ -32,7 +32,7 @@ When creating a new workspace, type the name and press `Enter` to confirm or `Es
 ```hcl
 # tfui.hcl
 defaults {
-  plugin "workspaces" {
+  plugin "workspace" {
     enabled = true
   }
 }

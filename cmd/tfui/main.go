@@ -35,7 +35,7 @@ import (
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
 	tfuiversion "github.com/lmarqs/terraform-ui/plugins/version"
-	tfuiworkspaces "github.com/lmarqs/terraform-ui/plugins/workspaces"
+	tfuiworkspace "github.com/lmarqs/terraform-ui/plugins/workspace"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
 )
@@ -212,7 +212,7 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.RegisterFactory("plan", tfuiplan.New, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.RegisterFactory("apply", tfuiapply.New, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
-	registry.RegisterFactory("workspaces", tfuiworkspaces.New, plugin.PluginMeta{Keybinding: "w", MenuVisible: true, Nav: plugin.NavPush})
+	registry.RegisterFactory("workspace", tfuiworkspace.New, plugin.PluginMeta{Keybinding: "w", MenuVisible: true, Nav: plugin.NavPush})
 	registry.RegisterFactory("repl", tfuirepl.New, plugin.PluginMeta{Keybinding: "t", MenuVisible: true})
 	registry.RegisterFactory("output", tfuioutput.New, plugin.PluginMeta{Keybinding: "o", MenuVisible: true})
 	registry.RegisterFactory("validate", tfuivalidate.New, plugin.PluginMeta{Keybinding: "v", MenuVisible: true})

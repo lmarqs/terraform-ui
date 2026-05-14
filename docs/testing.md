@@ -157,7 +157,7 @@ func TestView_Given_WorkspaceList_WithSelection_ShouldRender_HighlightedRow(t *t
 **Updating golden files:** Run tests with `-update` flag:
 
 ```bash
-go test ./plugins/workspaces/ -run TestView -update
+go test ./plugins/workspace/ -run TestView -update
 ```
 
 Golden test names map to file paths: `TestView_Given_Loading_ShouldRender_LoadingMessage` becomes `testdata/golden/TestView_Given_Loading_ShouldRender_LoadingMessage.txt`.
@@ -403,7 +403,7 @@ func TestSwitchToSelected_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t 
 ```go
 // BAD: tests 3 unrelated things, hard to diagnose failures
 func TestPlugin(t *testing.T) {
-    if p.ID() != "workspaces" { t.Error("wrong id") }
+    if p.ID() != "workspace" { t.Error("wrong id") }
     cmd := p.Activate(); if cmd == nil { t.Error("nil") }
     p.MoveDown(); if p.selected != 1 { t.Error("wrong") }
 }

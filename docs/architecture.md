@@ -57,7 +57,7 @@ plugins/
   state/                   — State browser (list, inspect, pin, delete, move, edit)
   plan/                    — Plan review (diff view, expand attributes, risk)
   apply/                   — Apply executor with confirmation
-  workspaces/              — Workspace management
+  workspace/               — Workspace management
   repl/                    — Terraform console (REPL)
   output/                  — Terraform outputs viewer
   validate/                — Terraform validate with diagnostics

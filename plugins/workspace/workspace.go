@@ -1,4 +1,4 @@
-package workspaces
+package workspace
 
 import (
 	"context"
@@ -57,9 +57,9 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) ID() string          { return "workspaces" }
-func (e *Plugin) Name() string        { return "Workspaces" }
-func (e *Plugin) Description() string { return "Manage terraform workspaces" }
+func (e *Plugin) ID() string          { return "workspace" }
+func (e *Plugin) Name() string        { return "Workspace" }
+func (e *Plugin) Description() string { return "Manage terraform workspace" }
 func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Selected() int       { return e.selected }

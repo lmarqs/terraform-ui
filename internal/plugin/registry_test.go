@@ -298,12 +298,12 @@ func TestMenuItems_DisabledPlugin(t *testing.T) {
 func TestNavBehaviorFor(t *testing.T) {
 	r := NewRegistry()
 	r.RegisterFactory("state", newMockFactory("state", "State"), PluginMeta{Keybinding: "s", MenuVisible: true, Nav: NavReplace})
-	r.RegisterFactory("workspaces", newMockFactory("workspaces", "Workspaces"), PluginMeta{Keybinding: "w", MenuVisible: true, Nav: NavPush})
+	r.RegisterFactory("workspace", newMockFactory("workspace", "Workspace"), PluginMeta{Keybinding: "w", MenuVisible: true, Nav: NavPush})
 	r.Build(nil, nil)
 
 	t.Run("ShouldReturnNavPushForPushPlugin", func(t *testing.T) {
-		if got := r.NavBehaviorFor("workspaces"); got != NavPush {
-			t.Errorf("NavBehaviorFor(\"workspaces\") = %d, want NavPush (%d)", got, NavPush)
+		if got := r.NavBehaviorFor("workspace"); got != NavPush {
+			t.Errorf("NavBehaviorFor(\"workspace\") = %d, want NavPush (%d)", got, NavPush)
 		}
 	})
 

@@ -1,4 +1,4 @@
-package workspaces
+package workspace
 
 import (
 	"context"
@@ -58,14 +58,14 @@ func (m *mockService) WithDir(_ string) sdk.Service                             
 
 func TestNew_ShouldReturn_PluginWithCorrectIdentity(t *testing.T) {
 	p := New(&mockService{})
-	if p.ID() != "workspaces" {
-		t.Errorf("ID() = %q, want %q", p.ID(), "workspaces")
+	if p.ID() != "workspace" {
+		t.Errorf("ID() = %q, want %q", p.ID(), "workspace")
 	}
-	if p.Name() != "Workspaces" {
-		t.Errorf("Name() = %q, want %q", p.Name(), "Workspaces")
+	if p.Name() != "Workspace" {
+		t.Errorf("Name() = %q, want %q", p.Name(), "Workspace")
 	}
-	if p.Description() != "Manage terraform workspaces" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Manage terraform workspaces")
+	if p.Description() != "Manage terraform workspace" {
+		t.Errorf("Description() = %q, want %q", p.Description(), "Manage terraform workspace")
 	}
 }
 

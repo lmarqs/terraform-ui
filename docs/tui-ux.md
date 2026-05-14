@@ -69,7 +69,7 @@
 | `Enter` on leaf | Inspect |
 
 ### Plugin activation (home screen only)
-Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o` (outputs), `v` (validate), `t` (console)
+Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` (outputs), `v` (validate), `t` (console)
 
 ## 4. Visual Patterns
 

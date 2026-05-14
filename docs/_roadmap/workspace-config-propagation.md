@@ -12,7 +12,7 @@ depends_on: [event-bus]
 
 ## Problem
 
-When the user switches workspace via the workspaces plugin, `SessionKeyWorkspace` is updated. The resolved config (var-files, vars, plugin settings) should update accordingly. Currently, `Resolve()` runs once at startup in `PersistentPreRun` and seeds the session. Runtime workspace changes don't trigger re-resolution.
+When the user switches workspace via the workspace plugin, `SessionKeyWorkspace` is updated. The resolved config (var-files, vars, plugin settings) should update accordingly. Currently, `Resolve()` runs once at startup in `PersistentPreRun` and seeds the session. Runtime workspace changes don't trigger re-resolution.
 
 ## Current State
 

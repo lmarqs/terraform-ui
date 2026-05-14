@@ -297,8 +297,8 @@ func TestPlugin_WhenFormNavigated_ShouldHandleEnterOnWorkspace(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected NavigateMsg, got %T", msg)
 	}
-	if nav.PluginID != "workspaces" {
-		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspaces")
+	if nav.PluginID != "workspace" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspace")
 	}
 }
 
@@ -319,8 +319,8 @@ func TestPlugin_WhenFormNavigated_ShouldMoveCursorDown(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected NavigateMsg, got %T", msg)
 	}
-	if nav.PluginID != "workspaces" {
-		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspaces")
+	if nav.PluginID != "workspace" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspace")
 	}
 }
 
@@ -400,7 +400,7 @@ func TestPlugin_WhenChdirNotSelectable_ShouldSkipToWorkspace(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected NavigateMsg, got %T", msg)
 	}
-	if nav.PluginID != "workspaces" {
-		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspaces")
+	if nav.PluginID != "workspace" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspace")
 	}
 }

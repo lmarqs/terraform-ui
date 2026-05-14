@@ -7,7 +7,7 @@
 #
 # Expected:
 #   - Home menu loads
-#   - The TUI is functional (can navigate to workspaces)
+#   - The TUI is functional (can navigate to workspace)
 #   - Plugin view renders (shows workspace list or error)
 
 wait ready

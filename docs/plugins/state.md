@@ -183,6 +183,6 @@ plugins:
 
 ## Related
 
-- [Workspaces](workspaces.md) -- switch workspace before browsing state
+- [Workspace](workspace.md) -- switch workspace before browsing state
 - [Context](context.md) -- switch project chdir
 - [Plan](plan.md) -- see what would change after state mutations

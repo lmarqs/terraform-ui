@@ -130,7 +130,7 @@ func (p *Plugin) openChdirPicker() tea.Cmd {
 
 func (p *Plugin) openWorkspacePicker() tea.Cmd {
 	return func() tea.Msg {
-		return sdk.NavigateMsg{PluginID: "workspaces"}
+		return sdk.NavigateMsg{PluginID: "workspace"}
 	}
 }
 

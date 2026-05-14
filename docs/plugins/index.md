@@ -50,7 +50,7 @@ Plugins that analyze plan output without modifying infrastructure.
 Plugins for navigating terraform state, workspaces, and project context.
 
 - **[State Browser](state.md)** — inspect managed resources
-- **[Workspaces](workspaces.md)** — switch and manage workspaces
+- **[Workspace](workspace.md)** — switch and manage workspace
 - **[Outputs](output.md)** — view output values
 - **[Context](context.md)** — project/chdir/workspace selector
 

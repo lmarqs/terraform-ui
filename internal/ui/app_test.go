@@ -894,8 +894,8 @@ func setupTestAppWithTransientPlugins() App {
 	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
 	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
-	registry.RegisterFactory("workspaces", func(_ terraform.Service) plugin.Plugin {
-		return &mockPlugin{id: "workspaces", name: "Workspaces", viewOutput: "workspaces view"}
+	registry.RegisterFactory("workspace", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "workspace", name: "Workspace", viewOutput: "workspace view"}
 	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 	registry.RegisterFactory("context", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "context", name: "Context", viewOutput: "context view"}
@@ -973,17 +973,17 @@ func TestApp_WorkspaceSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
 		t.Fatal("precondition: state plugin should be active")
 	}
 
-	// Switch to "workspaces" via command mode
+	// Switch to "workspace" via command mode
 	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	app = model.(App)
-	for _, ch := range "workspaces" {
+	for _, ch := range "workspace" {
 		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
 		app = model.(App)
 	}
 	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	app = model.(App)
 
-	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspace" {
 		t.Fatal("precondition: workspaces plugin should be active after :workspaces command")
 	}
 
@@ -1076,12 +1076,12 @@ func TestApp_NavigateMsg_ActivatesTargetPlugin(t *testing.T) {
 		app.activePlugin = p
 	}
 
-	// NavigateMsg from context requesting navigation to "workspaces"
-	model, _ := app.Update(sdk.NavigateMsg{PluginID: "workspaces"})
+	// NavigateMsg from context requesting navigation to "workspace"
+	model, _ := app.Update(sdk.NavigateMsg{PluginID: "workspace"})
 	app = model.(App)
 
 	// Should navigate to workspaces (NavPush saves context as returnTo)
-	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspace" {
 		t.Fatalf("after NavigateMsg, activePlugin = %v, want workspaces", app.activePlugin)
 	}
 	if app.returnTo == nil || app.returnTo.ID() != "context" {
@@ -1104,7 +1104,7 @@ func TestApp_NavigateMsg_UnknownPlugin(t *testing.T) {
 func TestApp_DeactivateMsg_NavigatesBackWhenPushed(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
-	// Activate "context" then navigate to "workspaces" (NavPush)
+	// Activate "context" then navigate to "workspace" (NavPush)
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	app = model.(App)
 	for _, ch := range "context" {
@@ -1115,10 +1115,10 @@ func TestApp_DeactivateMsg_NavigatesBackWhenPushed(t *testing.T) {
 	app = model.(App)
 
 	// Now navigate to workspaces (NavPush, returnTo=context)
-	model, _ = app.Update(sdk.NavigateMsg{PluginID: "workspaces"})
+	model, _ = app.Update(sdk.NavigateMsg{PluginID: "workspace"})
 	app = model.(App)
 
-	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspace" {
 		t.Fatal("precondition: workspaces should be active")
 	}
 	if app.returnTo == nil || app.returnTo.ID() != "context" {
@@ -1221,14 +1221,14 @@ func TestApp_WorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
 	// Switch to workspaces via command mode
 	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
 	app = model.(App)
-	for _, ch := range "workspaces" {
+	for _, ch := range "workspace" {
 		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
 		app = model.(App)
 	}
 	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	app = model.(App)
 
-	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspace" {
 		t.Fatal("precondition: workspaces should be active")
 	}
 
@@ -1240,8 +1240,8 @@ func TestApp_WorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
 	if app.activePlugin == nil {
 		t.Fatal("after WorkspaceCreatedEvent, plugin should still be active")
 	}
-	if app.activePlugin.ID() != "workspaces" {
-		t.Errorf("after WorkspaceCreatedEvent, activePlugin = %q, want %q (should NOT pop)", app.activePlugin.ID(), "workspaces")
+	if app.activePlugin.ID() != "workspace" {
+		t.Errorf("after WorkspaceCreatedEvent, activePlugin = %q, want %q (should NOT pop)", app.activePlugin.ID(), "workspace")
 	}
 
 	// Header should show new workspace
