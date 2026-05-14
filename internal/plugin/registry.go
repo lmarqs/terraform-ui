@@ -5,11 +5,22 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
+// NavBehavior describes how a plugin enters the navigation.
+type NavBehavior int
+
+const (
+	// NavReplace destroys the current view and takes its place (lateral navigation).
+	NavReplace NavBehavior = iota
+	// NavPush preserves the current view so the user can return to it after selection.
+	NavPush
+)
+
 // PluginMeta holds external routing metadata for a plugin. Plugins themselves
 // are invocation-agnostic — keybinding and menu visibility are controlled here.
 type PluginMeta struct {
 	Keybinding  string
 	MenuVisible bool
+	Nav         NavBehavior
 }
 
 // MenuItem represents a menu entry for display on the home screen.
@@ -89,6 +100,14 @@ func (r *Registry) ByKey(key string) (Plugin, bool) {
 func (r *Registry) ByID(id string) (Plugin, bool) {
 	plg, ok := r.byID[id]
 	return plg, ok
+}
+
+// NavBehaviorFor returns the navigation mode for the given plugin ID.
+func (r *Registry) NavBehaviorFor(id string) NavBehavior {
+	if m, ok := r.meta[id]; ok {
+		return m.Nav
+	}
+	return NavReplace
 }
 
 // MenuItems returns the list of menu entries for plugins that are visible in the
