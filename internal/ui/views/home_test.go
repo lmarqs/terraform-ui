@@ -187,3 +187,93 @@ func TestHomeView_Render_NarrowWidth(t *testing.T) {
 		t.Error("Render(10, 5) returned empty string")
 	}
 }
+
+func TestHomeView_Render_WhenHeightTooSmallForHint_ShouldClampItemHeight(t *testing.T) {
+	items := makeTestItems()
+	view := NewHomeView(items)
+
+	output := view.Render(80, 2)
+	if output == "" {
+		t.Fatal("Render(80, 2) returned empty string")
+	}
+	if !strings.Contains(output, "Plan") {
+		t.Error("Render with height=2 should still show at least one item")
+	}
+}
+
+func TestHomeView_Render_WhenHeightIsOne_ShouldClampItemHeight(t *testing.T) {
+	items := makeTestItems()
+	view := NewHomeView(items)
+
+	output := view.Render(80, 1)
+	if output == "" {
+		t.Fatal("Render(80, 1) returned empty string")
+	}
+}
+
+func makeManyItems(n int) []plugin.MenuItem {
+	items := make([]plugin.MenuItem, n)
+	for i := range items {
+		items[i] = plugin.MenuItem{
+			Key:         string(rune('a' + i%26)),
+			Name:        strings.Repeat("Item", 1) + string(rune('A'+i%26)),
+			Description: "Description",
+		}
+	}
+	return items
+}
+
+func TestHomeView_Render_WhenItemsExceedViewport_ShouldScrollToSelected(t *testing.T) {
+	items := makeManyItems(20)
+	view := NewHomeView(items)
+
+	// Move selection to the middle
+	for i := 0; i < 10; i++ {
+		view = view.MoveDown()
+	}
+
+	output := view.Render(80, 10)
+	if output == "" {
+		t.Fatal("Render() returned empty string when scrolling")
+	}
+	// Selected item (index 10) should be visible
+	if !strings.Contains(output, items[10].Name) {
+		t.Errorf("Render() should contain selected item %q when scrolled", items[10].Name)
+	}
+}
+
+func TestHomeView_Render_WhenSelectedNearEnd_ShouldClampScrollEnd(t *testing.T) {
+	items := makeManyItems(20)
+	view := NewHomeView(items)
+
+	// Move selection to the last item
+	for i := 0; i < 19; i++ {
+		view = view.MoveDown()
+	}
+
+	output := view.Render(80, 7)
+	if output == "" {
+		t.Fatal("Render() returned empty string at end scroll")
+	}
+	// Last item should be visible
+	if !strings.Contains(output, items[19].Name) {
+		t.Errorf("Render() should contain last item %q when selected at end", items[19].Name)
+	}
+}
+
+func TestHomeView_Render_WhenSelectedNearStart_ShouldClampScrollStart(t *testing.T) {
+	items := makeManyItems(20)
+	view := NewHomeView(items)
+
+	// Select second item (start would be negative without clamping)
+	view = view.MoveDown()
+
+	output := view.Render(80, 7)
+	if output == "" {
+		t.Fatal("Render() returned empty string at start scroll")
+	}
+	// First item should still be visible since we're near the top
+	if !strings.Contains(output, items[0].Name) {
+		t.Errorf("Render() should contain first item %q when selected near start", items[0].Name)
+	}
+}
