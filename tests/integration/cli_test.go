@@ -58,13 +58,13 @@ func TestCLI_UnknownCommand(t *testing.T) {
 	}
 }
 
-func TestCLI_PlanInvalidOutput(t *testing.T) {
-	_, stderr, err := runTfui("plan", "--output", "bogus", "--project", fixtureDir("create"))
+func TestCLI_PlanUnknownFlag(t *testing.T) {
+	_, stderr, err := runTfui("plan", "--bogus", "--project", fixtureDir("create"))
 	if err == nil {
-		t.Fatal("expected error for invalid output format, got nil")
+		t.Fatal("expected error for unknown flag, got nil")
 	}
-	if !strings.Contains(stderr, "unknown output format") {
-		t.Errorf("expected 'unknown output format' in error output, got: %q", stderr)
+	if !strings.Contains(stderr, "unknown flag") {
+		t.Errorf("expected 'unknown flag' in error output, got: %q", stderr)
 	}
 }
 
@@ -75,10 +75,10 @@ func TestCLI_PlanNonexistentDir(t *testing.T) {
 	}
 }
 
-func TestCLI_PlanOutputJSONValid(t *testing.T) {
+func TestCLI_PlanJSONValid(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--output", "json")
+	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "-json")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}

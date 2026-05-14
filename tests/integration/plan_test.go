@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-// agentJSON is the parsed structure of --output json output.
+// agentJSON is the parsed structure of -json output.
 type agentJSON struct {
 	Changes          []agentChange `json:"changes"`
 	Summary          agentSummary  `json:"summary"`
@@ -34,9 +34,9 @@ func runPlanAgent(t *testing.T, fixture string) agentJSON {
 	t.Helper()
 	initFixture(t, fixture)
 
-	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--output", "json")
+	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--json")
 	if err != nil {
-		t.Fatalf("plan --output json failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
+		t.Fatalf("plan --json failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
 	}
 
 	var result agentJSON
@@ -269,7 +269,7 @@ func TestPlan_MultiResourceFixture_SilentMode(t *testing.T) {
 func TestPlan_AgentMode_JSONStructure(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--output", "json")
+	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--json")
 	if err != nil {
 		t.Fatalf("plan failed: %v", err)
 	}

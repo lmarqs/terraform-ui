@@ -129,12 +129,12 @@ func TestState_Rm_InvalidAddress_Errors(t *testing.T) {
 	}
 }
 
-// runPlanAgentInDir runs plan in --output json against the given directory.
+// runPlanAgentInDir runs plan in -json mode against the given directory.
 func runPlanAgentInDir(t *testing.T, dir string) agentJSON {
 	t.Helper()
-	stdout, stderr, err := runTfui("plan", "--project", dir, "--output", "json")
+	stdout, stderr, err := runTfui("plan", "--project", dir, "--json")
 	if err != nil {
-		t.Fatalf("plan --output json failed: %v\nstderr: %s", err, stderr)
+		t.Fatalf("plan --json failed: %v\nstderr: %s", err, stderr)
 	}
 
 	var result agentJSON

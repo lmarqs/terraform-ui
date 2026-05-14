@@ -7,6 +7,7 @@ var knownValueFlags = map[string]bool{
 	"var":          true,
 	"var-file":     true,
 	"replace":      true,
+	"out":          true,
 	"parallelism":  true,
 	"lock":         true,
 	"lock-timeout": true,
@@ -16,6 +17,7 @@ var knownValueFlags = map[string]bool{
 }
 
 var knownBoolFlags = map[string]bool{
+	"json":             true,
 	"destroy":          true,
 	"refresh-only":     true,
 	"compact-warnings": true,

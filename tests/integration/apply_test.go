@@ -97,10 +97,10 @@ func TestApply_CreateFixture_AgentMode(t *testing.T) {
 		t.Fatalf("plan failed: %v", err)
 	}
 
-	// Apply in --output json
-	stdout, stderr, err := runTfui("apply", "--project", dir, "--output", "json")
+	// Apply in -json mode
+	stdout, stderr, err := runTfui("apply", "--project", dir, "--json")
 	if err != nil {
-		t.Fatalf("apply --output json failed: %v\nstderr: %s", err, stderr)
+		t.Fatalf("apply --json failed: %v\nstderr: %s", err, stderr)
 	}
 
 	if !strings.Contains(stdout, "complete") {

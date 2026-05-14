@@ -105,28 +105,28 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select chdir member (validated against chdir.members in project mode)")
 
 	var ciMode bool
-	var outputFormat string
+	var jsonMode bool
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Run terraform plan",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPlan(cfg, ciMode, outputFormat)
+			return runPlan(cfg, ciMode, jsonMode)
 		},
 	}
 	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
-	planCmd.Flags().StringVar(&outputFormat, "output", "text", "Output format: text, json")
+	planCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	planCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for plan")
 
 	applyCmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApply(cfg, ciMode, outputFormat)
+			return runApply(cfg, ciMode, jsonMode)
 		},
 	}
 	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
-	applyCmd.Flags().StringVar(&outputFormat, "output", "text", "Output format: text, json")
+	applyCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
 
 	initCmd := &cobra.Command{
@@ -171,7 +171,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		if planURI != "" || stateURI != "" {
 			return runStaticNonInteractive(cfg, planURI, stateURI)
 		}
-		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --output json   (JSON output)\n  tfui plan --ci            (tree output, no spinner)\n  tfui --plan ./file.json   (auto-renders without TTY)")
+		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan -json           (JSON output)\n  tfui plan --ci            (tree output, no spinner)\n  tfui --plan ./file.json   (auto-renders without TTY)")
 	}
 
 	if cfg.ActiveScope != "" {
@@ -590,11 +590,7 @@ func runInit(cfg config.Config) error {
 	return nil
 }
 
-func runPlan(cfg config.Config, ci bool, output string) error {
-	if output != "text" && output != "json" {
-		return fmt.Errorf("unknown output format: %s (valid: text, json)", output)
-	}
-
+func runPlan(cfg config.Config, ci bool, jsonOutput bool) error {
 	if cfg.ActiveScope != "" {
 		if err := validateScope(cfg); err != nil {
 			return err
@@ -605,7 +601,7 @@ func runPlan(cfg config.Config, ci bool, output string) error {
 	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
 	ctx := context.Background()
 
-	showSpinner := !ci && isStderrTTY()
+	showSpinner := !ci && !jsonOutput && isStderrTTY()
 	var s *spinner
 	if showSpinner {
 		s = newSpinner("Running terraform plan...", true)
@@ -621,20 +617,14 @@ func runPlan(cfg config.Config, ci bool, output string) error {
 		return fmt.Errorf("plan failed: %w", err)
 	}
 
-	switch output {
-	case "json":
+	if jsonOutput {
 		return printAgentJSON(summary)
-	default:
-		printTreeView(summary)
-		return nil
 	}
+	printTreeView(summary)
+	return nil
 }
 
-func runApply(cfg config.Config, ci bool, output string) error {
-	if output != "text" && output != "json" {
-		return fmt.Errorf("unknown output format: %s (valid: text, json)", output)
-	}
-
+func runApply(cfg config.Config, ci bool, jsonOutput bool) error {
 	if cfg.ActiveScope != "" {
 		if err := validateScope(cfg); err != nil {
 			return err
@@ -645,7 +635,7 @@ func runApply(cfg config.Config, ci bool, output string) error {
 	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
 	ctx := context.Background()
 
-	showSpinner := !ci && isStderrTTY()
+	showSpinner := !ci && !jsonOutput && isStderrTTY()
 	var s *spinner
 	if showSpinner {
 		s = newSpinner("Running terraform apply...", true)
@@ -661,14 +651,12 @@ func runApply(cfg config.Config, ci bool, output string) error {
 		return fmt.Errorf("apply failed: %w", err)
 	}
 
-	switch output {
-	case "json":
+	if jsonOutput {
 		result := map[string]interface{}{"status": "complete"}
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(result)
-	default:
-		fmt.Println("Apply complete.")
-		return nil
 	}
+	fmt.Println("Apply complete.")
+	return nil
 }

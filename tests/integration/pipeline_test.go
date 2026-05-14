@@ -12,9 +12,9 @@ func TestPipeline_Plan(t *testing.T) {
 	binary := testBinary()
 	dir := initFixtureWith(t, "create", binary)
 
-	stdout, stderr, err := runTfui("plan", "--project", dir, "--terraform-bin", binary, "--output", "json")
+	stdout, stderr, err := runTfui("plan", "--project", dir, "--terraform-bin", binary, "--json")
 	if err != nil {
-		t.Fatalf("plan --output json with %s failed: %v\nstderr: %s", binary, err, stderr)
+		t.Fatalf("plan --json with %s failed: %v\nstderr: %s", binary, err, stderr)
 	}
 
 	var result map[string]interface{}
