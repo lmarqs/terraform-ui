@@ -117,6 +117,29 @@ func TestHeader_Chainable(t *testing.T) {
 	}
 }
 
+func TestHeader_WithWorkspace(t *testing.T) {
+	h := NewHeader("/project", "default").WithChdir("modules/vpc").WithPinnedCount(3)
+	h = h.WithWorkspace("staging")
+
+	if h.workspace != "staging" {
+		t.Errorf("WithWorkspace: workspace = %q, want %q", h.workspace, "staging")
+	}
+	if h.chdir != "modules/vpc" {
+		t.Errorf("WithWorkspace should preserve chdir, got %q", h.chdir)
+	}
+	if h.pinnedCount != 3 {
+		t.Errorf("WithWorkspace should preserve pinnedCount, got %d", h.pinnedCount)
+	}
+
+	output := h.Render(80)
+	if !strings.Contains(output, "staging") {
+		t.Error("Render after WithWorkspace should contain new workspace name")
+	}
+	if !strings.Contains(output, "modules/vpc") {
+		t.Error("Render after WithWorkspace should still contain chdir")
+	}
+}
+
 func TestHeader_Render_VeryNarrowWidth(t *testing.T) {
 	h := NewHeader("/some/project", "production").
 		WithChdir("modules/vpc").

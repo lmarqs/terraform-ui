@@ -38,6 +38,12 @@ func (h Header) WithChdir(chdir string) Header {
 	return h
 }
 
+// WithWorkspace returns a copy with the workspace updated.
+func (h Header) WithWorkspace(ws string) Header {
+	h.workspace = ws
+	return h
+}
+
 // WithPinnedCount returns a copy with the pinned targets count.
 func (h Header) WithPinnedCount(count int) Header {
 	h.pinnedCount = count
