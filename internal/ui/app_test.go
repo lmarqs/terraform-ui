@@ -1040,10 +1040,10 @@ func TestApp_ChdirSelection_FromContextDoesNotNavigateBack(t *testing.T) {
 	}
 }
 
-func TestApp_DeactivateMsg_ClearsPreviousPlugin(t *testing.T) {
+func TestApp_DeactivateMsg_NavigatesBackToReturnTo(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
-	// Manually set returnTo to simulate state saved by executeCommand
+	// Manually set returnTo to simulate NavPush from state → chdir
 	statePlugin, _ := app.registry.ByID("state")
 	app.returnTo = statePlugin
 
@@ -1051,12 +1051,12 @@ func TestApp_DeactivateMsg_ClearsPreviousPlugin(t *testing.T) {
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
 
-	// Send DeactivateMsg — should clear both activePlugin and returnTo
+	// DeactivateMsg (esc) should navigate back to returnTo (state)
 	model, _ := app.Update(sdk.DeactivateMsg{})
 	app = model.(App)
 
-	if app.activePlugin != nil {
-		t.Errorf("after DeactivateMsg, activePlugin should be nil, got %q", app.activePlugin.ID())
+	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
+		t.Errorf("after DeactivateMsg with returnTo, activePlugin should be state, got %v", app.activePlugin)
 	}
 	if app.returnTo != nil {
 		t.Errorf("after DeactivateMsg, returnTo should be nil, got %q", app.returnTo.ID())
@@ -1093,5 +1093,61 @@ func TestApp_NavigateMsg_UnknownPlugin(t *testing.T) {
 
 	if app.activePlugin != nil {
 		t.Errorf("NavigateMsg with unknown plugin should not activate anything, got %q", app.activePlugin.ID())
+	}
+}
+
+func TestApp_DeactivateMsg_NavigatesBackWhenPushed(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "context" then navigate to "workspaces" (NavPush)
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "context" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	// Now navigate to workspaces (NavPush, returnTo=context)
+	model, _ = app.Update(sdk.NavigateMsg{PluginID: "workspaces"})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+		t.Fatal("precondition: workspaces should be active")
+	}
+	if app.returnTo == nil || app.returnTo.ID() != "context" {
+		t.Fatal("precondition: returnTo should be context")
+	}
+
+	// Cancel via DeactivateMsg (esc) — should go back to context, not home
+	model, _ = app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+
+	if app.activePlugin == nil {
+		t.Fatal("after esc/DeactivateMsg from pushed plugin, should return to context, not home")
+	}
+	if app.activePlugin.ID() != "context" {
+		t.Errorf("after esc/DeactivateMsg, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
+	}
+}
+
+func TestApp_DeactivateMsg_GoesHomeWhenNotPushed(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "state" directly (NavReplace, no returnTo)
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
+		t.Fatal("precondition: state should be active")
+	}
+
+	// DeactivateMsg from a non-pushed plugin goes home
+	model, _ = app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+
+	if app.activePlugin != nil {
+		t.Errorf("after DeactivateMsg from non-pushed plugin, should go home, got %q", app.activePlugin.ID())
 	}
 }

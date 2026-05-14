@@ -180,9 +180,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
+			if a.returnTo != nil {
+				a.navigateBack()
+				return a, a.activate(a.activePlugin)
+			}
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
-			a.returnTo = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 		}
 		return a, nil

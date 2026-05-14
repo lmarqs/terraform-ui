@@ -53,7 +53,7 @@ func (p *Plugin) Activate() tea.Cmd {
 func (p *Plugin) Hints() []sdk.KeyHint {
 	return []sdk.KeyHint{
 		{Key: "enter", Description: "select"},
-		sdk.HintBack,
+		{Key: "esc", Description: "back"},
 	}
 }
 
@@ -67,6 +67,8 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			p.cursor.MoveDown()
 		case "enter":
 			return p, p.selectMember()
+		case "esc":
+			return p, func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	}
 	return p, nil
