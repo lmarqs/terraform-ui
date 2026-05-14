@@ -227,9 +227,9 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 
 	if ctxPlugin, ok := registry.ByID("context"); ok {
 		if cp, ok := ctxPlugin.(*tfuicontext.Plugin); ok {
-			cp.SetConfig(cfg)
+			cp.SetProjectDir(cfg.Dir)
 			if len(memberPaths) > 0 {
-				cp.SetMembers(memberPaths, cfg.Dir)
+				cp.SetMembers(memberPaths)
 			}
 		}
 	}

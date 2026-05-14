@@ -36,7 +36,7 @@ func TestActivate_PushesFormFrame(t *testing.T) {
 
 func TestFormNavigation_EnterOnChdir_EmitsNavigateMsg(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	// First selectable field is Chdir
@@ -87,7 +87,7 @@ func TestFormNavigation_EscPopsForm(t *testing.T) {
 
 func TestView_ShowsProjectChdirWorkspace(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.cfg.Dir = "/my/project"
+	p.projectDir = "/my/project"
 	p.chdir = "modules/east"
 	p.Activate()
 

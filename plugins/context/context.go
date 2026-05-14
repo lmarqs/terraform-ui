@@ -5,19 +5,18 @@ import (
 	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 )
 
 // Plugin implements the context dashboard — shows Project, Chdir, Workspace.
 type Plugin struct {
-	cfg       config.Config
-	log       *slog.Logger
-	stack     *sdk.Stack
-	chdir     string
-	workspace string
-	members   []string
+	projectDir string
+	log        *slog.Logger
+	stack      *sdk.Stack
+	chdir      string
+	workspace  string
+	members    []string
 }
 
 // New creates a new context plugin.
@@ -40,13 +39,13 @@ func (p *Plugin) Configure(opts map[string]interface{}) error {
 	return nil
 }
 
-// SetConfig provides the application configuration.
-func (p *Plugin) SetConfig(cfg config.Config) {
-	p.cfg = cfg
+// SetProjectDir sets the project directory for display.
+func (p *Plugin) SetProjectDir(dir string) {
+	p.projectDir = dir
 }
 
-// SetMembers provides the list of chdir members and project directory.
-func (p *Plugin) SetMembers(members []string, _ string) {
+// SetMembers provides the list of chdir members.
+func (p *Plugin) SetMembers(members []string) {
 	p.members = members
 }
 
@@ -103,8 +102,8 @@ func (p *Plugin) buildForm() *frames.FormFrame {
 }
 
 func (p *Plugin) projectValue() string {
-	if p.cfg.Dir != "" {
-		return p.cfg.Dir
+	if p.projectDir != "" {
+		return p.projectDir
 	}
 	return "."
 }
