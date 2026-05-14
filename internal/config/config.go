@@ -8,19 +8,19 @@ import (
 // Config holds runtime configuration for the tfui application.
 // Populated from HCL config (tfui.hcl), CLI flags, and resolved config.
 type Config struct {
-	Dir          string
-	BaseDir      string
-	Workspace    string
-	ActiveScope  string
+	Dir           string
+	BaseDir       string
+	Workspace     string
+	ActiveScope   string
 	PreloadedData bool
-	Terraform    TerraformConfig
-	Logger      LoggerConfig
-	Targets     []string
-	Plugins     map[string]PluginConfig
-	Overrides   map[string]string
-	ExtraArgs   []string
-	VarFiles    []string
-	Vars        map[string]string
+	Terraform     TerraformConfig
+	Logger        LoggerConfig
+	Targets       []string
+	Plugins       map[string]PluginConfig
+	Overrides     map[string]string
+	ExtraArgs     []string
+	VarFiles      []string
+	Vars          map[string]string
 }
 
 type LoggerConfig struct {

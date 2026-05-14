@@ -21,44 +21,40 @@ const planFileName = "tfplan.out"
 // prefer importing pkg/sdk directly.
 type Service = sdk.Service
 
-// TerraformService implements the Service interface using hashicorp/terraform-exec
+// ExecService implements the Service interface using hashicorp/terraform-exec
 // to shell out to the terraform (or tofu) binary.
-type TerraformService struct {
+type ExecService struct {
 	workingDir string
 	binaryPath string
 	statePath  string
-	stateCache *tfjson.State
+	cache      *ServiceCache
 }
 
-// NewService creates a new TerraformService configured with the given working
-// directory and path to the terraform/tofu binary.
-func NewService(workingDir, binaryPath string) *TerraformService {
-	return &TerraformService{
+// NewExecService creates an ExecService with the given cache.
+func NewExecService(workingDir, binaryPath string, cache *ServiceCache) *ExecService {
+	if cache == nil {
+		cache = NewServiceCache()
+	}
+	return &ExecService{
 		workingDir: workingDir,
 		binaryPath: binaryPath,
+		cache:      cache,
 	}
 }
 
-func NewServiceWithState(workingDir, binaryPath, statePath string) *TerraformService {
-	return &TerraformService{
-		workingDir: workingDir,
-		binaryPath: binaryPath,
-		statePath:  statePath,
-	}
-}
-
-// WithDir returns a new TerraformService scoped to the given working directory.
-func (s *TerraformService) WithDir(dir string) Service {
-	return &TerraformService{
+// WithDir returns a new ExecService scoped to the given working directory.
+func (s *ExecService) WithDir(dir string) Service {
+	return &ExecService{
 		workingDir: dir,
 		binaryPath: s.binaryPath,
 		statePath:  s.statePath,
+		cache:      NewServiceCache(),
 	}
 }
 
-func (s *TerraformService) loadState(ctx context.Context) (*tfjson.State, error) {
-	if s.stateCache != nil {
-		return s.stateCache, nil
+func (s *ExecService) loadState(ctx context.Context) (*tfjson.State, error) {
+	if state, ok := s.cache.GetState(); ok {
+		return state, nil
 	}
 	tf, err := s.newTerraform()
 	if err != nil {
@@ -68,11 +64,15 @@ func (s *TerraformService) loadState(ctx context.Context) (*tfjson.State, error)
 	if err != nil {
 		return nil, fmt.Errorf("reading terraform state: %w", err)
 	}
-	s.stateCache = state
+	var resources []Resource
+	if state != nil && state.Values != nil {
+		resources = ParseStateResources(state.Values.RootModule)
+	}
+	s.cache.SetState(resources, state)
 	return state, nil
 }
 
-func (s *TerraformService) newTerraform() (*tfexec.Terraform, error) {
+func (s *ExecService) newTerraform() (*tfexec.Terraform, error) {
 	tf, err := tfexec.NewTerraform(s.workingDir, s.binaryPath)
 	if err != nil {
 		return nil, fmt.Errorf("creating terraform instance: %w", err)
@@ -81,7 +81,7 @@ func (s *TerraformService) newTerraform() (*tfexec.Terraform, error) {
 }
 
 // Plan runs terraform plan and returns the parsed changes.
-func (s *TerraformService) Plan(ctx context.Context, opts sdk.PlanOptions) (*PlanSummary, error) {
+func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*PlanSummary, error) {
 	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir)
 	start := time.Now()
 
@@ -152,7 +152,7 @@ func (s *TerraformService) Plan(ctx context.Context, opts sdk.PlanOptions) (*Pla
 }
 
 // Apply runs terraform apply on the saved plan file.
-func (s *TerraformService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
+func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir)
 	start := time.Now()
 
@@ -176,7 +176,7 @@ func (s *TerraformService) Apply(ctx context.Context, opts sdk.ApplyOptions) err
 }
 
 // Validate runs terraform validate.
-func (s *TerraformService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
+func (s *ExecService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
 	logging.Logger().Debug("terraform.exec", "cmd", "validate", "dir", s.workingDir)
 	start := time.Now()
 
@@ -212,7 +212,7 @@ func (s *TerraformService) Validate(ctx context.Context) ([]sdk.Diagnostic, erro
 }
 
 // Output returns all terraform outputs.
-func (s *TerraformService) Output(ctx context.Context) (map[string]sdk.OutputValue, error) {
+func (s *ExecService) Output(ctx context.Context) (map[string]sdk.OutputValue, error) {
 	logging.Logger().Debug("terraform.exec", "cmd", "output", "dir", s.workingDir)
 	start := time.Now()
 
@@ -246,7 +246,7 @@ func (s *TerraformService) Output(ctx context.Context) (map[string]sdk.OutputVal
 }
 
 // Refresh refreshes terraform state.
-func (s *TerraformService) Refresh(ctx context.Context) error {
+func (s *ExecService) Refresh(ctx context.Context) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "refresh", "dir", s.workingDir)
 	start := time.Now()
 
@@ -260,13 +260,13 @@ func (s *TerraformService) Refresh(ctx context.Context) error {
 		return fmt.Errorf("refreshing state: %w", err)
 	}
 
-	s.stateCache = nil
+	s.cache.InvalidateAll()
 	logging.Logger().Debug("terraform.result", "cmd", "refresh", "duration", time.Since(start).String())
 	return nil
 }
 
 // Init runs terraform init.
-func (s *TerraformService) Init(ctx context.Context) error {
+func (s *ExecService) Init(ctx context.Context) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "init", "dir", s.workingDir)
 	start := time.Now()
 
@@ -285,7 +285,7 @@ func (s *TerraformService) Init(ctx context.Context) error {
 }
 
 // ForceUnlock removes a state lock by ID.
-func (s *TerraformService) ForceUnlock(ctx context.Context, lockID string) error {
+func (s *ExecService) ForceUnlock(ctx context.Context, lockID string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "force-unlock", "dir", s.workingDir, "lockID", lockID)
 	start := time.Now()
 

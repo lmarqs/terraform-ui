@@ -8,8 +8,8 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-func newRecorder() *RecordingService {
-	return NewRecordingService(&stubService{}, "terraform")
+func newRecorder() *MacroService {
+	return NewMacroService("terraform", nil)
 }
 
 func TestPlanOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
@@ -543,7 +543,7 @@ func TestApplyOptions_ShouldRecordCommand(t *testing.T) {
 }
 
 func TestPlanOptions_WhenCustomBinary_ShouldUseCorrectBinary(t *testing.T) {
-	svc := NewRecordingService(&stubService{}, "tofu")
+	svc := NewMacroService("tofu", nil)
 	opts := sdk.PlanOptions{Targets: []string{"aws_instance.web"}, Destroy: true}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
@@ -580,8 +580,9 @@ func TestPlanOptions_WhenPreLoadedPlan_ShouldReturnPlanData(t *testing.T) {
 		Changes:  []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate}},
 		ToCreate: 1,
 	}
-	inner := &stubService{plan: plan}
-	svc := NewRecordingService(inner, "terraform")
+	cache := NewServiceCache()
+	cache.SetPlan(plan)
+	svc := NewMacroService("terraform", cache)
 	got, err := svc.Plan(context.Background(), sdk.PlanOptions{Destroy: true})
 	if err != nil {
 		t.Fatal(err)

@@ -631,13 +631,16 @@ func TestFindResourceInState_InChildModule(t *testing.T) {
 	}
 }
 
-func TestNewService(t *testing.T) {
-	svc := NewService("/work/dir", "/usr/bin/terraform")
+func TestNewExecService(t *testing.T) {
+	svc := NewExecService("/work/dir", "/usr/bin/terraform", nil)
 	if svc.workingDir != "/work/dir" {
-		t.Errorf("NewService().workingDir = %q, want %q", svc.workingDir, "/work/dir")
+		t.Errorf("NewExecService().workingDir = %q, want %q", svc.workingDir, "/work/dir")
 	}
 	if svc.binaryPath != "/usr/bin/terraform" {
-		t.Errorf("NewService().binaryPath = %q, want %q", svc.binaryPath, "/usr/bin/terraform")
+		t.Errorf("NewExecService().binaryPath = %q, want %q", svc.binaryPath, "/usr/bin/terraform")
+	}
+	if svc.cache == nil {
+		t.Error("NewExecService(nil cache).cache should be initialized")
 	}
 }
 

@@ -12,8 +12,11 @@ import (
 )
 
 // StateList returns all resources in the current state.
-func (s *TerraformService) StateList(ctx context.Context) ([]Resource, error) {
-	s.stateCache = nil
+func (s *ExecService) StateList(ctx context.Context) ([]Resource, error) {
+	if resources, ok := s.cache.GetResources(); ok {
+		return resources, nil
+	}
+
 	state, err := s.loadState(ctx)
 	if err != nil {
 		return nil, err
@@ -29,7 +32,7 @@ func (s *TerraformService) StateList(ctx context.Context) ([]Resource, error) {
 
 // Show returns detailed information about a specific resource.
 // Sensitive attribute values are redacted before returning.
-func (s *TerraformService) Show(ctx context.Context, address string) (string, error) {
+func (s *ExecService) Show(ctx context.Context, address string) (string, error) {
 	state, err := s.loadState(ctx)
 	if err != nil {
 		return "", err
@@ -69,7 +72,7 @@ func (s *TerraformService) Show(ctx context.Context, address string) (string, er
 }
 
 // StateRm removes a resource from state.
-func (s *TerraformService) StateRm(ctx context.Context, address string) error {
+func (s *ExecService) StateRm(ctx context.Context, address string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "state rm", "dir", s.workingDir, "address", address)
 	start := time.Now()
 
@@ -87,13 +90,13 @@ func (s *TerraformService) StateRm(ctx context.Context, address string) error {
 		return fmt.Errorf("removing %q from state: %w", address, err)
 	}
 
-	s.stateCache = nil
+	s.cache.InvalidateState()
 	logging.Logger().Debug("terraform.result", "cmd", "state rm", "duration", time.Since(start).String())
 	return nil
 }
 
 // StateMove moves a resource in state.
-func (s *TerraformService) StateMove(ctx context.Context, source, dest string) error {
+func (s *ExecService) StateMove(ctx context.Context, source, dest string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "state mv", "dir", s.workingDir, "source", source, "dest", dest)
 	start := time.Now()
 
@@ -111,13 +114,13 @@ func (s *TerraformService) StateMove(ctx context.Context, source, dest string) e
 		return fmt.Errorf("moving %q to %q: %w", source, dest, err)
 	}
 
-	s.stateCache = nil
+	s.cache.InvalidateState()
 	logging.Logger().Debug("terraform.result", "cmd", "state mv", "duration", time.Since(start).String())
 	return nil
 }
 
 // Import imports an existing resource into state.
-func (s *TerraformService) Import(ctx context.Context, address, id string) error {
+func (s *ExecService) Import(ctx context.Context, address, id string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "import", "dir", s.workingDir, "address", address, "id", id)
 	start := time.Now()
 
@@ -135,7 +138,7 @@ func (s *TerraformService) Import(ctx context.Context, address, id string) error
 		return fmt.Errorf("importing %q with id %q: %w", address, id, err)
 	}
 
-	s.stateCache = nil
+	s.cache.InvalidateState()
 	logging.Logger().Debug("terraform.result", "cmd", "import", "duration", time.Since(start).String())
 	return nil
 }
@@ -143,7 +146,7 @@ func (s *TerraformService) Import(ctx context.Context, address, id string) error
 // Taint marks a resource for recreation.
 // Note: terraform taint is deprecated in newer versions of Terraform in favor of
 // using -replace with plan/apply. terraform-exec still supports the command.
-func (s *TerraformService) Taint(ctx context.Context, address string) error {
+func (s *ExecService) Taint(ctx context.Context, address string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "taint", "dir", s.workingDir, "address", address)
 	start := time.Now()
 
@@ -167,7 +170,7 @@ func (s *TerraformService) Taint(ctx context.Context, address string) error {
 
 // Untaint removes taint from a resource.
 // Note: terraform untaint is deprecated in newer versions of Terraform.
-func (s *TerraformService) Untaint(ctx context.Context, address string) error {
+func (s *ExecService) Untaint(ctx context.Context, address string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "untaint", "dir", s.workingDir, "address", address)
 	start := time.Now()
 

@@ -9,7 +9,7 @@ import (
 )
 
 func TestTerraformService_WhenNewTerraformFails_ShouldWrapErrorWithOperationContext(t *testing.T) {
-	svc := NewService(t.TempDir(), "")
+	svc := NewExecService(t.TempDir(), "", nil)
 	ctx := context.Background()
 
 	tests := []struct {

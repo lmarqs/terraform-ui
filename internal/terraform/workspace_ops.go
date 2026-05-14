@@ -6,7 +6,7 @@ import (
 )
 
 // Workspace returns the current workspace name.
-func (s *TerraformService) Workspace(ctx context.Context) (string, error) {
+func (s *ExecService) Workspace(ctx context.Context) (string, error) {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return "", fmt.Errorf("getting workspace: %w", err)
@@ -21,7 +21,7 @@ func (s *TerraformService) Workspace(ctx context.Context) (string, error) {
 }
 
 // WorkspaceList returns all workspace names.
-func (s *TerraformService) WorkspaceList(ctx context.Context) ([]string, error) {
+func (s *ExecService) WorkspaceList(ctx context.Context) ([]string, error) {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return nil, fmt.Errorf("listing workspaces: %w", err)
@@ -48,7 +48,7 @@ func (s *TerraformService) WorkspaceList(ctx context.Context) ([]string, error) 
 }
 
 // WorkspaceSelect switches to the specified workspace.
-func (s *TerraformService) WorkspaceSelect(ctx context.Context, name string) error {
+func (s *ExecService) WorkspaceSelect(ctx context.Context, name string) error {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("selecting workspace: %w", err)
@@ -57,11 +57,12 @@ func (s *TerraformService) WorkspaceSelect(ctx context.Context, name string) err
 	if err := tf.WorkspaceSelect(ctx, name); err != nil {
 		return fmt.Errorf("selecting workspace %q: %w", name, err)
 	}
+	s.cache.InvalidateAll()
 	return nil
 }
 
 // WorkspaceNew creates a new workspace and switches to it.
-func (s *TerraformService) WorkspaceNew(ctx context.Context, name string) error {
+func (s *ExecService) WorkspaceNew(ctx context.Context, name string) error {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("creating workspace: %w", err)
@@ -74,7 +75,7 @@ func (s *TerraformService) WorkspaceNew(ctx context.Context, name string) error 
 }
 
 // WorkspaceDelete deletes the specified workspace.
-func (s *TerraformService) WorkspaceDelete(ctx context.Context, name string) error {
+func (s *ExecService) WorkspaceDelete(ctx context.Context, name string) error {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("deleting workspace: %w", err)
