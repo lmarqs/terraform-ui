@@ -284,6 +284,30 @@ func (s *ExecService) Init(ctx context.Context) error {
 	return nil
 }
 
+// Version returns the terraform binary version and provider selections.
+func (s *ExecService) Version(ctx context.Context) (*sdk.VersionInfo, error) {
+	tf, err := s.newTerraform()
+	if err != nil {
+		return nil, fmt.Errorf("getting version: %w", err)
+	}
+
+	ver, provVersions, err := tf.Version(ctx, false)
+	if err != nil {
+		return nil, fmt.Errorf("getting version: %w", err)
+	}
+
+	info := &sdk.VersionInfo{
+		TerraformVersion: ver.String(),
+	}
+	if len(provVersions) > 0 {
+		info.Providers = make(map[string]string, len(provVersions))
+		for k, v := range provVersions {
+			info.Providers[k] = v.String()
+		}
+	}
+	return info, nil
+}
+
 // ForceUnlock removes a state lock by ID.
 func (s *ExecService) ForceUnlock(ctx context.Context, lockID string) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "force-unlock", "dir", s.workingDir, "lockID", lockID)

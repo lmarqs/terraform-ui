@@ -182,3 +182,9 @@ type WorkspaceDeleteOptions struct {
 	Lock        *bool
 	LockTimeout string
 }
+
+// VersionInfo holds terraform binary version and provider selections.
+type VersionInfo struct {
+	TerraformVersion string
+	Providers        map[string]string
+}

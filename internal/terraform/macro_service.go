@@ -161,6 +161,10 @@ func (r *MacroService) Init(_ context.Context) error {
 	return nil
 }
 
+func (r *MacroService) Version(_ context.Context) (*sdk.VersionInfo, error) {
+	return &sdk.VersionInfo{TerraformVersion: "0.0.0"}, nil
+}
+
 func (r *MacroService) ForceUnlock(_ context.Context, lockID string) error {
 	r.record("force-unlock", nil, []string{"-force", lockID})
 	return nil

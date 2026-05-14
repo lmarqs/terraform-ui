@@ -41,6 +41,7 @@ func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, err
 func (m *mockService) Refresh(_ context.Context) error                              { return nil }
 func (m *mockService) Init(_ context.Context) error                                 { return nil }
 func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
+func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
 func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
 
 func TestNew(t *testing.T) {

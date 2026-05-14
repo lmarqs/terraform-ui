@@ -63,6 +63,9 @@ type Service interface {
 	// ForceUnlock removes a state lock by ID.
 	ForceUnlock(ctx context.Context, lockID string) error
 
+	// Version returns the terraform binary version and provider selections.
+	Version(ctx context.Context) (*VersionInfo, error)
+
 	// WithDir returns a new Service instance scoped to the given working directory.
 	WithDir(dir string) Service
 }

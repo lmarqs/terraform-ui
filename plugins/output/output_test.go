@@ -46,10 +46,11 @@ func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { re
 func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
 	return m.outputResult, m.outputErr
 }
-func (m *mockService) Refresh(_ context.Context) error               { return nil }
-func (m *mockService) Init(_ context.Context) error                  { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error { return nil }
-func (m *mockService) WithDir(_ string) sdk.Service                  { return m }
+func (m *mockService) Refresh(_ context.Context) error                     { return nil }
+func (m *mockService) Init(_ context.Context) error                        { return nil }
+func (m *mockService) ForceUnlock(_ context.Context, _ string) error       { return nil }
+func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
+func (m *mockService) WithDir(_ string) sdk.Service                        { return m }
 
 func sampleOutputs() map[string]sdk.OutputValue {
 	return map[string]sdk.OutputValue{
