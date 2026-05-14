@@ -153,7 +153,7 @@ When no `tfui.hcl` exists and no `--project` is passed:
 | `--terraform-bin terraform` flag | Flag wins over config |
 | Nothing configured | Empty string → terraform-exec errors → tfui appends hint |
 
-No auto-detection. Only `tfui init` can detect binaries.
+No auto-detection. Only `tfui scaffold` can detect binaries.
 
 ## Examples
 

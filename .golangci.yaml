@@ -19,8 +19,6 @@ linters:
           alias: tfuichdir
         - pkg: github.com/lmarqs/terraform-ui/plugins/context
           alias: tfuicontext
-        - pkg: github.com/lmarqs/terraform-ui/plugins/init
-          alias: tfuiinit
         - pkg: github.com/lmarqs/terraform-ui/plugins/output
           alias: tfuioutput
         - pkg: github.com/lmarqs/terraform-ui/plugins/phantom

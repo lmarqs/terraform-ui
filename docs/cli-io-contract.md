@@ -92,7 +92,7 @@ Layer 3: Novel (ADD)
 | `tfui output` | `-json` | — | JSON outputs | — | 0/1 | Identical |
 | `tfui output` | `name` | — | Single value | — | 0/1 | Identical |
 | `tfui refresh` | | — | Refresh results | Spinner | 0/1 | Identical |
-| `tfui init` | | — | Init results | Spinner | 0/1 | Identical |
+| `tfui scaffold` | `--yes` | — | HCL content | — | 0/1 | Novel |
 | `tfui workspace list` | | — | Workspace names | — | 0/1 | Identical |
 | `tfui workspace select` | `name` | — | — | — | 0/1 | Identical |
 | `tfui workspace new` | `name` | — | — | — | 0/1 | Identical |

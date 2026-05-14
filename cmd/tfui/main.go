@@ -16,6 +16,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/macro"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
+	"github.com/lmarqs/terraform-ui/internal/scaffold"
 	"github.com/lmarqs/terraform-ui/internal/source"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui"
@@ -24,7 +25,6 @@ import (
 	tfuiblast "github.com/lmarqs/terraform-ui/plugins/blastradius"
 	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
-	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiphantom "github.com/lmarqs/terraform-ui/plugins/phantom"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
@@ -129,16 +129,17 @@ func main() {
 	applyCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
 
-	var forceInit bool
-	initCmd := &cobra.Command{
-		Use:   "init",
+	var scaffoldForce, scaffoldYes bool
+	scaffoldCmd := &cobra.Command{
+		Use:   "scaffold",
 		Short: "Generate tfui.hcl configuration",
 		Long:  "Detect terraform project patterns and generate tfui.hcl in the working directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(cfg, forceInit)
+			return runScaffold(cfg, scaffoldForce, scaffoldYes)
 		},
 	}
-	initCmd.Flags().BoolVar(&forceInit, "force", false, "Overwrite existing tfui.hcl")
+	scaffoldCmd.Flags().BoolVar(&scaffoldForce, "force", false, "Overwrite existing tfui.hcl")
+	scaffoldCmd.Flags().BoolVar(&scaffoldYes, "yes", false, "Skip prompts, use detected defaults")
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -148,7 +149,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(planCmd, applyCmd, initCmd, versionCmd)
+	rootCmd.AddCommand(planCmd, applyCmd, scaffoldCmd, versionCmd)
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {
@@ -213,7 +214,6 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.RegisterFactory("risk", tfuirisk.New, plugin.PluginMeta{Keybinding: "R", MenuVisible: true})
 	registry.RegisterFactory("phantom", tfuiphantom.New, plugin.PluginMeta{Keybinding: "P", MenuVisible: true})
 	registry.RegisterFactory("blastradius", tfuiblast.New, plugin.PluginMeta{Keybinding: "B", MenuVisible: true})
-	registry.RegisterFactory("init", tfuiinit.New, plugin.PluginMeta{Keybinding: "i", MenuVisible: true})
 
 	registry.Build(svc, cfg.Plugins)
 
@@ -582,7 +582,7 @@ func printAgentJSON(summary *terraform.PlanSummary) error {
 	return enc.Encode(output)
 }
 
-func runInit(cfg config.Config, force bool) error {
+func runScaffold(cfg config.Config, force, yes bool) error {
 	outPath := filepath.Join(cfg.Dir, config.HCLConfigFileName)
 	if !force {
 		if _, err := os.Stat(outPath); err == nil {
@@ -590,9 +590,25 @@ func runInit(cfg config.Config, force bool) error {
 		}
 	}
 
-	content, err := tfuiinit.GenerateConfig(cfg.Dir)
-	if err != nil {
-		return fmt.Errorf("init failed: %w", err)
+	var content string
+
+	if yes || !hasTTY() {
+		var err error
+		content, err = scaffold.GenerateConfig(cfg.Dir)
+		if err != nil {
+			return fmt.Errorf("scaffold failed: %w", err)
+		}
+	} else {
+		wizard := newScaffoldWizard(cfg.Dir)
+		p := tea.NewProgram(wizard)
+		if _, err := p.Run(); err != nil {
+			return fmt.Errorf("scaffold failed: %w", err)
+		}
+		r := wizard.result()
+		if r.Aborted {
+			return nil
+		}
+		content = r.Content
 	}
 
 	if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {

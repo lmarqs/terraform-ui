@@ -91,12 +91,14 @@ tfui output -json                   # JSON (terraform-compatible)
 tfui output <name>                  # single value
 ```
 
-### `tfui init`
+### `tfui scaffold`
 
 Generate a `tfui.hcl` configuration file by detecting terraform project patterns.
 
 ```bash
-tfui init
+tfui scaffold              # interactive
+tfui scaffold --yes        # non-interactive (accept defaults)
+tfui scaffold --force      # overwrite existing
 ```
 
 ### `tfui version`
