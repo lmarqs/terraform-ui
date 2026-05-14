@@ -16,7 +16,6 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
-	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 )
@@ -177,14 +176,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
-		}
-		return a, nil
-
-	case tfuicontext.NavigateToMsg:
-		if p, ok := a.registry.ByID(msg.PluginID); ok {
-			a.activePlugin = p
-			logging.Logger().Debug("view.transition", "to", msg.PluginID)
-			return a, a.activatePlugin(p)
 		}
 		return a, nil
 

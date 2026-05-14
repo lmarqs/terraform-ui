@@ -1,8 +1,10 @@
 package context
 
 import (
+	"context"
 	"io"
 	"log/slog"
+	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
@@ -10,19 +12,16 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 )
 
-// NavigateToMsg signals the app to navigate to a specific plugin by ID.
-type NavigateToMsg struct {
-	PluginID string
-}
-
-// Plugin implements the context dashboard — shows Project, Scope, Workspace.
+// Plugin implements the context dashboard — shows Project, Chdir, Workspace.
 type Plugin struct {
-	svc       sdk.Service
-	cfg       config.Config
-	log       *slog.Logger
-	stack     *sdk.Stack
-	scope     string
-	workspace string
+	svc        sdk.Service
+	cfg        config.Config
+	log        *slog.Logger
+	stack      *sdk.Stack
+	chdir      string
+	workspace  string
+	members    []string
+	projectDir string
 }
 
 // New creates a new context plugin.
@@ -51,6 +50,12 @@ func (p *Plugin) SetConfig(cfg config.Config) {
 	p.cfg = cfg
 }
 
+// SetMembers provides the list of chdir members and project directory.
+func (p *Plugin) SetMembers(members []string, projectDir string) {
+	p.members = members
+	p.projectDir = projectDir
+}
+
 // Init initializes the plugin with shared context.
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
@@ -63,7 +68,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // HandleChdirChanged implements sdk.ChdirHandler.
 func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	p.scope = evt.RelPath
+	p.chdir = evt.RelPath
 	return nil
 }
 
@@ -91,14 +96,14 @@ func (p *Plugin) buildForm() *frames.FormFrame {
 			{
 				Label:      "Chdir",
 				Value:      p.chdirValue,
-				Selectable: true,
-				OnSelect:   func() tea.Cmd { return func() tea.Msg { return NavigateToMsg{PluginID: "chdir"} } },
+				Selectable: len(p.members) > 0,
+				OnSelect:   p.openChdirPicker,
 			},
 			{
 				Label:      "Workspace",
 				Value:      p.workspaceValue,
 				Selectable: true,
-				OnSelect:   func() tea.Cmd { return func() tea.Msg { return NavigateToMsg{PluginID: "workspaces"} } },
+				OnSelect:   p.openWorkspacePicker,
 			},
 		},
 	})
@@ -112,8 +117,8 @@ func (p *Plugin) projectValue() string {
 }
 
 func (p *Plugin) chdirValue() string {
-	if p.scope != "" {
-		return p.scope
+	if p.chdir != "" {
+		return p.chdir
 	}
 	return "-"
 }
@@ -125,8 +130,54 @@ func (p *Plugin) workspaceValue() string {
 	return "default"
 }
 
+func (p *Plugin) openChdirPicker() tea.Cmd {
+	frame := newPickerFrame("Chdir", p.members, p.chdir, func(selected string) tea.Cmd {
+		absPath := filepath.Join(p.projectDir, selected)
+		count := len(p.members)
+		p.chdir = selected
+		return func() tea.Msg {
+			return sdk.ChdirChangedEvent{
+				RelPath: selected,
+				AbsPath: absPath,
+				Count:   count,
+			}
+		}
+	})
+	p.stack.Push(frame)
+	return nil
+}
+
+// workspaceListMsg carries the result of workspace listing.
+type workspaceListMsg struct {
+	workspaces []string
+	err        error
+}
+
+func (p *Plugin) openWorkspacePicker() tea.Cmd {
+	svc := p.svc
+	return func() tea.Msg {
+		workspaces, err := svc.WorkspaceList(context.Background())
+		return workspaceListMsg{workspaces: workspaces, err: err}
+	}
+}
+
 // Update processes messages and returns the updated plugin.
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
+	switch msg := msg.(type) {
+	case workspaceListMsg:
+		if msg.err != nil {
+			return p, nil
+		}
+		frame := newPickerFrame("Workspace", msg.workspaces, p.workspace, func(selected string) tea.Cmd {
+			p.workspace = selected
+			svc := p.svc
+			return func() tea.Msg {
+				_ = svc.WorkspaceSelect(context.Background(), selected)
+				return sdk.WorkspaceChangedEvent{Name: selected}
+			}
+		})
+		p.stack.Push(frame)
+	}
 	return p, nil
 }
 

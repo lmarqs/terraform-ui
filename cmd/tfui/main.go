@@ -217,19 +217,26 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 
 	registry.Build(svc, cfg.Plugins)
 
+	var memberPaths []string
+	if rootCfg, err := config.LoadRoot(cfg.Dir); err == nil && len(rootCfg.Members) > 0 {
+		memberPaths = make([]string, len(rootCfg.Members))
+		for i, m := range rootCfg.Members {
+			memberPaths[i] = m.Path
+		}
+	}
+
 	if ctxPlugin, ok := registry.ByID("context"); ok {
 		if cp, ok := ctxPlugin.(*tfuicontext.Plugin); ok {
 			cp.SetConfig(cfg)
+			if len(memberPaths) > 0 {
+				cp.SetMembers(memberPaths, cfg.Dir)
+			}
 		}
 	}
 	if chdirPlugin, ok := registry.ByID("chdir"); ok {
 		if cp, ok := chdirPlugin.(*tfuichdir.Plugin); ok {
-			if rootCfg, err := config.LoadRoot(cfg.Dir); err == nil && len(rootCfg.Members) > 0 {
-				paths := make([]string, len(rootCfg.Members))
-				for i, m := range rootCfg.Members {
-					paths[i] = m.Path
-				}
-				cp.SetMembers(paths, cfg.Dir)
+			if len(memberPaths) > 0 {
+				cp.SetMembers(memberPaths, cfg.Dir)
 			}
 		}
 	}
