@@ -83,14 +83,16 @@ func TestFormNavigation_EnterOnChdir_PushesPickerFrame(t *testing.T) {
 	}
 }
 
-func TestFormNavigation_EnterOnWorkspace_LoadsWorkspaces(t *testing.T) {
+func TestFormNavigation_EnterOnWorkspace_OpensPickerSync(t *testing.T) {
 	p := New(nil).(*Plugin)
+	p.workspaces = []string{"default", "staging"}
 	p.Activate()
 
 	// No members configured, so first selectable is Workspace
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected a command from Enter on workspace field")
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if p.stack.Depth() != 2 {
+		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
 	}
 }
 
@@ -152,25 +154,26 @@ func TestChdirPicker_SelectPopsBack(t *testing.T) {
 	}
 }
 
-func TestWorkspacePicker_PushedOnListMsg(t *testing.T) {
+func TestActivate_CachesWorkspaceList(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.workspace = "default"
 	p.Activate()
 
 	// Simulate workspace list response
 	p.Update(workspaceListMsg{workspaces: []string{"default", "staging"}})
 
-	if p.stack.Depth() != 2 {
-		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
+	if len(p.workspaces) != 2 {
+		t.Errorf("workspaces = %d, want 2", len(p.workspaces))
 	}
 }
 
 func TestWorkspacePicker_SelectEmitsEvent(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
 	p.workspace = "default"
+	p.workspaces = []string{"default", "staging"}
 	p.Activate()
 
-	p.Update(workspaceListMsg{workspaces: []string{"default", "staging"}})
+	// Open workspace picker
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Move down to "staging"
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -213,16 +216,14 @@ func TestConfigure(t *testing.T) {
 
 func TestChdirNotSelectable_WhenNoMembers(t *testing.T) {
 	p := New(nil).(*Plugin)
+	p.workspaces = []string{"default"}
 	p.Activate()
 
 	// Enter should trigger workspace (first selectable), not chdir
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	// Should produce a workspace load command
-	if cmd == nil {
-		t.Fatal("expected workspace load command")
-	}
-	// Stack should still be 1 (picker not pushed until response)
-	if p.stack.Depth() != 1 {
-		t.Errorf("stack depth = %d, want 1", p.stack.Depth())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Workspace picker should be pushed directly
+	if p.stack.Depth() != 2 {
+		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
 	}
 }

@@ -22,6 +22,7 @@ type Plugin struct {
 	workspace  string
 	members    []string
 	projectDir string
+	workspaces []string
 }
 
 // New creates a new context plugin.
@@ -82,7 +83,18 @@ func (p *Plugin) HandleWorkspaceChanged(evt sdk.WorkspaceChangedEvent) tea.Cmd {
 func (p *Plugin) Activate() tea.Cmd {
 	p.stack.Clear()
 	p.stack.Push(p.buildForm())
-	return nil
+	return p.loadWorkspaces()
+}
+
+func (p *Plugin) loadWorkspaces() tea.Cmd {
+	svc := p.svc
+	if svc == nil {
+		return nil
+	}
+	return func() tea.Msg {
+		workspaces, err := svc.WorkspaceList(context.Background())
+		return workspaceListMsg{workspaces: workspaces, err: err}
+	}
 }
 
 func (p *Plugin) buildForm() *frames.FormFrame {
@@ -154,29 +166,25 @@ type workspaceListMsg struct {
 }
 
 func (p *Plugin) openWorkspacePicker() tea.Cmd {
-	svc := p.svc
-	return func() tea.Msg {
-		workspaces, err := svc.WorkspaceList(context.Background())
-		return workspaceListMsg{workspaces: workspaces, err: err}
-	}
+	frame := newPickerFrame("Workspace", p.workspaces, p.workspace, func(selected string) tea.Cmd {
+		p.workspace = selected
+		svc := p.svc
+		return func() tea.Msg {
+			_ = svc.WorkspaceSelect(context.Background(), selected)
+			return sdk.WorkspaceChangedEvent{Name: selected}
+		}
+	})
+	p.stack.Push(frame)
+	return nil
 }
 
 // Update processes messages and returns the updated plugin.
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceListMsg:
-		if msg.err != nil {
-			return p, nil
+		if msg.err == nil {
+			p.workspaces = msg.workspaces
 		}
-		frame := newPickerFrame("Workspace", msg.workspaces, p.workspace, func(selected string) tea.Cmd {
-			p.workspace = selected
-			svc := p.svc
-			return func() tea.Msg {
-				_ = svc.WorkspaceSelect(context.Background(), selected)
-				return sdk.WorkspaceChangedEvent{Name: selected}
-			}
-		})
-		p.stack.Push(frame)
 	}
 	return p, nil
 }
