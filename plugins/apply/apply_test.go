@@ -553,3 +553,222 @@ func TestFormatDurationZero(t *testing.T) {
 		t.Errorf("formatDuration(0) = %q, want %q", got, "0s")
 	}
 }
+
+func TestBusy(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	if p.Busy() {
+		t.Error("Busy() = true in idle, want false")
+	}
+	p.status = sdk.StatusLoading
+	if !p.Busy() {
+		t.Error("Busy() = false in loading, want true")
+	}
+	p.status = sdk.StatusDone
+	if p.Busy() {
+		t.Error("Busy() = true in done, want false")
+	}
+}
+
+func TestTargets(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	if p.Targets() != nil {
+		t.Errorf("Targets() = %v, want nil", p.Targets())
+	}
+	targets := []string{"aws_instance.web", "aws_s3_bucket.data"}
+	p.SetTargets(targets)
+	got := p.Targets()
+	if len(got) != 2 || got[0] != "aws_instance.web" || got[1] != "aws_s3_bucket.data" {
+		t.Errorf("Targets() = %v, want %v", got, targets)
+	}
+}
+
+func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in idle state")
+	}
+	hasBack := false
+	hasConfirm := false
+	for _, h := range hints {
+		if h.Key == "q" && h.Description == "back" {
+			hasBack = true
+		}
+		if h.Key == "Enter" && h.Description == "confirm" {
+			hasConfirm = true
+		}
+	}
+	if !hasBack {
+		t.Error("Hints() in idle missing 'q back'")
+	}
+	if !hasConfirm {
+		t.Error("Hints() in idle missing 'Enter confirm'")
+	}
+}
+
+func TestHints_WhenConfirming_ShouldReturnYNAndCancel(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusConfirming
+
+	hints := p.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("Hints() in confirming: len = %d, want 2", len(hints))
+	}
+	if hints[0].Key != "y/n" || hints[0].Description != "confirm" {
+		t.Errorf("Hints()[0] = %v, want {y/n confirm}", hints[0])
+	}
+	if hints[1] != sdk.HintCancel {
+		t.Errorf("Hints()[1] = %v, want HintCancel", hints[1])
+	}
+}
+
+func TestHints_WhenLoading_ShouldReturnBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusLoading
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in loading state")
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
+	}
+}
+
+func TestHints_WhenDone_ShouldReturnBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in done state")
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
+	}
+}
+
+func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice in error state")
+	}
+	hasRetry := false
+	hasBack := false
+	for _, h := range hints {
+		if h.Key == "^r" && h.Description == "retry" {
+			hasRetry = true
+		}
+		if h.Key == "q" && h.Description == "back" {
+			hasBack = true
+		}
+	}
+	if !hasRetry {
+		t.Error("Hints() in error missing '^r retry'")
+	}
+	if !hasBack {
+		t.Error("Hints() in error missing 'q back'")
+	}
+}
+
+func TestHints_WhenUnknownStatus_ShouldReturnBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.Status(99)
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice for unknown status")
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
+	}
+}
+
+func TestHandleChdirChanged_ShouldResetState(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "some error"
+
+	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{
+		RelPath: "modules/vpc",
+		AbsPath: "/abs/modules/vpc",
+		Count:   3,
+	})
+	if cmd != nil {
+		t.Error("HandleChdirChanged() returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
+	}
+	if p.errMsg != "" {
+		t.Errorf("errMsg = %q, want empty", p.errMsg)
+	}
+	if p.scopedContext != "/abs/modules/vpc" {
+		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/abs/modules/vpc")
+	}
+}
+
+func TestHandlePlanCompleted_ShouldStoreTotalResources(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	cmd := p.HandlePlanCompleted(sdk.PlanCompletedEvent{
+		ResourceCount: 42,
+		Summary:       &sdk.PlanSummary{},
+	})
+	if cmd != nil {
+		t.Error("HandlePlanCompleted() returned non-nil cmd")
+	}
+	if p.TotalResources() != 42 {
+		t.Errorf("TotalResources() = %d, want 42", p.TotalResources())
+	}
+}
+
+func TestTotalResources_WhenNew_ShouldBeZero(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	if p.TotalResources() != 0 {
+		t.Errorf("TotalResources() = %d, want 0", p.TotalResources())
+	}
+}
+
+func TestActivate_ShouldReturnNil(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() returned non-nil cmd, want nil")
+	}
+}
+
+func TestTick_ShouldReturnTickMsg(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+
+	cmd := p.tick()
+	if cmd == nil {
+		t.Fatal("tick() returned nil cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(TickMsg); !ok {
+		t.Errorf("tick() cmd returned %T, want TickMsg", msg)
+	}
+}
