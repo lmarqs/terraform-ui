@@ -67,6 +67,34 @@ New workspace: feature-branch_
 Enter confirm  Esc cancel
 ```
 
+## CLI
+
+All workspace operations are also available as non-interactive CLI subcommands:
+
+```bash
+tfui workspace show                    # print current workspace name
+tfui workspace list                    # list all workspaces (current marked with *)
+tfui workspace select <name>           # switch to workspace
+tfui workspace new <name>              # create and switch to workspace
+tfui workspace delete <name>           # delete workspace
+```
+
+### Flags
+
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `-lock` | `new`, `delete` | Lock state during operation (default: true) |
+| `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
+| `-force` | `delete` | Force deletion of a non-empty workspace |
+
+### Examples
+
+```bash
+tfui workspace new feature-branch -lock=false
+tfui workspace delete old-branch -force
+tfui workspace list | grep staging
+```
+
 ## Related
 
 - [State Browser](state.md) — browse state for the selected workspace

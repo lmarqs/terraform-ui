@@ -93,10 +93,11 @@ Layer 3: Novel (ADD)
 | `tfui output` | `name` | — | Single value | — | 0/1 | Identical |
 | `tfui refresh` | | — | Refresh results | Spinner | 0/1 | Identical |
 | `tfui scaffold` | `--yes` | — | HCL content | — | 0/1 | Novel |
+| `tfui workspace show` | | — | Workspace name | — | 0/1 | Identical |
 | `tfui workspace list` | | — | Workspace names | — | 0/1 | Identical |
 | `tfui workspace select` | `name` | — | — | — | 0/1 | Identical |
-| `tfui workspace new` | `name` | — | — | — | 0/1 | Identical |
-| `tfui workspace delete` | `name` | — | — | — | 0/1 | Identical |
+| `tfui workspace new` | `name` | `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
+| `tfui workspace delete` | `name` | `-force`, `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
 
 ### Novel commands (no terraform equivalent)
 

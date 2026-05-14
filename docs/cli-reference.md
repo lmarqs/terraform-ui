@@ -72,6 +72,26 @@ tfui state taint <address>          # mark for recreation
 tfui state untaint <address>        # remove taint mark
 ```
 
+### `tfui workspace`
+
+Workspace management operations.
+
+```bash
+tfui workspace show                    # print current workspace name
+tfui workspace list                    # list all workspaces
+tfui workspace select <name>           # switch to workspace
+tfui workspace new <name>              # create and switch to workspace
+tfui workspace new <name> -lock=false  # create without locking state
+tfui workspace delete <name>           # delete workspace
+tfui workspace delete <name> -force    # delete non-empty workspace
+```
+
+| Flag | Applies to | Description |
+|------|-----------|-------------|
+| `-lock` | `new`, `delete` | Lock state during operation (default: true) |
+| `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
+| `-force` | `delete` | Force deletion of a non-empty workspace |
+
 ### `tfui validate`
 
 Run terraform validate.
