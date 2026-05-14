@@ -1,10 +1,8 @@
 package context
 
 import (
-	"context"
 	"io"
 	"log/slog"
-	"path/filepath"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
@@ -14,21 +12,17 @@ import (
 
 // Plugin implements the context dashboard — shows Project, Chdir, Workspace.
 type Plugin struct {
-	svc              sdk.Service
-	cfg              config.Config
-	log              *slog.Logger
-	stack            *sdk.Stack
-	chdir            string
-	workspace        string
-	members          []string
-	projectDir       string
-	workspaceLoading bool
+	cfg       config.Config
+	log       *slog.Logger
+	stack     *sdk.Stack
+	chdir     string
+	workspace string
+	members   []string
 }
 
 // New creates a new context plugin.
-func New(svc sdk.Service) sdk.Plugin {
+func New(_ sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		svc: svc,
 		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
 	p.stack = sdk.NewStack()
@@ -52,14 +46,12 @@ func (p *Plugin) SetConfig(cfg config.Config) {
 }
 
 // SetMembers provides the list of chdir members and project directory.
-func (p *Plugin) SetMembers(members []string, projectDir string) {
+func (p *Plugin) SetMembers(members []string, _ string) {
 	p.members = members
-	p.projectDir = projectDir
 }
 
 // Init initializes the plugin with shared context.
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.svc = ctx.Service
 	if ctx.Logger != nil {
 		p.log = ctx.Logger
 	}
@@ -125,9 +117,6 @@ func (p *Plugin) chdirValue() string {
 }
 
 func (p *Plugin) workspaceValue() string {
-	if p.workspaceLoading {
-		return sdk.StyleFaintItalic.Render("Loading workspaces...")
-	}
 	if p.workspace != "" {
 		return p.workspace
 	}
@@ -135,58 +124,19 @@ func (p *Plugin) workspaceValue() string {
 }
 
 func (p *Plugin) openChdirPicker() tea.Cmd {
-	frame := newPickerFrame("Chdir", p.members, p.chdir, func(selected string) tea.Cmd {
-		absPath := filepath.Join(p.projectDir, selected)
-		count := len(p.members)
-		p.chdir = selected
-		return func() tea.Msg {
-			return sdk.ChdirChangedEvent{
-				RelPath: selected,
-				AbsPath: absPath,
-				Count:   count,
-			}
-		}
-	})
-	p.stack.Push(frame)
-	return nil
-}
-
-// workspaceListMsg carries the result of workspace listing.
-type workspaceListMsg struct {
-	workspaces []string
-	err        error
+	return func() tea.Msg {
+		return sdk.NavigateMsg{PluginID: "chdir"}
+	}
 }
 
 func (p *Plugin) openWorkspacePicker() tea.Cmd {
-	svc := p.svc
-	if svc == nil {
-		return nil
-	}
-	p.workspaceLoading = true
 	return func() tea.Msg {
-		workspaces, err := svc.WorkspaceList(context.Background())
-		return workspaceListMsg{workspaces: workspaces, err: err}
+		return sdk.NavigateMsg{PluginID: "workspaces"}
 	}
 }
 
 // Update processes messages and returns the updated plugin.
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	switch msg := msg.(type) {
-	case workspaceListMsg:
-		p.workspaceLoading = false
-		if msg.err != nil {
-			return p, nil
-		}
-		frame := newPickerFrame("Workspace", msg.workspaces, p.workspace, func(selected string) tea.Cmd {
-			p.workspace = selected
-			svc := p.svc
-			return func() tea.Msg {
-				_ = svc.WorkspaceSelect(context.Background(), selected)
-				return sdk.WorkspaceChangedEvent{Name: selected}
-			}
-		})
-		p.stack.Push(frame)
-	}
 	return p, nil
 }
 

@@ -1,48 +1,12 @@
 package context
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
-
-type mockService struct{}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return nil, nil
-}
-
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) {
-	return nil, nil
-}
-
-func (m *mockService) Show(_ context.Context, _ string) (string, error)  { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)       { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) { return nil, nil }
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string) error    { return nil }
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string) error { return nil }
-func (m *mockService) StateRm(_ context.Context, _ string) error         { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error    { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error       { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error           { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error         { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
-	return nil, nil
-}
-
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, nil
-}
-
-func (m *mockService) Refresh(_ context.Context) error               { return nil }
-func (m *mockService) Init(_ context.Context) error                  { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error { return nil }
-func (m *mockService) WithDir(_ string) sdk.Service                  { return m }
 
 func TestNew(t *testing.T) {
 	p := New(nil).(*Plugin)
@@ -70,127 +34,54 @@ func TestActivate_PushesFormFrame(t *testing.T) {
 	}
 }
 
-func TestFormNavigation_EnterOnChdir_PushesPickerFrame(t *testing.T) {
+func TestFormNavigation_EnterOnChdir_EmitsNavigateMsg(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
 	p.Activate()
 
-	// First selectable field is Chdir (cursor starts there)
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-
-	if p.stack.Depth() != 2 {
-		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
-	}
-}
-
-func TestFormNavigation_EnterOnWorkspace_TriggersFetch(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.Activate()
-
-	// No members configured, so first selectable is Workspace
+	// First selectable field is Chdir
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Fatal("expected a command to fetch workspaces")
-	}
-
-	// Picker not pushed yet — waiting for response
-	if p.stack.Depth() != 1 {
-		t.Errorf("stack depth = %d, want 1 (fetch in progress)", p.stack.Depth())
-	}
-}
-
-func TestChdirPicker_SelectEmitsEvent(t *testing.T) {
-	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
-	p.Activate()
-
-	// Open chdir picker
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-
-	// Select first item
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected a command from selection")
+		t.Fatal("expected a command from chdir selection")
 	}
 
 	msg := cmd()
-	evt, ok := msg.(sdk.ChdirChangedEvent)
+	nav, ok := msg.(sdk.NavigateMsg)
 	if !ok {
-		t.Fatalf("expected ChdirChangedEvent, got %T", msg)
+		t.Fatalf("expected NavigateMsg, got %T", msg)
 	}
-	if evt.RelPath != "modules/vpc" {
-		t.Errorf("RelPath = %q, want %q", evt.RelPath, "modules/vpc")
-	}
-}
-
-func TestChdirPicker_EscPopsBack(t *testing.T) {
-	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
-	p.Activate()
-
-	// Open chdir picker
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if p.stack.Depth() != 2 {
-		t.Fatalf("stack depth = %d, want 2", p.stack.Depth())
-	}
-
-	// Press esc
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if p.stack.Depth() != 1 {
-		t.Errorf("stack depth = %d, want 1 after esc", p.stack.Depth())
+	if nav.PluginID != "chdir" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "chdir")
 	}
 }
 
-func TestChdirPicker_SelectPopsBack(t *testing.T) {
-	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
-	p.Activate()
-
-	// Open chdir picker
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-
-	// Select
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-
-	if p.stack.Depth() != 1 {
-		t.Errorf("stack depth = %d, want 1 after selection", p.stack.Depth())
-	}
-}
-
-func TestWorkspacePicker_PushedOnResponse(t *testing.T) {
+func TestFormNavigation_EnterOnWorkspace_EmitsNavigateMsg(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.Activate()
 
-	// Simulate workspace list response from user-triggered fetch
-	p.Update(workspaceListMsg{workspaces: []string{"default", "staging"}})
-
-	if p.stack.Depth() != 2 {
-		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
-	}
-}
-
-func TestWorkspacePicker_SelectEmitsEvent(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.workspace = "default"
-	p.Activate()
-
-	// Simulate workspace list arriving (user triggered fetch)
-	p.Update(workspaceListMsg{workspaces: []string{"default", "staging"}})
-
-	// Move down to "staging"
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	// No members configured, so first selectable is Workspace
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("expected a command from workspace selection")
 	}
 
 	msg := cmd()
-	evt, ok := msg.(sdk.WorkspaceChangedEvent)
+	nav, ok := msg.(sdk.NavigateMsg)
 	if !ok {
-		t.Fatalf("expected WorkspaceChangedEvent, got %T", msg)
+		t.Fatalf("expected NavigateMsg, got %T", msg)
 	}
-	if evt.Name != "staging" {
-		t.Errorf("Name = %q, want %q", evt.Name, "staging")
+	if nav.PluginID != "workspaces" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspaces")
+	}
+}
+
+func TestFormNavigation_EscPopsForm(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.Activate()
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if p.stack.Depth() != 0 {
+		t.Errorf("stack depth = %d, want 0 after esc", p.stack.Depth())
 	}
 }
 
@@ -216,38 +107,38 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestWorkspaceField_ShowsLoadingDuringFetch(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+func TestChdirNotSelectable_WhenNoMembers(t *testing.T) {
+	p := New(nil).(*Plugin)
 	p.Activate()
 
-	// Trigger workspace fetch
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-
-	// Field should show loading text
-	output := p.View(80, 20)
-	if !strings.Contains(output, "Loading workspaces...") {
-		t.Error("should show loading text during fetch")
+	// Enter should trigger workspace navigate (first selectable), not chdir
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected workspace navigate command")
 	}
 
-	// After response, loading clears and picker opens
-	p.Update(workspaceListMsg{workspaces: []string{"default"}})
-	if p.workspaceLoading {
-		t.Error("loading flag should be cleared after response")
+	msg := cmd()
+	nav, ok := msg.(sdk.NavigateMsg)
+	if !ok {
+		t.Fatalf("expected NavigateMsg, got %T", msg)
+	}
+	if nav.PluginID != "workspaces" {
+		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspaces")
 	}
 }
 
-func TestChdirNotSelectable_WhenNoMembers(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.Activate()
-
-	// Enter should trigger workspace fetch (first selectable), not chdir
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected workspace fetch command")
+func TestHandleChdirChanged(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.HandleChdirChanged(sdk.ChdirChangedEvent{RelPath: "modules/vpc"})
+	if p.chdir != "modules/vpc" {
+		t.Errorf("chdir = %q, want %q", p.chdir, "modules/vpc")
 	}
+}
 
-	// Picker not pushed yet — async fetch in progress
-	if p.stack.Depth() != 1 {
-		t.Errorf("stack depth = %d, want 1", p.stack.Depth())
+func TestHandleWorkspaceChanged(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.HandleWorkspaceChanged(sdk.WorkspaceChangedEvent{Name: "staging"})
+	if p.workspace != "staging" {
+		t.Errorf("workspace = %q, want %q", p.workspace, "staging")
 	}
 }
