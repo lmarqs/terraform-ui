@@ -29,7 +29,7 @@ pkg/sdk/               — Public SDK: Plugin interface, Service interface, type
                          (includes bus.go, events.go, options.go)
 internal/
   config/              — HCL config loading (LoadRoot, LoadChild, Resolve)
-  terraform/           — TerraformService + StaticService (read-only mode)
+  terraform/           — TerraformService (service.go, state_ops.go, workspace_ops.go, plan_parser.go)
   source/              — Universal source abstraction (URI resolution, providers)
   macro/               — Macro engine (Driver, tape DSL parser)
   ui/                  — App model, input handling, layout components
@@ -148,9 +148,10 @@ All terraform operations: `Plan(ctx, PlanOptions)`, `Apply(ctx, ApplyOptions)`, 
 
 `PlanOptions`/`ApplyOptions` carry: targets, var-files, vars, replace, destroy, refresh-only, parallelism, lock, lock-timeout, extra-args.
 
-Two implementations:
-- `TerraformService` — wraps terraform-exec, maps options to tfexec option types
-- `StaticService` — pre-loaded data, builds command flags from options for recording
+Three implementations:
+- `TerraformService` — wraps terraform-exec, maps options to tfexec option types (service.go, state_ops.go, workspace_ops.go)
+- `RecordingService` — pre-loaded data, builds command flags from options for recording
+- `CompositeService` — hybrid read/write: pre-loaded plan/state for reads, delegates writes to TerraformService
 
 ### Source Abstraction (`internal/source/`)
 
@@ -218,8 +219,7 @@ tfui --plan ./plan.json --state ./state.json      # both
 ```
 
 When `--plan` or `--state` provided:
-- `StaticService` replaces `TerraformService`
-- All mutating operations return `sdk.ErrReadOnly`
+- `RecordingService` replaces `TerraformService` (pre-loaded data, read-only)
 - Header shows `[read-only]` badge
 - Mutating hints hidden from status bar
 
@@ -264,7 +264,7 @@ Full I/O contract, pipe scenarios, and tradeoff analysis: **`docs/cli-io-contrac
 
 **`--` passthrough:**
 - `splitPassthrough()` separates args at `--`
-- ExtraArgs are stored for `StaticService` (macro/recording mode)
+- ExtraArgs are stored for `RecordingService` (macro/recording mode)
 - `TerraformService` does not forward ExtraArgs — terraform-exec's typed API doesn't support raw arg passthrough
 - All behavioral terraform flags are already modeled as first-class tfui flags
 
