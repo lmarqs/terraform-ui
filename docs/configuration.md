@@ -13,7 +13,7 @@ terraform-ui uses an optional `tfui.hcl` file for project configuration. Place i
 | Mode | When | Behavior |
 |------|------|----------|
 | **Standalone** | No `tfui.hcl` in CWD, no `--project` | TUI skin over terraform. CWD = working dir. |
-| **Project** | `tfui.hcl` in CWD (or `--project`) | Full config resolution, chdir members, workspace overrides. |
+| **Project** | `tfui.hcl` in CWD (or `--project`) | Full config resolution, member directories, workspace overrides. |
 
 ## Config File
 
@@ -24,13 +24,9 @@ terraform {
   bin = "terraform"    # or "tofu", or full path
 }
 
-chdir {
-  members = [
-    "modules/vpc",
-    "modules/ecs",
-    "environments/prod",
-  ]
-}
+member "modules/vpc" {}
+member "modules/ecs" {}
+member "environments/prod" {}
 
 cache {
   staleness_threshold = "5m"
@@ -57,9 +53,9 @@ defaults {
 
 Every block is optional. An empty `tfui.hcl` is valid.
 
-## Child Config (per chdir member)
+## Child Config (per member)
 
-Place a `tfui.hcl` in any chdir member directory for per-module overrides:
+Place a `tfui.hcl` in any member directory for per-module overrides:
 
 ```hcl
 # modules/vpc/tfui.hcl
@@ -91,7 +87,7 @@ workspace "dev-*" {
 
 Child configs **cannot** declare these blocks (they're root-only):
 - `terraform` — binary must be consistent across all members
-- `chdir` — membership is project-level identity
+- `member` — membership is project-level identity
 - `cache` — safety invariants apply project-wide
 - `ai` — credential scope is project-wide
 - `defaults` — inheritance root
@@ -126,7 +122,7 @@ Rules:
 ```bash
 # Project mode
 tfui --project ./infra                 # explicit project root
-tfui --chdir modules/vpc               # select member (validated against config)
+tfui --chdir modules/vpc               # select member (validated against member blocks)
 tfui --terraform-bin /usr/local/bin/tofu
 
 # Terraform flags (single or double dash)
@@ -176,9 +172,9 @@ terraform {
   bin = "terraform"
 }
 
-chdir {
-  members = ["modules/vpc", "modules/ecs", "modules/rds"]
-}
+member "modules/vpc" {}
+member "modules/ecs" {}
+member "modules/rds" {}
 
 defaults {
   var_file "common/tags.tfvars" {}
