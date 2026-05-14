@@ -89,6 +89,7 @@ type Plugin struct {
 	filterScores  map[string]int
 	filter        string
 	filtering     bool
+	mutating      bool
 	errMsg        string
 	lockInfo      *sdk.StateLock
 	viewWidth     int
@@ -121,6 +122,7 @@ func (e *Plugin) Name() string        { return "State Browser" }
 func (e *Plugin) Description() string { return "Browse and inspect terraform state resources" }
 func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone || e.status == StatusShowingDetail }
 func (e *Plugin) Status() sdk.Status  { return e.status }
+func (e *Plugin) Busy() bool          { return e.mutating }
 func (e *Plugin) Selected() int       { return e.tree.Cursor() }
 func (e *Plugin) Filter() string      { return e.filter }
 func (e *Plugin) Filtering() bool     { return e.filtering }
@@ -213,6 +215,7 @@ func (e *Plugin) loadDetail(address string) tea.Cmd {
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case StateListMsg:
+		e.mutating = false
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -241,22 +244,27 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, nil
 
 	case StateDeletedMsg:
+		e.mutating = false
 		e.log.Debug("state.deleted", "address", msg.Address)
 		return e, e.Refresh()
 
 	case StateMovedMsg:
+		e.mutating = false
 		e.log.Debug("state.moved", "source", msg.Source, "dest", msg.Dest)
 		return e, e.Refresh()
 
 	case StateTaintedMsg:
+		e.mutating = false
 		e.log.Debug("state.tainted", "addresses", msg.Addresses)
 		return e, e.Refresh()
 
 	case StateUntaintedMsg:
+		e.mutating = false
 		e.log.Debug("state.untainted", "addresses", msg.Addresses)
 		return e, e.Refresh()
 
 	case StateImportedMsg:
+		e.mutating = false
 		e.log.Debug("state.imported", "address", msg.Address, "id", msg.ID)
 		return e, e.Refresh()
 
@@ -765,6 +773,7 @@ func (e *Plugin) requestDelete(address string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Remove %s from state?", address),
 				func() tea.Cmd {
+					e.mutating = true
 					return func() tea.Msg {
 						err := svc.StateRm(context.Background(), address)
 						if err != nil {

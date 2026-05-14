@@ -52,6 +52,7 @@ func (e *Plugin) Name() string        { return "Plan" }
 func (e *Plugin) Description() string { return "Review terraform plan changes" }
 func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status  { return e.status }
+func (e *Plugin) Busy() bool          { return e.status == sdk.StatusLoading }
 func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) Targets() []string   { return e.targets }
 func (e *Plugin) Stack() *sdk.Stack   { return e.stack }

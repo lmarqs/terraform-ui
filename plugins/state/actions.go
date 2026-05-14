@@ -23,6 +23,7 @@ func (e *Plugin) requestMove(address string) tea.Cmd {
 						Request: sdk.InputConfirm(
 							fmt.Sprintf("Move %s → %s?", address, dest),
 							func() tea.Cmd {
+								e.mutating = true
 								return func() tea.Msg {
 									err := svc.StateMove(context.Background(), address, dest)
 									if err != nil {
@@ -49,6 +50,7 @@ func (e *Plugin) requestTaint(address string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Taint %s? (will recreate on next apply)", address),
 				func() tea.Cmd {
+					e.mutating = true
 					return func() tea.Msg {
 						err := svc.Taint(context.Background(), address)
 						if err != nil {
@@ -72,6 +74,7 @@ func (e *Plugin) requestUntaint(address string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Untaint %s?", address),
 				func() tea.Cmd {
+					e.mutating = true
 					return func() tea.Msg {
 						err := svc.Untaint(context.Background(), address)
 						if err != nil {
@@ -101,6 +104,7 @@ func (e *Plugin) requestImport(address string) tea.Cmd {
 						Request: sdk.InputConfirm(
 							fmt.Sprintf("Import %s as %s?", id, address),
 							func() tea.Cmd {
+								e.mutating = true
 								return func() tea.Msg {
 									err := svc.Import(context.Background(), address, id)
 									if err != nil {
@@ -128,6 +132,7 @@ func (e *Plugin) batchTaint(addresses []string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Taint %d resources? (will recreate on next apply)", len(addresses)),
 				func() tea.Cmd {
+					e.mutating = true
 					return func() tea.Msg {
 						for _, addr := range addresses {
 							if err := svc.Taint(context.Background(), addr); err != nil {
@@ -153,6 +158,7 @@ func (e *Plugin) batchUntaint(addresses []string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Untaint %d resources?", len(addresses)),
 				func() tea.Cmd {
+					e.mutating = true
 					return func() tea.Msg {
 						for _, addr := range addresses {
 							if err := svc.Untaint(context.Background(), addr); err != nil {
@@ -178,6 +184,7 @@ func (e *Plugin) batchDelete(addresses []string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Remove %d resources from state?", len(addresses)),
 				func() tea.Cmd {
+					e.mutating = true
 					return func() tea.Msg {
 						for _, addr := range addresses {
 							if err := svc.StateRm(context.Background(), addr); err != nil {

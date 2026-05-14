@@ -50,6 +50,7 @@ func (e *Plugin) Elapsed() time.Duration {
 	return e.elapsed
 }
 func (e *Plugin) IsConfirming() bool { return e.status == StatusConfirming }
+func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
