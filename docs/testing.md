@@ -37,14 +37,14 @@ This is the core invariant. Every operation has multiple paths (CLI, TUI, macro)
 ```bash
 # Unit tests (fast, no dependencies)
 go test ./...
-mise run test
+mise run test:unit
 
 # Integration tests (requires terraform on PATH)
 go test -tags integration -timeout 120s ./tests/integration/
-mise run test:integration
+mise run 'test:integration:*'
 
 # Coverage report (90% gate, excludes cmd/)
-mise run coverage
+mise run test:coverage
 ```
 
 ## Fixtures

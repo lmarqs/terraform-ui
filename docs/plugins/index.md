@@ -12,50 +12,65 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 
 | ID | Name | Key | Category | Description |
 |----|------|-----|----------|-------------|
+| [state](state.md) | State Browser | `s` | navigation | Browse and inspect terraform state resources |
 | [plan](plan.md) | Plan Review | `p` | operations | Review terraform plan changes with expandable attribute diffs |
 | [apply](apply.md) | Apply | `a` | operations | Apply terraform changes with confirmation and elapsed time tracking |
+| [workspaces](workspaces.md) | Workspaces | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
+| [output](output.md) | Outputs | `o` | navigation | View terraform output values |
+| [validate](validate.md) | Validate | `v` | operations | Run terraform validate and show diagnostics |
+| [repl](repl.md) | Console | `t` | operations | Interactive terraform console (REPL) |
 | [risk](risk.md) | Risk Analysis | `R` | analysis | Analyze and group planned changes by risk level |
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
-| [blastradius](blastradius.md) | Blast Radius | `b` | analysis | Visualize module-grouped changes with impact scores |
-| [state](state.md) | State Browser | `s` | navigation | Browse and inspect terraform state resources |
-| [workspaces](workspaces.md) | Workspaces | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
-| [context](context.md) | Context | `c` | navigation | Select terraform project scope |
+| [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
+| [context](context.md) | Context | `C` | navigation | Manage project, chdir, and workspace selection |
+| [init](init.md) | Init | `i` | setup | Generate tfui.hcl configuration interactively |
+| chdir | Chdir Picker | — | internal | Select chdir member (hidden, activated by context plugin) |
 
 ## Categories
 
 ### Operations
 
-Plugins that execute terraform commands and modify infrastructure.
+Plugins that execute terraform commands or modify infrastructure.
 
-- **[Plan](plan.md)** -- run and review `terraform plan`
-- **[Apply](apply.md)** -- execute `terraform apply` with confirmation
+- **[Plan](plan.md)** — run and review `terraform plan`
+- **[Apply](apply.md)** — execute `terraform apply` with confirmation
+- **[Validate](validate.md)** — run `terraform validate`
+- **[Console](repl.md)** — interactive `terraform console`
 
 ### Analysis
 
 Plugins that analyze plan output without modifying infrastructure.
 
-- **[Risk Analysis](risk.md)** -- risk-level grouping and assessment
-- **[Phantom Changes](phantom.md)** -- detect cosmetic-only changes
-- **[Blast Radius](blastradius.md)** -- module-level impact scoring
+- **[Risk Analysis](risk.md)** — risk-level grouping and assessment
+- **[Phantom Changes](phantom.md)** — detect cosmetic-only changes
+- **[Blast Radius](blastradius.md)** — module-level impact scoring
 
 ### Navigation
 
-Plugins for navigating terraform state, workspaces, and projects.
+Plugins for navigating terraform state, workspaces, and project context.
 
-- **[State Browser](state.md)** -- inspect managed resources
-- **[Workspaces](workspaces.md)** -- switch and manage workspaces
-- **[Context](context.md)** -- terraform project scope selector
+- **[State Browser](state.md)** — inspect managed resources
+- **[Workspaces](workspaces.md)** — switch and manage workspaces
+- **[Outputs](output.md)** — view output values
+- **[Context](context.md)** — project/chdir/workspace selector
+
+### Setup
+
+- **[Init](init.md)** — configuration file generator
 
 ## Enabling/Disabling Plugins
 
-All plugins are enabled by default. To disable one, set `enabled: false` in `tfui.hcl`:
+All plugins are enabled by default. To disable one, configure it in `tfui.hcl`:
 
-```yaml
-plugins:
-  phantom:
-    enabled: false
-  blastradius:
-    enabled: false
+```hcl
+defaults {
+  plugin "phantom" {
+    enabled = false
+  }
+  plugin "blastradius" {
+    enabled = false
+  }
+}
 ```
 
 ## Creating a Custom Plugin

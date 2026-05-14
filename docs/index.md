@@ -38,28 +38,27 @@ sudo mv tfui /usr/local/bin/
 # Launch interactive TUI
 tfui
 
-# Or use non-interactive mode (backward compatible)
-tfui plan --dir ./infra
-tfui apply --dir ./infra 
+# Or use non-interactive mode
+tfui plan --project ./infra
+tfui apply --project ./infra
 ```
 
 ## Home Screen
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  terraform-ui                        workspace: default  │
+│  terraform-ui                        workspace: default │
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
-│   [p] Plan          [r] Risk Analysis                   │
-│   [a] Apply         [b] Blast Radius                    │
-│   [s] State         [w] Workspaces                      │
-│   [m] Projects      [?] Help                            │
-│                                                         │
-│   dir: ./infra                                          │
-│   terraform: v1.14.0                                    │
+│   [p] Plan          [R] Risk Analysis                   │
+│   [a] Apply         [P] Phantom Changes                 │
+│   [s] State         [B] Blast Radius                    │
+│   [w] Workspaces    [o] Outputs                         │
+│   [v] Validate      [t] Console                         │
+│   [C] Context       [i] Init                            │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
-│  q quit  / search  ? help                               │
+│  q quit  / filter  : command                            │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -71,16 +70,16 @@ tfui apply --dir ./infra
 - **Live Apply** — Per-resource progress tracking with real-time status
 - **State Browser** — Navigate and inspect terraform state resources
 - **Workspace Management** — List, switch, and manage workspaces
-- **Monorepo Support** — Discover and select projects via `tfui.hcl`
+- **Monorepo Support** — Discover and select chdir members via `tfui.hcl`
 - **Phantom Change Detection** — Identify no-op changes that terraform incorrectly reports
 
 ## How It Works
 
 ```
-tfui                          → interactive TUI (default)
-tfui --dir ./infra            → TUI scoped to directory
-tfui plan --dir ./infra       → non-interactive plan
-tfui apply --dir ./infra      → non-interactive apply
+tfui                              → interactive TUI (default)
+tfui --project ./infra            → TUI scoped to project directory
+tfui plan --project ./infra       → non-interactive plan
+tfui apply --project ./infra      → non-interactive apply
 ```
 
 Bare `tfui` opens the full-screen TUI. Subcommands (`plan`, `apply`) run in non-interactive mode with animated terminal feedback — spinner, progress bar, and tree-view diff output.
@@ -89,16 +88,32 @@ Bare `tfui` opens the full-screen TUI. Subcommands (`plan`, `apply`) run in non-
 
 | Key | Action |
 |-----|--------|
-| `p` | Run plan |
-| `r` | Risk analysis |
-| `b` | Blast radius |
+| `p` | Plan |
 | `a` | Apply |
 | `s` | State browser |
 | `w` | Workspaces |
-| `m` | Projects (monorepo) |
-| `/` | Search |
-| `?` | Help |
+| `o` | Outputs |
+| `v` | Validate |
+| `t` | Console (REPL) |
+| `R` | Risk analysis |
+| `P` | Phantom changes |
+| `B` | Blast radius |
+| `C` | Context (project/chdir/workspace) |
+| `i` | Init wizard |
+| `/` | Filter |
+| `:` | Command mode |
 | `q` | Quit / back |
 | `↑↓` or `jk` | Navigate |
-| `Enter` | Select |
-| `Esc` | Back to home |
+| `Enter` | Inspect / expand |
+| `Space` | Pin (target for plan/apply) |
+
+## Documentation
+
+- [Getting Started](getting-started.md) — Installation and first run
+- [Configuration](configuration.md) — `tfui.hcl` reference
+- [CLI Reference](cli-reference.md) — All commands and flags
+- [Architecture](architecture.md) — Internal design
+- [Plugins](plugins/) — Plugin catalog and docs
+- [Macro Language](macro-language.md) — Tape DSL for automated testing
+- [Testing](testing.md) — Test strategy and patterns
+- [CLI I/O Contract](cli-io-contract.md) — stdin/stdout/stderr specification

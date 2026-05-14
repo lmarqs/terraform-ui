@@ -60,34 +60,16 @@ tfui apply --ci
 |--------|--------|------|
 | Apply summary (default) or NDJSON (`-json`) | Spinner (if TTY, unless `--ci`) | 0/1 |
 
-### `tfui show`
-
-Display plan or state in human or machine format.
-
-```bash
-tfui show tfplan.out                # human-readable
-tfui show -json tfplan.out          # structured JSON (terraform-compatible)
-```
-
 ### `tfui state`
 
 State management operations.
 
 ```bash
-tfui state list                     # addresses, one per line
-tfui state show <address>           # HCL attributes
 tfui state rm <address>             # remove from state
 tfui state mv <source> <dest>       # rename in state
-tfui state pull                     # raw state JSON to stdout
-tfui state push                     # state JSON from stdin
-```
-
-### `tfui import`
-
-Import existing resource into state.
-
-```bash
-tfui import <address> <id>
+tfui state import <address> <id>    # import existing resource
+tfui state taint <address>          # mark for recreation
+tfui state untaint <address>        # remove taint mark
 ```
 
 ### `tfui validate`
@@ -109,17 +91,6 @@ tfui output -json                   # JSON (terraform-compatible)
 tfui output <name>                  # single value
 ```
 
-### `tfui workspace`
-
-Workspace management.
-
-```bash
-tfui workspace list
-tfui workspace select <name>
-tfui workspace new <name>
-tfui workspace delete <name>
-```
-
 ### `tfui init`
 
 Generate a `tfui.hcl` configuration file by detecting terraform project patterns.
@@ -134,17 +105,6 @@ Print the version.
 
 ```bash
 tfui version
-```
-
-### Novel commands (no terraform equivalent)
-
-These commands consume plan JSON from stdin and produce enriched analysis:
-
-```bash
-tfui show -json tfplan.out | tfui risk           # risk report
-tfui show -json tfplan.out | tfui risk --json    # risk JSON (our schema)
-tfui show -json tfplan.out | tfui phantom        # phantom detection
-tfui show -json tfplan.out | tfui blast-radius   # blast radius graph
 ```
 
 ## Global Flags

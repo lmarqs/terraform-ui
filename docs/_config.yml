@@ -11,10 +11,11 @@ header_pages:
   - configuration.md
   - plugins/index.md
   - architecture.md
+  - cli-reference.md
+  - testing.md
   - risk-analysis.md
   - phantom-changes.md
   - blast-radius.md
-  - cli-reference.md
 
 collections:
   plugins:

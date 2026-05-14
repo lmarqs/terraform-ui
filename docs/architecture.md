@@ -38,26 +38,34 @@ internal/
   plugin/registry.go       — Plugin registry (host-side only)
   terraform/
     service.go             — TerraformService (implements sdk.Service via terraform-exec)
-    risk.go                — Risk classification (shared logic)
-    phantom.go             — Phantom change detection (shared logic)
-    grouping.go            — Module-level change grouping (shared logic)
+    state_ops.go           — State operations (rm, mv, import, taint, untaint)
+    workspace_ops.go       — Workspace operations
+    plan_parser.go         — Plan JSON parsing
+  source/                  — Universal source abstraction (URI resolution, providers)
+  macro/                   — Macro engine (Driver, tape DSL parser)
   ui/
     app.go                 — Root Bubbletea model, plugin routing
-    styles/theme.go        — Lipgloss style definitions
-    views/home.go          — Home screen (auto-generated from registry)
     components/            — Header, statusbar
+  editor/                  — Editor integration ($EDITOR at file:line)
+  ai/                      — AI provider (Claude via Bedrock, auto-detection)
+  logging/                 — Structured logger setup
 plugins/
-  plan/                    — Plan review plugin
-  risk/                    — Risk analysis plugin
-  phantom/                 — Phantom change detection plugin
-  blastradius/             — Blast radius visualization plugin
-  state/                   — State browser plugin
-  apply/                   — Apply with confirmation plugin
-  workspaces/              — Workspace management plugin
-  context/                 — Context manager (scope picker, monorepo support)
+  context/                 — Context dashboard: Project + Chdir + Workspace
+  chdir/                   — Chdir picker: select member from explicit list
+  state/                   — State browser (list, inspect, pin, delete, move, edit)
+  plan/                    — Plan review (diff view, expand attributes, risk)
+  apply/                   — Apply executor with confirmation
+  workspaces/              — Workspace management
+  repl/                    — Terraform console (REPL)
+  output/                  — Terraform outputs viewer
+  validate/                — Terraform validate with diagnostics
+  risk/                    — Risk classification (decorates plan)
+  phantom/                 — Phantom change detection (decorates plan)
+  blastradius/             — Blast radius visualization
+  init/                    — Config generator (CLI + TUI, generates tfui.hcl)
 tests/
-  integration/             — CLI integration tests (require terraform)
-  fixtures/                — Real terraform projects for testing
+  integration/             — CLI integration tests (require terraform/tofu/terragrunt)
+  fixtures/                — Real terraform projects and config fixtures
 ```
 
 ## Plugin System
@@ -149,7 +157,7 @@ mise run fmt              # Format source files
 mise run check:lint       # Lint (golangci-lint v2)
 mise run test:unit        # Unit tests
 mise run test:coverage    # Coverage enforcement (90%)
-mise run test:integration # Integration tests
+mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
 mise run test:macro       # Macro tapes
 ```
 

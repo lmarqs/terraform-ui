@@ -29,11 +29,13 @@ When creating a new workspace, type the name and press `Enter` to confirm or `Es
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  workspaces:
-    enabled: true
+defaults {
+  plugin "workspaces" {
+    enabled = true
+  }
+}
 ```
 
 | Option | Type | Default | Description |
@@ -67,5 +69,5 @@ Enter confirm  Esc cancel
 
 ## Related
 
-- [State Browser](state.md) -- browse state for the selected workspace
-- [Projects](projects.md) -- switch projects within a monorepo
+- [State Browser](state.md) — browse state for the selected workspace
+- [Context](context.md) — manage project/chdir/workspace selection

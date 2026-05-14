@@ -127,7 +127,6 @@ Rules:
 # Project mode
 tfui --project ./infra                 # explicit project root
 tfui --chdir modules/vpc               # select member (validated against config)
-tfui --workspace production            # active workspace
 tfui --terraform-bin /usr/local/bin/tofu
 
 # Terraform flags (single or double dash)

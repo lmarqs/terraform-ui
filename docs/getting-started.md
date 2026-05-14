@@ -28,7 +28,7 @@ Requires terraform (or tofu) on your `PATH`.
 git clone https://github.com/lmarqs/terraform-ui.git
 cd terraform-ui
 mise install
-mise run go:build
+mise run build
 ./dist/tfui version
 ```
 
@@ -74,15 +74,17 @@ Exit code `2` means "changes detected" — useful for CI gates.
 
 Create a `tfui.hcl` in your repository root:
 
-```yaml
-# tfui.hcl
-projects:
-  paths:
-    - "envs/*"
-    - "modules/*"
-    - "services/*/terraform"
+```hcl
+chdir {
+  members = [
+    "envs/prod",
+    "envs/staging",
+    "modules/vpc",
+    "services/api/terraform",
+  ]
+}
 ```
 
-With this config, pressing `m` in the TUI shows a project picker. Each matched directory containing `.tf` files becomes a selectable project.
+With this config, pressing `C` in the TUI opens the context manager where you can select a chdir member. Each directory listed must contain `.tf` files.
 
 See [Configuration](configuration.md) for all options.
