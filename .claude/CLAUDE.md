@@ -37,7 +37,7 @@ tests/        — Integration tests + fixtures
 | **Workspace** | Terraform workspace within a chdir |
 | **Context** | Umbrella concept: Project + Chdir + Workspace combined |
 
-IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `chdir { members = [...] }`. Event: `ChdirChangedEvent`. Note: `ProjectContext` struct still has legacy field names (`Scopes`, `ActiveScope`, `ActiveScopeAbs`) pending rename.
+IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ChdirChangedEvent`. Note: `ProjectContext` struct still has legacy field names (`Scopes`, `ActiveScope`, `ActiveScopeAbs`) pending rename.
 
 ## Conventions
 
@@ -105,6 +105,8 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - UX rules: see `.claude/rules/ux.md` (loaded automatically for `plugins/` and `internal/ui/` edits)
 - CLI design: see `.claude/rules/cli.md` (loaded automatically for `cmd/` edits)
 - CI/CD pipeline: see `.claude/rules/ci.md` (loaded automatically for `.github/` edits)
+- TUI UX spec: `docs/tui-ux.md`
+- CLI UX spec: `docs/cli-ux.md`
 - Full I/O contract: `docs/cli-io-contract.md`
 - Macro DSL reference: `docs/macro-language.md`
 - Configuration reference: `docs/configuration.md`
@@ -127,6 +129,7 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 | `test-writer` | **MUST invoke BEFORE any implementation edit** — failing test first |
 | `code-checker` | Before commits, during PR review |
 | `ux-checker` | Changes to `View()`, `Hints()`, frames |
+| `cli-checker` | Changes to `cmd/tfui/`, CLI subcommands, flag handling |
 | `macro-runner` | After modifying `View()`, layout, navigation |
 | `architect` | New plugins or cross-cutting features |
 | `security-checker` | PRs touching terraform service, state, AI |
