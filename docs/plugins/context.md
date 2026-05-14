@@ -2,48 +2,43 @@
 layout: plugin
 title: Context
 id: context
-key: c
-description: Select terraform project scope
+key: C
+description: Select terraform project chdir member
 category: navigation
 default_enabled: true
 ---
 
 ## Overview
 
-The Context plugin discovers and lists terraform scopes within a monorepo based on glob patterns defined in `tfui.hcl`. You can filter, select, and switch between scopes. The active scope determines the working directory for all other plugins (plan, apply, state, etc.).
+The Context plugin discovers and lists chdir members within a monorepo based on `member` blocks defined in `tfui.hcl`. You can filter, select, and switch between members. The active chdir determines the working directory for all other plugins (plan, apply, state, etc.).
 
 ## Usage
 
-Press `c` to open the Context view. It scans for scopes matching your configured path patterns.
+Press `C` to open the Context view. It scans for members matching your configured paths.
 
 | Key | Action |
 |-----|--------|
 | `j` / `k` | Navigate up/down |
-| `Enter` | Select scope as active |
+| `Enter` | Select member as active chdir |
 | Any character | Filter by path/name |
 | `Backspace` | Remove last filter character |
-| `r` | Re-discover scopes |
+| `r` | Re-discover members |
 | `Esc` | Go back |
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  context:
-    enabled: true
-
-scope:
-  paths:
-    - "modules/*"
-    - "envs/**"
-    - "stacks/networking"
+member "modules/*" {}
+member "envs/**" {}
+member "stacks/networking" {}
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-| `scope.paths` | list | `[]` | Glob patterns for scope discovery |
+
+Members are declared as top-level `member "path" {}` blocks in `tfui.hcl`.
 
 ## Screenshots/Output
 
@@ -56,7 +51,7 @@ Context
   modules/compute (compute)
   stacks/networking (networking)
 
-5 scope(s)
+5 member(s)
 
 Enter select  / filter  r refresh  Esc back
 ```
@@ -71,13 +66,13 @@ filter: net
   modules/networking (networking)
   stacks/networking (networking)
 
-2/5 scope(s)
+2/5 member(s)
 
 Enter select  / filter  r refresh  Esc back
 ```
 
 ## Related
 
-- [Workspaces](workspaces.md) -- manage workspaces within the active scope
-- [State Browser](state.md) -- browse state for the active scope
-- [Plan](plan.md) -- plan runs against the active scope directory
+- [Workspaces](workspaces.md) -- manage workspaces within the active chdir
+- [State Browser](state.md) -- browse state for the active chdir
+- [Plan](plan.md) -- plan runs against the active chdir directory

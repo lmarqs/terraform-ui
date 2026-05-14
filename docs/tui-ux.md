@@ -4,7 +4,7 @@
 
 ```
  Project: ../medprev-cloud-iac                                     ╔╦╗╔═╗╦ ╦╦
- Scope: modules/sa-east-1                                           ║ ╠╣ ║ ║║
+ Chdir: modules/sa-east-1                                           ║ ╠╣ ║ ║║
  Workspace: default                                                 ╩ ╚  ╚═╝╩
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ :context                                                                   │
@@ -25,7 +25,7 @@
 
 | Location | Content |
 |----------|---------|
-| Header left | Project (+ pinned count), Scope, Workspace |
+| Header left | Project (+ pinned count), Chdir, Workspace |
 | Header right | ASCII logo (brand identity) |
 | Content border title | View name + filtered/total count |
 | Footer | Context-sensitive key hints (from frame's Hints()) |
@@ -145,15 +145,15 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 - Captures ALL input — nothing passes through to plugins
 - `Esc` or completion action dismisses
 - Status bar shows overlay-specific hints
-- Used for: scope picker, error display, confirmations
+- Used for: chdir picker, error display, confirmations
 
 ## 9. Home Screen
 
-- Shows after scope selection (or when no plugin active)
-- Plugin list sorted by workflow: State, Plan, Apply, Workspaces, Outputs, Validate, Console, then decorators (Risk, Phantom, Blast Radius, Init)
-- Current scope visible in header
+- Shows after chdir selection (or when no plugin active)
+- Plugin list sorted by workflow: State, Plan, Apply, Workspaces, Outputs, Validate, Console, then decorators (Risk, Phantom, Blast Radius, Scaffold)
+- Current chdir visible in header
 - Direct key activation (press letter) or j/k + Enter
-- Context plugin in the list (accessed via `C` or `:context`) — manages Project + Scope + Workspace
+- Context plugin in the list (accessed via `C` or `:context`) — manages Project + Chdir + Workspace
 
 ## 10. Color Palette
 

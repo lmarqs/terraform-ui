@@ -30,8 +30,8 @@ tfui --state ./state.json --macro ./scripts/check-state.tape
 # Both plan and state
 tfui --plan ./plan.json --state ./state.json --macro ./scripts/full-check.tape
 
-# Without pre-loaded data (for project-level flows like init, chdir)
-tfui --project ./my-infra --macro ./scripts/test-init.tape
+# Without pre-loaded data (for project-level flows like scaffold, chdir)
+tfui --project ./my-infra --macro ./scripts/test-scaffold.tape
 
 # Tape from stdin
 echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --macro -
@@ -40,7 +40,7 @@ echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --m
 terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
 ```
 
-When `--plan`/`--state` are provided, the app renders pre-loaded data. Without them, the app starts in live mode (for testing project-level flows like init wizard, chdir selection). In both cases, mutations are never executed.
+When `--plan`/`--state` are provided, the app renders pre-loaded data. Without them, the app starts in live mode (for testing project-level flows like scaffold wizard, chdir selection). In both cases, mutations are never executed.
 
 ## Command Output (stdout)
 

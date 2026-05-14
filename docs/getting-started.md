@@ -75,14 +75,10 @@ Exit code `2` means "changes detected" — useful for CI gates.
 Create a `tfui.hcl` in your repository root:
 
 ```hcl
-chdir {
-  members = [
-    "envs/prod",
-    "envs/staging",
-    "modules/vpc",
-    "services/api/terraform",
-  ]
-}
+member "envs/prod" {}
+member "envs/staging" {}
+member "modules/vpc" {}
+member "services/api/terraform" {}
 ```
 
 With this config, pressing `C` in the TUI opens the context manager where you can select a chdir member. Each directory listed must contain `.tf` files.

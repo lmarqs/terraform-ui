@@ -78,8 +78,8 @@ tfui plan --project ./infra -json
 # Targeted: plan only specific resources
 tfui plan --project ./infra --target aws_instance.web --target aws_s3_bucket.old
 
-# With scope (monorepo)
-tfui plan --project ./infra --scope modules/networking
+# With chdir (monorepo)
+tfui plan --project ./infra --chdir modules/networking
 ```
 
 ### Output Examples

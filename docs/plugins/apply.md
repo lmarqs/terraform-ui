@@ -90,8 +90,8 @@ tfui apply --project ./infra -json
 tfui plan --project ./infra --target aws_instance.web
 tfui apply --project ./infra
 
-# With scope (monorepo)
-tfui apply --project ./infra --scope modules/networking
+# With chdir (monorepo)
+tfui apply --project ./infra --chdir modules/networking
 ```
 
 ### Output Examples
