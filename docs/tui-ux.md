@@ -103,10 +103,74 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 | Success (green) | Pin indicators, confirmations |
 | Background (236) | Selected row highlight, header/footer bg |
 
-## 5. State Transitions
+## 5. State Transitions & Loading
 
-- **Loading**: show elapsed time for operations > 2s
-- **Error**: floating modal overlay (not inline text)
+### Core Principle: Honest Feedback
+
+The user must always know what the app is doing. Every state the app enters must be visible, explicit, and traceable to a user action. No invisible work, no silent failures, no background magic.
+
+**The rule: if the app is doing something, the user sees it. If the user didn't ask for it, the app doesn't do it.**
+
+### Loading States
+
+When the user triggers an async operation (opens a plugin, selects a field that requires I/O, runs a command), the app transitions through:
+
+```
+User Action → Loading → Done (or Error)
+```
+
+The user sees every step. There is no shortcut.
+
+#### Visual Treatment
+
+| Duration | What the user sees |
+|----------|-------------------|
+| Immediate | Faint italic text: `"Loading workspaces..."`, `"Running terraform plan..."` |
+| After 2s | Append elapsed time: `"Running terraform plan... 4s"` |
+
+Rendered with `sdk.StyleFaintItalic` — visually distinct from content, clearly transient.
+
+#### Hint Bar During Loading
+
+Only show actions that work during loading:
+
+```go
+// Loading state — only back is available
+[]sdk.KeyHint{
+    sdk.HintBack,
+}
+```
+
+Never show `↑↓ navigate`, `Enter inspect`, or other content-dependent hints during loading — there's nothing to navigate or inspect yet. Showing unavailable actions is lying to the user.
+
+#### State Lifecycle
+
+Every plugin that does async work follows this lifecycle:
+
+```go
+StatusIdle    → user hasn't activated yet
+StatusLoading → async operation in flight (user sees loading text)
+StatusDone    → data available (user sees content)
+StatusError   → operation failed (user sees error)
+```
+
+Transitions are always user-initiated:
+- `Idle → Loading`: user activates the plugin or triggers a command
+- `Loading → Done`: async response arrives
+- `Loading → Error`: async response is an error
+- `Error → Loading`: user presses `r` to retry
+- `Done → Loading`: user presses `r` to refresh
+
+The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes without the user asking.
+
+### Error States
+
+- Floating modal overlay with error detail (not inline text that might be missed)
+- Hints: `r retry` + `esc back` (+ `u force-unlock` if applicable)
+- Error message is the raw terraform output — don't sanitize or summarize
+
+### Other Transitions
+
 - **Context required**: modal overlay prompting selection
 - **Destructive ops**: confirmation modal with summary of what will change
 - **Stale data**: prompt before destructive operations on data older than threshold
@@ -173,9 +237,15 @@ This means a picker with async items shows a loading state — that is honest UX
 | Flavor | Items source | On select | User sees |
 |--------|-------------|-----------|-----------|
 | **Sync** | Already in memory (config, static list) | Push picker frame immediately | Instant list |
-| **Async** | Requires I/O (terraform CLI call) | Kick fetch → show loading → push picker on response | Loading → list |
+| **Async** | Requires I/O (terraform CLI call) | Kick fetch → loading text → push picker on response | `"Loading..."` → list |
 
 Both share the same picker frame once items are available. The difference is only in _when_ the fetch happens — always as a direct result of the user's action, never speculatively.
+
+For async pickers, the loading state follows §5 exactly:
+- Form field value changes to faint italic loading text (e.g., `"Loading workspaces..."`)
+- Hint bar reduces to `esc back` only
+- Picker frame pushes when data arrives
+- On error: field shows error, `r` retries
 
 ### Behavior Contract
 

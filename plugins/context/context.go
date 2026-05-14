@@ -14,14 +14,15 @@ import (
 
 // Plugin implements the context dashboard — shows Project, Chdir, Workspace.
 type Plugin struct {
-	svc        sdk.Service
-	cfg        config.Config
-	log        *slog.Logger
-	stack      *sdk.Stack
-	chdir      string
-	workspace  string
-	members    []string
-	projectDir string
+	svc              sdk.Service
+	cfg              config.Config
+	log              *slog.Logger
+	stack            *sdk.Stack
+	chdir            string
+	workspace        string
+	members          []string
+	projectDir       string
+	workspaceLoading bool
 }
 
 // New creates a new context plugin.
@@ -124,6 +125,9 @@ func (p *Plugin) chdirValue() string {
 }
 
 func (p *Plugin) workspaceValue() string {
+	if p.workspaceLoading {
+		return sdk.StyleFaintItalic.Render("Loading workspaces...")
+	}
 	if p.workspace != "" {
 		return p.workspace
 	}
@@ -158,6 +162,7 @@ func (p *Plugin) openWorkspacePicker() tea.Cmd {
 	if svc == nil {
 		return nil
 	}
+	p.workspaceLoading = true
 	return func() tea.Msg {
 		workspaces, err := svc.WorkspaceList(context.Background())
 		return workspaceListMsg{workspaces: workspaces, err: err}
@@ -168,6 +173,7 @@ func (p *Plugin) openWorkspacePicker() tea.Cmd {
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceListMsg:
+		p.workspaceLoading = false
 		if msg.err != nil {
 			return p, nil
 		}

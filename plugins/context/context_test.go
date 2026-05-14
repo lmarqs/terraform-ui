@@ -216,6 +216,26 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
+func TestWorkspaceField_ShowsLoadingDuringFetch(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.Activate()
+
+	// Trigger workspace fetch
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	// Field should show loading text
+	output := p.View(80, 20)
+	if !strings.Contains(output, "Loading workspaces...") {
+		t.Error("should show loading text during fetch")
+	}
+
+	// After response, loading clears and picker opens
+	p.Update(workspaceListMsg{workspaces: []string{"default"}})
+	if p.workspaceLoading {
+		t.Error("loading flag should be cleared after response")
+	}
+}
+
 func TestChdirNotSelectable_WhenNoMembers(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
 	p.Activate()
