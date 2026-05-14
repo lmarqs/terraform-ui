@@ -528,3 +528,66 @@ func TestRender_WrapWithZeroWidth(t *testing.T) {
 		t.Fatalf("expected hello\\nworld, got %q", result)
 	}
 }
+
+func TestHandleKey_CtrlW_ShouldToggleWrap(t *testing.T) {
+	vp := NewViewport(80, 10)
+	vp.SetContent([]string{"hello"})
+	vp.ScrollY = 5
+	vp.ScrollX = 3
+
+	consumed := vp.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+	if !consumed {
+		t.Fatal("expected ctrl+w key to be consumed")
+	}
+	if !vp.WrapEnabled {
+		t.Fatal("expected WrapEnabled true after ctrl+w")
+	}
+	if vp.ScrollY != 0 {
+		t.Fatalf("expected ScrollY reset to 0, got %d", vp.ScrollY)
+	}
+	if vp.ScrollX != 0 {
+		t.Fatalf("expected ScrollX reset to 0, got %d", vp.ScrollX)
+	}
+}
+
+func TestScrollInfo_WhenMaxScrollIsZero_ShouldReturnEmpty(t *testing.T) {
+	vp := NewViewport(80, 10)
+	vp.SetContent([]string{"line1", "line2", "line3", "line4", "line5",
+		"line6", "line7", "line8", "line9", "line10"})
+
+	// total (10) - height (10) = 0
+	info := vp.ScrollInfo()
+	if info != "" {
+		t.Fatalf("expected empty scroll info when maxScroll=0, got %q", info)
+	}
+}
+
+func TestHandleKey_DownWhenContentFitsViewport_ShouldNotScroll(t *testing.T) {
+	vp := NewViewport(80, 10)
+	vp.SetContent([]string{"line1", "line2"})
+
+	vp.HandleKey(specialKeyMsg(tea.KeyDown))
+	if vp.ScrollY != 0 {
+		t.Fatalf("expected ScrollY 0 when content fits, got %d", vp.ScrollY)
+	}
+}
+
+func TestHandleKey_GoBottom_WhenContentFits_ShouldStayAtZero(t *testing.T) {
+	vp := NewViewport(80, 10)
+	vp.SetContent([]string{"line1", "line2"})
+
+	vp.HandleKey(keyMsg("G"))
+	if vp.ScrollY != 0 {
+		t.Fatalf("expected ScrollY 0 when content fits viewport, got %d", vp.ScrollY)
+	}
+}
+
+func TestHandleKey_RightWhenContentNarrowerThanViewport_ShouldNotScroll(t *testing.T) {
+	vp := NewViewport(80, 5)
+	vp.SetContent([]string{"short"})
+
+	vp.HandleKey(specialKeyMsg(tea.KeyRight))
+	if vp.ScrollX != 0 {
+		t.Fatalf("expected ScrollX 0 when content narrower than viewport, got %d", vp.ScrollX)
+	}
+}

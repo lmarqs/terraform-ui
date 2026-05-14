@@ -65,3 +65,45 @@ func TestBuildPlanOptions_WhenEmptyResolved_ShouldReturnEmpty(t *testing.T) {
 		t.Errorf("ExtraArgs = %v, want empty", opts.ExtraArgs)
 	}
 }
+
+func TestBuildApplyOptions_WhenNilResolved_ShouldReturnTargetsOnly(t *testing.T) {
+	opts := BuildApplyOptions(nil, []string{"aws_instance.web"})
+	if len(opts.Targets) != 1 || opts.Targets[0] != "aws_instance.web" {
+		t.Errorf("Targets = %v, want [aws_instance.web]", opts.Targets)
+	}
+	if len(opts.VarFiles) != 0 {
+		t.Errorf("VarFiles = %v, want empty", opts.VarFiles)
+	}
+}
+
+func TestBuildApplyOptions_WhenEmptyResolved_ShouldReturnEmpty(t *testing.T) {
+	resolved := &ResolvedOptions{}
+	opts := BuildApplyOptions(resolved, nil)
+
+	if len(opts.VarFiles) != 0 {
+		t.Errorf("VarFiles = %v, want empty", opts.VarFiles)
+	}
+	if len(opts.Vars) != 0 {
+		t.Errorf("Vars = %v, want empty", opts.Vars)
+	}
+	if len(opts.ExtraArgs) != 0 {
+		t.Errorf("ExtraArgs = %v, want empty", opts.ExtraArgs)
+	}
+}
+
+func TestBuildApplyOptions_WhenResolvedHasExtraArgs_ShouldInclude(t *testing.T) {
+	resolved := &ResolvedOptions{
+		VarFiles:  []string{"prod.tfvars"},
+		Vars:      map[string]string{"env": "prod"},
+		ExtraArgs: []string{"-no-color", "-compact-warnings"},
+	}
+
+	opts := BuildApplyOptions(resolved, []string{"aws_instance.web"})
+
+	if len(opts.ExtraArgs) != 2 {
+		t.Fatalf("ExtraArgs length = %d, want 2", len(opts.ExtraArgs))
+	}
+	if opts.ExtraArgs[0] != "-no-color" {
+		t.Errorf("ExtraArgs[0] = %q, want %q", opts.ExtraArgs[0], "-no-color")
+	}
+}

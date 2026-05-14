@@ -267,6 +267,56 @@ func TestHintSet_WhenPinnedWithDynamicOpts_ShouldAppendAfterAll(t *testing.T) {
 	}
 }
 
+func TestHintSet_WhenPinnedFilterDynamic_ShouldReflectState(t *testing.T) {
+	tests := []struct {
+		name     string
+		opts     HintSetOpts
+		wantDesc string
+	}{
+		{"ShouldShowPinnedOnWhenTrue", HintSetOpts{PinnedFilter: true}, "pinned(on)"},
+		{"ShouldShowPinnedOffWhenFalse", HintSetOpts{PinnedFilter: false}, "pinned(off)"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hints := HintSetPinnedFilter.Hints(tt.opts)
+			if len(hints) != 1 {
+				t.Fatalf("expected 1 hint, got %d", len(hints))
+			}
+			if hints[0].Key != "^p" {
+				t.Errorf("Key = %q, want %q", hints[0].Key, "^p")
+			}
+			if hints[0].Description != tt.wantDesc {
+				t.Errorf("Description = %q, want %q", hints[0].Description, tt.wantDesc)
+			}
+		})
+	}
+}
+
+func TestResolveDynamic_WhenUnknownBit_ShouldReturnEmptyHint(t *testing.T) {
+	hint := resolveDynamic(HintSet(0), HintSetOpts{})
+	if hint.Key != "" {
+		t.Errorf("expected empty key, got %q", hint.Key)
+	}
+	if hint.Description != "" {
+		t.Errorf("expected empty description, got %q", hint.Description)
+	}
+}
+
+func TestHintSet_WhenTaintAndUntaint_ShouldShowCorrectHints(t *testing.T) {
+	set := HintSetTaint | HintSetUntaint
+	hints := set.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("expected 2 hints, got %d", len(hints))
+	}
+	if hints[0].Key != "t" || hints[0].Description != "taint" {
+		t.Errorf("hints[0] = {%q, %q}, want {t, taint}", hints[0].Key, hints[0].Description)
+	}
+	if hints[1].Key != "T" || hints[1].Description != "untaint" {
+		t.Errorf("hints[1] = {%q, %q}, want {T, untaint}", hints[1].Key, hints[1].Description)
+	}
+}
+
 func hintsDescs(hints []KeyHint) []string {
 	descs := make([]string, len(hints))
 	for i, h := range hints {

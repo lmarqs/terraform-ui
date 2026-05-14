@@ -348,3 +348,75 @@ func TestDispatch_WhenMixedHandlersAndNonHandlers_ShouldOnlyCallMatchingHandlers
 		t.Error("workspacePlugin was called for ChdirChangedEvent, want not called")
 	}
 }
+
+type cmdReturningWorkspacePlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningWorkspacePlugin) HandleWorkspaceChanged(_ WorkspaceChangedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
+type cmdReturningPlanCompletedPlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningPlanCompletedPlugin) HandlePlanCompleted(_ PlanCompletedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
+type cmdReturningPinsPlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningPinsPlugin) HandlePinsChanged(_ PinsChangedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
+type cmdReturningPlanInvalidatedPlugin struct {
+	baseMockPlugin
+}
+
+func (p *cmdReturningPlanInvalidatedPlugin) HandlePlanInvalidated(_ PlanInvalidatedEvent) tea.Cmd {
+	return func() tea.Msg { return testResultMsg{} }
+}
+
+func TestDispatch_WhenWorkspaceHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningWorkspacePlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(WorkspaceChangedEvent{Name: "prod"})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
+
+func TestDispatch_WhenPlanCompletedHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningPlanCompletedPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(PlanCompletedEvent{ResourceCount: 1})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
+
+func TestDispatch_WhenPinsHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningPinsPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(PinsChangedEvent{Addresses: []string{"a"}})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
+
+func TestDispatch_WhenPlanInvalidatedHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) {
+	p := &cmdReturningPlanInvalidatedPlugin{}
+	bus := NewEventBus([]Plugin{p})
+
+	cmd := bus.Dispatch(PlanInvalidatedEvent{})
+	if cmd == nil {
+		t.Fatal("Dispatch returned nil cmd, want non-nil")
+	}
+}
