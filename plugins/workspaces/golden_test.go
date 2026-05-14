@@ -47,13 +47,10 @@ func TestView_Given_WorkspaceList_WithSelection_ShouldRender_HighlightedRow(t *t
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
-func TestView_Given_CreatingWorkspace_ShouldRender_InputPrompt(t *testing.T) {
+func TestView_Given_SwitchingWorkspace_ShouldRender_ContextualLoadingMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = sdk.StatusDone
-	p.workspaces = []string{"default", "staging"}
-	p.current = "default"
-	p.creating = true
-	p.newName = "feature-x"
+	p.status = sdk.StatusLoading
+	p.loadingMsg = "Switching to staging..."
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }

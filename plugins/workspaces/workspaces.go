@@ -23,6 +23,13 @@ type WorkspaceDeleteMsg struct {
 
 // WorkspaceSwitchMsg is sent when workspace switch completes.
 type WorkspaceSwitchMsg struct {
+	Name    string
+	Err     error
+	PopBack bool
+}
+
+// WorkspaceCreateMsg is sent when workspace creation completes.
+type WorkspaceCreateMsg struct {
 	Name string
 	Err  error
 }
@@ -36,8 +43,7 @@ type Plugin struct {
 	current       string
 	selected      int
 	errMsg        string
-	newName       string
-	creating      bool
+	loadingMsg    string
 	scopedContext string
 }
 
@@ -61,7 +67,6 @@ func (e *Plugin) Current() string     { return e.current }
 func (e *Plugin) Workspaces() []string {
 	return e.workspaces
 }
-func (e *Plugin) IsCreating() bool  { return e.creating }
 func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
 // Configure applies plugin-specific options from config.
@@ -90,9 +95,8 @@ func (e *Plugin) reset() {
 	e.workspaces = nil
 	e.current = ""
 	e.errMsg = ""
+	e.loadingMsg = ""
 	e.selected = 0
-	e.creating = false
-	e.newName = ""
 }
 
 // Activate triggers workspace loading when the user enters the plugin.
@@ -108,8 +112,7 @@ func (e *Plugin) Activate() tea.Cmd {
 func (e *Plugin) Refresh() tea.Cmd {
 	e.status = sdk.StatusLoading
 	e.errMsg = ""
-	e.creating = false
-	e.newName = ""
+	e.loadingMsg = "Loading workspaces..."
 	return e.loadWorkspaces()
 }
 
@@ -155,11 +158,27 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 			return e, nil
 		}
-		e.status = sdk.StatusIdle
 		e.current = msg.Name
-		return e, func() tea.Msg {
-			return sdk.WorkspaceChangedEvent{Name: msg.Name}
+		if msg.PopBack {
+			e.status = sdk.StatusIdle
+			return e, func() tea.Msg {
+				return sdk.WorkspaceChangedEvent{Name: msg.Name}
+			}
 		}
+		return e, tea.Batch(e.Refresh(), func() tea.Msg {
+			return sdk.WorkspaceCreatedEvent{Name: msg.Name}
+		})
+
+	case WorkspaceCreateMsg:
+		if msg.Err != nil {
+			e.status = sdk.StatusError
+			e.errMsg = msg.Err.Error()
+			return e, nil
+		}
+		e.current = msg.Name
+		return e, tea.Batch(e.Refresh(), func() tea.Msg {
+			return sdk.WorkspaceCreatedEvent{Name: msg.Name}
+		})
 
 	case WorkspaceDeleteMsg:
 		if msg.Err != nil {
@@ -195,20 +214,36 @@ func (e *Plugin) SelectedWorkspace() string {
 	return ""
 }
 
-// SwitchToSelected switches to the selected workspace.
+// SwitchToSelected switches to the selected workspace and pops back, or deactivates if already current.
 func (e *Plugin) SwitchToSelected() tea.Cmd {
+	ws := e.SelectedWorkspace()
+	if ws == "" {
+		return nil
+	}
+	if ws == e.current {
+		return func() tea.Msg { return sdk.DeactivateMsg{} }
+	}
+	e.status = sdk.StatusLoading
+	e.loadingMsg = fmt.Sprintf("Switching to %s...", ws)
+	return e.selectWorkspace(ws, true)
+}
+
+// SelectCurrent selects the workspace under cursor and stays in the list.
+func (e *Plugin) SelectCurrent() tea.Cmd {
 	ws := e.SelectedWorkspace()
 	if ws == "" || ws == e.current {
 		return nil
 	}
-	return e.switchWorkspace(ws)
+	e.status = sdk.StatusLoading
+	e.loadingMsg = fmt.Sprintf("Selecting %s...", ws)
+	return e.selectWorkspace(ws, false)
 }
 
-func (e *Plugin) switchWorkspace(name string) tea.Cmd {
+func (e *Plugin) selectWorkspace(name string, popBack bool) tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
 		err := svc.WorkspaceSelect(context.Background(), name)
-		return WorkspaceSwitchMsg{Name: name, Err: err}
+		return WorkspaceSwitchMsg{Name: name, Err: err, PopBack: popBack}
 	}
 }
 
@@ -216,28 +251,37 @@ func (e *Plugin) createWorkspace(name string) tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
 		err := svc.WorkspaceNew(context.Background(), name)
-		return WorkspaceSwitchMsg{Name: name, Err: err}
+		return WorkspaceCreateMsg{Name: name, Err: err}
 	}
 }
 
-// DeleteSelected deletes the selected workspace (cannot delete current or default).
-func (e *Plugin) DeleteSelected() tea.Cmd {
-	ws := e.SelectedWorkspace()
-	if ws == "" || ws == e.current || ws == "default" {
-		return nil
-	}
+// deleteWorkspace starts deletion of the named workspace with loading feedback.
+func (e *Plugin) deleteWorkspace(name string) tea.Cmd {
+	e.status = sdk.StatusLoading
+	e.loadingMsg = fmt.Sprintf("Deleting %s...", name)
 	svc := e.svc
 	return func() tea.Msg {
-		err := svc.WorkspaceDelete(context.Background(), ws)
+		err := svc.WorkspaceDelete(context.Background(), name)
 		return WorkspaceDeleteMsg{Err: err}
 	}
+}
+
+// startCreate starts creation of a new workspace with loading feedback.
+func (e *Plugin) startCreate(name string) tea.Cmd {
+	e.status = sdk.StatusLoading
+	e.loadingMsg = fmt.Sprintf("Creating %s...", name)
+	return e.createWorkspace(name)
 }
 
 // View renders the workspaces plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case sdk.StatusIdle, sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render("Loading workspaces...")
+		msg := e.loadingMsg
+		if msg == "" {
+			msg = "Loading workspaces..."
+		}
+		return sdk.StyleFaintItalic.Render(msg)
 
 	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + e.errMsg)
@@ -252,13 +296,6 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderWorkspaces(width, height int) string {
 	var b strings.Builder
-
-	// Creating new workspace input
-	if e.creating {
-		prompt := sdk.StyleKey.Render("New workspace: ") + e.newName + "_"
-		b.WriteString(prompt)
-		b.WriteString("\n\n")
-	}
 
 	// Calculate visible area
 	maxVisible := height - 5
@@ -289,6 +326,21 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
 
 	return b.String() + "\n" + count + "  " + currentInfo
+}
+
+func isValidWorkspaceName(name string) bool {
+	if len(name) == 0 {
+		return false
+	}
+	for _, c := range name {
+		isAlpha := (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
+		isDigit := c >= '0' && c <= '9'
+		isPunct := c == '.' || c == '_' || c == '-'
+		if !isAlpha && !isDigit && !isPunct {
+			return false
+		}
+	}
+	return true
 }
 
 func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {
