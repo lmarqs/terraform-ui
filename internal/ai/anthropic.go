@@ -20,8 +20,15 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/bedrock"
 	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/anthropics/anthropic-sdk-go/packages/ssestream"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
+
+// messageAPI abstracts the Anthropic message service for testability.
+type messageAPI interface {
+	New(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) (*anthropic.Message, error)
+	NewStreaming(ctx context.Context, params anthropic.MessageNewParams, opts ...option.RequestOption) *ssestream.Stream[anthropic.MessageStreamEventUnion]
+}
 
 // Provider represents the detected AI backend.
 type Provider string
@@ -35,7 +42,7 @@ const (
 // AnthropicProvider implements sdk.AIProvider using Claude.
 // Supports both direct Anthropic API and AWS Bedrock.
 type AnthropicProvider struct {
-	client   *anthropic.Client
+	messages messageAPI
 	model    string
 	provider Provider
 }
@@ -89,7 +96,7 @@ func newBedrockProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
 	}
 
 	return &AnthropicProvider{
-		client:   &client,
+		messages: &client.Messages,
 		model:    model,
 		provider: ProviderBedrock,
 	}, nil
@@ -109,7 +116,7 @@ func newDirectProvider(cfg sdk.AIConfig) (*AnthropicProvider, error) {
 	}
 
 	return &AnthropicProvider{
-		client:   &client,
+		messages: &client.Messages,
 		model:    model,
 		provider: ProviderAnthropic,
 	}, nil
@@ -241,7 +248,7 @@ func (p *AnthropicProvider) StreamAssessRisk(ctx context.Context, changes []sdk.
 }
 
 func (p *AnthropicProvider) complete(ctx context.Context, userPrompt string) (string, error) {
-	msg, err := p.client.Messages.New(ctx, anthropic.MessageNewParams{
+	msg, err := p.messages.New(ctx, anthropic.MessageNewParams{
 		Model:     p.model,
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
@@ -265,7 +272,7 @@ func (p *AnthropicProvider) complete(ctx context.Context, userPrompt string) (st
 }
 
 func (p *AnthropicProvider) stream(ctx context.Context, userPrompt string, onChunk func(string)) error {
-	stream := p.client.Messages.NewStreaming(ctx, anthropic.MessageNewParams{
+	s := p.messages.NewStreaming(ctx, anthropic.MessageNewParams{
 		Model:     p.model,
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
@@ -276,14 +283,14 @@ func (p *AnthropicProvider) stream(ctx context.Context, userPrompt string, onChu
 		},
 	})
 
-	for stream.Next() {
-		event := stream.Current()
+	for s.Next() {
+		event := s.Current()
 		if event.Type == "content_block_delta" && event.Delta.Text != "" {
 			onChunk(event.Delta.Text)
 		}
 	}
 
-	return stream.Err()
+	return s.Err()
 }
 
 func formatChangePrompt(change sdk.PlanChange) string {
