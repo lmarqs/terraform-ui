@@ -20,7 +20,7 @@ var logo = [3]string{
 type Header struct {
 	dir         string
 	workspace   string
-	scope       string
+	chdir       string
 	pinnedCount int
 }
 
@@ -32,9 +32,9 @@ func NewHeader(dir, workspace string) Header {
 	}
 }
 
-// WithScope returns a copy with the active scope set.
-func (h Header) WithScope(scope string) Header {
-	h.scope = scope
+// WithChdir returns a copy with the active chdir set.
+func (h Header) WithChdir(chdir string) Header {
+	h.chdir = chdir
 	return h
 }
 
@@ -56,9 +56,9 @@ var logoStyle = lipgloss.NewStyle().
 
 // Render produces the 3-line header at the given width.
 func (h Header) Render(width int) string {
-	scopeVal := h.scope
-	if scopeVal == "" {
-		scopeVal = "-"
+	chdirVal := h.chdir
+	if chdirVal == "" {
+		chdirVal = "-"
 	}
 
 	projectParts := []string{filepath.Base(h.dir)}
@@ -66,7 +66,7 @@ func (h Header) Render(width int) string {
 		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}
 	line1Left := headerLabelStyle.Render(" Project:") + " " + headerValueStyle.Render(strings.Join(projectParts, " │ "))
-	line2Left := headerLabelStyle.Render(" Scope:") + " " + headerValueStyle.Render(scopeVal)
+	line2Left := headerLabelStyle.Render(" Chdir:") + " " + headerValueStyle.Render(chdirVal)
 	line3Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(h.workspace)
 
 	logoWidth := lipgloss.Width(logo[0])

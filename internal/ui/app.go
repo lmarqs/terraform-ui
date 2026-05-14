@@ -40,7 +40,7 @@ type App struct {
 
 	activePlugin  sdk.Plugin // nil = home screen
 	activeOverlay sdk.Overlay
-	activeScope   string // tracks last known active scope for header updates
+	activeChdir   string // tracks last known active chdir for header updates
 	commandMode   bool
 	commandInput  string
 
@@ -56,7 +56,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
 	header := components.NewHeader(workDir, "default")
 	if cfg.BaseDir != "" {
-		header = header.WithScope(cfg.BaseDir)
+		header = header.WithChdir(cfg.BaseDir)
 	}
 
 	pins := sdk.NewPinService()
@@ -154,8 +154,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case sdk.ChdirChangedEvent:
-		a.activeScope = msg.RelPath
-		a.header = a.header.WithScope(msg.RelPath)
+		a.activeChdir = msg.RelPath
+		a.header = a.header.WithChdir(msg.RelPath)
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.PlanCompletedEvent:

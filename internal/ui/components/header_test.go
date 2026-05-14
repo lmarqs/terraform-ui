@@ -14,14 +14,14 @@ func TestHeader_Render_IsThreeLines(t *testing.T) {
 	}
 }
 
-func TestHeader_Render_ContainsScope(t *testing.T) {
-	h := NewHeader(".", "default").WithScope("modules/sa-east-1")
+func TestHeader_Render_ContainsChdir(t *testing.T) {
+	h := NewHeader(".", "default").WithChdir("modules/sa-east-1")
 	output := h.Render(80)
 	if !strings.Contains(output, "modules/sa-east-1") {
-		t.Error("should contain scope value")
+		t.Error("should contain chdir value")
 	}
-	if !strings.Contains(output, "Scope:") {
-		t.Error("should contain Scope: label")
+	if !strings.Contains(output, "Chdir:") {
+		t.Error("should contain Chdir: label")
 	}
 }
 
@@ -77,18 +77,18 @@ func TestHeader_Render_ZeroPinnedHidden(t *testing.T) {
 	}
 }
 
-func TestHeader_Render_NoScopeShowsDash(t *testing.T) {
+func TestHeader_Render_NoChdirShowsDash(t *testing.T) {
 	h := NewHeader(".", "default")
 	output := h.Render(80)
 	lines := strings.Split(output, "\n")
 	if !strings.Contains(lines[1], "-") {
-		t.Error("should show dash when no scope")
+		t.Error("should show dash when no chdir")
 	}
 }
 
 func TestHeader_Render_VariousWidths(t *testing.T) {
 	h := NewHeader("/some/path", "production").
-		WithScope("prod-us-east").
+		WithChdir("prod-us-east").
 		WithPinnedCount(3)
 
 	widths := []int{40, 80, 120, 200}
@@ -106,11 +106,11 @@ func TestHeader_Render_VariousWidths(t *testing.T) {
 
 func TestHeader_Chainable(t *testing.T) {
 	h := NewHeader(".", "default").
-		WithScope("ctx").
+		WithChdir("ctx").
 		WithPinnedCount(5)
 
-	if h.scope != "ctx" {
-		t.Error("WithScope should chain")
+	if h.chdir != "ctx" {
+		t.Error("WithChdir should chain")
 	}
 	if h.pinnedCount != 5 {
 		t.Error("WithPinnedCount should chain")
