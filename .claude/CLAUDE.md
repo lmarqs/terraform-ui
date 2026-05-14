@@ -37,7 +37,7 @@ tests/        — Integration tests + fixtures
 | **Workspace** | Terraform workspace within a chdir |
 | **Context** | Umbrella concept: Project + Chdir + Workspace combined |
 
-IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ChdirChangedEvent`. Note: `ProjectContext` struct still has legacy field names (`Scopes`, `ActiveScope`, `ActiveScopeAbs`) pending rename.
+IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ChdirChangedEvent`.
 
 ## Conventions
 
@@ -69,17 +69,6 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 - Mock services implement `sdk.Service` with no-op methods
 - Integration tests in `tests/integration/`
 
-### Plugin Patterns
-
-```go
-type Plugin struct { svc sdk.Service; log *slog.Logger; pins *sdk.PinService; options *sdk.ResolvedOptions }
-func New(svc sdk.Service) sdk.Plugin { ... }
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.pins = ctx.Pins; p.options = ctx.Options; ... }
-func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd { p.svc = p.svc.WithDir(evt.AbsPath); ... }
-```
-
-Plugins subscribe to events via handler interfaces. Registered with external metadata — never declare own keybinding.
-
 ### Roadmap
 - Items in `docs/_roadmap/` as individual markdown files
 - Delete immediately once completed — don't mark "done"
@@ -110,6 +99,8 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - Full I/O contract: `docs/cli-io-contract.md`
 - Macro DSL reference: `docs/macro-language.md`
 - Configuration reference: `docs/configuration.md`
+- Testing strategy: `docs/testing.md`
+- Plugin catalog: `docs/plugins/index.md`
 
 ## Key Dependencies
 
@@ -132,6 +123,7 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 | `cli-checker` | Changes to `cmd/tfui/`, CLI subcommands, flag handling |
 | `macro-runner` | After modifying `View()`, layout, navigation |
 | `architect` | New plugins or cross-cutting features |
+| `arch-checker` | Verify architectural boundaries (plugin imports, SDK isolation) |
 | `security-checker` | PRs touching terraform service, state, AI |
 | `exploratory-tester` | After bug fixes, before releases |
 
@@ -149,4 +141,7 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 
 ## Learnings
 
-<!-- Add dated entries here when conventions are established or mistakes reveal gaps -->
+- 2025-04: Renamed "scope" → "chdir" everywhere; legacy ProjectContext fields (Scopes, ActiveScope, ActiveScopeAbs) pending rename
+- 2025-05: CompositeService eliminated — ServiceCache pre-seeded at startup replaces multi-implementation composition
+- 2025-05: "init" plugin renamed → "scaffold" to free `init` for terraform passthrough
+- 2025-05: Config syntax changed from `chdir { members = [...] }` to top-level `member "path" {}` blocks
