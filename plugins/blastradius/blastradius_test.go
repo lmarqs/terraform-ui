@@ -706,6 +706,55 @@ func TestImpactScoreString(t *testing.T) {
 	}
 }
 
+func TestHints_WhenDoneWithModules_ShouldIncludeInspectAndBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.modules = []ModuleImpact{
+		{Group: sdk.ModuleGroup{Module: "root"}, Score: ImpactMinimal},
+	}
+
+	hints := p.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("Hints() returned %d hints, want 2", len(hints))
+	}
+	if hints[0].Key != "Enter" || hints[0].Description != "inspect" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {Enter, inspect}", hints[0].Key, hints[0].Description)
+	}
+	if hints[1].Key != "q" || hints[1].Description != "back" {
+		t.Errorf("Hints()[1] = {%q, %q}, want {q, back}", hints[1].Key, hints[1].Description)
+	}
+}
+
+func TestHints_WhenNotReady_ShouldReturnOnlyBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) != 1 {
+		t.Fatalf("Hints() returned %d hints, want 1", len(hints))
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {q, back}", hints[0].Key, hints[0].Description)
+	}
+}
+
+func TestHints_WhenDoneWithNoModules_ShouldReturnOnlyBack(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.modules = []ModuleImpact{}
+
+	hints := p.Hints()
+	if len(hints) != 1 {
+		t.Fatalf("Hints() returned %d hints, want 1", len(hints))
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {q, back}", hints[0].Key, hints[0].Description)
+	}
+}
+
 func TestRenderImpactBadge(t *testing.T) {
 	scores := []ImpactScore{ImpactMinimal, ImpactModerate, ImpactHigh, ImpactCritical, ImpactScore(99)}
 	for _, score := range scores {

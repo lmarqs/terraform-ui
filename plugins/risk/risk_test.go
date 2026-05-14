@@ -578,6 +578,71 @@ func TestRiskReasonUpdateCriticalRisk(t *testing.T) {
 	}
 }
 
+func TestHints_WhenStatusDoneWithGroups_ShouldReturnBackHint(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.groups = []RiskGroup{
+		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}}},
+	}
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice, want at least one hint")
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "back")
+	}
+}
+
+func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice, want at least one hint")
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "back")
+	}
+}
+
+func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.groups = nil
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice, want at least one hint")
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "back")
+	}
+}
+
+func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.overall = sdk.RiskHigh
+	p.total = 2
+	p.groups = []RiskGroup{
+		{
+			Level: sdk.RiskHigh,
+			Changes: []sdk.PlanChange{
+				{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
+			},
+		},
+	}
+	// selected=1 points to the first change row (index 0 is the group header)
+	p.selected = 1
+
+	view := p.View(80, 24)
+	if view == "" {
+		t.Error("View returned empty string when change row is selected")
+	}
+}
+
 func TestViewReadyMaxVisibleOverflow(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)

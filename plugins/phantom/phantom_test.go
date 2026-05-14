@@ -506,6 +506,52 @@ func TestExplainPhantom(t *testing.T) {
 	}
 }
 
+func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectAndBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.phantoms = []PhantomChange{
+		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}},
+	}
+
+	hints := p.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("Hints() len = %d, want 2", len(hints))
+	}
+	if hints[0].Key != "Enter" || hints[0].Description != "inspect" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {Enter, inspect}", hints[0].Key, hints[0].Description)
+	}
+	if hints[1].Key != "q" || hints[1].Description != "back" {
+		t.Errorf("Hints()[1] = {%q, %q}, want {q, back}", hints[1].Key, hints[1].Description)
+	}
+}
+
+func TestHints_WhenStatusDoneNoPhantoms_ShouldReturnOnlyBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.phantoms = []PhantomChange{}
+
+	hints := p.Hints()
+	if len(hints) != 1 {
+		t.Fatalf("Hints() len = %d, want 1", len(hints))
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {q, back}", hints[0].Key, hints[0].Description)
+	}
+}
+
+func TestHints_WhenStatusIdle_ShouldReturnOnlyBack(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) != 1 {
+		t.Fatalf("Hints() len = %d, want 1", len(hints))
+	}
+	if hints[0].Key != "q" || hints[0].Description != "back" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {q, back}", hints[0].Key, hints[0].Description)
+	}
+}
+
 func TestTruncate(t *testing.T) {
 	tests := []struct {
 		input string
