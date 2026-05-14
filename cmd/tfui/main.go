@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"runtime/debug"
+	"sort"
 	"sync"
 	"time"
 
@@ -32,6 +34,7 @@ import (
 	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
+	tfuiversion "github.com/lmarqs/terraform-ui/plugins/version"
 	tfuiworkspaces "github.com/lmarqs/terraform-ui/plugins/workspaces"
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
@@ -141,13 +144,15 @@ func main() {
 	scaffoldCmd.Flags().BoolVar(&scaffoldForce, "force", false, "Overwrite existing tfui.hcl")
 	scaffoldCmd.Flags().BoolVar(&scaffoldYes, "yes", false, "Skip prompts, use detected defaults")
 
+	var versionJSON bool
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version",
-		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("tfui %s\n", version)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runVersion(cfg, versionJSON)
 		},
 	}
+	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
 
 	rootCmd.AddCommand(planCmd, applyCmd, scaffoldCmd, versionCmd)
 
@@ -214,6 +219,7 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.RegisterFactory("risk", tfuirisk.New, plugin.PluginMeta{Keybinding: "R", MenuVisible: true})
 	registry.RegisterFactory("phantom", tfuiphantom.New, plugin.PluginMeta{Keybinding: "P", MenuVisible: true})
 	registry.RegisterFactory("blastradius", tfuiblastradius.New, plugin.PluginMeta{Keybinding: "B", MenuVisible: true})
+	registry.RegisterFactory("version", tfuiversion.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 
 	registry.Build(svc, cfg.Plugins)
 
@@ -239,6 +245,9 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 				cp.SetMembers(memberPaths, cfg.Dir)
 			}
 		}
+	}
+	if versionPlugin, ok := registry.ByID("version"); ok {
+		_ = versionPlugin.Configure(map[string]interface{}{"tfui_version": version})
 	}
 
 	return registry
@@ -695,5 +704,63 @@ func runApply(cfg config.Config, ci bool, jsonOutput bool) error {
 		return enc.Encode(result)
 	}
 	fmt.Println("Apply complete.")
+	return nil
+}
+
+type versionOutput struct {
+	TfuiVersion        string            `json:"tfui_version"`
+	Platform           string            `json:"platform"`
+	TerraformVersion   string            `json:"terraform_version,omitempty"`
+	TerraformPlatform  string            `json:"terraform_platform,omitempty"`
+	ProviderSelections map[string]string `json:"provider_selections,omitempty"`
+}
+
+func runVersion(cfg config.Config, jsonOutput bool) error {
+	platform := runtime.GOOS + "_" + runtime.GOARCH
+
+	svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+	info, _ := svc.Version(context.Background())
+
+	var tfVersion string
+	var providers map[string]string
+	if info != nil {
+		tfVersion = info.TerraformVersion
+		providers = info.Providers
+	}
+
+	if jsonOutput {
+		out := versionOutput{
+			TfuiVersion:        version,
+			Platform:           platform,
+			TerraformVersion:   tfVersion,
+			TerraformPlatform:  platform,
+			ProviderSelections: providers,
+		}
+		if tfVersion == "" {
+			out.TerraformPlatform = ""
+		}
+		enc := json.NewEncoder(os.Stdout)
+		enc.SetIndent("", "  ")
+		return enc.Encode(out)
+	}
+
+	fmt.Printf("tfui v%s\n", version)
+	fmt.Printf("on %s\n", platform)
+
+	if tfVersion != "" {
+		fmt.Printf("\nterraform v%s\n", tfVersion)
+		fmt.Printf("on %s\n", platform)
+		if len(providers) > 0 {
+			keys := make([]string, 0, len(providers))
+			for k := range providers {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				fmt.Printf("+ provider %s v%s\n", k, providers[k])
+			}
+		}
+	}
+
 	return nil
 }

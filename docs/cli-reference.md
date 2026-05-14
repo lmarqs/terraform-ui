@@ -72,18 +72,18 @@ tfui state taint <address>          # mark for recreation
 tfui state untaint <address>        # remove taint mark
 ```
 
-### `tfui workspace`
+### `tfui workspaces`
 
 Workspace management operations.
 
 ```bash
-tfui workspace show                    # print current workspace name
-tfui workspace list                    # list all workspaces
-tfui workspace select <name>           # switch to workspace
-tfui workspace new <name>              # create and switch to workspace
-tfui workspace new <name> -lock=false  # create without locking state
-tfui workspace delete <name>           # delete workspace
-tfui workspace delete <name> -force    # delete non-empty workspace
+tfui workspaces show                    # print current workspace name
+tfui workspaces list                    # list all workspaces
+tfui workspaces select <name>           # switch to workspace
+tfui workspaces new <name>              # create and switch to workspace
+tfui workspaces new <name> -lock=false  # create without locking state
+tfui workspaces delete <name>           # delete workspace
+tfui workspaces delete <name> -force    # delete non-empty workspace
 ```
 
 | Flag | Applies to | Description |
@@ -123,10 +123,30 @@ tfui scaffold --force      # overwrite existing
 
 ### `tfui version`
 
-Print the version.
+Print tfui version, platform, and the resolved terraform binary version with provider selections.
 
 ```bash
 tfui version
+tfui version -json
+```
+
+| Flag | Description |
+|------|-------------|
+| `-json` | Output structured JSON |
+
+| stdout | stderr | Exit |
+|--------|--------|------|
+| Version info (text or JSON) | — | 0/1 |
+
+Example output:
+
+```
+tfui v0.1.0
+on linux_amd64
+
+terraform v1.14.9
+on linux_amd64
++ provider registry.terraform.io/hashicorp/aws v5.0.0
 ```
 
 ## Global Flags
