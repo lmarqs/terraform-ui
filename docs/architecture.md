@@ -104,15 +104,68 @@ Future (v1.1+): hashicorp/go-plugin for external plugins over gRPC. Third-party 
 
 ## Terraform Integration
 
-`internal/terraform/service.go` implements `sdk.Service` using `hashicorp/terraform-exec`:
+Two sibling implementations of `sdk.Service` exist as a strategy pattern — selected at startup based on execution mode:
+
+### ExecService (live execution)
+
+`internal/terraform/service.go` — shells out to the terraform (or tofu) binary via `hashicorp/terraform-exec`:
 
 - `Plan()` — terraform plan → parse JSON → classify risk → detect phantoms
 - `Apply()` — terraform apply on saved plan file
 - `StateList()` — parse state JSON for resource list
 - `Show()` — terraform state show for resource detail
-- `Workspace()` / `WorkspaceList()` — workspace management
+- `Workspace*()` — workspace list, select, create, delete
+- `WithDir()` — returns a new ExecService scoped to a different directory (fresh cache)
+
+Reads go through a `ServiceCache` (typed, source-aware). If the cache is pre-seeded (via `--plan`/`--state` flags), reads are served from cache without shelling out — this enables read-only mode.
+
+### MacroService (recording)
+
+`internal/terraform/macro_service.go` — records every operation as an `sdk.Command` without executing anything:
+
+- Mutating calls (`Plan`, `Apply`, `StateRm`, etc.) → record the command, return empty/cached data
+- Read calls (`StateList`, `Show`, `Workspace`) → serve from the same `ServiceCache`
+- After macro playback, all recorded commands are printed to stdout
+
+This makes macros deterministic and safe: the UI renders real data (from cache) but mutations never touch infrastructure.
+
+### ServiceCache (shared state)
+
+`internal/terraform/service_cache.go` — both strategies share this typed cache:
+
+- Pre-seeded at startup from `--plan`/`--state` file/stdin
+- Three source kinds: `file` (re-reads on invalidate), `stdin` (immutable), `exec` (cleared on invalidate)
+- ExecService populates it after live calls; MacroService only reads from it
+
+### Binary resolution
 
 OpenTofu is supported via explicit `terraform.bin = "tofu"` in HCL config, or by letting terraform-exec resolve the binary from PATH. There is no auto-detection logic.
+
+## Entry Point (`cmd/tfui/main.go`)
+
+main.go is the composition root — it wires everything together but contains no domain logic:
+
+```
+main.go
+├── rootCmd (cobra)           → runTUI() or runMacro()
+├── planCmd, applyCmd         → runPlan(), runApply()
+├── scaffoldCmd               → runScaffold()
+├── versionCmd
+└── plugin CLI commands       → buildPluginCommands()
+```
+
+### Architectural decisions in main.go
+
+| Decision | Rationale |
+|----------|-----------|
+| Two orthogonal axes: income × outcome | Income = how the user drives (TUI or CLI). Outcome = what happens (ExecService executes live, MacroService records). These are independent — macro is not bound to TUI or CLI; any income can pair with any outcome. |
+| `buildRegistry()` is axis-agnostic | Plugins don't know their income or outcome. Same registry regardless of which axis combination is active |
+| ServiceCache pre-seeded before service creation | `seedCache()` runs first, then the service wraps it. Enables read-only mode transparently |
+| `buildRegistry()` as single composition point | All 12 plugins registered with metadata in one place. Config injection happens here, not scattered |
+| TTY detection gates interactive mode | No TTY + `--plan`/`--state` → auto-renders non-interactively. No TTY without data → actionable error |
+| `splitPassthrough()` + `normalizeArgs()` | Terraform flag compatibility: `--` separates tfui flags from terraform extras; short flags normalized |
+| Version resolution chain | `ldflags` (CI) → `ReadBuildInfo` (go install) → `"0.0.0-SNAPSHOT"` (dev) |
+| Spinner on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr (suppressed with `--ci`) |
 
 ## Bubbletea Model/Update/View
 
@@ -176,6 +229,8 @@ mise run test:macro       # Macro tapes
 | 100% coverage (excl cmd/) | Pipeline enforced. Untestable layers kept minimal via DI. |
 | OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. Test matrix includes both. |
 | `EventBus` typed pub/sub | Plugins react to state changes (chdir, workspace, plan) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
+| ExecService + MacroService as sibling strategies | Same interface, different behavior. ExecService shells out for live ops; MacroService records commands without executing. Selected at startup, plugins are unaware. |
+| ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `--plan`/`--state` at startup, populated by ExecService after live calls. Enables read-only mode transparently. |
 
 ### UX
 
@@ -184,7 +239,8 @@ mise run test:macro       # Macro tapes
 | Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. Can take 10+ minutes. |
 | Pins = targets | Visual selection (space) is the TUI equivalent of `--target`. Pin then apply = apply only pinned. |
 | `a` from Plan = apply with pins | Seamless flow: review → select → execute. No address typing. |
-| StaticService returns commands, not errors | Read-only mode becomes a command builder. User sees the terraform command to run manually. |
+| ExecService executes live, user waits for real results | Spinners, elapsed time, real errors — the UX communicates "this is happening now" with progress feedback and retry on failure. |
+| MacroService returns commands, not errors | Macro playback becomes a command builder. User sees the terraform commands that would run. |
 | CLI and TUI produce identical state | Testable invariant. The equivalence guarantee. |
 | Macros test UI, integration tests outcomes | Different concerns, different tools. Macros are fast/deterministic. Integration tests are authoritative. |
 
