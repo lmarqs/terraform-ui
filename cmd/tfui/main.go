@@ -183,6 +183,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 	var svc sdk.Service
 
 	if planURI != "" || stateURI != "" {
+		cfg.PreloadedData = true
 		compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
 		if err != nil {
 			return err

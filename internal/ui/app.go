@@ -143,7 +143,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openContextOnStartupMsg:
 		// Skip scope picker if scope is pre-set or data is loaded externally
-		if a.cfg.ActiveScope != "" || a.cfg.ReadOnly {
+		if a.cfg.ActiveScope != "" || a.cfg.PreloadedData {
 			return a, nil
 		}
 		// On startup, activate the scope plugin directly for scope selection

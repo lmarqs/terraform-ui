@@ -8,12 +8,12 @@ import (
 // Config holds runtime configuration for the tfui application.
 // Populated from HCL config (tfui.hcl), CLI flags, and resolved config.
 type Config struct {
-	Dir         string
-	BaseDir     string
-	Workspace   string
-	ActiveScope string
-	ReadOnly    bool
-	Terraform   TerraformConfig
+	Dir          string
+	BaseDir      string
+	Workspace    string
+	ActiveScope  string
+	PreloadedData bool
+	Terraform    TerraformConfig
 	Logger      LoggerConfig
 	Targets     []string
 	Plugins     map[string]PluginConfig
