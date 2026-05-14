@@ -1188,3 +1188,825 @@ func TestResolve_WhenEmptyWorkspaceName_ShouldSkipWorkspaceMatching(t *testing.T
 		t.Errorf("VarFiles()[0] = %q, want %q", varFiles[0], "base.tfvars")
 	}
 }
+
+func TestResolve_WhenNilRoot_ShouldReturnEmptyResolved(t *testing.T) {
+	resolved := Resolve(nil, nil, "default")
+
+	if resolved.Parallelism() != 0 {
+		t.Errorf("Parallelism() = %d, want 0", resolved.Parallelism())
+	}
+	if len(resolved.VarFiles()) != 0 {
+		t.Errorf("VarFiles() should be empty, got %v", resolved.VarFiles())
+	}
+	if resolved.Vars() != nil {
+		t.Errorf("Vars() should be nil, got %v", resolved.Vars())
+	}
+	if resolved.Lock() != nil {
+		t.Errorf("Lock() should be nil")
+	}
+	if resolved.LockTimeout() != "" {
+		t.Errorf("LockTimeout() should be empty")
+	}
+}
+
+func TestLoadChild_WhenInvalidHCLSyntax_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `this is {{{{ not valid HCL`)
+
+	_, err := LoadChild(dir)
+	if err == nil {
+		t.Error("LoadChild() should return error for invalid HCL syntax")
+	}
+}
+
+func TestLoadChild_WhenPermissionDenied_ShouldReturnError(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("skipping permission test when running as root")
+	}
+
+	dir := t.TempDir()
+	configPath := filepath.Join(dir, HCLConfigFileName)
+	err := os.WriteFile(configPath, []byte(`plugin "risk" { level = "high" }`), 0000)
+	if err != nil {
+		t.Fatalf("failed to write config file: %v", err)
+	}
+
+	_, err = LoadChild(dir)
+	if err == nil {
+		t.Error("LoadChild() should return error for unreadable file")
+	}
+	if errors.Is(err, &ConfigNotFoundError{}) {
+		t.Error("should not be ConfigNotFoundError for permission denied")
+	}
+}
+
+func TestLoadChild_WhenTopLevelVarBlock_ShouldParseVars(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+var "region" { value = "us-west-2" }
+var "env"    { value = "staging" }
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	if len(cfg.Vars) != 2 {
+		t.Fatalf("Vars length = %d, want 2", len(cfg.Vars))
+	}
+	if cfg.Vars["region"] != "us-west-2" {
+		t.Errorf("Vars[region] = %q, want %q", cfg.Vars["region"], "us-west-2")
+	}
+	if cfg.Vars["env"] != "staging" {
+		t.Errorf("Vars[env] = %q, want %q", cfg.Vars["env"], "staging")
+	}
+}
+
+func TestConvertWorkspaceBlock_WhenLockTimeout_ShouldParseAttribute(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+workspace "prod" {
+  lock_timeout = "30s"
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	if len(cfg.Workspaces) != 1 {
+		t.Fatalf("Workspaces length = %d, want 1", len(cfg.Workspaces))
+	}
+	if cfg.Workspaces[0].LockTimeout != "30s" {
+		t.Errorf("LockTimeout = %q, want %q", cfg.Workspaces[0].LockTimeout, "30s")
+	}
+}
+
+func TestConvertWorkspaceBlock_WhenPluginBlock_ShouldParsePlugins(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+workspace "prod" {
+  plugin "risk" {
+    enabled = true
+    level   = "critical"
+  }
+  plugin "phantom" {
+    enabled = false
+  }
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	ws := cfg.Workspaces[0]
+	if len(ws.Plugins) != 2 {
+		t.Fatalf("workspace plugins length = %d, want 2", len(ws.Plugins))
+	}
+	risk := ws.Plugins["risk"]
+	if !risk.Enabled {
+		t.Error("workspace plugin risk should be enabled")
+	}
+	if risk.Options["level"] != "critical" {
+		t.Errorf("workspace plugin risk level = %v, want %q", risk.Options["level"], "critical")
+	}
+	phantom := ws.Plugins["phantom"]
+	if phantom.Enabled {
+		t.Error("workspace plugin phantom should be disabled")
+	}
+}
+
+func TestConvertWorkspaceBlock_WhenVarFileBlocks_ShouldParseAll(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+workspace "staging" {
+  var_file "base.tfvars" {}
+  var_file "staging.tfvars" {}
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	ws := cfg.Workspaces[0]
+	if len(ws.VarFiles) != 2 {
+		t.Fatalf("workspace VarFiles length = %d, want 2", len(ws.VarFiles))
+	}
+	if ws.VarFiles[0] != "base.tfvars" {
+		t.Errorf("VarFiles[0] = %q, want %q", ws.VarFiles[0], "base.tfvars")
+	}
+	if ws.VarFiles[1] != "staging.tfvars" {
+		t.Errorf("VarFiles[1] = %q, want %q", ws.VarFiles[1], "staging.tfvars")
+	}
+}
+
+func TestExtractChildPlugin_WhenBoolAndNumberOptions_ShouldParse(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+plugin "risk" {
+  enabled   = true
+  verbose   = true
+  threshold = 0.8
+  label     = "high"
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	risk := cfg.Plugins["risk"]
+	if !risk.Enabled {
+		t.Error("plugin risk should be enabled")
+	}
+	if risk.Options["verbose"] != true {
+		t.Errorf("plugin risk verbose = %v, want true", risk.Options["verbose"])
+	}
+	if risk.Options["threshold"] != 0.8 {
+		t.Errorf("plugin risk threshold = %v, want 0.8", risk.Options["threshold"])
+	}
+	if risk.Options["label"] != "high" {
+		t.Errorf("plugin risk label = %v, want %q", risk.Options["label"], "high")
+	}
+}
+
+func TestExtractChildPlugin_WhenEnabledFalse_ShouldSetEnabled(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+plugin "phantom" {
+  enabled = false
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	phantom := cfg.Plugins["phantom"]
+	if phantom.Enabled {
+		t.Error("plugin phantom should be disabled")
+	}
+}
+
+func TestExtractVarValue_WhenNoValueAttribute_ShouldReturnEmpty(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+workspace "test" {
+  var "empty" {}
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	ws := cfg.Workspaces[0]
+	if ws.Vars["empty"] != "" {
+		t.Errorf("var without value attribute should be empty, got %q", ws.Vars["empty"])
+	}
+}
+
+func TestExtractVarValue_WhenNonStringValue_ShouldReturnEmpty(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+workspace "test" {
+  var "num" { value = 42 }
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	ws := cfg.Workspaces[0]
+	if ws.Vars["num"] != "" {
+		t.Errorf("non-string var value should be empty, got %q", ws.Vars["num"])
+	}
+}
+
+func TestMergePlugins_WhenNewPluginAdded_ShouldAddToExisting(t *testing.T) {
+	root := &RootConfig{
+		Defaults: DefaultsConfig{
+			Plugins: map[string]PluginSettings{
+				"risk": {Enabled: true, Options: map[string]interface{}{"level": "low"}},
+			},
+		},
+	}
+
+	child := &ChildConfig{
+		Plugins: map[string]PluginSettings{
+			"phantom": {Enabled: true, Options: map[string]interface{}{"mode": "full"}},
+		},
+	}
+
+	resolved := Resolve(root, child, "")
+
+	risk := resolved.PluginConfig("risk")
+	if risk.Options["level"] != "low" {
+		t.Errorf("risk level should be preserved as %q, got %v", "low", risk.Options["level"])
+	}
+	phantom := resolved.PluginConfig("phantom")
+	if phantom.Options["mode"] != "full" {
+		t.Errorf("phantom mode = %v, want %q", phantom.Options["mode"], "full")
+	}
+}
+
+func TestMergePlugins_WhenExistingPluginUpdated_ShouldMergeOptions(t *testing.T) {
+	root := &RootConfig{
+		Defaults: DefaultsConfig{
+			Plugins: map[string]PluginSettings{
+				"risk": {Enabled: true, Options: map[string]interface{}{"level": "low", "verbose": true}},
+			},
+		},
+	}
+
+	child := &ChildConfig{
+		Plugins: map[string]PluginSettings{
+			"risk": {Enabled: false, Options: map[string]interface{}{"level": "high", "extra": "new"}},
+		},
+	}
+
+	resolved := Resolve(root, child, "")
+
+	risk := resolved.PluginConfig("risk")
+	if risk.Enabled {
+		t.Error("risk should be disabled (child overrides)")
+	}
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q (child overrides)", risk.Options["level"], "high")
+	}
+	if risk.Options["verbose"] != true {
+		t.Errorf("risk verbose = %v, want true (preserved from root)", risk.Options["verbose"])
+	}
+	if risk.Options["extra"] != "new" {
+		t.Errorf("risk extra = %v, want %q (added by child)", risk.Options["extra"], "new")
+	}
+}
+
+func TestMergePlugins_WhenExistingPluginHasNilOptions_ShouldCreateOptions(t *testing.T) {
+	root := &RootConfig{
+		Defaults: DefaultsConfig{
+			Plugins: map[string]PluginSettings{
+				"risk": {Enabled: true, Options: nil},
+			},
+		},
+	}
+
+	child := &ChildConfig{
+		Plugins: map[string]PluginSettings{
+			"risk": {Enabled: true, Options: map[string]interface{}{"level": "high"}},
+		},
+	}
+
+	resolved := Resolve(root, child, "")
+
+	risk := resolved.PluginConfig("risk")
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
+	}
+}
+
+func TestCopyOptions_WhenNilInput_ShouldReturnNil(t *testing.T) {
+	result := copyOptions(nil)
+	if result != nil {
+		t.Errorf("copyOptions(nil) = %v, want nil", result)
+	}
+}
+
+func TestCopyOptions_WhenEmptyMap_ShouldReturnNil(t *testing.T) {
+	result := copyOptions(map[string]interface{}{})
+	if result != nil {
+		t.Errorf("copyOptions(empty) = %v, want nil", result)
+	}
+}
+
+func TestCopyOptions_WhenPopulated_ShouldDeepCopy(t *testing.T) {
+	src := map[string]interface{}{"key": "value", "num": 42.0}
+	result := copyOptions(src)
+
+	if result["key"] != "value" {
+		t.Errorf("result[key] = %v, want %q", result["key"], "value")
+	}
+	if result["num"] != 42.0 {
+		t.Errorf("result[num] = %v, want 42.0", result["num"])
+	}
+
+	result["key"] = "mutated"
+	if src["key"] != "value" {
+		t.Error("mutating copy should not affect original")
+	}
+}
+
+func TestDefaultsConfig_PluginConfig_WhenNilPlugins_ShouldReturnEmpty(t *testing.T) {
+	d := &DefaultsConfig{Plugins: nil}
+	ps := d.PluginConfig("anything")
+	if ps.Enabled {
+		t.Error("nil plugins map should return zero-value PluginSettings (Enabled=false)")
+	}
+}
+
+func TestDefaultsConfig_PluginConfig_WhenPluginNotFound_ShouldReturnEmpty(t *testing.T) {
+	d := &DefaultsConfig{Plugins: map[string]PluginSettings{
+		"risk": {Enabled: true},
+	}}
+	ps := d.PluginConfig("nonexistent")
+	if ps.Enabled {
+		t.Error("nonexistent plugin should return zero-value PluginSettings")
+	}
+}
+
+func TestDefaultsConfig_PluginConfig_WhenPluginFound_ShouldReturnIt(t *testing.T) {
+	d := &DefaultsConfig{Plugins: map[string]PluginSettings{
+		"risk": {Enabled: true, Options: map[string]interface{}{"level": "high"}},
+	}}
+	ps := d.PluginConfig("risk")
+	if !ps.Enabled {
+		t.Error("found plugin should be enabled")
+	}
+	if ps.Options["level"] != "high" {
+		t.Errorf("plugin options level = %v, want %q", ps.Options["level"], "high")
+	}
+}
+
+func TestChildConfig_PluginConfig_WhenNilPlugins_ShouldReturnEmpty(t *testing.T) {
+	c := &ChildConfig{Plugins: nil}
+	ps := c.PluginConfig("anything")
+	if ps.Enabled {
+		t.Error("nil plugins map should return zero-value PluginSettings")
+	}
+}
+
+func TestChildConfig_PluginConfig_WhenPluginNotFound_ShouldReturnEmpty(t *testing.T) {
+	c := &ChildConfig{Plugins: map[string]PluginSettings{
+		"risk": {Enabled: true},
+	}}
+	ps := c.PluginConfig("nonexistent")
+	if ps.Enabled {
+		t.Error("nonexistent plugin should return zero-value PluginSettings")
+	}
+}
+
+func TestResolvedConfig_PluginConfig_WhenNilPlugins_ShouldReturnEmpty(t *testing.T) {
+	r := &ResolvedConfig{plugins: nil}
+	ps := r.PluginConfig("anything")
+	if ps.Enabled {
+		t.Error("nil plugins map should return zero-value PluginSettings")
+	}
+}
+
+func TestResolvedConfig_PluginConfig_WhenPluginNotFound_ShouldReturnEmpty(t *testing.T) {
+	r := &ResolvedConfig{plugins: map[string]PluginSettings{
+		"risk": {Enabled: true},
+	}}
+	ps := r.PluginConfig("nonexistent")
+	if ps.Enabled {
+		t.Error("nonexistent plugin should return zero-value PluginSettings")
+	}
+}
+
+func TestLoadRoot_WhenPluginWithBoolAndNumberOptions_ShouldParse(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    enabled   = true
+    verbose   = true
+    threshold = 0.9
+    level     = "high"
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if !risk.Enabled {
+		t.Error("risk should be enabled")
+	}
+	if risk.Options["verbose"] != true {
+		t.Errorf("risk verbose = %v, want true", risk.Options["verbose"])
+	}
+	if risk.Options["threshold"] != 0.9 {
+		t.Errorf("risk threshold = %v, want 0.9", risk.Options["threshold"])
+	}
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
+	}
+}
+
+func TestLoadRoot_WhenPluginWithNoRemainBody_ShouldHaveNilOptions(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    enabled = true
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if !risk.Enabled {
+		t.Error("risk should be enabled")
+	}
+}
+
+func TestResolve_WhenWorkspaceLockTimeout_ShouldApply(t *testing.T) {
+	root := &RootConfig{}
+	child := &ChildConfig{
+		Workspaces: []WorkspaceConfig{
+			{
+				Name:        "prod",
+				LockTimeout: "60s",
+			},
+		},
+	}
+
+	resolved := Resolve(root, child, "prod")
+	if resolved.LockTimeout() != "60s" {
+		t.Errorf("LockTimeout() = %q, want %q", resolved.LockTimeout(), "60s")
+	}
+}
+
+func TestResolve_WhenWorkspaceHasEmptyLockTimeout_ShouldNotOverride(t *testing.T) {
+	root := &RootConfig{}
+	child := &ChildConfig{
+		Workspaces: []WorkspaceConfig{
+			{
+				Name:        "prod",
+				LockTimeout: "",
+			},
+		},
+	}
+
+	resolved := Resolve(root, child, "prod")
+	if resolved.LockTimeout() != "" {
+		t.Errorf("LockTimeout() = %q, want empty", resolved.LockTimeout())
+	}
+}
+
+func TestMergePlugins_WhenRootHasNoPluginsButChildDoes_ShouldCreatePluginsMap(t *testing.T) {
+	root := &RootConfig{
+		Defaults: DefaultsConfig{
+			Plugins: nil,
+		},
+	}
+
+	child := &ChildConfig{
+		Plugins: map[string]PluginSettings{
+			"risk": {Enabled: true, Options: map[string]interface{}{"level": "high"}},
+		},
+	}
+
+	resolved := Resolve(root, child, "")
+
+	risk := resolved.PluginConfig("risk")
+	if !risk.Enabled {
+		t.Error("risk should be enabled")
+	}
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
+	}
+}
+
+func TestMergePlugins_WhenChildPluginsEmpty_ShouldNotModifyResolved(t *testing.T) {
+	root := &RootConfig{
+		Defaults: DefaultsConfig{
+			Plugins: map[string]PluginSettings{
+				"risk": {Enabled: true, Options: map[string]interface{}{"level": "low"}},
+			},
+		},
+	}
+
+	child := &ChildConfig{
+		Plugins: nil,
+	}
+
+	resolved := Resolve(root, child, "")
+
+	risk := resolved.PluginConfig("risk")
+	if risk.Options["level"] != "low" {
+		t.Errorf("risk level = %v, want %q (root preserved)", risk.Options["level"], "low")
+	}
+}
+
+func TestLoadChild_WhenVarValueHasExpressionError_ShouldReturnEmpty(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+var "broken" { value = unknown_reference }
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	if cfg.Vars["broken"] != "" {
+		t.Errorf("broken var should be empty, got %q", cfg.Vars["broken"])
+	}
+}
+
+func TestLoadRoot_WhenPluginOptionHasExpressionError_ShouldSkipIt(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    level = "high"
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
+	}
+}
+
+func TestExtractChildPlugin_WhenOptionHasExpressionError_ShouldSkipIt(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+plugin "risk" {
+  level = unknown_var
+  label = "valid"
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	risk := cfg.Plugins["risk"]
+	if risk.Options["label"] != "valid" {
+		t.Errorf("risk label = %v, want %q", risk.Options["label"], "valid")
+	}
+	if _, exists := risk.Options["level"]; exists {
+		t.Error("risk level should be skipped due to expression error")
+	}
+}
+
+func TestExtractChildPlugin_WhenBodyHasNestedBlock_ShouldReturnDefaultEnabled(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+plugin "risk" {
+  nested_block {
+    key = "value"
+  }
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	risk := cfg.Plugins["risk"]
+	if !risk.Enabled {
+		t.Error("plugin with nested block should default to enabled=true")
+	}
+}
+
+func TestExtractVarValue_WhenBodyHasExtraAttributes_ShouldReturnEmpty(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+var "test" {
+  value = "hello"
+  extra = "unexpected"
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	if cfg.Vars["test"] != "" {
+		t.Errorf("var with extra attributes should return empty due to Content error, got %q", cfg.Vars["test"])
+	}
+}
+
+func TestConvertWorkspaceBlock_WhenUnexpectedAttributes_ShouldReturnPartial(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+workspace "prod" {
+  lock_timeout = "30s"
+  unexpected_attr = "bad"
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	ws := cfg.Workspaces[0]
+	if ws.Name != "prod" {
+		t.Errorf("workspace name = %q, want %q", ws.Name, "prod")
+	}
+	if ws.LockTimeout != "" {
+		t.Errorf("workspace with content error should have empty LockTimeout, got %q", ws.LockTimeout)
+	}
+}
+
+func TestLoadChild_WhenUnknownBlockType_ShouldReturnSchemaError(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+unknown_block_type {
+  key = "value"
+}
+`)
+
+	_, err := LoadChild(dir)
+	if err == nil {
+		t.Error("LoadChild() should return error for unknown block type not in child schema")
+	}
+}
+
+func TestLoadRoot_WhenPluginBlockWithOnlyEnabled_ShouldHaveNilOptions(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "minimal" {
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	minimal := cfg.Defaults.PluginConfig("minimal")
+	if !minimal.Enabled {
+		t.Error("plugin with empty body should default to enabled=true")
+	}
+	if minimal.Options != nil {
+		t.Errorf("plugin with no remain attributes should have nil options, got %v", minimal.Options)
+	}
+}
+
+func TestLoadRoot_WhenPluginOptionExpressionFails_ShouldSkipOption(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    level   = "high"
+    broken  = undefined_var
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
+	}
+	if _, exists := risk.Options["broken"]; exists {
+		t.Error("broken option should be skipped due to expression error")
+	}
+}
+
+func TestLoadRoot_WhenPluginHasNestedBlock_ShouldReturnNilOptions(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    nested {
+      key = "value"
+    }
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if risk.Options != nil {
+		t.Errorf("plugin with nested block should have nil options (JustAttributes fails), got %v", risk.Options)
+	}
+}
+
+func TestExtractPluginOptions_WhenNilBody_ShouldReturnNil(t *testing.T) {
+	result := extractPluginOptions(nil)
+	if result != nil {
+		t.Errorf("extractPluginOptions(nil) = %v, want nil", result)
+	}
+}
+
+func TestExtractPluginOptions_WhenUnsupportedType_ShouldSkipOption(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    tags  = ["a", "b"]
+    level = "high"
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if risk.Options["level"] != "high" {
+		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
+	}
+	if _, exists := risk.Options["tags"]; exists {
+		t.Error("list option should be skipped (unsupported type)")
+	}
+}
+
+func TestExtractPluginOptions_WhenRemainBodyHasBlocks_ShouldReturnNil(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+defaults {
+  plugin "risk" {
+    enabled = true
+    nested "label" {
+      key = "value"
+    }
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	risk := cfg.Defaults.PluginConfig("risk")
+	if risk.Options != nil {
+		t.Errorf("plugin with nested labeled block should have nil options, got %v", risk.Options)
+	}
+}
