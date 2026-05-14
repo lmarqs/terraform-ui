@@ -64,7 +64,6 @@ plugins/
   risk/                    — Risk classification (decorates plan)
   phantom/                 — Phantom change detection (decorates plan)
   blastradius/             — Blast radius visualization
-  init/                    — Config generator (CLI + TUI, generates tfui.hcl)
 tests/
   integration/             — CLI integration tests (require terraform/tofu/terragrunt)
   fixtures/                — Real terraform projects and config fixtures

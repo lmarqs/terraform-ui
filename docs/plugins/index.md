@@ -23,7 +23,6 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
 | [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
 | [context](context.md) | Context | `C` | navigation | Manage project, chdir, and workspace selection |
-| [init](init.md) | Init | `i` | setup | Generate tfui.hcl configuration interactively |
 | chdir | Chdir Picker | — | internal | Select chdir member (hidden, activated by context plugin) |
 
 ## Categories
@@ -54,9 +53,9 @@ Plugins for navigating terraform state, workspaces, and project context.
 - **[Outputs](output.md)** — view output values
 - **[Context](context.md)** — project/chdir/workspace selector
 
-### Setup
+### CLI Commands
 
-- **[Init](init.md)** — configuration file generator
+- **[Scaffold](scaffold.md)** — configuration file generator (`tfui scaffold`)
 
 ## Enabling/Disabling Plugins
 

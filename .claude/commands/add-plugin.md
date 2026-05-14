@@ -93,7 +93,16 @@ Create a new plugin that implements the `Plugin` interface from `pkg/sdk/plugin.
    })
    ```
 
-5. **Add documentation at `docs/plugins/<name>.md`**
+5. **Add the import alias rule to `.golangci.yaml`**
+
+   Under `linters.settings.importas.alias`, add:
+
+   ```yaml
+   - pkg: github.com/lmarqs/terraform-ui/plugins/<name>
+     alias: tfui<name>
+   ```
+
+6. **Add documentation at `docs/plugins/<name>.md`**
 
    Use the standard frontmatter format:
 
@@ -111,11 +120,11 @@ Create a new plugin that implements the `Plugin` interface from `pkg/sdk/plugin.
 
    Include sections: Overview, Usage (keybindings table), Configuration (tfui.hcl example), Related.
 
-6. **Update the plugin index at `docs/plugins/index.md`**
+7. **Update the plugin index at `docs/plugins/index.md`**
 
    Add a row to the plugins table and the appropriate category section.
 
-7. **Verify the build**
+8. **Verify the build**
 
    Run `go build ./...` and `go vet ./...` to confirm everything compiles.
 
