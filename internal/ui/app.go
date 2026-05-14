@@ -42,6 +42,7 @@ type App struct {
 	activeChdir   string // tracks last known active chdir for header updates
 	commandMode   bool
 	commandInput  string
+	commandError  string
 
 	inputActive   bool
 	inputMode     sdk.InputRequestMode
@@ -270,6 +271,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	a.commandError = ""
+
 	activeView := "home"
 	if a.activePlugin != nil {
 		activeView = a.activePlugin.ID()
@@ -472,10 +475,20 @@ type builtinCommand struct {
 
 var builtinCommands = []builtinCommand{
 	{"q", (*App).cmdQuit},
-	{"q!", (*App).cmdQuit},
+	{"q!", (*App).cmdForceQuit},
 }
 
 func (a *App) cmdQuit() tea.Cmd {
+	for _, p := range a.registry.All() {
+		if busy, ok := p.(sdk.Busy); ok && busy.Busy() {
+			a.commandError = "Operation in progress (use :q! to force)"
+			return nil
+		}
+	}
+	return tea.Quit
+}
+
+func (a *App) cmdForceQuit() tea.Cmd {
 	return tea.Quit
 }
 
@@ -604,7 +617,14 @@ func (a App) View() string {
 	bordered := a.contentBorder.Render(content, title, filtered, total, pinned, a.width, contentHeight+borderChrome)
 
 	var statusBar string
-	if a.inputActive {
+	if a.commandError != "" {
+		errorStyle := lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorDanger).
+			Padding(0, 1).
+			Width(a.width)
+		statusBar = errorStyle.Render(a.commandError)
+	} else if a.inputActive {
 		promptStyle := lipgloss.NewStyle().
 			Background(sdk.ColorBg).
 			Foreground(sdk.ColorText).

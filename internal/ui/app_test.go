@@ -30,6 +30,14 @@ func (m *mockPlugin) View(_, _ int) string                      { return m.viewO
 func (m *mockPlugin) Configure(_ map[string]interface{}) error  { return nil }
 func (m *mockPlugin) Ready() bool                               { return true }
 
+// mockBusyPlugin implements plugin.Plugin and sdk.Busy for testing quit guards.
+type mockBusyPlugin struct {
+	mockPlugin
+	busy bool
+}
+
+func (m *mockBusyPlugin) Busy() bool { return m.busy }
+
 // mockService implements terraform.Service with no-op methods for testing.
 type mockService struct {
 	workspace    string
@@ -759,5 +767,89 @@ func TestApp_CommandMode_ColonFromActivePlugin(t *testing.T) {
 
 	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
 		t.Errorf("should switch to state, got %v", app.activePlugin)
+	}
+}
+
+func setupTestAppWithBusyPlugin(busy bool) App {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := &mockService{workspace: "default"}
+
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockBusyPlugin{
+			mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+			busy:       busy,
+		}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	return NewApp(cfg, svc, registry)
+}
+
+func TestApp_CommandMode_QuitBlockedWhenBusy(t *testing.T) {
+	app := setupTestAppWithBusyPlugin(true)
+
+	// Enter command mode, type :q, press enter
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	app = model.(App)
+
+	var cmd tea.Cmd
+	model, cmd = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+	if cmd != nil {
+		t.Fatal(":q should NOT produce quit command when a plugin is busy")
+	}
+	if app.commandError == "" {
+		t.Fatal(":q should set commandError when blocked")
+	}
+}
+
+func TestApp_CommandMode_ForceQuitBypassesBusy(t *testing.T) {
+	app := setupTestAppWithBusyPlugin(true)
+
+	// Enter command mode, type :q!, press enter
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "q!" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal(":q! should produce quit command even when a plugin is busy")
+	}
+}
+
+func TestApp_CommandError_ClearedOnKeypress(t *testing.T) {
+	app := setupTestAppWithBusyPlugin(true)
+
+	// Trigger the error via :q
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	app = model.(App)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.commandError == "" {
+		t.Fatal("commandError should be set")
+	}
+
+	// Any keypress should clear the error
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	app = model.(App)
+
+	if app.commandError != "" {
+		t.Errorf("commandError should be cleared on keypress, got %q", app.commandError)
 	}
 }
