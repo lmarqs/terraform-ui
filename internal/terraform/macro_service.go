@@ -107,12 +107,12 @@ func (r *MacroService) WorkspaceSelect(_ context.Context, name string) error {
 	return nil
 }
 
-func (r *MacroService) WorkspaceNew(_ context.Context, name string) error {
+func (r *MacroService) WorkspaceNew(_ context.Context, name string, _ sdk.WorkspaceNewOptions) error {
 	r.record("workspace new", []string{name}, nil)
 	return nil
 }
 
-func (r *MacroService) WorkspaceDelete(_ context.Context, name string) error {
+func (r *MacroService) WorkspaceDelete(_ context.Context, name string, _ sdk.WorkspaceDeleteOptions) error {
 	r.record("workspace delete", []string{name}, nil)
 	return nil
 }

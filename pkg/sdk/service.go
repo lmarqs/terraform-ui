@@ -28,10 +28,10 @@ type Service interface {
 	WorkspaceSelect(ctx context.Context, name string) error
 
 	// WorkspaceNew creates a new terraform workspace and switches to it.
-	WorkspaceNew(ctx context.Context, name string) error
+	WorkspaceNew(ctx context.Context, name string, opts WorkspaceNewOptions) error
 
 	// WorkspaceDelete deletes the specified terraform workspace.
-	WorkspaceDelete(ctx context.Context, name string) error
+	WorkspaceDelete(ctx context.Context, name string, opts WorkspaceDeleteOptions) error
 
 	// StateRm removes a resource from terraform state by address.
 	StateRm(ctx context.Context, address string) error

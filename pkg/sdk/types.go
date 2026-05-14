@@ -169,3 +169,16 @@ type ApplyOptions struct {
 	LockTimeout string
 	ExtraArgs   []string
 }
+
+// WorkspaceNewOptions holds options for terraform workspace new.
+type WorkspaceNewOptions struct {
+	Lock        *bool
+	LockTimeout string
+}
+
+// WorkspaceDeleteOptions holds options for terraform workspace delete.
+type WorkspaceDeleteOptions struct {
+	Force       bool
+	Lock        *bool
+	LockTimeout string
+}

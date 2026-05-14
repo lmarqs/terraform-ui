@@ -250,7 +250,7 @@ func (e *Plugin) selectWorkspace(name string, popBack bool) tea.Cmd {
 func (e *Plugin) createWorkspace(name string) tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
-		err := svc.WorkspaceNew(context.Background(), name)
+		err := svc.WorkspaceNew(context.Background(), name, sdk.WorkspaceNewOptions{})
 		return WorkspaceCreateMsg{Name: name, Err: err}
 	}
 }
@@ -261,7 +261,7 @@ func (e *Plugin) deleteWorkspace(name string) tea.Cmd {
 	e.loadingMsg = fmt.Sprintf("Deleting %s...", name)
 	svc := e.svc
 	return func() tea.Msg {
-		err := svc.WorkspaceDelete(context.Background(), name)
+		err := svc.WorkspaceDelete(context.Background(), name, sdk.WorkspaceDeleteOptions{})
 		return WorkspaceDeleteMsg{Err: err}
 	}
 }

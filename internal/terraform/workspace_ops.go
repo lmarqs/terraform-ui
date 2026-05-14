@@ -3,6 +3,9 @@ package terraform
 import (
 	"context"
 	"fmt"
+
+	"github.com/hashicorp/terraform-exec/tfexec"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // Workspace returns the current workspace name.
@@ -62,26 +65,45 @@ func (s *ExecService) WorkspaceSelect(ctx context.Context, name string) error {
 }
 
 // WorkspaceNew creates a new workspace and switches to it.
-func (s *ExecService) WorkspaceNew(ctx context.Context, name string) error {
+func (s *ExecService) WorkspaceNew(ctx context.Context, name string, opts sdk.WorkspaceNewOptions) error {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("creating workspace: %w", err)
 	}
 
-	if err := tf.WorkspaceNew(ctx, name); err != nil {
+	var tfOpts []tfexec.WorkspaceNewCmdOption
+	if opts.Lock != nil {
+		tfOpts = append(tfOpts, tfexec.Lock(*opts.Lock))
+	}
+	if opts.LockTimeout != "" {
+		tfOpts = append(tfOpts, tfexec.LockTimeout(opts.LockTimeout))
+	}
+
+	if err := tf.WorkspaceNew(ctx, name, tfOpts...); err != nil {
 		return fmt.Errorf("creating workspace %q: %w", name, err)
 	}
 	return nil
 }
 
 // WorkspaceDelete deletes the specified workspace.
-func (s *ExecService) WorkspaceDelete(ctx context.Context, name string) error {
+func (s *ExecService) WorkspaceDelete(ctx context.Context, name string, opts sdk.WorkspaceDeleteOptions) error {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("deleting workspace: %w", err)
 	}
 
-	if err := tf.WorkspaceDelete(ctx, name); err != nil {
+	var tfOpts []tfexec.WorkspaceDeleteCmdOption
+	if opts.Force {
+		tfOpts = append(tfOpts, tfexec.Force(true))
+	}
+	if opts.Lock != nil {
+		tfOpts = append(tfOpts, tfexec.Lock(*opts.Lock))
+	}
+	if opts.LockTimeout != "" {
+		tfOpts = append(tfOpts, tfexec.LockTimeout(opts.LockTimeout))
+	}
+
+	if err := tf.WorkspaceDelete(ctx, name, tfOpts...); err != nil {
 		return fmt.Errorf("deleting workspace %q: %w", name, err)
 	}
 	return nil

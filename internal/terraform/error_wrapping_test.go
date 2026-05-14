@@ -44,12 +44,12 @@ func TestTerraformService_WhenNewTerraformFails_ShouldWrapErrorWithOperationCont
 		},
 		{
 			"ShouldWrapWorkspaceNewError",
-			func() error { return svc.WorkspaceNew(ctx, "new-ws") },
+			func() error { return svc.WorkspaceNew(ctx, "new-ws", sdk.WorkspaceNewOptions{}) },
 			"creating workspace",
 		},
 		{
 			"ShouldWrapWorkspaceDeleteError",
-			func() error { return svc.WorkspaceDelete(ctx, "old-ws") },
+			func() error { return svc.WorkspaceDelete(ctx, "old-ws", sdk.WorkspaceDeleteOptions{}) },
 			"deleting workspace",
 		},
 		{

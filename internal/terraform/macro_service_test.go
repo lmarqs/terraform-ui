@@ -75,10 +75,10 @@ func TestMacroService_ReadsFromCache(t *testing.T) {
 		if err := svc.WorkspaceSelect(ctx, "x"); err != nil {
 			t.Errorf("WorkspaceSelect: %v", err)
 		}
-		if err := svc.WorkspaceNew(ctx, "x"); err != nil {
+		if err := svc.WorkspaceNew(ctx, "x", sdk.WorkspaceNewOptions{}); err != nil {
 			t.Errorf("WorkspaceNew: %v", err)
 		}
-		if err := svc.WorkspaceDelete(ctx, "x"); err != nil {
+		if err := svc.WorkspaceDelete(ctx, "x", sdk.WorkspaceDeleteOptions{}); err != nil {
 			t.Errorf("WorkspaceDelete: %v", err)
 		}
 		if err := svc.StateRm(ctx, "x"); err != nil {
@@ -192,8 +192,8 @@ func TestMacroService_RecordsOperationsOnly(t *testing.T) {
 		{"Plan", func() { svc.Plan(ctx, sdk.PlanOptions{}) }, "terraform plan"},
 		{"Apply", func() { svc.Apply(ctx, sdk.ApplyOptions{}) }, "terraform apply"},
 		{"WorkspaceSelect", func() { svc.WorkspaceSelect(ctx, "prod") }, "terraform workspace select prod"},
-		{"WorkspaceNew", func() { svc.WorkspaceNew(ctx, "staging") }, "terraform workspace new staging"},
-		{"WorkspaceDelete", func() { svc.WorkspaceDelete(ctx, "old") }, "terraform workspace delete old"},
+		{"WorkspaceNew", func() { svc.WorkspaceNew(ctx, "staging", sdk.WorkspaceNewOptions{}) }, "terraform workspace new staging"},
+		{"WorkspaceDelete", func() { svc.WorkspaceDelete(ctx, "old", sdk.WorkspaceDeleteOptions{}) }, "terraform workspace delete old"},
 		{"StateRm", func() { svc.StateRm(ctx, "aws_instance.web") }, "terraform state rm aws_instance.web"},
 		{"StateMove", func() { svc.StateMove(ctx, "old", "new") }, "terraform state mv old new"},
 		{"Import", func() { svc.Import(ctx, "aws_instance.web", "i-123") }, "terraform import aws_instance.web i-123"},
@@ -368,8 +368,8 @@ func TestMacroService_MutationsNeverExecute(t *testing.T) {
 	svc.Taint(ctx, "aws_instance.web")
 	svc.Untaint(ctx, "aws_instance.web")
 	svc.WorkspaceSelect(ctx, "prod")
-	svc.WorkspaceNew(ctx, "staging")
-	svc.WorkspaceDelete(ctx, "old")
+	svc.WorkspaceNew(ctx, "staging", sdk.WorkspaceNewOptions{})
+	svc.WorkspaceDelete(ctx, "old", sdk.WorkspaceDeleteOptions{})
 	svc.Init(ctx)
 	svc.ForceUnlock(ctx, "lock-id")
 

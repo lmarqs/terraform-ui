@@ -58,9 +58,13 @@ func (s *mockService) Workspace(_ context.Context) (string, error) {
 func (s *mockService) WorkspaceList(_ context.Context) ([]string, error) {
 	return []string{"default"}, nil
 }
-func (s *mockService) WorkspaceSelect(_ context.Context, _ string) error    { return nil }
-func (s *mockService) WorkspaceNew(_ context.Context, _ string) error       { return nil }
-func (s *mockService) WorkspaceDelete(_ context.Context, _ string) error    { return nil }
+func (s *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
+func (s *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
+	return nil
+}
+func (s *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
+	return nil
+}
 func (s *mockService) StateRm(_ context.Context, _ string) error            { return nil }
 func (s *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
 func (s *mockService) Import(_ context.Context, _, _ string) error          { return nil }
