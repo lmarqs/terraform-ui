@@ -110,6 +110,45 @@ func TestFuzzyFilter_Clear(t *testing.T) {
 	}
 }
 
+func TestFuzzyFilter_ScoreAt(t *testing.T) {
+	f := NewFuzzyFilter(func(s string) string { return s })
+	f.SetItems([]string{"aws_instance.web", "aws_s3_bucket.data"})
+	f.SetQuery("inst")
+
+	// Should have a positive score for matched items
+	if f.ScoreAt(0) <= 0 {
+		t.Errorf("ScoreAt(0) = %d, want > 0", f.ScoreAt(0))
+	}
+
+	// Out of bounds returns 0
+	if f.ScoreAt(-1) != 0 {
+		t.Errorf("ScoreAt(-1) = %d, want 0", f.ScoreAt(-1))
+	}
+	if f.ScoreAt(100) != 0 {
+		t.Errorf("ScoreAt(100) = %d, want 0", f.ScoreAt(100))
+	}
+}
+
+func TestFuzzyFilter_Count(t *testing.T) {
+	f := NewFuzzyFilter(func(s string) string { return s })
+	f.SetItems([]string{"aws_instance.web", "aws_s3_bucket.data", "aws_iam_role.admin"})
+
+	f.SetQuery("aws")
+	if f.Count() != 3 {
+		t.Errorf("Count() = %d, want 3", f.Count())
+	}
+
+	f.SetQuery("instance")
+	if f.Count() != 1 {
+		t.Errorf("Count() = %d, want 1", f.Count())
+	}
+
+	f.SetQuery("zzzzz")
+	if f.Count() != 0 {
+		t.Errorf("Count() = %d, want 0", f.Count())
+	}
+}
+
 func TestFuzzyFilter_CustomAccessor(t *testing.T) {
 	type item struct {
 		name  string
