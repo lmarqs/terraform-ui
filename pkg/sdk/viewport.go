@@ -153,9 +153,6 @@ func (v *Viewport) ScrollInfo() string {
 		return ""
 	}
 	maxScroll := total - v.Height
-	if maxScroll <= 0 {
-		return ""
-	}
 	return fmt.Sprintf("[%d/%d]", v.ScrollY+1, maxScroll+1)
 }
 
