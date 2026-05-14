@@ -289,10 +289,6 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	return e, nil
 }
 
-func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	return e.stack.Update(msg)
-}
-
 // MoveUp moves selection up.
 func (e *Plugin) MoveUp() {
 	e.tree.MoveUp()

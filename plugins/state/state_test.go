@@ -1201,7 +1201,7 @@ func TestUpdateKeyMsgCtrlH(t *testing.T) {
 	p.filter = "abc"
 
 	// ctrl+h should work as backspace
-	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0x08}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{0x08}})
 	// This might not work as expected since ctrl+h string is "ctrl+h"
 	// Let's instead directly test the handler branch
 }
@@ -1218,14 +1218,14 @@ func TestHandleKeyDefaultPrintable(t *testing.T) {
 	p.rebuildTree()
 
 	// Must enter filter mode first with /
-	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 
-	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	if p.filter != "a" {
 		t.Errorf("after 'a' via handleKey: filter = %q, want %q", p.filter, "a")
 	}
 
-	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
 	if p.filter != "aw" {
 		t.Errorf("after 'w' via handleKey: filter = %q, want %q", p.filter, "aw")
 	}
@@ -1239,7 +1239,7 @@ func TestHandleKeyDetailIgnoresOtherKeys(t *testing.T) {
 	p.detailAddr = "addr"
 
 	// Non-esc/q keys should not change the state in detail mode
-	p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if p.status != StatusShowingDetail {
 		t.Errorf("after j in detail: status = %v, want StatusShowingDetail", p.status)
 	}
@@ -1251,7 +1251,7 @@ func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
 	p.status = sdk.StatusLoading
 
 	// In loading state, 'r' should not trigger refresh (only works in Done/Error)
-	cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if cmd != nil {
 		t.Error("j in loading: cmd != nil, want nil")
 	}
