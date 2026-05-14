@@ -254,16 +254,58 @@ func TestUpdateWorkspaceSwitchMsgError(t *testing.T) {
 	pp.svc = svc
 
 	result, cmd := p.Update(WorkspaceSwitchMsg{Name: "x", Err: errors.New("switch failed")})
-	if cmd == nil {
-		t.Error("Update(WorkspaceSwitchMsg error) cmd = nil, want non-nil (still refreshes)")
+	if cmd != nil {
+		t.Error("Update(WorkspaceSwitchMsg error) cmd should be nil on error")
 	}
 
-	// After error, Refresh() is called which resets errMsg
+	updated := result.(*Plugin)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
+	}
+	if updated.errMsg != "switch failed" {
+		t.Errorf("errMsg = %q, want %q", updated.errMsg, "switch failed")
+	}
+}
+
+func TestUpdateWorkspaceDeleteMsg(t *testing.T) {
+	svc := &mockService{
+		workspaceList: []string{"default", "staging"},
+		workspace:     "default",
+	}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.workspaces = []string{"default", "staging"}
+	p.current = "default"
+	p.svc = svc
+
+	// Successful delete should refresh (not emit WorkspaceChangedEvent)
+	result, cmd := p.Update(WorkspaceDeleteMsg{Err: nil})
 	updated := result.(*Plugin)
 	if updated.status != sdk.StatusLoading {
 		t.Errorf("status = %v, want sdk.StatusLoading (refresh triggered)", updated.status)
 	}
-	_ = updated
+	if cmd == nil {
+		t.Error("cmd should be non-nil (refresh command)")
+	}
+}
+
+func TestUpdateWorkspaceDeleteMsgError(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	p.svc = svc
+
+	result, cmd := p.Update(WorkspaceDeleteMsg{Err: errors.New("delete failed")})
+	updated := result.(*Plugin)
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want sdk.StatusError", updated.status)
+	}
+	if updated.errMsg != "delete failed" {
+		t.Errorf("errMsg = %q, want %q", updated.errMsg, "delete failed")
+	}
+	if cmd != nil {
+		t.Error("cmd should be nil on error")
+	}
 }
 
 func TestUpdateKeyMsgNavigation(t *testing.T) {
@@ -933,9 +975,9 @@ func TestDeleteSelectedCmd(t *testing.T) {
 		t.Fatal("DeleteSelected: want non-nil cmd")
 	}
 	msg := cmd()
-	sm := msg.(WorkspaceSwitchMsg)
-	if sm.Err != nil {
-		t.Errorf("DeleteSelected: Err = %v", sm.Err)
+	dm := msg.(WorkspaceDeleteMsg)
+	if dm.Err != nil {
+		t.Errorf("DeleteSelected: Err = %v", dm.Err)
 	}
 }
 

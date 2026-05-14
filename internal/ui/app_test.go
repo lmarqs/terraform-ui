@@ -494,7 +494,7 @@ func TestApp_ChdirChangedEvent_DeactivatesPlugin(t *testing.T) {
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
-	}, plugin.PluginMeta{MenuVisible: false})
+	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 	registry.Build(nil, nil)
 
 	app := NewApp(cfg, svc, registry)
@@ -866,5 +866,199 @@ func TestApp_HandleKey_QuitFromHomeBlockedWhenBusy(t *testing.T) {
 	}
 	if app.commandError == "" {
 		t.Fatal("q from home should set commandError when blocked")
+	}
+}
+
+// --- Navigate-back tests ---
+
+func setupTestAppWithTransientPlugins() App {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := &mockService{workspace: "default"}
+
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
+	registry.RegisterFactory("workspaces", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "workspaces", name: "Workspaces", viewOutput: "workspaces view"}
+	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
+	registry.RegisterFactory("context", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "context", name: "Context", viewOutput: "context view"}
+	}, plugin.PluginMeta{MenuVisible: false})
+	registry.Build(nil, nil)
+
+	return NewApp(cfg, svc, registry)
+}
+
+func TestApp_ChdirSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "state" plugin via keybinding
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
+		t.Fatal("precondition: state plugin should be active")
+	}
+
+	// Switch to "chdir" via command mode (simulates :chdir)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "chdir" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "chdir" {
+		t.Fatal("precondition: chdir plugin should be active after :chdir command")
+	}
+
+	// Send ChdirChangedEvent (simulates user selecting a directory)
+	model, _ = app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	app = model.(App)
+
+	if app.activePlugin == nil {
+		t.Fatal("after ChdirChangedEvent, should navigate back to previous plugin, not home")
+	}
+	if app.activePlugin.ID() != "state" {
+		t.Errorf("after ChdirChangedEvent, activePlugin = %q, want %q", app.activePlugin.ID(), "state")
+	}
+}
+
+func TestApp_ChdirSelection_NavigatesToHomeWhenNoPrevious(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate chdir directly (no previous plugin, simulates startup)
+	model, _ := app.Update(openContextOnStartupMsg{})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "chdir" {
+		t.Fatal("precondition: chdir plugin should be active")
+	}
+
+	// Send ChdirChangedEvent with no previous plugin set
+	model, _ = app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	app = model.(App)
+
+	if app.activePlugin != nil {
+		t.Errorf("after ChdirChangedEvent with no previous plugin, activePlugin should be nil (home), got %q", app.activePlugin.ID())
+	}
+}
+
+func TestApp_WorkspaceSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "state" plugin via keybinding
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
+		t.Fatal("precondition: state plugin should be active")
+	}
+
+	// Switch to "workspaces" via command mode
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "workspaces" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = model.(App)
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+		t.Fatal("precondition: workspaces plugin should be active after :workspaces command")
+	}
+
+	// Send WorkspaceChangedEvent (simulates user selecting a workspace)
+	model, _ = app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	app = model.(App)
+
+	if app.activePlugin == nil {
+		t.Fatal("after WorkspaceChangedEvent, should navigate back to previous plugin, not home")
+	}
+	if app.activePlugin.ID() != "state" {
+		t.Errorf("after WorkspaceChangedEvent, activePlugin = %q, want %q", app.activePlugin.ID(), "state")
+	}
+}
+
+func TestApp_WorkspaceSelection_FromContextDoesNotNavigateBack(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "context" plugin directly
+	if p, ok := app.registry.ByID("context"); ok {
+		app.activePlugin = p
+	}
+
+	if app.activePlugin == nil || app.activePlugin.ID() != "context" {
+		t.Fatal("precondition: context plugin should be active")
+	}
+
+	// Send WorkspaceChangedEvent while context is active
+	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	app = model.(App)
+
+	// The context plugin should remain active (no navigate-back for context)
+	if app.activePlugin == nil {
+		t.Fatal("after WorkspaceChangedEvent from context, activePlugin should still be context, not nil")
+	}
+	if app.activePlugin.ID() != "context" {
+		t.Errorf("after WorkspaceChangedEvent from context, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
+	}
+}
+
+func TestApp_ChdirSelection_FromContextDoesNotNavigateBack(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "context" plugin directly (NavReplace — no returnTo saved)
+	if p, ok := app.registry.ByID("context"); ok {
+		app.activePlugin = p
+	}
+
+	// Send ChdirChangedEvent while context is active (simulates context's internal picker)
+	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	app = model.(App)
+
+	// Context plugin should remain active
+	if app.activePlugin == nil {
+		t.Fatal("after ChdirChangedEvent from context, activePlugin should still be context, not nil")
+	}
+	if app.activePlugin.ID() != "context" {
+		t.Errorf("after ChdirChangedEvent from context, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
+	}
+}
+
+func TestApp_DeactivateMsg_ClearsPreviousPlugin(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Manually set returnTo to simulate state saved by executeCommand
+	statePlugin, _ := app.registry.ByID("state")
+	app.returnTo = statePlugin
+
+	// Activate chdir as the current plugin
+	chdirPlugin, _ := app.registry.ByID("chdir")
+	app.activePlugin = chdirPlugin
+
+	// Send DeactivateMsg — should clear both activePlugin and returnTo
+	model, _ := app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+
+	if app.activePlugin != nil {
+		t.Errorf("after DeactivateMsg, activePlugin should be nil, got %q", app.activePlugin.ID())
+	}
+	if app.returnTo != nil {
+		t.Errorf("after DeactivateMsg, returnTo should be nil, got %q", app.returnTo.ID())
 	}
 }
