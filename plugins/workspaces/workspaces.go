@@ -16,6 +16,11 @@ type WorkspaceListMsg struct {
 	Err        error
 }
 
+// WorkspaceDeleteMsg is sent when workspace deletion completes.
+type WorkspaceDeleteMsg struct {
+	Err error
+}
+
 // WorkspaceSwitchMsg is sent when workspace switch completes.
 type WorkspaceSwitchMsg struct {
 	Name string
@@ -146,14 +151,21 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 	case WorkspaceSwitchMsg:
 		if msg.Err != nil {
+			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
-		} else {
-			e.current = msg.Name
-			refreshCmd := e.Refresh()
-			eventCmd := func() tea.Msg {
-				return sdk.WorkspaceChangedEvent{Name: msg.Name}
-			}
-			return e, tea.Batch(refreshCmd, eventCmd)
+			return e, nil
+		}
+		e.status = sdk.StatusIdle
+		e.current = msg.Name
+		return e, func() tea.Msg {
+			return sdk.WorkspaceChangedEvent{Name: msg.Name}
+		}
+
+	case WorkspaceDeleteMsg:
+		if msg.Err != nil {
+			e.status = sdk.StatusError
+			e.errMsg = msg.Err.Error()
+			return e, nil
 		}
 		return e, e.Refresh()
 
@@ -217,7 +229,7 @@ func (e *Plugin) DeleteSelected() tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
 		err := svc.WorkspaceDelete(context.Background(), ws)
-		return WorkspaceSwitchMsg{Name: e.current, Err: err}
+		return WorkspaceDeleteMsg{Err: err}
 	}
 }
 

@@ -38,6 +38,7 @@ type App struct {
 	homeView      views.HomeView
 
 	activePlugin  sdk.Plugin // nil = home screen
+	returnTo      sdk.Plugin // destination after a NavPush plugin completes; nil for NavReplace
 	activeOverlay sdk.Overlay
 	activeChdir   string // tracks last known active chdir for header updates
 	commandMode   bool
@@ -148,23 +149,37 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// On startup, activate the chdir plugin directly for member selection
 		if p, ok := a.registry.ByID("chdir"); ok {
-			a.activePlugin = p
-			return a, a.activatePlugin(p)
+			return a, a.navigateTo(p)
 		}
 		return a, nil
 
 	case sdk.ChdirChangedEvent:
 		a.activeChdir = msg.RelPath
-		a.activePlugin = nil
 		a.header = a.header.WithChdir(msg.RelPath)
-		return a, a.bus.Dispatch(msg)
+		busCmd := a.bus.Dispatch(msg)
+		if a.activePlugin != nil && a.registry.NavBehaviorFor(a.activePlugin.ID()) == plugin.NavPush {
+			if a.returnTo != nil {
+				a.navigateBack()
+				return a, tea.Batch(busCmd, a.activate(a.activePlugin))
+			}
+			a.activePlugin = nil
+		}
+		return a, busCmd
 
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.WorkspaceChangedEvent:
 		a.header = components.NewHeader(a.cfg.Dir, msg.Name)
-		return a, a.bus.Dispatch(msg)
+		busCmd := a.bus.Dispatch(msg)
+		if a.activePlugin != nil && a.registry.NavBehaviorFor(a.activePlugin.ID()) == plugin.NavPush {
+			if a.returnTo != nil {
+				a.navigateBack()
+				return a, tea.Batch(busCmd, a.activate(a.activePlugin))
+			}
+			a.activePlugin = nil
+		}
+		return a, busCmd
 
 	case sdk.PlanInvalidatedEvent:
 		return a, a.bus.Dispatch(msg)
@@ -177,6 +192,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.activePlugin != nil {
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
+			a.returnTo = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 		}
 		return a, nil
@@ -226,8 +242,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if pinned := a.pins.All(); len(pinned) > 0 {
 				applyPlugin.SetTargets(pinned)
 			}
+			a.returnTo = nil
 			a.activePlugin = p
-			cmd := a.activatePlugin(p)
+			cmd := a.activate(p)
 			applyPlugin.RequestApply()
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
 			return a, cmd
@@ -385,8 +402,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, tea.Quit
 	case "C":
 		if p, ok := a.registry.ByID("context"); ok {
-			a.activePlugin = p
-			return a, a.activatePlugin(p)
+			return a, a.navigateTo(p)
 		}
 		return a, nil
 	case "ctrl+s":
@@ -407,6 +423,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
+			a.returnTo = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			return a, nil
 		}
@@ -421,6 +438,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if stackable.Stack().IsEmpty() {
 				prev := a.activePlugin.ID()
 				a.activePlugin = nil
+				a.returnTo = nil
 				logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			}
 			return a, cmd
@@ -443,25 +461,42 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		item := a.homeView.SelectedItem()
 		if p, ok := a.registry.ByKey(item.Key); ok {
-			a.activePlugin = p
-			logging.Logger().Debug("plugin.activate", "id", p.ID())
-			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
-			return a, a.activatePlugin(p)
+			return a, a.navigateTo(p)
 		}
 		return a, nil
 	default:
 		// Check if key matches a plugin binding
 		if p, ok := a.registry.ByKey(msg.String()); ok {
-			a.activePlugin = p
-			logging.Logger().Debug("plugin.activate", "id", p.ID())
-			logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
-			return a, a.activatePlugin(p)
+			return a, a.navigateTo(p)
 		}
 	}
 	return a, nil
 }
 
-func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
+func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
+	nav := a.registry.NavBehaviorFor(p.ID())
+	from := "home"
+	if a.activePlugin != nil {
+		from = a.activePlugin.ID()
+	}
+	switch nav {
+	case plugin.NavPush:
+		a.returnTo = a.activePlugin
+	default:
+		a.returnTo = nil
+	}
+	a.activePlugin = p
+	logging.Logger().Debug("plugin.activate", "id", p.ID())
+	logging.Logger().Debug("view.transition", "from", from, "to", p.ID())
+	return a.activate(p)
+}
+
+func (a *App) navigateBack() {
+	a.activePlugin = a.returnTo
+	a.returnTo = nil
+}
+
+func (a App) activate(p sdk.Plugin) tea.Cmd {
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()
 	}
@@ -507,18 +542,7 @@ func (a *App) executeCommand(input string) tea.Cmd {
 
 	for _, p := range a.registry.All() {
 		if strings.ToLower(p.ID()) == lower || strings.HasPrefix(strings.ToLower(p.Name()), lower) {
-			prev := ""
-			if a.activePlugin != nil {
-				prev = a.activePlugin.ID()
-			}
-			a.activePlugin = p
-			logging.Logger().Debug("plugin.activate", "id", p.ID())
-			if prev != "" {
-				logging.Logger().Debug("view.transition", "from", prev, "to", p.ID())
-			} else {
-				logging.Logger().Debug("view.transition", "from", "home", "to", p.ID())
-			}
-			return a.activatePlugin(p)
+			return a.navigateTo(p)
 		}
 	}
 	return nil
