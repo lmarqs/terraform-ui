@@ -22,6 +22,50 @@ func TestDetectBinary_WhenCalled_ShouldReturnValidBinary(t *testing.T) {
 	}
 }
 
+func TestDetectBinary_WhenNoBinaryOnPath_ShouldReturnTerraformDefault(t *testing.T) {
+	t.Setenv("PATH", t.TempDir())
+	result := DetectBinary()
+	if result != "terraform" {
+		t.Errorf("DetectBinary() = %q, want %q when no binary found", result, "terraform")
+	}
+}
+
+func TestDetectBinary_WhenOnlyTofuOnPath_ShouldReturnTofu(t *testing.T) {
+	binDir := t.TempDir()
+	tofuPath := filepath.Join(binDir, "tofu")
+	os.WriteFile(tofuPath, []byte("#!/bin/sh\n"), 0755)
+	t.Setenv("PATH", binDir)
+
+	result := DetectBinary()
+	if result != "tofu" {
+		t.Errorf("DetectBinary() = %q, want %q", result, "tofu")
+	}
+}
+
+func TestDetectBinary_WhenOnlyTerragruntOnPath_ShouldReturnTerragrunt(t *testing.T) {
+	binDir := t.TempDir()
+	tgPath := filepath.Join(binDir, "terragrunt")
+	os.WriteFile(tgPath, []byte("#!/bin/sh\n"), 0755)
+	t.Setenv("PATH", binDir)
+
+	result := DetectBinary()
+	if result != "terragrunt" {
+		t.Errorf("DetectBinary() = %q, want %q", result, "terragrunt")
+	}
+}
+
+func TestDetectBinary_WhenTerraformAndTofuOnPath_ShouldPreferTerraform(t *testing.T) {
+	binDir := t.TempDir()
+	os.WriteFile(filepath.Join(binDir, "terraform"), []byte("#!/bin/sh\n"), 0755)
+	os.WriteFile(filepath.Join(binDir, "tofu"), []byte("#!/bin/sh\n"), 0755)
+	t.Setenv("PATH", binDir)
+
+	result := DetectBinary()
+	if result != "terraform" {
+		t.Errorf("DetectBinary() = %q, want %q (terraform preferred over tofu)", result, "terraform")
+	}
+}
+
 func TestBuildHCL_WhenNoMembers_ShouldReturnOnlyTerraformBlock(t *testing.T) {
 	result := BuildHCL("terraform", nil)
 	expected := "terraform {\n  bin = \"terraform\"\n}\n"
@@ -99,6 +143,37 @@ func TestDetectMembers_WhenEmptyDir_ShouldReturnNil(t *testing.T) {
 	members := DetectMembers(dir)
 	if members != nil {
 		t.Errorf("DetectMembers(empty) = %v, want nil", members)
+	}
+}
+
+func TestDetectMembers_WhenAbsPathFails_ShouldReturnNil(t *testing.T) {
+	tmpDir := t.TempDir()
+	subDir := filepath.Join(tmpDir, "vanish")
+	os.MkdirAll(subDir, 0755)
+	t.Chdir(subDir)
+	os.RemoveAll(subDir)
+
+	members := DetectMembers(".")
+	if members != nil {
+		t.Errorf("DetectMembers(deleted cwd) = %v, want nil", members)
+	}
+}
+
+func TestDetectMembers_WhenDirNameCausesGlobError_ShouldSkipPattern(t *testing.T) {
+	tmpDir := t.TempDir()
+	// A directory name containing "[" causes filepath.Glob to return ErrBadPattern
+	badDir := filepath.Join(tmpDir, "bad[dir")
+	os.MkdirAll(badDir, 0755)
+	// Put a .tf file in the root so we can verify the function still works past the error
+	os.WriteFile(filepath.Join(badDir, "main.tf"), []byte(""), 0644)
+
+	members := DetectMembers(badDir)
+	// Despite glob errors on patterns, the root .tf check still works
+	if len(members) != 1 {
+		t.Fatalf("len(members) = %d, want 1", len(members))
+	}
+	if members[0].Path != "." {
+		t.Errorf("members[0].Path = %q, want %q", members[0].Path, ".")
 	}
 }
 
