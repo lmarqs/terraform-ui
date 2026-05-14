@@ -477,9 +477,9 @@ func TestUpdateKeyMsgR_Refresh(t *testing.T) {
 	p.status = sdk.StatusDone
 	p.svc = svc
 
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
-		t.Error("after r: cmd = nil, want non-nil (refresh)")
+		t.Error("after ctrl+r: cmd = nil, want non-nil (refresh)")
 	}
 }
 

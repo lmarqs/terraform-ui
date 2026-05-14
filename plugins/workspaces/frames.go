@@ -56,7 +56,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.newName = ""
 	case "d":
 		return f, f.plugin.DeleteSelected()
-	case "r":
+	case "ctrl+r":
 		return f, f.plugin.Refresh()
 	}
 	return f, nil

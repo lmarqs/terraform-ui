@@ -354,24 +354,24 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
-	// r triggers refresh in normal mode
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	// ctrl+r triggers refresh in normal mode
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
-		t.Error("after r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("after ctrl+r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
 	}
 
-	// r works in error state too
+	// ctrl+r works in error state too
 	p.status = sdk.StatusError
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
-		t.Error("after r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("after ctrl+r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
 	}
 
-	// r does nothing in Loading
+	// ctrl+r does nothing in Loading
 	p.status = sdk.StatusLoading
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd != nil {
-		t.Error("after r in sdk.StatusLoading: cmd != nil, want nil")
+		t.Error("after ctrl+r in sdk.StatusLoading: cmd != nil, want nil")
 	}
 }
 

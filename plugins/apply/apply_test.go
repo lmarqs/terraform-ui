@@ -291,7 +291,7 @@ func TestUpdateKeyMsgError_Retry(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
 		t.Error("after r in error: cmd = nil, want non-nil (retry)")
 	}
@@ -529,7 +529,7 @@ func TestUpdateKeyMsgRunning(t *testing.T) {
 	p.status = sdk.StatusLoading
 
 	// Keys during running state should do nothing
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd != nil {
 		t.Error("after r in running: cmd != nil, want nil")
 	}
@@ -541,7 +541,7 @@ func TestUpdateKeyMsgSuccess(t *testing.T) {
 	p.status = sdk.StatusDone
 
 	// Keys during success state should do nothing (no handler)
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd != nil {
 		t.Error("after r in success: cmd != nil, want nil")
 	}

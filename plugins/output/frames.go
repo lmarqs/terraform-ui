@@ -50,7 +50,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.filter = ""
 		f.plugin.filtered = f.plugin.outputs
 		f.plugin.selected = 0
-	case "r":
+	case "ctrl+r":
 		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
 		}

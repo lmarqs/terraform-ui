@@ -157,7 +157,7 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		p.MoveUp()
 	case "enter", "i":
 		p.ToggleExpand()
-	case "r":
+	case "ctrl+r":
 		if p.status == sdk.StatusError || p.status == sdk.StatusDone {
 			return p.Refresh()
 		}

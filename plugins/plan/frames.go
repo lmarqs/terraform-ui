@@ -39,7 +39,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
 			return f, f.plugin.requestForceUnlock()
 		}
-	case "r":
+	case "ctrl+r":
 		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
 		}

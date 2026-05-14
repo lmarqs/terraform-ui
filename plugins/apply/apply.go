@@ -201,7 +201,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	case sdk.StatusError:
 		switch msg.String() {
-		case "r":
+		case "ctrl+r":
 			return e.Confirm()
 		}
 	}
