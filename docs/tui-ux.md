@@ -151,21 +151,31 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 
 A picker is an inline selection frame pushed onto a plugin's own stack. It replaces navigating away to a separate plugin — the user stays in context, `esc` pops back, and selection auto-pops to the parent frame.
 
-### Core Principle: Perceived Instant Response
+### Core Principle: No Magic Behavior
 
-A picker MUST open instantly. The user pressed a key — they expect an immediate UI change, not a loading state. This means:
+Every action the app takes must be a direct, visible result of something the user did. The app never fetches data speculatively, never pre-loads behind the user's back, never does work the user didn't ask for.
 
-- **Sync items** (known at build time): open picker directly. Example: chdir members from config.
-- **Async items** (fetched from terraform): pre-load on `Activate()`, cache in plugin state, open picker from cache. Example: workspace list.
+**Magic behavior** = the app doing something without the user triggering it. Examples:
+- Fetching workspace list on `Activate()` before the user selects the workspace field
+- Pre-loading data "in case" the user might need it
+- Background refreshes that silently update cached state
+- Invisible network calls that consume resources and may fail silently
 
-Never block the UI thread waiting for data. Never show a picker with a spinner. The pattern is:
+**Explicit behavior** = every side effect traces back to a user action. Examples:
+- User selects "Workspace" → app fetches workspace list → shows loading → shows picker
+- User presses `r` → app refreshes data
+- User opens a plugin → app loads that plugin's data (because they asked for it)
 
-```
-Activate() → kick off async fetch → cache result in Update()
-OnSelect()  → open picker from cache (synchronous)
-```
+This means a picker with async items shows a loading state — that is honest UX. The user triggered the action, they see the consequence. A brief "Loading..." is infinitely better than hidden background magic that may silently fail, waste resources, or produce stale data the user never asked for.
 
-If the cache is empty when the user selects the field (fetch still in-flight or failed), the picker opens with "No items available." — still instant, still responsive.
+### Two Picker Flavors
+
+| Flavor | Items source | On select | User sees |
+|--------|-------------|-----------|-----------|
+| **Sync** | Already in memory (config, static list) | Push picker frame immediately | Instant list |
+| **Async** | Requires I/O (terraform CLI call) | Kick fetch → show loading → push picker on response | Loading → list |
+
+Both share the same picker frame once items are available. The difference is only in _when_ the fetch happens — always as a direct result of the user's action, never speculatively.
 
 ### Behavior Contract
 
@@ -203,42 +213,42 @@ If the cache is empty when the user selects the field (fetch still in-flight or 
 ### Implementation
 
 ```go
-// In your plugin — sync items:
-func (p *Plugin) openPicker() tea.Cmd {
-    frame := newPickerFrame(p.items, p.current, func(selected string) tea.Cmd {
+// Sync picker — items already available:
+func (p *Plugin) openChdirPicker() tea.Cmd {
+    frame := newPickerFrame(p.members, p.current, func(selected string) tea.Cmd {
         // emit event, update state
     })
     p.stack.Push(frame)
-    return nil  // synchronous — no command needed
+    return nil
 }
 
-// In your plugin — async items:
-func (p *Plugin) Activate() tea.Cmd {
-    p.stack.Push(p.buildForm())
-    return p.loadItems()  // background fetch
+// Async picker — items require I/O:
+func (p *Plugin) openWorkspacePicker() tea.Cmd {
+    svc := p.svc
+    return func() tea.Msg {
+        // User triggered this — fetch is a direct consequence
+        items, err := svc.WorkspaceList(context.Background())
+        return workspaceListMsg{items: items, err: err}
+    }
 }
 
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
     switch msg := msg.(type) {
-    case itemsLoadedMsg:
-        p.cachedItems = msg.items  // cache for picker
+    case workspaceListMsg:
+        if msg.err != nil { /* show error */ }
+        frame := newPickerFrame(msg.items, p.current, p.onSelect)
+        p.stack.Push(frame)
     }
     return p, nil
-}
-
-func (p *Plugin) openPicker() tea.Cmd {
-    frame := newPickerFrame(p.cachedItems, p.current, p.onSelect)
-    p.stack.Push(frame)
-    return nil  // instant — reads from cache
 }
 ```
 
 ### Anti-patterns
 
-- **Navigate away to a different plugin** for selection — breaks back navigation, loses parent context
-- **Show picker with loading spinner** — violates instant-response principle; pre-load instead
+- **Background pre-loading** — fetching data the user didn't ask for. Magic behavior: invisible side effects, wasted resources, stale data. Load when the user acts, not before.
+- **Navigate away to a different plugin** — breaks back navigation, loses parent context
 - **Block in OnSelect callback** — the callback returns a `tea.Cmd`, never blocks the UI thread
-- **Fetch on every open** — cache on activate, invalidate on relevant events
+- **Speculative caching** — caching "in case" the user opens a picker. Only cache if the user has already seen the data and it's still valid.
 
 ## 10. Home Screen
 

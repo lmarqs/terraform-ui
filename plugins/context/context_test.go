@@ -83,16 +83,19 @@ func TestFormNavigation_EnterOnChdir_PushesPickerFrame(t *testing.T) {
 	}
 }
 
-func TestFormNavigation_EnterOnWorkspace_OpensPickerSync(t *testing.T) {
-	p := New(nil).(*Plugin)
-	p.workspaces = []string{"default", "staging"}
+func TestFormNavigation_EnterOnWorkspace_TriggersFetch(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
 	p.Activate()
 
 	// No members configured, so first selectable is Workspace
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected a command to fetch workspaces")
+	}
 
-	if p.stack.Depth() != 2 {
-		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
+	// Picker not pushed yet — waiting for response
+	if p.stack.Depth() != 1 {
+		t.Errorf("stack depth = %d, want 1 (fetch in progress)", p.stack.Depth())
 	}
 }
 
@@ -154,26 +157,25 @@ func TestChdirPicker_SelectPopsBack(t *testing.T) {
 	}
 }
 
-func TestActivate_CachesWorkspaceList(t *testing.T) {
+func TestWorkspacePicker_PushedOnResponse(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.Activate()
 
-	// Simulate workspace list response
+	// Simulate workspace list response from user-triggered fetch
 	p.Update(workspaceListMsg{workspaces: []string{"default", "staging"}})
 
-	if len(p.workspaces) != 2 {
-		t.Errorf("workspaces = %d, want 2", len(p.workspaces))
+	if p.stack.Depth() != 2 {
+		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
 	}
 }
 
 func TestWorkspacePicker_SelectEmitsEvent(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
 	p.workspace = "default"
-	p.workspaces = []string{"default", "staging"}
 	p.Activate()
 
-	// Open workspace picker
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// Simulate workspace list arriving (user triggered fetch)
+	p.Update(workspaceListMsg{workspaces: []string{"default", "staging"}})
 
 	// Move down to "staging"
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -215,15 +217,17 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestChdirNotSelectable_WhenNoMembers(t *testing.T) {
-	p := New(nil).(*Plugin)
-	p.workspaces = []string{"default"}
+	p := New(&mockService{}).(*Plugin)
 	p.Activate()
 
-	// Enter should trigger workspace (first selectable), not chdir
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// Enter should trigger workspace fetch (first selectable), not chdir
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected workspace fetch command")
+	}
 
-	// Workspace picker should be pushed directly
-	if p.stack.Depth() != 2 {
-		t.Errorf("stack depth = %d, want 2 (form + picker)", p.stack.Depth())
+	// Picker not pushed yet — async fetch in progress
+	if p.stack.Depth() != 1 {
+		t.Errorf("stack depth = %d, want 1", p.stack.Depth())
 	}
 }
