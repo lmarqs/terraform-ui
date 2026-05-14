@@ -13,6 +13,10 @@ tfui [flags]
 tfui [command] [flags]
 ```
 
+## Design Principle
+
+tfui is a superset of terraform. All terraform flags work identically. Additions use names terraform hasn't claimed. See [CLI I/O Contract](cli-io-contract.md) for the full stdin/stdout/stderr specification.
+
 ## Commands
 
 ### `tfui` (no command)
@@ -20,38 +24,101 @@ tfui [command] [flags]
 Launches the interactive TUI. This is the default when no subcommand is given.
 
 ```bash
-tfui                    # TUI in current directory
-tfui --project ./infra  # TUI scoped to specific directory
+tfui                           # TUI in current directory
+tfui --project ./infra         # TUI scoped to specific directory
+tfui --plan ./tfplan.out       # TUI with pre-computed plan (binary)
+tfui --state ./terraform.tfstate  # TUI with pre-loaded state
 ```
 
 ### `tfui plan`
 
-Run terraform plan with animated terminal feedback.
+Run terraform plan. Produces a tree view on stdout and saves the binary plan file.
 
 ```bash
-tfui plan --project ./infra
-tfui plan --project ./infra --output json | jq .
-tfui plan --project ./infra --target aws_instance.web
+tfui plan
+tfui plan -out=tfplan.out
+tfui plan -target=aws_instance.web
+tfui plan -json                     # NDJSON events (terraform-compatible)
+tfui plan --ci                      # suppress spinner
 ```
 
-**Flags:**
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--ci` | `false` | Suppress spinner (CI-friendly) |
-| `--output` | `text` | Output format: `text`, `json` |
-| `--target` | | Resource target (repeatable) |
+| stdout | stderr | Exit |
+|--------|--------|------|
+| Tree view (default) or NDJSON (`-json`) | Spinner (if TTY, unless `--ci`) | 0/1/2 |
 
 ### `tfui apply`
 
-Run terraform apply with animated terminal feedback.
+Run terraform apply.
 
 ```bash
-tfui apply --project ./infra
-tfui apply --project ./infra --ci
+tfui apply tfplan.out
+tfui apply -json tfplan.out         # NDJSON events (terraform-compatible)
+tfui apply --ci
 ```
 
-**Flags:** Same as `plan`.
+| stdout | stderr | Exit |
+|--------|--------|------|
+| Apply summary (default) or NDJSON (`-json`) | Spinner (if TTY, unless `--ci`) | 0/1 |
+
+### `tfui show`
+
+Display plan or state in human or machine format.
+
+```bash
+tfui show tfplan.out                # human-readable
+tfui show -json tfplan.out          # structured JSON (terraform-compatible)
+```
+
+### `tfui state`
+
+State management operations.
+
+```bash
+tfui state list                     # addresses, one per line
+tfui state show <address>           # HCL attributes
+tfui state rm <address>             # remove from state
+tfui state mv <source> <dest>       # rename in state
+tfui state pull                     # raw state JSON to stdout
+tfui state push                     # state JSON from stdin
+```
+
+### `tfui import`
+
+Import existing resource into state.
+
+```bash
+tfui import <address> <id>
+```
+
+### `tfui validate`
+
+Run terraform validate.
+
+```bash
+tfui validate                       # enriched diagnostics
+tfui validate -json                 # JSON diagnostics (terraform-compatible)
+```
+
+### `tfui output`
+
+Show terraform outputs.
+
+```bash
+tfui output                         # human-readable
+tfui output -json                   # JSON (terraform-compatible)
+tfui output <name>                  # single value
+```
+
+### `tfui workspace`
+
+Workspace management.
+
+```bash
+tfui workspace list
+tfui workspace select <name>
+tfui workspace new <name>
+tfui workspace delete <name>
+```
 
 ### `tfui init`
 
@@ -69,6 +136,17 @@ Print the version.
 tfui version
 ```
 
+### Novel commands (no terraform equivalent)
+
+These commands consume plan JSON from stdin and produce enriched analysis:
+
+```bash
+tfui show -json tfplan.out | tfui risk           # risk report
+tfui show -json tfplan.out | tfui risk --json    # risk JSON (our schema)
+tfui show -json tfplan.out | tfui phantom        # phantom detection
+tfui show -json tfplan.out | tfui blast-radius   # blast radius graph
+```
+
 ## Global Flags
 
 Available on all commands:
@@ -77,107 +155,75 @@ Available on all commands:
 |------|---------|-------------|
 | `--project` | `.` | Project root directory (where tfui.hcl lives) |
 | `--terraform-bin` | `terraform` | Path to terraform/tofu/terragrunt binary |
+| `--chdir` | | Select chdir member (validated in project mode) |
 | `--config` | | Override config values (repeatable, `key=value`) |
 | `--debug` | `false` | Enable debug logging to `~/.tfui/logs/` |
 
-## Read-Only Mode (`--plan`, `--state`)
+## Additive Flags (tfui-only)
 
-Load pre-computed plan/state data without running terraform. Opens the TUI in read-only mode where mutating operations are disabled.
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--ci` | `false` | Suppress stderr spinner/progress |
 
-```bash
-# Local files (explicit path required: ./ or / prefix)
-tfui --plan ./plan.json
-tfui --state ./terraform.tfstate
-tfui --plan ./plan.json --state ./state.json
-
-# Stdin (pipe from terraform or curl)
-terraform show -json tfplan.out | tfui --plan -
-terraform state pull | tfui --state -
-
-# Absolute paths
-tfui --plan /ci/artifacts/plan.json
-
-# file:// scheme
-tfui --plan file:///absolute/path/plan.json
-```
+## TUI Flags
 
 | Flag | Description |
 |------|-------------|
-| `--plan` | Load plan from URI |
-| `--state` | Load state from URI |
+| `--plan` | Load binary plan file into TUI (review and apply) |
+| `--state` | Load state file into TUI (view and mutate via `-state=`) |
+| `--macro` | Run tape file (requires `--plan` or `--state`) |
+
+### `--plan` behavior
+
+Accepts binary plan files (output of `terraform plan -out=`):
+
+```bash
+tfui --plan ./tfplan.out            # review AND apply
+terraform show -json tfplan.out | tfui --plan -   # stdin: view-only (can't apply)
+```
+
+- `Plan()` → `terraform show -json <file>` for display
+- `Apply()` → `terraform apply <file>` directly
+- Stdin source → cached, view-only, non-refreshable
+
+### `--state` behavior
+
+Accepts state files:
+
+```bash
+tfui --state ./terraform.tfstate    # view and mutate
+terraform state pull | tfui --state -   # stdin: view-only
+```
+
+- `StateList()`/`Show()` → re-read file on each call
+- Mutations → `terraform state rm -state=<file>` (delegates with `-state=` flag)
+- Refresh → re-reads file from disk (catches external changes)
 
 ### URI Resolution Rules
-
-URIs must be explicit — no bare filenames:
 
 | Input | Resolved as |
 |-------|-------------|
 | `-` | stdin |
-| `/absolute/path.json` | absolute local path |
-| `./relative/path.json` | relative to CWD |
-| `../parent/path.json` | relative to CWD |
-| `file:///path.json` | local path (scheme stripped) |
-| `s3://bucket/key.json` | S3 (requires provider, future) |
-| `https://host/path.json` | HTTP (requires provider, future) |
-| `plan.json` | **ERROR** — ambiguous, suggests `./plan.json` |
+| `/absolute/path` | absolute local path |
+| `./relative/path` | relative to CWD |
+| `../parent/path` | relative to CWD |
+| `file:///path` | local path (scheme stripped) |
+| `bare-name` | **ERROR** — suggests `./bare-name` |
 
-### Constraints
-
-- Only one flag can use `-` (stdin) per invocation
-- Plan files must be JSON format (output of `terraform show -json <planfile>`)
-- Binary `.tfplan` files are not supported directly — convert first with `terraform show -json`
-- State files must be JSON format (`.tfstate` or output of `terraform state pull`)
-
-### Read-Only Behavior
-
-When `--plan` or `--state` is provided (interactive TUI mode):
-
-- Header displays `[read-only]` badge
-- Workspace reported as `"readonly"`
-- Actions show the equivalent terraform command as an error message
-- Risk classification and phantom detection still run on loaded plan data
-
-When combined with `--macro`, all operations are recorded and printed to stdout (see [Macro Mode](#macro-mode-macro)).
+Constraint: only one flag can use `-` (stdin) per invocation.
 
 ## Macro Mode (`--macro`)
 
-Run automated TUI interactions from a tape file. Mutating terraform operations triggered during playback are printed to stdout. See [Macro Language](macro-language.md) for the full DSL reference.
+Macros are command generators, never executors. They record what terraform would run and output commands to stdout:
 
 ```bash
-# From file
-tfui --plan ./plan.json --macro ./scripts/verify-plan.tape
-
-# From stdin
-echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --macro -
-
-# Pipe commands to shell (apply via macro)
-tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape | sh
-
-# Use tofu binary
-tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape --terraform-bin tofu | sh
+tfui --macro deploy.tape --plan ./tfplan.out            # inspect commands
+tfui --macro deploy.tape --plan ./tfplan.out | sh       # user opts in to execute
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--macro` | Run tape file (path or `-` for stdin). Requires `--plan` or `--state`. |
+See [Macro Language](macro-language.md) for the DSL reference.
 
-### Stdout Output
-
-Every terraform operation triggered during macro playback is printed to stdout after completion:
-
-```bash
-$ tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
-terraform workspace show
-terraform state list
-terraform taint aws_instance.web
-
-$ tfui --plan ./plan.json --state ./state.json --macro ./apply.tape
-terraform workspace show
-terraform plan
-terraform apply -target=aws_instance.web
-```
-
-### Exit Codes (macro mode)
+### Macro Exit Codes
 
 | Code | Meaning |
 |------|---------|
@@ -186,18 +232,10 @@ terraform apply -target=aws_instance.web
 | 2 | Syntax error in tape file |
 | 3 | Timeout waiting for condition |
 
-## Environment Variables
-
-terraform-ui respects standard terraform environment variables:
-
-- `TF_CLI_ARGS_plan` — Extra arguments for terraform plan
-- `TF_CLI_ARGS_apply` — Extra arguments for terraform apply
-- `TF_WORKSPACE` — Override workspace selection
-
-## Exit Codes (TUI/plan/apply)
+## Exit Codes (CLI)
 
 | Code | Meaning |
 |------|---------|
 | 0 | Success (no changes for plan, or apply succeeded) |
-| 1 | Error (terraform failed, invalid config, etc.) |
-| 2 | Plan has changes (useful for CI: changes detected) |
+| 1 | Error |
+| 2 | Plan has changes (terraform-compatible) |

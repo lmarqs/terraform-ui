@@ -83,8 +83,8 @@ tfui apply --project ./infra
 # Silent: no animation
 tfui apply --project ./infra --ci
 
-# Agent: JSON output
-tfui apply --project ./infra --output json
+# NDJSON events (terraform-compatible)
+tfui apply --project ./infra -json
 
 # Targeted: apply only specific resources
 tfui plan --project ./infra --target aws_instance.web

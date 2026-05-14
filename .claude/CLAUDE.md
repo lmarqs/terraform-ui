@@ -225,45 +225,36 @@ When `--plan` or `--state` provided:
 
 ### CLI: Design Decisions
 
-tfui has three interfaces, each serving a distinct audience:
+Full I/O contract, pipe scenarios, and tradeoff analysis: **`docs/cli-io-contract.md`**
+
+**Core principle:** tfui is a superset of terraform. All terraform flags work identically. Our additions use names terraform hasn't claimed. See the contract doc for the full stdin/stdout/stderr table and pipe benchmarks.
+
+**Three interfaces:**
 
 | Interface | Command | Audience | Output |
 |-----------|---------|----------|--------|
 | TUI | `tfui` | Human (interactive) | BubbleTea screen |
-| CLI | `tfui plan`, `tfui apply` | Human (quick look) or CI | stdout text/JSON |
+| CLI | `tfui plan`, `tfui apply` | Human (quick look) or CI | stdout (tree/JSON) |
 | MCP | `tfui mcp` (future) | AI agents | Structured protocol |
-
-**CLI subcommand flags:**
-
-| Flag | Type | Values | Default | Purpose |
-|------|------|--------|---------|---------|
-| `--ci` | bool | — | `false` | Suppress spinner (audience signal) |
-| `--output` | string | `text`, `json` | `text` | Output format (like aws cli) |
-| `--terraform-bin` | string | path | `"terraform"` | Binary to use |
-| `--target` | []string | resource addr | — | Resource targets |
 
 **Behavior matrix:**
 
 | Command | stdout | stderr |
 |---------|--------|--------|
-| `tfui plan` | tree view | spinner + elapsed (if stderr is TTY) |
+| `tfui plan` | tree view | spinner (if stderr is TTY) |
 | `tfui plan --ci` | tree view | nothing |
-| `tfui plan --output json` | enriched JSON | spinner + elapsed (if stderr is TTY) |
-| `tfui plan --output json --ci` | enriched JSON | nothing |
+| `tfui plan -json` | NDJSON events (terraform-compatible) | nothing |
 
-The two flags are fully orthogonal:
-- `--output` → stdout format (`text` or `json`)
-- `--ci` → stderr behavior (suppress spinner)
+**Rules:**
+- `-json` flag → identical output to terraform's `-json` (same bytes, same format)
+- Default stdout → our enriched tree view (replaces terraform's bloated text)
+- `--ci` → suppress stderr (additive, terraform doesn't have it)
+- Novel commands (`risk`, `phantom`, `blast-radius`) → free reign, our schema
 - `show_spinner = !ci && isStderrTTY()`
-
-**Why `--output` and not `--json`:**
-- terraform's `-json` produces NDJSON streaming events — fundamentally different from tfui's structured summary
-- `--output` avoids semantic collision, matches aws cli pattern, is extensible
 
 **terraform-exec and output ownership:**
 - terraform-exec discards terraform's human-readable stdout (plan text)
 - tfui reconstructs its own output from the structured plan JSON (`ShowPlanFile`)
-- Terraform flags that affect output format (`-json`, `-no-color`, `-compact-warnings`) are **not supported** — they affect stdout that tfui never sees
 - Flags that affect behavior (`-target`, `-var`, `-destroy`, etc.) are first-class tfui flags with single-dash normalization
 
 **Binary resolution:**

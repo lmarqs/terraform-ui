@@ -72,8 +72,8 @@ tfui plan --project ./infra
 # Silent: tree-view text output (no animation)
 tfui plan --project ./infra --ci
 
-# Agent: structured JSON for automation/AI
-tfui plan --project ./infra --output json
+# NDJSON events (terraform-compatible)
+tfui plan --project ./infra -json
 
 # Targeted: plan only specific resources
 tfui plan --project ./infra --target aws_instance.web --target aws_s3_bucket.old
@@ -123,7 +123,7 @@ Risk: CRITICAL
 | Goal | CLI | TUI |
 |------|-----|-----|
 | See what will change | `tfui plan --ci` | Press `p` |
-| Get plan as JSON | `tfui plan --output json` | N/A (TUI is visual) |
+| Get plan as JSON | `tfui show -json tfplan.out` | N/A (TUI is visual) |
 | Plan specific resources | `tfui plan --target X` | Press `p`, pin resources |
 | Plan then apply | `tfui plan && tfui apply` | `p` → review → `a` → `y` |
 

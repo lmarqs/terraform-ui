@@ -39,8 +39,8 @@ Phantom changes are:
 ## In Non-Interactive Mode
 
 ```bash
-# Agent mode includes phantom detection in JSON output
-tfui plan --dir ./infra --output json | jq '.phantom_changes'
+# Phantom detection via enrichment command
+tfui show -json tfplan.out | tfui phantom --json | jq '.phantom_changes'
 ```
 
 Output:
