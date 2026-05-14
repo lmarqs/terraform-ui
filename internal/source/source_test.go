@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -290,6 +291,108 @@ func TestStdinProvider(t *testing.T) {
 		}
 		if string(data1) != string(data2) {
 			t.Errorf("second read returned different data: %q vs %q", data1, data2)
+		}
+	})
+}
+
+func TestStdinProvider_WhenReadFails_ShouldReturnWrappedError(t *testing.T) {
+	r, _, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	r.Close()
+
+	oldStdin := os.Stdin
+	os.Stdin = r
+	t.Cleanup(func() { os.Stdin = oldStdin })
+
+	p := &StdinProvider{}
+	_, err = p.Read(context.Background(), "-")
+	if err == nil {
+		t.Fatal("expected error when reading from closed pipe")
+	}
+	if !strings.Contains(err.Error(), "reading stdin") {
+		t.Errorf("error should wrap with 'reading stdin', got: %s", err.Error())
+	}
+}
+
+func TestIsValidScheme(t *testing.T) {
+	tests := []struct {
+		name string
+		s    string
+		want bool
+	}{
+		{"empty string", "", false},
+		{"single alpha", "a", true},
+		{"starts with digit", "1abc", false},
+		{"starts with plus", "+abc", false},
+		{"starts with hyphen", "-abc", false},
+		{"starts with dot", ".abc", false},
+		{"valid with all allowed chars", "a1+b2-c3.d4", true},
+		{"contains underscore", "my_scheme", false},
+		{"contains space", "my scheme", false},
+		{"contains at", "user@host", false},
+		{"uppercase", "HTTP", true},
+		{"mixed case", "MyScheme", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isValidScheme(tt.s)
+			if got != tt.want {
+				t.Errorf("isValidScheme(%q) = %v, want %v", tt.s, got, tt.want)
+			}
+		})
+	}
+}
+
+type fakeProvider struct {
+	scheme string
+}
+
+func (f *fakeProvider) Scheme() string                                   { return f.scheme }
+func (f *fakeProvider) Read(_ context.Context, _ string) ([]byte, error) { return nil, nil }
+
+func TestResolver_WhenUnsupportedScheme_ShouldListAllProviderTypes(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("lists stdin provider in supported", func(t *testing.T) {
+		r := NewResolver(&StdinProvider{})
+		_, err := r.Resolve(ctx, "/some/path.json")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if !strings.Contains(err.Error(), "- (stdin)") {
+			t.Errorf("error should list stdin provider, got: %s", err.Error())
+		}
+	})
+
+	t.Run("lists custom scheme provider in supported", func(t *testing.T) {
+		r := NewResolver(&fakeProvider{scheme: "s3"})
+		_, err := r.Resolve(ctx, "/some/path.json")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		if !strings.Contains(err.Error(), "s3://") {
+			t.Errorf("error should list 's3://' provider, got: %s", err.Error())
+		}
+	})
+
+	t.Run("lists all provider types together", func(t *testing.T) {
+		r := NewResolver(&LocalProvider{}, &StdinProvider{}, &fakeProvider{scheme: "s3"})
+		_, err := r.Resolve(ctx, "gcs://bucket/key")
+		if err == nil {
+			t.Fatal("expected error")
+		}
+		msg := err.Error()
+		if !strings.Contains(msg, "local paths") {
+			t.Errorf("should list local paths, got: %s", msg)
+		}
+		if !strings.Contains(msg, "- (stdin)") {
+			t.Errorf("should list stdin, got: %s", msg)
+		}
+		if !strings.Contains(msg, "s3://") {
+			t.Errorf("should list s3://, got: %s", msg)
 		}
 	})
 }
