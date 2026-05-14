@@ -18,8 +18,10 @@ func detectBinary(configured string) string {
 	if configured != "" {
 		return configured
 	}
-	if _, err := exec.LookPath("tofu"); err == nil {
-		return "tofu"
+	for _, bin := range []string{"terraform", "tofu", "terragrunt"} {
+		if _, err := exec.LookPath(bin); err == nil {
+			return bin
+		}
 	}
 	return "terraform"
 }
@@ -30,17 +32,17 @@ const (
 	StatusConfirm = sdk.Status(12)
 )
 
-// DetectedPattern represents a filesystem pattern found during scanning.
-type DetectedPattern struct {
-	Pattern string
+// DetectedMember represents a terraform directory found during scanning.
+type DetectedMember struct {
+	Path    string
 	Enabled bool
 }
 
 // DetectionCompleteMsg is sent when filesystem scanning finishes.
 type DetectionCompleteMsg struct {
-	Binary   string
-	Patterns []DetectedPattern
-	Err      error
+	Binary  string
+	Members []DetectedMember
+	Err     error
 }
 
 // WriteCompleteMsg is sent when the config file has been written.
@@ -55,7 +57,7 @@ type Plugin struct {
 	dir        string
 	status     sdk.Status
 	binary     string
-	patterns   []DetectedPattern
+	members    []DetectedMember
 	selected   int
 	errMsg     string
 	preview    string
@@ -107,7 +109,7 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
 	p.dir = ctx.WorkingDir
 	p.status = StatusMenu
-	p.patterns = nil
+	p.members = nil
 	p.binary = ""
 	p.errMsg = ""
 	p.selected = 0
@@ -139,7 +141,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		} else {
 			p.status = StatusReview
 			p.binary = msg.Binary
-			p.patterns = msg.Patterns
+			p.members = msg.Members
 		}
 		return p, nil
 
@@ -226,7 +228,7 @@ func (p *Plugin) openEditor() tea.Cmd {
 func (p *Plugin) handleReviewKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "j", "down":
-		if p.selected < len(p.patterns)-1 {
+		if p.selected < len(p.members)-1 {
 			p.selected++
 		}
 	case "k", "up":
@@ -234,8 +236,8 @@ func (p *Plugin) handleReviewKey(msg tea.KeyMsg) tea.Cmd {
 			p.selected--
 		}
 	case " ":
-		if p.selected < len(p.patterns) {
-			p.patterns[p.selected].Enabled = !p.patterns[p.selected].Enabled
+		if p.selected < len(p.members) {
+			p.members[p.selected].Enabled = !p.members[p.selected].Enabled
 		}
 	case "enter":
 		p.preview = p.generateHCL()
@@ -321,26 +323,22 @@ func (p *Plugin) renderMenu(width, height int) string {
 func (p *Plugin) renderReview(width, height int) string {
 	var b strings.Builder
 
-	// Binary detection
 	binaryLabel := sdk.StyleKey.Render("Terraform binary: ")
 	binaryValue := sdk.StyleSuccess.Render(p.binary)
 	b.WriteString(binaryLabel + binaryValue + "\n\n")
 
-	// Detected patterns
-	if len(p.patterns) == 0 {
-		noPatterns := sdk.StyleFaintItalic.Render("No terraform project patterns detected.")
-		b.WriteString(noPatterns + "\n")
+	if len(p.members) == 0 {
+		b.WriteString(sdk.StyleFaintItalic.Render("No terraform directories detected.") + "\n")
 	} else {
-		patternsLabel := sdk.StyleKey.Render("Detected patterns:")
-		b.WriteString(patternsLabel + "\n\n")
+		b.WriteString(sdk.StyleKey.Render("Detected members:") + "\n\n")
 
-		for i, pat := range p.patterns {
+		for i, m := range p.members {
 			checkbox := "[ ]"
-			if pat.Enabled {
+			if m.Enabled {
 				checkbox = "[x]"
 			}
 
-			row := fmt.Sprintf("%s %s", checkbox, pat.Pattern)
+			row := fmt.Sprintf("%s %s", checkbox, m.Path)
 			if i == p.selected {
 				row = sdk.StyleSelected.Width(width - 6).Render(row)
 			}
@@ -371,10 +369,10 @@ func (p *Plugin) detect() tea.Cmd {
 	dir := p.dir
 	return func() tea.Msg {
 		binary := detectBinary("")
-		patterns := detectPatterns(dir)
+		members := detectMembers(dir)
 		return DetectionCompleteMsg{
-			Binary:   binary,
-			Patterns: patterns,
+			Binary:  binary,
+			Members: members,
 		}
 	}
 }
@@ -391,16 +389,16 @@ func (p *Plugin) writeConfig() tea.Cmd {
 
 func (p *Plugin) generateHCL() string {
 	var enabled []string
-	for _, pat := range p.patterns {
-		if pat.Enabled {
-			enabled = append(enabled, pat.Pattern)
+	for _, m := range p.members {
+		if m.Enabled {
+			enabled = append(enabled, m.Path)
 		}
 	}
 	return buildHCL(p.binary, enabled)
 }
 
-// detectPatterns scans the directory for common terraform project layouts.
-func detectPatterns(dir string) []DetectedPattern {
+// detectMembers scans the directory for terraform project directories.
+func detectMembers(dir string) []DetectedMember {
 	absDir, err := filepath.Abs(dir)
 	if err != nil {
 		return nil
@@ -413,7 +411,7 @@ func detectPatterns(dir string) []DetectedPattern {
 		"services/*/terraform",
 	}
 
-	var patterns []DetectedPattern
+	var members []DetectedMember
 	for _, candidate := range candidates {
 		fullPattern := filepath.Join(absDir, candidate)
 		matches, err := filepath.Glob(fullPattern)
@@ -422,35 +420,34 @@ func detectPatterns(dir string) []DetectedPattern {
 		}
 		for _, match := range matches {
 			if config.HasTerraformFiles(match) {
-				patterns = append(patterns, DetectedPattern{
-					Pattern: candidate,
+				rel, _ := filepath.Rel(absDir, match)
+				members = append(members, DetectedMember{
+					Path:    rel,
 					Enabled: true,
 				})
-				break
 			}
 		}
 	}
 
-	// Check for root-level .tf files
 	if config.HasTerraformFiles(absDir) {
-		patterns = append(patterns, DetectedPattern{
-			Pattern: ".",
+		members = append(members, DetectedMember{
+			Path:    ".",
 			Enabled: true,
 		})
 	}
 
-	return patterns
+	return members
 }
 
 // GenerateConfig runs the detection logic non-interactively and returns HCL content.
 func GenerateConfig(dir string) (string, error) {
 	binary := detectBinary("")
-	patterns := detectPatterns(dir)
+	members := detectMembers(dir)
 
 	var enabled []string
-	for _, pat := range patterns {
-		if pat.Enabled {
-			enabled = append(enabled, pat.Pattern)
+	for _, m := range members {
+		if m.Enabled {
+			enabled = append(enabled, m.Path)
 		}
 	}
 
@@ -459,16 +456,13 @@ func GenerateConfig(dir string) (string, error) {
 
 func buildHCL(binary string, members []string) string {
 	var b strings.Builder
-	b.WriteString("# Generated by tfui init\n\n")
 	fmt.Fprintf(&b, "terraform {\n  bin = %q\n}\n", binary)
 
 	if len(members) > 0 {
 		sort.Strings(members)
-		b.WriteString("\nchdir {\n  members = [\n")
 		for _, m := range members {
-			fmt.Fprintf(&b, "    %q,\n", m)
+			fmt.Fprintf(&b, "\nmember %q {}\n", m)
 		}
-		b.WriteString("  ]\n}\n")
 	}
 
 	return b.String()

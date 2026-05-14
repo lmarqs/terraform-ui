@@ -102,7 +102,7 @@ func main() {
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file")
-	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select chdir member (validated against chdir.members in project mode)")
+	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 
 	var ciMode bool
 	var jsonMode bool
@@ -129,14 +129,16 @@ func main() {
 	applyCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
 
+	var forceInit bool
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Generate tfui.hcl configuration",
 		Long:  "Detect terraform project patterns and generate tfui.hcl in the working directory.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runInit(cfg)
+			return runInit(cfg, forceInit)
 		},
 	}
+	initCmd.Flags().BoolVar(&forceInit, "force", false, "Overwrite existing tfui.hcl")
 
 	versionCmd := &cobra.Command{
 		Use:   "version",
@@ -222,8 +224,12 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	}
 	if chdirPlugin, ok := registry.ByID("chdir"); ok {
 		if cp, ok := chdirPlugin.(*tfuichdir.Plugin); ok {
-			if rootCfg, err := config.LoadRoot(cfg.Dir); err == nil && len(rootCfg.Chdir.Members) > 0 {
-				cp.SetMembers(rootCfg.Chdir.Members, cfg.Dir)
+			if rootCfg, err := config.LoadRoot(cfg.Dir); err == nil && len(rootCfg.Members) > 0 {
+				paths := make([]string, len(rootCfg.Members))
+				for i, m := range rootCfg.Members {
+					paths[i] = m.Path
+				}
+				cp.SetMembers(paths, cfg.Dir)
 			}
 		}
 	}
@@ -576,13 +582,19 @@ func printAgentJSON(summary *terraform.PlanSummary) error {
 	return enc.Encode(output)
 }
 
-func runInit(cfg config.Config) error {
+func runInit(cfg config.Config, force bool) error {
+	outPath := filepath.Join(cfg.Dir, config.HCLConfigFileName)
+	if !force {
+		if _, err := os.Stat(outPath); err == nil {
+			return fmt.Errorf("%s already exists (use --force to overwrite)", outPath)
+		}
+	}
+
 	content, err := tfuiinit.GenerateConfig(cfg.Dir)
 	if err != nil {
 		return fmt.Errorf("init failed: %w", err)
 	}
 
-	outPath := filepath.Join(cfg.Dir, config.HCLConfigFileName)
 	if err := os.WriteFile(outPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("failed to write %s: %w", outPath, err)
 	}
