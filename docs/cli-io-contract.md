@@ -119,6 +119,7 @@ Layer 3: Novel (ADD)
 | `tfui` | `--plan -` | Plan JSON | (alt screen) | — | 0/1 |
 | `tfui` | `--state -` | State JSON | (alt screen) | — | 0/1 |
 | `tfui` | `--macro tape --plan file` | — | Commands | — | 0/1 |
+| `tfui` | `--macro tape` | — | Commands | — | 0/1 |
 
 ### Additive flags (no collision)
 

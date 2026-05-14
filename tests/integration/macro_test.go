@@ -21,6 +21,7 @@ func TestMacro(t *testing.T) {
 		name       string
 		tape       string
 		args       []string
+		setup      func(t *testing.T) []string // returns extra args
 		wantExit   int
 		wantStderr string
 		wantStdout string
@@ -58,11 +59,22 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
-			name:       "macro without plan or state fails",
-			tape:       "wait ready",
-			args:       nil,
-			wantExit:   1,
-			wantStderr: "--macro requires --plan or --state",
+			name: "macro without plan or state navigates to init",
+			tape: "wait ready\nkey i\nwait view Init",
+			args: nil,
+			setup: func(t *testing.T) []string {
+				t.Helper()
+				dir := t.TempDir()
+				vpcDir := filepath.Join(dir, "modules", "vpc")
+				if err := os.MkdirAll(vpcDir, 0755); err != nil {
+					t.Fatalf("mkdir: %v", err)
+				}
+				if err := os.WriteFile(filepath.Join(vpcDir, "main.tf"), []byte("resource \"aws_vpc\" \"main\" {}\n"), 0644); err != nil {
+					t.Fatalf("write main.tf: %v", err)
+				}
+				return []string{"--project", dir}
+			},
+			wantExit: 0,
 		},
 		{
 			name:     "empty tape succeeds",
@@ -98,11 +110,10 @@ func TestMacro(t *testing.T) {
 			wantStdout: "terraform plan\n",
 		},
 		{
-			name:       "state list records state list command",
-			tape:       "wait ready\nkey s\nwait view aws_instance.web",
-			args:       []string{"--plan", planFixture, "--state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform state list\n",
+			name:     "state list is a data fetch not recorded",
+			tape:     "wait ready\nkey s\nwait view aws_instance.web",
+			args:     []string{"--plan", planFixture, "--state", stateFixture},
+			wantExit: 0,
 		},
 		{
 			name:       "state delete outputs state rm command",
@@ -156,6 +167,9 @@ func TestMacro(t *testing.T) {
 			}
 
 			args := append([]string{"--macro", tapeFile}, tt.args...)
+			if tt.setup != nil {
+				args = append(args, tt.setup(t)...)
+			}
 			stdout, stderr, err := runTfui(args...)
 
 			exitCode := 0

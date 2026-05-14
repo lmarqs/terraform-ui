@@ -101,7 +101,7 @@ func main() {
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
-	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (requires --plan or --state)")
+	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file")
 	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select chdir member (validated against chdir.members in project mode)")
 
 	var ciMode bool
@@ -237,10 +237,6 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 }
 
 func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
-	if planURI == "" && stateURI == "" {
-		return fmt.Errorf("--macro requires --plan or --state (read-only data source)")
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("getting working directory: %w", err)
@@ -266,12 +262,19 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 		return nil
 	}
 
-	compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
-	if err != nil {
-		return err
+	var svc sdk.Service
+	if planURI != "" || stateURI != "" {
+		cfg.PreloadedData = true
+		compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
+		if err != nil {
+			return err
+		}
+		svc = compositeSvc
+	} else {
+		svc = terraform.NewService(effectiveWorkDir(cfg), cfg.TerraformBinary())
 	}
 
-	recorder := terraform.NewRecordingService(compositeSvc, cfg.TerraformBinary())
+	recorder := terraform.NewRecordingService(svc, cfg.TerraformBinary())
 	registry := buildRegistry(recorder, cfg)
 	app := ui.NewApp(cfg, recorder, registry)
 

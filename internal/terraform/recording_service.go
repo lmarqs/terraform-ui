@@ -68,94 +68,88 @@ func (r *RecordingService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk
 	return r.inner.Plan(ctx, opts)
 }
 
-func (r *RecordingService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
+func (r *RecordingService) Apply(_ context.Context, opts sdk.ApplyOptions) error {
 	r.record("apply", nil, buildApplyFlags(opts))
-	return r.inner.Apply(ctx, opts)
+	return nil
 }
 
 func (r *RecordingService) StateList(ctx context.Context) ([]sdk.Resource, error) {
-	r.record("state list", nil, nil)
 	return r.inner.StateList(ctx)
 }
 
 func (r *RecordingService) Show(ctx context.Context, address string) (string, error) {
-	r.record("state show", []string{address}, nil)
 	return r.inner.Show(ctx, address)
 }
 
 func (r *RecordingService) Workspace(ctx context.Context) (string, error) {
-	r.record("workspace show", nil, nil)
 	return r.inner.Workspace(ctx)
 }
 
 func (r *RecordingService) WorkspaceList(ctx context.Context) ([]string, error) {
-	r.record("workspace list", nil, nil)
 	return r.inner.WorkspaceList(ctx)
 }
 
-func (r *RecordingService) WorkspaceSelect(ctx context.Context, name string) error {
+func (r *RecordingService) WorkspaceSelect(_ context.Context, name string) error {
 	r.record("workspace select", []string{name}, nil)
-	return r.inner.WorkspaceSelect(ctx, name)
+	return nil
 }
 
-func (r *RecordingService) WorkspaceNew(ctx context.Context, name string) error {
+func (r *RecordingService) WorkspaceNew(_ context.Context, name string) error {
 	r.record("workspace new", []string{name}, nil)
-	return r.inner.WorkspaceNew(ctx, name)
+	return nil
 }
 
-func (r *RecordingService) WorkspaceDelete(ctx context.Context, name string) error {
+func (r *RecordingService) WorkspaceDelete(_ context.Context, name string) error {
 	r.record("workspace delete", []string{name}, nil)
-	return r.inner.WorkspaceDelete(ctx, name)
+	return nil
 }
 
-func (r *RecordingService) StateRm(ctx context.Context, address string) error {
+func (r *RecordingService) StateRm(_ context.Context, address string) error {
 	r.record("state rm", []string{address}, nil)
-	return r.inner.StateRm(ctx, address)
+	return nil
 }
 
-func (r *RecordingService) StateMove(ctx context.Context, src, dst string) error {
+func (r *RecordingService) StateMove(_ context.Context, src, dst string) error {
 	r.record("state mv", []string{src, dst}, nil)
-	return r.inner.StateMove(ctx, src, dst)
+	return nil
 }
 
-func (r *RecordingService) Import(ctx context.Context, address, id string) error {
+func (r *RecordingService) Import(_ context.Context, address, id string) error {
 	r.record("import", []string{address, id}, nil)
-	return r.inner.Import(ctx, address, id)
+	return nil
 }
 
-func (r *RecordingService) Taint(ctx context.Context, address string) error {
+func (r *RecordingService) Taint(_ context.Context, address string) error {
 	r.record("taint", []string{address}, nil)
-	return r.inner.Taint(ctx, address)
+	return nil
 }
 
-func (r *RecordingService) Untaint(ctx context.Context, address string) error {
+func (r *RecordingService) Untaint(_ context.Context, address string) error {
 	r.record("untaint", []string{address}, nil)
-	return r.inner.Untaint(ctx, address)
+	return nil
 }
 
 func (r *RecordingService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
-	r.record("validate", nil, nil)
 	return r.inner.Validate(ctx)
 }
 
 func (r *RecordingService) Output(ctx context.Context) (map[string]sdk.OutputValue, error) {
-	r.record("output", nil, nil)
 	return r.inner.Output(ctx)
 }
 
-func (r *RecordingService) Refresh(ctx context.Context) error {
+func (r *RecordingService) Refresh(_ context.Context) error {
 	r.record("refresh", nil, nil)
-	return r.inner.Refresh(ctx)
+	return nil
 }
 
-func (r *RecordingService) Init(ctx context.Context) error {
+func (r *RecordingService) Init(_ context.Context) error {
 	r.record("init", nil, nil)
-	return r.inner.Init(ctx)
+	return nil
 }
 
-func (r *RecordingService) ForceUnlock(ctx context.Context, lockID string) error {
+func (r *RecordingService) ForceUnlock(_ context.Context, lockID string) error {
 	r.record("force-unlock", nil, []string{"-force", lockID})
-	return r.inner.ForceUnlock(ctx, lockID)
+	return nil
 }
 
 func (r *RecordingService) WithDir(dir string) sdk.Service {
@@ -165,6 +159,7 @@ func (r *RecordingService) WithDir(dir string) sdk.Service {
 		store:  r.store,
 	}
 }
+
 
 func buildPlanFlags(opts sdk.PlanOptions) []string {
 	var flags []string

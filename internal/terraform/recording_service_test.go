@@ -162,21 +162,30 @@ func TestRecordingService_DelegatesToInner(t *testing.T) {
 	})
 }
 
-func TestRecordingService_RecordsAllCommands(t *testing.T) {
+func TestRecordingService_RecordsOperationsOnly(t *testing.T) {
 	svc := NewRecordingService(&stubService{}, "terraform")
 	ctx := context.Background()
 
-	tests := []struct {
+	// Internal data fetches — should NOT produce commands
+	svc.StateList(ctx)
+	svc.Show(ctx, "aws_instance.web")
+	svc.Workspace(ctx)
+	svc.WorkspaceList(ctx)
+	svc.Validate(ctx)
+	svc.Output(ctx)
+
+	if cmds := svc.Commands(); len(cmds) != 0 {
+		t.Fatalf("data fetches produced %d commands, want 0: %v", len(cmds), cmds)
+	}
+
+	// User-initiated operations — should produce commands
+	operations := []struct {
 		name     string
 		invoke   func()
 		expected string
 	}{
 		{"Plan", func() { svc.Plan(ctx, sdk.PlanOptions{}) }, "terraform plan"},
 		{"Apply", func() { svc.Apply(ctx, sdk.ApplyOptions{}) }, "terraform apply"},
-		{"StateList", func() { svc.StateList(ctx) }, "terraform state list"},
-		{"Show", func() { svc.Show(ctx, "aws_instance.web") }, "terraform state show aws_instance.web"},
-		{"Workspace", func() { svc.Workspace(ctx) }, "terraform workspace show"},
-		{"WorkspaceList", func() { svc.WorkspaceList(ctx) }, "terraform workspace list"},
 		{"WorkspaceSelect", func() { svc.WorkspaceSelect(ctx, "prod") }, "terraform workspace select prod"},
 		{"WorkspaceNew", func() { svc.WorkspaceNew(ctx, "staging") }, "terraform workspace new staging"},
 		{"WorkspaceDelete", func() { svc.WorkspaceDelete(ctx, "old") }, "terraform workspace delete old"},
@@ -185,14 +194,12 @@ func TestRecordingService_RecordsAllCommands(t *testing.T) {
 		{"Import", func() { svc.Import(ctx, "aws_instance.web", "i-123") }, "terraform import aws_instance.web i-123"},
 		{"Taint", func() { svc.Taint(ctx, "aws_instance.web") }, "terraform taint aws_instance.web"},
 		{"Untaint", func() { svc.Untaint(ctx, "aws_instance.web") }, "terraform untaint aws_instance.web"},
-		{"Validate", func() { svc.Validate(ctx) }, "terraform validate"},
-		{"Output", func() { svc.Output(ctx) }, "terraform output"},
 		{"Refresh", func() { svc.Refresh(ctx) }, "terraform refresh"},
 		{"Init", func() { svc.Init(ctx) }, "terraform init"},
 		{"ForceUnlock", func() { svc.ForceUnlock(ctx, "abc-123") }, "terraform force-unlock -force abc-123"},
 	}
 
-	for i, tt := range tests {
+	for i, tt := range operations {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.invoke()
 			cmds := svc.Commands()
@@ -266,6 +273,7 @@ func TestRecordingService_ConcurrentAccess(t *testing.T) {
 	}
 }
 
+
 func TestRecordingService_PlanFlagsRecorded(t *testing.T) {
 	svc := NewRecordingService(&stubService{}, "terraform")
 	ctx := context.Background()
@@ -336,4 +344,148 @@ func TestRecordingService_DefaultBinary(t *testing.T) {
 	if cmds[0].Binary != "terraform" {
 		t.Errorf("binary = %q, want terraform", cmds[0].Binary)
 	}
+}
+
+func TestRecordingService_MutationsDoNotDelegate(t *testing.T) {
+	inner := &spyService{}
+	svc := NewRecordingService(inner, "terraform")
+	ctx := context.Background()
+
+	svc.Apply(ctx, sdk.ApplyOptions{})
+	svc.StateRm(ctx, "aws_instance.web")
+	svc.StateMove(ctx, "old", "new")
+	svc.Import(ctx, "aws_instance.web", "i-123")
+	svc.Taint(ctx, "aws_instance.web")
+	svc.Untaint(ctx, "aws_instance.web")
+	svc.WorkspaceSelect(ctx, "prod")
+	svc.WorkspaceNew(ctx, "staging")
+	svc.WorkspaceDelete(ctx, "old")
+	svc.Refresh(ctx)
+	svc.Init(ctx)
+	svc.ForceUnlock(ctx, "lock-id")
+
+	if len(inner.calls) != 0 {
+		t.Errorf("mutations delegated to inner: %v", inner.calls)
+	}
+
+	cmds := svc.Commands()
+	if len(cmds) != 12 {
+		t.Fatalf("expected 12 recorded commands, got %d", len(cmds))
+	}
+}
+
+func TestRecordingService_ReadsDelegateToInner(t *testing.T) {
+	inner := &spyService{
+		plan:      &sdk.PlanSummary{ToCreate: 2, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}},
+		resources: []sdk.Resource{{Address: "r1"}},
+	}
+	svc := NewRecordingService(inner, "terraform")
+	ctx := context.Background()
+
+	svc.Plan(ctx, sdk.PlanOptions{})
+	svc.StateList(ctx)
+	svc.Show(ctx, "addr")
+	svc.Workspace(ctx)
+	svc.WorkspaceList(ctx)
+	svc.Validate(ctx)
+	svc.Output(ctx)
+
+	expected := []string{"Plan", "StateList", "Show", "Workspace", "WorkspaceList", "Validate", "Output"}
+	if len(inner.calls) != len(expected) {
+		t.Fatalf("expected %d delegated calls, got %d: %v", len(expected), len(inner.calls), inner.calls)
+	}
+	for i, want := range expected {
+		if inner.calls[i] != want {
+			t.Errorf("call[%d] = %q, want %q", i, inner.calls[i], want)
+		}
+	}
+}
+
+type spyService struct {
+	calls     []string
+	plan      *sdk.PlanSummary
+	resources []sdk.Resource
+}
+
+func (s *spyService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+	s.calls = append(s.calls, "Plan")
+	if s.plan != nil {
+		return s.plan, nil
+	}
+	return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
+}
+func (s *spyService) Apply(_ context.Context, _ sdk.ApplyOptions) error {
+	s.calls = append(s.calls, "Apply")
+	return nil
+}
+func (s *spyService) StateList(_ context.Context) ([]sdk.Resource, error) {
+	s.calls = append(s.calls, "StateList")
+	return s.resources, nil
+}
+func (s *spyService) Show(_ context.Context, _ string) (string, error) {
+	s.calls = append(s.calls, "Show")
+	return "{}", nil
+}
+func (s *spyService) Workspace(_ context.Context) (string, error) {
+	s.calls = append(s.calls, "Workspace")
+	return "default", nil
+}
+func (s *spyService) WorkspaceList(_ context.Context) ([]string, error) {
+	s.calls = append(s.calls, "WorkspaceList")
+	return []string{"default"}, nil
+}
+func (s *spyService) WorkspaceSelect(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "WorkspaceSelect")
+	return nil
+}
+func (s *spyService) WorkspaceNew(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "WorkspaceNew")
+	return nil
+}
+func (s *spyService) WorkspaceDelete(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "WorkspaceDelete")
+	return nil
+}
+func (s *spyService) StateRm(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "StateRm")
+	return nil
+}
+func (s *spyService) StateMove(_ context.Context, _, _ string) error {
+	s.calls = append(s.calls, "StateMove")
+	return nil
+}
+func (s *spyService) Import(_ context.Context, _, _ string) error {
+	s.calls = append(s.calls, "Import")
+	return nil
+}
+func (s *spyService) Taint(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "Taint")
+	return nil
+}
+func (s *spyService) Untaint(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "Untaint")
+	return nil
+}
+func (s *spyService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
+	s.calls = append(s.calls, "Validate")
+	return nil, nil
+}
+func (s *spyService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
+	s.calls = append(s.calls, "Output")
+	return nil, nil
+}
+func (s *spyService) Refresh(_ context.Context) error {
+	s.calls = append(s.calls, "Refresh")
+	return nil
+}
+func (s *spyService) Init(_ context.Context) error {
+	s.calls = append(s.calls, "Init")
+	return nil
+}
+func (s *spyService) ForceUnlock(_ context.Context, _ string) error {
+	s.calls = append(s.calls, "ForceUnlock")
+	return nil
+}
+func (s *spyService) WithDir(_ string) sdk.Service {
+	return s
 }

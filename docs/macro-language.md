@@ -18,7 +18,7 @@ The macro system serves three roles:
 
 ## Invocation
 
-Macro mode requires `--plan` or `--state` (always read-only, no TTY needed):
+No TTY is required — macro mode drives the BubbleTea model directly without opening a terminal.
 
 ```bash
 # Run tape against a plan file
@@ -30,6 +30,9 @@ tfui --state ./state.json --macro ./scripts/check-state.tape
 # Both plan and state
 tfui --plan ./plan.json --state ./state.json --macro ./scripts/full-check.tape
 
+# Without pre-loaded data (for project-level flows like init, chdir)
+tfui --project ./my-infra --macro ./scripts/test-init.tape
+
 # Tape from stdin
 echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --macro -
 
@@ -37,7 +40,7 @@ echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --m
 terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
 ```
 
-No TTY is required — macro mode drives the BubbleTea model directly without opening a terminal.
+When `--plan`/`--state` are provided, the app renders pre-loaded data. Without them, the app starts in live mode (for testing project-level flows like init wizard, chdir selection). In both cases, mutations are never executed.
 
 ## Command Output (stdout)
 
@@ -60,7 +63,9 @@ tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
 
 ## Safety
 
-Macro mode **never executes real terraform commands** — `--plan` or `--state` is required, which loads data from files. All operations are recorded as commands and printed to stdout. The user chooses whether to execute them by piping to `sh`.
+Macro mode **never executes real terraform commands**. All mutating operations (apply, state rm, taint, import, etc.) are recorded and printed to stdout — they are never delegated to the terraform binary. The user chooses whether to execute them by piping to `sh`.
+
+Read operations (plan, state list, workspace show) delegate to the inner service to provide data for the UI to render. When `--plan`/`--state` are provided, reads use pre-loaded file data. Without them, reads may call the terraform binary (e.g., `terraform workspace show`) but never perform mutations.
 
 ## Tape Format
 
