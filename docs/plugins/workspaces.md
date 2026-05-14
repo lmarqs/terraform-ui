@@ -72,11 +72,11 @@ Enter confirm  Esc cancel
 All workspace operations are also available as non-interactive CLI subcommands:
 
 ```bash
-tfui workspace show                    # print current workspace name
-tfui workspace list                    # list all workspaces (current marked with *)
-tfui workspace select <name>           # switch to workspace
-tfui workspace new <name>              # create and switch to workspace
-tfui workspace delete <name>           # delete workspace
+tfui workspaces show                    # print current workspace name
+tfui workspaces list                    # list all workspaces (current marked with *)
+tfui workspaces select <name>           # switch to workspace
+tfui workspaces new <name>              # create and switch to workspace
+tfui workspaces delete <name>           # delete workspace
 ```
 
 ### Flags
@@ -90,9 +90,9 @@ tfui workspace delete <name>           # delete workspace
 ### Examples
 
 ```bash
-tfui workspace new feature-branch -lock=false
-tfui workspace delete old-branch -force
-tfui workspace list | grep staging
+tfui workspaces new feature-branch -lock=false
+tfui workspaces delete old-branch -force
+tfui workspaces list | grep staging
 ```
 
 ## Related
