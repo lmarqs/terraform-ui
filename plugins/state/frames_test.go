@@ -664,3 +664,22 @@ func TestListFrame_Hints_FlatMode(t *testing.T) {
 		}
 	}
 }
+
+func TestListFrame_Hints_IncludesRefresh(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+
+	hints := p.stack.Hints()
+	found := false
+	for _, h := range hints {
+		if h.Key == "^r" && h.Description == "refresh" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("list frame hints should include ^r refresh when status is Done")
+	}
+}
