@@ -4,7 +4,7 @@
 
 ```
  Project: ../medprev-cloud-iac                                     ╔╦╗╔═╗╦ ╦╦
- Scope: modules/sa-east-1                                          ║ ╠╣ ║ ║║
+ Scope: modules/sa-east-1                                           ║ ╠╣ ║ ║║
  Workspace: default                                                 ╩ ╚  ╚═╝╩
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ :context                                                                   │
