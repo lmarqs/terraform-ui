@@ -147,7 +147,100 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 - Status bar shows overlay-specific hints
 - Used for: chdir picker, error display, confirmations
 
-## 9. Home Screen
+## 9. Picker Frame Pattern
+
+A picker is an inline selection frame pushed onto a plugin's own stack. It replaces navigating away to a separate plugin — the user stays in context, `esc` pops back, and selection auto-pops to the parent frame.
+
+### Core Principle: Perceived Instant Response
+
+A picker MUST open instantly. The user pressed a key — they expect an immediate UI change, not a loading state. This means:
+
+- **Sync items** (known at build time): open picker directly. Example: chdir members from config.
+- **Async items** (fetched from terraform): pre-load on `Activate()`, cache in plugin state, open picker from cache. Example: workspace list.
+
+Never block the UI thread waiting for data. Never show a picker with a spinner. The pattern is:
+
+```
+Activate() → kick off async fetch → cache result in Update()
+OnSelect()  → open picker from cache (synchronous)
+```
+
+If the cache is empty when the user selects the field (fetch still in-flight or failed), the picker opens with "No items available." — still instant, still responsive.
+
+### Behavior Contract
+
+| Input | Action |
+|-------|--------|
+| `↑↓` / `j/k` | Move cursor |
+| `g` / `G` | Jump to start/end |
+| `Enter` | Confirm selection → emit event → auto-pop frame |
+| `esc` | Cancel → pop frame (no event emitted) |
+| `q` | Same as esc |
+
+### Visual Design
+
+```
+▸ modules/vpc          ← cursor (StyleSelected)
+  modules/ecs
+  modules/rds
+```
+
+- `▸` prefix on cursor item, rendered with `StyleSelected`
+- Two-space indent on non-cursor items
+- Viewport windowed via `Cursor.VisibleWindow(height)`
+- No title inside the frame (the content border shows the parent plugin name)
+
+### Hints
+
+```go
+[]sdk.KeyHint{
+    {Key: "↑↓", Description: "navigate"},
+    {Key: "Enter", Description: "select"},
+    {Key: "esc", Description: "back"},
+}
+```
+
+### Implementation
+
+```go
+// In your plugin — sync items:
+func (p *Plugin) openPicker() tea.Cmd {
+    frame := newPickerFrame(p.items, p.current, func(selected string) tea.Cmd {
+        // emit event, update state
+    })
+    p.stack.Push(frame)
+    return nil  // synchronous — no command needed
+}
+
+// In your plugin — async items:
+func (p *Plugin) Activate() tea.Cmd {
+    p.stack.Push(p.buildForm())
+    return p.loadItems()  // background fetch
+}
+
+func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
+    switch msg := msg.(type) {
+    case itemsLoadedMsg:
+        p.cachedItems = msg.items  // cache for picker
+    }
+    return p, nil
+}
+
+func (p *Plugin) openPicker() tea.Cmd {
+    frame := newPickerFrame(p.cachedItems, p.current, p.onSelect)
+    p.stack.Push(frame)
+    return nil  // instant — reads from cache
+}
+```
+
+### Anti-patterns
+
+- **Navigate away to a different plugin** for selection — breaks back navigation, loses parent context
+- **Show picker with loading spinner** — violates instant-response principle; pre-load instead
+- **Block in OnSelect callback** — the callback returns a `tea.Cmd`, never blocks the UI thread
+- **Fetch on every open** — cache on activate, invalidate on relevant events
+
+## 10. Home Screen
 
 - Shows after chdir selection (or when no plugin active)
 - Plugin list sorted by workflow: State, Plan, Apply, Workspaces, Outputs, Validate, Console, then decorators (Risk, Phantom, Blast Radius, Scaffold)
@@ -155,7 +248,7 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 - Direct key activation (press letter) or j/k + Enter
 - Context plugin in the list (accessed via `C` or `:context`) — manages Project + Chdir + Workspace
 
-## 10. Color Palette
+## 11. Color Palette
 
 | Name | Value | Usage |
 |------|-------|-------|
@@ -171,16 +264,16 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspaces), `o`
 | Delete | Red | Plan: resources to destroy |
 | Replace | Magenta | Plan: resources to replace |
 
-## 11. Plugin View Contract
+## 12. Plugin View Contract
 
 Every plugin's `View(width, height)` must:
 - NOT include its own title (title goes in the content border)
 - NOT add padding (the bordered box handles spacing)
 - Return pure content that fills the available space
 - Handle empty state gracefully (show informative placeholder)
-- MAY include plugin-specific contextual hints (see §12)
+- MAY include plugin-specific contextual hints (see §13)
 
-## 12. Hint Placement Rules
+## 13. Hint Placement Rules
 
 ### Two layers
 
@@ -216,7 +309,7 @@ Every plugin's `View(width, height)` must:
 - Non-stackable plugins: implement `Hintable` interface with `Hints() []KeyHint`
 - Both must return state-appropriate hints (check plugin status in the method)
 
-## 13. Performance
+## 14. Performance
 
 - Virtual scrolling: only render visible rows (viewport window)
 - Tree flatten: O(visible nodes), not O(all nodes)
