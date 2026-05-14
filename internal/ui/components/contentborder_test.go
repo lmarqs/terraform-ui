@@ -125,6 +125,7 @@ func TestBuildTopBorder(t *testing.T) {
 		{"EmptyTitle", "", 40},
 		{"ShortTitle", "Hi", 40},
 		{"LongTitle", "This is a very long title that might overflow", 40},
+		{"VeryNarrowWidth", "Title", 2},
 	}
 
 	for _, tt := range tests {
@@ -137,5 +138,13 @@ func TestBuildTopBorder(t *testing.T) {
 				t.Error("should end with ┐")
 			}
 		})
+	}
+}
+
+func TestContentBorder_Render_VeryNarrowWidth(t *testing.T) {
+	cb := NewContentBorder()
+	output := cb.Render("hi", "Title", 5, 10, 0, 2, 5)
+	if output == "" {
+		t.Error("Render with very narrow width should still produce output")
 	}
 }

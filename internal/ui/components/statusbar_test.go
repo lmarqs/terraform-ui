@@ -97,3 +97,33 @@ func TestStatusBar_WithBinaryName_NarrowWidth(t *testing.T) {
 		t.Error("Render() should not be empty even with narrow width")
 	}
 }
+
+func TestStatusBar_WithShortcuts_Render(t *testing.T) {
+	sb := NewStatusBar().WithShortcuts("custom shortcuts")
+	output := sb.Render(80)
+	if !strings.Contains(output, "custom shortcuts") {
+		t.Error("Render() should display custom shortcuts")
+	}
+	if strings.Contains(output, "quit") {
+		t.Error("Render() should not show default bindings when custom shortcuts are set")
+	}
+}
+
+func TestStatusBar_RenderHints_WithSeparatorHint(t *testing.T) {
+	sb := NewStatusBar()
+	hints := []sdk.KeyHint{
+		{Key: "q", Description: "quit"},
+		{Key: "", Description: "│"},
+		{Key: "r", Description: "refresh"},
+	}
+	output := sb.RenderHints(hints, 80)
+	if !strings.Contains(output, "quit") {
+		t.Error("RenderHints() should contain 'quit'")
+	}
+	if !strings.Contains(output, "refresh") {
+		t.Error("RenderHints() should contain 'refresh'")
+	}
+	if !strings.Contains(output, "│") {
+		t.Error("RenderHints() should contain separator")
+	}
+}

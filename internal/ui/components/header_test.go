@@ -116,3 +116,17 @@ func TestHeader_Chainable(t *testing.T) {
 		t.Error("WithPinnedCount should chain")
 	}
 }
+
+func TestHeader_Render_VeryNarrowWidth(t *testing.T) {
+	h := NewHeader("/some/project", "production").
+		WithChdir("modules/vpc").
+		WithPinnedCount(3)
+	output := h.Render(10)
+	if output == "" {
+		t.Error("Render with narrow width should still produce output")
+	}
+	lines := strings.Split(output, "\n")
+	if len(lines) != 3 {
+		t.Errorf("expected 3 lines even with narrow width, got %d", len(lines))
+	}
+}

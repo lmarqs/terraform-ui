@@ -79,3 +79,14 @@ func TestCommandBar_Render_VariousWidths(t *testing.T) {
 		}
 	}
 }
+
+func TestCommandBar_Render_VeryNarrowWidth(t *testing.T) {
+	cb := NewCommandBar()
+	output := cb.Render("x", nil, 2)
+	if output == "" {
+		t.Error("Render with width=2 should still produce output")
+	}
+	if !strings.Contains(output, ":x") {
+		t.Error("should still contain input")
+	}
+}

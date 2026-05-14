@@ -127,3 +127,81 @@ func TestAIPanel_ScrollUp_AtZero(t *testing.T) {
 		t.Errorf("expected scrollY=0 when scrolling up at top, got %d", panel.scrollY)
 	}
 }
+
+func TestAIPanel_SetSize(t *testing.T) {
+	panel := NewAIPanel()
+	panel = panel.SetSize(100, 50)
+	if panel.width != 100 {
+		t.Errorf("expected width=100, got %d", panel.width)
+	}
+	if panel.height != 50 {
+		t.Errorf("expected height=50, got %d", panel.height)
+	}
+}
+
+func TestAIPanel_Render_LoadingWithPartialContent(t *testing.T) {
+	panel := NewAIPanel().Show("streaming")
+	panel = panel.AppendContent("Partial response so far")
+	result := panel.Render(80, 24)
+	if !strings.Contains(result, "Partial response so far") {
+		t.Error("expected render to contain partial content")
+	}
+	if !strings.Contains(result, "▍") {
+		t.Error("expected render to contain loading cursor when loading with content")
+	}
+}
+
+func TestAIPanel_Render_LongLinesWrapped(t *testing.T) {
+	panel := NewAIPanel().Show("wrap test")
+	longLine := strings.Repeat("A", 200)
+	panel = panel.AppendContent(longLine)
+	panel = panel.SetDone()
+	result := panel.Render(80, 24)
+	if !strings.Contains(result, "AAAA") {
+		t.Error("expected render to contain wrapped content")
+	}
+}
+
+func TestAIPanel_Render_ScrollClamping(t *testing.T) {
+	panel := NewAIPanel().Show("scroll test")
+	panel = panel.AppendContent("line1\nline2\nline3")
+	panel = panel.SetDone()
+	// Scroll way past the content
+	for i := 0; i < 50; i++ {
+		panel = panel.ScrollDown()
+	}
+	result := panel.Render(80, 24)
+	if result == "" {
+		t.Error("expected non-empty render even with excessive scroll")
+	}
+}
+
+func TestAIPanel_Render_NarrowWidth(t *testing.T) {
+	panel := NewAIPanel().Show("narrow")
+	panel = panel.AppendContent("content")
+	panel = panel.SetDone()
+	result := panel.Render(30, 24)
+	if result == "" {
+		t.Error("expected non-empty render with narrow width")
+	}
+}
+
+func TestAIPanel_Render_ShortHeight(t *testing.T) {
+	panel := NewAIPanel().Show("short")
+	panel = panel.AppendContent("content")
+	panel = panel.SetDone()
+	result := panel.Render(80, 8)
+	if result == "" {
+		t.Error("expected non-empty render with short height")
+	}
+}
+
+func TestAIPanel_Render_WideWidth(t *testing.T) {
+	panel := NewAIPanel().Show("wide")
+	panel = panel.AppendContent("content")
+	panel = panel.SetDone()
+	result := panel.Render(200, 24)
+	if result == "" {
+		t.Error("expected non-empty render with wide width")
+	}
+}
