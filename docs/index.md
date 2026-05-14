@@ -117,3 +117,12 @@ Bare `tfui` opens the full-screen TUI. Subcommands (`plan`, `apply`) run in non-
 - [Macro Language](macro-language.md) — Tape DSL for automated testing
 - [Testing](testing.md) — Test strategy and patterns
 - [CLI I/O Contract](cli-io-contract.md) — stdin/stdout/stderr specification
+- [TUI UX Spec](tui-ux.md) — Layout, navigation, and interaction patterns
+- [CLI UX Spec](cli-ux.md) — Non-interactive command design
+- [Roadmap](roadmap.md) — Planned features and initiatives
+
+### Feature Deep Dives
+
+- [Risk Analysis](risk-analysis.md) — Risk classification methodology
+- [Phantom Changes](phantom-changes.md) — No-op change detection
+- [Blast Radius](blast-radius.md) — Module impact visualization
