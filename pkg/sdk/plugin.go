@@ -66,6 +66,12 @@ type Busy interface {
 // deactivate it and return to the home screen.
 type DeactivateMsg struct{}
 
+// NavigateMsg is returned by a plugin to request the app navigate to another
+// plugin by ID. The app applies the target plugin's NavBehavior (push/replace).
+type NavigateMsg struct {
+	PluginID string
+}
+
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin
