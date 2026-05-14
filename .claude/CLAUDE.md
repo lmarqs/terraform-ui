@@ -4,647 +4,110 @@
 
 terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Single Go binary, plugin architecture, BubbleTea framework.
 
-## Terminology
+## Quick Reference
 
-| Term | Definition | Example | Where shown |
-|------|-----------|---------|-------------|
-| **Project** | Root directory where `tfui.hcl` lives (or `--project` dir) | `/home/user/infra` | Header line 1 |
-| **Chdir** | Selected member directory within a project | `modules/vpc` | Header line 2 |
-| **Workspace** | Terraform workspace within a chdir | `default`, `production` | Header line 3 |
-| **Context** | The full working state: Project + Chdir + Workspace combined | — | Plugin name (umbrella) |
-| **Standalone** | No tfui.hcl, no --project: just a TUI over terraform | — | No header decoration |
-
-Rules:
-- "Context" is ONLY used as the umbrella concept (the plugin managing all three selections)
-- Code referring to member directory selection uses "chdir" (never "scope")
-- Config HCL key: `chdir { members = [...] }`
-- SDK fields: `Chdirs`, `ActiveChdir`, `ActiveChdirAbs` (in `ProjectContext`)
-- Event: `ChdirChangedEvent` notifies plugins when chdir changes
+```bash
+mise run dev              # Run TUI in development mode
+mise run fmt              # Format (gofmt)
+mise run check:lint       # Lint (golangci-lint v2)
+mise run check:vet        # Quick go vet
+mise run test:unit        # Unit tests
+mise run test:coverage    # Coverage (90% threshold)
+mise run build            # Cross-platform binaries
+mise run test:macro       # Macro tapes against binary
+mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
+```
 
 ## Architecture
 
 ```
-cmd/tfui/              — CLI entry point (cobra commands, plugin registration, normalizeArgs)
-pkg/sdk/               — Public SDK: Plugin interface, Service interface, types, UI primitives
-                         (includes bus.go, events.go, options.go)
-internal/
-  config/              — HCL config loading (LoadRoot, LoadChild, Resolve)
-  terraform/           — TerraformService (service.go, state_ops.go, workspace_ops.go, plan_parser.go)
-  source/              — Universal source abstraction (URI resolution, providers)
-  macro/               — Macro engine (Driver, tape DSL parser)
-  ui/                  — App model, input handling, layout components
-  editor/              — Editor integration ($EDITOR at file:line)
-  ai/                  — AI provider (Claude via Bedrock, auto-detection)
-  plugin/              — Registry (factory pattern, config-driven enablement)
-  logging/             — Structured logger setup
-plugins/               — All features as plugins (one dir per plugin)
-  context/             — Context dashboard: shows Project + Chdir + Workspace (FormFrame)
-  chdir/               — Chdir picker: select member from explicit list
-  state/               — State browser (list, inspect, pin, delete, move, edit)
-  plan/                — Plan review (diff view, expand attributes, risk)
-  apply/               — Apply executor
-  workspaces/          — Workspace management
-  repl/                — Terraform console (REPL)
-  output/              — Terraform outputs viewer
-  validate/            — Terraform validate
-  risk/                — Risk classification (decorates plan)
-  phantom/             — Phantom change detection (decorates plan)
-  blastradius/         — Blast radius visualization
-  init/                — Config generator (CLI + TUI, generates tfui.hcl)
-tests/
-  integration/         — Integration tests with real terraform + HCL config
-  fixtures/            — Real terraform projects and config fixtures for testing
+cmd/tfui/     — CLI entry point (cobra, plugin registration, normalizeArgs)
+pkg/sdk/      — Public SDK: Plugin, Service, types, UI primitives, frames
+internal/     — App internals (config, terraform, source, macro, ui, editor, ai, plugin, logging)
+plugins/      — All features as plugins (context, chdir, state, plan, apply, workspaces, repl, output, validate, risk, phantom, blastradius, init)
+tests/        — Integration tests + fixtures
 ```
 
-## Core Abstractions
+## Terminology
 
-### Plugin Context (`pkg/sdk/context.go`)
+| Term | Definition |
+|------|-----------|
+| **Project** | Root directory where `tfui.hcl` lives |
+| **Chdir** | Selected member directory within a project |
+| **Workspace** | Terraform workspace within a chdir |
+| **Context** | Umbrella concept: Project + Chdir + Workspace combined |
 
-Passed to `Init()` — gives each plugin its dependencies:
-
-```go
-type Context struct {
-    WorkingDir string
-    Workspace  string
-    Service    Service
-    Logger     *slog.Logger
-    Pins       *PinService
-    Options    *ResolvedOptions
-}
-```
-
-### Event Bus (`pkg/sdk/bus.go`, `pkg/sdk/events.go`)
-
-Typed pub/sub for inter-plugin communication. Plugins subscribe by implementing handler interfaces — no registration boilerplate.
-
-**Events:**
-- `ChdirChangedEvent` — chdir selection changed (carries `AbsPath`)
-- `WorkspaceChangedEvent` — workspace switched
-- `PlanCompletedEvent` — plan finished (carries result)
-- `PinsChangedEvent` — pin set modified
-- `PlanInvalidatedEvent` — cached plan is stale
-
-**Handler interfaces:**
-- `ChdirHandler` — `HandleChdirChanged(ChdirChangedEvent) tea.Cmd`
-- `WorkspaceHandler` — `HandleWorkspaceChanged(WorkspaceChangedEvent) tea.Cmd`
-- `PlanCompletedHandler` — `HandlePlanCompleted(PlanCompletedEvent) tea.Cmd`
-- `PinsHandler` — `HandlePinsChanged(PinsChangedEvent) tea.Cmd`
-- `PlanInvalidatedHandler` — `HandlePlanInvalidated(PlanInvalidatedEvent) tea.Cmd`
-
-**Flow:** App dispatches events to all plugins implementing the matching handler interface after processing its own reaction. Plugins that need to react to scope changes implement `ChdirHandler` instead of polling.
-
-### ResolvedOptions (`pkg/sdk/options.go`)
-
-```go
-type ResolvedOptions struct {
-    VarFiles  []string
-    Vars      map[string]string
-    ExtraArgs []string
-}
-```
-
-Replaces session-stored config. Shared via `Context.Options`. Used by `BuildPlanOptions` / `BuildApplyOptions`.
-
-### Plugin Interface (`pkg/sdk/plugin.go`)
-
-```go
-type Plugin interface {
-    ID() string
-    Name() string
-    Description() string
-    Init(ctx *Context) tea.Cmd
-    Update(msg tea.Msg) (Plugin, tea.Cmd)
-    View(width, height int) string
-    Configure(cfg map[string]interface{}) error
-    Ready() bool
-}
-```
-
-Optional interfaces: `Activatable` (work on navigation), `Countable` (item counts for border title), `Hintable` (state-aware key hints for status bar).
-
-### Plugin Routing (`internal/plugin/registry.go`)
-
-Plugins are **invocation-agnostic** — they don't know their keybinding, menu position, or how they're reached. Routing metadata is external:
-
-```go
-type PluginMeta struct {
-    Keybinding  string // single key, empty = not in home menu
-    MenuVisible bool   // whether to show in home menu
-}
-```
-
-Registration happens at the entry point (`cmd/tfui/main.go`):
-```go
-registry.RegisterFactory("state", tfuistate.New, plugin.PluginMeta{
-    Keybinding: "s", MenuVisible: true,
-})
-```
-
-The home menu and command bar are independent consumers of registry metadata. This keeps plugins focused on their domain logic with zero coupling to navigation.
-
-### Service Interface (`pkg/sdk/service.go`)
-
-All terraform operations: `Plan(ctx, PlanOptions)`, `Apply(ctx, ApplyOptions)`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `WithDir`.
-
-`PlanOptions`/`ApplyOptions` carry: targets, var-files, vars, replace, destroy, refresh-only, parallelism, lock, lock-timeout, extra-args.
-
-Three implementations:
-- `TerraformService` — wraps terraform-exec, maps options to tfexec option types (service.go, state_ops.go, workspace_ops.go)
-- `RecordingService` — pre-loaded data, builds command flags from options for recording
-- `CompositeService` — hybrid read/write: pre-loaded plan/state for reads, delegates writes to TerraformService
-
-### Source Abstraction (`internal/source/`)
-
-Pure byte-resolution layer. Resolves URIs to raw bytes — no domain parsing.
-
-```
-Caller (cmd/tfui, macro runner)
-    ↓
-Resolver (URI dispatch)
-    ↓
-Provider (LocalProvider, StdinProvider, future: HTTP, S3)
-```
-
-Domain parsing lives in `internal/terraform/loader.go`: `LoadPlan([]byte)` and `LoadState([]byte)`.
-
-**URI resolution rules (strict, no heuristics):**
-- `-` → stdin (only one flag per invocation)
-- `/path` → absolute local path
-- `./path` or `../path` → relative local path (relative to CWD)
-- `scheme://...` → dispatches to matching provider (RFC 3986 scheme validation)
-- `file://...` → normalized to local path
-- Anything else → **error** with actionable suggestion
-
-**Providers implement:**
-```go
-type Provider interface {
-    Scheme() string
-    Read(ctx context.Context, uri string) ([]byte, error)
-}
-```
-
-**Extending:** register new providers (HTTP, S3, GCS) without changing consumers or existing providers (Open/Closed).
-
-### Macro Engine (`internal/macro/`)
-
-Programmatic TUI driver + tape DSL for automated testing and CI.
-
-**Driver** — synchronous BubbleTea model controller:
-```go
-d := macro.NewDriver(app, 80, 24)
-d.Init()
-d.SendKey("p")
-d.WaitUntil(func(v string) bool { return strings.Contains(v, "create") }, 5*time.Second)
-```
-
-**Tape DSL** — line-oriented commands:
-```
-key p
-wait ready
-wait view to add
-assert view create
-screenshot /tmp/plan.txt
-resize 120 40
-sleep 500ms
-```
-
-### CLI: Read-Only Mode (`--plan`, `--state`)
-
-```bash
-tfui --plan ./plan.json                      # local file
-tfui --plan /absolute/path/plan.json         # absolute
-tfui --state ../terraform.tfstate            # relative
-terraform show -json tfplan.out | tfui --plan -   # stdin pipe
-tfui --plan ./plan.json --state ./state.json      # both
-```
-
-When `--plan` or `--state` provided:
-- `RecordingService` replaces `TerraformService` (pre-loaded data, read-only)
-- Header shows `[read-only]` badge
-- Mutating hints hidden from status bar
-
-### CLI: Design Decisions
-
-Full I/O contract, pipe scenarios, and tradeoff analysis: **`docs/cli-io-contract.md`**
-
-**Core principle:** tfui is a superset of terraform. All terraform flags work identically. Our additions use names terraform hasn't claimed. See the contract doc for the full stdin/stdout/stderr table and pipe benchmarks.
-
-**Three interfaces:**
-
-| Interface | Command | Audience | Output |
-|-----------|---------|----------|--------|
-| TUI | `tfui` | Human (interactive) | BubbleTea screen |
-| CLI | `tfui plan`, `tfui apply` | Human (quick look) or CI | stdout (tree/JSON) |
-| MCP | `tfui mcp` (future) | AI agents | Structured protocol |
-
-**Behavior matrix:**
-
-| Command | stdout | stderr |
-|---------|--------|--------|
-| `tfui plan` | tree view | spinner (if stderr is TTY) |
-| `tfui plan --ci` | tree view | nothing |
-| `tfui plan -json` | NDJSON events (terraform-compatible) | nothing |
-
-**Rules:**
-- `-json` flag → identical output to terraform's `-json` (same bytes, same format)
-- Default stdout → our enriched tree view (replaces terraform's bloated text)
-- `--ci` → suppress stderr (additive, terraform doesn't have it)
-- Novel commands (`risk`, `phantom`, `blast-radius`) → free reign, our schema
-- `show_spinner = !ci && isStderrTTY()`
-
-**terraform-exec and output ownership:**
-- terraform-exec discards terraform's human-readable stdout (plan text)
-- tfui reconstructs its own output from the structured plan JSON (`ShowPlanFile`)
-- Flags that affect behavior (`-target`, `-var`, `-destroy`, etc.) are first-class tfui flags with single-dash normalization
-
-**Binary resolution:**
-- `--terraform-bin` flag > `--config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"` (default)
-- No auto-detection at runtime. Explicit configuration only.
-- `detectBinary()` exists only in the init wizard for suggesting a value during config generation
-
-**`--` passthrough:**
-- `splitPassthrough()` separates args at `--`
-- ExtraArgs are stored for `RecordingService` (macro/recording mode)
-- `TerraformService` does not forward ExtraArgs — terraform-exec's typed API doesn't support raw arg passthrough
-- All behavioral terraform flags are already modeled as first-class tfui flags
-
-**Exit codes (terraform-compatible):**
-- `0` = success / no changes
-- `1` = error
-- `2` = changes present
-
-### Config (`tfui.hcl`)
-
-HCL format. Everything optional. No config file = standalone mode.
-
-```hcl
-terraform {
-  bin = "terraform"         # explicit binary; default is "terraform" when omitted
-}
-
-chdir {
-  members = ["modules/vpc", "modules/ecs"]   # explicit list, no globs
-}
-
-cache {
-  staleness_threshold = "5m"
-}
-
-ai {
-  enabled  = true
-  provider = "bedrock"
-  region   = "us-east-1"
-}
-
-defaults {
-  parallelism = 10
-  lock        = true
-  var_file "common/tags.tfvars" {}
-  plugin "risk" { level = "high" }
-}
-```
-
-**Two modes:**
-- Standalone (no tfui.hcl): CWD = terraform dir, `--chdir` = raw passthrough
-- Project (tfui.hcl found): full resolution, chdir validated against members
-
-**Resolution chain:** Root defaults → Child top-level → Workspace block → CLI flags → `--` passthrough
-
-**Key functions:** `config.LoadRoot(dir)`, `config.LoadChild(dir)`, `config.Resolve(root, child, workspace)`
-
-Access plugin config via `ConfigContext.GetString("ai.model", "")`, `GetBool("ai.enabled", false)`, etc.
+IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `chdir { members = [...] }`. Event: `ChdirChangedEvent`. Note: `ProjectContext` struct still has legacy field names (`Scopes`, `ActiveScope`, `ActiveScopeAbs`) pending rename.
 
 ## Conventions
 
 ### Commits
-
 Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `chore:`
-
-### Roadmap
-
-- Items live in `docs/_roadmap/` as individual markdown files
-- Delete items immediately once completed — don't mark "done", just remove the file
-- Roadmap reflects only what's left to do
-- Don't introduce filtering, categorization, or feature flags unless explicitly needed — keep things uniform and minimal
 
 ### Go Package Layout
 
-| Package | Purpose | Import rule |
-|---------|---------|-------------|
-| `pkg/sdk` | Public contract for plugins | Plugins import ONLY this |
-| `internal/*` | App internals | Not importable by plugins |
-| `plugins/*` | Feature implementations | Import `pkg/sdk` only |
-| `cmd/tfui` | CLI glue | Imports everything |
+| Package | Import rule |
+|---------|-------------|
+| `pkg/sdk` | Plugins import ONLY this |
+| `internal/*` | Not importable by plugins |
+| `plugins/*` | Import `pkg/sdk` only |
+| `cmd/tfui` | Imports everything |
 
 ### Naming
 
-| Pattern | Example | Rule |
-|---------|---------|------|
-| Plugin IDs | `"state"`, `"plan"` | lowercase, single word |
-| Plugin packages | `plugins/state/` | match the ID |
-| Messages | `StateListMsg`, `PlanResultMsg` | `{Subject}{Verb}Msg` |
-| Events | `ChdirChangedEvent`, `PlanCompletedEvent` | `{Subject}{Verb}Event` |
-| Config keys | `"ai.model"` | dot-separated, HCL structure |
-
-### Imports
-
-- ALL plugin imports use `tfui` prefix: `tfuistate`, `tfuiplan`, `tfuiapply`, etc.
-- BubbleTea always aliased as `tea`
-- Enforced by `golangci-lint` with `importas` linter (`.golangci.yaml`)
-- Import block order: stdlib, external, internal
-- Run `golangci-lint run` to check (or `mise run lint`)
+- Plugin IDs: lowercase single word (`"state"`, `"plan"`)
+- Messages: `{Subject}{Verb}Msg` (e.g., `StateListMsg`)
+- Events: `{Subject}{Verb}Event` (e.g., `ChdirChangedEvent`)
+- Plugin imports use `tfui` prefix: `tfuistate`, `tfuiplan`, `tfuiapply`
+- BubbleTea aliased as `tea`
 
 ### Testing
 
-- **TDD workflow**: write a failing test first, then implement the fix/feature
+- **TDD workflow**: write a failing test first, then implement
 - 100% coverage on all packages excluding `cmd/` glue
 - Table-driven tests preferred
 - Mock services implement `sdk.Service` with no-op methods
-- Use `t.TempDir()` for filesystem tests, `t.Setenv()` for env var tests
-- Test file naming: `*_test.go` in same package (white-box)
 - Integration tests in `tests/integration/`
 
 ### Plugin Patterns
 
-Every plugin follows the same shape:
-
 ```go
-type Plugin struct { svc sdk.Service; log *slog.Logger; pins *sdk.PinService; options *sdk.ResolvedOptions; ... }
+type Plugin struct { svc sdk.Service; log *slog.Logger; pins *sdk.PinService; options *sdk.ResolvedOptions }
 func New(svc sdk.Service) sdk.Plugin { ... }
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd { p.pins = ctx.Pins; p.options = ctx.Options; ... }
 func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd { p.svc = p.svc.WithDir(evt.AbsPath); ... }
-func (p *Plugin) Activate() tea.Cmd { /* load data */ }
-func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) { /* handle result msgs + keys */ }
-func (p *Plugin) View(w, h int) string { /* switch on status */ }
 ```
 
-Plugins subscribe to scope changes by implementing handler interfaces (e.g., `ChdirHandler`). They are registered with external metadata — they never declare their own keybinding or menu visibility.
+Plugins subscribe to events via handler interfaces. Registered with external metadata — never declare own keybinding.
 
-### SDK Utilities (pkg/sdk/ and pkg/sdk/ui/)
+### Roadmap
+- Items in `docs/_roadmap/` as individual markdown files
+- Delete immediately once completed — don't mark "done"
 
-Use these instead of reimplementing common patterns:
+## Workflow
 
-| Utility | Location | Purpose | Used by |
-|---------|----------|---------|---------|
-| `EventBus` | `pkg/sdk/bus.go` | Typed event dispatch to handler interfaces | app (dispatches), all plugins (subscribe) |
-| `PinService` | `pkg/sdk/pin_service.go` | Self-contained storage, shared via `Context.Pins` | state, plan |
-| `ResolvedOptions` | `pkg/sdk/options.go` | Var-files, vars, extra-args for plan/apply | plan, apply |
-| `Status` | `pkg/sdk/status.go` | Shared enum (Idle/Loading/Done/Error) with predicates | all plugins |
-| `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + bounds + viewport windowing | plan, output, validate, workspaces, chdir |
-| `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices in lists | plan, validate, phantom, blastradius |
-| `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + score-sorted results | state, output |
+- For changes spanning 3+ files or new abstractions: produce a brief plan before coding
+- For single-file changes: proceed directly
+- Break large changes into reviewable chunks
 
-**Rules:**
-- Implement `ChdirHandler` to react to chdir changes — do not store/poll working directory manually
-- Use `Cursor.VisibleWindow(h)` instead of manual startIdx/endIdx calculation
-- Use `FuzzyFilter[T]` instead of importing `fzf/src/algo` directly
-- Reference implementation: `plugins/state/` demonstrates all SDK primitives
+## Verification
 
-### Navigation Stack (Android-style)
-
-Plugins use a nested navigation stack instead of boolean state flags. Input always routes to the topmost frame — no key leakage between modes.
-
-```
-App Stack: [Home] → [State Plugin]
-                      └── Plugin Stack: [List] → [Filter]
-                                                → [Inspect] → [Confirm]
-```
-
-**Rules:**
-- Input goes to the deepest leaf frame only
-- `esc` always pops the innermost frame (universal "back")
-- `q` pops to app root (deactivate plugin)
-- `:` side-navigates at app level (replaces plugin)
-- Each frame declares its own `Hints() []KeyHint` — rendered automatically
-
-**SDK types** (`pkg/sdk/`):
-- `Frame` interface: `ID()`, `Update(msg) (Frame, Cmd)`, `View(w,h)`, `Hints()`
-- `Stack`: LIFO container with `Push`, `Pop`, `Update`, `View`, `Hints`
-- `Stackable` interface: optional on plugins, returns their internal `*Stack`
-
-**Reusable frames** (`pkg/sdk/frames/`):
-- `FilterFrame`: consumes ALL printable keys as text input; only esc/enter/arrows escape
-- `InspectFrame`: scrollable detail + configurable action keys
-- `ConfirmFrame`: blocks all input except y/n/esc
-
-**Frame lifecycle:**
-- Return `nil` from `Update` → frame is popped (back navigation)
-- Return a different `Frame` → in-place replacement
-- Return self → no change
-
-**Migration:** plugins implement `Stackable` to opt in. Legacy plugins continue using direct `Update` delegation unchanged.
-
-### UX Model (k9s-inspired)
-
-- **`:` command mode**: type plugin name to switch views. Tab autocomplete.
-- **`/` filter mode**: fzf-style fuzzy filter. `esc` exits.
-- **`space` pin**: toggle pin on selected resource. Pinned = apply/plan target.
-- **`enter` / `i` inspect**: show detail view with expanded values.
-- **`d` delete**: remove from state — triggers confirmation prompt.
-- **`e` edit**: opens $EDITOR at resource's .tf file:line.
-- **`m` move**: rename resource address in state — text input + confirmation.
-- **`t` taint**: mark for recreation — triggers confirmation.
-- **`T` untaint**: remove taint mark — triggers confirmation.
-- **`n` import**: import existing resource — text input for ID + confirmation.
-- **`!` batch**: open batch action palette (only when pins > 0).
-- **`r` refresh**: reload data from terraform.
-- **`ctrl+w` wrap**: toggle line wrapping.
-- **`←→` pan**: horizontal scroll (10 chars/press, when wrap is off).
-- **`q`** exits plugin to home. **`esc`** exits current sub-state (scoped).
-
-### Keybinding Ergonomics
-
-**Convention:**
-- Capital letter = non-terraform feature (Context `C`, Risk `R`, Phantom `P`, Blast Radius `B`)
-- Lowercase = terraform operation (state `s`, plan `p`, apply `a`, workspaces `w`)
-- `ctrl+char` = modifier actions within a view (ctrl+w wrap, ctrl+s screen capture)
-- Punctuation = mode/overlay triggers (`/` filter, `!` actions, `?` AI explain, `:` command)
-
-Redundant keybindings exist for keyboard layout accessibility, but hints show only the primary key:
-
-| Action | Primary (shown in hint) | Alias (not shown) | Scope |
-|--------|------------------------|-------------------|-------|
-| Inspect/expand | `Enter` | `i` | All list views |
-| Back to home | `q` | `esc` (when no sub-state) | Global |
-| Exit sub-state | `Esc` | — | Filter, detail, confirm |
-| Pin (apply target) | `Space` | — | Resources/changes |
-
-Rules:
-- `enter`/`i` always means inspect — never overloaded for other actions (e.g., not used as pin toggle)
-- `space` always means pin — never overloaded for expand/inspect
-- `q` shown in hints at plugin top-level; `esc` shown only in sub-state hints
-- Plugins must NOT start in filter mode by default — user opts in with `/`
-
-### Action Model (cursor vs batch)
-
-**Core rule: direct keys always act on the cursor item. Batch operations go through `!` palette only.**
-
-| Layer | Keys | Scope | Mental model |
-|-------|------|-------|--------------|
-| Navigate | `↑↓`, `Enter`, `/`, `q`, `Esc` | — | Move around, look at things |
-| Act (single) | `d`, `e`, `t`, `T`, `m`, `n` | Cursor | Do something to this one thing |
-| Batch | `!` (palette) | Pinned set | Do something to all pinned items |
-
-**Rules:**
-- Direct action keys NEVER read the pinned set — always cursor only
-- `!` is hidden from hint bar when no pins exist (nothing to batch)
-- `!` replaces the hint bar with batch action keys, list stays visible
-- Detail/inspect frame has no `!` — single resource only
-- Destructive batch ops always show confirmation with resource count
-
-**Pin semantics:**
-- PRIMARY purpose: scoping `plan` and `apply` to specific resources
-- SECONDARY: enabling batch state actions via `!` palette
-- Pins are persistent (survive view switches and sessions) — NOT ephemeral marks
-
-**Design rationale (benchmarked against k9s, vim, ranger, lazygit, mutt):**
-- k9s marks are ephemeral (cleared after action) — ours persist, so the k9s "marks supersede cursor" model is dangerous here
-- This app follows the lazygit model: batch operations are separate, named commands — never an implicit side-effect of a single-item keybinding
-- Prevents "forgot I had pins, accidentally batch-deleted" scenarios
-
-### Hint Bar Design
-
-**Rules:**
-- Always 1 line. Never 2 lines.
-- One key per entry: `d delete`, `t taint`, `T untaint` (no grouping, no slash notation)
-- Context-sensitive: content changes per frame/state, line count stays at 1
-- Show only the most relevant keys for the current state
-- No novel notation patterns (no `d/D`, no `(t/T) taint/untaint`)
-- All notation must have precedent in established TUI apps (k9s, vim, ranger)
-- Display preferences (`^w` wrap) shown only in detail/inspect frame — not in list frame
-- List frame hints = navigation + actions that change state
-- Detail frame hints = display controls + single-item actions
-- Dynamic hints show the target state (what pressing the key switches TO): `^t tree` means "press to enter tree mode"
-
-### UX Anti-patterns (do NOT introduce)
-
-- Shift+letter = batch version of same action (zero precedent in TUI apps)
-- Implicit batch based on pin state (dangerous with persistent pins)
-- Novel hint bar notation (slash grouping, parenthetical pairs)
-- 2-line hint bars (costs screen real estate, no established precedent)
-- Auto-batch for non-destructive actions (creates inconsistency)
-
-### Detail/Inspect View
-
-- Shows expanded attribute values (JSON)
-- Context actions remain available: `space` pin, `d` delete, `e` edit
-- Scroll indicator `[n/total]` when content overflows
-- `[pinned]` indicator shown if resource is pinned
-
-### Staleness Guard
-
-Before destructive operations (apply, state rm, state mv, import), check data freshness:
-- Threshold: `cache.staleness_threshold` config (default 5m)
-- If stale: prompt user "State is Xm old. Refresh first? (y/n)"
-- If nil: prompt "No state loaded. Load first?"
-
-### AI Integration
-
-- Provider auto-detection: `ANTHROPIC_API_KEY` → direct API, AWS creds → Bedrock
-- Default model: `us.anthropic.claude-sonnet-4-6-v1` (Bedrock) or `claude-sonnet-4-6-20250514` (direct)
-- `?` key triggers AI explain on selected item (streaming response)
-- AI features gracefully degrade if no credentials available
-
-## Development Workflow
-
+IMPORTANT: Before considering work complete, run:
 ```bash
-mise run dev                        # Run TUI in development mode
-mise run fmt                        # Format source files (gofmt)
-mise run check:lint                 # Full lint suite (golangci-lint v2)
-mise run check:vet                  # Quick go vet
-mise run test:unit                  # Unit tests (produces reports/junit.xml)
-mise run test:coverage              # Coverage enforcement (90% threshold)
-mise run test:integration:terraform # Integration tests (requires terraform)
-mise run test:integration:tofu      # Integration tests (requires tofu)
-mise run test:integration:terragrunt # Integration tests (requires terragrunt)
-mise run 'test:integration:*'       # Run all integration tests
-mise run build                      # Cross-platform binaries (goreleaser snapshot)
-mise run test:macro                 # Macro tapes against built binary
-mise run setup                      # Install CI deps (npm + gotestsum)
+mise run check:lint && mise run test:unit
 ```
 
-### Mise Task Convention
+For UI changes, also run `mise run test:macro` to verify rendering.
 
-Tasks are namespaced by pipeline stage:
+## Deep Dive (read on demand)
 
-| Namespace | Purpose | Examples |
-|-----------|---------|----------|
-| `check:*` | Static analysis (no build) | `check:lint`, `check:vet` |
-| `build` | Produce artifacts | `build` (goreleaser snapshot) |
-| `test:*` | Verify correctness | `test:unit`, `test:coverage`, `test:integration:terraform`, `test:macro` |
-| `release` | Publish (CI only) | `release` (semantic-release) |
-| _(top-level)_ | Developer tools | `run`, `fmt`, `setup` |
-
-Rules:
-- Each task does ONE thing — no implicit dependencies between stages
-- CI orchestrates execution order, not mise
-- All tasks are callable standalone (no hidden prerequisites)
-- Task names map directly to what CI workflows call
-
-### Toolchain (managed by mise)
-
-| Tool | Version | Purpose |
-|------|---------|---------|
-| `go` | 1.25 | Build + test |
-| `golangci-lint` | 2.12 | Lint (6 linters: importas, govet, errcheck, staticcheck, unused + goimports formatter) |
-| `goreleaser` | 2.15 | Cross-platform builds + release archives |
-| `terraform` | 1.14 | Integration tests |
-| `opentofu` | 1.9 | Integration tests (tofu compatibility) |
-| `terragrunt` | 0.77 | Integration tests (terragrunt compatibility) |
-| `node` | 22 | semantic-release (CI only) |
-
-## CI/CD Pipeline
-
-### Flow
-
-```
-PR / push to main → main.yaml
-  ├── build.yaml    lint → unit tests (ubuntu+macos) → coverage → binaries
-  ├── test.yaml     macro tapes + integration tests (against built artifacts)
-  └── release.yaml  semantic-release → goreleaser (if new version)
-```
-
-### Stage Responsibilities
-
-| Stage | File | What it does | What it produces |
-|-------|------|-------------|-----------------|
-| **Build** | `build.yaml` | Lint, unit tests, coverage, compile | `dist/` artifact (4 binaries) |
-| **Test** | `test.yaml` | Blackbox: macro tapes + integration | Pass/fail (no artifacts) |
-| **Release** | `release.yaml` | Version + publish binaries | Git tag, CHANGELOG.md, GitHub release with archives |
-
-### How semantic-release and goreleaser work together
-
-goreleaser is invoked by semantic-release via `@semantic-release/exec.publishCmd`:
-
-1. semantic-release analyzes conventional commits since last release
-2. If releasable: bumps version, writes CHANGELOG.md + VERSION, creates git tag + GitHub release
-3. `publishCmd: "goreleaser release --clean"` runs — builds 4 binaries and uploads archives to the GitHub release
-
-Single orchestrator (semantic-release), single config (`.releaserc`), no detection logic.
-
-Key config:
-- `.releaserc`: `publishCmd` invokes goreleaser (it has the tag context already)
-- `.goreleaser.yaml`: `release.mode: append` (SR owns the release), `changelog.disable: true` (SR owns the changelog)
-
-### Versioning
-
-| Context | Version source | Example |
-|---------|---------------|---------|
-| goreleaser build (CI) | git tag via ldflags | `0.40.0` |
-| `go install ...@v0.40.0` | module metadata (ReadBuildInfo) | `v0.40.0` |
-| `go run ./cmd/tfui` (dev) | fallback | `0.0.0-SNAPSHOT` |
-| goreleaser snapshot | git describe | `0.39.0-SNAPSHOT-2d0d9dc` |
-
-Resolution chain in `cmd/tfui/main.go`:
-```
-ldflags (-X main.version=...) → debug.ReadBuildInfo().Main.Version → "0.0.0-SNAPSHOT"
-```
-
-### Adding a new CI check
-
-1. Create a mise task in `mise.toml` under the appropriate namespace
-2. Call it from the relevant workflow stage (`build.yaml` for fast checks, `test.yaml` for artifact-dependent tests)
-3. Workflow files stay thin — just `mise run <task>`
+- Architecture details: see `.claude/rules/architecture.md` (loaded automatically for `pkg/sdk/` and `internal/` edits)
+- UX rules: see `.claude/rules/ux.md` (loaded automatically for `plugins/` and `internal/ui/` edits)
+- CLI design: see `.claude/rules/cli.md` (loaded automatically for `cmd/` edits)
+- CI/CD pipeline: see `.claude/rules/ci.md` (loaded automatically for `.github/` edits)
+- Full I/O contract: `docs/cli-io-contract.md`
+- Macro DSL reference: `docs/macro-language.md`
+- Configuration reference: `docs/configuration.md`
 
 ## Key Dependencies
 
@@ -656,28 +119,31 @@ ldflags (-X main.version=...) → debug.ReadBuildInfo().Main.Version → "0.0.0-
 | `github.com/hashicorp/terraform-json` | Terraform JSON types |
 | `github.com/junegunn/fzf` | Fuzzy search algorithm |
 | `github.com/spf13/cobra` | CLI framework |
-| `github.com/anthropics/anthropic-sdk-go` | Claude AI (Bedrock + direct) |
 
-## Agents (`.claude/agents/`)
+## Agents
 
-| Agent | Purpose | When to use |
-|-------|---------|-------------|
-| `test-writer` | Generate table-driven tests | **MUST be invoked BEFORE any implementation edit** — failing test first, always |
-| `code-checker` | Audit CLAUDE.md code conventions | Before commits, during PR review, after large refactors |
-| `ux-checker` | Validate hint placement and UX rules | Changes to `View()`, `Hints()`, frames, or new plugins |
-| `macro-runner` | Run macro tapes to verify UI rendering | After modifying `View()`, layout, or plugin navigation |
-| `architect` | Design implementation plans | New plugins or cross-cutting features (before coding) |
-| `security-checker` | Terraform-specific security audit | PRs touching terraform service, state display, or AI integration |
-| `exploratory-tester` | Drive tfui via macros against real plan/state | After bug fixes, before releases, smoke-testing user flows end-to-end |
-
-Agents run in isolation and can be spawned in parallel. Unlike commands, they don't need conversation context and produce self-contained reports.
+| Agent | When to use |
+|-------|-------------|
+| `test-writer` | **MUST invoke BEFORE any implementation edit** — failing test first |
+| `code-checker` | Before commits, during PR review |
+| `ux-checker` | Changes to `View()`, `Hints()`, frames |
+| `macro-runner` | After modifying `View()`, layout, navigation |
+| `architect` | New plugins or cross-cutting features |
+| `security-checker` | PRs touching terraform service, state, AI |
+| `exploratory-tester` | After bug fixes, before releases |
 
 ## Important Rules
 
-- **TDD is non-negotiable**: spawn `test-writer` agent to produce a failing test BEFORE writing any implementation code. Never edit production files without a failing test already in place.
-- Plugins import ONLY `pkg/sdk` — never `internal/`
-- Inter-plugin communication uses typed events (`ChdirHandler`, `WorkspaceHandler`, etc.) — no stringly-typed state sharing
+CRITICAL: **TDD is non-negotiable** — spawn `test-writer` agent to produce a failing test BEFORE writing implementation code.
+
+CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the architectural boundary.
+
+- Inter-plugin communication uses typed events — no stringly-typed state sharing
 - Destructive ops require staleness check + user confirmation
 - AI features check `ctx.AI != nil` before offering
 - Config getters ALWAYS take a default value — no nil panics
 - Editor integration uses `tea.ExecProcess` for proper terminal handoff
+
+## Learnings
+
+<!-- Add dated entries here when conventions are established or mistakes reveal gaps -->
