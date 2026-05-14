@@ -5,7 +5,7 @@ priority: medium
 created: 2026-05-14
 effort: small
 tags: [cli, ux, macro, architecture]
-depends_on: [service-layer-simplification]
+depends_on: []
 ---
 
 ## Summary
@@ -93,19 +93,22 @@ Decide after implementing the service-layer-simplification. The implementation i
 
 ## Implementation
 
-Depends on service-layer-simplification. Once `MacroService` exists as a standalone type:
+No blockers — `MacroService` already exists and `runMacro` already demonstrates the pattern (creates MacroService, runs UI, prints commands on exit). The only missing piece is wiring it into `runTUI`:
 
 ```go
-// In runTUI, after service creation:
-if dryRun {
-    svc = terraform.NewMacroService(binary, dir, cache)
+// In runTUI, swap service strategy:
+if recordMode {
+    svc = terraform.NewMacroService(cfg.TerraformBinary(), cache)
 }
-// After TUI exits:
-if dryRun {
-    for _, cmd := range svc.Commands() {
-        fmt.Println(cmd.String())
+
+// After TUI exits, print recorded commands:
+if recordMode {
+    if ms, ok := svc.(*terraform.MacroService); ok {
+        for _, cmd := range ms.Commands() {
+            fmt.Println(cmd.String())
+        }
     }
 }
 ```
 
-~5 lines of glue code regardless of which flag name is chosen.
+~5 lines of glue code regardless of which flag name is chosen. Flag naming is an open question — see options above. This is the income×outcome architecture in action: same TUI (income), different outcome (MacroService instead of ExecService).
