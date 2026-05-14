@@ -4,8 +4,8 @@ type RootTerraformConfig struct {
 	Bin string
 }
 
-type ChdirConfig struct {
-	Members []string
+type MemberConfig struct {
+	Path string
 }
 
 type CacheConfig struct {
@@ -45,7 +45,7 @@ func (d *DefaultsConfig) PluginConfig(id string) PluginSettings {
 
 type RootConfig struct {
 	Terraform RootTerraformConfig
-	Chdir     ChdirConfig
+	Members   []MemberConfig
 	Cache     CacheConfig
 	AI        AIConfig
 	Defaults  DefaultsConfig

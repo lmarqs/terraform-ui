@@ -10,7 +10,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-var lockedBlocks = []string{"terraform", "chdir", "cache", "ai", "defaults"}
+var lockedBlocks = []string{"terraform", "member", "cache", "ai", "defaults"}
 
 func LoadChild(dir string) (*ChildConfig, error) {
 	path := filepath.Join(dir, HCLConfigFileName)
@@ -50,7 +50,7 @@ func childSchema() *hcl.BodySchema {
 	return &hcl.BodySchema{
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "terraform"},
-			{Type: "chdir"},
+			{Type: "member", LabelNames: []string{"path"}},
 			{Type: "cache"},
 			{Type: "ai"},
 			{Type: "defaults"},

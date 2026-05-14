@@ -25,12 +25,8 @@ terraform {
   bin = "/usr/local/bin/tofu"
 }
 
-chdir {
-  members = [
-    "modules/vpc",
-    "modules/ecs",
-  ]
-}
+member "modules/vpc" {}
+member "modules/ecs" {}
 
 cache {
   staleness_threshold = "5m"
@@ -65,14 +61,14 @@ defaults {
 		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "/usr/local/bin/tofu")
 	}
 
-	if len(cfg.Chdir.Members) != 2 {
-		t.Fatalf("Chdir.Members length = %d, want 2", len(cfg.Chdir.Members))
+	if len(cfg.Members) != 2 {
+		t.Fatalf("Members length = %d, want 2", len(cfg.Members))
 	}
-	if cfg.Chdir.Members[0] != "modules/vpc" {
-		t.Errorf("Chdir.Members[0] = %q, want %q", cfg.Chdir.Members[0], "modules/vpc")
+	if cfg.Members[0].Path != "modules/vpc" {
+		t.Errorf("Members[0].Path = %q, want %q", cfg.Members[0].Path, "modules/vpc")
 	}
-	if cfg.Chdir.Members[1] != "modules/ecs" {
-		t.Errorf("Chdir.Members[1] = %q, want %q", cfg.Chdir.Members[1], "modules/ecs")
+	if cfg.Members[1].Path != "modules/ecs" {
+		t.Errorf("Members[1].Path = %q, want %q", cfg.Members[1].Path, "modules/ecs")
 	}
 
 	if cfg.Cache.StalenessThreshold != "5m" {
@@ -118,8 +114,8 @@ terraform {
 	if cfg.Terraform.Bin != "terraform" {
 		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "terraform")
 	}
-	if len(cfg.Chdir.Members) != 0 {
-		t.Errorf("Chdir.Members should be empty, got %v", cfg.Chdir.Members)
+	if len(cfg.Members) != 0 {
+		t.Errorf("Members should be empty, got %v", cfg.Members)
 	}
 }
 
@@ -137,8 +133,8 @@ func TestLoadRoot_WhenEmptyFile_ShouldReturnEmptyConfig(t *testing.T) {
 	if cfg.Terraform.Bin != "" {
 		t.Errorf("Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
 	}
-	if len(cfg.Chdir.Members) != 0 {
-		t.Errorf("Chdir.Members should be empty, got %v", cfg.Chdir.Members)
+	if len(cfg.Members) != 0 {
+		t.Errorf("Members should be empty, got %v", cfg.Members)
 	}
 }
 
@@ -277,22 +273,18 @@ terraform {
 	}
 }
 
-// --- LoadRoot: chdir.members ---
+// --- LoadRoot: member blocks ---
 
-func TestLoadRoot_WhenChdirMembersExplicitList_ShouldPreserveOrder(t *testing.T) {
+func TestLoadRoot_WhenMemberBlocks_ShouldPreserveOrder(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
 terraform {
   bin = "terraform"
 }
 
-chdir {
-  members = [
-    "modules/ecs",
-    "modules/vpc",
-    "modules/rds",
-  ]
-}
+member "modules/ecs" {}
+member "modules/vpc" {}
+member "modules/rds" {}
 `)
 
 	cfg, err := LoadRoot(dir)
@@ -301,39 +293,17 @@ chdir {
 	}
 
 	expected := []string{"modules/ecs", "modules/vpc", "modules/rds"}
-	if len(cfg.Chdir.Members) != len(expected) {
-		t.Fatalf("Chdir.Members length = %d, want %d", len(cfg.Chdir.Members), len(expected))
+	if len(cfg.Members) != len(expected) {
+		t.Fatalf("Members length = %d, want %d", len(cfg.Members), len(expected))
 	}
 	for i, want := range expected {
-		if cfg.Chdir.Members[i] != want {
-			t.Errorf("Chdir.Members[%d] = %q, want %q", i, cfg.Chdir.Members[i], want)
+		if cfg.Members[i].Path != want {
+			t.Errorf("Members[%d].Path = %q, want %q", i, cfg.Members[i].Path, want)
 		}
 	}
 }
 
-func TestLoadRoot_WhenChdirMembersEmpty_ShouldBeSingleModule(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-terraform {
-  bin = "terraform"
-}
-
-chdir {
-  members = []
-}
-`)
-
-	cfg, err := LoadRoot(dir)
-	if err != nil {
-		t.Fatalf("LoadRoot() error: %v", err)
-	}
-
-	if len(cfg.Chdir.Members) != 0 {
-		t.Errorf("Chdir.Members = %v, want empty (single-module)", cfg.Chdir.Members)
-	}
-}
-
-func TestLoadRoot_WhenNoChdirBlock_ShouldDefaultToEmpty(t *testing.T) {
+func TestLoadRoot_WhenNoMemberBlocks_ShouldDefaultToEmpty(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
 terraform {
@@ -346,8 +316,8 @@ terraform {
 		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	if len(cfg.Chdir.Members) != 0 {
-		t.Errorf("Chdir.Members = %v, want empty", cfg.Chdir.Members)
+	if len(cfg.Members) != 0 {
+		t.Errorf("Members = %v, want empty", cfg.Members)
 	}
 }
 
@@ -608,13 +578,11 @@ terraform {
 			keyword: "terraform",
 		},
 		{
-			name: "ShouldRejectChdirBlock",
+			name: "ShouldRejectMemberBlock",
 			hcl: `
-chdir {
-  members = ["modules/vpc"]
-}
+member "modules/vpc" {}
 `,
-			keyword: "chdir",
+			keyword: "member",
 		},
 		{
 			name: "ShouldRejectCacheBlock",

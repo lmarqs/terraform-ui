@@ -38,7 +38,7 @@ func LoadRoot(dir string) (*RootConfig, error) {
 
 type hclRootFile struct {
 	Terraform *hclTerraformBlock `hcl:"terraform,block"`
-	Chdir     *hclChdirBlock     `hcl:"chdir,block"`
+	Members   []hclMemberBlock   `hcl:"member,block"`
 	Cache     *hclCacheBlock     `hcl:"cache,block"`
 	AI        *hclAIBlock        `hcl:"ai,block"`
 	Defaults  *hclDefaultsBlock  `hcl:"defaults,block"`
@@ -49,8 +49,9 @@ type hclTerraformBlock struct {
 	Bin string `hcl:"bin,optional"`
 }
 
-type hclChdirBlock struct {
-	Members []string `hcl:"members"`
+type hclMemberBlock struct {
+	Path   string   `hcl:"path,label"`
+	Remain hcl.Body `hcl:",remain"`
 }
 
 type hclCacheBlock struct {
@@ -89,8 +90,8 @@ func convertRootFile(raw *hclRootFile) *RootConfig {
 		cfg.Terraform.Bin = raw.Terraform.Bin
 	}
 
-	if raw.Chdir != nil {
-		cfg.Chdir.Members = raw.Chdir.Members
+	for _, m := range raw.Members {
+		cfg.Members = append(cfg.Members, MemberConfig{Path: m.Path})
 	}
 
 	if raw.Cache != nil {
