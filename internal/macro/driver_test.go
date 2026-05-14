@@ -261,6 +261,8 @@ func TestKeyToMsg(t *testing.T) {
 		{"space", tea.KeySpace},
 		{"ctrl+c", tea.KeyCtrlC},
 		{"ctrl+w", tea.KeyCtrlW},
+		{"ctrl+t", tea.KeyCtrlT},
+		{"ctrl+s", tea.KeyCtrlS},
 		{"p", tea.KeyRunes},
 		{"q", tea.KeyRunes},
 		{"/", tea.KeyRunes},
@@ -276,3 +278,49 @@ func TestKeyToMsg(t *testing.T) {
 		})
 	}
 }
+
+func TestKeyToMsgMultiCharUnknown(t *testing.T) {
+	msg := keyToMsg("unknown")
+	if msg.Type != tea.KeyRunes {
+		t.Errorf("keyToMsg(%q).Type = %v, want %v", "unknown", msg.Type, tea.KeyRunes)
+	}
+	if string(msg.Runes) != "unknown" {
+		t.Errorf("keyToMsg(%q).Runes = %q, want %q", "unknown", string(msg.Runes), "unknown")
+	}
+}
+
+func TestDriverProcessCmdNilMsg(t *testing.T) {
+	model := mockModel{content: "initial"}
+	d := NewDriver(model, 80, 24)
+
+	d.SendMsg(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("x")})
+	view := d.View()
+	if !strings.Contains(view, "keys: x") {
+		t.Errorf("view = %q, want to contain 'keys: x'", view)
+	}
+
+	// nilCmdModel returns a cmd whose result is nil
+	nilModel := &nilCmdModel{content: "start"}
+	d2 := NewDriver(nilModel, 80, 24)
+	d2.SendKey("a")
+	if d2.View() != "got key" {
+		t.Errorf("view = %q, want %q", d2.View(), "got key")
+	}
+}
+
+type nilCmdModel struct {
+	content string
+}
+
+func (m *nilCmdModel) Init() tea.Cmd { return nil }
+
+func (m *nilCmdModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	switch msg.(type) {
+	case tea.KeyMsg:
+		m.content = "got key"
+		return m, func() tea.Msg { return nil }
+	}
+	return m, nil
+}
+
+func (m *nilCmdModel) View() string { return m.content }

@@ -278,3 +278,57 @@ func TestRunnerResizeUpdatesView(t *testing.T) {
 		t.Errorf("should succeed: %v", err)
 	}
 }
+
+func TestRunnerScreenshotWriteFailure(t *testing.T) {
+	model := mockModel{}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+
+	commands := []Command{
+		{Type: CmdScreenshot, Args: []string{"/nonexistent-dir/subdir/file.txt"}, Line: 4},
+	}
+	err := r.Execute(commands)
+	if err == nil {
+		t.Fatal("expected error for write to invalid path")
+	}
+
+	runErr, ok := err.(*RunError)
+	if !ok {
+		t.Fatalf("expected *RunError, got %T", err)
+	}
+	if runErr.Code != ExitAssertFail {
+		t.Errorf("code = %d, want %d", runErr.Code, ExitAssertFail)
+	}
+	if runErr.Line != 4 {
+		t.Errorf("line = %d, want 4", runErr.Line)
+	}
+}
+
+func TestRunnerWaitReadyTimeout(t *testing.T) {
+	model := loadingModel{}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+	r.timeout = 50 * time.Millisecond
+
+	commands := []Command{
+		{Type: CmdWaitReady, Line: 2},
+	}
+	err := r.Execute(commands)
+	if err == nil {
+		t.Fatal("expected timeout error")
+	}
+
+	runErr, ok := err.(*RunError)
+	if !ok {
+		t.Fatalf("expected *RunError, got %T", err)
+	}
+	if runErr.Code != ExitTimeout {
+		t.Errorf("code = %d, want %d", runErr.Code, ExitTimeout)
+	}
+}
+
+type loadingModel struct{}
+
+func (m loadingModel) Init() tea.Cmd                         { return nil }
+func (m loadingModel) Update(_ tea.Msg) (tea.Model, tea.Cmd) { return m, nil }
+func (m loadingModel) View() string                          { return "Loading" }

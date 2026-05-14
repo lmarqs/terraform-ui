@@ -135,7 +135,8 @@ func TestParseTapeErrors(t *testing.T) {
 		{"wait ready with args", "wait ready now"},
 		{"wait view no substring", "wait view"},
 		{"assert no args", "assert"},
-		{"assert unknown target", "assert something"},
+		{"assert unknown target with insufficient args", "assert something"},
+		{"assert unknown target", "assert foo bar"},
 		{"assert view no substring", "assert view"},
 		{"screenshot no arg", "screenshot"},
 		{"screenshot too many args", "screenshot a b"},
@@ -217,6 +218,13 @@ func TestParseTapeErrorLineNumbers(t *testing.T) {
 	// Error should reference line 3
 	if !containsStr(err.Error(), "line 3") {
 		t.Errorf("error should reference line 3, got: %v", err)
+	}
+}
+
+func TestParseLineEmptyCommand(t *testing.T) {
+	_, err := parseLine("", 1)
+	if err == nil {
+		t.Error("expected error for empty line")
 	}
 }
 
