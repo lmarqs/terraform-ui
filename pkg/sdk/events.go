@@ -21,6 +21,12 @@ type WorkspaceChangedEvent struct {
 
 func (WorkspaceChangedEvent) event() {}
 
+type WorkspaceCreatedEvent struct {
+	Name string
+}
+
+func (WorkspaceCreatedEvent) event() {}
+
 type PlanCompletedEvent struct {
 	Summary       *PlanSummary
 	ResourceCount int
