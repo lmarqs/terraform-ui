@@ -591,6 +591,36 @@ func TestApp_CommandMode_EscCancels(t *testing.T) {
 	}
 }
 
+func TestApp_CommandMode_Quit(t *testing.T) {
+	app := setupTestApp()
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	app = model.(App)
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal(":q should produce a quit command")
+	}
+}
+
+func TestApp_CommandMode_ForceQuit(t *testing.T) {
+	app := setupTestApp()
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	app = model.(App)
+	for _, ch := range "q!" {
+		model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{ch}})
+		app = model.(App)
+	}
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal(":q! should produce a quit command")
+	}
+}
+
 func TestApp_CommandMode_ColonFromActivePlugin(t *testing.T) {
 	app := setupTestApp()
 

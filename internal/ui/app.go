@@ -464,6 +464,20 @@ func (a App) activatePlugin(p sdk.Plugin) tea.Cmd {
 	return nil
 }
 
+type builtinCommand struct {
+	name string
+	fn   func(*App) tea.Cmd
+}
+
+var builtinCommands = []builtinCommand{
+	{"q", (*App).cmdQuit},
+	{"q!", (*App).cmdQuit},
+}
+
+func (a *App) cmdQuit() tea.Cmd {
+	return tea.Quit
+}
+
 func (a *App) executeCommand(input string) tea.Cmd {
 	input = strings.TrimSpace(input)
 	if input == "" {
@@ -471,6 +485,12 @@ func (a *App) executeCommand(input string) tea.Cmd {
 	}
 
 	lower := strings.ToLower(input)
+	for _, cmd := range builtinCommands {
+		if cmd.name == lower {
+			return cmd.fn(a)
+		}
+	}
+
 	for _, p := range a.registry.All() {
 		if strings.ToLower(p.ID()) == lower || strings.HasPrefix(strings.ToLower(p.Name()), lower) {
 			prev := ""
@@ -497,6 +517,12 @@ func (a App) bestCommandMatch(input string) string {
 	lower := strings.ToLower(input)
 	var match string
 	count := 0
+	for _, cmd := range builtinCommands {
+		if strings.HasPrefix(cmd.name, lower) {
+			match = cmd.name
+			count++
+		}
+	}
 	for _, p := range a.registry.All() {
 		id := strings.ToLower(p.ID())
 		name := strings.ToLower(p.Name())
@@ -514,6 +540,9 @@ func (a App) bestCommandMatch(input string) string {
 func (a App) commandMatches() []string {
 	if a.commandInput == "" {
 		var all []string
+		for _, cmd := range builtinCommands {
+			all = append(all, cmd.name)
+		}
 		for _, p := range a.registry.All() {
 			all = append(all, p.ID())
 		}
@@ -521,6 +550,11 @@ func (a App) commandMatches() []string {
 	}
 	lower := strings.ToLower(a.commandInput)
 	var matches []string
+	for _, cmd := range builtinCommands {
+		if strings.HasPrefix(cmd.name, lower) {
+			matches = append(matches, cmd.name)
+		}
+	}
 	for _, p := range a.registry.All() {
 		id := strings.ToLower(p.ID())
 		name := strings.ToLower(p.Name())
