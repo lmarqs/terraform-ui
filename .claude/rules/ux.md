@@ -40,7 +40,7 @@ Frame lifecycle:
 
 ## UX Model (k9s-inspired)
 
-- **`:` command mode**: type plugin name to switch views. Tab autocomplete.
+- **`:` command mode**: type plugin name to switch views. Tab autocomplete. Built-in commands: `:q` quit, `:q!` force quit.
 - **`/` filter mode**: fzf-style fuzzy filter. `esc` exits.
 - **`space` pin**: toggle pin on selected resource. Pinned = apply/plan target.
 - **`enter` / `i` inspect**: show detail view with expanded values.

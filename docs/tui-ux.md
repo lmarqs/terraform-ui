@@ -37,7 +37,7 @@
 | Key | Action |
 |-----|--------|
 | `q` | Back to home / quit |
-| `:` | Command mode |
+| `:` | Command mode (`:q` quit, `:q!` force quit) |
 | `/` | Filter mode |
 | `C` | Context picker overlay |
 | `Esc` | Exit sub-state (filter, detail, overlay) |
