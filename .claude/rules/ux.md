@@ -3,6 +3,8 @@ description: "UX model, keybinding conventions, hint bar design, action model, a
 globs: ["plugins/**", "internal/ui/**", "pkg/sdk/frames/**"]
 ---
 
+Full spec: `docs/tui-ux.md`
+
 # UX Rules
 
 ## Navigation Stack (Android-style)

@@ -216,7 +216,7 @@ Every plugin's `View(width, height)` must:
 - Non-stackable plugins: implement `Hintable` interface with `Hints() []KeyHint`
 - Both must return state-appropriate hints (check plugin status in the method)
 
-## 12. Performance
+## 13. Performance
 
 - Virtual scrolling: only render visible rows (viewport window)
 - Tree flatten: O(visible nodes), not O(all nodes)

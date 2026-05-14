@@ -3,6 +3,8 @@ description: "CLI design decisions, read-only mode, config loading, and terrafor
 globs: ["cmd/**"]
 ---
 
+Full spec: `docs/cli-ux.md`
+
 # CLI Design
 
 ## Read-Only Mode (`--plan`, `--state`)
@@ -58,7 +60,8 @@ HCL format. Everything optional. No config file = standalone mode.
 
 ```hcl
 terraform { bin = "terraform" }
-chdir { members = ["modules/vpc", "modules/ecs"] }
+member "modules/vpc" {}
+member "modules/ecs" {}
 cache { staleness_threshold = "5m" }
 ai { enabled = true; provider = "bedrock"; region = "us-east-1" }
 defaults {
