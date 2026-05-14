@@ -1305,6 +1305,29 @@ func TestHandleChdirChanged(t *testing.T) {
 	}
 }
 
+func TestHandleChdirChanged_ClearsPins(t *testing.T) {
+	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}, {Address: "b"}}}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
+	p.Init(ctx)
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.syncPinnedToTree()
+
+	if p.pins.Count() != 1 {
+		t.Fatalf("precondition: pins.Count() = %d, want 1", p.pins.Count())
+	}
+
+	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
+
+	if p.pins.Count() != 0 {
+		t.Errorf("pins.Count() = %d after chdir change, want 0", p.pins.Count())
+	}
+}
+
 func TestActivateWithSameContext(t *testing.T) {
 	svc := &mockService{stateListResult: []sdk.Resource{}}
 	p := New(svc).(*Plugin)

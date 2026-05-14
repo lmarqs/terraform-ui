@@ -155,6 +155,7 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 	e.svc = e.svc.WithDir(evt.AbsPath)
 	e.scopedContext = evt.AbsPath
+	e.clearAllPins()
 	e.reset()
 	return nil
 }
