@@ -11,8 +11,8 @@ type KeyHint struct {
 // Common hints reusable across plugins.
 var (
 	HintBack    = KeyHint{Key: "q", Description: "back"}
-	HintRefresh = KeyHint{Key: "r", Description: "refresh"}
-	HintRetry   = KeyHint{Key: "r", Description: "retry"}
+	HintRefresh = KeyHint{Key: "^r", Description: "refresh"}
+	HintRetry   = KeyHint{Key: "^r", Description: "retry"}
 	HintFilter  = KeyHint{Key: "/", Description: "filter"}
 	HintPin     = KeyHint{Key: "Space", Description: "pin"}
 	HintDelete  = KeyHint{Key: "d", Description: "delete"}
@@ -61,11 +61,13 @@ const (
 	HintSetInspect      HintSet = 1 << iota // Enter inspect
 	HintSetSelect                           // Enter select
 	HintSetConfirm                          // Enter confirm
-	HintSetPin                              // Space pin
 	HintSetFilter                           // / filter
+	HintSetPin                              // Space pin
 	HintSetTree                             // ^t flat/tree (dynamic label)
-	HintSetCollapse                         // [/] collapse/expand
+	HintSetCollapse                         // [ collapse
+	HintSetExpand                           // ] expand
 	HintSetWrap                             // ^w wrap(on/off) (dynamic label)
+	HintSetPinnedFilter                     // ^p pinned(on/off) (dynamic label)
 	HintSetRefresh                          // r refresh
 	HintSetRetry                            // r retry
 	HintSetDelete                           // d delete
@@ -75,7 +77,6 @@ const (
 	HintSetApply                            // a apply
 	HintSetNew                              // n new
 	HintSetUnlock                           // u force-unlock
-	HintSetPinnedFilter                     // ^p pinned(on/off) (dynamic label)
 	HintSetClearPins                        // ^u unpin all
 	HintSetActions                          // ! actions
 	HintSetCancel                           // Esc cancel
@@ -98,17 +99,23 @@ type hintDef struct {
 }
 
 // hintOrder defines the fixed rendering order for all standard hints.
+// Grouped: navigation → view modes → resource actions → batch/pins → escape.
 var hintOrder = []hintDef{
+	// Navigation
 	{bit: HintSetInspect, hint: KeyHint{Key: "Enter", Description: "inspect"}},
 	{bit: HintSetSelect, hint: KeyHint{Key: "Enter", Description: "select"}},
 	{bit: HintSetConfirm, hint: KeyHint{Key: "Enter", Description: "confirm"}},
-	{bit: HintSetPin, hint: KeyHint{Key: "Space", Description: "pin"}},
 	{bit: HintSetFilter, hint: KeyHint{Key: "/", Description: "filter"}},
+	{bit: HintSetPin, hint: KeyHint{Key: "Space", Description: "pin"}},
+	// View modes
 	{bit: HintSetTree, dynamic: true},
-	{bit: HintSetCollapse, hint: KeyHint{Key: "[/]", Description: "collapse/expand"}},
+	{bit: HintSetCollapse, hint: KeyHint{Key: "[", Description: "collapse"}},
+	{bit: HintSetExpand, hint: KeyHint{Key: "]", Description: "expand"}},
 	{bit: HintSetWrap, dynamic: true},
-	{bit: HintSetRefresh, hint: KeyHint{Key: "r", Description: "refresh"}},
-	{bit: HintSetRetry, hint: KeyHint{Key: "r", Description: "retry"}},
+	{bit: HintSetPinnedFilter, dynamic: true},
+	{bit: HintSetRefresh, hint: KeyHint{Key: "^r", Description: "refresh"}},
+	{bit: HintSetRetry, hint: KeyHint{Key: "^r", Description: "retry"}},
+	// Resource actions
 	{bit: HintSetDelete, hint: KeyHint{Key: "d", Description: "delete"}},
 	{bit: HintSetEdit, hint: KeyHint{Key: "e", Description: "edit"}},
 	{bit: HintSetTaint, hint: KeyHint{Key: "t", Description: "taint"}},
@@ -116,9 +123,10 @@ var hintOrder = []hintDef{
 	{bit: HintSetApply, hint: KeyHint{Key: "a", Description: "apply"}},
 	{bit: HintSetNew, hint: KeyHint{Key: "n", Description: "new"}},
 	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
-	{bit: HintSetPinnedFilter, dynamic: true},
+	// Batch/pin management
 	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
 	{bit: HintSetActions, hint: KeyHint{Key: "!", Description: "batch"}},
+	// Escape
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
 	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
 }

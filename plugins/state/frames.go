@@ -69,7 +69,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			}),
 		})
 		return f, nil
-	case "r":
+	case "ctrl+r":
 		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
 		}
@@ -173,7 +173,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	default:
 		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetTaint | sdk.HintSetUntaint | sdk.HintSetBack
 		if f.plugin.treeMode {
-			set |= sdk.HintSetCollapse
+			set |= sdk.HintSetCollapse | sdk.HintSetExpand
 		}
 		if f.plugin.PinnedCount() > 0 {
 			set |= sdk.HintSetActions | sdk.HintSetClearPins
@@ -308,7 +308,7 @@ func (f *stateFilterFrame) View(width, height int) string {
 func (f *stateFilterFrame) Hints() []sdk.KeyHint {
 	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
 	if f.plugin.treeMode {
-		set |= sdk.HintSetCollapse
+		set |= sdk.HintSetCollapse | sdk.HintSetExpand
 	}
 	return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
 }

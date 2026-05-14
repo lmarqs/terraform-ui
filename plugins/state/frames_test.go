@@ -240,14 +240,17 @@ func TestStateFilterFrame_Hints_TreeMode(t *testing.T) {
 
 	// Get hints from the top of the stack (filter frame)
 	hints := p.stack.Hints()
-	found := false
+	foundCollapse := false
+	foundExpand := false
 	for _, h := range hints {
-		if h.Key == "[/]" {
-			found = true
-			break
+		if h.Key == "[" {
+			foundCollapse = true
+		}
+		if h.Key == "]" {
+			foundExpand = true
 		}
 	}
-	if !found {
+	if !foundCollapse || !foundExpand {
 		t.Error("filter frame hints should include collapse/expand keys in tree mode")
 	}
 }
@@ -265,7 +268,7 @@ func TestStateFilterFrame_Hints_FlatMode(t *testing.T) {
 
 	hints := p.stack.Hints()
 	for _, h := range hints {
-		if h.Key == "[/]" {
+		if h.Key == "[" || h.Key == "]" {
 			t.Error("filter frame hints should NOT include collapse/expand keys in flat mode")
 			break
 		}
@@ -281,14 +284,17 @@ func TestListFrame_Hints_TreeMode(t *testing.T) {
 	p.rebuildTree()
 
 	hints := p.stack.Hints()
-	found := false
+	foundCollapse := false
+	foundExpand := false
 	for _, h := range hints {
-		if h.Key == "[/]" {
-			found = true
-			break
+		if h.Key == "[" {
+			foundCollapse = true
+		}
+		if h.Key == "]" {
+			foundExpand = true
 		}
 	}
-	if !found {
+	if !foundCollapse || !foundExpand {
 		t.Error("list frame hints should include collapse/expand keys in tree mode")
 	}
 }
@@ -652,7 +658,7 @@ func TestListFrame_Hints_FlatMode(t *testing.T) {
 
 	hints := p.stack.Hints()
 	for _, h := range hints {
-		if h.Key == "[/]" {
+		if h.Key == "[" || h.Key == "]" {
 			t.Error("list frame hints should NOT include collapse/expand keys in flat mode")
 			break
 		}

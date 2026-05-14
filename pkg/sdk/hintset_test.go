@@ -21,13 +21,14 @@ func TestHintSet_WhenSingleHint_ShouldReturnCorrectKeyHint(t *testing.T) {
 		{"ShouldShowInspect", HintSetInspect, "Enter", "inspect"},
 		{"ShouldShowSelect", HintSetSelect, "Enter", "select"},
 		{"ShouldShowConfirm", HintSetConfirm, "Enter", "confirm"},
-		{"ShouldShowPin", HintSetPin, "Space", "pin"},
 		{"ShouldShowFilter", HintSetFilter, "/", "filter"},
+		{"ShouldShowPin", HintSetPin, "Space", "pin"},
 		{"ShouldShowTreeDefault", HintSetTree, "^t", "tree"},
-		{"ShouldShowCollapseExpand", HintSetCollapse, "[/]", "collapse/expand"},
+		{"ShouldShowCollapse", HintSetCollapse, "[", "collapse"},
+		{"ShouldShowExpand", HintSetExpand, "]", "expand"},
 		{"ShouldShowWrapDefault", HintSetWrap, "^w", "wrap(off)"},
-		{"ShouldShowRefresh", HintSetRefresh, "r", "refresh"},
-		{"ShouldShowRetry", HintSetRetry, "r", "retry"},
+		{"ShouldShowRefresh", HintSetRefresh, "^r", "refresh"},
+		{"ShouldShowRetry", HintSetRetry, "^r", "retry"},
 		{"ShouldShowDelete", HintSetDelete, "d", "delete"},
 		{"ShouldShowEdit", HintSetEdit, "e", "edit"},
 		{"ShouldShowApply", HintSetApply, "a", "apply"},
@@ -67,12 +68,12 @@ func TestHintSet_WhenCombined_ShouldProduceFixedOrder(t *testing.T) {
 		{
 			"ShouldOrderRegardlessOfBitCombinationOrder",
 			HintSetBack | HintSetFilter | HintSetInspect | HintSetPin,
-			[]string{"inspect", "pin", "filter", "back"},
+			[]string{"inspect", "filter", "pin", "back"},
 		},
 		{
 			"ShouldMatchStateListPattern",
 			HintSetInspect | HintSetPin | HintSetFilter | HintSetTree | HintSetBack,
-			[]string{"inspect", "pin", "filter", "tree", "back"},
+			[]string{"inspect", "filter", "pin", "tree", "back"},
 		},
 		{
 			"ShouldMatchStateDetailPattern",
@@ -209,14 +210,17 @@ func TestHintSet_Has_WhenSubsetPresent_ShouldReturnTrue(t *testing.T) {
 
 func TestHintSet_WhenAllBitsSet_ShouldProduceAllHints(t *testing.T) {
 	all := HintSetInspect |
-		HintSetSelect | HintSetConfirm | HintSetPin | HintSetFilter |
-		HintSetTree | HintSetCollapse | HintSetWrap | HintSetRefresh |
-		HintSetRetry | HintSetDelete | HintSetEdit | HintSetApply |
-		HintSetNew | HintSetUnlock | HintSetCancel | HintSetBack
+		HintSetSelect | HintSetConfirm | HintSetFilter | HintSetPin |
+		HintSetTree | HintSetCollapse | HintSetExpand | HintSetWrap |
+		HintSetPinnedFilter | HintSetRefresh |
+		HintSetRetry | HintSetDelete | HintSetEdit | HintSetTaint |
+		HintSetUntaint | HintSetApply |
+		HintSetNew | HintSetUnlock | HintSetClearPins | HintSetActions |
+		HintSetCancel | HintSetBack
 
 	hints := all.Hints()
-	if len(hints) != 17 {
-		t.Fatalf("expected 17 hints, got %d", len(hints))
+	if len(hints) != 23 {
+		t.Fatalf("expected 23 hints, got %d", len(hints))
 	}
 }
 
