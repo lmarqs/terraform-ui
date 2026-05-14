@@ -180,19 +180,14 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		}
 	}
 
-	var svc sdk.Service
-
+	cache := terraform.NewServiceCache()
 	if planURI != "" || stateURI != "" {
 		cfg.PreloadedData = true
-		compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
-		if err != nil {
+		if err := seedCache(cache, planURI, stateURI); err != nil {
 			return err
 		}
-		svc = compositeSvc
-	} else {
-		binary := cfg.TerraformBinary()
-		svc = terraform.NewService(effectiveWorkDir(cfg), binary)
 	}
+	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
 
 	registry := buildRegistry(svc, cfg)
 
@@ -262,21 +257,17 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 		return nil
 	}
 
-	var svc sdk.Service
+	cache := terraform.NewServiceCache()
 	if planURI != "" || stateURI != "" {
 		cfg.PreloadedData = true
-		compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
-		if err != nil {
+		if err := seedCache(cache, planURI, stateURI); err != nil {
 			return err
 		}
-		svc = compositeSvc
-	} else {
-		svc = terraform.NewService(effectiveWorkDir(cfg), cfg.TerraformBinary())
 	}
 
-	recorder := terraform.NewRecordingService(svc, cfg.TerraformBinary())
-	registry := buildRegistry(recorder, cfg)
-	app := ui.NewApp(cfg, recorder, registry)
+	svc := terraform.NewMacroService(cfg.TerraformBinary(), cache)
+	registry := buildRegistry(svc, cfg)
+	app := ui.NewApp(cfg, svc, registry)
 
 	driver := macro.NewDriver(app, 80, 24)
 	runner := macro.NewRunner(driver)
@@ -285,20 +276,20 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 		return err
 	}
 
-	for _, cmd := range recorder.Commands() {
+	for _, cmd := range svc.Commands() {
 		fmt.Println(cmd.String())
 	}
 	return nil
 }
 
-func buildCompositeService(cfg config.Config, planURI, stateURI string) (*terraform.CompositeService, error) {
+func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 	if planURI == "-" && stateURI == "-" {
-		return nil, fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
+		return fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
 	}
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, fmt.Errorf("getting working directory: %w", err)
+		return fmt.Errorf("getting working directory: %w", err)
 	}
 
 	resolver := source.NewResolver(
@@ -307,49 +298,47 @@ func buildCompositeService(cfg config.Config, planURI, stateURI string) (*terraf
 	)
 	ctx := context.Background()
 
-	var planFile string
-	var stdinPlan []byte
 	if planURI != "" {
 		if planURI == "-" {
 			data, resolveErr := resolver.Resolve(ctx, planURI)
 			if resolveErr != nil {
-				return nil, fmt.Errorf("loading plan: %w", resolveErr)
+				return fmt.Errorf("loading plan: %w", resolveErr)
 			}
-			stdinPlan = data
+			if err := cache.SeedPlan("", data); err != nil {
+				return fmt.Errorf("parsing plan: %w", err)
+			}
 		} else {
-			planFile, err = resolveToAbsPath(cwd, planURI)
-			if err != nil {
-				return nil, fmt.Errorf("resolving plan path: %w", err)
+			planFile, resolveErr := resolveToAbsPath(cwd, planURI)
+			if resolveErr != nil {
+				return fmt.Errorf("resolving plan path: %w", resolveErr)
+			}
+			if err := cache.SeedPlan(planFile, nil); err != nil {
+				return fmt.Errorf("loading plan: %w", err)
 			}
 		}
 	}
 
-	var stateFile string
-	var stdinState []byte
 	if stateURI != "" {
 		if stateURI == "-" {
 			data, resolveErr := resolver.Resolve(ctx, stateURI)
 			if resolveErr != nil {
-				return nil, fmt.Errorf("loading state: %w", resolveErr)
+				return fmt.Errorf("loading state: %w", resolveErr)
 			}
-			stdinState = data
+			if err := cache.SeedState("", data); err != nil {
+				return fmt.Errorf("parsing state: %w", err)
+			}
 		} else {
-			stateFile, err = resolveToAbsPath(cwd, stateURI)
-			if err != nil {
-				return nil, fmt.Errorf("resolving state path: %w", err)
+			stateFile, resolveErr := resolveToAbsPath(cwd, stateURI)
+			if resolveErr != nil {
+				return fmt.Errorf("resolving state path: %w", resolveErr)
+			}
+			if err := cache.SeedState(stateFile, nil); err != nil {
+				return fmt.Errorf("loading state: %w", err)
 			}
 		}
 	}
 
-	binary := cfg.TerraformBinary()
-	var live sdk.Service
-	if stateFile != "" {
-		live = terraform.NewServiceWithState(effectiveWorkDir(cfg), binary, stateFile)
-	} else {
-		live = terraform.NewService(effectiveWorkDir(cfg), binary)
-	}
-
-	return terraform.NewCompositeService(live, planFile, stateFile, stdinPlan, stdinState), nil
+	return nil
 }
 
 func resolveToAbsPath(baseDir, uri string) (string, error) {
@@ -370,25 +359,35 @@ func resolveToAbsPath(baseDir, uri string) (string, error) {
 }
 
 func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error {
-	compositeSvc, err := buildCompositeService(cfg, planURI, stateURI)
-	if err != nil {
+	cache := terraform.NewServiceCache()
+	if err := seedCache(cache, planURI, stateURI); err != nil {
 		return err
 	}
 
 	ctx := context.Background()
 
 	if planURI != "" {
-		summary, err := compositeSvc.Plan(ctx, sdk.PlanOptions{})
-		if err != nil {
-			return err
+		plan, ok := cache.GetPlan()
+		if !ok {
+			svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
+			var err error
+			plan, err = svc.Plan(ctx, sdk.PlanOptions{})
+			if err != nil {
+				return err
+			}
 		}
-		printTreeView(summary)
+		printTreeView(plan)
 	}
 
 	if stateURI != "" {
-		resources, err := compositeSvc.StateList(ctx)
-		if err != nil {
-			return err
+		resources, ok := cache.GetResources()
+		if !ok {
+			svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
+			var err error
+			resources, err = svc.StateList(ctx)
+			if err != nil {
+				return err
+			}
 		}
 		if planURI != "" {
 			fmt.Println()
@@ -601,7 +600,7 @@ func runPlan(cfg config.Config, ci bool, jsonOutput bool) error {
 	}
 
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
+	svc := terraform.NewExecService(effectiveWorkDir(cfg), binary, nil)
 	ctx := context.Background()
 
 	showSpinner := !ci && !jsonOutput && isStderrTTY()
@@ -635,7 +634,7 @@ func runApply(cfg config.Config, ci bool, jsonOutput bool) error {
 	}
 
 	binary := cfg.TerraformBinary()
-	svc := terraform.NewService(effectiveWorkDir(cfg), binary)
+	svc := terraform.NewExecService(effectiveWorkDir(cfg), binary, nil)
 	ctx := context.Background()
 
 	showSpinner := !ci && !jsonOutput && isStderrTTY()

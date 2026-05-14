@@ -34,7 +34,7 @@ func buildStateCommands(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			address := args[0]
 			fmt.Fprintf(os.Stderr, "Removing %s from state...\n", address)
 			if err := svc.StateRm(context.Background(), address); err != nil {
@@ -51,7 +51,7 @@ func buildStateCommands(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			fmt.Fprintf(os.Stderr, "Moving %s → %s...\n", args[0], args[1])
 			if err := svc.StateMove(context.Background(), args[0], args[1]); err != nil {
 				return fmt.Errorf("state mv failed: %w", err)
@@ -67,7 +67,7 @@ func buildStateCommands(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			fmt.Fprintf(os.Stderr, "Importing %s (id: %s)...\n", args[0], args[1])
 			if err := svc.Import(context.Background(), args[0], args[1]); err != nil {
 				return fmt.Errorf("import failed: %w", err)
@@ -83,7 +83,7 @@ func buildStateCommands(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			if err := svc.Taint(context.Background(), args[0]); err != nil {
 				return fmt.Errorf("taint failed: %w", err)
 			}
@@ -98,7 +98,7 @@ func buildStateCommands(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			if err := svc.Untaint(context.Background(), args[0]); err != nil {
 				return fmt.Errorf("untaint failed: %w", err)
 			}
@@ -117,7 +117,7 @@ func buildValidateCommand(cfg *config.Config) *cobra.Command {
 		Short: "Run terraform validate",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			diags, err := svc.Validate(context.Background())
 			if err != nil {
 				return fmt.Errorf("validate failed: %w", err)
@@ -159,7 +159,7 @@ func buildOutputCommand(cfg *config.Config) *cobra.Command {
 		Short: "Show terraform outputs",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			binary := cfg.TerraformBinary()
-			svc := terraform.NewService(cfg.WorkingDir(), binary)
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
 			outputs, err := svc.Output(context.Background())
 			if err != nil {
 				return fmt.Errorf("output failed: %w", err)
