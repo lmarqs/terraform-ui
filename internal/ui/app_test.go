@@ -1062,3 +1062,36 @@ func TestApp_DeactivateMsg_ClearsPreviousPlugin(t *testing.T) {
 		t.Errorf("after DeactivateMsg, returnTo should be nil, got %q", app.returnTo.ID())
 	}
 }
+
+func TestApp_NavigateMsg_ActivatesTargetPlugin(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	// Activate "context" plugin
+	if p, ok := app.registry.ByID("context"); ok {
+		app.activePlugin = p
+	}
+
+	// NavigateMsg from context requesting navigation to "workspaces"
+	model, _ := app.Update(sdk.NavigateMsg{PluginID: "workspaces"})
+	app = model.(App)
+
+	// Should navigate to workspaces (NavPush saves context as returnTo)
+	if app.activePlugin == nil || app.activePlugin.ID() != "workspaces" {
+		t.Fatalf("after NavigateMsg, activePlugin = %v, want workspaces", app.activePlugin)
+	}
+	if app.returnTo == nil || app.returnTo.ID() != "context" {
+		t.Fatalf("after NavigateMsg, returnTo = %v, want context", app.returnTo)
+	}
+}
+
+func TestApp_NavigateMsg_UnknownPlugin(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+	app.activePlugin = nil
+
+	model, _ := app.Update(sdk.NavigateMsg{PluginID: "nonexistent"})
+	app = model.(App)
+
+	if app.activePlugin != nil {
+		t.Errorf("NavigateMsg with unknown plugin should not activate anything, got %q", app.activePlugin.ID())
+	}
+}

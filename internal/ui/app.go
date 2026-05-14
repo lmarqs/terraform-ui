@@ -188,6 +188,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.activeOverlay = nil
 		return a, nil
 
+	case sdk.NavigateMsg:
+		if p, ok := a.registry.ByID(msg.PluginID); ok {
+			return a, a.navigateTo(p)
+		}
+		return a, nil
+
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
 			prev := a.activePlugin.ID()
