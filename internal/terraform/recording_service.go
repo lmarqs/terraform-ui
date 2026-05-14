@@ -2,10 +2,13 @@ package terraform
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
+
+const defaultBinary = "terraform"
 
 type commandStore struct {
 	mu       sync.Mutex
@@ -161,4 +164,64 @@ func (r *RecordingService) WithDir(dir string) sdk.Service {
 		binary: r.binary,
 		store:  r.store,
 	}
+}
+
+func buildPlanFlags(opts sdk.PlanOptions) []string {
+	var flags []string
+	for _, t := range opts.Targets {
+		flags = append(flags, "-target="+t)
+	}
+	for _, f := range opts.VarFiles {
+		flags = append(flags, "-var-file="+f)
+	}
+	for k, v := range opts.Vars {
+		flags = append(flags, "-var", k+"="+v)
+	}
+	for _, r := range opts.Replace {
+		flags = append(flags, "-replace="+r)
+	}
+	if opts.Destroy {
+		flags = append(flags, "-destroy")
+	}
+	if opts.RefreshOnly {
+		flags = append(flags, "-refresh-only")
+	}
+	if opts.Refresh != nil && !*opts.Refresh {
+		flags = append(flags, "-refresh=false")
+	}
+	if opts.Parallelism > 0 {
+		flags = append(flags, fmt.Sprintf("-parallelism=%d", opts.Parallelism))
+	}
+	if opts.Lock != nil && !*opts.Lock {
+		flags = append(flags, "-lock=false")
+	}
+	if opts.LockTimeout != "" {
+		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
+	}
+	flags = append(flags, opts.ExtraArgs...)
+	return flags
+}
+
+func buildApplyFlags(opts sdk.ApplyOptions) []string {
+	var flags []string
+	for _, t := range opts.Targets {
+		flags = append(flags, "-target="+t)
+	}
+	for _, f := range opts.VarFiles {
+		flags = append(flags, "-var-file="+f)
+	}
+	for k, v := range opts.Vars {
+		flags = append(flags, "-var", k+"="+v)
+	}
+	if opts.Parallelism > 0 {
+		flags = append(flags, fmt.Sprintf("-parallelism=%d", opts.Parallelism))
+	}
+	if opts.Lock != nil && !*opts.Lock {
+		flags = append(flags, "-lock=false")
+	}
+	if opts.LockTimeout != "" {
+		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
+	}
+	flags = append(flags, opts.ExtraArgs...)
+	return flags
 }

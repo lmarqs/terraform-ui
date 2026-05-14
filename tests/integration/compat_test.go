@@ -164,7 +164,7 @@ func TestCompat_ExtraArgsPassthrough(t *testing.T) {
 }
 
 // TestCompat_WorkspaceDisplay verifies that workspace information is accessible
-// in the TUI. In read-only mode, the workspace is "readonly".
+// in the TUI via macro mode.
 func TestCompat_WorkspaceDisplay(t *testing.T) {
 	projectRoot := findProjectRoot()
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
