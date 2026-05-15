@@ -57,7 +57,7 @@
 | `k` / `↑` | Move up |
 | `g` | Jump to start |
 | `G` | Jump to end |
-| `Enter` | Expand branch / inspect leaf |
+| `Enter` | Inspect (leaf) / expand (branch) |
 | `Space` | Pin/unpin |
 
 ### Tree-specific
@@ -69,7 +69,7 @@
 | `Enter` on leaf | Inspect |
 
 ### Plugin activation (home screen only)
-Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` (outputs), `v` (validate), `t` (console)
+Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` (outputs), `v` (validate), `t` (console), `i` (init)
 
 ## 4. Visual Patterns
 
@@ -396,3 +396,102 @@ Every plugin's `View(width, height)` must:
 - Filter: debounce unnecessary on keystroke (fzf is fast enough for 1549 items)
 - State load: show elapsed time indicator after 2s
 - Context discovery: cache results, don't re-discover on every overlay open
+
+## 15. Keybinding Reference Map
+
+### Design layers
+
+| Layer | Keys | Scope | Examples |
+|-------|------|-------|---------|
+| Terraform verbs | bare lowercase | cursor resource | `d` delete, `t` taint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `i` init |
+| Plugin switches (home) | bare lowercase | home screen only | `s` state, `p` plan, `w` workspace, `o` output, `v` validate, `t` console |
+| Plugin switches (global) | bare uppercase | anywhere | `C` context, `R` risk, `P` phantom, `B` blast radius |
+| Interface controls | ctrl+key | view modes, reload | `ctrl+t` tree, `ctrl+w` wrap, `ctrl+r` refresh, `ctrl+p` pinned, `ctrl+u` unpin all |
+| Navigation & modes | non-alpha / punctuation | navigation, mode triggers | `/` filter, `!` batch, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect |
+| Leave | `q` / `Esc` | universal | `q` home, `Esc` pop sub-state |
+
+### Bare lowercase (a-z)
+
+| Key | Assignment | Category | Context |
+|-----|-----------|----------|---------|
+| `a` | apply | terraform verb / plugin switch | plan view: apply; home: activate apply |
+| `b` | — | **free** | |
+| `c` | — | **free** | |
+| `d` | delete | terraform verb | state, workspace |
+| `e` | edit | terraform verb | state (opens $EDITOR) |
+| `f` | — | **free** | |
+| `g` | jump to start | navigation | lists, trees |
+| `h` | — | **free** | |
+| `i` | init | terraform verb / plugin switch | home: activate init |
+| `j` | move down | navigation (vim alias) | ↓ is primary |
+| `k` | move up | navigation (vim alias) | ↑ is primary |
+| `l` | — | **free** | |
+| `m` | move (rename) | terraform verb | state |
+| `n` | new / import | terraform verb | state: import; workspace: new |
+| `o` | output | plugin switch | home |
+| `p` | plan | plugin switch | home |
+| `q` | back / home | navigation | global |
+| `r` | — | **free** | note: `ctrl+r` is refresh |
+| `s` | state | plugin switch | home |
+| `t` | taint / console | terraform verb / plugin switch | state: taint; home: console |
+| `u` | force-unlock | terraform verb | plan, state (only when locked) |
+| `v` | validate | plugin switch | home |
+| `w` | workspace | plugin switch | home |
+| `x` | — | **free** | |
+| `y` | confirm (yes) | confirmation | confirmation frames only |
+| `z` | — | **free** | |
+
+### Bare uppercase (A-Z)
+
+| Key | Assignment | Category | Context |
+|-----|-----------|----------|---------|
+| `B` | blast radius | plugin switch (global) | decorator |
+| `C` | context | plugin switch (global) | always available |
+| `G` | jump to end | navigation | lists, trees |
+| `P` | phantom | plugin switch (global) | decorator |
+| `R` | risk | plugin switch (global) | decorator |
+| `T` | untaint | terraform verb | state |
+| `Y` | confirm (yes) | confirmation | confirmation frames only |
+| All others | — | **free** | |
+
+### ctrl+key
+
+| Key | Assignment | Category |
+|-----|-----------|----------|
+| `ctrl+c` | force quit | emergency exit |
+| `ctrl+h` | backspace | input (emacs convention) |
+| `ctrl+p` | pinned filter toggle | view mode |
+| `ctrl+r` | refresh / retry | reload data |
+| `ctrl+s` | screen capture | debug (hidden) |
+| `ctrl+t` | tree/flat toggle | view mode |
+| `ctrl+u` | unpin all | pin management |
+| `ctrl+w` | line wrap toggle | view mode |
+
+### Punctuation & special
+
+| Key | Assignment | Category |
+|-----|-----------|----------|
+| `:` | command mode | mode switch |
+| `/` | filter mode | mode switch |
+| `!` | batch actions | mode switch (only when pins > 0) |
+| `[` | collapse all | tree action |
+| `]` | expand all | tree action |
+| `Space` | pin / unpin | pin toggle |
+| `Enter` | inspect / confirm | navigation |
+| `Esc` | exit / cancel / pop | navigation |
+| `←` `→` | horizontal pan | scroll (when wrap off) |
+
+### Aliases (redundant bindings for accessibility)
+
+| Primary | Alias | Rationale |
+|---------|-------|-----------|
+| `↓` | `j` | vim convention |
+| `↑` | `k` | vim convention |
+| `Enter` | `y`/`Y` | explicit "yes" in confirmations |
+
+### Rules
+
+- `Enter` always means inspect or confirm — never overloaded
+- `Space` always means pin — never overloaded
+- Aliases are never shown in hints (only primary is shown)
+- Free keys should not be claimed without updating this map
