@@ -440,11 +440,11 @@ func TestApp_OpenContextOnStartup_ActivatesChdirPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_OpenContextOnStartup_SkipsWhenScopeSet(t *testing.T) {
+func TestApp_OpenContextOnStartup_SkipsWhenChdirSet(t *testing.T) {
 	cfg := config.Config{
-		Dir:         "/test/dir",
-		ActiveScope: "modules/vpc",
-		Terraform:   config.TerraformConfig{Bin: "terraform"},
+		Dir:       "/test/dir",
+		Chdir:     "modules/vpc",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
 	svc := &mockService{workspace: "default"}
@@ -460,7 +460,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenScopeSet(t *testing.T) {
 	updated := model.(App)
 
 	if updated.activePlugin != nil {
-		t.Error("openContextOnStartupMsg should not activate chdir when ActiveScope is set")
+		t.Error("openContextOnStartupMsg should not activate chdir when Chdir is set")
 	}
 }
 

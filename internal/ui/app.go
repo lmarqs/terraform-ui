@@ -58,8 +58,8 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
 	header := components.NewHeader(workDir, "default")
-	if cfg.ActiveScope != "" {
-		header = header.WithChdir(cfg.ActiveScope)
+	if cfg.Chdir != "" {
+		header = header.WithChdir(cfg.Chdir)
 	} else if cfg.BaseDir != "" {
 		header = header.WithChdir(cfg.BaseDir)
 	}
@@ -103,8 +103,8 @@ func (a App) Init() tea.Cmd {
 	}
 
 	// If scope was pre-configured, scope the service for plugins
-	if a.cfg.ActiveScope != "" {
-		absScope := filepath.Join(a.cfg.Dir, a.cfg.ActiveScope)
+	if a.cfg.Chdir != "" {
+		absScope := filepath.Join(a.cfg.Dir, a.cfg.Chdir)
 		ctx.Service = a.svc.WithDir(absScope)
 	}
 
@@ -148,12 +148,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case openContextOnStartupMsg:
 		// Skip chdir picker if scope is pre-set or data is loaded externally
-		if a.cfg.ActiveScope != "" || a.cfg.PreloadedData {
-			if a.cfg.ActiveScope != "" {
-				absScope := filepath.Join(a.cfg.Dir, a.cfg.ActiveScope)
-				a.activeChdir = a.cfg.ActiveScope
+		if a.cfg.Chdir != "" || a.cfg.PreloadedData {
+			if a.cfg.Chdir != "" {
+				absScope := filepath.Join(a.cfg.Dir, a.cfg.Chdir)
+				a.activeChdir = a.cfg.Chdir
 				return a, a.bus.Dispatch(sdk.ChdirChangedEvent{
-					RelPath: a.cfg.ActiveScope,
+					RelPath: a.cfg.Chdir,
 					AbsPath: absScope,
 				})
 			}

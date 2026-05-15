@@ -106,7 +106,7 @@ func main() {
 	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
 	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file")
-	rootCmd.PersistentFlags().StringVar(&cfg.ActiveScope, "chdir", "", "Select member directory (validated against member blocks in project mode)")
+	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 
 	var ciMode bool
 	var jsonMode bool
@@ -183,8 +183,8 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan -json           (JSON output)\n  tfui plan --ci            (tree output, no spinner)\n  tfui --plan ./file.json   (auto-renders without TTY)")
 	}
 
-	if cfg.ActiveScope != "" {
-		if err := validateScope(cfg); err != nil {
+	if cfg.Chdir != "" {
+		if err := validateChdir(cfg); err != nil {
 			return err
 		}
 	}
@@ -434,24 +434,24 @@ func isStderrTTY() bool {
 }
 
 func effectiveWorkDir(cfg config.Config) string {
-	if cfg.ActiveScope != "" {
-		return filepath.Join(cfg.Dir, cfg.ActiveScope)
+	if cfg.Chdir != "" {
+		return filepath.Join(cfg.Dir, cfg.Chdir)
 	}
 	return cfg.WorkingDir()
 }
 
-func validateScope(cfg config.Config) error {
-	scopeDir := filepath.Join(cfg.Dir, cfg.ActiveScope)
+func validateChdir(cfg config.Config) error {
+	dir := filepath.Join(cfg.Dir, cfg.Chdir)
 
-	info, err := os.Stat(scopeDir)
+	info, err := os.Stat(dir)
 	if err != nil {
-		return fmt.Errorf("scope %q not found (resolved to %s)", cfg.ActiveScope, scopeDir)
+		return fmt.Errorf("chdir %q not found (resolved to %s)", cfg.Chdir, dir)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("scope %q is not a directory (resolved to %s)", cfg.ActiveScope, scopeDir)
+		return fmt.Errorf("chdir %q is not a directory (resolved to %s)", cfg.Chdir, dir)
 	}
-	if !config.HasTerraformFiles(scopeDir) {
-		return fmt.Errorf("scope %q has no .tf files (resolved to %s)", cfg.ActiveScope, scopeDir)
+	if !config.HasTerraformFiles(dir) {
+		return fmt.Errorf("chdir %q has no .tf files (resolved to %s)", cfg.Chdir, dir)
 	}
 	return nil
 }
@@ -639,8 +639,8 @@ func runScaffold(cfg config.Config, force, yes bool) error {
 }
 
 func runPlan(cfg config.Config, ci bool, jsonOutput bool) error {
-	if cfg.ActiveScope != "" {
-		if err := validateScope(cfg); err != nil {
+	if cfg.Chdir != "" {
+		if err := validateChdir(cfg); err != nil {
 			return err
 		}
 	}
@@ -673,8 +673,8 @@ func runPlan(cfg config.Config, ci bool, jsonOutput bool) error {
 }
 
 func runApply(cfg config.Config, ci bool, jsonOutput bool) error {
-	if cfg.ActiveScope != "" {
-		if err := validateScope(cfg); err != nil {
+	if cfg.Chdir != "" {
+		if err := validateChdir(cfg); err != nil {
 			return err
 		}
 	}

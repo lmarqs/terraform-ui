@@ -57,6 +57,11 @@ func (p *Plugin) Activate() tea.Cmd {
 	return nil
 }
 
+func (p *Plugin) HandleChdirChanged(_ sdk.ChdirChangedEvent) tea.Cmd {
+	p.selected = true
+	return nil
+}
+
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	return p, nil
 }

@@ -11,7 +11,7 @@ type Config struct {
 	Dir           string
 	BaseDir       string
 	Workspace     string
-	ActiveScope   string
+	Chdir         string
 	PreloadedData bool
 	Terraform     TerraformConfig
 	Logger        LoggerConfig

@@ -1402,13 +1402,13 @@ func TestNewApp_WhenBaseDirSet_ShouldSetHeaderChdir(t *testing.T) {
 	}
 }
 
-// --- Tests for Init with ActiveScope ---
+// --- Tests for Init with Chdir ---
 
-func TestApp_Init_WhenActiveScopeSet_ShouldScopeService(t *testing.T) {
+func TestApp_Init_WhenChdirSet_ShouldScopeService(t *testing.T) {
 	cfg := config.Config{
-		Dir:         "/test/dir",
-		ActiveScope: "modules/vpc",
-		Terraform:   config.TerraformConfig{Bin: "terraform"},
+		Dir:       "/test/dir",
+		Chdir:     "modules/vpc",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 	svc := &mockService{workspace: "default"}
 	registry := plugin.NewRegistry()
