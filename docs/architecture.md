@@ -119,7 +119,7 @@ Two sibling implementations of `sdk.Service` exist as a strategy pattern — sel
 - `Workspace*()` — workspace list, select, create, delete
 - `WithDir()` — returns a new ExecService scoped to a different directory (fresh cache)
 
-Reads go through a `ServiceCache` (typed, source-aware). If the cache is pre-seeded (via `--plan`/`--state` flags), reads are served from cache without shelling out — this enables read-only mode.
+Reads go through a `ServiceCache` (typed, source-aware). If the cache is pre-seeded (via `--plan`/`--state` flags), reads are served from cache without shelling out.
 
 ### MacroService (recording)
 
@@ -164,7 +164,7 @@ main.go
 |----------|-----------|
 | Two orthogonal axes: income × outcome | Income = how the user drives (TUI or CLI). Outcome = what happens (ExecService executes live, MacroService records). These are independent — macro is not bound to TUI or CLI; any income can pair with any outcome. |
 | `buildRegistry()` is axis-agnostic | Plugins don't know their income or outcome. Same registry regardless of which axis combination is active |
-| ServiceCache pre-seeded before service creation | `seedCache()` runs first, then the service wraps it. Enables read-only mode transparently |
+| ServiceCache pre-seeded before service creation | `seedCache()` runs first, then the service wraps it. Pre-seeded data serves reads without shelling out |
 | `buildRegistry()` as single composition point | All 12 plugins registered with metadata in one place. Config injection happens here, not scattered |
 | TTY detection gates interactive mode | No TTY + `--plan`/`--state` → auto-renders non-interactively. No TTY without data → actionable error |
 | `splitPassthrough()` + `normalizeArgs()` | Terraform flag compatibility: `--` separates tfui flags from terraform extras; short flags normalized |
@@ -234,7 +234,7 @@ mise run test:macro       # Macro tapes
 | OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. Test matrix includes both. |
 | `EventBus` typed pub/sub | Plugins react to state changes (chdir, workspace, plan) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
 | ExecService + MacroService as sibling strategies | Same interface, different behavior. ExecService shells out for live ops; MacroService records commands without executing. Selected at startup, plugins are unaware. |
-| ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `--plan`/`--state` at startup, populated by ExecService after live calls. Enables read-only mode transparently. |
+| ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `--plan`/`--state` at startup, populated by ExecService after live calls. Pre-seeding means reads never shell out when data is already available. |
 
 ### UX
 
@@ -264,7 +264,7 @@ type Command struct {
 
 This makes the tool's relationship to terraform explicit: **tfui is a command builder with a visual interface**. The TUI helps you construct the right terraform command. The CLI gives you a concise alternative. Both produce the same command, same outcome.
 
-In read-only mode, mutating operations return `CommandErr` — the user sees what they'd need to run:
+In macro mode, mutating operations are recorded as commands — the user sees what they'd need to run:
 ```
 terraform state rm aws_instance.old
 terraform apply -target=aws_instance.web

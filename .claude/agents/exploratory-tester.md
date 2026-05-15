@@ -137,4 +137,4 @@ Within views:
 
 ## Safety
 
-Macro mode with `--plan`/`--state` forces read-only `StaticService`. Apply confirmation will render but actual terraform execution returns `ErrReadOnly`. No real infrastructure is touched.
+Macro mode uses `MacroService`, which records mutations as `sdk.Command` structs without executing them. The `--plan`/`--state` flags pre-seed the `ServiceCache` so reads return real data, but mutating operations (apply, state rm, taint) are only recorded — never executed. No real infrastructure is touched.

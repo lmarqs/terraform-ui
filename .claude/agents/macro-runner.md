@@ -21,7 +21,7 @@ After modifying a plugin's `View()`, `Hints()`, or layout logic, run macro tapes
 
 ## Safety Constraint
 
-Macro mode **always runs read-only**. The `--plan` or `--state` flag is mandatory — this forces `StaticService` where all mutating operations (apply, state rm, taint) return `ErrReadOnly`. A tape cannot trigger destructive terraform operations on real infrastructure. There is no bypass.
+Macro mode uses `MacroService`, which **records mutations as commands without executing them**. The `--plan` or `--state` flag is mandatory — this pre-seeds the `ServiceCache` so reads return real data, while all mutating operations (apply, state rm, taint) are recorded as `sdk.Command` structs rather than executed. A tape cannot trigger destructive terraform operations on real infrastructure. There is no bypass.
 
 ## Process
 

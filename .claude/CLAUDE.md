@@ -39,6 +39,8 @@ tests/        — Integration tests + fixtures
 
 IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ChdirChangedEvent`.
 
+Full domain glossary with relationships and avoid-lists: see `CONTEXT.md`
+
 ## Conventions
 
 ### Commits
@@ -106,6 +108,8 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - Risk analysis methodology: `docs/risk-analysis.md`
 - Phantom change detection: `docs/phantom-changes.md`
 - Blast radius visualization: `docs/blast-radius.md`
+- Domain glossary: `CONTEXT.md`
+- Architecture Decision Records: `docs/adr/`
 
 ## Key Dependencies
 

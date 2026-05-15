@@ -1,5 +1,5 @@
 ---
-description: "CLI design decisions, read-only mode, config loading, and terraform flag handling"
+description: "CLI design decisions, pre-seeded cache, config loading, and terraform flag handling"
 globs: ["cmd/**"]
 ---
 
@@ -7,7 +7,7 @@ Full spec: `docs/cli-ux.md`
 
 # CLI Design
 
-## Read-Only Mode (`--plan`, `--state`)
+## Pre-Seeded Cache (`--plan`, `--state`)
 
 ```bash
 tfui --plan ./plan.json
@@ -18,7 +18,7 @@ tfui --plan ./plan.json --state ./state.json
 
 When `--plan` or `--state` provided:
 - `ServiceCache` is pre-seeded with parsed data; `ExecService` serves reads from cache
-- Header shows `[read-only]` badge
+- Header shows `[pre-seeded]` badge
 - Mutating hints hidden from status bar
 
 ## Design Decisions
