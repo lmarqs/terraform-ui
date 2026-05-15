@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -227,7 +228,8 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 }
 
 func buildValidateCommand(cfg *config.Config) *cobra.Command {
-	return &cobra.Command{
+	var jsonOutput bool
+	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Run terraform validate",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -236,6 +238,9 @@ func buildValidateCommand(cfg *config.Config) *cobra.Command {
 			diags, err := svc.Validate(context.Background())
 			if err != nil {
 				return fmt.Errorf("validate failed: %w", err)
+			}
+			if jsonOutput {
+				return printValidateJSON(diags)
 			}
 			if len(diags) == 0 {
 				fmt.Println("✓ Configuration is valid")
@@ -265,6 +270,8 @@ func buildValidateCommand(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+	return cmd
 }
 
 func buildOutputCommand(cfg *config.Config) *cobra.Command {
@@ -317,6 +324,59 @@ func hasErrors(diags []sdk.Diagnostic) bool {
 		}
 	}
 	return false
+}
+
+func printValidateJSON(diags []sdk.Diagnostic) error {
+	errorCount := 0
+	warningCount := 0
+	for _, d := range diags {
+		if d.Severity == "error" {
+			errorCount++
+		} else {
+			warningCount++
+		}
+	}
+
+	type diagJSON struct {
+		Severity string `json:"severity"`
+		Summary  string `json:"summary"`
+		Detail   string `json:"detail,omitempty"`
+		File     string `json:"file,omitempty"`
+		Line     int    `json:"line,omitempty"`
+	}
+
+	type validateJSON struct {
+		Valid        bool       `json:"valid"`
+		ErrorCount   int        `json:"error_count"`
+		WarningCount int        `json:"warning_count"`
+		Diagnostics  []diagJSON `json:"diagnostics"`
+	}
+
+	out := validateJSON{
+		Valid:        errorCount == 0,
+		ErrorCount:   errorCount,
+		WarningCount: warningCount,
+		Diagnostics:  make([]diagJSON, 0, len(diags)),
+	}
+	for _, d := range diags {
+		out.Diagnostics = append(out.Diagnostics, diagJSON{
+			Severity: d.Severity,
+			Summary:  d.Summary,
+			Detail:   d.Detail,
+			File:     d.File,
+			Line:     d.Line,
+		})
+	}
+
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		return fmt.Errorf("encoding validate JSON: %w", err)
+	}
+	if errorCount > 0 {
+		os.Exit(1)
+	}
+	return nil
 }
 
 func buildForceUnlockCommand(cfg *config.Config) *cobra.Command {
