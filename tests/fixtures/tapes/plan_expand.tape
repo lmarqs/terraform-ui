@@ -2,4 +2,5 @@ wait ready
 key p
 wait view aws_instance.web
 key enter
-assert view ->
+assert view Action
+assert view Attributes
