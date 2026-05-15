@@ -1,5 +1,5 @@
 ---
-name: ux-checker
+name: tui-checker
 description: Validate hint placement, inline content rules, and state-aware hints per UX guidelines
 tools:
   - Read

@@ -128,7 +128,7 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 |-------|-------------|
 | `test-writer` | **MUST invoke BEFORE any implementation edit** — failing test first |
 | `code-checker` | Before commits, during PR review |
-| `ux-checker` | Changes to `View()`, `Hints()`, frames |
+| `tui-checker` | Changes to `View()`, `Hints()`, frames |
 | `cli-checker` | Changes to `cmd/tfui/`, CLI subcommands, flag handling |
 | `macro-runner` | After modifying `View()`, layout, navigation |
 | `architect` | New plugins or cross-cutting features |
