@@ -32,9 +32,15 @@ func (s *commandStore) all() []sdk.Command {
 // MacroService records terraform operations as sdk.Command without executing them.
 // Reads are served from a ServiceCache (pre-seeded or empty).
 type MacroService struct {
-	binary string
-	cache  *ServiceCache
-	store  *commandStore
+	binary   string
+	cache    *ServiceCache
+	store    *commandStore
+	applyErr error
+}
+
+// SetApplyError configures an error to be returned by Apply.
+func (r *MacroService) SetApplyError(err error) {
+	r.applyErr = err
 }
 
 // NewMacroService creates a MacroService that records commands and reads from cache.
@@ -77,7 +83,7 @@ func (r *MacroService) Plan(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanS
 
 func (r *MacroService) Apply(_ context.Context, opts sdk.ApplyOptions) error {
 	r.record("apply", nil, buildApplyFlags(opts))
-	return nil
+	return r.applyErr
 }
 
 func (r *MacroService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
