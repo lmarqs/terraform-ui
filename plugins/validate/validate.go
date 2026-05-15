@@ -23,6 +23,7 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	expander      *ui.ExpandSet
+	timer         ui.Timer
 	status        sdk.Status
 	diagnostics   []sdk.Diagnostic
 	errMsg        string
@@ -104,7 +105,7 @@ func (p *Plugin) Activate() tea.Cmd {
 	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {
 		p.status = sdk.StatusLoading
 		p.log.Debug("validate.start")
-		return p.runValidate()
+		return tea.Batch(p.runValidate(), p.timer.Start())
 	}
 	return nil
 }
@@ -116,7 +117,7 @@ func (p *Plugin) Refresh() tea.Cmd {
 	p.errMsg = ""
 	p.selected = 0
 	p.expander.CollapseAll()
-	return p.runValidate()
+	return tea.Batch(p.runValidate(), p.timer.Start())
 }
 
 func (p *Plugin) runValidate() tea.Cmd {
@@ -130,7 +131,11 @@ func (p *Plugin) runValidate() tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return p, p.timer.Tick()
+
 	case ValidateResultMsg:
+		p.timer.Stop()
 		if msg.Err != nil {
 			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
@@ -212,7 +217,7 @@ func (p *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Ready to validate.")
 
 	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render("Running terraform validate...")
+		return sdk.StyleFaintItalic.Render("Running terraform validate... " + p.timer.FormatElapsed())
 
 	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + p.errMsg)
