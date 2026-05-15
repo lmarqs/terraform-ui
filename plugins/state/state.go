@@ -192,13 +192,13 @@ func (e *Plugin) Refresh() tea.Cmd {
 	if e.stack != nil {
 		e.stack.Clear()
 	}
-	return e.loadState()
+	return e.loadState(sdk.SkipCache())
 }
 
-func (e *Plugin) loadState() tea.Cmd {
+func (e *Plugin) loadState(opts ...sdk.StateListOption) tea.Cmd {
 	svc := e.svc
 	return func() tea.Msg {
-		resources, err := svc.StateList(context.Background())
+		resources, err := svc.StateList(context.Background(), opts...)
 		return StateListMsg{Resources: resources, Err: err}
 	}
 }
