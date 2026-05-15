@@ -648,7 +648,7 @@ func TestHints_WhenConfirming_ShouldReturnYNAndCancel(t *testing.T) {
 	}
 }
 
-func TestHints_WhenLoading_ShouldReturnBack(t *testing.T) {
+func TestHints_WhenLoading_ShouldReturnCancel(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
@@ -657,12 +657,12 @@ func TestHints_WhenLoading_ShouldReturnBack(t *testing.T) {
 	if len(hints) == 0 {
 		t.Fatal("Hints() returned empty slice in loading state")
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
-		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
+	if hints[0].Key != "Esc" || hints[0].Description != "cancel" {
+		t.Errorf("Hints()[0] = %v, want {Esc cancel}", hints[0])
 	}
 }
 
-func TestHints_WhenDone_ShouldReturnRefreshAndBack(t *testing.T) {
+func TestHints_WhenDone_ShouldReturnRefreshAndCancel(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -674,8 +674,8 @@ func TestHints_WhenDone_ShouldReturnRefreshAndBack(t *testing.T) {
 	if hints[0].Key != "^r" || hints[0].Description != "refresh" {
 		t.Errorf("Hints()[0] = %v, want {^r refresh}", hints[0])
 	}
-	if hints[1].Key != "q" || hints[1].Description != "back" {
-		t.Errorf("Hints()[1] = %v, want {q back}", hints[1])
+	if hints[1].Key != "Esc" || hints[1].Description != "cancel" {
+		t.Errorf("Hints()[1] = %v, want {Esc cancel}", hints[1])
 	}
 }
 
@@ -694,7 +694,7 @@ func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
 		if h.Key == "^r" && h.Description == "retry" {
 			hasRetry = true
 		}
-		if h.Key == "q" && h.Description == "back" {
+		if h.Key == "Esc" && h.Description == "cancel" {
 			hasBack = true
 		}
 	}

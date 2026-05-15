@@ -270,10 +270,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.returnTo = a.activePlugin
 			a.activePlugin = p
-			cmd := a.activate(p)
-			applyPlugin.RequestApply()
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
-			return a, cmd
+			return a, applyPlugin.Confirm()
 		}
 		return a, nil
 

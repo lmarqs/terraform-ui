@@ -5,5 +5,4 @@ key space
 key a
 wait view targeted resource
 key y
-wait view Are you sure
-key y
+wait view Apply complete

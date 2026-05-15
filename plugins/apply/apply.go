@@ -63,11 +63,11 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 			sdk.HintCancel,
 		}
 	case sdk.StatusLoading:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetCancel).Hints()
 	case sdk.StatusDone:
-		return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+		return (sdk.HintSetRefresh | sdk.HintSetCancel).Hints()
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+		return (sdk.HintSetRetry | sdk.HintSetCancel).Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
 	}
@@ -111,8 +111,13 @@ func (e *Plugin) HandlePlanCompleted(evt sdk.PlanCompletedEvent) tea.Cmd {
 	return nil
 }
 
-// Activate scopes the service to the active context before apply operations.
+// Activate resets terminal states when re-entered via navigation.
 func (e *Plugin) Activate() tea.Cmd {
+	if e.status == sdk.StatusError || e.status == sdk.StatusDone {
+		e.status = sdk.StatusIdle
+		e.errMsg = ""
+		e.elapsed = 0
+	}
 	return nil
 }
 
