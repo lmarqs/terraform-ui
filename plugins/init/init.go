@@ -11,6 +11,9 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
+// initSubmitMsg triggers the init execution after form submission.
+type initSubmitMsg struct{}
+
 // InitResultMsg is sent when the init operation completes.
 type InitResultMsg struct {
 	Err      error
@@ -99,6 +102,10 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ui.TimerTickMsg:
 		return p, p.timer.Tick()
+
+	case initSubmitMsg:
+		p.stack.Reset()
+		return p, p.submit()
 
 	case InitResultMsg:
 		p.timer.Stop()
@@ -211,8 +218,7 @@ func (p *Plugin) editExtraArgs() tea.Cmd {
 }
 
 func (p *Plugin) submitFromForm() tea.Cmd {
-	p.stack.Clear()
-	return p.submit()
+	return func() tea.Msg { return initSubmitMsg{} }
 }
 
 func (p *Plugin) submit() tea.Cmd {
