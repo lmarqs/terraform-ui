@@ -23,6 +23,7 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
 | [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
 | [context](context.md) | Context | `C` | navigation | Manage project, chdir, and workspace selection |
+| [forceunlock](forceunlock.md) | Force Unlock | — | utility | Remove a stale state lock |
 | [version](version.md) | Version | — | utility | Show tfui and terraform version information |
 | chdir | Chdir Picker | — | internal | Select chdir member (hidden, activated by context plugin) |
 
@@ -56,8 +57,9 @@ Plugins for navigating terraform state, workspaces, and project context.
 
 ### Utility
 
-Informational plugins that don't modify infrastructure.
+Informational and recovery plugins.
 
+- **[Force Unlock](forceunlock.md)** — remove stale state locks
 - **[Version](version.md)** — show tfui and terraform version info
 
 ### CLI Commands

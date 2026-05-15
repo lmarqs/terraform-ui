@@ -111,6 +111,27 @@ tfui output -json                   # JSON (terraform-compatible)
 tfui output <name>                  # single value
 ```
 
+### `tfui force-unlock`
+
+Remove a terraform state lock.
+
+```bash
+tfui force-unlock <lock-id>          # interactive confirmation
+tfui force-unlock --force <lock-id>  # skip confirmation (CI/scripts)
+```
+
+| Flag | Description |
+|------|-------------|
+| `--force` | Skip confirmation prompt |
+
+| stdout | stderr | Exit |
+|--------|--------|------|
+| — | Progress + result | 0/1 |
+
+Behavior:
+- If TTY and no `--force`: shows lock ID and asks for confirmation (y/n)
+- If no TTY or `--force`: executes immediately without prompt
+
 ### `tfui scaffold`
 
 Generate a `tfui.hcl` configuration file by detecting terraform project patterns.

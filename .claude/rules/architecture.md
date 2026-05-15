@@ -24,9 +24,9 @@ type Context struct {
 
 Typed pub/sub. Plugins subscribe by implementing handler interfaces.
 
-Events: `ChdirChangedEvent`, `WorkspaceChangedEvent`, `PlanCompletedEvent`, `PinsChangedEvent`, `PlanInvalidatedEvent`
+Events: `ChdirChangedEvent`, `WorkspaceChangedEvent`, `PlanCompletedEvent`, `PinsChangedEvent`, `PlanInvalidatedEvent`, `LockDetectedEvent`, `LockClearedEvent`, `StateRefreshedEvent`
 
-Handler interfaces: `ChdirHandler`, `WorkspaceHandler`, `PlanCompletedHandler`, `PinsHandler`, `PlanInvalidatedHandler`
+Handler interfaces: `ChdirHandler`, `WorkspaceHandler`, `PlanCompletedHandler`, `PinsHandler`, `PlanInvalidatedHandler`, `LockDetectedHandler`, `LockClearedHandler`, `StateRefreshedHandler`
 
 Flow: App dispatches events to all plugins implementing the matching handler interface.
 
