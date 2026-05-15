@@ -15,7 +15,7 @@ run = "go run ./cmd/tfui"
 description = "Run TUI in development mode"
 
 [tasks.fmt]
-run = "gofmt -w cmd/ internal/ plugins/ pkg/"
+run = "golangci-lint fmt ./..."
 description = "Format Go source files"
 
 [tasks.setup]
@@ -26,10 +26,6 @@ go install gotest.tools/gotestsum@latest
 description = "Install CI dependencies (npm + gotestsum)"
 
 # ─── Check (static analysis) ───────────────────────────────────────────────────
-
-[tasks."check:vet"]
-run = "go vet ./..."
-description = "Go vet"
 
 [tasks."check:lint"]
 run = "golangci-lint run ./..."
