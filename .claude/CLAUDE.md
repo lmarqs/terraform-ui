@@ -24,7 +24,7 @@ mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
 cmd/tfui/     — CLI entry point (cobra, plugin registration, normalizeArgs)
 pkg/sdk/      — Public SDK: Plugin, Service, types, UI primitives, frames
 internal/     — App internals (config, terraform, source, macro, ui, editor, ai, plugin, logging)
-plugins/      — All features as plugins (context, chdir, state, plan, apply, workspaces, repl, output, validate, risk, phantom, blastradius)
+plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, repl, output, validate, risk, phantom, blastradius, forceunlock, version)
 tests/        — Integration tests + fixtures
 ```
 
@@ -83,7 +83,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 
 IMPORTANT: Before considering work complete, run:
 ```bash
-mise run check:vet && mise run check:lint && mise run test:unit
+mise run check:vet && mise run check:lint && mise run test:unit && mise run build
 ```
 
 For UI changes, also run `mise run test:macro` to verify rendering.
@@ -103,6 +103,9 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - Configuration reference: `docs/configuration.md`
 - Testing strategy: `docs/testing.md`
 - Plugin catalog: `docs/plugins/index.md`
+- Risk analysis methodology: `docs/risk-analysis.md`
+- Phantom change detection: `docs/phantom-changes.md`
+- Blast radius visualization: `docs/blast-radius.md`
 
 ## Key Dependencies
 

@@ -24,9 +24,11 @@ type Context struct {
 
 Typed pub/sub. Plugins subscribe by implementing handler interfaces.
 
-Events: `ChdirChangedEvent`, `WorkspaceChangedEvent`, `PlanCompletedEvent`, `PinsChangedEvent`, `PlanInvalidatedEvent`, `LockDetectedEvent`, `LockClearedEvent`, `StateRefreshedEvent`
+Events: `ChdirChangedEvent`, `WorkspaceChangedEvent`, `WorkspaceCreatedEvent`, `PlanCompletedEvent`, `PinsChangedEvent`, `PlanInvalidatedEvent`, `LockDetectedEvent`, `LockClearedEvent`, `StateRefreshedEvent`
 
 Handler interfaces: `ChdirHandler`, `WorkspaceHandler`, `PlanCompletedHandler`, `PinsHandler`, `PlanInvalidatedHandler`, `LockDetectedHandler`, `LockClearedHandler`, `StateRefreshedHandler`
+
+Note: `WorkspaceCreatedEvent` has no handler interface — the app converts it to `WorkspaceChangedEvent` internally.
 
 Flow: App dispatches events to all plugins implementing the matching handler interface.
 
@@ -57,7 +59,7 @@ type Plugin interface {
 }
 ```
 
-Optional interfaces: `Activatable`, `Countable`, `Hintable`, `Pinnable`, `Stackable`.
+Optional interfaces: `Activatable`, `Busy`, `Countable`, `Hintable`, `Pinnable`, `Stackable`.
 
 ## Plugin Routing (`internal/plugin/registry.go`)
 
@@ -117,7 +119,7 @@ Plugins emit `NavigateMsg` to delegate to another plugin (e.g., context → work
 
 ## Service Interface (`pkg/sdk/service.go`)
 
-All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `ForceUnlock`, `WithDir`.
+All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `ForceUnlock`, `Version`, `WithDir`.
 
 Two implementations:
 - `ExecService` — wraps terraform-exec, uses ServiceCache for reads (service.go, state_ops.go, workspace_ops.go)
@@ -187,8 +189,71 @@ sleep 500ms
 | `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices |
 | `FuzzyFilter[T]` | `pkg/sdk/ui/filter.go` | fzf matching + score-sorted results |
 
+| `Tree` | `pkg/sdk/ui/tree/` | Hierarchical rendering with expand/collapse |
+
 Rules:
 - Implement `ChdirHandler` to react to chdir changes
 - Use `Cursor.VisibleWindow(h)` instead of manual calculation
 - Use `FuzzyFilter[T]` instead of importing fzf directly
 - Reference implementation: `plugins/state/`
+
+## AppContext (`pkg/sdk/app_context.go`)
+
+Root application state container, partitioned by domain:
+
+```go
+type AppContext struct {
+    Project   ProjectContext    // immutable project info (Dir, Members, Chdir, ChdirAbs)
+    Config    *ConfigContext    // dot-notation config access
+    Terraform *TerraformContext // workspace, pinned targets, cached state/plan, service
+    UI        *UIContext        // dimensions, active plugin, input mode
+    Cache     *CacheContext     // generic TTL cache
+    AI        AIProvider        // nil if disabled
+    Logger    *slog.Logger
+}
+```
+
+`TerraformContext` provides thread-safe pin management (`Pin`, `Unpin`, `IsPinned`, `PinnedTargets`) and cached `TerraformState`/`TerraformPlan` with loading/error metadata.
+
+## Overlay + Input System (`pkg/sdk/overlay.go`, `pkg/sdk/input.go`)
+
+Modal interaction patterns for user prompts and confirmations:
+
+```go
+type Overlay interface {
+    ID() string
+    Open() tea.Cmd
+    Update(msg tea.Msg) (Overlay, tea.Cmd)
+    View(width, height int) string
+    Hints() []KeyHint
+}
+```
+
+Input request/response protocol for plugins needing user input:
+- `InputRequest` — specifies mode (Text/Bool/Select/Filter), prompt, callback
+- `RequestInputMsg` — wraps request as `tea.Msg` for dispatch
+- `InputResponseMsg` — delivers answer back to plugin
+- Helpers: `InputConfirm(prompt, onYes)`, `InputText(prompt, default, onSubmit)`, `InputSelect(prompt, options, onSelect)`
+
+## PluginAction System (`pkg/sdk/action.go`)
+
+CLI/REPL-callable operations exposed by plugins (e.g., `tfui state mv`, `:state mv`):
+
+```go
+type PluginAction struct {
+    Name        string
+    Description string
+    Args        []ArgDef   // positional arguments
+    Flags       []FlagDef  // flag parameters
+    Run         func(ctx *AppContext, args ActionArgs) error
+}
+```
+
+`ActionArgs` provides `GetArg(index)`, `GetFlag(name, default)`, `HasFlag(name)`.
+
+## Additional Frames (`pkg/sdk/frames/`)
+
+Beyond `FilterFrame`, `InspectFrame`, `ConfirmFrame`:
+
+- `ActionFrame` — displays running operation progress with cancel support
+- `FormFrame` — multi-field form with validation and submit/cancel

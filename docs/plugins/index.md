@@ -15,7 +15,7 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [state](state.md) | State Browser | `s` | navigation | Browse and inspect terraform state resources |
 | [plan](plan.md) | Plan Review | `p` | operations | Review terraform plan changes with expandable attribute diffs |
 | [apply](apply.md) | Apply | `a` | operations | Apply terraform changes with confirmation and elapsed time tracking |
-| [workspaces](workspaces.md) | Workspaces | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
+| [workspace](workspace.md) | Workspace | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
 | [output](output.md) | Outputs | `o` | navigation | View terraform output values |
 | [validate](validate.md) | Validate | `v` | operations | Run terraform validate and show diagnostics |
 | [repl](repl.md) | Console | `t` | operations | Interactive terraform console (REPL) |

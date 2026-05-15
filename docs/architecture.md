@@ -64,6 +64,8 @@ plugins/
   risk/                    — Risk classification (decorates plan)
   phantom/                 — Phantom change detection (decorates plan)
   blastradius/             — Blast radius visualization
+  forceunlock/             — Force unlock stale state locks
+  version/                 — Version information display
 tests/
   integration/             — CLI integration tests (require terraform/tofu/terragrunt)
   fixtures/                — Real terraform projects and config fixtures
