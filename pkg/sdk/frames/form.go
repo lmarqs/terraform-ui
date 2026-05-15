@@ -63,7 +63,7 @@ func (f *FormFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.moveDown()
 	case "k", "up":
 		f.moveUp()
-	case "enter":
+	case "enter", " ":
 		if f.cursor >= 0 && f.cursor < len(f.fields) {
 			field := f.fields[f.cursor]
 			if field.Selectable && field.OnSelect != nil {
