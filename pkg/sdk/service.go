@@ -82,7 +82,7 @@ type Service interface {
 	Refresh(ctx context.Context) error
 
 	// Init runs terraform init in the working directory.
-	Init(ctx context.Context) error
+	Init(ctx context.Context, opts InitOptions) error
 
 	// ForceUnlock removes a state lock by ID.
 	ForceUnlock(ctx context.Context, lockID string) error

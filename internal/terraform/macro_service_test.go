@@ -99,7 +99,7 @@ func TestMacroService_ReadsFromCache(t *testing.T) {
 		if err := svc.Refresh(ctx); err != nil {
 			t.Errorf("Refresh: %v", err)
 		}
-		if err := svc.Init(ctx); err != nil {
+		if err := svc.Init(ctx, sdk.InitOptions{}); err != nil {
 			t.Errorf("Init: %v", err)
 		}
 		if err := svc.ForceUnlock(ctx, "id"); err != nil {
@@ -200,7 +200,7 @@ func TestMacroService_RecordsOperationsOnly(t *testing.T) {
 		{"Taint", func() { svc.Taint(ctx, "aws_instance.web") }, "terraform taint aws_instance.web"},
 		{"Untaint", func() { svc.Untaint(ctx, "aws_instance.web") }, "terraform untaint aws_instance.web"},
 		{"Refresh", func() { svc.Refresh(ctx) }, "terraform refresh"},
-		{"Init", func() { svc.Init(ctx) }, "terraform init"},
+		{"Init", func() { svc.Init(ctx, sdk.InitOptions{}) }, "terraform init"},
 		{"ForceUnlock", func() { svc.ForceUnlock(ctx, "abc-123") }, "terraform force-unlock -force abc-123"},
 	}
 
@@ -370,7 +370,7 @@ func TestMacroService_MutationsNeverExecute(t *testing.T) {
 	svc.WorkspaceSelect(ctx, "prod")
 	svc.WorkspaceNew(ctx, "staging", sdk.WorkspaceNewOptions{})
 	svc.WorkspaceDelete(ctx, "old", sdk.WorkspaceDeleteOptions{})
-	svc.Init(ctx)
+	svc.Init(ctx, sdk.InitOptions{})
 	svc.ForceUnlock(ctx, "lock-id")
 
 	cmds := svc.Commands()

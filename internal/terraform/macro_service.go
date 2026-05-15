@@ -162,9 +162,27 @@ func (r *MacroService) Refresh(_ context.Context) error {
 	return nil
 }
 
-func (r *MacroService) Init(_ context.Context) error {
-	r.record("init", nil, nil)
+func (r *MacroService) Init(_ context.Context, opts sdk.InitOptions) error {
+	r.record("init", nil, buildInitFlags(opts))
 	return nil
+}
+
+func buildInitFlags(opts sdk.InitOptions) []string {
+	var flags []string
+	if opts.Upgrade {
+		flags = append(flags, "-upgrade")
+	}
+	if opts.Reconfigure {
+		flags = append(flags, "-reconfigure")
+	}
+	if opts.Backend != nil && !*opts.Backend {
+		flags = append(flags, "-backend=false")
+	}
+	for _, bc := range opts.BackendConfig {
+		flags = append(flags, "-backend-config="+bc)
+	}
+	flags = append(flags, opts.ExtraArgs...)
+	return flags
 }
 
 func (r *MacroService) Version(_ context.Context) (*sdk.VersionInfo, error) {

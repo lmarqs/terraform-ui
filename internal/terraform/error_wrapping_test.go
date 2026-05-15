@@ -94,7 +94,7 @@ func TestTerraformService_WhenNewTerraformFails_ShouldWrapErrorWithOperationCont
 		},
 		{
 			"ShouldWrapInitError",
-			func() error { return svc.Init(ctx) },
+			func() error { return svc.Init(ctx, sdk.InitOptions{}) },
 			"initializing",
 		},
 		{

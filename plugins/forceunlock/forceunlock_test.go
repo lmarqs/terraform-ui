@@ -43,7 +43,7 @@ func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, err
 	return nil, nil
 }
 func (m *mockService) Refresh(_ context.Context) error                     { return nil }
-func (m *mockService) Init(_ context.Context) error                        { return nil }
+func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error     { return nil }
 func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
 func (m *mockService) ForceUnlock(_ context.Context, lockID string) error {
 	m.forceUnlockID = lockID

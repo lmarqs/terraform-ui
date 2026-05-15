@@ -283,7 +283,7 @@ func (s *ExecService) Refresh(ctx context.Context) error {
 }
 
 // Init runs terraform init.
-func (s *ExecService) Init(ctx context.Context) error {
+func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 	logging.Logger().Debug("terraform.exec", "cmd", "init", "dir", s.workingDir)
 	start := time.Now()
 
@@ -292,11 +292,26 @@ func (s *ExecService) Init(ctx context.Context) error {
 		return fmt.Errorf("initializing: %w", err)
 	}
 
-	if err := tf.Init(ctx); err != nil {
+	var initOpts []tfexec.InitOption
+	if opts.Upgrade {
+		initOpts = append(initOpts, tfexec.Upgrade(true))
+	}
+	if opts.Reconfigure {
+		initOpts = append(initOpts, tfexec.Reconfigure(true))
+	}
+	if opts.Backend != nil {
+		initOpts = append(initOpts, tfexec.Backend(*opts.Backend))
+	}
+	for _, bc := range opts.BackendConfig {
+		initOpts = append(initOpts, tfexec.BackendConfig(bc))
+	}
+
+	if err := tf.Init(ctx, initOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "init", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("running terraform init: %w", err)
 	}
 
+	s.cache.InvalidateAll()
 	logging.Logger().Debug("terraform.result", "cmd", "init", "duration", time.Since(start).String())
 	return nil
 }

@@ -170,6 +170,15 @@ type ApplyOptions struct {
 	ExtraArgs   []string
 }
 
+// InitOptions holds all options for a terraform init operation.
+type InitOptions struct {
+	Upgrade       bool
+	Reconfigure   bool
+	Backend       *bool // nil = default (true); explicit false disables
+	BackendConfig []string
+	ExtraArgs     []string
+}
+
 // WorkspaceNewOptions holds options for terraform workspace new.
 type WorkspaceNewOptions struct {
 	Lock        *bool
