@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // WorkspaceListMsg is sent when workspace list completes.
@@ -38,6 +39,7 @@ type WorkspaceCreateMsg struct {
 type Plugin struct {
 	svc           sdk.Service
 	stack         *sdk.Stack
+	timer         ui.Timer
 	status        sdk.Status
 	workspaces    []string
 	current       string
@@ -103,7 +105,7 @@ func (e *Plugin) reset() {
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
 		e.status = sdk.StatusLoading
-		return e.loadWorkspaces()
+		return tea.Batch(e.loadWorkspaces(), e.timer.Start())
 	}
 	return nil
 }
@@ -113,7 +115,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.status = sdk.StatusLoading
 	e.errMsg = ""
 	e.loadingMsg = "Loading workspaces..."
-	return e.loadWorkspaces()
+	return tea.Batch(e.loadWorkspaces(), e.timer.Start())
 }
 
 func (e *Plugin) loadWorkspaces() tea.Cmd {
@@ -134,7 +136,11 @@ func (e *Plugin) loadWorkspaces() tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
+
 	case WorkspaceListMsg:
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -153,6 +159,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, nil
 
 	case WorkspaceSwitchMsg:
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -170,6 +177,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		})
 
 	case WorkspaceCreateMsg:
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -181,6 +189,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		})
 
 	case WorkspaceDeleteMsg:
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -225,7 +234,7 @@ func (e *Plugin) SwitchToSelected() tea.Cmd {
 	}
 	e.status = sdk.StatusLoading
 	e.loadingMsg = fmt.Sprintf("Switching to %s...", ws)
-	return e.selectWorkspace(ws, true)
+	return tea.Batch(e.selectWorkspace(ws, true), e.timer.Start())
 }
 
 // SelectCurrent selects the workspace under cursor and stays in the list.
@@ -236,7 +245,7 @@ func (e *Plugin) SelectCurrent() tea.Cmd {
 	}
 	e.status = sdk.StatusLoading
 	e.loadingMsg = fmt.Sprintf("Selecting %s...", ws)
-	return e.selectWorkspace(ws, false)
+	return tea.Batch(e.selectWorkspace(ws, false), e.timer.Start())
 }
 
 func (e *Plugin) selectWorkspace(name string, popBack bool) tea.Cmd {
@@ -260,17 +269,17 @@ func (e *Plugin) deleteWorkspace(name string) tea.Cmd {
 	e.status = sdk.StatusLoading
 	e.loadingMsg = fmt.Sprintf("Deleting %s...", name)
 	svc := e.svc
-	return func() tea.Msg {
+	return tea.Batch(func() tea.Msg {
 		err := svc.WorkspaceDelete(context.Background(), name, sdk.WorkspaceDeleteOptions{})
 		return WorkspaceDeleteMsg{Err: err}
-	}
+	}, e.timer.Start())
 }
 
 // startCreate starts creation of a new workspace with loading feedback.
 func (e *Plugin) startCreate(name string) tea.Cmd {
 	e.status = sdk.StatusLoading
 	e.loadingMsg = fmt.Sprintf("Creating %s...", name)
-	return e.createWorkspace(name)
+	return tea.Batch(e.createWorkspace(name), e.timer.Start())
 }
 
 // View renders the workspaces plugin.
@@ -281,7 +290,7 @@ func (e *Plugin) View(width, height int) string {
 		if msg == "" {
 			msg = "Loading workspaces..."
 		}
-		return sdk.StyleFaintItalic.Render(msg)
+		return sdk.StyleFaintItalic.Render(msg + " " + e.timer.FormatElapsed())
 
 	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + e.errMsg)

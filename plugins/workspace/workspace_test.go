@@ -157,9 +157,23 @@ func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
 
 	cmd := p.Activate()
 	msg := cmd()
-	result, ok := msg.(WorkspaceListMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Activate cmd returned %T, want WorkspaceListMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result WorkspaceListMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(WorkspaceListMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain WorkspaceListMsg")
 	}
 	if len(result.Workspaces) != 2 {
 		t.Errorf("len(Workspaces) = %d, want 2", len(result.Workspaces))
@@ -176,7 +190,19 @@ func TestActivate_GivenListError_ShouldReturnErrorMsg(t *testing.T) {
 
 	cmd := p.Activate()
 	msg := cmd()
-	result := msg.(WorkspaceListMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result WorkspaceListMsg
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(WorkspaceListMsg); ok {
+			result = r
+		}
+	}
 	if result.Err == nil {
 		t.Error("expected error in WorkspaceListMsg")
 	}
@@ -189,7 +215,19 @@ func TestActivate_GivenWorkspaceError_ShouldReturnErrorMsg(t *testing.T) {
 
 	cmd := p.Activate()
 	msg := cmd()
-	result := msg.(WorkspaceListMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result WorkspaceListMsg
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(WorkspaceListMsg); ok {
+			result = r
+		}
+	}
 	if result.Err == nil {
 		t.Error("expected error")
 	}
@@ -1292,9 +1330,23 @@ func TestDeleteWorkspaceCmd_ShouldCallServiceAndReturnMsg(t *testing.T) {
 
 	cmd := p.deleteWorkspace("temp")
 	msg := cmd()
-	dm, ok := msg.(WorkspaceDeleteMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("deleteWorkspace cmd returned %T, want WorkspaceDeleteMsg", msg)
+		t.Fatalf("deleteWorkspace cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var dm WorkspaceDeleteMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(WorkspaceDeleteMsg); ok {
+			dm = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain WorkspaceDeleteMsg")
 	}
 	if dm.Err != nil {
 		t.Errorf("Err = %v, want nil", dm.Err)
