@@ -1,8 +1,6 @@
 package plan
 
 import (
-	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"strings"
@@ -11,23 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
-
-type mockServiceWithForceUnlock struct {
-	mockService
-	forceUnlockErr error
-	forceUnlockID  string
-	withDirPath    string
-}
-
-func (m *mockServiceWithForceUnlock) ForceUnlock(_ context.Context, lockID string) error {
-	m.forceUnlockID = lockID
-	return m.forceUnlockErr
-}
-
-func (m *mockServiceWithForceUnlock) WithDir(dir string) sdk.Service {
-	m.withDirPath = dir
-	return m
-}
 
 func newTestPlugin(svc sdk.Service) *Plugin {
 	p := New(svc).(*Plugin)
@@ -74,7 +55,7 @@ func TestPlugin_WhenDone_ShouldReportNotBusy(t *testing.T) {
 }
 
 func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
-	svc := &mockServiceWithForceUnlock{}
+	svc := &mockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}}
@@ -100,9 +81,6 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 	}
 	if p.errMsg != "" {
 		t.Errorf("errMsg = %q, want empty", p.errMsg)
-	}
-	if svc.withDirPath != "/projects/infra/modules/vpc" {
-		t.Errorf("WithDir called with %q, want %q", svc.withDirPath, "/projects/infra/modules/vpc")
 	}
 	if p.scopedContext != "/projects/infra/modules/vpc" {
 		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/projects/infra/modules/vpc")
@@ -172,43 +150,6 @@ func TestPlugin_WhenActivatedWhileError_ShouldRetriggerPlan(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenForceUnlockSucceeds_ShouldRefresh(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{}}
-	p := newTestPlugin(svc)
-	p.status = sdk.StatusError
-	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
-
-	result, cmd := p.Update(ForceUnlockResultMsg{Err: nil})
-	if cmd == nil {
-		t.Error("Update(ForceUnlockResultMsg success) cmd = nil, want refresh cmd")
-	}
-
-	pp := result.(*Plugin)
-	if pp.lockInfo != nil {
-		t.Error("lockInfo should be nil after successful unlock")
-	}
-}
-
-func TestPlugin_WhenForceUnlockFails_ShouldShowError(t *testing.T) {
-	svc := &mockService{}
-	p := newTestPlugin(svc)
-	p.status = sdk.StatusError
-	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
-
-	result, cmd := p.Update(ForceUnlockResultMsg{Err: errors.New("unlock denied")})
-	if cmd != nil {
-		t.Error("Update(ForceUnlockResultMsg error) cmd != nil, want nil")
-	}
-
-	pp := result.(*Plugin)
-	if !strings.Contains(pp.errMsg, "Force-unlock failed") {
-		t.Errorf("errMsg = %q, want to contain 'Force-unlock failed'", pp.errMsg)
-	}
-	if pp.lockInfo != nil {
-		t.Error("lockInfo should be nil after failed unlock attempt")
-	}
-}
-
 func TestPlugin_WhenPlanResultNilSummary_ShouldNotEmitPlanCompletedEvent(t *testing.T) {
 	svc := &mockService{}
 	p := newTestPlugin(svc)
@@ -272,105 +213,6 @@ func TestPlugin_WhenTogglePinWithNilPins_ShouldNotPanic(t *testing.T) {
 	p.togglePin("aws_instance.web")
 	if p.isPinnedAddress("aws_instance.web") {
 		t.Error("isPinnedAddress with nil pins should return false")
-	}
-}
-
-func TestPlugin_WhenRequestForceUnlock_ShouldProduceConfirmation(t *testing.T) {
-	svc := &mockServiceWithForceUnlock{}
-	p := newTestPlugin(svc)
-	p.status = sdk.StatusError
-	p.lockInfo = &sdk.StateLock{ID: "lock-xyz-789"}
-
-	cmd := p.requestForceUnlock()
-	if cmd == nil {
-		t.Fatal("requestForceUnlock() returned nil cmd")
-	}
-
-	msg := cmd()
-	reqMsg, ok := msg.(sdk.RequestInputMsg)
-	if !ok {
-		t.Fatalf("cmd() returned %T, want sdk.RequestInputMsg", msg)
-	}
-
-	if !strings.Contains(reqMsg.Request.Prompt, "lock-xyz-789") {
-		t.Errorf("prompt = %q, want to contain lock ID", reqMsg.Request.Prompt)
-	}
-	if !strings.Contains(reqMsg.Request.Prompt, "Force-unlock") {
-		t.Errorf("prompt = %q, want to contain 'Force-unlock'", reqMsg.Request.Prompt)
-	}
-}
-
-func TestPlugin_WhenForceUnlockCallbackConfirmed_ShouldCallService(t *testing.T) {
-	svc := &mockServiceWithForceUnlock{}
-	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:    sdk.NewPinService(),
-	}
-	p.Init(ctx)
-	p.status = sdk.StatusError
-	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
-
-	cmd := p.requestForceUnlock()
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	startCmd := reqMsg.Request.Callback("y")
-	if startCmd == nil {
-		t.Fatal("callback('y') returned nil cmd")
-	}
-	startMsg := startCmd()
-	if _, ok := startMsg.(ForceUnlockStartMsg); !ok {
-		t.Fatalf("callback result = %T, want ForceUnlockStartMsg", startMsg)
-	}
-
-	// Feed ForceUnlockStartMsg into Update
-	_, execCmd := p.Update(startMsg)
-	if execCmd == nil {
-		t.Fatal("Update(ForceUnlockStartMsg) should return exec cmd")
-	}
-	if p.status != sdk.StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
-	}
-
-	resultMsg := execCmd()
-	unlockResult, ok := resultMsg.(ForceUnlockResultMsg)
-	if !ok {
-		t.Fatalf("exec cmd result = %T, want ForceUnlockResultMsg", resultMsg)
-	}
-	if unlockResult.Err != nil {
-		t.Errorf("ForceUnlockResultMsg.Err = %v, want nil", unlockResult.Err)
-	}
-	if svc.forceUnlockID != "lock-abc" {
-		t.Errorf("ForceUnlock called with %q, want %q", svc.forceUnlockID, "lock-abc")
-	}
-}
-
-func TestPlugin_WhenForceUnlockCallbackFails_ShouldReturnError(t *testing.T) {
-	svc := &mockServiceWithForceUnlock{forceUnlockErr: errors.New("denied")}
-	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:    sdk.NewPinService(),
-	}
-	p.Init(ctx)
-	p.status = sdk.StatusError
-	p.lockInfo = &sdk.StateLock{ID: "lock-fail"}
-
-	cmd := p.requestForceUnlock()
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	startCmd := reqMsg.Request.Callback("y")
-	startMsg := startCmd()
-
-	_, execCmd := p.Update(startMsg)
-	resultMsg := execCmd()
-	unlockResult := resultMsg.(ForceUnlockResultMsg)
-	if unlockResult.Err == nil {
-		t.Error("ForceUnlockResultMsg.Err = nil, want error")
 	}
 }
 
@@ -536,26 +378,23 @@ func TestListFrame_WhenAPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
 	}
 }
 
-func TestListFrame_WhenUPressedWithLockInfo_ShouldRequestForceUnlock(t *testing.T) {
-	svc := &mockServiceWithForceUnlock{}
-	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:    sdk.NewPinService(),
-	}
-	p.Init(ctx)
+func TestListFrame_WhenUPressedWithLockInfo_ShouldNavigateToForceUnlock(t *testing.T) {
+	p := newTestPlugin(&mockService{})
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
 	if cmd == nil {
-		t.Fatal("u key with lockInfo: cmd = nil, want requestForceUnlock cmd")
+		t.Fatal("u key with lockInfo: cmd = nil, want NavigateMsg cmd")
 	}
 
 	msg := cmd()
-	if _, ok := msg.(sdk.RequestInputMsg); !ok {
-		t.Fatalf("u key cmd produced %T, want sdk.RequestInputMsg", msg)
+	navMsg, ok := msg.(sdk.NavigateMsg)
+	if !ok {
+		t.Fatalf("u key cmd produced %T, want sdk.NavigateMsg", msg)
+	}
+	if navMsg.PluginID != "forceunlock" {
+		t.Errorf("NavigateMsg.PluginID = %q, want %q", navMsg.PluginID, "forceunlock")
 	}
 }
 

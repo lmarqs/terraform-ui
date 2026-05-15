@@ -37,7 +37,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		}
 	case "u":
 		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
-			return f, f.plugin.requestForceUnlock()
+			return f, func() tea.Msg { return sdk.NavigateMsg{PluginID: "forceunlock"} }
 		}
 	case "ctrl+r":
 		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {

@@ -13,8 +13,9 @@ import (
 
 // mockService implements sdk.Service for testing.
 type mockService struct {
-	planResult *sdk.PlanSummary
-	planErr    error
+	planResult  *sdk.PlanSummary
+	planErr     error
+	withDirPath string
 }
 
 func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
@@ -47,7 +48,7 @@ func (m *mockService) Refresh(_ context.Context) error                          
 func (m *mockService) Init(_ context.Context) error                                 { return nil }
 func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
 func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
+func (m *mockService) WithDir(dir string) sdk.Service                               { m.withDirPath = dir; return m }
 
 func TestNew(t *testing.T) {
 	svc := &mockService{}

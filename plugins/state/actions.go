@@ -325,32 +325,3 @@ func (e *Plugin) requestEditMultiple(addresses []string) tea.Cmd {
 		return StateEditMsg{Addresses: addresses}
 	}
 }
-
-func (e *Plugin) requestForceUnlock() tea.Cmd {
-	lockID := e.lockInfo.ID
-	return func() tea.Msg {
-		return sdk.RequestInputMsg{
-			Request: sdk.InputConfirm(
-				fmt.Sprintf("Force-unlock %s? This is dangerous if another operation is running.", lockID),
-				func() tea.Cmd {
-					return func() tea.Msg { return ForceUnlockStartMsg{} }
-				},
-			),
-		}
-	}
-}
-
-func (e *Plugin) executeForceUnlock() tea.Cmd {
-	lockID := e.lockInfo.ID
-	svc := e.svc
-	log := e.log
-	return func() tea.Msg {
-		err := svc.ForceUnlock(context.Background(), lockID)
-		if err != nil {
-			log.Debug("state.force-unlock.error", "lockID", lockID, "error", err.Error())
-		} else {
-			log.Debug("state.force-unlock.success", "lockID", lockID)
-		}
-		return ForceUnlockResultMsg{Err: err}
-	}
-}
