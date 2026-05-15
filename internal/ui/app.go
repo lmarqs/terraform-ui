@@ -268,7 +268,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if pinned := a.pins.All(); len(pinned) > 0 {
 				applyPlugin.SetTargets(pinned)
 			}
-			a.returnTo = nil
+			a.returnTo = a.activePlugin
 			a.activePlugin = p
 			cmd := a.activate(p)
 			applyPlugin.RequestApply()
