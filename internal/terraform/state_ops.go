@@ -9,11 +9,15 @@ import (
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/internal/logging"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // StateList returns all resources in the current state.
-func (s *ExecService) StateList(ctx context.Context) ([]Resource, error) {
-	if resources, ok := s.cache.GetResources(); ok {
+func (s *ExecService) StateList(ctx context.Context, opts ...sdk.StateListOption) ([]Resource, error) {
+	cfg := sdk.ApplyStateListOptions(opts)
+	if cfg.ShouldSkipCache() {
+		s.cache.InvalidateState()
+	} else if resources, ok := s.cache.GetResources(); ok {
 		return resources, nil
 	}
 
@@ -164,6 +168,7 @@ func (s *ExecService) Taint(ctx context.Context, address string) error {
 		return fmt.Errorf("tainting %q: %w", address, err)
 	}
 
+	s.cache.InvalidateState()
 	logging.Logger().Debug("terraform.result", "cmd", "taint", "duration", time.Since(start).String())
 	return nil
 }
@@ -188,6 +193,7 @@ func (s *ExecService) Untaint(ctx context.Context, address string) error {
 		return fmt.Errorf("untainting %q: %w", address, err)
 	}
 
+	s.cache.InvalidateState()
 	logging.Logger().Debug("terraform.result", "cmd", "untaint", "duration", time.Since(start).String())
 	return nil
 }
