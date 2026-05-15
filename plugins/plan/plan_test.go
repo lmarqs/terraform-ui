@@ -167,10 +167,23 @@ func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
-
-	result, ok := msg.(PlanResultMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Init cmd returned %T, want PlanResultMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result PlanResultMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(PlanResultMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain PlanResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("PlanResultMsg.Err = %v, want nil", result.Err)
@@ -191,10 +204,23 @@ func TestActivateCmdReturnsError(t *testing.T) {
 
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
-
-	result, ok := msg.(PlanResultMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Init cmd returned %T, want PlanResultMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result PlanResultMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(PlanResultMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain PlanResultMsg")
 	}
 	if result.Err == nil {
 		t.Error("PlanResultMsg.Err = nil, want error")
