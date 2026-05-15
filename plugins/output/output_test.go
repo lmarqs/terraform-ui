@@ -153,10 +153,23 @@ func TestActivateCmdReturnsOutputResultMsg(t *testing.T) {
 		t.Fatal("Activate() returned nil cmd, want non-nil")
 	}
 	msg := cmd()
-
-	result, ok := msg.(OutputResultMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Activate cmd returned %T, want OutputResultMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result OutputResultMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(OutputResultMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain OutputResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("OutputResultMsg.Err = %v, want nil", result.Err)
@@ -177,10 +190,23 @@ func TestActivateCmdReturnsError(t *testing.T) {
 		t.Fatal("Activate() returned nil cmd, want non-nil")
 	}
 	msg := cmd()
-
-	result, ok := msg.(OutputResultMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Activate cmd returned %T, want OutputResultMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result OutputResultMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(OutputResultMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain OutputResultMsg")
 	}
 	if result.Err == nil {
 		t.Error("OutputResultMsg.Err = nil, want error")

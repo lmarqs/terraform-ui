@@ -25,6 +25,7 @@ type Plugin struct {
 	log           *slog.Logger
 	stack         *sdk.Stack
 	fuzzy         *ui.FuzzyFilter[sdk.OutputValue]
+	timer         ui.Timer
 	status        sdk.Status
 	outputs       []sdk.OutputValue
 	filtered      []sdk.OutputValue
@@ -97,7 +98,7 @@ func (p *Plugin) reset() {
 func (p *Plugin) Activate() tea.Cmd {
 	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {
 		p.status = sdk.StatusLoading
-		return p.loadOutputs()
+		return tea.Batch(p.loadOutputs(), p.timer.Start())
 	}
 	return nil
 }
@@ -106,7 +107,7 @@ func (p *Plugin) Activate() tea.Cmd {
 func (p *Plugin) Refresh() tea.Cmd {
 	p.reset()
 	p.status = sdk.StatusLoading
-	return p.loadOutputs()
+	return tea.Batch(p.loadOutputs(), p.timer.Start())
 }
 
 func (p *Plugin) loadOutputs() tea.Cmd {
@@ -120,7 +121,11 @@ func (p *Plugin) loadOutputs() tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return p, p.timer.Tick()
+
 	case OutputResultMsg:
+		p.timer.Stop()
 		if msg.Err != nil {
 			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
@@ -214,7 +219,7 @@ func (p *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Loading outputs...")
 
 	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render("Loading terraform outputs...")
+		return sdk.StyleFaintItalic.Render("Loading terraform outputs... " + p.timer.FormatElapsed())
 
 	case sdk.StatusError:
 		return sdk.StyleError.Render("Error: " + p.errMsg)
