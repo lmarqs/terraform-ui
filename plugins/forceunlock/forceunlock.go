@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // ForceUnlockStartMsg triggers the loading state and starts the unlock operation.
@@ -25,6 +26,7 @@ type ForceUnlockResultMsg struct {
 type Plugin struct {
 	svc      sdk.Service
 	log      *slog.Logger
+	timer    ui.Timer
 	status   sdk.Status
 	lockID   string
 	lockInfo *sdk.StateLock
@@ -107,7 +109,7 @@ func (p *Plugin) executeUnlock(lockID string) tea.Cmd {
 	p.status = sdk.StatusLoading
 	svc := p.svc
 	log := p.log
-	return func() tea.Msg {
+	return tea.Batch(func() tea.Msg {
 		err := svc.ForceUnlock(context.Background(), lockID)
 		if err != nil {
 			log.Debug("forceunlock.error", "lockID", lockID, "error", err.Error())
@@ -115,15 +117,19 @@ func (p *Plugin) executeUnlock(lockID string) tea.Cmd {
 			log.Debug("forceunlock.success", "lockID", lockID)
 		}
 		return ForceUnlockResultMsg{LockID: lockID, Err: err}
-	}
+	}, p.timer.Start())
 }
 
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return p, p.timer.Tick()
+
 	case ForceUnlockStartMsg:
 		return p, p.executeUnlock(msg.LockID)
 
 	case ForceUnlockResultMsg:
+		p.timer.Stop()
 		if msg.Err != nil {
 			p.status = sdk.StatusError
 			p.errMsg = fmt.Sprintf("Force-unlock failed: %s", msg.Err.Error())
@@ -163,7 +169,7 @@ func (p *Plugin) View(_, _ int) string {
 		}
 		return sdk.StyleFaintItalic.Render("No active lock detected.")
 	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render(fmt.Sprintf("Force-unlocking %s...", p.lockID))
+		return sdk.StyleFaintItalic.Render(fmt.Sprintf("Force-unlocking %s... %s", p.lockID, p.timer.FormatElapsed()))
 	case sdk.StatusDone:
 		return sdk.StyleSuccess.Render(fmt.Sprintf("Lock %s released successfully", p.lockID))
 	case sdk.StatusError:

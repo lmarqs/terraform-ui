@@ -420,11 +420,25 @@ func TestConfirmUnlock_Callback_CallsService(t *testing.T) {
 		t.Errorf("status = %v, want StatusLoading", p.status)
 	}
 
-	// Execute the unlock command
-	resultMsg := execCmd()
-	result, ok := resultMsg.(ForceUnlockResultMsg)
+	// Execute the batch command and find ForceUnlockResultMsg
+	execMsg := execCmd()
+	batchMsg, ok := execMsg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("exec cmd returned %T, want ForceUnlockResultMsg", resultMsg)
+		t.Fatalf("exec cmd returned %T, want tea.BatchMsg", execMsg)
+	}
+	var result ForceUnlockResultMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(ForceUnlockResultMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain ForceUnlockResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("ForceUnlockResultMsg.Err = %v, want nil", result.Err)
@@ -451,8 +465,17 @@ func TestConfirmUnlock_Callback_ReturnsError(t *testing.T) {
 	start := startMsg.(ForceUnlockStartMsg)
 
 	_, execCmd := p.Update(start)
-	resultMsg := execCmd()
-	result := resultMsg.(ForceUnlockResultMsg)
+	execMsg := execCmd()
+	batchMsg := execMsg.(tea.BatchMsg)
+	var result ForceUnlockResultMsg
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(ForceUnlockResultMsg); ok {
+			result = r
+		}
+	}
 
 	if result.Err == nil {
 		t.Error("ForceUnlockResultMsg.Err = nil, want error")
@@ -528,10 +551,24 @@ func TestManualEntry_Callback_ConfirmYes(t *testing.T) {
 
 	// Feed into Update
 	_, execCmd := p.Update(start)
-	resultMsg := execCmd()
-	result, ok := resultMsg.(ForceUnlockResultMsg)
+	execMsg := execCmd()
+	batchMsg, ok := execMsg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("exec cmd returned %T, want ForceUnlockResultMsg", resultMsg)
+		t.Fatalf("exec cmd returned %T, want tea.BatchMsg", execMsg)
+	}
+	var result ForceUnlockResultMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(ForceUnlockResultMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain ForceUnlockResultMsg")
 	}
 	if result.LockID != "manual-lock-id" {
 		t.Errorf("LockID = %q, want %q", result.LockID, "manual-lock-id")
