@@ -149,6 +149,18 @@ Pin semantics:
 - Scroll indicator `[n/total]` when content overflows
 - `[pinned]` indicator shown if resource is pinned
 
+## Confirmation Ownership
+
+Confirmations belong to the plugin that EXECUTES the action, not the plugin that requests it:
+- Apply confirmation → owned by apply plugin (`StatusConfirming` state)
+- State delete confirmation → owned by state plugin (via `InputConfirm`)
+
+Never double-confirm: if plugin A requests an action from plugin B, only B confirms. Plugin A just emits the request message.
+
+When a plugin is navigated to as a sub-state (has `returnTo`):
+- `esc`/cancel during confirmation → emit `DeactivateMsg` → returns to origin
+- Hints show `Esc cancel` (not `q back`)
+
 ## Staleness Guard
 
 Before destructive operations (apply, state rm, state mv, import):
