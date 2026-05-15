@@ -954,65 +954,21 @@ func TestViewSmallHeight(t *testing.T) {
 	}
 }
 
-func TestRequestApply_WhenPinsExist_ShouldShowTargetedCount(t *testing.T) {
-	tests := []struct {
-		name       string
-		pinAddrs   []string
-		wantPrompt string
-	}{
-		{
-			name:       "ShouldShowTotalChangesWhenNoPins",
-			pinAddrs:   nil,
-			wantPrompt: "Apply plan (3 changes)? (y/n)",
-		},
-		{
-			name:       "ShouldShowTargetedCountWhenPinsExist",
-			pinAddrs:   []string{"aws_instance.a", "aws_s3_bucket.b"},
-			wantPrompt: "Apply 2 targeted resource(s)? (y/n)",
+func TestRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{}
-			p := New(svc).(*Plugin)
-			pins := sdk.NewPinService()
-			ctx := &sdk.Context{
-				Service: svc,
-				Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-				Pins:    pins,
-			}
-			p.Init(ctx)
-
-			p.summary = &sdk.PlanSummary{
-				Changes: []sdk.PlanChange{
-					{Resource: sdk.Resource{Address: "aws_instance.a"}, Action: sdk.ActionCreate},
-					{Resource: sdk.Resource{Address: "aws_s3_bucket.b"}, Action: sdk.ActionUpdate},
-					{Resource: sdk.Resource{Address: "aws_vpc.c"}, Action: sdk.ActionDelete},
-				},
-				ToCreate: 1,
-				ToUpdate: 1,
-				ToDelete: 1,
-			}
-
-			for _, addr := range tt.pinAddrs {
-				p.pins.Toggle(addr)
-			}
-
-			cmd := p.requestApply()
-			if cmd == nil {
-				t.Fatal("requestApply() returned nil cmd")
-			}
-
-			msg := cmd()
-			reqMsg, ok := msg.(sdk.RequestInputMsg)
-			if !ok {
-				t.Fatalf("cmd() returned %T, want sdk.RequestInputMsg", msg)
-			}
-
-			if reqMsg.Request.Prompt != tt.wantPrompt {
-				t.Errorf("prompt = %q, want %q", reqMsg.Request.Prompt, tt.wantPrompt)
-			}
-		})
+	cmd := p.requestApply()
+	if cmd == nil {
+		t.Fatal("requestApply() returned nil cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(ApplyRequestMsg); !ok {
+		t.Fatalf("cmd() = %T, want ApplyRequestMsg", msg)
 	}
 }

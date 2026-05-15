@@ -2,8 +2,8 @@ wait ready
 key p
 wait ready
 key a
-wait view Apply plan
+wait view Are you sure
 key y
-wait ready
+wait view Apply complete
 key esc
 assert view Plan

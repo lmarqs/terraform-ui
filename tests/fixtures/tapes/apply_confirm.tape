@@ -2,6 +2,6 @@ wait ready
 key p
 wait ready
 key a
-wait view Apply plan
+wait view Are you sure
 key y
 wait view Apply complete

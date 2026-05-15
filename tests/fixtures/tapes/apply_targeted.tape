@@ -3,6 +3,6 @@ key p
 wait ready
 key space
 key a
-wait view targeted resource
+wait view Are you sure
 key y
 wait view Apply complete

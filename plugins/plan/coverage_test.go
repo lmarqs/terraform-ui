@@ -225,7 +225,7 @@ func TestPlugin_WhenTogglePinWithNilPins_ShouldNotPanic(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenRequestApplyCallbackConfirmed_ShouldEmitApplyRequestMsg(t *testing.T) {
+func TestPlugin_WhenRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 	svc := &mockService{}
 	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
@@ -236,37 +236,12 @@ func TestPlugin_WhenRequestApplyCallbackConfirmed_ShouldEmitApplyRequestMsg(t *t
 	}
 
 	cmd := p.requestApply()
+	if cmd == nil {
+		t.Fatal("requestApply() returned nil cmd")
+	}
 	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	resultCmd := reqMsg.Request.Callback("y")
-	if resultCmd == nil {
-		t.Fatal("callback('y') returned nil cmd")
-	}
-
-	resultMsg := resultCmd()
-	if _, ok := resultMsg.(ApplyRequestMsg); !ok {
-		t.Fatalf("callback result = %T, want ApplyRequestMsg", resultMsg)
-	}
-}
-
-func TestPlugin_WhenRequestApplyCallbackDenied_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
-	p := newTestPlugin(svc)
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
-		},
-		ToCreate: 1,
-	}
-
-	cmd := p.requestApply()
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	resultCmd := reqMsg.Request.Callback("n")
-	if resultCmd != nil {
-		t.Error("callback('n') returned non-nil cmd, want nil")
+	if _, ok := msg.(ApplyRequestMsg); !ok {
+		t.Fatalf("requestApply() cmd produced %T, want ApplyRequestMsg", msg)
 	}
 }
 
@@ -359,12 +334,12 @@ func TestListFrame_WhenAPressedWithResults_ShouldRequestApply(t *testing.T) {
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 	if cmd == nil {
-		t.Fatal("a key with results: cmd = nil, want requestApply cmd")
+		t.Fatal("a key with results: cmd = nil, want ApplyRequestMsg cmd")
 	}
 
 	msg := cmd()
-	if _, ok := msg.(sdk.RequestInputMsg); !ok {
-		t.Fatalf("a key cmd produced %T, want sdk.RequestInputMsg", msg)
+	if _, ok := msg.(ApplyRequestMsg); !ok {
+		t.Fatalf("a key cmd produced %T, want ApplyRequestMsg", msg)
 	}
 }
 

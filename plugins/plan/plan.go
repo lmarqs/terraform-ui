@@ -801,20 +801,5 @@ func (e *Plugin) renderOverallRisk() string {
 type ApplyRequestMsg struct{}
 
 func (e *Plugin) requestApply() tea.Cmd {
-	msg := fmt.Sprintf("Apply plan (%d changes)?", len(e.summary.Changes))
-	if n := e.pins.Count(); n > 0 {
-		msg = fmt.Sprintf("Apply %d targeted resource(s)?", n)
-	}
-	return func() tea.Msg {
-		return sdk.RequestInputMsg{
-			Request: sdk.InputConfirm(
-				msg,
-				func() tea.Cmd {
-					return func() tea.Msg {
-						return ApplyRequestMsg{}
-					}
-				},
-			),
-		}
-	}
+	return func() tea.Msg { return ApplyRequestMsg{} }
 }
