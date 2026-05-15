@@ -10,6 +10,11 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
+// ForceUnlockStartMsg triggers the loading state and starts the unlock operation.
+type ForceUnlockStartMsg struct {
+	LockID string
+}
+
 // ForceUnlockResultMsg is sent when the force-unlock operation completes.
 type ForceUnlockResultMsg struct {
 	LockID string
@@ -90,27 +95,34 @@ func (p *Plugin) confirmUnlock(lockID string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Force-unlock %s? This is dangerous if another operation is running.", lockID),
 				func() tea.Cmd {
-					p.lockID = lockID
-					p.status = sdk.StatusLoading
-					svc := p.svc
-					log := p.log
-					return func() tea.Msg {
-						err := svc.ForceUnlock(context.Background(), lockID)
-						if err != nil {
-							log.Debug("forceunlock.error", "lockID", lockID, "error", err.Error())
-						} else {
-							log.Debug("forceunlock.success", "lockID", lockID)
-						}
-						return ForceUnlockResultMsg{LockID: lockID, Err: err}
-					}
+					return func() tea.Msg { return ForceUnlockStartMsg{LockID: lockID} }
 				},
 			),
 		}
 	}
 }
 
+func (p *Plugin) executeUnlock(lockID string) tea.Cmd {
+	p.lockID = lockID
+	p.status = sdk.StatusLoading
+	svc := p.svc
+	log := p.log
+	return func() tea.Msg {
+		err := svc.ForceUnlock(context.Background(), lockID)
+		if err != nil {
+			log.Debug("forceunlock.error", "lockID", lockID, "error", err.Error())
+		} else {
+			log.Debug("forceunlock.success", "lockID", lockID)
+		}
+		return ForceUnlockResultMsg{LockID: lockID, Err: err}
+	}
+}
+
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ForceUnlockStartMsg:
+		return p, p.executeUnlock(msg.LockID)
+
 	case ForceUnlockResultMsg:
 		if msg.Err != nil {
 			p.status = sdk.StatusError

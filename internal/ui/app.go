@@ -16,7 +16,6 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
-	tfuiforceunlock "github.com/lmarqs/terraform-ui/plugins/forceunlock"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 )
@@ -59,7 +58,9 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
 	header := components.NewHeader(workDir, "default")
-	if cfg.BaseDir != "" {
+	if cfg.ActiveScope != "" {
+		header = header.WithChdir(cfg.ActiveScope)
+	} else if cfg.BaseDir != "" {
 		header = header.WithChdir(cfg.BaseDir)
 	}
 
@@ -148,6 +149,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openContextOnStartupMsg:
 		// Skip chdir picker if scope is pre-set or data is loaded externally
 		if a.cfg.ActiveScope != "" || a.cfg.PreloadedData {
+			if a.cfg.ActiveScope != "" {
+				absScope := filepath.Join(a.cfg.Dir, a.cfg.ActiveScope)
+				a.activeChdir = a.cfg.ActiveScope
+				return a, a.bus.Dispatch(sdk.ChdirChangedEvent{
+					RelPath: a.cfg.ActiveScope,
+					AbsPath: absScope,
+				})
+			}
 			return a, nil
 		}
 		// On startup, activate the chdir plugin directly for member selection
@@ -265,17 +274,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			applyPlugin.RequestApply()
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
 			return a, cmd
-		}
-		return a, nil
-
-	case tfuiforceunlock.ForceUnlockResultMsg:
-		if msg.Err == nil {
-			a.lockInfo = nil
-			a.header = a.header.WithLockInfo(nil)
-			return a, tea.Batch(
-				func() tea.Msg { return sdk.LockClearedEvent{} },
-				func() tea.Msg { return sdk.PlanInvalidatedEvent{} },
-			)
 		}
 		return a, nil
 
