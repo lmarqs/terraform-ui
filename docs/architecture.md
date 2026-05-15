@@ -112,7 +112,7 @@ Two sibling implementations of `sdk.Service` exist as a strategy pattern — sel
 
 - `Plan()` — terraform plan → parse JSON → classify risk → detect phantoms
 - `Apply()` — terraform apply on saved plan file
-- `StateList()` — parse state JSON for resource list
+- `StateList(opts ...StateListOption)` — parse state JSON for resource list (supports `SkipCache()` to force re-read)
 - `Show()` — terraform state show for resource detail
 - `Workspace*()` — workspace list, select, create, delete
 - `WithDir()` — returns a new ExecService scoped to a different directory (fresh cache)
@@ -136,6 +136,8 @@ This makes macros deterministic and safe: the UI renders real data (from cache) 
 - Pre-seeded at startup from `--plan`/`--state` file/stdin
 - Three source kinds: `file` (re-reads on invalidate), `stdin` (immutable), `exec` (cleared on invalidate)
 - ExecService populates it after live calls; MacroService only reads from it
+- State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) auto-invalidate state cache
+- Plugins can bypass cache via `StateList(ctx, sdk.SkipCache())` for explicit refresh (ctrl+r)
 
 ### Binary resolution
 

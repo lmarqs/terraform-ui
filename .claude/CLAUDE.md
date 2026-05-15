@@ -145,8 +145,9 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 
 When encountering undocumented patterns or decisions that caused rework, suggest additions to this section.
 
-- 2025-04: Renamed "scope" → "chdir" everywhere; legacy ProjectContext fields (Scopes, ActiveScope, ActiveScopeAbs) pending rename
+- 2025-04: Renamed "scope" → "chdir" everywhere. Config field: `cfg.Chdir`. ProjectContext fields: `Members`, `Chdir`, `ChdirAbs`.
 - 2025-05: CompositeService eliminated — ServiceCache pre-seeded at startup replaces multi-implementation composition
 - 2025-05: "init" plugin renamed → "scaffold" to free `init` for terraform passthrough
 - 2025-05: Config syntax changed from `chdir { members = [...] }` to top-level `member "path" {}` blocks
 - 2025-05: Navigation architecture uses `NavBehavior` (push/replace) on `PluginMeta`. Details in `.claude/rules/architecture.md` and `.claude/rules/ux.md`.
+- 2025-05: `StateList` uses variadic `StateListOption` pattern (not `InvalidateState()` on interface) to avoid leaking cache semantics into the SDK contract. All state-mutating ops must call `cache.InvalidateState()` internally.

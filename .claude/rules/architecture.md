@@ -125,6 +125,12 @@ Two implementations:
 
 `ServiceCache` (service_cache.go) is a typed, source-aware cache pre-seeded from `--plan`/`--state` flags at startup. Three source kinds: file (re-reads on invalidate), stdin (immutable), exec (cleared on invalidate).
 
+Cache invalidation rules:
+- State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) auto-invalidate state cache internally
+- `Refresh()` and `WorkspaceSelect()` invalidate all cached data
+- Plugins bypass cache via `StateList(ctx, sdk.SkipCache())` for explicit refresh (ctrl+r)
+- `StateListOption` uses a variadic functional-options pattern — keeps cache semantics out of the interface contract
+
 ## Source Abstraction (`internal/source/`)
 
 Pure byte-resolution layer. Resolves URIs to raw bytes.
