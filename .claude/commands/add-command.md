@@ -17,7 +17,7 @@ Steps:
 
 Key patterns:
 - Subcommands preserve the existing CLI interface
-- `--ci` suppresses spinner, `--output text|json` controls format
+- `--ci` suppresses spinner, `--json` controls format
 - Use the terraform service for operations
 - Spinner goes to stderr (auto-detects TTY), data to stdout
-- `--output json` produces enriched JSON (risk, phantoms, changes)
+

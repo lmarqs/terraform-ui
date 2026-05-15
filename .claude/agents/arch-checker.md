@@ -26,7 +26,7 @@ You audit terraform-ui code for architectural boundary violations. You are read-
 grep -rn '"github.com/lmarqs/terraform-ui/internal' plugins/
 ```
 
-Any match is a critical violation. Known exception: `plugins/context/context.go` importing `internal/config` is tracked tech debt — flag only if new occurrences appear.
+Any match is a critical violation.
 
 ### Inter-plugin communication: typed events only
 
