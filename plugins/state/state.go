@@ -76,6 +76,7 @@ type Plugin struct {
 	stack         *sdk.Stack
 	pins          *sdk.PinService
 	fuzzy         *ui.FuzzyFilter[sdk.Resource]
+	timer         ui.Timer
 	status        sdk.Status
 	resources     []sdk.Resource
 	filtered      []sdk.Resource
@@ -181,7 +182,7 @@ func (e *Plugin) reset() {
 func (e *Plugin) Activate() tea.Cmd {
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
 		e.status = sdk.StatusLoading
-		return e.loadState()
+		return tea.Batch(e.loadState(), e.timer.Start())
 	}
 	return nil
 }
@@ -193,7 +194,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	if e.stack != nil {
 		e.stack.Clear()
 	}
-	return e.loadState(sdk.SkipCache())
+	return tea.Batch(e.loadState(sdk.SkipCache()), e.timer.Start())
 }
 
 func (e *Plugin) loadState(opts ...sdk.StateListOption) tea.Cmd {
@@ -215,7 +216,11 @@ func (e *Plugin) loadDetail(address string) tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
+
 	case StateListMsg:
+		e.timer.Stop()
 		e.mutating = false
 		if msg.Err != nil {
 			e.status = sdk.StatusError
@@ -262,6 +267,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, e.Refresh()
 
 	case ResourceDetailMsg:
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()
 			e.status = sdk.StatusDone
@@ -464,7 +470,7 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 		e.stack.Pop()
 	}
 	e.errMsg = "Loading " + r.Address + "..."
-	return e.loadDetail(r.Address)
+	return tea.Batch(e.loadDetail(r.Address), e.timer.Start())
 }
 
 // View renders the state browser plugin.
@@ -478,7 +484,7 @@ func (e *Plugin) View(width, height int) string {
 		if e.errMsg != "" {
 			msg = e.errMsg
 		}
-		return sdk.StyleFaintItalic.Render(msg)
+		return sdk.StyleFaintItalic.Render(msg + " " + e.timer.FormatElapsed())
 
 	case sdk.StatusError:
 		if e.lockInfo != nil {

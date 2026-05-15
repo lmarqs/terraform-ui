@@ -136,9 +136,23 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
-	result, ok := msg.(StateListMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Init cmd returned %T, want StateListMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result StateListMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(StateListMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain StateListMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("StateListMsg.Err = %v, want nil", result.Err)
@@ -157,9 +171,23 @@ func TestActivateCmdReturnsError(t *testing.T) {
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
-	result, ok := msg.(StateListMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("Init cmd returned %T, want StateListMsg", msg)
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var result StateListMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(StateListMsg); ok {
+			result = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain StateListMsg")
 	}
 	if result.Err == nil {
 		t.Error("StateListMsg.Err = nil, want error")
@@ -883,11 +911,24 @@ func TestInspectSelected(t *testing.T) {
 		t.Error("InspectSelected() returned nil cmd")
 	}
 
-	// Execute the command
 	msg := cmd()
-	detail, ok := msg.(ResourceDetailMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("InspectSelected cmd returned %T, want ResourceDetailMsg", msg)
+		t.Fatalf("InspectSelected cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var detail ResourceDetailMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(ResourceDetailMsg); ok {
+			detail = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain ResourceDetailMsg")
 	}
 	if detail.Address != "aws_instance.web" {
 		t.Errorf("detail.Address = %q, want %q", detail.Address, "aws_instance.web")
@@ -1191,9 +1232,23 @@ func TestInspectSelectedCmdError(t *testing.T) {
 		t.Error("InspectSelected with error service: cmd = nil, want non-nil")
 	}
 	msg := cmd()
-	detail, ok := msg.(ResourceDetailMsg)
+	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
-		t.Fatalf("cmd returned %T, want ResourceDetailMsg", msg)
+		t.Fatalf("cmd returned %T, want tea.BatchMsg", msg)
+	}
+	var detail ResourceDetailMsg
+	found := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		if r, ok := subCmd().(ResourceDetailMsg); ok {
+			detail = r
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("batch did not contain ResourceDetailMsg")
 	}
 	if detail.Err == nil {
 		t.Error("detail.Err = nil, want error")
