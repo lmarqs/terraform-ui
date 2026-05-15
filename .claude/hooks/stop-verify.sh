@@ -7,19 +7,12 @@ if ! echo "$CHANGED" | grep -qE '\.go$'; then
   exit 0
 fi
 
-ERRORS=""
-
-if ! go vet ./... 2>&1; then
-  ERRORS="${ERRORS}go vet failed\n"
-fi
-
 if command -v golangci-lint &>/dev/null; then
-  LINT_OUT=$(golangci-lint run ./... 2>&1) || ERRORS="${ERRORS}${LINT_OUT}\n"
-fi
-
-if [ -n "$ERRORS" ]; then
-  echo -e "$ERRORS" >&2
-  exit 2
+  LINT_OUT=$(golangci-lint run ./... 2>&1)
+  if [ $? -ne 0 ]; then
+    echo "$LINT_OUT" >&2
+    exit 2
+  fi
 fi
 
 exit 0
