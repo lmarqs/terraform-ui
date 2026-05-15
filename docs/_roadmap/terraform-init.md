@@ -1,29 +1,89 @@
 ---
-title: Terraform Init Passthrough
-status: idea
+title: Terraform Init Plugin
+status: planned
 priority: medium
 created: 2026-05-14
 effort: small
-tags: [cli, passthrough]
+tags: [ux, cli, tui, plugin]
 depends_on: []
 ---
 
 ## Summary
 
-`tfui init` should run `terraform init` — either as a pure passthrough or as a smart multi-member init that initializes all configured members with progress feedback.
+`tfui init` mirrors `terraform init` across both interfaces: a CLI subcommand with full flag passthrough and a TUI plugin with a form-driven experience for common flags.
 
 ## Need
 
-With the rename of config-generation to `tfui scaffold`, the `init` subcommand is now free. Users expect `init` to mean terraform init. Multi-member init (running terraform init across all configured members) would add real value for monorepo setups.
+Users expect `tfui init` to work like every other terraform command tfui wraps. Without it, they context-switch to bare terraform for initialization — breaking the "tfui is a superset" contract. The TUI side adds value by surfacing common flags in a form instead of requiring users to remember them.
 
-## Options
+## CLI
 
-1. **Smart multi-member init**: `tfui init` runs terraform init on all members, shows progress per-member. Single-member via `--chdir`.
-2. **Pure passthrough**: `tfui init` = `terraform init` exactly (same flags, same output). Adds no value over calling terraform directly.
+Follows the established output contract:
 
-## Design Notes
+```bash
+tfui init
+tfui init -upgrade
+tfui init -backend-config=path/to/config.hcl
+tfui init -reconfigure -upgrade
+tfui init -- -plugin-dir=/opt/plugins
+```
 
-- The `sdk.Service.Init()` method already exists and wraps terraform-exec
-- Multi-member init should respect `member` blocks from `tfui.hcl`
-- Exit code: 0 = all succeeded, 1 = any failed
-- Consider `--parallel` flag for concurrent init across members
+- stdout: terraform output (passthrough)
+- stderr: spinner (if TTY, suppressed with `--ci`)
+- Exit codes: `0` success, `1` error
+- Full flag passthrough via `splitPassthrough()` + `normalizeArgs()`
+
+## TUI
+
+### Navigation
+
+- Keybinding: `i` (menu visible)
+- Command: `:init`
+- Nav behavior: Replace
+
+### Form (on activation)
+
+| Field | Type | Default | Maps to |
+|-------|------|---------|---------|
+| upgrade | toggle | off | `-upgrade` |
+| reconfigure | toggle | off | `-reconfigure` |
+| backend | toggle | on | `-backend=false` when toggled off |
+| extra args | free text | empty | appended raw |
+
+Defaults mirror terraform's own defaults.
+
+Users needing `-backend-config`, `-migrate-state`, or other rare flags use the extra args field.
+
+### Execution
+
+- Submit starts `terraform init` with selected flags
+- Shows: spinner + elapsed time
+- On completion: full terraform output in a scrollable view
+
+### Completion states
+
+| State | Behavior |
+|-------|----------|
+| Success | Scrollable output, normal styling |
+| Error | Scrollable output + visual error indicator |
+
+User stays on the init plugin viewing output. Navigates away manually (`esc`/`q` go home, `:` goes elsewhere).
+
+### Re-run
+
+`Enter` from the output view reopens the form pre-filled with last-used values. Supports the common workflow: init fails, tweak a flag, retry.
+
+### Cache
+
+Successful init invalidates all cached state/plan data.
+
+### Flow
+
+```
+Home → i / :init → Form (upgrade, reconfigure, backend, extra args)
+  → Submit → Spinner + elapsed time → Output view
+       ├── Success: scrollable output
+       └── Error: scrollable output + error indicator
+  → Enter → Form (pre-filled) → ...
+  → esc / q → Home
+```
