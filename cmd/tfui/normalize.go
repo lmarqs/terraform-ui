@@ -3,17 +3,21 @@ package main
 import "strings"
 
 var knownValueFlags = map[string]bool{
-	"target":       true,
-	"var":          true,
-	"var-file":     true,
-	"replace":      true,
-	"out":          true,
-	"parallelism":  true,
-	"lock":         true,
-	"lock-timeout": true,
-	"chdir":        true,
-	"workspace":    true,
-	"input":        true,
+	"target":         true,
+	"var":            true,
+	"var-file":       true,
+	"replace":        true,
+	"out":            true,
+	"parallelism":    true,
+	"lock":           true,
+	"lock-timeout":   true,
+	"chdir":          true,
+	"workspace":      true,
+	"input":          true,
+	"backend":        true,
+	"backend-config": true,
+	"plugin-dir":     true,
+	"get":            true,
 }
 
 var knownBoolFlags = map[string]bool{
@@ -21,6 +25,9 @@ var knownBoolFlags = map[string]bool{
 	"destroy":          true,
 	"refresh-only":     true,
 	"compact-warnings": true,
+	"upgrade":          true,
+	"reconfigure":      true,
+	"force-copy":       true,
 }
 
 func normalizeArgs(args []string) []string {

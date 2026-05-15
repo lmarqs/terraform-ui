@@ -17,6 +17,7 @@ import (
 // buildPluginCommands creates cobra subcommands for plugin actions.
 func buildPluginCommands(cfg *config.Config) []*cobra.Command {
 	return []*cobra.Command{
+		buildInitCommand(cfg),
 		buildStateCommands(cfg),
 		buildWorkspaceCommands(cfg),
 		buildValidateCommand(cfg),
@@ -410,6 +411,53 @@ func buildForceUnlockCommand(cfg *config.Config) *cobra.Command {
 		},
 	}
 	cmd.Flags().BoolVar(&force, "force", false, "Skip confirmation prompt")
+	return cmd
+}
+
+func buildInitCommand(cfg *config.Config) *cobra.Command {
+	var ciMode bool
+	var upgrade bool
+	var reconfigure bool
+	var backendConfig []string
+
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "Run terraform init",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			binary := cfg.TerraformBinary()
+			svc := terraform.NewExecService(cfg.WorkingDir(), binary, nil)
+
+			opts := sdk.InitOptions{
+				Upgrade:       upgrade,
+				Reconfigure:   reconfigure,
+				BackendConfig: backendConfig,
+				ExtraArgs:     cfg.ExtraArgs,
+			}
+
+			showSpinner := !ciMode && isStderrTTY()
+			var s *spinner
+			if showSpinner {
+				s = newSpinner("Running terraform init...", true)
+				s.run()
+			}
+
+			err := svc.Init(context.Background(), opts)
+
+			if showSpinner {
+				s.halt()
+			}
+			if err != nil {
+				return fmt.Errorf("init failed: %w", err)
+			}
+
+			fmt.Fprintln(os.Stderr, "Terraform has been successfully initialized.")
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
+	cmd.Flags().BoolVar(&upgrade, "upgrade", false, "Upgrade modules and plugins")
+	cmd.Flags().BoolVar(&reconfigure, "reconfigure", false, "Reconfigure backend")
+	cmd.Flags().StringArrayVar(&backendConfig, "backend-config", nil, "Backend configuration")
 	return cmd
 }
 
