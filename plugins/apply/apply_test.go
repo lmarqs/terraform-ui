@@ -554,7 +554,6 @@ func TestUpdateKeyMsgSuccess_CtrlR_ShouldNavigateToPlan(t *testing.T) {
 	}
 }
 
-
 func TestBusy(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
@@ -762,7 +761,6 @@ func TestActivate_ShouldReturnNil(t *testing.T) {
 		t.Error("Activate() returned non-nil cmd, want nil")
 	}
 }
-
 
 func TestPlugin_WhenApplySucceeds_ShouldEmitPlanInvalidatedEvent(t *testing.T) {
 	svc := &mockService{}

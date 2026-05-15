@@ -246,4 +246,3 @@ func (e *Plugin) renderConfirmation(width, height int) string {
 
 	return warning + "\n" + detail + "\n\n" + prompt
 }
-
