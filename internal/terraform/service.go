@@ -151,9 +151,11 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*PlanSumm
 	return summary, nil
 }
 
-// Apply runs terraform apply on the saved plan file.
+// Apply runs terraform apply. When targets are specified, runs a direct apply
+// with -target flags (skipping the saved plan file, since terraform does not
+// support -target with a plan file). When no targets, applies the saved plan.
 func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
-	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir)
+	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir, "targets", len(opts.Targets))
 	start := time.Now()
 
 	tf, err := s.newTerraform()
@@ -164,9 +166,13 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 
 	planFilePath := filepath.Join(s.workingDir, planFileName)
 
-	applyOpts := []tfexec.ApplyOption{tfexec.DirOrPlan(planFilePath)}
-	for _, t := range opts.Targets {
-		applyOpts = append(applyOpts, tfexec.Target(t))
+	var applyOpts []tfexec.ApplyOption
+	if len(opts.Targets) > 0 {
+		for _, t := range opts.Targets {
+			applyOpts = append(applyOpts, tfexec.Target(t))
+		}
+	} else {
+		applyOpts = append(applyOpts, tfexec.DirOrPlan(planFilePath))
 	}
 	for _, f := range opts.VarFiles {
 		applyOpts = append(applyOpts, tfexec.VarFile(f))
