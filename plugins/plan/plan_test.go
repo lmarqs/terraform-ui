@@ -3,8 +3,10 @@ package plan
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -81,6 +83,7 @@ func TestCountable(t *testing.T) {
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}, {Resource: sdk.Resource{Address: "b"}}},
 	}
+	p.filtered = p.summary.Changes
 	filtered, total = c.Count()
 	if filtered != 2 || total != 2 {
 		t.Errorf("Count() = (%d, %d), want (2, 2)", filtered, total)
@@ -292,41 +295,43 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 			{Resource: sdk.Resource{Address: "c"}},
 		},
 	}
+	pp.filtered = pp.summary.Changes
+	pp.rebuildTree()
 
 	// Move down
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if pp.selected != 1 {
-		t.Errorf("after j: selected = %d, want 1", pp.selected)
+	if pp.tree.Cursor() != 1 {
+		t.Errorf("after j: cursor = %d, want 1", pp.tree.Cursor())
 	}
 
 	// Move down again
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if pp.selected != 2 {
-		t.Errorf("after j,j: selected = %d, want 2", pp.selected)
+	if pp.tree.Cursor() != 2 {
+		t.Errorf("after j,j: cursor = %d, want 2", pp.tree.Cursor())
 	}
 
 	// Move down at boundary (should not go past last)
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if pp.selected != 2 {
-		t.Errorf("after j,j,j: selected = %d, want 2 (boundary)", pp.selected)
+	if pp.tree.Cursor() != 2 {
+		t.Errorf("after j,j,j: cursor = %d, want 2 (boundary)", pp.tree.Cursor())
 	}
 
 	// Move up
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if pp.selected != 1 {
-		t.Errorf("after k: selected = %d, want 1", pp.selected)
+	if pp.tree.Cursor() != 1 {
+		t.Errorf("after k: cursor = %d, want 1", pp.tree.Cursor())
 	}
 
 	// Move up to start
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if pp.selected != 0 {
-		t.Errorf("after k,k: selected = %d, want 0", pp.selected)
+	if pp.tree.Cursor() != 0 {
+		t.Errorf("after k,k: cursor = %d, want 0", pp.tree.Cursor())
 	}
 
 	// Move up at boundary
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if pp.selected != 0 {
-		t.Errorf("after k,k,k: selected = %d, want 0 (boundary)", pp.selected)
+	if pp.tree.Cursor() != 0 {
+		t.Errorf("after k,k,k: cursor = %d, want 0 (boundary)", pp.tree.Cursor())
 	}
 }
 
@@ -342,41 +347,49 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 			{Resource: sdk.Resource{Address: "c"}},
 		},
 	}
+	pp.filtered = pp.summary.Changes
+	pp.rebuildTree()
 
 	// G moves to end
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
-	if pp.selected != 2 {
-		t.Errorf("after G: selected = %d, want 2", pp.selected)
+	if pp.tree.Cursor() != 2 {
+		t.Errorf("after G: cursor = %d, want 2", pp.tree.Cursor())
 	}
 
 	// g moves to start
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
-	if pp.selected != 0 {
-		t.Errorf("after g: selected = %d, want 0", pp.selected)
+	if pp.tree.Cursor() != 0 {
+		t.Errorf("after g: cursor = %d, want 0", pp.tree.Cursor())
 	}
 }
 
-func TestUpdateKeyMsgToggleExpand(t *testing.T) {
+func TestUpdateKeyMsgInspect(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
+	pp.pins = sdk.NewPinService()
 	pp.status = sdk.StatusDone
 	pp.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, AttributeDiffs: []sdk.AttributeDiff{{Key: "name"}}},
 		},
 	}
+	pp.filtered = pp.summary.Changes
+	pp.rebuildTree()
 
-	// Toggle expand with enter
+	// Enter opens inspect frame
 	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if !pp.IsExpanded(0) {
-		t.Error("after enter: IsExpanded(0) = false, want true")
+	if pp.stack.Peek().ID() != "inspect" {
+		t.Errorf("after enter: top frame = %q, want %q", pp.stack.Peek().ID(), "inspect")
+	}
+	if pp.detailAddr != "a" {
+		t.Errorf("detailAddr = %q, want %q", pp.detailAddr, "a")
 	}
 
-	// Toggle again
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if pp.IsExpanded(0) {
-		t.Error("after enter,enter: IsExpanded(0) = true, want false")
+	// Esc closes inspect
+	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if pp.stack.Peek().ID() != "list" {
+		t.Errorf("after esc: top frame = %q, want %q", pp.stack.Peek().ID(), "list")
 	}
 }
 
@@ -430,22 +443,24 @@ func TestMoveUpDown(t *testing.T) {
 			{Resource: sdk.Resource{Address: "b"}},
 		},
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	p.MoveDown()
-	if p.selected != 1 {
-		t.Errorf("MoveDown: selected = %d, want 1", p.selected)
+	if p.tree.Cursor() != 1 {
+		t.Errorf("MoveDown: cursor = %d, want 1", p.tree.Cursor())
 	}
 	p.MoveDown()
-	if p.selected != 1 {
-		t.Errorf("MoveDown (boundary): selected = %d, want 1", p.selected)
+	if p.tree.Cursor() != 1 {
+		t.Errorf("MoveDown (boundary): cursor = %d, want 1", p.tree.Cursor())
 	}
 	p.MoveUp()
-	if p.selected != 0 {
-		t.Errorf("MoveUp: selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("MoveUp: cursor = %d, want 0", p.tree.Cursor())
 	}
 	p.MoveUp()
-	if p.selected != 0 {
-		t.Errorf("MoveUp (boundary): selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("MoveUp (boundary): cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
@@ -454,8 +469,8 @@ func TestMoveDownNilSummary(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.summary = nil
 	p.MoveDown()
-	if p.selected != 0 {
-		t.Errorf("MoveDown nil summary: selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("MoveDown nil summary: cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
@@ -469,14 +484,16 @@ func TestMoveToStartEnd(t *testing.T) {
 			{Resource: sdk.Resource{Address: "c"}},
 		},
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	p.MoveToEnd()
-	if p.selected != 2 {
-		t.Errorf("MoveToEnd: selected = %d, want 2", p.selected)
+	if p.tree.Cursor() != 2 {
+		t.Errorf("MoveToEnd: cursor = %d, want 2", p.tree.Cursor())
 	}
 	p.MoveToStart()
-	if p.selected != 0 {
-		t.Errorf("MoveToStart: selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("MoveToStart: cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
@@ -485,8 +502,8 @@ func TestMoveToEndNilSummary(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.summary = nil
 	p.MoveToEnd()
-	if p.selected != 0 {
-		t.Errorf("MoveToEnd nil summary: selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("MoveToEnd nil summary: cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
@@ -495,31 +512,8 @@ func TestMoveToEndEmptyChanges(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 	p.MoveToEnd()
-	if p.selected != 0 {
-		t.Errorf("MoveToEnd empty: selected = %d, want 0", p.selected)
-	}
-}
-
-func TestToggleExpand(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	p.selected = 2
-
-	p.ToggleExpand()
-	if !p.IsExpanded(2) {
-		t.Error("ToggleExpand: IsExpanded(2) = false, want true")
-	}
-	p.ToggleExpand()
-	if p.IsExpanded(2) {
-		t.Error("ToggleExpand: IsExpanded(2) = true, want false")
-	}
-}
-
-func TestIsExpanded(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-	if p.IsExpanded(0) {
-		t.Error("IsExpanded(0) = true before toggle, want false")
+	if p.tree.Cursor() != 0 {
+		t.Errorf("MoveToEnd empty: cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
@@ -527,9 +521,9 @@ func TestSelectedChange(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 
-	// nil summary
+	// empty tree
 	if p.SelectedChange() != nil {
-		t.Error("SelectedChange nil summary: want nil")
+		t.Error("SelectedChange empty tree: want nil")
 	}
 
 	// valid selection
@@ -539,19 +533,15 @@ func TestSelectedChange(t *testing.T) {
 			{Resource: sdk.Resource{Address: "b"}},
 		},
 	}
-	p.selected = 1
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.MoveDown()
 	sc := p.SelectedChange()
 	if sc == nil {
 		t.Fatal("SelectedChange: got nil")
 	}
 	if sc.Resource.Address != "b" {
 		t.Errorf("SelectedChange.Resource.Address = %q, want %q", sc.Resource.Address, "b")
-	}
-
-	// out of bounds
-	p.selected = 10
-	if p.SelectedChange() != nil {
-		t.Error("SelectedChange out of bounds: want nil")
 	}
 }
 
@@ -569,8 +559,6 @@ func TestRefresh(t *testing.T) {
 	svc := &mockService{planResult: &sdk.PlanSummary{}}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
-	p.selected = 5
-	p.expander.Toggle(0)
 
 	cmd := p.Refresh()
 	if cmd == nil {
@@ -579,8 +567,8 @@ func TestRefresh(t *testing.T) {
 	if p.status != sdk.StatusLoading {
 		t.Errorf("after Refresh: status = %v, want sdk.StatusLoading", p.status)
 	}
-	if p.selected != 0 {
-		t.Errorf("after Refresh: selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("after Refresh: cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
@@ -693,9 +681,10 @@ func TestViewDoneWithChanges(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithExpandedAttributeDiffs(t *testing.T) {
+func TestViewDoneWithInspectDetail(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
+	p.pins = sdk.NewPinService()
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -711,11 +700,16 @@ func TestViewDoneWithExpandedAttributeDiffs(t *testing.T) {
 		},
 		ToUpdate: 1,
 	}
-	p.expander.Toggle(0)
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.inspectSelected()
 
-	view := p.View(80, 24)
+	view := p.renderDetail(80, 24)
 	if view == "" {
-		t.Error("View with expanded diffs returned empty string")
+		t.Error("Inspect detail view returned empty string")
+	}
+	if !strings.Contains(view, "aws_instance.web") {
+		t.Error("Inspect detail should contain resource address")
 	}
 }
 
@@ -728,13 +722,17 @@ func TestViewDoneScrolling(t *testing.T) {
 	changes := make([]sdk.PlanChange, 50)
 	for i := range changes {
 		changes[i] = sdk.PlanChange{
-			Resource: sdk.Resource{Address: "aws_instance.web_" + string(rune('a'+i%26))},
+			Resource: sdk.Resource{Address: fmt.Sprintf("aws_instance.web_%d", i)},
 			Action:   sdk.ActionCreate,
 			Risk:     sdk.RiskLow,
 		}
 	}
 	p.summary = &sdk.PlanSummary{Changes: changes, ToCreate: 50}
-	p.selected = 45
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	for i := 0; i < 45; i++ {
+		p.MoveDown()
+	}
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -896,13 +894,21 @@ func TestStatus(t *testing.T) {
 	}
 }
 
-func TestSelected(t *testing.T) {
+func TestTreeCursor(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.selected = 5
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "a"}},
+			{Resource: sdk.Resource{Address: "b"}},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.MoveDown()
 
-	if p.Selected() != 5 {
-		t.Errorf("Selected() = %d, want 5", p.Selected())
+	if p.tree.Cursor() != 1 {
+		t.Errorf("tree.Cursor() = %d, want 1", p.tree.Cursor())
 	}
 }
 

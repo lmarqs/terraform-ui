@@ -1,5 +1,5 @@
-    ~ aws_instance.web (phantom)
-    + aws_s3_bucket.logs [low]
+[ ] ~ aws_instance.web (phantom)
+[ ] + aws_s3_bucket.logs [low]
 
 Plan: 1 to add, 1 to change
 Overall risk: low

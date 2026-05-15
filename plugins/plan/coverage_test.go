@@ -59,7 +59,8 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}}
-	p.selected = 5
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 	p.errMsg = "old error"
 
 	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{
@@ -76,8 +77,8 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 	if p.summary != nil {
 		t.Error("summary != nil after reset")
 	}
-	if p.selected != 0 {
-		t.Error("selected != 0 after reset")
+	if p.tree.Cursor() != 0 {
+		t.Error("cursor != 0 after reset")
 	}
 	if p.errMsg != "" {
 		t.Errorf("errMsg = %q, want empty", p.errMsg)
@@ -92,7 +93,8 @@ func TestPlugin_WhenPlanInvalidated_ShouldResetState(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}}
-	p.selected = 3
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 	p.errMsg = "something"
 
 	cmd := p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
@@ -106,8 +108,8 @@ func TestPlugin_WhenPlanInvalidated_ShouldResetState(t *testing.T) {
 	if p.summary != nil {
 		t.Error("summary != nil after reset")
 	}
-	if p.selected != 0 {
-		t.Error("selected != 0 after reset")
+	if p.tree.Cursor() != 0 {
+		t.Error("cursor != 0 after reset")
 	}
 	if p.errMsg != "" {
 		t.Errorf("errMsg = %q, want empty", p.errMsg)
@@ -193,6 +195,13 @@ func TestPlugin_WhenViewErrorWithLockInfo_ShouldShowLockDetails(t *testing.T) {
 func TestPlugin_WhenTogglePin_ShouldPinAndUnpin(t *testing.T) {
 	svc := &mockService{}
 	p := newTestPlugin(svc)
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	p.togglePin("aws_instance.web")
 	if !p.pins.IsPinned("aws_instance.web") {
@@ -310,6 +319,8 @@ func TestListFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
 		},
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 
@@ -439,10 +450,12 @@ func TestListFrame_WhenDownKeyPressed_ShouldMoveDown(t *testing.T) {
 			{Resource: sdk.Resource{Address: "b"}},
 		},
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	if p.selected != 1 {
-		t.Errorf("after down: selected = %d, want 1", p.selected)
+	if p.tree.Cursor() != 1 {
+		t.Errorf("after down: selected = %d, want 1", p.tree.Cursor())
 	}
 }
 
@@ -455,15 +468,17 @@ func TestListFrame_WhenUpKeyPressed_ShouldMoveUp(t *testing.T) {
 			{Resource: sdk.Resource{Address: "b"}},
 		},
 	}
-	p.selected = 1
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.MoveDown()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyUp})
-	if p.selected != 0 {
-		t.Errorf("after up: selected = %d, want 0", p.selected)
+	if p.tree.Cursor() != 0 {
+		t.Errorf("after up: selected = %d, want 0", p.tree.Cursor())
 	}
 }
 
-func TestListFrame_WhenIKeyPressed_ShouldToggleExpand(t *testing.T) {
+func TestListFrame_WhenIKeyPressed_ShouldOpenInspect(t *testing.T) {
 	p := newTestPlugin(&mockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -471,10 +486,12 @@ func TestListFrame_WhenIKeyPressed_ShouldToggleExpand(t *testing.T) {
 			{Resource: sdk.Resource{Address: "a"}, AttributeDiffs: []sdk.AttributeDiff{{Key: "name"}}},
 		},
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
-	if !p.IsExpanded(0) {
-		t.Error("after i: IsExpanded(0) = false, want true")
+	if p.stack.Peek().ID() != "inspect" {
+		t.Errorf("after i: top frame ID = %q, want %q", p.stack.Peek().ID(), "inspect")
 	}
 }
 

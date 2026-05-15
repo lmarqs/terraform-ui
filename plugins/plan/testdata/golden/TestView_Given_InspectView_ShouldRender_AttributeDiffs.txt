@@ -1,0 +1,16 @@
+aws_instance.web
+
+Action:   ~ update
+Address:  aws_instance.web
+Type:     aws_instance
+Provider: registry.terraform.io/hashicorp/aws
+Risk:     [medium]
+
+Attributes:
+  instance_type:
+    - t3.micro
+    + t3.small
+  tags.Name:
+    - web-old
+    + web-new
+  password: (sensitive)

@@ -1,4 +1,4 @@
-    - aws_rds_cluster.production [CRITICAL]
+[ ] - aws_rds_cluster.production [CRITICAL]
 
 Plan: 1 to destroy
 Overall risk: CRITICAL

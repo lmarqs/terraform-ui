@@ -3,9 +3,11 @@ package plan
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
-// listFrame is the root frame for the plan plugin.
+// listFrame is the root frame for the plan plugin's change list.
 type listFrame struct {
 	plugin *Plugin
 }
@@ -26,10 +28,50 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "k", "up":
 		f.plugin.MoveUp()
 	case "enter", "i":
-		f.plugin.ToggleExpand()
+		if f.plugin.treeMode {
+			node := f.plugin.CursorNode()
+			if node != nil && node.Kind == tree.KindBranch {
+				f.plugin.tree.Toggle()
+				return f, nil
+			}
+		}
+		return f, f.plugin.inspectSelected()
+	case "/":
+		f.plugin.filtering = true
+		f.plugin.filter = ""
+		f.plugin.filtered = f.plugin.sourceChanges()
+		f.plugin.rebuildTree()
+		f.plugin.stack.Push(&planFilterFrame{
+			plugin: f.plugin,
+			inner: frames.NewFilterFrame(frames.FilterOpts{
+				OnFilter: func(q string) { f.plugin.SetFilter(q) },
+				OnSelect: func() tea.Cmd {
+					node := f.plugin.CursorNode()
+					if node != nil && node.Kind == tree.KindBranch {
+						f.plugin.tree.Toggle()
+						return nil
+					}
+					return f.plugin.inspectSelected()
+				},
+				OnNavigate: func(dir int) { f.plugin.navigate(dir) },
+				OnPin: func() tea.Cmd {
+					node := f.plugin.CursorNode()
+					if node == nil {
+						return nil
+					}
+					return f.plugin.togglePin(node.Path)
+				},
+				OnToggle: func() {
+					f.plugin.treeMode = !f.plugin.treeMode
+					f.plugin.SetFilter(f.plugin.filter)
+				},
+			}),
+		})
+		return f, nil
 	case " ":
-		if change := f.plugin.SelectedChange(); change != nil {
-			f.plugin.togglePin(change.Resource.Address)
+		node := f.plugin.CursorNode()
+		if node != nil {
+			return f, f.plugin.togglePin(node.Path)
 		}
 	case "a":
 		if f.plugin.status == sdk.StatusDone && f.plugin.summary != nil && len(f.plugin.summary.Changes) > 0 {
@@ -42,6 +84,33 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "ctrl+r":
 		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
+		}
+	case "ctrl+t":
+		f.plugin.treeMode = !f.plugin.treeMode
+		f.plugin.SetFilter(f.plugin.filter)
+	case "ctrl+w":
+		f.plugin.listWrap = !f.plugin.listWrap
+		f.plugin.listHScroll = 0
+	case "ctrl+p":
+		f.plugin.pinnedOnly = !f.plugin.pinnedOnly
+		f.plugin.SetFilter(f.plugin.filter)
+	case "ctrl+u":
+		f.plugin.clearAllPins()
+	case "right":
+		if !f.plugin.listWrap {
+			f.plugin.panListRight()
+		}
+	case "left":
+		if !f.plugin.listWrap {
+			f.plugin.panListLeft()
+		}
+	case "]":
+		if f.plugin.treeMode {
+			f.plugin.tree.ExpandAll()
+		}
+	case "[":
+		if f.plugin.treeMode {
+			f.plugin.tree.CollapseAll()
 		}
 	case "G":
 		f.plugin.MoveToEnd()
@@ -71,8 +140,133 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
 			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 		}
-		return (sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetApply | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetApply | sdk.HintSetRefresh | sdk.HintSetBack
+		if f.plugin.treeMode {
+			set |= sdk.HintSetCollapse | sdk.HintSetExpand
+		}
+		if f.plugin.PinnedCount() > 0 {
+			set |= sdk.HintSetClearPins
+		}
+		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap, PinnedFilter: f.plugin.pinnedOnly})
 	default:
 		return (sdk.HintSetBack).Hints()
 	}
+}
+
+// detailFrame handles key routing for the plan change detail/inspect view.
+type detailFrame struct {
+	plugin *Plugin
+}
+
+func (f *detailFrame) ID() string { return "inspect" }
+
+func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
+	keyMsg, ok := msg.(tea.KeyMsg)
+	if !ok {
+		return f, nil
+	}
+
+	switch keyMsg.String() {
+	case "esc":
+		f.plugin.detail = ""
+		f.plugin.detailAddr = ""
+		f.plugin.detailScroll = 0
+		f.plugin.detailHScroll = 0
+		return nil, nil
+	case "down":
+		f.plugin.detailScroll++
+	case "up":
+		if f.plugin.detailScroll > 0 {
+			f.plugin.detailScroll--
+		}
+	case "right":
+		if !f.plugin.detailWrap {
+			f.plugin.panDetailRight()
+		}
+	case "left":
+		if !f.plugin.detailWrap {
+			f.plugin.panDetailLeft()
+		}
+	case "ctrl+w":
+		f.plugin.detailWrap = !f.plugin.detailWrap
+		f.plugin.detailScroll = 0
+		f.plugin.detailHScroll = 0
+	case " ":
+		return f, f.plugin.togglePin(f.plugin.detailAddr)
+	}
+	return f, nil
+}
+
+func (f *detailFrame) View(width, height int) string {
+	return f.plugin.renderDetail(width, height)
+}
+
+func (f *detailFrame) Hints() []sdk.KeyHint {
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetCancel
+	return set.Hints(sdk.HintSetOpts{
+		WrapMode: f.plugin.detailWrap,
+		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
+	})
+}
+
+// planFilterFrame wraps FilterFrame with plugin-specific cleanup on pop.
+type planFilterFrame struct {
+	inner  *frames.FilterFrame
+	plugin *Plugin
+}
+
+func (f *planFilterFrame) ID() string { return "filter" }
+
+func (f *planFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+		switch keyMsg.String() {
+		case "]":
+			if f.plugin.treeMode {
+				f.plugin.tree.ExpandAll()
+			}
+			return f, nil
+		case "[":
+			if f.plugin.treeMode {
+				f.plugin.tree.CollapseAll()
+			}
+			return f, nil
+		case "ctrl+w":
+			f.plugin.listWrap = !f.plugin.listWrap
+			f.plugin.listHScroll = 0
+			return f, nil
+		case "ctrl+p":
+			f.plugin.pinnedOnly = !f.plugin.pinnedOnly
+			f.plugin.SetFilter(f.plugin.filter)
+			return f, nil
+		case "right":
+			if !f.plugin.listWrap {
+				f.plugin.panListRight()
+			}
+			return f, nil
+		case "left":
+			if !f.plugin.listWrap {
+				f.plugin.panListLeft()
+			}
+			return f, nil
+		}
+	}
+
+	result, cmd := f.inner.Update(msg)
+	if result == nil {
+		f.plugin.filtering = false
+		return nil, cmd
+	}
+	return f, cmd
+}
+
+func (f *planFilterFrame) View(width, height int) string {
+	return f.inner.View(width, height)
+}
+
+func (f *planFilterFrame) Hints() []sdk.KeyHint {
+	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
+	if f.plugin.treeMode {
+		set |= sdk.HintSetCollapse | sdk.HintSetExpand
+	}
+	return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode})
 }

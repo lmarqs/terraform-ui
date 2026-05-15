@@ -59,6 +59,8 @@ func TestView_Given_Changes_ShouldRender_ChangeList(t *testing.T) {
 		ToUpdate: 1,
 		ToDelete: 1,
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -66,7 +68,6 @@ func TestView_Given_Changes_ShouldRender_ChangeList(t *testing.T) {
 func TestView_Given_Changes_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
 	p := newGoldenPlugin()
 	p.status = sdk.StatusDone
-	p.selected = 1
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
@@ -77,19 +78,21 @@ func TestView_Given_Changes_WithSelection_ShouldRender_HighlightedRow(t *testing
 		ToUpdate: 1,
 		ToDelete: 1,
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.MoveDown()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
-func TestView_Given_ExpandedChange_ShouldRender_AttributeDiffs(t *testing.T) {
+func TestView_Given_InspectView_ShouldRender_AttributeDiffs(t *testing.T) {
 	p := newGoldenPlugin()
+	p.pins = sdk.NewPinService()
 	p.status = sdk.StatusDone
-	p.selected = 0
-	p.expander.Toggle(0)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
-				Resource: sdk.Resource{Address: "aws_instance.web"},
+				Resource: sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", ProviderName: "registry.terraform.io/hashicorp/aws"},
 				Action:   sdk.ActionUpdate,
 				Risk:     sdk.RiskMedium,
 				AttributeDiffs: []sdk.AttributeDiff{
@@ -101,8 +104,11 @@ func TestView_Given_ExpandedChange_ShouldRender_AttributeDiffs(t *testing.T) {
 		},
 		ToUpdate: 1,
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.inspectSelected()
 
-	sdktest.AssertGolden(t, p.View(80, 18))
+	sdktest.AssertGolden(t, p.renderDetail(80, 18))
 }
 
 func TestView_Given_PhantomChange_ShouldRender_PhantomMarker(t *testing.T) {
@@ -116,6 +122,8 @@ func TestView_Given_PhantomChange_ShouldRender_PhantomMarker(t *testing.T) {
 		ToCreate: 1,
 		ToUpdate: 1,
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -129,6 +137,8 @@ func TestView_Given_CriticalRisk_ShouldRender_RiskWarning(t *testing.T) {
 		},
 		ToDelete: 1,
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -145,6 +155,8 @@ func TestView_Given_PinnedChange_ShouldRender_PinMarker(t *testing.T) {
 		},
 		ToCreate: 2,
 	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }

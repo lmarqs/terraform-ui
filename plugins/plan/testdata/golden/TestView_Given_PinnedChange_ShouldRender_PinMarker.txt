@@ -1,5 +1,5 @@
- *  + aws_instance.web [low]
-    + aws_s3_bucket.logs [low]
+[*] + aws_instance.web [low]
+[ ] + aws_s3_bucket.logs [low]
 
 Plan: 2 to add
 Overall risk: low
