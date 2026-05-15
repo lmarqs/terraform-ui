@@ -78,7 +78,7 @@ mise run test:macro
 mise run 'test:integration:*'
 
 # Full verification before commit
-mise run check:vet && mise run check:lint && mise run test:unit
+mise run check:lint && mise run test:unit
 ```
 
 ## Test Layers

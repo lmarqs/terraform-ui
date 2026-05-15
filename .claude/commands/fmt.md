@@ -1,12 +1,10 @@
 ---
-allowed-tools: Bash(mise run:*), Bash(gofmt:*)
+allowed-tools: Bash(mise run:*), Bash(golangci-lint:*)
 description: Format Go source files (mise run fmt)
 ---
 
 ## Mise task: `fmt`
 
-Run `mise run fmt` to format all Go source files with gofmt.
-
-Runs automatically as part of `mise run build`.
+Run `mise run fmt` to format all Go source files with golangci-lint (goimports).
 
 Related commands: /build, /lint
