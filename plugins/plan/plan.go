@@ -87,6 +87,12 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	return nil
 }
 
+// HandleLockCleared implements sdk.LockClearedHandler.
+func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
+	e.lockInfo = nil
+	return e.Refresh()
+}
+
 // HandleChdirChanged implements sdk.ChdirHandler.
 func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 	e.svc = e.svc.WithDir(evt.AbsPath)
