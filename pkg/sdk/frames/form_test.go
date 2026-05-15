@@ -321,9 +321,6 @@ func TestFormFrame_View_ShouldRenderAllFields(t *testing.T) {
 	if !strings.Contains(view, "t3.micro") {
 		t.Fatal("view should contain field value 't3.micro'")
 	}
-	if !strings.Contains(view, "Enter to change selection") {
-		t.Fatal("view should contain footer hint text")
-	}
 }
 
 func TestFormFrame_View_ShouldShowCursorOnSelectedField(t *testing.T) {

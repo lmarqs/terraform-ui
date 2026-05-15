@@ -166,19 +166,19 @@ func (p *Plugin) buildForm() *frames.FormFrame {
 		Fields: []frames.FormField{
 			{
 				Label:      "upgrade",
-				Value:      func() string { return toggleLabel(p.upgrade) },
+				Value:      func() string { return checkbox(p.upgrade) },
 				Selectable: true,
 				OnSelect:   func() tea.Cmd { p.upgrade = !p.upgrade; return nil },
 			},
 			{
 				Label:      "reconfigure",
-				Value:      func() string { return toggleLabel(p.reconfigure) },
+				Value:      func() string { return checkbox(p.reconfigure) },
 				Selectable: true,
 				OnSelect:   func() tea.Cmd { p.reconfigure = !p.reconfigure; return nil },
 			},
 			{
 				Label:      "backend",
-				Value:      func() string { return toggleLabel(p.backend) },
+				Value:      func() string { return checkbox(p.backend) },
 				Selectable: true,
 				OnSelect:   func() tea.Cmd { p.backend = !p.backend; return nil },
 			},
@@ -190,8 +190,9 @@ func (p *Plugin) buildForm() *frames.FormFrame {
 			},
 			{
 				Label:      "",
-				Value:      func() string { return "▶ Run terraform init" },
+				Value:      func() string { return "Run terraform init" },
 				Selectable: true,
+				IsAction:   true,
 				OnSelect:   p.submitFromForm,
 			},
 		},
@@ -251,9 +252,9 @@ func (p *Plugin) extraArgsDisplay() string {
 	return p.extraArgs
 }
 
-func toggleLabel(v bool) string {
+func checkbox(v bool) string {
 	if v {
-		return "on"
+		return "[x]"
 	}
-	return "off"
+	return "[ ]"
 }

@@ -16,6 +16,8 @@ type FormField struct {
 	Value func() string
 	// Selectable indicates whether the user can press Enter to act on this field.
 	Selectable bool
+	// IsAction renders the field as a distinct submit button rather than a data field.
+	IsAction bool
 	// OnSelect is called when Enter is pressed on a selectable field.
 	OnSelect func() tea.Cmd
 }
@@ -96,18 +98,22 @@ func (f *FormFrame) View(width, height int) string {
 	var b strings.Builder
 
 	for i, field := range f.fields {
+		if field.IsAction && i > 0 && !f.fields[i-1].IsAction {
+			b.WriteByte('\n')
+		}
 		selected := i == f.cursor
 		b.WriteString(f.renderField(field, selected))
 		b.WriteByte('\n')
 	}
 
-	b.WriteByte('\n')
-	b.WriteString(sdk.StyleFaintItalic.Render("Enter to change selection"))
-
 	return b.String()
 }
 
 func (f *FormFrame) renderField(field FormField, selected bool) string {
+	if field.IsAction {
+		return f.renderAction(field, selected)
+	}
+
 	cursor := "  "
 	if selected {
 		cursor = sdk.StyleKey.Render("▸ ")
@@ -126,6 +132,14 @@ func (f *FormFrame) renderField(field FormField, selected bool) string {
 	}
 
 	return cursor + label + value + suffix
+}
+
+func (f *FormFrame) renderAction(field FormField, selected bool) string {
+	label := field.Value()
+	if selected {
+		return sdk.StyleKey.Render("▸ " + label)
+	}
+	return "  " + sdk.StyleFaint.Render(label)
 }
 
 func (f *FormFrame) Hints() []sdk.KeyHint {
