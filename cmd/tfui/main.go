@@ -28,6 +28,7 @@ import (
 	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiforceunlock "github.com/lmarqs/terraform-ui/plugins/forceunlock"
+	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiphantom "github.com/lmarqs/terraform-ui/plugins/phantom"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
@@ -217,6 +218,7 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.RegisterFactory("repl", tfuirepl.New, plugin.PluginMeta{Keybinding: "t", MenuVisible: true})
 	registry.RegisterFactory("output", tfuioutput.New, plugin.PluginMeta{Keybinding: "o", MenuVisible: true})
 	registry.RegisterFactory("validate", tfuivalidate.New, plugin.PluginMeta{Keybinding: "v", MenuVisible: true})
+	registry.RegisterFactory("init", tfuiinit.New, plugin.PluginMeta{Keybinding: "i", MenuVisible: true})
 	registry.RegisterFactory("risk", tfuirisk.New, plugin.PluginMeta{Keybinding: "R", MenuVisible: true})
 	registry.RegisterFactory("phantom", tfuiphantom.New, plugin.PluginMeta{Keybinding: "P", MenuVisible: true})
 	registry.RegisterFactory("blastradius", tfuiblastradius.New, plugin.PluginMeta{Keybinding: "B", MenuVisible: true})
