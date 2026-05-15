@@ -71,7 +71,7 @@ Frame lifecycle:
 - **`:` command mode**: type plugin name to switch views. Tab autocomplete. Built-in: `:q` quit (guarded when terraform holds a lock), `:q!` force quit.
 - **`/` filter mode**: fzf-style fuzzy filter. `esc` exits.
 - **`space` pin**: toggle pin on selected resource. Pinned = apply/plan target.
-- **`enter` / `i` inspect**: show detail view with expanded values.
+- **`enter` inspect**: show detail view with expanded values.
 - **`d` delete**: remove from state — triggers confirmation.
 - **`e` edit**: opens $EDITOR at resource's .tf file:line.
 - **`m` move**: rename resource address in state.
@@ -94,14 +94,15 @@ Two layers — bare alpha keys talk to terraform, everything else talks to the i
 - `q` / `Esc` = leave (universal TUI convention, exception to alpha rule)
 
 Redundant keybindings for accessibility (hints show only primary):
-- Inspect: `Enter` (shown), `i` (alias)
+- Navigation: `↓` (shown), `j` (alias); `↑` (shown), `k` (alias)
 - Back to home: `q` (shown), `esc` when no sub-state (alias)
 
 Rules:
-- `enter`/`i` always means inspect — never overloaded
+- `enter` always means inspect — never overloaded
 - `space` always means pin — never overloaded
 - `q` shown at plugin top-level; `esc` shown only in sub-states
 - Plugins must NOT start in filter mode by default
+- Full keybinding map: `docs/tui-ux.md` §15
 
 ## Action Model (cursor vs batch)
 
