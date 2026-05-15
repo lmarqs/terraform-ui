@@ -20,7 +20,7 @@ func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSumma
 	return nil, nil
 }
 func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context) ([]sdk.Resource, error) {
+func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 	return nil, nil
 }
 func (m *mockService) Show(_ context.Context, _ string) (string, error)  { return "", nil }
@@ -397,17 +397,34 @@ func TestConfirmUnlock_Callback_CallsService(t *testing.T) {
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
-	// Simulate user confirming "y"
-	unlockCmd := reqMsg.Request.Callback("y")
-	if unlockCmd == nil {
+	// Simulate user confirming "y" — returns ForceUnlockStartMsg
+	startCmd := reqMsg.Request.Callback("y")
+	if startCmd == nil {
 		t.Fatal("confirm callback should return a cmd")
 	}
+	startMsg := startCmd()
+	start, ok := startMsg.(ForceUnlockStartMsg)
+	if !ok {
+		t.Fatalf("callback cmd returned %T, want ForceUnlockStartMsg", startMsg)
+	}
+	if start.LockID != "lock-abc" {
+		t.Errorf("ForceUnlockStartMsg.LockID = %q, want %q", start.LockID, "lock-abc")
+	}
 
-	// Execute the unlock command — it calls ForceUnlock
-	resultMsg := unlockCmd()
+	// Feed ForceUnlockStartMsg into Update — triggers the actual unlock
+	_, execCmd := p.Update(start)
+	if execCmd == nil {
+		t.Fatal("Update(ForceUnlockStartMsg) should return exec cmd")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+
+	// Execute the unlock command
+	resultMsg := execCmd()
 	result, ok := resultMsg.(ForceUnlockResultMsg)
 	if !ok {
-		t.Fatalf("unlock cmd returned %T, want ForceUnlockResultMsg", resultMsg)
+		t.Fatalf("exec cmd returned %T, want ForceUnlockResultMsg", resultMsg)
 	}
 	if result.Err != nil {
 		t.Errorf("ForceUnlockResultMsg.Err = %v, want nil", result.Err)
@@ -429,8 +446,12 @@ func TestConfirmUnlock_Callback_ReturnsError(t *testing.T) {
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
-	unlockCmd := reqMsg.Request.Callback("y")
-	resultMsg := unlockCmd()
+	startCmd := reqMsg.Request.Callback("y")
+	startMsg := startCmd()
+	start := startMsg.(ForceUnlockStartMsg)
+
+	_, execCmd := p.Update(start)
+	resultMsg := execCmd()
 	result := resultMsg.(ForceUnlockResultMsg)
 
 	if result.Err == nil {
@@ -494,17 +515,23 @@ func TestManualEntry_Callback_ConfirmYes(t *testing.T) {
 		t.Errorf("request mode = %v, want InputRequestBool", reqMsg3.Request.Mode)
 	}
 
-	// User confirms
-	unlockCmd := reqMsg3.Request.Callback("y")
-	if unlockCmd == nil {
+	// User confirms — returns ForceUnlockStartMsg
+	startCmd := reqMsg3.Request.Callback("y")
+	if startCmd == nil {
 		t.Fatal("confirming unlock should return a cmd")
 	}
+	startMsg := startCmd()
+	start, ok := startMsg.(ForceUnlockStartMsg)
+	if !ok {
+		t.Fatalf("confirm cmd returned %T, want ForceUnlockStartMsg", startMsg)
+	}
 
-	// Execute the actual unlock
-	resultMsg := unlockCmd()
+	// Feed into Update
+	_, execCmd := p.Update(start)
+	resultMsg := execCmd()
 	result, ok := resultMsg.(ForceUnlockResultMsg)
 	if !ok {
-		t.Fatalf("unlock cmd returned %T, want ForceUnlockResultMsg", resultMsg)
+		t.Fatalf("exec cmd returned %T, want ForceUnlockResultMsg", resultMsg)
 	}
 	if result.LockID != "manual-lock-id" {
 		t.Errorf("LockID = %q, want %q", result.LockID, "manual-lock-id")

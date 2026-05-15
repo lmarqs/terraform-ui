@@ -80,7 +80,7 @@ func (r *MacroService) Apply(_ context.Context, opts sdk.ApplyOptions) error {
 	return nil
 }
 
-func (r *MacroService) StateList(_ context.Context) ([]sdk.Resource, error) {
+func (r *MacroService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 	if resources, ok := r.cache.GetResources(); ok {
 		return resources, nil
 	}

@@ -2,6 +2,30 @@ package sdk
 
 import "context"
 
+type stateListConfig struct{ skipCache bool }
+
+// StateListOption configures the behavior of StateList.
+type StateListOption func(*stateListConfig)
+
+// SkipCache forces StateList to bypass cached data and re-read from the backend.
+func SkipCache() StateListOption {
+	return func(c *stateListConfig) { c.skipCache = true }
+}
+
+// ApplyStateListOptions resolves variadic options into a config struct.
+func ApplyStateListOptions(opts []StateListOption) stateListConfig {
+	var cfg stateListConfig
+	for _, o := range opts {
+		o(&cfg)
+	}
+	return cfg
+}
+
+// ShouldSkipCache returns true if the options request a cache bypass.
+func (c stateListConfig) ShouldSkipCache() bool {
+	return c.skipCache
+}
+
 // Service defines the interface for all terraform operations that tfui depends on.
 // Implementations wrap terraform-exec or similar backends.
 type Service interface {
@@ -13,7 +37,7 @@ type Service interface {
 	Apply(ctx context.Context, opts ApplyOptions) error
 
 	// StateList returns all managed resources in the current terraform state.
-	StateList(ctx context.Context) ([]Resource, error)
+	StateList(ctx context.Context, opts ...StateListOption) ([]Resource, error)
 
 	// Show returns a JSON representation of a specific resource identified by address.
 	Show(ctx context.Context, address string) (string, error)
