@@ -1,11 +1,11 @@
 ---
-description: "CLI design decisions, pre-seeded cache, config loading, and terraform flag handling"
+description: "CLI UX: I/O contract, output channels, flag conventions, spinner logic, and exit codes"
 globs: ["cmd/**"]
 ---
 
 Full spec: `docs/cli-ux.md`
 
-# CLI Design
+# CLI UX Rules
 
 ## Pre-Seeded Cache (`--plan`, `--state`)
 

@@ -1,11 +1,11 @@
 ---
-description: "UX model, keybinding conventions, hint bar design, action model, and anti-patterns for TUI plugins"
+description: "TUI UX: keybinding conventions, hint bar design, navigation, action model, and anti-patterns"
 globs: ["plugins/**", "internal/ui/**", "pkg/sdk/frames/**"]
 ---
 
 Full spec: `docs/tui-ux.md`
 
-# UX Rules
+# TUI UX Rules
 
 ## Navigation Architecture
 
