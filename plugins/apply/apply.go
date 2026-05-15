@@ -204,6 +204,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return e.Confirm()
 		case "n", "N", "esc":
 			e.Cancel()
+			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	case sdk.StatusDone:
 		switch msg.String() {
