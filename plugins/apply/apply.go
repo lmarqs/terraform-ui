@@ -204,11 +204,17 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		switch msg.String() {
 		case "ctrl+r":
 			return func() tea.Msg { return sdk.NavigateMsg{PluginID: "plan"} }
+		case "esc":
+			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	case sdk.StatusError:
 		switch msg.String() {
 		case "ctrl+r":
+			e.startTime = time.Now()
+			e.elapsed = 0
 			return e.Confirm()
+		case "esc":
+			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	}
 	return nil
