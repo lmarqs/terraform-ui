@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 type mockService struct {
@@ -150,6 +151,7 @@ func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
+	p.timer.Start()
 
 	result, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
 	if cmd == nil {
@@ -164,8 +166,8 @@ func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 	if updated.status != sdk.StatusDone {
 		t.Errorf("status = %v, want sdk.StatusDone", updated.status)
 	}
-	if updated.elapsed != 5*time.Second {
-		t.Errorf("elapsed = %v, want 5s", updated.elapsed)
+	if updated.timer.Running() {
+		t.Error("timer still running after result, want stopped")
 	}
 	if !updated.Ready() {
 		t.Error("Ready() = false after success, want true")
@@ -191,29 +193,26 @@ func TestUpdateApplyResultMsgError(t *testing.T) {
 	}
 }
 
-func TestUpdateTickMsgRunning(t *testing.T) {
+func TestUpdateTimerTickMsgRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
-	p.startTime = time.Now().Add(-5 * time.Second)
+	p.timer.Start()
 
-	_, cmd := p.Update(TickMsg(time.Now()))
+	_, cmd := p.Update(ui.TimerTickMsg{})
 	if cmd == nil {
-		t.Error("Update(TickMsg) in sdk.StatusLoading: cmd = nil, want non-nil (next tick)")
-	}
-	if p.elapsed < 4*time.Second {
-		t.Errorf("elapsed = %v, want >= 4s", p.elapsed)
+		t.Error("Update(TimerTickMsg) while timer running: cmd = nil, want non-nil (next tick)")
 	}
 }
 
-func TestUpdateTickMsgNotRunning(t *testing.T) {
+func TestUpdateTimerTickMsgNotRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
-	_, cmd := p.Update(TickMsg(time.Now()))
+	_, cmd := p.Update(ui.TimerTickMsg{})
 	if cmd != nil {
-		t.Error("Update(TickMsg) in sdk.StatusDone: cmd != nil, want nil")
+		t.Error("Update(TimerTickMsg) while timer stopped: cmd != nil, want nil")
 	}
 }
 
@@ -363,7 +362,7 @@ func TestViewRunning(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
-	p.elapsed = 10 * time.Second
+	p.timer.Start()
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -375,7 +374,8 @@ func TestViewSuccess(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
-	p.elapsed = 30 * time.Second
+	p.timer.Start()
+	p.timer.Stop()
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -406,33 +406,24 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestFormatDuration(t *testing.T) {
-	tests := []struct {
-		d    time.Duration
-		want string
-	}{
-		{5 * time.Second, "5s"},
-		{30 * time.Second, "30s"},
-		{59 * time.Second, "59s"},
-		{60 * time.Second, "1m0s"},
-		{90 * time.Second, "1m30s"},
-		{125 * time.Second, "2m5s"},
-	}
+func TestConfirm_ShouldStartTimer(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = StatusConfirming
 
-	for _, tt := range tests {
-		got := formatDuration(tt.d)
-		if got != tt.want {
-			t.Errorf("formatDuration(%v) = %q, want %q", tt.d, got, tt.want)
-		}
+	p.Confirm()
+	if !p.timer.Running() {
+		t.Error("timer not running after Confirm(), want running")
 	}
 }
 
 func TestElapsed(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
-	p.elapsed = 42 * time.Second
-	if p.Elapsed() != 42*time.Second {
-		t.Errorf("Elapsed() = %v, want 42s", p.Elapsed())
+	p.timer.Start()
+	time.Sleep(10 * time.Millisecond)
+	if p.Elapsed() == 0 {
+		t.Error("Elapsed() = 0 while timer running, want > 0")
 	}
 }
 
@@ -460,7 +451,6 @@ func TestRunApplyCmd(t *testing.T) {
 	svc := &mockService{applyErr: nil}
 	p := New(svc).(*Plugin)
 	p.svc = svc
-	p.startTime = time.Now()
 
 	cmd := p.runApply()
 	msg := cmd()
@@ -478,7 +468,6 @@ func TestRunApplyCmdError(t *testing.T) {
 	svc := &mockService{applyErr: errors.New("apply failed")}
 	p := New(svc).(*Plugin)
 	p.svc = svc
-	p.startTime = time.Now()
 
 	cmd := p.runApply()
 	msg := cmd()
@@ -565,12 +554,6 @@ func TestUpdateKeyMsgSuccess_CtrlR_ShouldNavigateToPlan(t *testing.T) {
 	}
 }
 
-func TestFormatDurationZero(t *testing.T) {
-	got := formatDuration(0)
-	if got != "0s" {
-		t.Errorf("formatDuration(0) = %q, want %q", got, "0s")
-	}
-}
 
 func TestBusy(t *testing.T) {
 	svc := &mockService{}
@@ -780,19 +763,6 @@ func TestActivate_ShouldReturnNil(t *testing.T) {
 	}
 }
 
-func TestTick_ShouldReturnTickMsg(t *testing.T) {
-	svc := &mockService{}
-	p := New(svc).(*Plugin)
-
-	cmd := p.tick()
-	if cmd == nil {
-		t.Fatal("tick() returned nil cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(TickMsg); !ok {
-		t.Errorf("tick() cmd returned %T, want TickMsg", msg)
-	}
-}
 
 func TestPlugin_WhenApplySucceeds_ShouldEmitPlanInvalidatedEvent(t *testing.T) {
 	svc := &mockService{}

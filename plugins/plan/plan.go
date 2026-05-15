@@ -35,6 +35,7 @@ type Plugin struct {
 	stack         *sdk.Stack
 	pins          *sdk.PinService
 	fuzzy         *ui.FuzzyFilter[sdk.PlanChange]
+	timer         ui.Timer
 	status        sdk.Status
 	summary       *sdk.PlanSummary
 	filtered      []sdk.PlanChange
@@ -165,7 +166,7 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
 		e.status = sdk.StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
-		return e.runPlan()
+		return tea.Batch(e.runPlan(), e.timer.Start())
 	}
 	return nil
 }
@@ -188,7 +189,7 @@ func (e *Plugin) Refresh() tea.Cmd {
 	if e.stack != nil {
 		e.stack.Clear()
 	}
-	return e.runPlan()
+	return tea.Batch(e.runPlan(), e.timer.Start())
 }
 
 func (e *Plugin) runPlan() tea.Cmd {
@@ -203,7 +204,11 @@ func (e *Plugin) runPlan() tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
+
 	case PlanResultMsg:
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -497,7 +502,7 @@ func (e *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Ready to plan.")
 
 	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render("Running terraform plan...")
+		return sdk.StyleFaintItalic.Render("Running terraform plan... " + e.timer.FormatElapsed())
 
 	case sdk.StatusError:
 		if e.lockInfo != nil {

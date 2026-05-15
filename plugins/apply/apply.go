@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 const StatusConfirming = sdk.Status(10)
@@ -17,9 +18,6 @@ type ApplyResultMsg struct {
 	Duration time.Duration
 }
 
-// TickMsg is sent during apply for elapsed time tracking.
-type TickMsg time.Time
-
 // Plugin implements the terraform apply feature.
 type Plugin struct {
 	svc            sdk.Service
@@ -27,8 +25,7 @@ type Plugin struct {
 	status         sdk.Status
 	errMsg         string
 	targets        []string
-	startTime      time.Time
-	elapsed        time.Duration
+	timer          ui.Timer
 	confirmed      bool
 	totalResources int
 	scopedContext  string
@@ -47,7 +44,7 @@ func (e *Plugin) Description() string { return "Apply terraform changes to infra
 func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status  { return e.status }
 func (e *Plugin) Elapsed() time.Duration {
-	return e.elapsed
+	return e.timer.Elapsed()
 }
 func (e *Plugin) IsConfirming() bool { return e.status == StatusConfirming }
 func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
@@ -116,7 +113,6 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.status == sdk.StatusError || e.status == sdk.StatusDone {
 		e.status = sdk.StatusIdle
 		e.errMsg = ""
-		e.elapsed = 0
 	}
 	return nil
 }
@@ -137,9 +133,8 @@ func (e *Plugin) RequestApply() {
 func (e *Plugin) Confirm() tea.Cmd {
 	e.confirmed = true
 	e.status = sdk.StatusLoading
-	e.startTime = time.Now()
 	e.errMsg = ""
-	return tea.Batch(e.runApply(), e.tick())
+	return tea.Batch(e.runApply(), e.timer.Start())
 }
 
 // Cancel aborts the apply confirmation.
@@ -151,24 +146,18 @@ func (e *Plugin) Cancel() {
 func (e *Plugin) runApply() tea.Cmd {
 	svc := e.svc
 	opts := sdk.BuildApplyOptions(e.options, e.targets)
-	start := e.startTime
+	start := time.Now()
 	return func() tea.Msg {
 		err := svc.Apply(context.Background(), opts)
 		return ApplyResultMsg{Err: err, Duration: time.Since(start)}
 	}
 }
 
-func (e *Plugin) tick() tea.Cmd {
-	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
-		return TickMsg(t)
-	})
-}
-
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ApplyResultMsg:
-		e.elapsed = msg.Duration
+		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -177,12 +166,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		e.status = sdk.StatusDone
 		return e, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
 
-	case TickMsg:
-		if e.status == sdk.StatusLoading {
-			e.elapsed = time.Since(e.startTime)
-			return e, e.tick()
-		}
-		return e, nil
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
 
 	case tea.KeyMsg:
 		cmd := e.handleKey(msg)
@@ -216,8 +201,6 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case sdk.StatusError:
 		switch msg.String() {
 		case "ctrl+r":
-			e.startTime = time.Now()
-			e.elapsed = 0
 			return e.Confirm()
 		case "esc":
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
@@ -236,15 +219,11 @@ func (e *Plugin) View(width, height int) string {
 		return e.renderConfirmation(width, height)
 
 	case sdk.StatusLoading:
-		elapsed := formatDuration(e.elapsed)
-		running := sdk.StyleFaintItalic.Render("Applying changes... " + elapsed)
-		spinner := sdk.StyleUpdate.Render(">>>")
-		return spinner + " " + running
+		return sdk.StyleFaintItalic.Render("Applying changes... " + e.timer.FormatElapsed())
 
 	case sdk.StatusDone:
-		elapsed := formatDuration(e.elapsed)
 		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
-		duration := sdk.StyleFaint.Render("Duration: " + elapsed)
+		duration := sdk.StyleFaint.Render("Duration: " + e.timer.FormatElapsed())
 		return success + "\n" + duration
 
 	case sdk.StatusError:
@@ -268,11 +247,3 @@ func (e *Plugin) renderConfirmation(width, height int) string {
 	return warning + "\n" + detail + "\n\n" + prompt
 }
 
-func formatDuration(d time.Duration) string {
-	if d < time.Minute {
-		return fmt.Sprintf("%ds", int(d.Seconds()))
-	}
-	minutes := int(d.Minutes())
-	seconds := int(d.Seconds()) % 60
-	return fmt.Sprintf("%dm%ds", minutes, seconds)
-}
