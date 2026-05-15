@@ -65,7 +65,7 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	case sdk.StatusLoading:
 		return (sdk.HintSetBack).Hints()
 	case sdk.StatusDone:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	default:
@@ -167,10 +167,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
-		} else {
-			e.status = sdk.StatusDone
+			return e, nil
 		}
-		return e, nil
+		e.status = sdk.StatusDone
+		return e, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
 
 	case TickMsg:
 		if e.status == sdk.StatusLoading {
@@ -199,6 +199,11 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return e.Confirm()
 		case "n", "N", "esc":
 			e.Cancel()
+		}
+	case sdk.StatusDone:
+		switch msg.String() {
+		case "ctrl+r":
+			return func() tea.Msg { return sdk.NavigateMsg{PluginID: "plan"} }
 		}
 	case sdk.StatusError:
 		switch msg.String() {

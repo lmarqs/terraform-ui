@@ -152,8 +152,12 @@ func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
-	if cmd != nil {
-		t.Errorf("Update(ApplyResultMsg) cmd = %v, want nil", cmd)
+	if cmd == nil {
+		t.Fatal("Update(ApplyResultMsg) cmd = nil, want PlanInvalidatedEvent emitter")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.PlanInvalidatedEvent); !ok {
+		t.Errorf("cmd() = %T, want sdk.PlanInvalidatedEvent", msg)
 	}
 
 	updated := result.(*Plugin)
@@ -542,15 +546,22 @@ func TestUpdateKeyMsgRunning(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgSuccess(t *testing.T) {
+func TestUpdateKeyMsgSuccess_CtrlR_ShouldNavigateToPlan(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
-	// Keys during success state should do nothing (no handler)
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
-	if cmd != nil {
-		t.Error("after r in success: cmd != nil, want nil")
+	if cmd == nil {
+		t.Fatal("after ctrl+r in success: cmd = nil, want NavigateMsg")
+	}
+	msg := cmd()
+	nav, ok := msg.(sdk.NavigateMsg)
+	if !ok {
+		t.Fatalf("cmd() = %T, want sdk.NavigateMsg", msg)
+	}
+	if nav.PluginID != "plan" {
+		t.Errorf("NavigateMsg.PluginID = %q, want %q", nav.PluginID, "plan")
 	}
 }
 
@@ -651,17 +662,20 @@ func TestHints_WhenLoading_ShouldReturnBack(t *testing.T) {
 	}
 }
 
-func TestHints_WhenDone_ShouldReturnBack(t *testing.T) {
+func TestHints_WhenDone_ShouldReturnRefreshAndBack(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
 	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() returned empty slice in done state")
+	if len(hints) != 2 {
+		t.Fatalf("Hints() length = %d, want 2", len(hints))
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
-		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
+	if hints[0].Key != "^r" || hints[0].Description != "refresh" {
+		t.Errorf("Hints()[0] = %v, want {^r refresh}", hints[0])
+	}
+	if hints[1].Key != "q" || hints[1].Description != "back" {
+		t.Errorf("Hints()[1] = %v, want {q back}", hints[1])
 	}
 }
 
@@ -777,5 +791,41 @@ func TestTick_ShouldReturnTickMsg(t *testing.T) {
 	msg := cmd()
 	if _, ok := msg.(TickMsg); !ok {
 		t.Errorf("tick() cmd returned %T, want TickMsg", msg)
+	}
+}
+
+func TestPlugin_WhenApplySucceeds_ShouldEmitPlanInvalidatedEvent(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusLoading
+
+	_, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
+	if cmd == nil {
+		t.Fatal("Update(ApplyResultMsg{Err: nil}) returned nil cmd, want cmd that emits PlanInvalidatedEvent")
+	}
+
+	msg := cmd()
+	if _, ok := msg.(sdk.PlanInvalidatedEvent); !ok {
+		t.Errorf("cmd() returned %T, want sdk.PlanInvalidatedEvent", msg)
+	}
+}
+
+func TestPlugin_WhenDoneAndCtrlR_ShouldNavigateToPlan(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	if cmd == nil {
+		t.Fatal("Update(ctrl+r in StatusDone) returned nil cmd, want cmd that emits NavigateMsg{PluginID: \"plan\"}")
+	}
+
+	msg := cmd()
+	nav, ok := msg.(sdk.NavigateMsg)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want sdk.NavigateMsg", msg)
+	}
+	if nav.PluginID != "plan" {
+		t.Errorf("NavigateMsg.PluginID = %q, want %q", nav.PluginID, "plan")
 	}
 }

@@ -164,7 +164,18 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 
 	planFilePath := filepath.Join(s.workingDir, planFileName)
 
-	err = tf.Apply(ctx, tfexec.DirOrPlan(planFilePath))
+	applyOpts := []tfexec.ApplyOption{tfexec.DirOrPlan(planFilePath)}
+	for _, t := range opts.Targets {
+		applyOpts = append(applyOpts, tfexec.Target(t))
+	}
+	for _, f := range opts.VarFiles {
+		applyOpts = append(applyOpts, tfexec.VarFile(f))
+	}
+	for k, v := range opts.Vars {
+		applyOpts = append(applyOpts, tfexec.Var(k+"="+v))
+	}
+
+	err = tf.Apply(ctx, applyOpts...)
 	if err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "apply", "error", err.Error(), "duration", time.Since(start).String())
 		return fmt.Errorf("running terraform apply: %w", err)
