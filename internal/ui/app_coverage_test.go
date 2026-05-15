@@ -950,8 +950,8 @@ func TestApp_NavigateTo_WhenNavPush_ShouldSaveReturnTo(t *testing.T) {
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.navigateTo(chdirPlugin)
 
-	if app.returnTo == nil || app.returnTo.ID() != "state" {
-		t.Errorf("navigateTo with NavPush should save returnTo, got %v", app.returnTo)
+	if len(app.navStack) == 0 || app.navStack[len(app.navStack)-1] == nil || app.navStack[len(app.navStack)-1].ID() != "state" {
+		t.Errorf("navigateTo with NavPush should push to navStack, got %v", app.navStack)
 	}
 	if app.activePlugin == nil || app.activePlugin.ID() != "chdir" {
 		t.Errorf("activePlugin should be chdir, got %v", app.activePlugin)
@@ -961,16 +961,16 @@ func TestApp_NavigateTo_WhenNavPush_ShouldSaveReturnTo(t *testing.T) {
 func TestApp_NavigateTo_WhenNavReplace_ShouldClearReturnTo(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
-	// Set a returnTo
+	// Set a navStack entry
 	statePlugin, _ := app.registry.ByID("state")
-	app.returnTo = statePlugin
+	app.navStack = []sdk.Plugin{statePlugin}
 
 	// Navigate to plan (NavReplace)
 	planPlugin, _ := app.registry.ByID("plan")
 	app.navigateTo(planPlugin)
 
-	if app.returnTo != nil {
-		t.Errorf("navigateTo with NavReplace should clear returnTo, got %v", app.returnTo)
+	if len(app.navStack) != 0 {
+		t.Errorf("navigateTo with NavReplace should clear navStack, got %v", app.navStack)
 	}
 }
 
@@ -982,15 +982,15 @@ func TestApp_NavigateBack_WhenReturnToSet_ShouldRestorePlugin(t *testing.T) {
 	statePlugin, _ := app.registry.ByID("state")
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
-	app.returnTo = statePlugin
+	app.navStack = []sdk.Plugin{statePlugin}
 
 	app.navigateBack()
 
 	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
-		t.Errorf("navigateBack should restore returnTo, got %v", app.activePlugin)
+		t.Errorf("navigateBack should pop navStack, got %v", app.activePlugin)
 	}
-	if app.returnTo != nil {
-		t.Error("navigateBack should clear returnTo")
+	if len(app.navStack) != 0 {
+		t.Error("navigateBack should pop from navStack")
 	}
 }
 
@@ -999,12 +999,12 @@ func TestApp_NavigateBack_WhenReturnToNil_ShouldGoHome(t *testing.T) {
 
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
-	app.returnTo = nil
+	app.navStack = nil
 
 	app.navigateBack()
 
 	if app.activePlugin != nil {
-		t.Errorf("navigateBack with nil returnTo should go home, got %v", app.activePlugin)
+		t.Errorf("navigateBack with empty navStack should go home, got %v", app.activePlugin)
 	}
 }
 
@@ -1016,7 +1016,7 @@ func TestApp_PopIfPushed_WhenActiveIsNavPushWithReturnTo_ShouldNavigateBack(t *t
 	statePlugin, _ := app.registry.ByID("state")
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
-	app.returnTo = statePlugin
+	app.navStack = []sdk.Plugin{statePlugin}
 
 	cmd := app.popIfPushed(nil)
 
@@ -1031,12 +1031,12 @@ func TestApp_PopIfPushed_WhenActiveIsNavPushWithNilReturnTo_ShouldGoHome(t *test
 
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
-	app.returnTo = nil
+	app.navStack = nil
 
 	app.popIfPushed(nil)
 
 	if app.activePlugin != nil {
-		t.Errorf("popIfPushed with nil returnTo should deactivate, got %v", app.activePlugin)
+		t.Errorf("popIfPushed with empty navStack should deactivate, got %v", app.activePlugin)
 	}
 }
 
@@ -1545,16 +1545,16 @@ func TestApp_HandleKey_WhenQWithReturnToSet_ShouldClearReturnTo(t *testing.T) {
 	statePlugin, _ := app.registry.ByID("state")
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
-	app.returnTo = statePlugin
+	app.navStack = []sdk.Plugin{statePlugin}
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	updated := model.(App)
 
 	if updated.activePlugin != nil {
-		t.Error("q should deactivate plugin regardless of returnTo")
+		t.Error("q should deactivate plugin regardless of navStack")
 	}
-	if updated.returnTo != nil {
-		t.Error("q should clear returnTo")
+	if len(updated.navStack) != 0 {
+		t.Error("q should clear navStack")
 	}
 }
 
@@ -1649,7 +1649,7 @@ func TestApp_HandleKey_WhenStackableKeyAndReturnToClear_ShouldClearReturnTo(t *t
 
 	app := setupTestApp()
 	app.activePlugin = p
-	app.returnTo = &mockPlugin{id: "other"}
+	app.navStack = []sdk.Plugin{&mockPlugin{id: "other"}}
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	updated := model.(App)
@@ -1657,8 +1657,8 @@ func TestApp_HandleKey_WhenStackableKeyAndReturnToClear_ShouldClearReturnTo(t *t
 	if updated.activePlugin != nil {
 		t.Error("when stack empties, activePlugin should be nil")
 	}
-	if updated.returnTo != nil {
-		t.Error("when stack empties, returnTo should be cleared")
+	if len(updated.navStack) != 0 {
+		t.Error("when stack empties, navStack should be cleared")
 	}
 }
 
@@ -1770,7 +1770,7 @@ func TestApp_DeactivateMsg_WhenReturnToActivatable_ShouldCallActivate(t *testing
 
 	// Set up pushed state
 	app.activePlugin, _ = app.registry.ByID("chdir")
-	app.returnTo = activatable
+	app.navStack = []sdk.Plugin{activatable}
 
 	model, cmd := app.Update(sdk.DeactivateMsg{})
 	updated := model.(App)
@@ -1804,7 +1804,7 @@ func TestApp_HandleKey_WhenQFromHomeNotBusy_ShouldQuit(t *testing.T) {
 func TestApp_NavigateBack_WhenActivePluginNil_ShouldHandleGracefully(t *testing.T) {
 	app := setupTestApp()
 	app.activePlugin = nil
-	app.returnTo = nil
+	app.navStack = nil
 
 	// Should not panic
 	app.navigateBack()

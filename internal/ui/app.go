@@ -37,8 +37,8 @@ type App struct {
 	statusBar     components.StatusBar
 	homeView      views.HomeView
 
-	activePlugin  sdk.Plugin // nil = home screen
-	returnTo      sdk.Plugin // destination after a NavPush plugin completes; nil for NavReplace
+	activePlugin  sdk.Plugin   // nil = home screen
+	navStack      []sdk.Plugin // LIFO stack of return destinations; empty = no history
 	activeOverlay sdk.Overlay
 	activeChdir   string // tracks last known active chdir for header updates
 	lockInfo      *sdk.StateLock
@@ -213,7 +213,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
-			if a.returnTo != nil {
+			if len(a.navStack) > 0 {
 				a.navigateBack()
 				return a, a.activate(a.activePlugin)
 			}
@@ -268,7 +268,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if pinned := a.pins.All(); len(pinned) > 0 {
 				applyPlugin.SetTargets(pinned)
 			}
-			a.returnTo = a.activePlugin
+			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			applyPlugin.RequestApply()
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
@@ -448,7 +448,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
-			a.returnTo = nil
+			a.navStack = nil
 			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			return a, nil
 		}
@@ -463,7 +463,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			if stackable.Stack().IsEmpty() {
 				prev := a.activePlugin.ID()
 				a.activePlugin = nil
-				a.returnTo = nil
+				a.navStack = nil
 				logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 			}
 			return a, cmd
@@ -506,9 +506,9 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 	}
 	switch nav {
 	case plugin.NavPush:
-		a.returnTo = a.activePlugin
+		a.navStack = append(a.navStack, a.activePlugin)
 	default:
-		a.returnTo = nil
+		a.navStack = nil
 	}
 	a.activePlugin = p
 	logging.Logger().Debug("plugin.activate", "id", p.ID())
@@ -521,18 +521,24 @@ func (a *App) navigateBack() {
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
 	}
-	to := "home"
-	if a.returnTo != nil {
-		to = a.returnTo.ID()
+	if len(a.navStack) == 0 {
+		a.activePlugin = nil
+		logging.Logger().Debug("view.transition", "from", from, "to", "home")
+		return
 	}
-	a.activePlugin = a.returnTo
-	a.returnTo = nil
+	prev := a.navStack[len(a.navStack)-1]
+	a.navStack = a.navStack[:len(a.navStack)-1]
+	a.activePlugin = prev
+	to := "home"
+	if prev != nil {
+		to = prev.ID()
+	}
 	logging.Logger().Debug("view.transition", "from", from, "to", to)
 }
 
 func (a *App) popIfPushed(busCmd tea.Cmd) tea.Cmd {
 	if a.activePlugin != nil && a.registry.NavBehaviorFor(a.activePlugin.ID()) == plugin.NavPush {
-		if a.returnTo != nil {
+		if len(a.navStack) > 0 {
 			a.navigateBack()
 			return tea.Batch(busCmd, a.activate(a.activePlugin))
 		}

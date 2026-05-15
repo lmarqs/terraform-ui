@@ -1048,23 +1048,23 @@ func TestApp_ChdirSelection_FromContextDoesNotNavigateBack(t *testing.T) {
 func TestApp_DeactivateMsg_NavigatesBackToReturnTo(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
-	// Manually set returnTo to simulate NavPush from state → chdir
+	// Manually set navStack to simulate NavPush from state → chdir
 	statePlugin, _ := app.registry.ByID("state")
-	app.returnTo = statePlugin
+	app.navStack = []sdk.Plugin{statePlugin}
 
 	// Activate chdir as the current plugin
 	chdirPlugin, _ := app.registry.ByID("chdir")
 	app.activePlugin = chdirPlugin
 
-	// DeactivateMsg (esc) should navigate back to returnTo (state)
+	// DeactivateMsg (esc) should navigate back to navStack top (state)
 	model, _ := app.Update(sdk.DeactivateMsg{})
 	app = model.(App)
 
 	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
-		t.Errorf("after DeactivateMsg with returnTo, activePlugin should be state, got %v", app.activePlugin)
+		t.Errorf("after DeactivateMsg with navStack, activePlugin should be state, got %v", app.activePlugin)
 	}
-	if app.returnTo != nil {
-		t.Errorf("after DeactivateMsg, returnTo should be nil, got %q", app.returnTo.ID())
+	if len(app.navStack) != 0 {
+		t.Errorf("after DeactivateMsg, navStack should be empty, got %v", app.navStack)
 	}
 }
 
@@ -1080,12 +1080,12 @@ func TestApp_NavigateMsg_ActivatesTargetPlugin(t *testing.T) {
 	model, _ := app.Update(sdk.NavigateMsg{PluginID: "workspace"})
 	app = model.(App)
 
-	// Should navigate to workspaces (NavPush saves context as returnTo)
+	// Should navigate to workspaces (NavPush pushes context onto navStack)
 	if app.activePlugin == nil || app.activePlugin.ID() != "workspace" {
 		t.Fatalf("after NavigateMsg, activePlugin = %v, want workspaces", app.activePlugin)
 	}
-	if app.returnTo == nil || app.returnTo.ID() != "context" {
-		t.Fatalf("after NavigateMsg, returnTo = %v, want context", app.returnTo)
+	if len(app.navStack) == 0 || app.navStack[len(app.navStack)-1] == nil || app.navStack[len(app.navStack)-1].ID() != "context" {
+		t.Fatalf("after NavigateMsg, navStack top = %v, want context", app.navStack)
 	}
 }
 
@@ -1114,15 +1114,15 @@ func TestApp_DeactivateMsg_NavigatesBackWhenPushed(t *testing.T) {
 	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	app = model.(App)
 
-	// Now navigate to workspaces (NavPush, returnTo=context)
+	// Now navigate to workspaces (NavPush, pushes context onto navStack)
 	model, _ = app.Update(sdk.NavigateMsg{PluginID: "workspace"})
 	app = model.(App)
 
 	if app.activePlugin == nil || app.activePlugin.ID() != "workspace" {
 		t.Fatal("precondition: workspaces should be active")
 	}
-	if app.returnTo == nil || app.returnTo.ID() != "context" {
-		t.Fatal("precondition: returnTo should be context")
+	if len(app.navStack) == 0 || app.navStack[len(app.navStack)-1] == nil || app.navStack[len(app.navStack)-1].ID() != "context" {
+		t.Fatal("precondition: navStack top should be context")
 	}
 
 	// Cancel via DeactivateMsg (esc) — should go back to context, not home
@@ -1154,6 +1154,143 @@ func TestApp_DeactivateMsg_GoesHomeWhenNotPushed(t *testing.T) {
 
 	if app.activePlugin != nil {
 		t.Errorf("after DeactivateMsg from non-pushed plugin, should go home, got %q", app.activePlugin.ID())
+	}
+}
+
+func TestApp_NavStack_MultiLevelPush_PopsOneAtATime(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	statePlugin, _ := app.registry.ByID("state")
+	chdirPlugin, _ := app.registry.ByID("chdir")
+	wsPlugin, _ := app.registry.ByID("workspace")
+
+	// Simulate: state active, push chdir, then push workspace
+	app.activePlugin = statePlugin
+	app.navigateTo(chdirPlugin) // NavPush: pushes state onto stack
+	app.navigateTo(wsPlugin)    // NavPush: pushes chdir onto stack
+
+	// Stack should be [state, chdir], active = workspace
+	if len(app.navStack) != 2 {
+		t.Fatalf("expected navStack depth 2, got %d", len(app.navStack))
+	}
+	if app.activePlugin.ID() != "workspace" {
+		t.Fatalf("activePlugin = %q, want workspace", app.activePlugin.ID())
+	}
+
+	// Pop once: back to chdir
+	model, _ := app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+	if app.activePlugin == nil || app.activePlugin.ID() != "chdir" {
+		t.Errorf("after first pop, activePlugin = %v, want chdir", app.activePlugin)
+	}
+	if len(app.navStack) != 1 {
+		t.Errorf("after first pop, navStack depth = %d, want 1", len(app.navStack))
+	}
+
+	// Pop again: back to state
+	model, _ = app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+	if app.activePlugin == nil || app.activePlugin.ID() != "state" {
+		t.Errorf("after second pop, activePlugin = %v, want state", app.activePlugin)
+	}
+	if len(app.navStack) != 0 {
+		t.Errorf("after second pop, navStack depth = %d, want 0", len(app.navStack))
+	}
+}
+
+func TestApp_NavStack_QKey_ClearsEntireStack(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	statePlugin, _ := app.registry.ByID("state")
+	chdirPlugin, _ := app.registry.ByID("chdir")
+	wsPlugin, _ := app.registry.ByID("workspace")
+
+	// Build multi-level stack
+	app.activePlugin = statePlugin
+	app.navigateTo(chdirPlugin)
+	app.navigateTo(wsPlugin)
+
+	// Press q: should go home, clearing entire stack
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	updated := model.(App)
+
+	if updated.activePlugin != nil {
+		t.Errorf("q should go home, got activePlugin = %q", updated.activePlugin.ID())
+	}
+	if len(updated.navStack) != 0 {
+		t.Errorf("q should clear entire navStack, got depth %d", len(updated.navStack))
+	}
+}
+
+func TestApp_NavStack_NavReplace_ClearsStack(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	statePlugin, _ := app.registry.ByID("state")
+	chdirPlugin, _ := app.registry.ByID("chdir")
+	planPlugin, _ := app.registry.ByID("plan")
+
+	// Build stack: state pushed, chdir active
+	app.navStack = []sdk.Plugin{statePlugin}
+	app.activePlugin = chdirPlugin
+
+	// Navigate to plan (NavReplace) — should wipe the stack
+	app.navigateTo(planPlugin)
+
+	if len(app.navStack) != 0 {
+		t.Errorf("NavReplace should clear navStack, got depth %d", len(app.navStack))
+	}
+	if app.activePlugin.ID() != "plan" {
+		t.Errorf("activePlugin = %q, want plan", app.activePlugin.ID())
+	}
+}
+
+func TestApp_NavStack_PushFromHome_PushesNilAndPopsToHome(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+	app.activePlugin = nil
+
+	chdirPlugin, _ := app.registry.ByID("chdir")
+	app.navigateTo(chdirPlugin)
+
+	if len(app.navStack) != 1 {
+		t.Fatalf("navStack depth = %d, want 1", len(app.navStack))
+	}
+	if app.navStack[0] != nil {
+		t.Errorf("navStack[0] = %v, want nil (home)", app.navStack[0])
+	}
+
+	// Pop should return to home (nil)
+	app.navigateBack()
+	if app.activePlugin != nil {
+		t.Errorf("after pop, activePlugin = %v, want nil (home)", app.activePlugin)
+	}
+	if len(app.navStack) != 0 {
+		t.Errorf("after pop, navStack depth = %d, want 0", len(app.navStack))
+	}
+}
+
+func TestApp_NavStack_DeactivateMsg_MultiLevel_PopsOnce(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	statePlugin, _ := app.registry.ByID("state")
+	chdirPlugin, _ := app.registry.ByID("chdir")
+	wsPlugin, _ := app.registry.ByID("workspace")
+
+	// Build stack manually: [state, chdir], active = workspace
+	app.navStack = []sdk.Plugin{statePlugin, chdirPlugin}
+	app.activePlugin = wsPlugin
+
+	// DeactivateMsg should pop back to chdir only
+	model, _ := app.Update(sdk.DeactivateMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil || updated.activePlugin.ID() != "chdir" {
+		t.Errorf("after DeactivateMsg, activePlugin = %v, want chdir", updated.activePlugin)
+	}
+	if len(updated.navStack) != 1 {
+		t.Errorf("after DeactivateMsg, navStack depth = %d, want 1", len(updated.navStack))
+	}
+	if updated.navStack[0].ID() != "state" {
+		t.Errorf("navStack[0] = %q, want state", updated.navStack[0].ID())
 	}
 }
 
