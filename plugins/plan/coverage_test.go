@@ -316,15 +316,28 @@ func TestPlugin_WhenForceUnlockCallbackConfirmed_ShouldCallService(t *testing.T)
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
-	resultCmd := reqMsg.Request.Callback("y")
-	if resultCmd == nil {
+	startCmd := reqMsg.Request.Callback("y")
+	if startCmd == nil {
 		t.Fatal("callback('y') returned nil cmd")
 	}
+	startMsg := startCmd()
+	if _, ok := startMsg.(ForceUnlockStartMsg); !ok {
+		t.Fatalf("callback result = %T, want ForceUnlockStartMsg", startMsg)
+	}
 
-	resultMsg := resultCmd()
+	// Feed ForceUnlockStartMsg into Update
+	_, execCmd := p.Update(startMsg)
+	if execCmd == nil {
+		t.Fatal("Update(ForceUnlockStartMsg) should return exec cmd")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+
+	resultMsg := execCmd()
 	unlockResult, ok := resultMsg.(ForceUnlockResultMsg)
 	if !ok {
-		t.Fatalf("callback result = %T, want ForceUnlockResultMsg", resultMsg)
+		t.Fatalf("exec cmd result = %T, want ForceUnlockResultMsg", resultMsg)
 	}
 	if unlockResult.Err != nil {
 		t.Errorf("ForceUnlockResultMsg.Err = %v, want nil", unlockResult.Err)
@@ -350,8 +363,11 @@ func TestPlugin_WhenForceUnlockCallbackFails_ShouldReturnError(t *testing.T) {
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
-	resultCmd := reqMsg.Request.Callback("y")
-	resultMsg := resultCmd()
+	startCmd := reqMsg.Request.Callback("y")
+	startMsg := startCmd()
+
+	_, execCmd := p.Update(startMsg)
+	resultMsg := execCmd()
 	unlockResult := resultMsg.(ForceUnlockResultMsg)
 	if unlockResult.Err == nil {
 		t.Error("ForceUnlockResultMsg.Err = nil, want error")

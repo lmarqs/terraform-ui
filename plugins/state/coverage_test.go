@@ -330,9 +330,18 @@ func TestRequestForceUnlock_ShouldConfirmThenUnlock(t *testing.T) {
 		cmd := p.requestForceUnlock()
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
-		execCmd := reqMsg.Request.Callback("y")
-		if execCmd == nil {
+		startCmd := reqMsg.Request.Callback("y")
+		if startCmd == nil {
 			t.Fatal("expected non-nil cmd after confirmation")
+		}
+		startMsg := startCmd()
+		if _, ok := startMsg.(ForceUnlockStartMsg); !ok {
+			t.Fatalf("expected ForceUnlockStartMsg, got %T", startMsg)
+		}
+
+		_, execCmd := p.Update(startMsg)
+		if execCmd == nil {
+			t.Fatal("Update(ForceUnlockStartMsg) should return exec cmd")
 		}
 		result := execCmd()
 		unlockMsg, ok := result.(ForceUnlockResultMsg)
@@ -355,7 +364,10 @@ func TestRequestForceUnlock_ShouldConfirmThenUnlock(t *testing.T) {
 		cmd := p.requestForceUnlock()
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
-		execCmd := reqMsg.Request.Callback("y")
+		startCmd := reqMsg.Request.Callback("y")
+		startMsg := startCmd()
+
+		_, execCmd := p.Update(startMsg)
 		result := execCmd()
 		unlockMsg, ok := result.(ForceUnlockResultMsg)
 		if !ok {

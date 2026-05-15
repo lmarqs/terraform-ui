@@ -175,8 +175,14 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return e, nil
 
+	case ForceUnlockStartMsg:
+		e.status = sdk.StatusLoading
+		e.errMsg = ""
+		return e, e.executeForceUnlock()
+
 	case ForceUnlockResultMsg:
 		if msg.Err != nil {
+			e.status = sdk.StatusError
 			e.errMsg = fmt.Sprintf("Force-unlock failed: %s", msg.Err.Error())
 			e.lockInfo = nil
 			e.log.Debug("plan.force-unlock.error", "error", msg.Err.Error())
@@ -413,6 +419,9 @@ func (e *Plugin) isPinnedAddress(address string) bool {
 	return false
 }
 
+// ForceUnlockStartMsg triggers the loading state before the unlock RPC.
+type ForceUnlockStartMsg struct{}
+
 // ForceUnlockResultMsg is sent when a force-unlock operation completes.
 type ForceUnlockResultMsg struct {
 	Err error
@@ -442,24 +451,29 @@ func (e *Plugin) requestApply() tea.Cmd {
 
 func (e *Plugin) requestForceUnlock() tea.Cmd {
 	lockID := e.lockInfo.ID
-	svc := e.svc
-	log := e.log
 	return func() tea.Msg {
 		return sdk.RequestInputMsg{
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Force-unlock %s? This is dangerous if another operation is running.", lockID),
 				func() tea.Cmd {
-					return func() tea.Msg {
-						err := svc.ForceUnlock(context.Background(), lockID)
-						if err != nil {
-							log.Debug("plan.force-unlock.error", "lockID", lockID, "error", err.Error())
-						} else {
-							log.Debug("plan.force-unlock.success", "lockID", lockID)
-						}
-						return ForceUnlockResultMsg{Err: err}
-					}
+					return func() tea.Msg { return ForceUnlockStartMsg{} }
 				},
 			),
 		}
+	}
+}
+
+func (e *Plugin) executeForceUnlock() tea.Cmd {
+	lockID := e.lockInfo.ID
+	svc := e.svc
+	log := e.log
+	return func() tea.Msg {
+		err := svc.ForceUnlock(context.Background(), lockID)
+		if err != nil {
+			log.Debug("plan.force-unlock.error", "lockID", lockID, "error", err.Error())
+		} else {
+			log.Debug("plan.force-unlock.success", "lockID", lockID)
+		}
+		return ForceUnlockResultMsg{Err: err}
 	}
 }

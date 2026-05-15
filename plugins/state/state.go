@@ -29,6 +29,9 @@ type ResourceDetailMsg struct {
 	Err     error
 }
 
+// ForceUnlockStartMsg triggers the loading state before the unlock RPC.
+type ForceUnlockStartMsg struct{}
+
 // ForceUnlockResultMsg is sent when a force-unlock operation completes.
 type ForceUnlockResultMsg struct {
 	Err error
@@ -235,8 +238,14 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		return e, nil
 
+	case ForceUnlockStartMsg:
+		e.status = sdk.StatusLoading
+		e.errMsg = "Force-unlocking state..."
+		return e, e.executeForceUnlock()
+
 	case ForceUnlockResultMsg:
 		if msg.Err != nil {
+			e.status = sdk.StatusError
 			e.errMsg = fmt.Sprintf("Force-unlock failed: %s", msg.Err.Error())
 			e.lockInfo = nil
 			e.log.Debug("state.force-unlock.error", "error", msg.Err.Error())
