@@ -28,6 +28,7 @@ import (
 	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
 	tfuicontext "github.com/lmarqs/terraform-ui/plugins/context"
 	tfuiforceunlock "github.com/lmarqs/terraform-ui/plugins/forceunlock"
+	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiphantom "github.com/lmarqs/terraform-ui/plugins/phantom"
@@ -35,6 +36,8 @@ import (
 	tfuirepl "github.com/lmarqs/terraform-ui/plugins/repl"
 	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
+	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
+	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
 	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
 	tfuiversion "github.com/lmarqs/terraform-ui/plugins/version"
 	tfuiworkspace "github.com/lmarqs/terraform-ui/plugins/workspace"
@@ -123,15 +126,17 @@ func main() {
 	planCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	planCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for plan")
 
+	var autoApprove bool
 	applyCmd := &cobra.Command{
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApply(cfg, ciMode, jsonMode)
+			return runApply(cfg, ciMode, jsonMode, autoApprove)
 		},
 	}
 	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
 	applyCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
+	applyCmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "Skip confirmation prompt")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
 
 	var scaffoldForce, scaffoldYes bool
@@ -215,13 +220,16 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.RegisterFactory("plan", tfuiplan.New, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.RegisterFactory("apply", tfuiapply.New, plugin.PluginMeta{Keybinding: "a", MenuVisible: false})
 	registry.RegisterFactory("workspace", tfuiworkspace.New, plugin.PluginMeta{Keybinding: "w", MenuVisible: true, Nav: plugin.NavPush})
-	registry.RegisterFactory("repl", tfuirepl.New, plugin.PluginMeta{Keybinding: "t", MenuVisible: true})
+	registry.RegisterFactory("repl", tfuirepl.New, plugin.PluginMeta{Keybinding: "~", MenuVisible: true})
 	registry.RegisterFactory("output", tfuioutput.New, plugin.PluginMeta{Keybinding: "o", MenuVisible: true})
 	registry.RegisterFactory("validate", tfuivalidate.New, plugin.PluginMeta{Keybinding: "v", MenuVisible: true})
 	registry.RegisterFactory("init", tfuiinit.New, plugin.PluginMeta{Keybinding: "i", MenuVisible: true})
 	registry.RegisterFactory("risk", tfuirisk.New, plugin.PluginMeta{Keybinding: "R", MenuVisible: true})
 	registry.RegisterFactory("phantom", tfuiphantom.New, plugin.PluginMeta{Keybinding: "P", MenuVisible: true})
 	registry.RegisterFactory("blastradius", tfuiblastradius.New, plugin.PluginMeta{Keybinding: "B", MenuVisible: true})
+	registry.RegisterFactory("taint", tfuitaint.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
+	registry.RegisterFactory("untaint", tfuiuntaint.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
+	registry.RegisterFactory("import", tfuiimport.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 	registry.RegisterFactory("forceunlock", tfuiforceunlock.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 	registry.RegisterFactory("version", tfuiversion.New, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 
@@ -674,7 +682,7 @@ func runPlan(cfg config.Config, ci bool, jsonOutput bool) error {
 	return nil
 }
 
-func runApply(cfg config.Config, ci bool, jsonOutput bool) error {
+func runApply(cfg config.Config, ci bool, jsonOutput bool, autoApprove bool) error {
 	if cfg.Chdir != "" {
 		if err := validateChdir(cfg); err != nil {
 			return err
@@ -692,7 +700,8 @@ func runApply(cfg config.Config, ci bool, jsonOutput bool) error {
 		s.run()
 	}
 
-	err := svc.Apply(ctx, sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
+	opts := sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs, AutoApprove: autoApprove}
+	err := svc.Apply(ctx, opts)
 
 	if showSpinner {
 		s.halt()
