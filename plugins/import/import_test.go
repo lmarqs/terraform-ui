@@ -35,10 +35,10 @@ func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceN
 func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
 	return nil
 }
-func (m *mockService) StateRm(_ context.Context, _ string) error      { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error         { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error       { return nil }
+func (m *mockService) StateRm(_ context.Context, _ string) error            { return nil }
+func (m *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
+func (m *mockService) Taint(_ context.Context, _ string) error              { return nil }
+func (m *mockService) Untaint(_ context.Context, _ string) error            { return nil }
 func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
 func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
 	return nil, nil

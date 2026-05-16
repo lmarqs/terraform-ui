@@ -2,11 +2,11 @@ package plan
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/lmarqs/terraform-ui/plugins/taint"
-	"github.com/lmarqs/terraform-ui/plugins/untaint"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
+	"github.com/lmarqs/terraform-ui/plugins/taint"
+	"github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 // listFrame is the root frame for the plan plugin's change list.

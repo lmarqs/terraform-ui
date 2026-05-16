@@ -40,7 +40,6 @@ type StateMovedMsg struct {
 	Dest   string
 }
 
-
 // StateEditMsg requests the editor to open for this resource.
 type StateEditMsg struct {
 	Address   string
@@ -243,7 +242,6 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		e.mutating = false
 		e.log.Debug("state.moved", "source", msg.Source, "dest", msg.Dest)
 		return e, e.Refresh()
-
 
 	case ResourceDetailMsg:
 		e.timer.Stop()

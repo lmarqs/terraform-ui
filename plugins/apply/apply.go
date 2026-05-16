@@ -12,8 +12,8 @@ import (
 )
 
 const (
-	StatusConfirming  = sdk.Status(10)
-	StatusReplanning  = sdk.Status(11)
+	StatusConfirming = sdk.Status(10)
+	StatusReplanning = sdk.Status(11)
 )
 
 // ReplanResultMsg is sent when the targeted replan completes.

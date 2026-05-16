@@ -186,7 +186,6 @@ func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *
 	})
 }
 
-
 func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(t *testing.T) {
 	addresses := []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
 
@@ -632,7 +631,6 @@ func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
 		t.Errorf("expected sdk.StatusLoading after refresh, got %v", p.status)
 	}
 }
-
 
 func TestRequestEditMultiple_ShouldProduceStateEditMsgWithAddresses(t *testing.T) {
 	svc := &trackingMockService{}

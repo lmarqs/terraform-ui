@@ -5,11 +5,11 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
 	"github.com/lmarqs/terraform-ui/plugins/taint"
 	"github.com/lmarqs/terraform-ui/plugins/untaint"
-	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 )
 
 func (e *Plugin) requestMove(address string) tea.Cmd {
