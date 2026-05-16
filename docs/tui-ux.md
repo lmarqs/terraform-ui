@@ -484,7 +484,7 @@ Activate → Form (home state)
 | `b` | — | **free** | |
 | `c` | — | **free** | |
 | `d` | delete | terraform verb | state, workspace |
-| `e` | edit | terraform verb | state (opens $EDITOR) |
+| `e` | edit | terraform verb | state, plan (opens $EDITOR) |
 | `f` | — | **free** | |
 | `g` | jump to start | navigation | lists, trees |
 | `h` | — | **free** | |
