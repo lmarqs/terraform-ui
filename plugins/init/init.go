@@ -22,11 +22,9 @@ type InitResultMsg struct {
 
 // Plugin implements the terraform init feature.
 type Plugin struct {
-	svc    sdk.Service
-	status sdk.Status
-	timer  ui.Timer
-	stack  *sdk.Stack
-	errMsg string
+	svc   sdk.Service
+	timer ui.Timer
+	stack *sdk.Stack
 
 	// Form state (preserved across runs for re-fill)
 	upgrade     bool
@@ -47,10 +45,19 @@ func New(svc sdk.Service) sdk.Plugin {
 func (p *Plugin) ID() string          { return "init" }
 func (p *Plugin) Name() string        { return "Init" }
 func (p *Plugin) Description() string { return "Initialize terraform working directory" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
+func (p *Plugin) Ready() bool         { return true }
 func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
 
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
+
+func (p *Plugin) Busy() bool {
+	if top := p.stack.Peek(); top != nil {
+		if rf, ok := top.(*resultFrame); ok {
+			return rf.status == sdk.StatusLoading
+		}
+	}
+	return false
+}
 
 func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	p.svc = ctx.Service
@@ -59,113 +66,39 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 	p.svc = p.svc.WithDir(evt.AbsPath)
-	p.reset()
+	p.stack.Reset()
 	return nil
 }
 
 func (p *Plugin) Activate() tea.Cmd {
-	if p.status == sdk.StatusLoading {
-		return nil
-	}
-	p.status = sdk.StatusIdle
-	p.errMsg = ""
-	p.stack.Clear()
+	p.stack.Reset()
 	p.stack.Push(p.buildForm())
 	return nil
 }
 
-func (p *Plugin) Hints() []sdk.KeyHint {
-	if top := p.stack.Peek(); top != nil {
-		return top.Hints()
-	}
-	switch p.status {
-	case sdk.StatusLoading:
-		return (sdk.HintSetCancel).Hints()
-	case sdk.StatusDone:
-		return []sdk.KeyHint{
-			{Key: "Enter", Description: "re-run"},
-			sdk.HintRefresh,
-			sdk.HintBack,
-		}
-	case sdk.StatusError:
-		return []sdk.KeyHint{
-			{Key: "Enter", Description: "re-run"},
-			sdk.HintRetry,
-			sdk.HintBack,
-		}
-	default:
-		return (sdk.HintSetBack).Hints()
-	}
-}
-
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	switch msg := msg.(type) {
-	case ui.TimerTickMsg:
-		return p, p.timer.Tick()
-
+	switch msg.(type) {
 	case initSubmitMsg:
 		p.stack.Reset()
+		p.stack.Push(p.buildForm())
+		rf := newResultFrame(&p.timer)
+		p.stack.Push(rf)
 		return p, p.submit()
 
-	case InitResultMsg:
-		p.timer.Stop()
-		if msg.Err != nil {
-			p.status = sdk.StatusError
-			p.errMsg = msg.Err.Error()
-			return p, nil
-		}
-		p.status = sdk.StatusDone
-		return p, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
-
-	case tea.KeyMsg:
+	case InitResultMsg, ui.TimerTickMsg:
 		if top := p.stack.Peek(); top != nil {
-			cmd := p.stack.Update(msg)
+			result, cmd := top.Update(msg)
+			if result == nil {
+				p.stack.Pop()
+			}
 			return p, cmd
 		}
-		return p, p.handleKey(msg)
 	}
-
 	return p, nil
 }
 
-func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	switch p.status {
-	case sdk.StatusDone:
-		switch msg.String() {
-		case "enter":
-			p.stack.Push(p.buildForm())
-			return nil
-		case "ctrl+r":
-			return p.submit()
-		}
-	case sdk.StatusError:
-		switch msg.String() {
-		case "enter":
-			p.stack.Push(p.buildForm())
-			return nil
-		case "ctrl+r":
-			return p.submit()
-		}
-	}
-	return nil
-}
-
 func (p *Plugin) View(width, height int) string {
-	if top := p.stack.Peek(); top != nil {
-		return top.View(width, height)
-	}
-
-	switch p.status {
-	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render("Running terraform init... " + p.timer.FormatElapsed())
-	case sdk.StatusDone:
-		return sdk.StyleSuccess.Render("Terraform initialized successfully.") + "\n" +
-			sdk.StyleFaint.Render("Duration: "+p.timer.FormatElapsed())
-	case sdk.StatusError:
-		return sdk.StyleError.Render("Init failed: " + p.errMsg)
-	default:
-		return ""
-	}
+	return p.stack.View(width, height)
 }
 
 func (p *Plugin) buildForm() *frames.FormFrame {
@@ -222,9 +155,6 @@ func (p *Plugin) submitFromForm() tea.Cmd {
 }
 
 func (p *Plugin) submit() tea.Cmd {
-	p.status = sdk.StatusLoading
-	p.errMsg = ""
-
 	svc := p.svc
 	opts := sdk.InitOptions{
 		Upgrade:     p.upgrade,
@@ -243,12 +173,6 @@ func (p *Plugin) submit() tea.Cmd {
 		err := svc.Init(context.Background(), opts)
 		return InitResultMsg{Err: err, Duration: time.Since(start)}
 	}, p.timer.Start())
-}
-
-func (p *Plugin) reset() {
-	p.status = sdk.StatusIdle
-	p.errMsg = ""
-	p.stack.Clear()
 }
 
 func (p *Plugin) extraArgsDisplay() string {

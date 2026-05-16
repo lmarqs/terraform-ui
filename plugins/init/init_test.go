@@ -66,8 +66,8 @@ func TestNew(t *testing.T) {
 	if p.Description() != "Initialize terraform working directory" {
 		t.Errorf("Description() = %q, want %q", p.Description(), "Initialize terraform working directory")
 	}
-	if p.Ready() {
-		t.Error("Ready() = true before init runs, want false")
+	if !p.Ready() {
+		t.Error("Ready() should always be true")
 	}
 	if !p.backend {
 		t.Error("backend should default to true")
@@ -105,105 +105,110 @@ func TestToggleFields(t *testing.T) {
 	}
 }
 
-func TestSubmit_TransitionsToLoading(t *testing.T) {
+func TestSubmit_PushesResultFrame(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.upgrade = true
+	p.Activate()
 
-	cmd := p.submit()
+	p.Update(initSubmitMsg{})
+
+	top := p.stack.Peek()
+	if top == nil {
+		t.Fatal("submit should push result frame onto stack")
+	}
+	if top.ID() != "result" {
+		t.Errorf("top frame ID = %q, want %q", top.ID(), "result")
+	}
+}
+
+func TestInitResultMsg_Success_EmitsDeactivate(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.Activate()
+	p.Update(initSubmitMsg{})
+
+	_, cmd := p.Update(InitResultMsg{Err: nil})
 	if cmd == nil {
-		t.Fatal("submit() should return a command")
-	}
-	if p.status != sdk.StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
+		t.Fatal("success should return a command")
 	}
 }
 
-func TestInitResultMsg_Success(t *testing.T) {
+func TestInitResultMsg_Error_StaysOnResultFrame(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusLoading
+	p.Activate()
+	p.Update(initSubmitMsg{})
 
-	updated, cmd := p.Update(InitResultMsg{Err: nil})
-	plug := updated.(*Plugin)
+	p.Update(InitResultMsg{Err: errors.New("backend error")})
 
-	if plug.status != sdk.StatusDone {
-		t.Errorf("status = %v, want StatusDone", plug.status)
+	top := p.stack.Peek()
+	if top == nil {
+		t.Fatal("error should keep result frame on stack")
 	}
-	if cmd == nil {
-		t.Fatal("success should return PlanInvalidatedEvent command")
+	rf, ok := top.(*resultFrame)
+	if !ok {
+		t.Fatalf("top frame is %T, want *resultFrame", top)
 	}
-	msg := cmd()
-	if _, ok := msg.(sdk.PlanInvalidatedEvent); !ok {
-		t.Errorf("cmd() = %T, want PlanInvalidatedEvent", msg)
+	if rf.status != sdk.StatusError {
+		t.Errorf("result frame status = %v, want StatusError", rf.status)
+	}
+	if rf.errMsg != "backend error" {
+		t.Errorf("result frame errMsg = %q, want %q", rf.errMsg, "backend error")
 	}
 }
 
-func TestInitResultMsg_Error(t *testing.T) {
+func TestError_EnterReturnsToForm(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusLoading
+	p.Activate()
+	p.Update(initSubmitMsg{})
+	p.Update(InitResultMsg{Err: errors.New("fail")})
 
-	updated, cmd := p.Update(InitResultMsg{Err: errors.New("backend error")})
-	plug := updated.(*Plugin)
+	// Enter on error frame should pop back to form
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e', 'n', 't', 'e', 'r'}})
 
-	if plug.status != sdk.StatusError {
-		t.Errorf("status = %v, want StatusError", plug.status)
+	// Actually send as proper enter key
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	top := p.stack.Peek()
+	if top == nil {
+		t.Fatal("after Enter on error, form should be visible")
 	}
-	if plug.errMsg != "backend error" {
-		t.Errorf("errMsg = %q, want %q", plug.errMsg, "backend error")
-	}
-	if cmd != nil {
-		t.Error("error should not emit a command")
-	}
-}
-
-func TestRerun_FromDone(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("enter")})
-
-	if p.stack.Peek() == nil {
-		t.Fatal("Enter from Done should push form onto stack")
-	}
-}
-
-func TestRerun_FromError(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusError
-
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("enter")})
-
-	if p.stack.Peek() == nil {
-		t.Fatal("Enter from Error should push form onto stack")
+	if top.ID() != "form" {
+		t.Errorf("top frame ID = %q, want %q (form should be back)", top.ID(), "form")
 	}
 }
 
 func TestHandleChdirChanged(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.errMsg = "old error"
+	p.Activate()
 
 	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/dir"})
 
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle after chdir", p.status)
-	}
-	if p.errMsg != "" {
-		t.Errorf("errMsg should be cleared after chdir")
+	if !p.stack.IsEmpty() {
+		t.Error("chdir should reset the stack")
 	}
 }
 
 func TestTimerTick(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusLoading
+	p.Activate()
+	p.Update(initSubmitMsg{})
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
-	// Timer.Tick() returns nil when timer isn't running — that's fine
 	_ = cmd
 }
 
-func TestView_Loading(t *testing.T) {
+func TestView_DelegatesToStack(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusLoading
+	p.Activate()
+
+	view := p.View(80, 24)
+	if view == "" {
+		t.Error("View should delegate to form frame")
+	}
+}
+
+func TestView_ResultFrame_Loading(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.Activate()
+	p.Update(initSubmitMsg{})
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -211,24 +216,36 @@ func TestView_Loading(t *testing.T) {
 	}
 }
 
-func TestView_Done(t *testing.T) {
+func TestView_ResultFrame_Error(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View in Done state should not be empty")
-	}
-}
-
-func TestView_Error(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.status = sdk.StatusError
-	p.errMsg = "something failed"
+	p.Activate()
+	p.Update(initSubmitMsg{})
+	p.Update(InitResultMsg{Err: errors.New("something failed")})
 
 	view := p.View(80, 24)
 	if view == "" {
 		t.Error("View in Error state should not be empty")
+	}
+}
+
+func TestBusy(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+
+	if p.Busy() {
+		t.Error("should not be busy before submit")
+	}
+
+	p.Activate()
+	p.Update(initSubmitMsg{})
+
+	if !p.Busy() {
+		t.Error("should be busy during loading")
+	}
+
+	p.Update(InitResultMsg{Err: errors.New("fail")})
+
+	if p.Busy() {
+		t.Error("should not be busy after result")
 	}
 }
 
