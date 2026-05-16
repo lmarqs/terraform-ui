@@ -22,7 +22,6 @@ func buildPluginCommands(cfg *config.Config) []*cobra.Command {
 	}
 }
 
-
 func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 	wsCmd := &cobra.Command{
 		Use:   "workspace",
@@ -135,7 +134,6 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 	wsCmd.AddCommand(showCmd, listCmd, selectCmd, newCmd, deleteCmd)
 	return wsCmd
 }
-
 
 func buildForceUnlockCommand(cfg *config.Config) *cobra.Command {
 	var force bool
