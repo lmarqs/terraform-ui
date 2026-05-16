@@ -2,6 +2,7 @@ package version
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"sort"
@@ -109,6 +110,55 @@ func (p *Plugin) View(width, height int) string {
 	default:
 		return p.renderFull()
 	}
+}
+
+// Output produces stdout content for standalone/CI mode.
+func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
+	platform := runtime.GOOS + "_" + runtime.GOARCH
+	ver := p.version
+	if ver == "" {
+		ver = "unknown"
+	}
+
+	if jsonOutput {
+		out := struct {
+			TfuiVersion       string            `json:"tfui_version"`
+			Platform          string            `json:"platform"`
+			TerraformVersion  string            `json:"terraform_version,omitempty"`
+			TerraformPlatform string            `json:"terraform_platform,omitempty"`
+			Providers         map[string]string `json:"provider_selections,omitempty"`
+		}{
+			TfuiVersion: ver,
+			Platform:    platform,
+		}
+		if p.info != nil && p.info.TerraformVersion != "" {
+			out.TerraformVersion = p.info.TerraformVersion
+			out.TerraformPlatform = platform
+			out.Providers = p.info.Providers
+		}
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		return append(data, '\n'), nil
+	}
+
+	var b strings.Builder
+	fmt.Fprintf(&b, "tfui v%s\non %s\n", ver, platform)
+	if p.info != nil && p.info.TerraformVersion != "" {
+		fmt.Fprintf(&b, "\nterraform v%s\non %s\n", p.info.TerraformVersion, platform)
+		if len(p.info.Providers) > 0 {
+			keys := make([]string, 0, len(p.info.Providers))
+			for k := range p.info.Providers {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			for _, k := range keys {
+				fmt.Fprintf(&b, "+ provider %s v%s\n", k, p.info.Providers[k])
+			}
+		}
+	}
+	return []byte(b.String()), nil
 }
 
 func (p *Plugin) renderWithTfuiVersion() string {

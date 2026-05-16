@@ -2,6 +2,7 @@ package output
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -294,6 +295,39 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	}
 
 	return filterLine + b.String() + "\n" + count
+}
+
+// Output produces stdout content for standalone/CI mode.
+func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
+	if jsonOutput {
+		outputMap := make(map[string]interface{}, len(p.outputs))
+		for _, o := range p.outputs {
+			entry := map[string]interface{}{
+				"value":     o.Value,
+				"type":      o.Type,
+				"sensitive": o.Sensitive,
+			}
+			outputMap[o.Name] = entry
+		}
+		data, err := json.MarshalIndent(outputMap, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		return append(data, '\n'), nil
+	}
+
+	var b strings.Builder
+	sorted := make([]sdk.OutputValue, len(p.outputs))
+	copy(sorted, p.outputs)
+	sort.Slice(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
+	for _, o := range sorted {
+		val := "(sensitive)"
+		if !o.Sensitive {
+			val = fmt.Sprintf("%v", o.Value)
+		}
+		fmt.Fprintf(&b, "%s = %s\n", o.Name, val)
+	}
+	return []byte(b.String()), nil
 }
 
 func (p *Plugin) renderOutputRow(o sdk.OutputValue) string {

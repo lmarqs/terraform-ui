@@ -200,3 +200,8 @@ func checkbox(v bool) string {
 	}
 	return "[ ]"
 }
+
+// Output produces stdout content for standalone/CI mode.
+func (p *Plugin) Output(_ bool) ([]byte, error) {
+	return []byte("Initialized successfully.\n"), nil
+}

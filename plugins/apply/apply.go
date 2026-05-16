@@ -2,6 +2,7 @@ package apply
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -351,4 +352,26 @@ func (e *Plugin) renderConfirmation(width, height int) string {
 	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
 
 	return header + "\n" + detail + "\n\n" + prompt
+}
+
+// Output produces stdout content for standalone/CI mode.
+func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
+	if jsonOutput {
+		out := struct {
+			Status string `json:"status"`
+		}{Status: "complete"}
+		if e.status == sdk.StatusError {
+			out.Status = "error"
+		}
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		return append(data, '\n'), nil
+	}
+
+	if e.status == sdk.StatusError {
+		return []byte(fmt.Sprintf("Apply failed: %s\n", e.errMsg)), nil
+	}
+	return []byte("Apply complete.\n"), nil
 }

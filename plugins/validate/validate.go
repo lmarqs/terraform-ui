@@ -2,6 +2,7 @@ package validate
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -329,6 +330,86 @@ func (p *Plugin) renderSummaryLine() string {
 }
 
 // sortDiagnostics returns diagnostics sorted with errors first, then warnings.
+// Output produces stdout content for standalone/CI mode.
+func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
+	if jsonOutput {
+		errorCount, warningCount := 0, 0
+		for _, d := range p.diagnostics {
+			if d.Severity == "error" {
+				errorCount++
+			} else {
+				warningCount++
+			}
+		}
+		type diagJSON struct {
+			Severity string `json:"severity"`
+			Summary  string `json:"summary"`
+			Detail   string `json:"detail,omitempty"`
+			File     string `json:"file,omitempty"`
+			Line     int    `json:"line,omitempty"`
+		}
+		out := struct {
+			Valid        bool       `json:"valid"`
+			ErrorCount   int        `json:"error_count"`
+			WarningCount int        `json:"warning_count"`
+			Diagnostics  []diagJSON `json:"diagnostics"`
+		}{
+			Valid:        errorCount == 0,
+			ErrorCount:   errorCount,
+			WarningCount: warningCount,
+			Diagnostics:  make([]diagJSON, 0, len(p.diagnostics)),
+		}
+		for _, d := range p.diagnostics {
+			out.Diagnostics = append(out.Diagnostics, diagJSON{
+				Severity: d.Severity,
+				Summary:  d.Summary,
+				Detail:   d.Detail,
+				File:     d.File,
+				Line:     d.Line,
+			})
+		}
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		return append(data, '\n'), nil
+	}
+
+	if len(p.diagnostics) == 0 {
+		return []byte("✓ Configuration is valid\n"), nil
+	}
+	var b strings.Builder
+	for _, d := range p.diagnostics {
+		icon := "✗"
+		if d.Severity == "warning" {
+			icon = "⚠"
+		}
+		fmt.Fprintf(&b, "%s %s", icon, d.Summary)
+		if d.File != "" {
+			fmt.Fprintf(&b, " (%s", d.File)
+			if d.Line > 0 {
+				fmt.Fprintf(&b, ":%d", d.Line)
+			}
+			b.WriteString(")")
+		}
+		b.WriteString("\n")
+		if d.Detail != "" {
+			fmt.Fprintf(&b, "  %s\n", d.Detail)
+		}
+	}
+	return []byte(b.String()), nil
+}
+
+// ExitCode returns 1 if validation has errors, 0 otherwise.
+func (p *Plugin) ExitCode() int {
+	for _, d := range p.diagnostics {
+		if d.Severity == "error" {
+			return 1
+		}
+	}
+	return 0
+}
+
 func sortDiagnostics(diags []sdk.Diagnostic) []sdk.Diagnostic {
 	if diags == nil {
 		return nil
