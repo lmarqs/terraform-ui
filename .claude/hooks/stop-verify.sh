@@ -8,8 +8,7 @@ if ! echo "$CHANGED" | grep -qE '\.go$'; then
 fi
 
 if command -v golangci-lint &>/dev/null; then
-  LINT_OUT=$(golangci-lint run ./... 2>&1)
-  if [ $? -ne 0 ]; then
+  if ! LINT_OUT=$(golangci-lint run ./... 2>&1); then
     echo "$LINT_OUT" >&2
     exit 2
   fi

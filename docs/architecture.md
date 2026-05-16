@@ -175,6 +175,31 @@ main.go
 | Version resolution chain | `ldflags` (CI) → `ReadBuildInfo` (go install) → `"0.0.0-SNAPSHOT"` (dev) |
 | Spinner on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr (suppressed with `--ci`) |
 
+## Config Resolution & Propagation
+
+Config is resolved from `tfui.hcl` at three levels: root defaults → child (member dir) → workspace-specific overrides.
+
+```
+Startup:
+  LoadRoot(projectDir)  → RootConfig
+  config.Resolve(root, nil, workspace) → cfg.VarFiles, cfg.Vars
+  NewApp(..., rootCfg)  → loads childCfg from workDir
+  Plugins receive *ResolvedOptions via Context.Options
+
+Runtime (workspace switch):
+  WorkspaceChangedEvent → app.resolveOptions(name)
+    → config.Resolve(rootCfg, childCfg, newWorkspace)
+    → mutates shared *ResolvedOptions in-place
+    → next plan/apply reads fresh VarFiles/Vars
+
+Runtime (chdir switch):
+  ChdirChangedEvent → app reloads childCfg from new dir
+    → app.resolveOptions(activeWorkspace)
+    → same shared-pointer mutation
+```
+
+`ExtraArgs` (from CLI `--` passthrough) is set once at boot and never overwritten by resolution.
+
 ## Bubbletea Model/Update/View
 
 ```

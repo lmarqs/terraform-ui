@@ -42,7 +42,9 @@ type ResolvedOptions struct {
 }
 ```
 
-Shared via `Context.Options`. Used by `BuildPlanOptions` / `BuildApplyOptions`.
+Shared via `Context.Options` as a pointer — plugins store the pointer at `Init()` and read fields at call time. The app mutates `VarFiles` and `Vars` in-place on workspace/chdir changes (via `resolveOptions`). `ExtraArgs` is immutable after boot (CLI `--` passthrough).
+
+Used by `BuildPlanOptions` / `BuildApplyOptions`.
 
 ## Plugin Interface (`pkg/sdk/plugin.go`)
 
@@ -91,17 +93,20 @@ registry.RegisterFactory("workspaces", tfuiworkspaces.New, plugin.PluginMeta{
 
 ## App Navigation (`internal/ui/app.go`)
 
-Central routing with three private methods:
+Central routing with four private methods:
 
 ```go
-navigateTo(p)    // checks NavBehaviorFor(p.ID()), saves returnTo if NavPush
-navigateBack()   // restores returnTo as activePlugin, logs transition
-popIfPushed(cmd) // called by event handlers; pops NavPush plugin if active
+navigateTo(p)           // checks NavBehaviorFor(p.ID()), saves returnTo if NavPush
+navigateBack()          // restores returnTo as activePlugin, logs transition
+popIfPushed(cmd)        // called by event handlers; pops NavPush plugin if active
+resolveOptions(ws)      // re-runs config.Resolve and mutates shared *ResolvedOptions
 ```
 
 `returnTo sdk.Plugin` — single-level return address. Set by `NavPush` transitions AND workflow transitions (e.g., plan→apply). Consumed by:
 - Event handlers (`ChdirChangedEvent`, `WorkspaceChangedEvent`) via `popIfPushed`
 - `DeactivateMsg` handler (esc cancel path)
+
+Config propagation: App stores `rootCfg` and `childCfg`. On `WorkspaceChangedEvent`/`WorkspaceCreatedEvent`: calls `resolveOptions(name)`. On `ChdirChangedEvent`: reloads `childCfg` from new dir, then calls `resolveOptions(activeWorkspace)`. This keeps `*ResolvedOptions` in sync without new event types — plugins read fresh values on their next terraform call.
 
 Workflow transitions (plan→apply): The app sets `returnTo` manually when a plugin triggers a workflow to another plugin. This is distinct from `NavPush` metadata — it's a runtime decision. Example: `ApplyRequestMsg` handler sets `returnTo = plan` before activating apply.
 
