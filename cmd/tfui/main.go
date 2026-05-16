@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime/debug"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
@@ -17,7 +16,6 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/scaffold"
 	"github.com/lmarqs/terraform-ui/internal/source"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
-	"github.com/lmarqs/terraform-ui/internal/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiblastradius "github.com/lmarqs/terraform-ui/plugins/blastradius"
@@ -94,10 +92,10 @@ func main() {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runMacro(cfg, macroURI, planURI, stateURI)
-			}
-			return runTUI(cfg, rootCfg, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				Run()
 		},
 	}
 
@@ -117,14 +115,14 @@ func main() {
 		Use:   "plan",
 		Short: "Run terraform plan",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "plan")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "plan", args, jsonMode, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "plan", args, jsonMode, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("plan").
+				WithArgs(args).
+				WithJSON(jsonMode).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -136,14 +134,14 @@ func main() {
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "apply")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "apply", args, jsonMode, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "apply", args, jsonMode, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("apply").
+				WithArgs(args).
+				WithJSON(jsonMode).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -168,14 +166,14 @@ func main() {
 		Use:   "version",
 		Short: "Print version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "version")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "version", args, versionJSON, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "version", args, versionJSON, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("version").
+				WithArgs(args).
+				WithJSON(versionJSON).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
@@ -185,14 +183,13 @@ func main() {
 		Use:   "init",
 		Short: "Run terraform init",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "init")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "init", args, false, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "init", args, false, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("init").
+				WithArgs(args).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -201,14 +198,14 @@ func main() {
 		Use:   "validate",
 		Short: "Run terraform validate",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "validate")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "validate", args, jsonMode, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "validate", args, jsonMode, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("validate").
+				WithArgs(args).
+				WithJSON(jsonMode).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	validateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -218,14 +215,14 @@ func main() {
 		Use:   "output",
 		Short: "Show terraform outputs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "output")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "output", args, jsonMode, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "output", args, jsonMode, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("output").
+				WithArgs(args).
+				WithJSON(jsonMode).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	outputCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -235,14 +232,14 @@ func main() {
 		Use:   "state",
 		Short: "Terraform state operations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if macroURI != "" {
-				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "state")
-			}
-			mode := resolveMode(ciMode)
-			if mode == modeCI {
-				return runCI(cfg, rootCfg, "state", args, jsonMode, planURI, stateURI)
-			}
-			return runStandalone(cfg, rootCfg, "state", args, jsonMode, planURI, stateURI)
+			return NewSession(cfg, rootCfg).
+				ForPlugin("state").
+				WithArgs(args).
+				WithJSON(jsonMode).
+				WithSeeds(planURI, stateURI).
+				WithMacro(macroURI).
+				WithCI(ciMode).
+				Run()
 		},
 	}
 	stateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -266,34 +263,6 @@ func main() {
 		}
 		os.Exit(1)
 	}
-}
-
-func runTUI(cfg config.Config, rootCfg *config.RootConfig, planURI, stateURI string) error {
-	if !hasTTY() {
-		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --ci            (CI mode, no TUI)\n  CI=1 tfui plan            (same via env var)")
-	}
-
-	if cfg.Chdir != "" {
-		if err := validateChdir(cfg); err != nil {
-			return err
-		}
-	}
-
-	cache := terraform.NewServiceCache()
-	if planURI != "" || stateURI != "" {
-		cfg.PreloadedData = true
-		if err := seedCache(cache, planURI, stateURI); err != nil {
-			return err
-		}
-	}
-	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
-
-	registry := buildRegistry(svc, cfg)
-
-	app := ui.NewApp(cfg, svc, registry, rootCfg)
-	p := tea.NewProgram(app, tea.WithAltScreen())
-	_, err := p.Run()
-	return err
 }
 
 func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
@@ -347,234 +316,6 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	}
 
 	return registry
-}
-
-func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting working directory: %w", err)
-	}
-
-	resolver := source.NewResolver(
-		&source.LocalProvider{BaseDir: cwd},
-		&source.StdinProvider{},
-	)
-	ctx := context.Background()
-
-	tapeData, err := resolver.Resolve(ctx, macroURI)
-	if err != nil {
-		return fmt.Errorf("loading macro tape: %w", err)
-	}
-
-	commands, err := macro.ParseTape(tapeData)
-	if err != nil {
-		return &macro.RunError{Code: macro.ExitSyntaxError, Message: err.Error()}
-	}
-
-	if len(commands) == 0 {
-		return nil
-	}
-
-	cache := terraform.NewServiceCache()
-	if planURI != "" || stateURI != "" {
-		cfg.PreloadedData = true
-		if err := seedCache(cache, planURI, stateURI); err != nil {
-			return err
-		}
-	}
-
-	svc := terraform.NewMacroService(cfg.TerraformBinary(), cache)
-	registry := buildRegistry(svc, cfg)
-	app := ui.NewApp(cfg, svc, registry, nil)
-
-	driver := macro.NewDriver(app, 80, 24)
-	runner := macro.NewRunner(driver)
-
-	if err := runner.Execute(commands); err != nil {
-		return err
-	}
-
-	for _, cmd := range svc.Commands() {
-		fmt.Println(cmd.String())
-	}
-	return nil
-}
-
-func runStandaloneMacro(cfg config.Config, macroURI, planURI, stateURI, pluginID string) error {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return fmt.Errorf("getting working directory: %w", err)
-	}
-
-	resolver := source.NewResolver(
-		&source.LocalProvider{BaseDir: cwd},
-		&source.StdinProvider{},
-	)
-	ctx := context.Background()
-
-	tapeData, err := resolver.Resolve(ctx, macroURI)
-	if err != nil {
-		return fmt.Errorf("loading macro tape: %w", err)
-	}
-
-	commands, err := macro.ParseTape(tapeData)
-	if err != nil {
-		return &macro.RunError{Code: macro.ExitSyntaxError, Message: err.Error()}
-	}
-
-	if len(commands) == 0 {
-		return nil
-	}
-
-	cache := terraform.NewServiceCache()
-	if planURI != "" || stateURI != "" {
-		cfg.PreloadedData = true
-		if err := seedCache(cache, planURI, stateURI); err != nil {
-			return err
-		}
-	}
-
-	svc := terraform.NewMacroService(cfg.TerraformBinary(), cache)
-	registry := buildRegistry(svc, cfg)
-
-	standalone := &ui.StandaloneConfig{PluginID: pluginID}
-	app := ui.NewApp(cfg, svc, registry, nil, standalone)
-
-	driver := macro.NewDriver(app, 80, 24)
-	runner := macro.NewRunner(driver)
-
-	if err := runner.Execute(commands); err != nil {
-		return err
-	}
-
-	for _, cmd := range svc.Commands() {
-		fmt.Println(cmd.String())
-	}
-	return nil
-}
-
-type execMode int
-
-const (
-	modeStandalone execMode = iota
-	modeCI
-)
-
-func resolveMode(ciFlag bool) execMode {
-	if ciFlag || os.Getenv("CI") == "1" {
-		return modeCI
-	}
-	if !isStderrTTY() {
-		return modeCI
-	}
-	return modeStandalone
-}
-
-func runStandalone(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool, planURI, stateURI string) error {
-	if cfg.Chdir != "" {
-		if err := validateChdir(cfg); err != nil {
-			return err
-		}
-	}
-
-	cache := terraform.NewServiceCache()
-	if planURI != "" || stateURI != "" {
-		cfg.PreloadedData = true
-		if err := seedCache(cache, planURI, stateURI); err != nil {
-			return err
-		}
-	}
-	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
-	registry := buildRegistry(svc, cfg)
-
-	standalone := &ui.StandaloneConfig{
-		PluginID: pluginID,
-		Args:     args,
-		JSONMode: jsonMode,
-	}
-	app := ui.NewApp(cfg, svc, registry, rootCfg, standalone)
-
-	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithOutput(os.Stderr))
-	model, err := p.Run()
-	if err != nil {
-		return err
-	}
-
-	appModel := model.(ui.App)
-	activePlugin := appModel.ActivePlugin()
-	if activePlugin == nil {
-		return nil
-	}
-
-	if outputter, ok := activePlugin.(sdk.Outputter); ok {
-		data, outErr := outputter.Output(jsonMode)
-		if outErr != nil {
-			return outErr
-		}
-		_, _ = os.Stdout.Write(data)
-	}
-
-	if coder, ok := activePlugin.(sdk.ExitCoder); ok {
-		code := coder.ExitCode()
-		if code != 0 {
-			os.Exit(code)
-		}
-	}
-	return nil
-}
-
-func runCI(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool, planURI, stateURI string) error {
-	if cfg.Chdir != "" {
-		if err := validateChdir(cfg); err != nil {
-			return err
-		}
-	}
-
-	cache := terraform.NewServiceCache()
-	if planURI != "" || stateURI != "" {
-		cfg.PreloadedData = true
-		if err := seedCache(cache, planURI, stateURI); err != nil {
-			return err
-		}
-	}
-	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
-	registry := buildRegistry(svc, cfg)
-
-	standalone := &ui.StandaloneConfig{
-		PluginID: pluginID,
-		Args:     args,
-		JSONMode: jsonMode,
-	}
-	app := ui.NewApp(cfg, svc, registry, rootCfg, standalone)
-
-	driver := macro.NewDriver(app, 80, 24)
-	driver.Init()
-
-	if err := driver.WaitUntil(func(view string) bool {
-		if p, ok := registry.ByID(pluginID); ok {
-			return p.Ready()
-		}
-		return false
-	}, 10*time.Minute); err != nil {
-		return err
-	}
-
-	if p, ok := registry.ByID(pluginID); ok {
-		if outputter, ok := p.(sdk.Outputter); ok {
-			data, err := outputter.Output(jsonMode)
-			if err != nil {
-				return err
-			}
-			_, _ = os.Stdout.Write(data)
-		}
-		if coder, ok := p.(sdk.ExitCoder); ok {
-			code := coder.ExitCode()
-			if code != 0 {
-				os.Exit(code)
-			}
-		}
-	}
-	return nil
 }
 
 func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
