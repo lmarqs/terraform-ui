@@ -149,6 +149,29 @@ func TestActivate(t *testing.T) {
 	}
 }
 
+func TestActivateWhileLoadingRestartsTick(t *testing.T) {
+	svc := &mockService{
+		planResult: &sdk.PlanSummary{Changes: []sdk.PlanChange{}},
+	}
+	p := New(svc)
+	ctx := &sdk.Context{
+		WorkingDir: "/tmp",
+		Service:    svc,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Pins:       sdk.NewPinService(),
+	}
+	p.Init(ctx)
+
+	pp := p.(*Plugin)
+	pp.Activate()
+
+	// Simulate re-entering the plugin while plan is still loading
+	cmd := pp.Activate()
+	if cmd == nil {
+		t.Error("Activate() while loading returned nil cmd, want tick cmd")
+	}
+}
+
 func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{

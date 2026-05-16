@@ -168,6 +168,9 @@ func (e *Plugin) Activate() tea.Cmd {
 		e.log.Debug("plan.start", "targets", e.targets)
 		return tea.Batch(e.runPlan(), e.timer.Start())
 	}
+	if e.status == sdk.StatusLoading && e.timer.Running() {
+		return e.timer.Tick()
+	}
 	return nil
 }
 
