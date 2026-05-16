@@ -40,21 +40,6 @@ type StateMovedMsg struct {
 	Dest   string
 }
 
-// StateTaintedMsg is sent when resources are successfully tainted.
-type StateTaintedMsg struct {
-	Addresses []string
-}
-
-// StateUntaintedMsg is sent when resources are successfully untainted.
-type StateUntaintedMsg struct {
-	Addresses []string
-}
-
-// StateImportedMsg is sent when a resource is successfully imported.
-type StateImportedMsg struct {
-	Address string
-	ID      string
-}
 
 // StateEditMsg requests the editor to open for this resource.
 type StateEditMsg struct {
@@ -146,6 +131,14 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	e.pins = ctx.Pins
 	e.stack.Clear()
 	e.reset()
+	return nil
+}
+
+// HandlePlanInvalidated implements sdk.PlanInvalidatedHandler.
+func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
+	if e.status == sdk.StatusDone {
+		return e.Refresh()
+	}
 	return nil
 }
 
@@ -251,20 +244,6 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		e.log.Debug("state.moved", "source", msg.Source, "dest", msg.Dest)
 		return e, e.Refresh()
 
-	case StateTaintedMsg:
-		e.mutating = false
-		e.log.Debug("state.tainted", "addresses", msg.Addresses)
-		return e, e.Refresh()
-
-	case StateUntaintedMsg:
-		e.mutating = false
-		e.log.Debug("state.untainted", "addresses", msg.Addresses)
-		return e, e.Refresh()
-
-	case StateImportedMsg:
-		e.mutating = false
-		e.log.Debug("state.imported", "address", msg.Address, "id", msg.ID)
-		return e, e.Refresh()
 
 	case ResourceDetailMsg:
 		e.timer.Stop()

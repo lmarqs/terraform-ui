@@ -2,6 +2,9 @@ package state
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
+	"github.com/lmarqs/terraform-ui/plugins/taint"
+	"github.com/lmarqs/terraform-ui/plugins/untaint"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
@@ -135,17 +138,17 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "t":
 		r := f.plugin.SelectedResource()
 		if r.Address != "" {
-			return f, f.plugin.requestTaint(r.Address)
+			return f, func() tea.Msg { return taint.TaintRequestMsg{Addresses: []string{r.Address}} }
 		}
 	case "T":
 		r := f.plugin.SelectedResource()
 		if r.Address != "" {
-			return f, f.plugin.requestUntaint(r.Address)
+			return f, func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: []string{r.Address}} }
 		}
 	case "n":
 		r := f.plugin.SelectedResource()
 		if r.Address != "" {
-			return f, f.plugin.requestImport(r.Address)
+			return f, func() tea.Msg { return tfuiimport.ImportRequestMsg{Address: r.Address} }
 		}
 	case "!":
 		targets := f.plugin.actionTargets()
@@ -230,11 +233,11 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "m":
 		return f, f.plugin.requestMove(f.plugin.detailAddr)
 	case "t":
-		return f, f.plugin.requestTaint(f.plugin.detailAddr)
+		return f, func() tea.Msg { return taint.TaintRequestMsg{Addresses: []string{f.plugin.detailAddr}} }
 	case "T":
-		return f, f.plugin.requestUntaint(f.plugin.detailAddr)
+		return f, func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: []string{f.plugin.detailAddr}} }
 	case "n":
-		return f, f.plugin.requestImport(f.plugin.detailAddr)
+		return f, func() tea.Msg { return tfuiimport.ImportRequestMsg{Address: f.plugin.detailAddr} }
 	}
 	return f, nil
 }
