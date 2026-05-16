@@ -10,38 +10,37 @@ nav_exclude: true
 
 ## 1. Design Principle
 
-tfui is a superset of terraform. All terraform flags work identically. Our additions use names terraform hasn't claimed. A user who types `tfui` instead of `terraform` must never be surprised by broken behavior.
+Every `tfui <command>` launches the actual plugin in a standalone TUI. The TUI renders on stderr, output goes to stdout on exit. `--ci` or `CI=1` disables the TUI for headless use.
 
-## 2. Output Channel Rules
+This follows the fzf model: interactive UI on one fd, structured output on another.
+
+## 2. Two Execution Modes
+
+| Mode | TUI | stdout | Trigger |
+|------|-----|--------|---------|
+| **Standalone** | Alt-screen on stderr | Plugin output on exit | Default (stderr is TTY) |
+| **CI** | None | Plugin output immediately | `--ci`, `CI=1`, stderr not TTY |
+
+Mode resolution:
+```go
+if --ci OR CI=1:     → CI mode
+if stderr not TTY:   → CI mode
+otherwise:           → Standalone TUI
+```
+
+## 3. Output Channel Rules
 
 | Channel | Content | Never |
 |---------|---------|-------|
-| **stdout** | Data output: tree view, JSON, resource lists, plan summaries | Spinner, progress, status messages |
-| **stderr** | Spinner, progress messages, warnings, operational confirmations | Data output, JSON, tree views |
+| **stdout** | Data output: tree view, JSON, resource lists, summaries (written on TUI exit) | TUI rendering, ANSI sequences |
+| **stderr** | TUI rendering (alt-screen in standalone mode) | Data output |
 
 ### Critical invariants
 
-- `-json` mode: stdout = JSON only, stderr = nothing
-- `--ci` mode: stdout = tree/summary, stderr = nothing
-- Default mode: stdout = tree/summary, stderr = spinner (if TTY)
-- Pipe-safe: stdout must always be machine-parseable or human-readable data
-
-## 3. Spinner Behavior
-
-```go
-showSpinner := !ci && !jsonOutput && isStderrTTY()
-```
-
-All three conditions must hold for spinner to appear:
-- NOT in `--ci` mode
-- NOT in `-json` mode
-- stderr IS a TTY
-
-Spinner output rules:
-- Uses ANSI control sequences: `\r\033[K` (carriage return + clear line)
-- Shows elapsed time for long operations (`(Xs)` suffix)
-- Cleared on completion (line fully erased)
-- Never leaves artifacts in piped output
+- `-json` flag: changes output FORMAT (JSON vs human-readable), not mode
+- `--ci` flag: changes execution MODE (headless vs TUI), not format
+- Both flags are orthogonal: `tfui plan --ci -json` = headless + JSON output
+- Piped stdout: TUI still renders on stderr (fzf model)
 
 ## 4. Flag Conventions
 
@@ -73,11 +72,11 @@ Spinner output rules:
 | Code | Meaning | Commands |
 |------|---------|----------|
 | `0` | Success (no changes, or operation completed) | All |
-| `1` | Error | All |
+| `1` | Error / validation failure | All |
 | `2` | Changes present | `plan` only |
 
 Rules:
-- `os.Exit(2)` must ONLY appear in plan-related code paths
+- Exit 2 must ONLY come from plan plugin's `ExitCode()` method
 - cobra errors → exit 1 (handled by `SilenceUsage: true` + `os.Exit(1)`)
 - Macro errors → exit code from `macro.RunError.Code`
 
@@ -87,41 +86,40 @@ Rules:
 --terraform-bin flag  >  --config terraform.bin=X  >  tfui.hcl terraform { bin }  >  "terraform"
 ```
 
-Checked in `PersistentPreRunE`:
-1. CLI flag already set → skip HCL
-2. HCL has `terraform.bin` AND flag is empty → use HCL value
-3. Neither → default to `"terraform"`
+## 7. Pipe Ergonomics
 
-## 7. Config Loading Rules
-
-- `LoadRoot()` called in `PersistentPreRunE` (runs for ALL commands)
-- `ConfigNotFoundError` is non-fatal (standalone mode)
-- HCL parse errors return with `hint: check HCL syntax in tfui.hcl`
-- Child config cannot declare: `terraform`, `member`, `cache`, `ai`, `defaults` (locked blocks)
-- Resolution chain: Root defaults → Child top-level → Workspace block → CLI flags → `--` passthrough
-
-## 8. Pipe Ergonomics
-
-These must always work:
+### Standalone TUI + pipe (fzf model)
 
 ```bash
-# Substitution (terraform → tfui)
-tfui plan -json | jq '.type'              # identical NDJSON
-tfui show -json file | infracost          # identical JSON
-tfui state list | grep "aws"              # identical output
-tfui validate -json | jq '.diagnostics'   # identical JSON
-tfui output -json | jq '.ep.value'        # identical JSON
+# User reviews plan in TUI, quits, then output flows to grep:
+tfui plan | grep "aws_"
 
-# Pipeline (novel commands)
-tfui show -json file | tfui risk          # plan JSON → risk report
-tfui show -json file | tfui risk --json | jq  # full JSON pipeline
+# User reviews plan in TUI, quits, then JSON flows to jq:
+tfui plan -json | jq '.changes[].address'
 
-# Non-interactive fallback
-terraform show -json plan.out | tfui --plan -   # stdin to TUI (view-only)
-tfui --plan ./file.json                         # auto-renders without TTY
+# User browses state in TUI, quits, then addresses flow to wc:
+tfui state | wc -l
 ```
 
-## 9. Tree View Format
+### CI mode in scripts
+
+```bash
+# No TUI, immediate output:
+CI=1 tfui plan -json | jq '.summary'
+tfui validate --ci -json | jq '.valid'
+
+# Auto-detected (stderr not TTY):
+tfui plan -json > plan-output.json
+```
+
+### Novel command chains (pure stdin filters, no TUI)
+
+```bash
+tfui show -json tfplan.out | tfui risk          # plan JSON → risk report
+tfui show -json tfplan.out | tfui risk --json | jq '.high_risk[]'
+```
+
+## 8. Tree View Format
 
 Default human-readable output for `tfui plan`:
 
@@ -137,7 +135,7 @@ Risk: high
 
 Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read
 
-## 10. Error Message Formatting
+## 9. Error Message Formatting
 
 - Errors go to stderr via cobra's error handling or `fmt.Errorf`
 - Error messages start with lowercase (Go convention)
@@ -145,32 +143,36 @@ Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read
 - Wrap errors with context: `fmt.Errorf("plan failed: %w", err)`
 - Hints use `\n\nhint:` suffix for actionable guidance
 
-## 11. `--ci` Mode
+## 10. `--ci` Mode
 
-Purpose: explicit override for CI runners where stderr IS a TTY but user wants clean output.
+Purpose: disable TUI entirely for headless/scripted use.
+
+Detection:
+1. `--ci` flag on the command
+2. `CI=1` environment variable
+3. stderr is not a TTY (auto-detected)
 
 Effects:
-- Suppresses spinner (no ANSI on stderr)
-- Suppresses any progress/status messages
-- stdout remains identical (tree view or JSON)
-- Does NOT affect exit codes
+- No TUI rendering (no alt-screen, no keyboard input)
+- Plugin runs headlessly via macro driver
+- Output written directly to stdout when plugin reaches Ready state
+- Exit codes unchanged
 
-## 12. Non-Interactive Fallback
-
-When stdin is not a TTY and `--plan`/`--state` is provided:
-- Skip TUI (no alt-screen)
-- Render tree view or resource list to stdout
-- Exit immediately after rendering
-
-When stdin is not a TTY and no `--plan`/`--state`:
-- Print error with suggestions for non-interactive alternatives
-- Exit 1
-
-## 13. Novel Commands
+## 11. Novel Commands
 
 Commands with no terraform equivalent (`risk`, `phantom`, `blast-radius`):
 - Read plan JSON from stdin (terraform-compatible input)
 - Default output: human-readable report on stdout
 - `--json` output: our schema (not terraform's) on stdout
-- No spinner (read from stdin, write to stdout — pure filter)
+- No TUI (pure stdin→stdout filter)
 - Exit 0 on success, 1 on error
+
+## 12. Imperative Commands (no TUI)
+
+Workspace operations and force-unlock are direct CLI commands — they execute immediately without TUI because they are one-shot imperative actions:
+
+```bash
+tfui workspace select prod     # switches, prints status to stderr
+tfui workspace new staging     # creates, prints status to stderr
+tfui force-unlock abc123       # unlocks, prints status to stderr
+```

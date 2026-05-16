@@ -14,68 +14,133 @@ tfui [flags]
 tfui [command] [flags]
 ```
 
-## Design Principle
+## Execution Model
 
-tfui is a superset of terraform. All terraform flags work identically. Additions use names terraform hasn't claimed. See [CLI I/O Contract](cli-io-contract.md) for the full stdin/stdout/stderr specification.
+Every `tfui <command>` launches the plugin in a standalone TUI (rendered on stderr). On exit, structured output goes to stdout. Use `--ci` or `CI=1` for headless mode.
+
+```
+tfui plan           → Standalone TUI on stderr, tree view to stdout on exit
+tfui plan --ci      → No TUI, tree view to stdout immediately
+tfui plan -json     → Standalone TUI on stderr, JSON to stdout on exit
+tfui                → Full multi-plugin TUI (alt-screen on stdout, no output)
+```
+
+See [CLI I/O Contract](cli-io-contract.md) for the full stdin/stdout/stderr specification.
 
 ## Commands
 
 ### `tfui` (no command)
 
-Launches the interactive TUI. This is the default when no subcommand is given.
+Launches the full interactive TUI with all plugins, home screen, and inter-plugin navigation.
 
 ```bash
-tfui                           # TUI in current directory
-tfui --project ./infra         # TUI scoped to specific directory
-tfui --plan ./tfplan.out       # TUI with pre-computed plan (binary)
-tfui --state ./terraform.tfstate  # TUI with pre-loaded state
+tfui                           # Full TUI in current directory
+tfui --project ./infra         # Full TUI scoped to specific directory
+tfui --plan ./tfplan.out       # Full TUI with pre-computed plan
+tfui --state ./terraform.tfstate  # Full TUI with pre-loaded state
 ```
 
 ### `tfui plan`
 
-Run terraform plan. Produces a tree view on stdout and saves the binary plan file.
+Run terraform plan. Opens the plan plugin TUI for interactive review.
 
 ```bash
-tfui plan
-tfui plan -out=tfplan.out
-tfui plan -target=aws_instance.web
-tfui plan -json                     # NDJSON events (terraform-compatible)
-tfui plan --ci                      # suppress spinner
+tfui plan                           # TUI: review plan interactively, tree view on exit
+tfui plan -json                     # TUI: review plan, JSON output on exit
+tfui plan --ci                      # No TUI: tree view to stdout immediately
+tfui plan --ci -json                # No TUI: JSON to stdout immediately
+tfui plan -target=aws_instance.web  # Targeted plan
+tfui plan -out=tfplan.out           # Save binary plan file
 ```
 
-| stdout | stderr | Exit |
-|--------|--------|------|
-| Tree view (default) or NDJSON (`-json`) | Spinner (if TTY, unless `--ci`) | 0/1/2 |
+| Mode | stdout (on exit) | stderr | Exit |
+|------|-----------------|--------|------|
+| Standalone | Tree view or JSON | TUI (alt-screen) | 0/2 |
+| CI | Tree view or JSON | — | 0/2 |
+
+Exit code 2 = changes present (terraform-compatible).
 
 ### `tfui apply`
 
-Run terraform apply.
+Run terraform apply. Opens the apply plugin TUI.
 
 ```bash
-tfui apply tfplan.out
-tfui apply -json tfplan.out         # NDJSON events (terraform-compatible)
-tfui apply --ci
+tfui apply                          # TUI: shows confirmation, then progress
+tfui apply --auto-approve           # TUI: skips confirmation, shows progress
+tfui apply --ci                     # No TUI: apply immediately
+tfui apply -json                    # TUI: JSON output on exit
+tfui apply -target=aws_instance.web # Targeted apply
 ```
 
-| stdout | stderr | Exit |
-|--------|--------|------|
-| Apply summary (default) or NDJSON (`-json`) | Spinner (if TTY, unless `--ci`) | 0/1 |
+| Mode | stdout (on exit) | stderr | Exit |
+|------|-----------------|--------|------|
+| Standalone | "Apply complete." or JSON | TUI (alt-screen) | 0/1 |
+| CI | "Apply complete." or JSON | — | 0/1 |
 
 ### `tfui state`
 
-State management operations.
+State browser and operations. Opens the state plugin TUI.
 
 ```bash
-tfui state rm <address>             # remove from state
-tfui state mv <source> <dest>       # rename in state
-tfui state import <address> <id>    # import existing resource
-tfui state taint <address>          # mark for recreation
-tfui state untaint <address>        # remove taint mark
+tfui state                          # TUI: browse resources interactively
+tfui state --ci                     # No TUI: addresses to stdout
+tfui state -json                    # TUI: JSON output on exit
+```
+
+| Mode | stdout (on exit) | stderr | Exit |
+|------|-----------------|--------|------|
+| Standalone | Addresses (one/line) or JSON | TUI (alt-screen) | 0 |
+| CI | Addresses (one/line) or JSON | — | 0 |
+
+### `tfui validate`
+
+Run terraform validate. Opens the validate plugin TUI.
+
+```bash
+tfui validate                       # TUI: review diagnostics interactively
+tfui validate --ci                  # No TUI: diagnostics to stdout
+tfui validate --ci -json            # No TUI: JSON diagnostics to stdout
+```
+
+| Mode | stdout (on exit) | stderr | Exit |
+|------|-----------------|--------|------|
+| Standalone | Diagnostics text or JSON | TUI (alt-screen) | 0/1 |
+| CI | Diagnostics text or JSON | — | 0/1 |
+
+Exit code 1 = validation errors present.
+
+### `tfui output`
+
+Show terraform outputs. Opens the output plugin TUI.
+
+```bash
+tfui output                         # TUI: browse outputs interactively
+tfui output --ci                    # No TUI: key=value pairs to stdout
+tfui output --ci -json              # No TUI: JSON to stdout
+```
+
+### `tfui init`
+
+Run terraform init. Opens the init plugin TUI (form + progress).
+
+```bash
+tfui init                           # TUI: form for options, shows progress
+tfui init --ci                      # No TUI: runs init immediately
+```
+
+### `tfui version`
+
+Show version information. Opens the version plugin TUI.
+
+```bash
+tfui version                        # TUI: shows version info
+tfui version --ci                   # No TUI: version text to stdout
+tfui version --ci -json             # No TUI: version JSON to stdout
 ```
 
 ### `tfui workspace`
 
-Workspace management operations.
+Workspace management operations (imperative, no TUI).
 
 ```bash
 tfui workspace show                    # print current workspace name
@@ -93,82 +158,23 @@ tfui workspace delete <name> -force    # delete non-empty workspace
 | `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
 | `-force` | `delete` | Force deletion of a non-empty workspace |
 
-### `tfui validate`
-
-Run terraform validate.
-
-```bash
-tfui validate                       # enriched diagnostics
-tfui validate -json                 # JSON diagnostics (terraform-compatible)
-```
-
-### `tfui output`
-
-Show terraform outputs.
-
-```bash
-tfui output                         # human-readable
-tfui output -json                   # JSON (terraform-compatible)
-tfui output <name>                  # single value
-```
-
 ### `tfui force-unlock`
 
-Remove a terraform state lock.
+Remove a terraform state lock (imperative, no TUI).
 
 ```bash
 tfui force-unlock <lock-id>          # interactive confirmation
 tfui force-unlock --force <lock-id>  # skip confirmation (CI/scripts)
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--force` | Skip confirmation prompt |
-
-| stdout | stderr | Exit |
-|--------|--------|------|
-| — | Progress + result | 0/1 |
-
-Behavior:
-- If TTY and no `--force`: shows lock ID and asks for confirmation (y/n)
-- If no TTY or `--force`: executes immediately without prompt
-
 ### `tfui scaffold`
 
 Generate a `tfui.hcl` configuration file by detecting terraform project patterns.
 
 ```bash
-tfui scaffold              # interactive
+tfui scaffold              # interactive wizard
 tfui scaffold --yes        # non-interactive (accept defaults)
 tfui scaffold --force      # overwrite existing
-```
-
-### `tfui version`
-
-Print tfui version, platform, and the resolved terraform binary version with provider selections.
-
-```bash
-tfui version
-tfui version -json
-```
-
-| Flag | Description |
-|------|-------------|
-| `-json` | Output structured JSON |
-
-| stdout | stderr | Exit |
-|--------|--------|------|
-| Version info (text or JSON) | — | 0/1 |
-
-Example output:
-
-```
-tfui v0.1.0
-on linux_amd64
-
-terraform v1.14.9
-on linux_amd64
-+ provider registry.terraform.io/hashicorp/aws v5.0.0
 ```
 
 ## Global Flags
@@ -183,18 +189,21 @@ Available on all commands:
 | `--config` | | Override config values (repeatable, `key=value`) |
 | `--debug` | `false` | Enable debug logging to `~/.tfui/logs/` |
 
-## Additive Flags (tfui-only)
+## Mode Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--ci` | `false` | Suppress stderr spinner/progress |
+| `--ci` | `false` | Disable TUI, output directly to stdout |
+| `-json` | `false` | Output in JSON format |
 
-## TUI Flags
+`--ci` is also triggered by `CI=1` environment variable or stderr not being a TTY.
+
+## TUI Flags (root command only)
 
 | Flag | Description |
 |------|-------------|
-| `--plan` | Load binary plan file into TUI (review and apply) |
-| `--state` | Load state file into TUI (view and mutate via `-state=`) |
+| `--plan` | Load binary plan file into full TUI (review and apply) |
+| `--state` | Load state file into full TUI (view and mutate) |
 | `--macro` | Run tape file (requires `--plan` or `--state`) |
 
 ### `--plan` behavior
@@ -206,10 +215,6 @@ tfui --plan ./tfplan.out            # review AND apply
 terraform show -json tfplan.out | tfui --plan -   # stdin: view-only (can't apply)
 ```
 
-- `Plan()` → `terraform show -json <file>` for display
-- `Apply()` → `terraform apply <file>` directly
-- Stdin source → cached, view-only, non-refreshable
-
 ### `--state` behavior
 
 Accepts state files:
@@ -218,10 +223,6 @@ Accepts state files:
 tfui --state ./terraform.tfstate    # view and mutate
 terraform state pull | tfui --state -   # stdin: view-only
 ```
-
-- `StateList()`/`Show()` → re-read file on each call
-- Mutations → `terraform state rm -state=<file>` (delegates with `-state=` flag)
-- Refresh → re-reads file from disk (catches external changes)
 
 ### URI Resolution Rules
 
@@ -256,10 +257,10 @@ See [Macro Language](macro-language.md) for the DSL reference.
 | 2 | Syntax error in tape file |
 | 3 | Timeout waiting for condition |
 
-## Exit Codes (CLI)
+## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success (no changes for plan, or apply succeeded) |
-| 1 | Error |
-| 2 | Plan has changes (terraform-compatible) |
+| Code | Meaning | Scope |
+|------|---------|-------|
+| 0 | Success (no changes for plan, or operation completed) | All |
+| 1 | Error / validation failure | All |
+| 2 | Plan has changes (terraform-compatible) | `plan` only |

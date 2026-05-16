@@ -2,269 +2,192 @@
 layout: default
 title: CLI I/O Contract
 nav_order: 7
-description: How tfui CLI commands handle stdin, stdout, stderr, and flags relative to terraform
+description: How tfui handles stdin, stdout, stderr across TUI and CI modes
 ---
 
 # CLI I/O Contract
 
 ## Design Principle
 
-**tfui is a superset of terraform. All terraform flags work identically. Our additions use names terraform hasn't claimed.**
+**Every `tfui <command>` launches a standalone TUI on stderr. Output goes to stdout on exit. `--ci` or `CI=1` disables the TUI for headless use.**
 
-A user who types `tfui` instead of `terraform` must never be surprised by broken behavior. Scripts, CI pipelines, and pipe workflows must work unmodified when substituting `terraform` for `tfui`. The only visible change is better human-readable output.
+This follows the fzf model: interactive UI on stderr (or /dev/tty), structured output on stdout. Users get full interactivity AND pipe composability simultaneously.
 
-### Three Layers
+### Two Modes
 
 ```
-Layer 1: Terraform-compatible (PRESERVE)
-  -json flag → identical bytes to terraform
-  state list/pull/push → identical behavior
-  Exit codes → identical
-  stdin (state push) → identical
+Mode 1: Standalone TUI (default)
+  TUI renders on stderr (alt-screen)
+  User interacts, reviews, confirms
+  On exit: structured output → stdout
+  Pipe-friendly: tfui plan | jq works (TUI on stderr, JSON to jq after quit)
 
-Layer 2: Better defaults (REPLACE)
-  plan/apply/validate default stdout → cleaner, same channel
-  Spinner on stderr → same role as terraform's progress output
+Mode 2: CI (headless)
+  No TUI, no interactivity
+  Output goes directly to stdout
+  Triggered by: --ci flag, CI=1 env var, or stderr not a TTY
+```
 
-Layer 3: Novel (ADD)
-  Commands terraform doesn't have (risk, phantom, blast-radius)
-  Flags terraform doesn't have (--ci, --project, --macro)
-  TUI mode (--plan, --state, --macro)
+### Mode Resolution
+
+```
+if --ci OR CI=1:     → CI mode
+if stderr not TTY:   → CI mode (nowhere to render)
+otherwise:           → Standalone TUI mode
 ```
 
 ### Rules
 
-1. **Preserve what exists.** If terraform has a flag and it produces output, tfui produces the same output in the same format on the same channel.
-2. **Replace only the useless.** Terraform's default human-readable stdout (plan text, apply text) is bloated and unparseable by machines. Nobody consumes it programmatically — machine consumers use `-json`. We replace it with better human-readable output (tree view, summaries). Same channel (stdout), better content.
-3. **Add freely what doesn't exist.** Novel commands and flags use names terraform hasn't claimed. No collision risk.
-4. **Never contradict.** Same flag must never mean different things. If terraform's `-json` produces NDJSON events, ours does too — even if our enriched format would be "more useful."
+1. **stdout = data.** Tree views, JSON, resource lists, summaries. Never TUI rendering.
+2. **stderr = TUI.** Alt-screen rendering in standalone mode. Never data.
+3. **`-json` controls format, not mode.** Both TUI and CI modes respect `-json` — it changes what's written to stdout, not whether the TUI appears.
+4. **`--ci` controls mode, not format.** Disables TUI entirely. Output format determined by `-json` flag independently.
+5. **Plugins produce output.** Each plugin implements `Outputter` — the same code runs in both modes.
 
-## Terraform I/O Baseline
+## Full I/O Table
 
-| Command | stdin | stdout | stderr | Exit |
-|---------|-------|--------|--------|------|
-| `terraform plan` | — | Human plan text | Warnings/progress | 0/1/2 |
-| `terraform plan -json` | — | NDJSON events | — | 0/1/2 |
-| `terraform plan -out=file` | — | Human plan text | Warnings | 0/1/2 |
-| `terraform apply file` | — | Apply results | Progress | 0/1 |
-| `terraform apply -json file` | — | NDJSON events | — | 0/1 |
-| `terraform show -json file` | — | Structured JSON | — | 0/1 |
-| `terraform show file` | — | Human-readable | — | 0/1 |
-| `terraform state list` | — | Addresses (one/line) | — | 0/1 |
-| `terraform state show addr` | — | HCL attributes | — | 0/1 |
-| `terraform state rm addr` | — | Confirmation message | — | 0/1 |
-| `terraform state mv src dst` | — | Confirmation message | — | 0/1 |
-| `terraform state pull` | — | State JSON | — | 0/1 |
-| `terraform state push` | State JSON | — | — | 0/1 |
-| `terraform validate` | — | Human diagnostics | — | 0/1 |
-| `terraform validate -json` | — | JSON diagnostics | — | 0/1 |
-| `terraform output` | — | Human outputs | — | 0/1 |
-| `terraform output -json` | — | JSON outputs | — | 0/1 |
-| `terraform import addr id` | — | Success message | Progress | 0/1 |
-| `terraform refresh` | — | Refresh results | Progress | 0/1 |
-| `terraform init` | — | Success message | Progress | 0/1 |
+### Standalone TUI mode (default when stderr is TTY)
 
-## tfui I/O Table
+| Command | stdout (on exit) | stderr | Exit |
+|---------|-----------------|--------|------|
+| `tfui plan` | Tree view | TUI (alt-screen) | 0/2 |
+| `tfui plan -json` | Plan JSON | TUI (alt-screen) | 0/2 |
+| `tfui apply` | "Apply complete." | TUI (alt-screen) | 0/1 |
+| `tfui apply -json` | `{"status":"complete"}` | TUI (alt-screen) | 0/1 |
+| `tfui state` | Addresses (one/line) | TUI (alt-screen) | 0 |
+| `tfui state -json` | Resource JSON array | TUI (alt-screen) | 0 |
+| `tfui validate` | Diagnostics text | TUI (alt-screen) | 0/1 |
+| `tfui validate -json` | Diagnostics JSON | TUI (alt-screen) | 0/1 |
+| `tfui output` | key=value pairs | TUI (alt-screen) | 0 |
+| `tfui output -json` | Outputs JSON | TUI (alt-screen) | 0 |
+| `tfui init` | "Initialized successfully." | TUI (alt-screen) | 0/1 |
+| `tfui version` | Version text | TUI (alt-screen) | 0 |
+| `tfui version -json` | Version JSON | TUI (alt-screen) | 0 |
 
-### Commands mirroring terraform
+### CI mode (`--ci`, `CI=1`, or stderr not TTY)
 
-| Command | Flags | stdin | stdout | stderr | Exit | Delta |
-|---------|-------|-------|--------|--------|------|-------|
-| `tfui plan` | | — | Tree view | Spinner | 0/1/2 | Replaced: bloated text → tree |
-| `tfui plan` | `-json` | — | NDJSON events | — | 0/1/2 | Identical |
-| `tfui plan` | `-out=file` | — | Tree view | Spinner | 0/1/2 | Replaced: bloated text → tree |
-| `tfui plan` | `-json -out=file` | — | NDJSON events | — | 0/1/2 | Identical |
-| `tfui plan` | `--ci` | — | Tree view | — | 0/1/2 | Additive flag |
-| `tfui plan` | `-json --ci` | — | NDJSON events | — | 0/1/2 | Additive flag |
-| `tfui apply` | `file` | — | Apply summary | Spinner | 0/1 | Replaced: bloated text → summary |
-| `tfui apply` | `-json file` | — | NDJSON events | — | 0/1 | Identical |
-| `tfui apply` | `--ci` | — | Apply summary | — | 0/1 | Additive flag |
-| `tfui show` | `-json file` | — | Structured JSON | — | 0/1 | Identical |
-| `tfui show` | `file` | — | Human-readable | — | 0/1 | Replaced: better formatting |
-| `tfui state list` | | — | Addresses (one/line) | — | 0/1 | Identical |
-| `tfui state show` | `addr` | — | HCL attributes | — | 0/1 | Identical |
-| `tfui state rm` | `addr` | — | Confirmation message | — | 0/1 | Identical |
-| `tfui state mv` | `src dst` | — | Confirmation message | — | 0/1 | Identical |
-| `tfui state pull` | | — | State JSON | — | 0/1 | Identical |
-| `tfui state push` | | State JSON | — | — | 0/1 | Identical |
-| `tfui import` | `addr id` | — | Success message | Spinner | 0/1 | Identical |
-| `tfui validate` | | — | Enriched diagnostics | — | 0/1 | Replaced: same data, better format |
-| `tfui validate` | `-json` | — | JSON diagnostics | — | 0/1 | Identical |
-| `tfui output` | | — | Human outputs | — | 0/1 | Identical |
-| `tfui output` | `-json` | — | JSON outputs | — | 0/1 | Identical |
-| `tfui output` | `name` | — | Single value | — | 0/1 | Identical |
-| `tfui refresh` | | — | Refresh results | Spinner | 0/1 | Identical |
-| `tfui init` | | — | — | Spinner + success msg | 0/1 | Identical |
-| `tfui init` | `--ci` | — | — | — | 0/1 | Additive flag |
-| `tfui init` | `--upgrade` | — | — | Spinner + success msg | 0/1 | Identical |
-| `tfui scaffold` | `--yes` | — | HCL content | — | 0/1 | Novel |
-| `tfui workspace show` | | — | Workspace name | — | 0/1 | Identical |
-| `tfui workspace list` | | — | Workspace names | — | 0/1 | Identical |
-| `tfui workspace select` | `name` | — | — | — | 0/1 | Identical |
-| `tfui workspace new` | `name` | `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
-| `tfui workspace delete` | `name` | `-force`, `-lock`, `-lock-timeout` | — | — | 0/1 | Identical |
-| `tfui version` | | — | Version text | — | 0/1 | Added: includes tfui version + terraform + providers |
-| `tfui version` | `-json` | — | Version JSON | — | 0/1 | Added: structured JSON with all version info |
+| Command | stdout | stderr | Exit |
+|---------|--------|--------|------|
+| `tfui plan --ci` | Tree view | — | 0/2 |
+| `tfui plan --ci -json` | Plan JSON | — | 0/2 |
+| `tfui apply --ci` | "Apply complete." | — | 0/1 |
+| `tfui apply --ci -json` | `{"status":"complete"}` | — | 0/1 |
+| `tfui state --ci` | Addresses (one/line) | — | 0 |
+| `tfui validate --ci` | Diagnostics text | — | 0/1 |
+| `tfui validate --ci -json` | Diagnostics JSON | — | 0/1 |
+| `tfui output --ci` | key=value pairs | — | 0 |
+| `tfui output --ci -json` | Outputs JSON | — | 0 |
+| `tfui init --ci` | "Initialized successfully." | — | 0/1 |
+| `tfui version --ci` | Version text | — | 0 |
 
-### Novel commands (no terraform equivalent)
+### Full TUI mode (`tfui` no command)
 
-| Command | Flags | stdin | stdout | stderr | Exit |
-|---------|-------|-------|--------|--------|------|
-| `tfui risk` | | Plan JSON | Risk report (human) | — | 0/1 |
-| `tfui risk` | `--json` | Plan JSON | Risk JSON (our schema) | — | 0/1 |
-| `tfui phantom` | | Plan JSON | Phantom report (human) | — | 0/1 |
-| `tfui phantom` | `--json` | Plan JSON | Phantom JSON (our schema) | — | 0/1 |
-| `tfui blast-radius` | | Plan JSON | Blast graph (human) | — | 0/1 |
-| `tfui blast-radius` | `--json` | Plan JSON | Blast JSON (our schema) | — | 0/1 |
+| Command | stdout | stderr | Exit |
+|---------|--------|--------|------|
+| `tfui` | (alt-screen) | — | 0/1 |
+| `tfui --plan file` | (alt-screen) | — | 0/1 |
+| `tfui --state file` | (alt-screen) | — | 0/1 |
+| `tfui --macro tape --plan file` | Commands | — | 0/1 |
 
-### TUI mode (interactive, own world)
+### Imperative commands (direct execution, no TUI)
 
-| Command | Flags | stdin | stdout | stderr | Exit |
-|---------|-------|-------|--------|--------|------|
-| `tfui` | | — | (alt screen) | — | 0/1 |
-| `tfui` | `--plan file` | — | (alt screen) | — | 0/1 |
-| `tfui` | `--state file` | — | (alt screen) | — | 0/1 |
-| `tfui` | `--plan -` | Plan JSON | (alt screen) | — | 0/1 |
-| `tfui` | `--state -` | State JSON | (alt screen) | — | 0/1 |
-| `tfui` | `--macro tape --plan file` | — | Commands | — | 0/1 |
-| `tfui` | `--macro tape` | — | Commands | — | 0/1 |
+| Command | stdout | stderr | Exit |
+|---------|--------|--------|------|
+| `tfui workspace show` | Workspace name | — | 0/1 |
+| `tfui workspace list` | Workspace names | — | 0/1 |
+| `tfui workspace select name` | — | Status message | 0/1 |
+| `tfui workspace new name` | — | Status message | 0/1 |
+| `tfui workspace delete name` | — | Status message | 0/1 |
+| `tfui force-unlock id` | — | Status/prompt | 0/1 |
+| `tfui scaffold --yes` | HCL content | Status message | 0/1 |
 
-### Additive flags (no collision)
+### Additive flags
 
 | Flag | Effect | Scope |
 |------|--------|-------|
-| `--ci` | Suppress stderr spinner/progress | All execution commands |
+| `--ci` | Disable TUI, direct output | All plugin commands |
+| `-json` | JSON output format | plan, apply, validate, output, version |
 | `--project dir` | Set project root | All commands |
 | `--terraform-bin path` | Override binary | All commands |
 | `--chdir member` | Select chdir member | All commands |
 | `--config key=val` | Override config | All commands |
 
-## Benchmarks
+## Exit Codes
 
-### Pipe scenario: user replaces `terraform` with `tfui` in scripts
+| Code | Meaning | Scope |
+|------|---------|-------|
+| `0` | Success / no changes | All commands |
+| `1` | Error / validation failure | All commands |
+| `2` | Plan has changes | `plan` command only |
+
+## Pipe Scenarios
+
+### Standalone TUI + pipe (fzf model)
 
 ```bash
-# Before:                                    After:
-terraform plan -out=tfplan.out | tee log     tfui plan -out=tfplan.out | tee log
-# ✓ log gets tree (better). Binary file identical.
+# TUI renders on stderr, user reviews plan interactively.
+# On quit, tree view flows to grep via stdout.
+tfui plan | grep "aws_"
 
-terraform plan -json | jq '.type'            tfui plan -json | jq '.type'
-# ✓ identical NDJSON. jq works same.
+# TUI renders on stderr, user reviews plan interactively.
+# On quit, JSON flows to jq via stdout.
+tfui plan -json | jq '.changes[].address'
 
-terraform show -json tfplan.out | infracost  tfui show -json tfplan.out | infracost
-# ✓ identical JSON. infracost works.
-
-terraform state list | grep "aws"            tfui state list | grep "aws"
-# ✓ identical output. grep works.
-
-terraform state pull > backup.json           tfui state pull > backup.json
-# ✓ identical state JSON.
-
-terraform validate -json | jq '.diagnostics' tfui validate -json | jq '.diagnostics'
-# ✓ identical JSON.
-
-terraform output -json | jq '.ep.value'      tfui output -json | jq '.ep.value'
-# ✓ identical JSON.
+# TUI renders on stderr for state browsing.
+# On quit, addresses flow to wc.
+tfui state | wc -l
 ```
 
-### Pipe scenario: tfui novel commands chained
+In pipe scenarios, the TUI blocks the downstream process until the user quits. This is intentional — the user reviews interactively, then the result flows.
+
+### CI mode in scripts
 
 ```bash
-# Plan → risk analysis
+# No TUI, immediate output:
+CI=1 tfui plan -json | jq '.summary'
+
+# Explicit --ci flag:
+tfui validate --ci -json | jq '.valid'
+
+# Auto-detected (stderr not TTY in most CI runners):
+tfui plan -json > plan-output.json
+```
+
+### Novel command chains
+
+```bash
+# Plan → risk analysis (stdin filter, no TUI)
 tfui show -json tfplan.out | tfui risk
-# stdout: risk report. Consumes terraform-compatible JSON.
+# stdout: risk report
 
-# Plan → risk → filter
-tfui show -json tfplan.out | tfui risk --json | jq '.high_risk[]'
-# Each stage: stdin=JSON, stdout=JSON
-
-# Macro → inspect → execute
-tfui --macro deploy.tape --plan ./tfplan.out        # prints commands
-tfui --macro deploy.tape --plan ./tfplan.out | sh   # executes them
-```
-
-### Combined flags verification
-
-```bash
-# terraform:
-terraform plan -json -out=plan.out
-# stdout: NDJSON events | side effect: plan.out written | exit: 0/1/2
-
-# tfui:
-tfui plan -json -out=plan.out
-# stdout: NDJSON events | side effect: plan.out written | exit: 0/1/2
-# IDENTICAL in every way.
+# Macro recording (headless)
+tfui --macro deploy.tape --plan ./tfplan.out
+# stdout: terraform commands
 ```
 
 ## Decisions and Tradeoffs
 
-### Why replace terraform's default stdout?
+### Why TUI on stderr?
 
-Terraform's default human-readable output is:
-- 50+ lines of attribute diffs for a single resource
-- Impossible to scan quickly for "what's changing?"
-- Not consumed by any machine tool (they all use `-json`)
-- Mixed warnings and plan content
+The fzf model is proven: render UI on stderr (or /dev/tty), emit result on stdout. This means:
+- `tfui plan | jq` works — TUI is interactive while pipe stays clean
+- stdout is always machine-parseable (no ANSI escape sequences mixed in)
+- The TUI is feedback/interaction, stdout is data — clean Unix separation
 
-tfui replaces this with a tree view (action + address, summary line, risk). Same information density for humans, orders of magnitude less noise. Because no tool parses the human text, this replacement breaks nothing.
+### Why block until user quits?
 
-### Why not put the tree view on stderr?
+The user reviews the plan interactively (expand/collapse, filter, inspect attributes), then presses `q` to exit. Only then does the output flow to stdout. This is the same UX as `fzf`, `less`, or `git log` with a pager — review, then exit, then the terminal has the result.
 
-Considered and rejected. Reasoning:
+### Why `--ci` instead of auto-detecting stdout pipe?
 
-- `tfui plan > file.txt` would produce an empty file (surprising)
-- `tfui plan | grep "aws"` would match nothing (surprising)
-- `tfui plan | less` would show nothing (surprising)
-- Every terraform-adjacent tool (tflint, infracost, checkov) puts human output on stdout
-- The curl model (data=stdout, commentary=stderr) doesn't fit because our tree IS the output, not commentary about it
+When stdout is piped (`tfui plan | jq`), we still show the TUI on stderr. The user wants both: interactive review AND piped output. Auto-disabling TUI on pipe would break this.
 
-The tree view replaces terraform's bloated text on the same channel. It's the "better default" — not metadata about the operation.
+`--ci` is the explicit "I don't want any TUI at all" signal. It's also auto-detected via `CI=1` env var (set by GitHub Actions, GitLab CI, Jenkins, etc.) and when stderr is not a TTY.
 
-### Why preserve `-json` exactly?
+### Why full TUI (`tfui` no args) uses stdout?
 
-Considered: make `-json` output our enriched format (risk, phantom annotations). Rejected because:
+The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split.
 
-- User types `tfui plan -json | jq` expecting the same fields as `terraform plan -json`
-- CI tools parse terraform's NDJSON schema — adding fields is OK, changing structure is not
-- If `-json` means different things in terraform and tfui, the user maintains two mental models
-- Our enrichments get their own novel commands (`tfui risk --json`), no collision
+### Why workspace/force-unlock stay as direct CLI?
 
-### Why `--ci` and not reusing terraform's flags?
-
-Terraform has no "suppress progress" flag. It shows progress when stderr is a TTY and suppresses when not. tfui follows the same isatty heuristic but adds `--ci` as an explicit override for cases where stderr IS a TTY but the user still wants clean output (certain CI runners, terminal multiplexers).
-
-### Why `--json` on novel commands uses our schema?
-
-`tfui risk --json` produces our risk schema because terraform has no `risk` command — there's no existing format to collide with. We own the namespace entirely. Same for `phantom`, `blast-radius`, and any future enrichment command.
-
-### Why novel commands read terraform JSON from stdin?
-
-`tfui risk` consumes the output of `tfui show -json` (which is terraform-compatible plan JSON). This means:
-
-```bash
-terraform show -json tfplan.out | tfui risk    # works
-tfui show -json tfplan.out | tfui risk         # same thing
-```
-
-The input format is terraform's. The output format is ours. We extend the pipeline without breaking it.
-
-### Why TUI mode is separate from CLI?
-
-The TUI (`tfui --plan`, `--state`, `--macro`) is our interactive product — not a terraform operation. It uses alt-screen, handles keyboard input, manages state. This is a fundamentally different interface that terraform has no equivalent for, so we have full design freedom:
-
-- `--plan file` accepts binary plan files (for review AND apply)
-- `--plan -` accepts JSON from stdin (view-only, can't apply stdin)
-- `--state -` accepts state JSON from stdin (view-only in TUI)
-- `--macro` outputs commands to stdout (the user pipes to sh if desired)
-
-These flags never conflict with terraform because terraform has no TUI mode.
-
-## What We Don't Support
-
-Terraform flags that affect output format are not supported because terraform-exec discards terraform's stdout. tfui reconstructs output from structured data:
-
-- `-no-color` (we control our own colors)
-- `-compact-warnings` (we control our own warning display)
-- `-detailed-exitcode` on apply (we use standard 0/1)
-
-These are documented as unsupported. Users who need them should use terraform directly.
+These are imperative one-shot operations (select, create, delete, unlock). They don't benefit from a TUI — the operation is the entire interaction. They complete immediately and print a status message.

@@ -1,11 +1,32 @@
 ---
-description: "CLI UX: I/O contract, output channels, flag conventions, spinner logic, and exit codes"
+description: "CLI UX: standalone/CI modes, I/O contract, flag conventions, exit codes"
 globs: ["cmd/**"]
 ---
 
 Full spec: `docs/cli-ux.md`
 
 # CLI UX Rules
+
+## Execution Model
+
+Every `tfui <command>` launches the plugin in a standalone TUI (on stderr). Output goes to stdout on exit. `--ci` or `CI=1` disables the TUI.
+
+Two modes:
+- **Standalone TUI**: alt-screen on stderr, plugin output to stdout on exit (fzf model)
+- **CI**: no TUI, headless execution via macro driver, output to stdout immediately
+
+Mode resolution:
+```go
+if --ci OR CI=1:     → CI mode
+if stderr not TTY:   → CI mode
+otherwise:           → Standalone TUI
+```
+
+Behavior matrix:
+- `tfui plan` → TUI on stderr, tree view to stdout on quit
+- `tfui plan --ci` → no TUI, tree view to stdout immediately
+- `tfui plan -json` → TUI on stderr, JSON to stdout on quit
+- `tfui` (no args) → full TUI on stdout (unchanged, no output)
 
 ## Pre-Seeded Cache (`--plan`, `--state`)
 
@@ -21,28 +42,18 @@ When `--plan` or `--state` provided:
 - Header shows `[pre-seeded]` badge
 - Mutating hints hidden from status bar
 
-## Design Decisions
+## Key Interfaces
 
-Full I/O contract: **`docs/cli-io-contract.md`**
+Plugins produce output via optional SDK interfaces:
+- `Outputter`: `Output(json bool) ([]byte, error)` — stdout content
+- `ExitCoder`: `ExitCode() int` — process exit code
+- `ActivateWithArgs`: `ActivateWithArgs(args []string) tea.Cmd` — receive CLI positional args
 
-Core principle: tfui is a superset of terraform. All terraform flags work identically. Our additions use names terraform hasn't claimed.
+## Flag Conventions
 
-Three interfaces:
-- TUI: `tfui` (interactive BubbleTea)
-- CLI: `tfui plan`, `tfui apply` (stdout tree/JSON)
-- MCP: `tfui mcp` (future, structured protocol)
-
-Behavior matrix:
-- `tfui plan` → stdout: tree view, stderr: spinner (if TTY)
-- `tfui plan --ci` → stdout: tree view, stderr: nothing
-- `tfui plan -json` → stdout: NDJSON (terraform-compatible), stderr: nothing
-
-Rules:
-- `-json` → identical output to terraform's
-- Default stdout → our enriched tree view
-- `--ci` → suppress stderr
-- Novel commands (`risk`, `phantom`, `blast-radius`) → our schema
-- `show_spinner = !ci && isStderrTTY()`
+- `-json` → changes output FORMAT (JSON vs human-readable)
+- `--ci` → changes execution MODE (headless vs TUI)
+- Both are orthogonal: `tfui plan --ci -json` = headless + JSON
 
 Binary resolution:
 - `--terraform-bin` > `--config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"`
@@ -52,7 +63,7 @@ Binary resolution:
 - ExtraArgs stored for `MacroService` (recorded in command flags)
 - `ExecService` does NOT forward ExtraArgs (terraform-exec typed API)
 
-Exit codes: `0` = success, `1` = error, `2` = changes present
+Exit codes: `0` = success, `1` = error, `2` = changes present (plan only)
 
 ## Config (`tfui.hcl`)
 

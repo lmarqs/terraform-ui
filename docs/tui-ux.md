@@ -29,6 +29,46 @@ nav_exclude: true
 - **Footer**: single hint line (left), binary name right-aligned faint.
 - **No separators** — borders handle visual separation.
 
+## 1b. Standalone Mode Layout
+
+When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs in standalone mode with minimal chrome:
+
+```
+ tfui │ modules/sa-east-1 │ production
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ plugin content fills the screen                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+ Enter inspect  / filter  Space pin  d delete  e edit  q quit                terraform
+```
+
+### Differences from full TUI
+
+| Aspect | Full TUI | Standalone |
+|--------|----------|------------|
+| Header | 3-line (project/chdir/workspace + ASCII logo) | 1-line minimal (tfui + context) |
+| Border | Content border with title | No border |
+| Navigation | `:` command mode, home screen, plugin switching | Disabled |
+| `q` key | Go home (or quit from home) | Quit app |
+| `esc` key | Pop frame / deactivate | Pop frame / quit when at root |
+| NavPush | Works (plan→apply, state→taint) | Works identically |
+| Output | None | stdout on exit (via `Outputter` interface) |
+
+### Standalone rendering
+
+- TUI renders on **stderr** (via `tea.WithOutput(os.Stderr)`)
+- stdout stays clean for pipe output
+- On quit: plugin's `Output(json)` is written to stdout
+- Alt-screen on stderr: terminal restores on exit
+
+### Standalone navigation rules
+
+- `:` command mode: disabled (no inter-plugin navigation)
+- `C` (context switch): disabled
+- `q`: clears sub-frames first, then quits
+- `DeactivateMsg` with empty navStack: quits the app
+- `NavigateMsg` to non-NavPush plugins: rejected
+- NavPush sub-navigation works normally (plan can push apply, state can push taint)
+
 ## 2. Information Architecture
 
 | Location | Content |
