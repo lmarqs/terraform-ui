@@ -89,6 +89,16 @@ otherwise:           → Standalone TUI mode
 | `tfui --state file` | (alt-screen) | — | 0/1 |
 | `tfui --macro tape --plan file` | Commands | — | 0/1 |
 
+### Pre-seeded data on subcommands
+
+`--plan` and `--state` work on any command. The plugin reads from cache instead of executing terraform:
+
+| Command | stdout (on exit) | stderr | Exit |
+|---------|-----------------|--------|------|
+| `tfui plan --plan file` | Tree view (from pre-seeded data) | TUI (alt-screen) | 0/2 |
+| `tfui state --state file` | Addresses (from pre-seeded data) | TUI (alt-screen) | 0 |
+| `tfui plan --ci --plan file` | Tree view (from pre-seeded data) | — | 0/2 |
+
 ### Imperative commands (direct execution, no TUI)
 
 | Command | stdout | stderr | Exit |

@@ -105,9 +105,9 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.hcl lives)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary")
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
-	rootCmd.Flags().StringVar(&planURI, "plan", "", "Load plan JSON from file (./path, /path, file://) or - for stdin")
-	rootCmd.Flags().StringVar(&stateURI, "state", "", "Load state JSON from file (./path, /path, file://) or - for stdin")
-	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file")
+	rootCmd.PersistentFlags().StringVar(&planURI, "plan", "", "Pre-seed plan data from file (./path, /path, file://) or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&stateURI, "state", "", "Pre-seed state data from file (./path, /path, file://) or - for stdin")
+	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 
 	var ciMode bool
@@ -119,9 +119,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "plan", args, jsonMode)
+				return runCI(cfg, rootCfg, "plan", args, jsonMode, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "plan", args, jsonMode)
+			return runStandalone(cfg, rootCfg, "plan", args, jsonMode, planURI, stateURI)
 		},
 	}
 	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -135,9 +135,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "apply", args, jsonMode)
+				return runCI(cfg, rootCfg, "apply", args, jsonMode, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "apply", args, jsonMode)
+			return runStandalone(cfg, rootCfg, "apply", args, jsonMode, planURI, stateURI)
 		},
 	}
 	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -164,9 +164,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "version", args, versionJSON)
+				return runCI(cfg, rootCfg, "version", args, versionJSON, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "version", args, versionJSON)
+			return runStandalone(cfg, rootCfg, "version", args, versionJSON, planURI, stateURI)
 		},
 	}
 	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
@@ -178,9 +178,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "init", args, false)
+				return runCI(cfg, rootCfg, "init", args, false, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "init", args, false)
+			return runStandalone(cfg, rootCfg, "init", args, false, planURI, stateURI)
 		},
 	}
 	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -191,9 +191,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "validate", args, jsonMode)
+				return runCI(cfg, rootCfg, "validate", args, jsonMode, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "validate", args, jsonMode)
+			return runStandalone(cfg, rootCfg, "validate", args, jsonMode, planURI, stateURI)
 		},
 	}
 	validateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -205,9 +205,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "output", args, jsonMode)
+				return runCI(cfg, rootCfg, "output", args, jsonMode, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "output", args, jsonMode)
+			return runStandalone(cfg, rootCfg, "output", args, jsonMode, planURI, stateURI)
 		},
 	}
 	outputCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -219,9 +219,9 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
-				return runCI(cfg, rootCfg, "state", args, jsonMode)
+				return runCI(cfg, rootCfg, "state", args, jsonMode, planURI, stateURI)
 			}
-			return runStandalone(cfg, rootCfg, "state", args, jsonMode)
+			return runStandalone(cfg, rootCfg, "state", args, jsonMode, planURI, stateURI)
 		},
 	}
 	stateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
@@ -396,7 +396,7 @@ func resolveMode(ciFlag bool) execMode {
 	return modeStandalone
 }
 
-func runStandalone(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool) error {
+func runStandalone(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool, planURI, stateURI string) error {
 	if cfg.Chdir != "" {
 		if err := validateChdir(cfg); err != nil {
 			return err
@@ -404,6 +404,12 @@ func runStandalone(cfg config.Config, rootCfg *config.RootConfig, pluginID strin
 	}
 
 	cache := terraform.NewServiceCache()
+	if planURI != "" || stateURI != "" {
+		cfg.PreloadedData = true
+		if err := seedCache(cache, planURI, stateURI); err != nil {
+			return err
+		}
+	}
 	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
 	registry := buildRegistry(svc, cfg)
 
@@ -443,7 +449,7 @@ func runStandalone(cfg config.Config, rootCfg *config.RootConfig, pluginID strin
 	return nil
 }
 
-func runCI(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool) error {
+func runCI(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool, planURI, stateURI string) error {
 	if cfg.Chdir != "" {
 		if err := validateChdir(cfg); err != nil {
 			return err
@@ -451,6 +457,12 @@ func runCI(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args 
 	}
 
 	cache := terraform.NewServiceCache()
+	if planURI != "" || stateURI != "" {
+		cfg.PreloadedData = true
+		if err := seedCache(cache, planURI, stateURI); err != nil {
+			return err
+		}
+	}
 	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
 	registry := buildRegistry(svc, cfg)
 

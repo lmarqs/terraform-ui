@@ -198,13 +198,29 @@ Available on all commands:
 
 `--ci` is also triggered by `CI=1` environment variable or stderr not being a TTY.
 
-## TUI Flags (root command only)
+## Data Flags (available on all commands)
 
 | Flag | Description |
 |------|-------------|
-| `--plan` | Load binary plan file into full TUI (review and apply) |
-| `--state` | Load state file into full TUI (view and mutate) |
-| `--macro` | Run tape file (requires `--plan` or `--state`) |
+| `--plan` | Pre-seed plan data from file or stdin |
+| `--state` | Pre-seed state data from file or stdin |
+
+These flags work on any command. When provided, the plugin reads from the pre-seeded cache instead of executing terraform:
+
+```bash
+tfui --plan ./tfplan.out            # full TUI with pre-seeded plan
+tfui plan --plan ./tfplan.out       # standalone plan TUI, reviews existing data
+tfui state --state ./state.json     # standalone state TUI, browses pre-loaded state
+tfui plan --ci --plan ./tfplan.out  # CI mode, outputs tree from pre-seeded plan
+```
+
+## Macro Flag (root command only)
+
+| Flag | Description |
+|------|-------------|
+| `--macro` | Run tape file (headless TUI recording) |
+
+`--macro` is root-only because it drives the full multi-plugin TUI headlessly — it doesn't map to a single subcommand.
 
 ### `--plan` behavior
 
