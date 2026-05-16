@@ -5,7 +5,7 @@ baseurl: /terraform-ui
 
 theme: just-the-docs
 
-color_scheme: light
+color_scheme: dark
 
 search_enabled: true
 search:
