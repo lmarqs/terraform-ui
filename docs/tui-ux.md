@@ -12,7 +12,7 @@
 ┌────────────────────── State Browser (30/1549) ─────────────────────────────┐
 │ content...                                                                 │
 └────────────────────────────────────────────────────────────────────────────┘
- Enter inspect  / filter  Space pin  ^t flat  d delete  e edit  t taint  q back    terraform
+ Enter inspect  / filter  Space pin  ^t flat  d delete  e edit  t taint  T untaint  q back    terraform
 ```
 
 - **Header** (3 lines): left=Project/Chdir/Workspace, right=ASCII logo. Always visible.
@@ -69,7 +69,7 @@
 | `Enter` on leaf | Inspect |
 
 ### Plugin activation (home screen only)
-Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` (outputs), `v` (validate), `t` (console), `i` (init)
+Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` (outputs), `v` (validate), `~` (console), `i` (init)
 
 ## 4. Visual Patterns
 
@@ -469,8 +469,8 @@ Activate → Form (home state)
 
 | Layer | Keys | Scope | Examples |
 |-------|------|-------|---------|
-| Terraform verbs | bare lowercase | cursor resource | `d` delete, `t` taint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `i` init |
-| Plugin switches (home) | bare lowercase | home screen only | `s` state, `p` plan, `w` workspace, `o` output, `v` validate, `t` console |
+| Terraform verbs | bare lowercase | cursor resource | `d` delete, `t` taint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `A` auto-approve |
+| Plugin switches (home) | bare lowercase | home screen only | `s` state, `p` plan, `w` workspace, `o` output, `v` validate, `~` console, `i` init |
 | Plugin switches (global) | bare uppercase | anywhere | `C` context, `R` risk, `P` phantom, `B` blast radius |
 | Interface controls | ctrl+key | view modes, reload | `ctrl+t` tree, `ctrl+w` wrap, `ctrl+r` refresh, `ctrl+p` pinned, `ctrl+u` unpin all |
 | Navigation & modes | non-alpha / punctuation | navigation, mode triggers | `/` filter, `!` batch, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect |
@@ -493,13 +493,13 @@ Activate → Form (home state)
 | `k` | move up | navigation (vim alias) | ↑ is primary |
 | `l` | — | **free** | |
 | `m` | move (rename) | terraform verb | state |
-| `n` | new / import | terraform verb | state: import; workspace: new |
+| `n` | new / import | terraform verb | state: import (navigates to import plugin); workspace: new |
 | `o` | output | plugin switch | home |
 | `p` | plan | plugin switch | home |
 | `q` | back / home | navigation | global |
 | `r` | — | **free** | note: `ctrl+r` is refresh |
 | `s` | state | plugin switch | home |
-| `t` | taint / console | terraform verb / plugin switch | state: taint; home: console |
+| `t` | taint | terraform verb | state/plan: navigates to taint plugin |
 | `u` | force-unlock | terraform verb | plan, state (only when locked) |
 | `v` | validate | plugin switch | home |
 | `w` | workspace | plugin switch | home |
@@ -516,7 +516,8 @@ Activate → Form (home state)
 | `G` | jump to end | navigation | lists, trees |
 | `P` | phantom | plugin switch (global) | decorator |
 | `R` | risk | plugin switch (global) | decorator |
-| `T` | untaint | terraform verb | state |
+| `A` | auto-approve | terraform verb | plan: apply without confirmation |
+| `T` | untaint | terraform verb | state/plan: navigates to untaint plugin |
 | `Y` | confirm (yes) | confirmation | confirmation frames only |
 | All others | — | **free** | |
 

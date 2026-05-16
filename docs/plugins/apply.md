@@ -39,12 +39,18 @@ The Apply screen adds:
 ### Flow
 
 ```
-Plan ──a──→ Apply (confirming)
+Plan ──a──→ Apply (no targets → confirming)
+Plan ──a──→ Apply (with targets → replanning → confirming)
+Plan ──A──→ Apply (auto-approve: skip confirmation)
                │
                ├── y → Apply (running) → Apply (success)
                │                       → Apply (error) ──r──→ retry
-               └── n → Apply (idle)
+               └── n/Esc → DeactivateMsg → return to plan
 ```
+
+### Replan for Targeted Apply
+
+When pinned resources exist, apply does NOT use the saved plan file directly (terraform constraint). Instead it replans with `-target` flags to produce a targeted plan, shows it for review, then applies that plan file. This ensures the user always reviews exactly what will be applied.
 
 ### Screenshots
 
@@ -79,6 +85,9 @@ Duration: 2m45s
 # Default: plan first, then apply (with progress)
 tfui plan --project ./infra
 tfui apply --project ./infra
+
+# Auto-approve: skip confirmation (CI pipelines)
+tfui apply --project ./infra --auto-approve
 
 # Silent: no animation
 tfui apply --project ./infra --ci

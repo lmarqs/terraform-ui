@@ -54,13 +54,17 @@ internal/
 plugins/
   context/                 — Context dashboard: Project + Chdir + Workspace
   chdir/                   — Chdir picker: select member from explicit list
-  state/                   — State browser (list, inspect, pin, delete, move, edit)
+  state/                   — State browser (list, inspect, pin, delete, move)
   plan/                    — Plan review (diff view, expand attributes, risk)
-  apply/                   — Apply executor with confirmation
+  apply/                   — Apply executor with replan + confirmation
+  taint/                   — Standalone taint verb (mark for recreation)
+  untaint/                 — Standalone untaint verb (remove taint mark)
+  import/                  — Standalone import verb (bring existing infra)
   workspace/               — Workspace management
   repl/                    — Terraform console (REPL)
   output/                  — Terraform outputs viewer
   validate/                — Terraform validate with diagnostics
+  init/                    — Terraform init with form-based options
   risk/                    — Risk classification (decorates plan)
   phantom/                 — Phantom change detection (decorates plan)
   blastradius/             — Blast radius visualization

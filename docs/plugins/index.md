@@ -18,7 +18,10 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [workspace](workspace.md) | Workspace | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
 | [output](output.md) | Outputs | `o` | navigation | View terraform output values |
 | [validate](validate.md) | Validate | `v` | operations | Run terraform validate and show diagnostics |
-| [repl](repl.md) | Console | `t` | operations | Interactive terraform console (REPL) |
+| [taint](taint.md) | Taint | `t` | action | Mark resources for recreation on next apply |
+| [untaint](untaint.md) | Untaint | `T` | action | Remove taint mark from resources |
+| [import](import.md) | Import | `n` | action | Import existing infrastructure into terraform state |
+| [repl](repl.md) | Console | `~` | operations | Interactive terraform console (REPL) |
 | [risk](risk.md) | Risk Analysis | `R` | analysis | Analyze and group planned changes by risk level |
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
 | [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
@@ -29,12 +32,20 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 
 ## Categories
 
+### Action (Verb Plugins)
+
+Transient plugins for terraform top-level verbs. Arrive with context, confirm, execute, return.
+
+- **[Taint](taint.md)** — mark resources for recreation (`terraform taint`)
+- **[Untaint](untaint.md)** — remove taint mark (`terraform untaint`)
+- **[Import](import.md)** — import existing infrastructure (`terraform import`)
+
 ### Operations
 
 Plugins that execute terraform commands or modify infrastructure.
 
 - **[Plan](plan.md)** — run and review `terraform plan`
-- **[Apply](apply.md)** — execute `terraform apply` with confirmation
+- **[Apply](apply.md)** — execute `terraform apply` with replan + confirmation
 - **[Validate](validate.md)** — run `terraform validate`
 - **[Console](repl.md)** — interactive `terraform console`
 

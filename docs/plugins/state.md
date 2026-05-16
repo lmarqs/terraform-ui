@@ -49,9 +49,9 @@ Press `s` from the home menu. The plugin loads the current terraform state.
 | `Ctrl+w` | Toggle line wrap | Detail |
 | `d` | Delete from state | List (cursor item) |
 | `m` | Move (rename address) | List (cursor item) |
-| `t` | Taint (mark for recreation) | List (cursor item) |
-| `T` | Untaint (remove taint) | List (cursor item) |
-| `n` | Import resource | List (cursor item) |
+| `t` | Taint → navigates to taint plugin | List (cursor item) |
+| `T` | Untaint → navigates to untaint plugin | List (cursor item) |
+| `n` | Import → navigates to import plugin | List (cursor item) |
 | `e` | Edit in $EDITOR | List (cursor item) |
 | `!` | Batch action palette | List (when pins > 0) |
 | `r` | Refresh state | List |

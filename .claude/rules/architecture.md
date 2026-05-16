@@ -134,23 +134,39 @@ func (e *Plugin) View(width, height int) string {
 
 The frame stack routes **input** (via `Stack.Update()`) but NOT rendering. Each plugin's `View()` must check which frame is active and delegate accordingly.
 
+## Verb-First Action Plugins (taint, untaint, import)
+
+Action plugins are transient — arrive with context, confirm, execute, return. They are NavPush, hidden from menu, reachable via contextual keys or `:command`.
+
+Navigation: State/Plan `t`/`T`/`n` keys emit `TaintRequestMsg`/`UntaintRequestMsg`/`ImportRequestMsg`. App handles these by setting targets on the plugin and navigating with NavPush.
+
+Events emitted on success:
+- Taint/Untaint: `PlanInvalidatedEvent`
+- Import: `StateRefreshedEvent` + `PlanInvalidatedEvent`
+
+State plugin auto-refreshes on `PlanInvalidatedEvent` (implements `PlanInvalidatedHandler`).
+
 ## Apply Plugin Navigation Model
 
-Apply is NOT on the home menu (`MenuVisible: false`). It's only reachable through plan's `a` key.
+Apply is NOT on the home menu (`MenuVisible: false`). It's reachable through plan's `a` key (confirm) or `A` key (auto-approve).
 
-Flow: Plan → `ApplyRequestMsg` → app sets `returnTo=plan`, activates apply with `RequestApply()` → apply shows confirmation → user confirms → apply runs → `PlanInvalidatedEvent` emitted on success.
+Flow (no targets): Plan → `ApplyRequestMsg` → app pushes navStack, activates apply with `RequestApply()` → apply shows confirmation → user confirms → apply runs → `PlanInvalidatedEvent` emitted on success.
 
-All `esc`/cancel paths in apply emit `DeactivateMsg`, which the app handles by checking `returnTo` and navigating back to plan.
+Flow (with targets): Plan → `ApplyRequestMsg` → apply enters `StatusReplanning` → runs `terraform plan -target=X` → shows targeted plan summary → user confirms → apply runs saved plan → `PlanInvalidatedEvent`.
+
+Auto-approve: Plan → `AutoApplyRequestMsg` → apply calls `AutoApply()` → skips confirmation (replans if targets present, then applies immediately).
+
+All `esc`/cancel paths in apply emit `DeactivateMsg`, which the app handles by checking navStack and navigating back to plan.
 
 Apply resets to idle on `Activate()` if in a terminal state (error/done), preventing stale state when re-entered.
 
 ## Targeted Apply (terraform constraint)
 
-Terraform does NOT support `-target` with a saved plan file. The `ExecService.Apply()` handles this:
-- When targets are present: runs `terraform apply -target=X` directly (no plan file)
+Terraform does NOT support `-target` with a saved plan file. Apply handles this via replan:
+- When targets are present: apply plugin enters `StatusReplanning`, runs `terraform plan -target=X -target=Y` to produce a new targeted plan file, then applies that plan file
 - When no targets: applies the saved plan file via `terraform apply tfplan.out`
 
-This is because the plan file already encodes ALL changes — you cannot subset them at apply time.
+This ensures the user always reviews exactly what will be applied — the targeted plan may differ from the full plan due to dependency resolution.
 
 ## Service Interface (`pkg/sdk/service.go`)
 
