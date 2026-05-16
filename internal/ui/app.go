@@ -391,14 +391,18 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 	}
 
-	// If a plugin is active, delegate the message to it
-	if a.activePlugin != nil {
-		updated, cmd := a.activePlugin.Update(msg)
-		a.activePlugin = updated
-		return a, cmd
+	// Broadcast to all plugins — each handles only its own message types
+	var cmds []tea.Cmd
+	for _, p := range a.registry.All() {
+		updated, cmd := p.Update(msg)
+		if p == a.activePlugin {
+			a.activePlugin = updated
+		}
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
-
-	return a, nil
+	return a, tea.Batch(cmds...)
 }
 
 func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
