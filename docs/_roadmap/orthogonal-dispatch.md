@@ -277,6 +277,53 @@ mise run test:macro
 
 Low. Pure refactor of `cmd/tfui/main.go`. No plugin, SDK, or app changes. The behavioral contract (what each flag combination produces) is unchanged — only the internal wiring is cleaned up.
 
+## Design Patterns
+
+Three named patterns compose the solution:
+
+1. **Builder** (`RunConfig`) — each flag contributes one field to a config struct. The struct IS the composition. No if/else decides what to build — flags declare it.
+
+2. **Strategy** (per-axis behavior) — `Service`, `Render`, `Format` are swappable behaviors, not switch branches. `execute()` receives an `Executor` interface, not a mode enum.
+
+3. **Pipeline** (execution flow) — `seed → build → execute → finalize` is a linear chain where each stage's output feeds the next. Stages are testable independently.
+
+Compositional sketch:
+
+```go
+NewRunner().
+    WithService(macroURI).         // strategy: exec or macro
+    WithRender(ciMode).            // strategy: tui or headless
+    WithSource(planURI, stateURI). // builder: data seeding
+    WithFormat(jsonMode).          // builder: output format
+    Run("plan", args)              // pipeline: seed → build → execute → finalize
+```
+
+## Related Documentation
+
+- [CLI I/O Contract](../cli-io-contract.md) — defines what each flag combination produces on stdout/stderr
+- [CLI UX Guidelines](../cli-ux.md) — documents the two-mode model (TUI/CI) and flag scoping rules
+- [CLI Reference](../cli-reference.md) — user-facing flag descriptions and examples
+- [Architecture Overview](../architecture.md) — app model, plugin routing, service layer
+- [Macro Language](../macro-language.md) — tape DSL that drives the macro service axis
+- [Testing Strategy](../testing.md) — macro tapes as integration tests (affected by standalone macro)
+- [ADR-0006: Orthogonal Income/Outcome](../adr/0006-orthogonal-income-outcome.md) — prior decision on separating input sources from output formats
+- [Roadmap: Interactive Command Recording](interactive-command-recording.md) — related: `--dry-run` would be a 6th axis (execution intent)
+
+### Source files
+
+- `cmd/tfui/main.go` — the dispatch layer being refactored
+- `cmd/tfui/cli.go` — imperative commands (workspace, force-unlock) that bypass dispatch
+- `internal/ui/app.go` — `StandaloneConfig` and the app model's dual behavior
+- `internal/macro/driver.go` — headless execution driver (used by both CI and macro)
+- `internal/terraform/service.go` — `ExecService` (exec axis)
+- `internal/terraform/macro_service.go` — `MacroService` (macro axis)
+- `pkg/sdk/plugin.go` — `Outputter`, `ExitCoder`, `ActivateWithArgs` interfaces (finalization contracts)
+
+### Agent rules
+
+- `.claude/rules/ux-cli.md` — flag scoping rules, must be updated when dispatch changes
+- `.claude/rules/architecture.md` — service layer docs, macro engine docs
+
 ## Dependencies
 
 None. This is entirely within `cmd/tfui/main.go`.
