@@ -55,10 +55,10 @@ Spinner output rules:
 ### Flag normalization sets
 
 **Value flags** (consume next arg when no `=`):
-`target`, `var`, `var-file`, `replace`, `out`, `parallelism`, `lock`, `lock-timeout`, `chdir`, `workspace`, `input`
+`target`, `var`, `var-file`, `replace`, `out`, `parallelism`, `lock`, `lock-timeout`, `chdir`, `workspace`, `input`, `backend`, `backend-config`, `plugin-dir`, `get`
 
 **Bool flags** (never consume next arg):
-`json`, `destroy`, `refresh-only`, `compact-warnings`
+`json`, `destroy`, `refresh-only`, `compact-warnings`, `upgrade`, `reconfigure`, `force-copy`
 
 ## 5. Exit Codes
 

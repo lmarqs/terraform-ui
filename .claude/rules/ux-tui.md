@@ -102,7 +102,7 @@ Rules:
 - `space` always means pin — never overloaded
 - `q` shown at plugin top-level; `esc` shown only in sub-states
 - Plugins must NOT start in filter mode by default
-- Full keybinding map: `docs/tui-ux.md` §15
+- Full keybinding map: `docs/tui-ux.md` §16
 
 ## Action Model (cursor vs batch)
 

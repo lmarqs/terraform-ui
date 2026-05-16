@@ -397,7 +397,73 @@ Every plugin's `View(width, height)` must:
 - State load: show elapsed time indicator after 2s
 - Context discovery: cache results, don't re-discover on every overlay open
 
-## 15. Keybinding Reference Map
+## 15. Plugin UX Models
+
+Plugins fall into two archetypes based on what the user is trying to accomplish. The archetype determines the flow, the "home state," and how results are presented.
+
+### Data plugins (browse & act)
+
+**Intent:** The user wants to explore data and optionally act on items.
+
+**Home state:** A list/tree of items (always present after loading).
+
+**Examples:** state, plan, output, validate, risk, phantom, blast-radius
+
+**Flow:**
+```
+Activate → Loading → List/Tree (home state)
+  ├── ↑↓ navigate, / filter, Enter inspect, Space pin
+  ├── Action key (d, t, m, n) → confirmation → execute → refresh list
+  └── ctrl+r → reload data
+```
+
+**Characteristics:**
+- The user lingers here — this is a workspace
+- Results (the list) ARE the home state
+- Actions are targeted (cursor item or pinned set via `!`)
+- After an action completes, stay on the list (updated)
+
+### Action plugins (configure & execute)
+
+**Intent:** The user wants to perform a one-shot operation.
+
+**Home state:** A configuration form (the thing the user tweaks before executing).
+
+**Examples:** init, apply (when entered from plan)
+
+**Flow:**
+```
+Activate → Form (home state)
+  ├── Configure fields
+  └── Submit → Loading → Result (transient)
+       ├── Success → auto-return to origin (one-shot is done)
+       └── Error → Enter acknowledges → back to form (pre-filled for retry)
+```
+
+**Characteristics:**
+- The user doesn't linger — they configure, execute, and leave
+- Results are transient feedback, not a destination
+- Success means the user's intent is satisfied — don't force them to dismiss a "done" screen
+- Error means the user needs to fix something — return them to the form with context preserved
+- `Enter` on error = "I've seen this, let me fix it" (acknowledge semantics, consistent with confirm)
+
+### Choosing the archetype
+
+| Question | Data plugin | Action plugin |
+|----------|-------------|---------------|
+| Does the user return here to browse? | Yes | No |
+| Is the result the content itself? | Yes | No (result is feedback) |
+| Does the user act repeatedly? | Yes (on different items) | No (one-shot, then leave) |
+| After success, should user stay? | Yes (more items to explore) | No (intent satisfied) |
+
+### UX anti-patterns for action plugins
+
+- Lingering on a "success" screen (user must dismiss manually)
+- "Re-run" as a concept (if they want to re-run, they'll re-enter the plugin)
+- Showing content-navigation hints (↑↓, /, Enter inspect) on a result message
+- Using `ctrl+r refresh` when there's nothing to refresh (init has no data to reload)
+
+## 16. Keybinding Reference Map
 
 ### Design layers
 

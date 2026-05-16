@@ -61,6 +61,7 @@ Layer 3: Novel (ADD)
 | `terraform output -json` | — | JSON outputs | — | 0/1 |
 | `terraform import addr id` | — | Success message | Progress | 0/1 |
 | `terraform refresh` | — | Refresh results | Progress | 0/1 |
+| `terraform init` | — | Success message | Progress | 0/1 |
 
 ## tfui I/O Table
 
@@ -92,6 +93,9 @@ Layer 3: Novel (ADD)
 | `tfui output` | `-json` | — | JSON outputs | — | 0/1 | Identical |
 | `tfui output` | `name` | — | Single value | — | 0/1 | Identical |
 | `tfui refresh` | | — | Refresh results | Spinner | 0/1 | Identical |
+| `tfui init` | | — | — | Spinner + success msg | 0/1 | Identical |
+| `tfui init` | `--ci` | — | — | — | 0/1 | Additive flag |
+| `tfui init` | `--upgrade` | — | — | Spinner + success msg | 0/1 | Identical |
 | `tfui scaffold` | `--yes` | — | HCL content | — | 0/1 | Novel |
 | `tfui workspace show` | | — | Workspace name | — | 0/1 | Identical |
 | `tfui workspace list` | | — | Workspace names | — | 0/1 | Identical |

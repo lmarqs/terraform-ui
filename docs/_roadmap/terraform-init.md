@@ -58,20 +58,16 @@ Users needing `-backend-config`, `-migrate-state`, or other rare flags use the e
 
 - Submit starts `terraform init` with selected flags
 - Shows: spinner + elapsed time
-- On completion: full terraform output in a scrollable view
+- Form is the plugin's resting state; results are transient feedback
 
 ### Completion states
 
 | State | Behavior |
 |-------|----------|
-| Success | Scrollable output, normal styling |
-| Error | Scrollable output + visual error indicator |
+| Success | Auto-returns home (emits `DeactivateMsg` + `PlanInvalidatedEvent`) |
+| Error | Shows error message. `Enter` acknowledges → back to form (pre-filled for retry) |
 
-User stays on the init plugin viewing output. Navigates away manually (`esc`/`q` go home, `:` goes elsewhere).
-
-### Re-run
-
-`Enter` from the output view reopens the form pre-filled with last-used values. Supports the common workflow: init fails, tweak a flag, retry.
+Init is a one-shot setup action. On success, the user's intent is satisfied — auto-return avoids lingering on a "done" screen. On error, the user needs to fix and retry, so the form re-appears ready.
 
 ### Cache
 
@@ -81,9 +77,8 @@ Successful init invalidates all cached state/plan data.
 
 ```
 Home → i / :init → Form (upgrade, reconfigure, backend, extra args)
-  → Submit → Spinner + elapsed time → Output view
-       ├── Success: scrollable output
-       └── Error: scrollable output + error indicator
-  → Enter → Form (pre-filled) → ...
-  → esc / q → Home
+  → Submit → Spinner + elapsed time
+       ├── Success → auto-return home (cache invalidated)
+       └── Error → "Init failed: ..." → Enter → Form (pre-filled) → retry
+  → Esc (on form) → Home
 ```
