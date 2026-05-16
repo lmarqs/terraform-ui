@@ -87,6 +87,24 @@ type KeyCapturer interface {
 	CapturesKeys() bool
 }
 
+// Outputter is an optional interface plugins implement to produce structured
+// output on stdout when running in standalone mode. Called after the TUI exits.
+type Outputter interface {
+	Output(json bool) ([]byte, error)
+}
+
+// ExitCoder is an optional interface plugins implement to control the process
+// exit code in standalone/CI mode (e.g., plan returns 2 when changes are present).
+type ExitCoder interface {
+	ExitCode() int
+}
+
+// ActivateWithArgs is an optional interface plugins implement to receive
+// positional arguments from CLI invocation (e.g., "state mv src dst").
+type ActivateWithArgs interface {
+	ActivateWithArgs(args []string) tea.Cmd
+}
+
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin
