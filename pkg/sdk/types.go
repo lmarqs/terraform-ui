@@ -55,6 +55,7 @@ type Resource struct {
 	Name         string
 	Module       string
 	ProviderName string
+	Tainted      bool
 }
 
 // AttributeDiff represents a change to a single resource attribute,

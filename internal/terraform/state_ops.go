@@ -58,12 +58,14 @@ func (s *ExecService) Show(ctx context.Context, address string) (string, error) 
 		Type         string                 `json:"type"`
 		Name         string                 `json:"name"`
 		ProviderName string                 `json:"provider_name"`
+		Tainted      bool                   `json:"tainted,omitempty"`
 		Values       map[string]interface{} `json:"values"`
 	}{
 		Address:      resource.Address,
 		Type:         resource.Type,
 		Name:         resource.Name,
 		ProviderName: resource.ProviderName,
+		Tainted:      resource.Tainted,
 		Values:       redacted,
 	}
 
@@ -213,6 +215,7 @@ func ParseStateResources(module *tfjson.StateModule) []Resource {
 			Name:         r.Name,
 			Module:       ExtractModule(r.Address),
 			ProviderName: r.ProviderName,
+			Tainted:      r.Tainted,
 		})
 	}
 

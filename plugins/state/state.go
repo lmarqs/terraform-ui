@@ -527,6 +527,9 @@ func (e *Plugin) renderResources(width, height int) string {
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
 				r := node.Item.(resourceItem).resource
 				full := node.Label + "  " + r.Type
+				if r.Tainted {
+					full += " " + sdk.StyleUpdate.Render("[tainted]")
+				}
 				if e.filter != "" {
 					if score, ok := e.filterScores[r.Address]; ok {
 						full += fmt.Sprintf(" [%d]", score)
@@ -611,6 +614,9 @@ func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
 
 func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource, contentWidth int) string {
 	full := r.Address + "  " + r.Type
+	if r.Tainted {
+		full += " " + sdk.StyleUpdate.Render("[tainted]")
+	}
 	if e.listWrap {
 		return pinMark + full
 	}
@@ -685,7 +691,12 @@ func (e *Plugin) renderDetail(width, height int) string {
 		pinIndicator = " " + sdk.StyleSuccess.Render("[pinned]")
 	}
 
-	content := address + pinIndicator + scrollInfo + "\n\n" + detail
+	taintIndicator := ""
+	if e.isTaintedAddress(e.detailAddr) {
+		taintIndicator = " " + sdk.StyleUpdate.Render("[tainted]")
+	}
+
+	content := address + taintIndicator + pinIndicator + scrollInfo + "\n\n" + detail
 	return content
 }
 
@@ -733,6 +744,15 @@ func (e *Plugin) togglePin(address string) tea.Cmd {
 func (e *Plugin) isPinnedAddress(address string) bool {
 	if e.pins != nil {
 		return e.pins.IsPinned(address)
+	}
+	return false
+}
+
+func (e *Plugin) isTaintedAddress(address string) bool {
+	for _, r := range e.resources {
+		if r.Address == address {
+			return r.Tainted
+		}
 	}
 	return false
 }
