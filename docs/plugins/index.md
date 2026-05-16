@@ -1,6 +1,7 @@
 ---
-layout: page
+layout: default
 title: Plugins
+nav_order: 4
 permalink: /plugins/
 ---
 

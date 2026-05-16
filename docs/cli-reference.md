@@ -1,6 +1,7 @@
 ---
 layout: default
 title: CLI Reference
+nav_order: 6
 description: Complete command-line reference for terraform-ui
 ---
 

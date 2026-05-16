@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Configuration
+nav_order: 3
 description: Configure terraform-ui for your project
 ---
 

@@ -1,5 +1,6 @@
 ---
-layout: plugin
+layout: default
+parent: Plugins
 title: Untaint
 id: untaint
 key: T

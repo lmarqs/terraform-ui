@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0010: tfui is a command builder, not a terraform abstraction"
+parent: Architecture
+nav_order: 0010
+---
+
 # tfui is a command builder, not a terraform abstraction
 
 tfui helps users construct and execute the right terraform command. It does not abstract terraform away or introduce concepts that don't map to terraform operations. Every action the TUI performs corresponds to a terraform command the user could run manually.

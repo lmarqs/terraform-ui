@@ -1,7 +1,9 @@
 ---
 layout: default
-title: terraform-ui
+title: Home
+nav_order: 1
 description: Interactive terminal UI for Terraform operations
+permalink: /
 ---
 
 # terraform-ui

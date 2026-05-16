@@ -1,5 +1,6 @@
 ---
-layout: plugin
+layout: default
+parent: Plugins
 title: Plan Review
 id: plan
 key: p

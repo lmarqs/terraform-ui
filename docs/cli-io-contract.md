@@ -1,6 +1,7 @@
 ---
 layout: default
 title: CLI I/O Contract
+nav_order: 7
 description: How tfui CLI commands handle stdin, stdout, stderr, and flags relative to terraform
 ---
 

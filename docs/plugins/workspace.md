@@ -1,5 +1,6 @@
 ---
-layout: plugin
+layout: default
+parent: Plugins
 title: Workspace
 id: workspace
 key: w

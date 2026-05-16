@@ -1,5 +1,6 @@
 ---
-layout: command
+layout: default
+parent: Plugins
 title: Scaffold
 id: scaffold
 description: Generate tfui.hcl configuration

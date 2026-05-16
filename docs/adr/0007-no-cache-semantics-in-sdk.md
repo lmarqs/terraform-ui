@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0007: No cache semantics in the SDK contract"
+parent: Architecture
+nav_order: 0007
+---
+
 # No cache semantics in the SDK contract
 
 The `Service` interface exposes no cache-related methods. Plugins request fresh data via `StateList(ctx, sdk.SkipCache())` — a functional option that says "I want fresh data" without revealing that a cache exists. There is no `InvalidateState()`, `RefreshCache()`, or similar on the interface.

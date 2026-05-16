@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0008: 100% coverage as a behavioral forcing function"
+parent: Architecture
+nav_order: 0008
+---
+
 # 100% coverage as a behavioral forcing function
 
 The pipeline enforces 100% code coverage on all packages (excluding `cmd/` glue). But tests must describe user-visible behavior — never written "for coverage." These two rules create deliberate tension: every branch must justify its existence through a behavioral test.

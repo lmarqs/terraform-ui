@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0002: Dual runtime strategy: ExecService and MacroService"
+parent: Architecture
+nav_order: 0002
+---
+
 # Dual runtime strategy: ExecService and MacroService
 
 The system selects its execution mode once at startup — either live execution (ExecService) or command recording (MacroService). Every call flows through a single adapter for the entire session. Plugins are unaware of which runtime they're operating under.

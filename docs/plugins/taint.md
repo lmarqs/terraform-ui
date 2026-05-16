@@ -1,5 +1,6 @@
 ---
-layout: plugin
+layout: default
+parent: Plugins
 title: Taint
 id: taint
 key: t

@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Architecture
+nav_order: 5
 description: Internal architecture of terraform-ui
 ---
 

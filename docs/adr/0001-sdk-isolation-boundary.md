@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0001: SDK isolation: plugins import only pkg/sdk"
+parent: Architecture
+nav_order: 0001
+---
+
 # SDK isolation: plugins import only pkg/sdk
 
 Plugins depend exclusively on `pkg/sdk/`. They cannot import `internal/` packages. This boundary exists for two reinforcing reasons: (1) hexagonal architecture — separating core contract from infrastructure keeps the system refactorable without breaking plugins, and (2) third-party plugin enablement — external developers need a stable, well-defined surface to build against.

@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0005: Cache pre-seeding via --plan and --state flags"
+parent: Architecture
+nav_order: 0005
+---
+
 # Cache pre-seeding via --plan and --state flags
 
 When the user provides `--plan` or `--state` at startup, the data is loaded into the global state (ServiceCache) before the service is created. The remaining lifecycle is identical — plugins are unaware of whether data came from pre-seeding or a live terraform call.

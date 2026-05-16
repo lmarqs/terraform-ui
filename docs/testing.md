@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Testing Strategy
+nav_order: 8
 description: Behavioral testing standard, conventions, and layered test architecture
 ---
 

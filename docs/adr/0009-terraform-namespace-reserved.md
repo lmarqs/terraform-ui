@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0009: Terraform's command namespace is reserved"
+parent: Architecture
+nav_order: 0009
+---
+
 # Terraform's command namespace is reserved
 
 tfui never claims a verb that terraform owns. All terraform commands (`init`, `plan`, `apply`, `state`, `workspace`, `output`, `validate`, `console`, `import`, `taint`, `untaint`, `refresh`) pass through to terraform semantics. Novel tfui features use novel names: `scaffold`, `risk`, `phantom`, `blast-radius`.

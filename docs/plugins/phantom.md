@@ -1,5 +1,6 @@
 ---
-layout: plugin
+layout: default
+parent: Plugins
 title: Phantom Changes
 id: phantom
 key: P

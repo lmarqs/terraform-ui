@@ -1,3 +1,11 @@
+---
+layout: default
+title: CLI UX Guidelines
+nav_order: 14
+description: UX design guidelines for the CLI interface
+nav_exclude: true
+---
+
 # CLI UX Guidelines — terraform-ui
 
 ## 1. Design Principle

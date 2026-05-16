@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0006: Orthogonal axes: income and outcome are independent"
+parent: Architecture
+nav_order: 0006
+---
+
 # Orthogonal axes: income and outcome are independent
 
 The system has two axes — income (how the user drives: TUI, CLI, macro tape) and outcome (what happens: live execution, command recording). These are independent. Any income can pair with any outcome. Plugins are unaware of both.

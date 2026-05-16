@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0012: Broadcast result messages to all plugins"
+parent: Architecture
+nav_order: 0012
+---
+
 # Broadcast result messages to all plugins
 
 Plugin async operations (plan, state list, apply) produce result messages that must reach their owning plugin regardless of which plugin the user is currently viewing. BubbleTea's default routing delivers all messages to the single active Model — which in our app means only the active plugin sees results. If a user navigates away during a 60-second plan, the result is silently dropped and the plugin stays stuck in Loading forever.

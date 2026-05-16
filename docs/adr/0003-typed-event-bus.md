@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0003: Typed event bus for inter-plugin communication"
+parent: Architecture
+nav_order: 0003
+---
+
 # Typed event bus for inter-plugin communication
 
 Plugins communicate through statically-typed events dispatched by the app. Each event is a struct in `pkg/sdk/events.go`; plugins declare interest by implementing a handler interface (e.g., `ChdirHandler`). The app mediates all dispatch — plugins never reference each other.

@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Risk Analysis
+nav_order: 10
 description: Automatic risk classification for terraform plan changes
 ---
 

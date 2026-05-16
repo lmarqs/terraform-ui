@@ -1,6 +1,7 @@
 ---
 layout: default
 title: Getting Started
+nav_order: 2
 description: Quick tutorial to get up and running with terraform-ui
 ---
 

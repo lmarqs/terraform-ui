@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0011: Batch operations only through ! palette"
+parent: Architecture
+nav_order: 0011
+---
+
 # Batch operations only through ! palette
 
 Direct keys (`d`, `t`, `m`, etc.) always act on the cursor item — never on the pinned set. Batch operations are exclusively accessed through the `!` palette. This separation is a UX signal: pressing `!` flags to the user that the danger level has increased.

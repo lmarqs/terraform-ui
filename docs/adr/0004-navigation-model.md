@@ -1,3 +1,10 @@
+---
+layout: default
+title: "ADR-0004: Navigation: Replace vs Push with return destination"
+parent: Architecture
+nav_order: 0004
+---
+
 # Navigation: Replace vs Push with return destination
 
 Navigation between plugins uses two declared behaviors — Replace (lateral switch, no history) and Push (subtask with a return destination). The return destination is explicit ("go here when done"), not implicit history ("go back one level").

@@ -3,39 +3,36 @@ description: Interactive terminal UI for Terraform operations
 url: https://lmarqs.github.io/terraform-ui
 baseurl: /terraform-ui
 
-theme: minima
+theme: just-the-docs
 
-header_pages:
-  - index.md
-  - getting-started.md
-  - configuration.md
-  - plugins/index.md
-  - architecture.md
-  - cli-reference.md
-  - testing.md
-  - risk-analysis.md
-  - phantom-changes.md
-  - blast-radius.md
+color_scheme: light
+
+search_enabled: true
+search:
+  heading_level: 2
+  previews: 3
+
+heading_anchors: true
+back_to_top: true
+
+aux_links:
+  "GitHub":
+    - "//github.com/lmarqs/terraform-ui"
+aux_links_new_tab: true
+
+nav_enabled: true
 
 collections:
-  plugins:
-    output: true
-    permalink: /plugins/:name/
   roadmap:
     output: true
     permalink: /roadmap/:name/
 
-defaults:
-  - scope:
-      path: "plugins"
-      type: "plugins"
-    values:
-      layout: plugin
-  - scope:
-      path: "_roadmap"
-      type: "roadmap"
-    values:
-      layout: roadmap
+just_the_docs:
+  collections:
+    roadmap:
+      name: Roadmap
+      nav_fold: true
 
-jekyll_plugins:
-  - jekyll-seo-tag
+exclude:
+  - Gemfile
+  - Gemfile.lock

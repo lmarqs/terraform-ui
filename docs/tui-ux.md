@@ -1,3 +1,11 @@
+---
+layout: default
+title: TUI UX Guidelines
+nav_order: 15
+description: UX design guidelines for the TUI interface
+nav_exclude: true
+---
+
 # UX Guidelines — terraform-ui
 
 ## 1. Layout Structure
