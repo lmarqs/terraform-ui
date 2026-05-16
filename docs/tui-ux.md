@@ -39,7 +39,7 @@
 | `q` | Back to home / quit |
 | `:` | Command mode (`:q` quit — guarded during ops, `:q!` force quit) |
 | `/` | Filter mode |
-| `C` | Context picker overlay |
+| `C` | Context dashboard (plugin switch) |
 | `Esc` | Exit sub-state (filter, detail, overlay) |
 | `ctrl+c` | Force quit |
 | `ctrl+s` | Screen capture to debug log (hidden) |
