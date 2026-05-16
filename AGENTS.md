@@ -152,14 +152,6 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 
 When encountering undocumented patterns or decisions that caused rework, suggest additions to this section.
 
-- 2025-04: Renamed "scope" → "chdir" everywhere. Config field: `cfg.Chdir`. ProjectContext fields: `Members`, `Chdir`, `ChdirAbs`.
-- 2025-05: CompositeService eliminated — ServiceCache pre-seeded at startup replaces multi-implementation composition
-- 2025-05: "init" plugin renamed → "scaffold" to free `init` for terraform passthrough
-- 2025-05: Config syntax changed from `chdir { members = [...] }` to top-level `member "path" {}` blocks
-- 2025-05: Navigation architecture uses `NavBehavior` (push/replace) on `PluginMeta`. Details in `.claude/rules/architecture.md` and `.claude/rules/ux.md`.
-- 2025-05: `StateList` uses variadic `StateListOption` pattern (not `InvalidateState()` on interface) to avoid leaking cache semantics into the SDK contract. All state-mutating ops must call `cache.InvalidateState()` internally.
-- 2025-05: Terraform does NOT support `-target` with a saved plan file. `ExecService.Apply()` skips the plan file when targets are present, running `terraform apply -target=X` directly instead.
+- 2025-05: Terraform does NOT support `-target` with a saved plan file. Apply handles this via replan (see `.claude/rules/architecture.md`).
 - 2025-05: Apply plugin is NOT on the home menu — only reachable via plan's `a` key. Confirmation is owned by apply (single confirm), not plan.
-- 2025-05: Stackable plugins must delegate view rendering manually in their `View()` method — the app calls `plugin.View()`, not `stack.View()`. Check `stack.Peek().ID()` to decide which frame renders.
 - 2025-05: `returnTo` is set both by `NavPush` metadata AND workflow transitions (plan→apply). All esc/cancel paths in sub-state plugins must emit `DeactivateMsg`.
-- 2025-05: Apply emits `PlanInvalidatedEvent` on success so plan auto-refreshes on return. Apply resets to idle on `Activate()` if in terminal state.

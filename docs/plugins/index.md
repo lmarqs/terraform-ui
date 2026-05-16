@@ -27,6 +27,7 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
 | [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
 | [context](context.md) | Context | `C` | navigation | Manage project, chdir, and workspace selection |
+| [init](init.md) | Init | `i` | operations | Run terraform init with form-based options |
 | [forceunlock](forceunlock.md) | Force Unlock | — | utility | Remove a stale state lock |
 | [version](version.md) | Version | — | utility | Show tfui and terraform version information |
 | chdir | Chdir Picker | — | internal | Select chdir member (hidden, activated by context plugin) |
@@ -47,6 +48,7 @@ Plugins that execute terraform commands or modify infrastructure.
 
 - **[Plan](plan.md)** — run and review `terraform plan`
 - **[Apply](apply.md)** — execute `terraform apply` with replan + confirmation
+- **[Init](init.md)** — run `terraform init` with form-based options
 - **[Validate](validate.md)** — run `terraform validate`
 - **[Console](console.md)** — interactive `terraform console`
 

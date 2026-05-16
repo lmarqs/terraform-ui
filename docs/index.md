@@ -53,11 +53,11 @@ tfui apply --project ./infra
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │   [p] Plan          [R] Risk Analysis                   │
-│   [a] Apply         [P] Phantom Changes                 │
-│   [s] State         [B] Blast Radius                    │
-│   [w] Workspaces    [o] Outputs                         │
-│   [v] Validate      [t] Console                         │
-│   [C] Context       [I] Scaffold                        │
+│   [s] State         [P] Phantom Changes                 │
+│   [w] Workspaces    [B] Blast Radius                    │
+│   [o] Outputs       [~] Console                         │
+│   [v] Validate      [i] Init                            │
+│   [C] Context                                           │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
 │  q quit  / filter  : command                            │
@@ -96,12 +96,12 @@ Bare `tfui` opens the full-screen TUI. Subcommands (`plan`, `apply`) run in non-
 | `w` | Workspaces |
 | `o` | Outputs |
 | `v` | Validate |
-| `t` | Console (REPL) |
+| `~` | Console (REPL) |
+| `i` | Init |
 | `R` | Risk analysis |
 | `P` | Phantom changes |
 | `B` | Blast radius |
 | `C` | Context (project/chdir/workspace) |
-| `I` | Scaffold wizard |
 | `/` | Filter |
 | `:` | Command mode (`:q` quit — guarded during ops, `:q!` force quit) |
 | `q` | Quit / back |

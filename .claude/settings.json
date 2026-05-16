@@ -5,6 +5,13 @@
         "matcher": "Edit|Write",
         "hooks": [
           {
+            "type": "command",
+            "if": "Edit(**/*.go)|Write(**/*.go)",
+            "command": "gofmt -w $CLAUDE_FILE_PATH",
+            "timeout": 5,
+            "statusMessage": "gofmt..."
+          },
+          {
             "type": "agent",
             "if": "Edit(internal/ui/**)|Write(internal/ui/**)",
             "prompt": "A UI file was just edited. Quickly check: (1) Are keybindings consistent with the project convention (q=back to home, esc=exit sub-state, enter/i=inspect, space=pin, /=filter, r=refresh)? (2) Does the hint text at the bottom match actual keybindings? (3) Are error states handled with an escape route? (4) Hint bar is state-aware (switches on status). Only report ISSUES found, nothing else. If all good, say nothing.",

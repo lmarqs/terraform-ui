@@ -61,7 +61,7 @@ type Plugin interface {
 }
 ```
 
-Optional interfaces: `Activatable`, `Busy`, `Countable`, `Hintable`, `Pinnable`, `Stackable`.
+Optional interfaces: `Activatable`, `Busy`, `Cancellable`, `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Stackable`.
 
 ## Plugin Routing (`internal/plugin/registry.go`)
 
