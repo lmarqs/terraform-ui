@@ -2,6 +2,7 @@ package plan
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -857,6 +858,88 @@ type ApplyRequestMsg struct{}
 
 // AutoApplyRequestMsg signals the app to apply without confirmation.
 type AutoApplyRequestMsg struct{}
+
+// Output produces stdout content for standalone/CI mode.
+func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
+	if e.summary == nil {
+		return nil, nil
+	}
+
+	if jsonOutput {
+		type changeJSON struct {
+			Address string `json:"address"`
+			Action  string `json:"action"`
+			Risk    string `json:"risk"`
+			Phantom bool   `json:"phantom,omitempty"`
+		}
+		out := struct {
+			Changes []changeJSON `json:"changes"`
+			Summary struct {
+				Add     int `json:"add"`
+				Change  int `json:"change"`
+				Destroy int `json:"destroy"`
+			} `json:"summary"`
+			Risk string `json:"risk"`
+		}{
+			Changes: make([]changeJSON, 0, len(e.summary.Changes)),
+		}
+		for _, c := range e.summary.Changes {
+			out.Changes = append(out.Changes, changeJSON{
+				Address: c.Resource.Address,
+				Action:  string(c.Action),
+				Risk:    c.Risk.String(),
+				Phantom: c.IsPhantom,
+			})
+		}
+		out.Summary.Add = e.summary.ToCreate
+		out.Summary.Change = e.summary.ToUpdate + e.summary.ToReplace
+		out.Summary.Destroy = e.summary.ToDelete
+		out.Risk = sdk.OverallRisk(e.summary.Changes).String()
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		return append(data, '\n'), nil
+	}
+
+	var b strings.Builder
+	for _, change := range e.summary.Changes {
+		sym := plainActionSymbol(change.Action)
+		fmt.Fprintf(&b, "%s %s\n", sym, change.Resource.Address)
+	}
+	b.WriteString("\n")
+	fmt.Fprintf(&b, "Plan: %d to add, %d to change, %d to destroy.\n",
+		e.summary.ToCreate, e.summary.ToUpdate+e.summary.ToReplace, e.summary.ToDelete)
+	if risk := sdk.OverallRisk(e.summary.Changes); risk > sdk.RiskNone {
+		fmt.Fprintf(&b, "Risk: %s\n", risk)
+	}
+	return []byte(b.String()), nil
+}
+
+// ExitCode returns 2 when the plan has changes, 0 when clean.
+func (e *Plugin) ExitCode() int {
+	if e.summary != nil && len(e.summary.Changes) > 0 {
+		return 2
+	}
+	return 0
+}
+
+func plainActionSymbol(action sdk.Action) string {
+	switch action {
+	case sdk.ActionCreate:
+		return "+"
+	case sdk.ActionUpdate:
+		return "~"
+	case sdk.ActionDelete:
+		return "-"
+	case sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete:
+		return "-/+"
+	case sdk.ActionRead:
+		return "<="
+	default:
+		return " "
+	}
+}
 
 func (e *Plugin) requestApply() tea.Cmd {
 	return func() tea.Msg { return ApplyRequestMsg{} }

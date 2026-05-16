@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -772,4 +773,35 @@ func (e *Plugin) isTaintedAddress(address string) bool {
 		}
 	}
 	return false
+}
+
+// Output produces stdout content for standalone/CI mode.
+func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
+	if jsonOutput {
+		type resourceJSON struct {
+			Address string `json:"address"`
+			Type    string `json:"type"`
+			Tainted bool   `json:"tainted,omitempty"`
+		}
+		out := make([]resourceJSON, 0, len(e.resources))
+		for _, r := range e.resources {
+			out = append(out, resourceJSON{
+				Address: r.Address,
+				Type:    r.Type,
+				Tainted: r.Tainted,
+			})
+		}
+		data, err := json.MarshalIndent(out, "", "  ")
+		if err != nil {
+			return nil, err
+		}
+		return append(data, '\n'), nil
+	}
+
+	var b strings.Builder
+	for _, r := range e.resources {
+		b.WriteString(r.Address)
+		b.WriteByte('\n')
+	}
+	return []byte(b.String()), nil
 }
