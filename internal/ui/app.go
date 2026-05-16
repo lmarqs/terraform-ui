@@ -287,6 +287,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		logging.Logger().Debug("editor.lookup.failed", "address", msg.Address)
 		return a, nil
 
+	case tfuiplan.PlanEditMsg:
+		if a.sourceIndex == nil {
+			return a, nil
+		}
+		if loc, ok := a.sourceIndex.Lookup(msg.Address); ok {
+			logging.Logger().Debug("editor.open", "address", msg.Address, "file", loc.File, "line", loc.Line)
+			return a, editor.Open(loc)
+		}
+		logging.Logger().Debug("editor.lookup.failed", "address", msg.Address)
+		return a, nil
+
 	case editor.EditorClosedMsg:
 		if msg.Modified {
 			return a, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }

@@ -97,6 +97,13 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 				return f, func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: []string{change.Resource.Address}} }
 			}
 		}
+	case "e":
+		if f.plugin.status == sdk.StatusDone {
+			change := f.plugin.SelectedChange()
+			if change != nil {
+				return f, func() tea.Msg { return PlanEditMsg{Address: change.Resource.Address} }
+			}
+		}
 	case "u":
 		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
 			return f, func() tea.Msg { return sdk.NavigateMsg{PluginID: "forceunlock"} }
@@ -160,7 +167,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
 			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 		}
-		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetApply | sdk.HintSetTaint | sdk.HintSetUntaint | sdk.HintSetRefresh | sdk.HintSetBack
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetApply | sdk.HintSetEdit | sdk.HintSetTaint | sdk.HintSetUntaint | sdk.HintSetRefresh | sdk.HintSetBack
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse | sdk.HintSetExpand
 		}
@@ -213,6 +220,8 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.detailHScroll = 0
 	case " ":
 		return f, f.plugin.togglePin(f.plugin.detailAddr)
+	case "e":
+		return f, func() tea.Msg { return PlanEditMsg{Address: f.plugin.detailAddr} }
 	}
 	return f, nil
 }
@@ -222,7 +231,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetCancel
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetEdit | sdk.HintSetCancel
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
