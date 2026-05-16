@@ -2,15 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"runtime/debug"
-	"sort"
-	"sync"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -121,10 +117,14 @@ func main() {
 		Use:   "plan",
 		Short: "Run terraform plan",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runPlan(cfg, ciMode, jsonMode)
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "plan", args, jsonMode)
+			}
+			return runStandalone(cfg, rootCfg, "plan", args, jsonMode)
 		},
 	}
-	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
+	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 	planCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	planCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for plan")
 
@@ -133,10 +133,14 @@ func main() {
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runApply(cfg, ciMode, jsonMode, autoApprove)
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "apply", args, jsonMode)
+			}
+			return runStandalone(cfg, rootCfg, "apply", args, jsonMode)
 		},
 	}
-	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress spinner (CI-friendly)")
+	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 	applyCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	applyCmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "Skip confirmation prompt")
 	applyCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for apply")
@@ -158,12 +162,30 @@ func main() {
 		Use:   "version",
 		Short: "Print version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runVersion(cfg, versionJSON)
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "version", args, versionJSON)
+			}
+			return runStandalone(cfg, rootCfg, "version", args, versionJSON)
 		},
 	}
 	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
+	versionCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
-	rootCmd.AddCommand(planCmd, applyCmd, scaffoldCmd, versionCmd)
+	initCmd := &cobra.Command{
+		Use:   "init",
+		Short: "Run terraform init",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "init", args, false)
+			}
+			return runStandalone(cfg, rootCfg, "init", args, false)
+		},
+	}
+	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
+
+	rootCmd.AddCommand(planCmd, applyCmd, initCmd, scaffoldCmd, versionCmd)
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {
@@ -185,10 +207,7 @@ func main() {
 
 func runTUI(cfg config.Config, rootCfg *config.RootConfig, planURI, stateURI string) error {
 	if !hasTTY() {
-		if planURI != "" || stateURI != "" {
-			return runStaticNonInteractive(cfg, planURI, stateURI)
-		}
-		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan -json           (JSON output)\n  tfui plan --ci            (tree output, no spinner)\n  tfui --plan ./file.json   (auto-renders without TTY)")
+		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --ci            (CI mode, no TUI)\n  CI=1 tfui plan            (same via env var)")
 	}
 
 	if cfg.Chdir != "" {
@@ -318,6 +337,118 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 	return nil
 }
 
+type execMode int
+
+const (
+	modeStandalone execMode = iota
+	modeCI
+)
+
+func resolveMode(ciFlag bool) execMode {
+	if ciFlag || os.Getenv("CI") == "1" {
+		return modeCI
+	}
+	if !isStderrTTY() {
+		return modeCI
+	}
+	return modeStandalone
+}
+
+func runStandalone(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool) error {
+	if cfg.Chdir != "" {
+		if err := validateChdir(cfg); err != nil {
+			return err
+		}
+	}
+
+	cache := terraform.NewServiceCache()
+	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
+	registry := buildRegistry(svc, cfg)
+
+	standalone := &ui.StandaloneConfig{
+		PluginID: pluginID,
+		Args:     args,
+		JSONMode: jsonMode,
+	}
+	app := ui.NewApp(cfg, svc, registry, rootCfg, standalone)
+
+	p := tea.NewProgram(app, tea.WithAltScreen(), tea.WithOutput(os.Stderr))
+	model, err := p.Run()
+	if err != nil {
+		return err
+	}
+
+	appModel := model.(ui.App)
+	activePlugin := appModel.ActivePlugin()
+	if activePlugin == nil {
+		return nil
+	}
+
+	if outputter, ok := activePlugin.(sdk.Outputter); ok {
+		data, outErr := outputter.Output(jsonMode)
+		if outErr != nil {
+			return outErr
+		}
+		_, _ = os.Stdout.Write(data)
+	}
+
+	if coder, ok := activePlugin.(sdk.ExitCoder); ok {
+		code := coder.ExitCode()
+		if code != 0 {
+			os.Exit(code)
+		}
+	}
+	return nil
+}
+
+func runCI(cfg config.Config, rootCfg *config.RootConfig, pluginID string, args []string, jsonMode bool) error {
+	if cfg.Chdir != "" {
+		if err := validateChdir(cfg); err != nil {
+			return err
+		}
+	}
+
+	cache := terraform.NewServiceCache()
+	svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
+	registry := buildRegistry(svc, cfg)
+
+	standalone := &ui.StandaloneConfig{
+		PluginID: pluginID,
+		Args:     args,
+		JSONMode: jsonMode,
+	}
+	app := ui.NewApp(cfg, svc, registry, rootCfg, standalone)
+
+	driver := macro.NewDriver(app, 80, 24)
+	driver.Init()
+
+	if err := driver.WaitUntil(func(view string) bool {
+		if p, ok := registry.ByID(pluginID); ok {
+			return p.Ready()
+		}
+		return false
+	}, 10*time.Minute); err != nil {
+		return err
+	}
+
+	if p, ok := registry.ByID(pluginID); ok {
+		if outputter, ok := p.(sdk.Outputter); ok {
+			data, err := outputter.Output(jsonMode)
+			if err != nil {
+				return err
+			}
+			_, _ = os.Stdout.Write(data)
+		}
+		if coder, ok := p.(sdk.ExitCoder); ok {
+			code := coder.ExitCode()
+			if code != 0 {
+				os.Exit(code)
+			}
+		}
+	}
+	return nil
+}
+
 func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 	if planURI == "-" && stateURI == "-" {
 		return fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
@@ -394,49 +525,6 @@ func resolveToAbsPath(baseDir, uri string) (string, error) {
 	return filepath.Abs(filepath.Join(baseDir, clean))
 }
 
-func runStaticNonInteractive(cfg config.Config, planURI, stateURI string) error {
-	cache := terraform.NewServiceCache()
-	if err := seedCache(cache, planURI, stateURI); err != nil {
-		return err
-	}
-
-	ctx := context.Background()
-
-	if planURI != "" {
-		plan, ok := cache.GetPlan()
-		if !ok {
-			svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
-			var err error
-			plan, err = svc.Plan(ctx, sdk.PlanOptions{})
-			if err != nil {
-				return err
-			}
-		}
-		printTreeView(plan)
-	}
-
-	if stateURI != "" {
-		resources, ok := cache.GetResources()
-		if !ok {
-			svc := terraform.NewExecService(effectiveWorkDir(cfg), cfg.TerraformBinary(), cache)
-			var err error
-			resources, err = svc.StateList(ctx)
-			if err != nil {
-				return err
-			}
-		}
-		if planURI != "" {
-			fmt.Println()
-		}
-		fmt.Printf("State: %d resources\n", len(resources))
-		for _, r := range resources {
-			fmt.Printf("  %s\n", r.Address)
-		}
-	}
-
-	return nil
-}
-
 func hasTTY() bool {
 	return isatty.IsTerminal(os.Stdin.Fd()) || isatty.IsCygwinTerminal(os.Stdin.Fd())
 }
@@ -466,150 +554,6 @@ func validateChdir(cfg config.Config) error {
 		return fmt.Errorf("chdir %q has no .tf files (resolved to %s)", cfg.Chdir, dir)
 	}
 	return nil
-}
-
-// spinnerFrames are the braille spinner characters.
-var spinnerFrames = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
-
-// spinner manages an animated spinner on stderr.
-type spinner struct {
-	mu          sync.Mutex
-	stop        chan struct{}
-	done        chan struct{}
-	message     string
-	start       time.Time
-	showElapsed bool
-}
-
-func newSpinner(message string, showElapsed bool) *spinner {
-	return &spinner{
-		message:     message,
-		showElapsed: showElapsed,
-		stop:        make(chan struct{}),
-		done:        make(chan struct{}),
-		start:       time.Now(),
-	}
-}
-
-func (s *spinner) run() {
-	go func() {
-		defer close(s.done)
-		i := 0
-		ticker := time.NewTicker(80 * time.Millisecond)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-s.stop:
-				// Clear the spinner line
-				fmt.Fprintf(os.Stderr, "\r\033[K")
-				return
-			case <-ticker.C:
-				s.mu.Lock()
-				frame := spinnerFrames[i%len(spinnerFrames)]
-				if s.showElapsed {
-					elapsed := time.Since(s.start).Truncate(time.Second)
-					fmt.Fprintf(os.Stderr, "\r\033[K%c %s (%s)", frame, s.message, elapsed)
-				} else {
-					fmt.Fprintf(os.Stderr, "\r\033[K%c %s", frame, s.message)
-				}
-				s.mu.Unlock()
-				i++
-			}
-		}
-	}()
-}
-
-func (s *spinner) halt() {
-	close(s.stop)
-	<-s.done
-}
-
-// actionSymbol returns the tree-view prefix for a given action.
-func actionSymbol(action terraform.Action) string {
-	switch action {
-	case terraform.ActionCreate:
-		return "+"
-	case terraform.ActionUpdate:
-		return "~"
-	case terraform.ActionDelete:
-		return "-"
-	case terraform.ActionDeleteThenCreate, terraform.ActionCreateThenDelete:
-		return "-/+"
-	case terraform.ActionRead:
-		return "<="
-	default:
-		return " "
-	}
-}
-
-// printTreeView prints the plan tree view to stdout.
-func printTreeView(summary *terraform.PlanSummary) {
-	for _, change := range summary.Changes {
-		sym := actionSymbol(change.Action)
-		fmt.Printf("%s %s\n", sym, change.Resource.Address)
-	}
-	fmt.Println()
-	fmt.Printf("Plan: %d to add, %d to change, %d to destroy.\n",
-		summary.ToCreate, summary.ToUpdate+summary.ToReplace, summary.ToDelete)
-
-	risk := terraform.OverallRisk(summary.Changes)
-	if risk > terraform.RiskNone {
-		fmt.Printf("Risk: %s\n", risk)
-	}
-}
-
-// agentOutput is the JSON structure for agent mode.
-type agentOutput struct {
-	Changes          []agentChange `json:"changes"`
-	Summary          agentSummary  `json:"summary"`
-	Risk             string        `json:"risk"`
-	PhantomChanges   int           `json:"phantom_changes"`
-	PhantomResources []string      `json:"phantom_resources"`
-}
-
-type agentChange struct {
-	Address string `json:"address"`
-	Action  string `json:"action"`
-	Risk    string `json:"risk"`
-	Phantom bool   `json:"phantom,omitempty"`
-}
-
-type agentSummary struct {
-	Add     int `json:"add"`
-	Change  int `json:"change"`
-	Destroy int `json:"destroy"`
-}
-
-// printAgentJSON outputs structured JSON for agent mode.
-func printAgentJSON(summary *terraform.PlanSummary) error {
-	phantomResult := terraform.DetectPhantomChanges(summary.Changes)
-
-	changes := make([]agentChange, 0, len(summary.Changes))
-	for _, c := range summary.Changes {
-		changes = append(changes, agentChange{
-			Address: c.Resource.Address,
-			Action:  string(c.Action),
-			Risk:    c.Risk.String(),
-			Phantom: c.IsPhantom,
-		})
-	}
-
-	output := agentOutput{
-		Changes: changes,
-		Summary: agentSummary{
-			Add:     summary.ToCreate,
-			Change:  summary.ToUpdate + summary.ToReplace,
-			Destroy: summary.ToDelete,
-		},
-		Risk:             terraform.OverallRisk(summary.Changes).String(),
-		PhantomChanges:   phantomResult.PhantomCount,
-		PhantomResources: phantomResult.PhantomAddresses,
-	}
-
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	return enc.Encode(output)
 }
 
 func runScaffold(cfg config.Config, force, yes bool) error {
@@ -647,135 +591,5 @@ func runScaffold(cfg config.Config, force, yes bool) error {
 
 	fmt.Fprintf(os.Stderr, "Wrote %s\n", outPath)
 	fmt.Print(content)
-	return nil
-}
-
-func runPlan(cfg config.Config, ci bool, jsonOutput bool) error {
-	if cfg.Chdir != "" {
-		if err := validateChdir(cfg); err != nil {
-			return err
-		}
-	}
-
-	binary := cfg.TerraformBinary()
-	svc := terraform.NewExecService(effectiveWorkDir(cfg), binary, nil)
-	ctx := context.Background()
-
-	showSpinner := !ci && !jsonOutput && isStderrTTY()
-	var s *spinner
-	if showSpinner {
-		s = newSpinner("Running terraform plan...", true)
-		s.run()
-	}
-
-	summary, err := svc.Plan(ctx, sdk.PlanOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs})
-
-	if showSpinner {
-		s.halt()
-	}
-	if err != nil {
-		return fmt.Errorf("plan failed: %w", err)
-	}
-
-	if jsonOutput {
-		return printAgentJSON(summary)
-	}
-	printTreeView(summary)
-	return nil
-}
-
-func runApply(cfg config.Config, ci bool, jsonOutput bool, autoApprove bool) error {
-	if cfg.Chdir != "" {
-		if err := validateChdir(cfg); err != nil {
-			return err
-		}
-	}
-
-	binary := cfg.TerraformBinary()
-	svc := terraform.NewExecService(effectiveWorkDir(cfg), binary, nil)
-	ctx := context.Background()
-
-	showSpinner := !ci && !jsonOutput && isStderrTTY()
-	var s *spinner
-	if showSpinner {
-		s = newSpinner("Running terraform apply...", true)
-		s.run()
-	}
-
-	opts := sdk.ApplyOptions{Targets: cfg.Targets, ExtraArgs: cfg.ExtraArgs, AutoApprove: autoApprove}
-	err := svc.Apply(ctx, opts)
-
-	if showSpinner {
-		s.halt()
-	}
-	if err != nil {
-		return fmt.Errorf("apply failed: %w", err)
-	}
-
-	if jsonOutput {
-		result := map[string]interface{}{"status": "complete"}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(result)
-	}
-	fmt.Println("Apply complete.")
-	return nil
-}
-
-type versionOutput struct {
-	TfuiVersion        string            `json:"tfui_version"`
-	Platform           string            `json:"platform"`
-	TerraformVersion   string            `json:"terraform_version,omitempty"`
-	TerraformPlatform  string            `json:"terraform_platform,omitempty"`
-	ProviderSelections map[string]string `json:"provider_selections,omitempty"`
-}
-
-func runVersion(cfg config.Config, jsonOutput bool) error {
-	platform := runtime.GOOS + "_" + runtime.GOARCH
-
-	svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
-	info, _ := svc.Version(context.Background())
-
-	var tfVersion string
-	var providers map[string]string
-	if info != nil {
-		tfVersion = info.TerraformVersion
-		providers = info.Providers
-	}
-
-	if jsonOutput {
-		out := versionOutput{
-			TfuiVersion:        version,
-			Platform:           platform,
-			TerraformVersion:   tfVersion,
-			TerraformPlatform:  platform,
-			ProviderSelections: providers,
-		}
-		if tfVersion == "" {
-			out.TerraformPlatform = ""
-		}
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		return enc.Encode(out)
-	}
-
-	fmt.Printf("tfui v%s\n", version)
-	fmt.Printf("on %s\n", platform)
-
-	if tfVersion != "" {
-		fmt.Printf("\nterraform v%s\n", tfVersion)
-		fmt.Printf("on %s\n", platform)
-		if len(providers) > 0 {
-			keys := make([]string, 0, len(providers))
-			for k := range providers {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-			for _, k := range keys {
-				fmt.Printf("+ provider %s v%s\n", k, providers[k])
-			}
-		}
-	}
-
 	return nil
 }
