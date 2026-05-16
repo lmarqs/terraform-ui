@@ -1,4 +1,4 @@
-package repl
+package console
 
 import (
 	"context"
@@ -62,8 +62,8 @@ func TestNew(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc)
 
-	if p.ID() != "repl" {
-		t.Errorf("ID() = %q, want %q", p.ID(), "repl")
+	if p.ID() != "console" {
+		t.Errorf("ID() = %q, want %q", p.ID(), "console")
 	}
 	if p.Name() != "Console" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Console")
@@ -257,18 +257,18 @@ func TestInputEnterDuringEvaluating(t *testing.T) {
 	}
 }
 
-func TestCtrlCClearsInput(t *testing.T) {
+func TestCtrlUClearsInput(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = "some expr"
 	p.historyIdx = 2
 
-	p.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	p.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
 	if p.input != "" {
-		t.Errorf("after ctrl+c: input = %q, want empty", p.input)
+		t.Errorf("after ctrl+u: input = %q, want empty", p.input)
 	}
 	if p.historyIdx != -1 {
-		t.Errorf("after ctrl+c: historyIdx = %d, want -1", p.historyIdx)
+		t.Errorf("after ctrl+u: historyIdx = %d, want -1", p.historyIdx)
 	}
 }
 
@@ -692,11 +692,11 @@ func TestHints_WhenStatusDone_ShouldReturnREPLHints(t *testing.T) {
 	if hints[1].Key != "↑↓" || hints[1].Description != "history" {
 		t.Errorf("hints[1] = {%q, %q}, want {\"↑↓\", \"history\"}", hints[1].Key, hints[1].Description)
 	}
-	if hints[2].Key != "^C" || hints[2].Description != "clear" {
-		t.Errorf("hints[2] = {%q, %q}, want {\"^C\", \"clear\"}", hints[2].Key, hints[2].Description)
+	if hints[2].Key != "^U" || hints[2].Description != "clear" {
+		t.Errorf("hints[2] = {%q, %q}, want {\"^U\", \"clear\"}", hints[2].Key, hints[2].Description)
 	}
-	if hints[3].Key != "q" || hints[3].Description != "exit" {
-		t.Errorf("hints[3] = {%q, %q}, want {\"q\", \"exit\"}", hints[3].Key, hints[3].Description)
+	if hints[3].Key != "esc" || hints[3].Description != "back" {
+		t.Errorf("hints[3] = {%q, %q}, want {\"esc\", \"back\"}", hints[3].Key, hints[3].Description)
 	}
 }
 

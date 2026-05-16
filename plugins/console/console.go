@@ -1,4 +1,4 @@
-package repl
+package console
 
 import (
 	"fmt"
@@ -53,10 +53,15 @@ func New(svc sdk.Service) sdk.Plugin {
 	}
 }
 
-func (p *Plugin) ID() string          { return "repl" }
+func (p *Plugin) ID() string          { return "console" }
 func (p *Plugin) Name() string        { return "Console" }
 func (p *Plugin) Description() string { return "Terraform console (REPL)" }
 func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
+
+// CapturesKeys implements sdk.KeyCapturer.
+func (p *Plugin) CapturesKeys() bool {
+	return p.status == sdk.StatusDone || p.status == StatusEvaluating
+}
 
 // Hints returns context-sensitive key hints for the status bar.
 func (p *Plugin) Hints() []sdk.KeyHint {
@@ -65,8 +70,8 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 		return []sdk.KeyHint{
 			{Key: "Enter", Description: "evaluate"},
 			{Key: "↑↓", Description: "history"},
-			{Key: "^C", Description: "clear"},
-			{Key: "q", Description: "exit"},
+			{Key: "^U", Description: "clear"},
+			{Key: "esc", Description: "back"},
 		}
 	case sdk.StatusError:
 		return (sdk.HintSetBack).Hints()
@@ -152,8 +157,15 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
 
-	case "ctrl+c":
-		// Cancel current input
+	case "q":
+		if p.input == "" && p.status != StatusEvaluating {
+			return func() tea.Msg { return sdk.DeactivateMsg{} }
+		}
+		p.input += "q"
+		p.historyIdx = -1
+		return nil
+
+	case "ctrl+u":
 		p.input = ""
 		p.historyIdx = -1
 		return nil

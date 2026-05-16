@@ -499,6 +499,23 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 
+	// Key capture: plugin wants exclusive keyboard input
+	if a.activePlugin != nil {
+		if capturer, ok := a.activePlugin.(sdk.KeyCapturer); ok && capturer.CapturesKeys() {
+			switch msg.String() {
+			case "ctrl+c":
+				return a, tea.Quit
+			case "ctrl+s":
+				logging.Logger().Info("screen.capture", "content", a.View())
+				return a, nil
+			default:
+				updated, cmd := a.activePlugin.Update(msg)
+				a.activePlugin = updated
+				return a, cmd
+			}
+		}
+	}
+
 	// Global keys
 	switch msg.String() {
 	case "ctrl+c":
