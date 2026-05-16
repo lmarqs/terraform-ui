@@ -24,7 +24,7 @@ mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
 cmd/tfui/     — CLI entry point (cobra, plugin registration, normalizeArgs)
 pkg/sdk/      — Public SDK: Plugin, Service, types, UI primitives, frames
 internal/     — App internals (config, terraform, source, macro, ui, editor, ai, plugin, logging)
-plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, repl, output, validate, risk, phantom, blastradius, forceunlock, version)
+plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, console, output, validate, risk, phantom, blastradius, forceunlock, version)
 tests/        — Integration tests + fixtures
 ```
 

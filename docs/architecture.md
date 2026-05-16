@@ -61,7 +61,7 @@ plugins/
   untaint/                 — Standalone untaint verb (remove taint mark)
   import/                  — Standalone import verb (bring existing infra)
   workspace/               — Workspace management
-  repl/                    — Terraform console (REPL)
+  console/                 — Terraform console (REPL)
   output/                  — Terraform outputs viewer
   validate/                — Terraform validate with diagnostics
   init/                    — Terraform init with form-based options

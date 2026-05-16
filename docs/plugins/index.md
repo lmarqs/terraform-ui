@@ -21,7 +21,7 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [taint](taint.md) | Taint | `t` | action | Mark resources for recreation on next apply |
 | [untaint](untaint.md) | Untaint | `T` | action | Remove taint mark from resources |
 | [import](import.md) | Import | `n` | action | Import existing infrastructure into terraform state |
-| [repl](repl.md) | Console | `~` | operations | Interactive terraform console (REPL) |
+| [console](console.md) | Console | `~` | operations | Interactive terraform console (REPL) |
 | [risk](risk.md) | Risk Analysis | `R` | analysis | Analyze and group planned changes by risk level |
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
 | [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
@@ -47,7 +47,7 @@ Plugins that execute terraform commands or modify infrastructure.
 - **[Plan](plan.md)** — run and review `terraform plan`
 - **[Apply](apply.md)** — execute `terraform apply` with replan + confirmation
 - **[Validate](validate.md)** — run `terraform validate`
-- **[Console](repl.md)** — interactive `terraform console`
+- **[Console](console.md)** — interactive `terraform console`
 
 ### Analysis
 
