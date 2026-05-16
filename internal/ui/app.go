@@ -167,7 +167,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.ChdirChangedEvent:
 		a.activeChdir = msg.RelPath
-		a.header = a.header.WithChdir(msg.RelPath)
+		a.lockInfo = nil
+		a.staleState = false
+		a.header = a.header.WithChdir(msg.RelPath).WithLockInfo(nil).WithStale(false)
 		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanCompletedEvent:
@@ -178,7 +180,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.bus.Dispatch(sdk.WorkspaceChangedEvent(msg))
 
 	case sdk.WorkspaceChangedEvent:
-		a.header = a.header.WithWorkspace(msg.Name)
+		a.lockInfo = nil
+		a.staleState = false
+		a.header = a.header.WithWorkspace(msg.Name).WithLockInfo(nil).WithStale(false)
 		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanInvalidatedEvent:
