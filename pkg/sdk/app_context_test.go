@@ -259,9 +259,9 @@ func TestUIContext_SetGetInputMode(t *testing.T) {
 		t.Fatalf("expected InputModePrompt, got %d", ui.GetInputMode())
 	}
 
-	ui.SetInputMode(InputModeREPL)
-	if ui.GetInputMode() != InputModeREPL {
-		t.Fatalf("expected InputModeREPL, got %d", ui.GetInputMode())
+	ui.SetInputMode(InputModeConsole)
+	if ui.GetInputMode() != InputModeConsole {
+		t.Fatalf("expected InputModeConsole, got %d", ui.GetInputMode())
 	}
 }
 

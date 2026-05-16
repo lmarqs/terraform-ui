@@ -72,6 +72,13 @@ type NavigateMsg struct {
 	PluginID string
 }
 
+// KeyCapturer is an optional interface plugins implement to signal they need
+// exclusive keyboard input (e.g., terraform console REPL). When CapturesKeys()
+// returns true, the app routes all keys to the plugin except ctrl+c (quit).
+type KeyCapturer interface {
+	CapturesKeys() bool
+}
+
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin

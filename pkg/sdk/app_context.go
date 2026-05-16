@@ -165,7 +165,7 @@ const (
 	InputModeCommand           // ":"
 	InputModeFilter            // "/"
 	InputModePrompt            // waiting for user confirmation
-	InputModeREPL              // terraform console
+	InputModeConsole           // terraform console
 )
 
 // SetSize updates the UI dimensions.
