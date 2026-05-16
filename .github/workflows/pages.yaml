@@ -22,13 +22,21 @@ jobs:
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/jekyll-build-pages@v1
+
+      - uses: ruby/setup-ruby@v1
         with:
-          source: ./docs
-          destination: ./_site
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: docs
+
+      - run: bundle exec jekyll build --source . --destination ../_site
+        working-directory: docs
+
+      - uses: actions/configure-pages@v5
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./_site
+
       - id: deploy
         uses: actions/deploy-pages@v4
