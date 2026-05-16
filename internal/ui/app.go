@@ -15,6 +15,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
@@ -391,7 +392,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 	}
 
-	// Broadcast to all plugins — each handles only its own message types
+	// Timer ticks route only to the active plugin (ticks are unscoped —
+	// broadcasting would cause exponential growth when multiple timers run).
+	// Inactive timers resume via Activate() on re-entry.
+	if _, ok := msg.(sdkui.TimerTickMsg); ok {
+		if a.activePlugin != nil {
+			updated, cmd := a.activePlugin.Update(msg)
+			a.activePlugin = updated
+			return a, cmd
+		}
+		return a, nil
+	}
+
+	// Broadcast result messages to all plugins — each handles only its own types
 	var cmds []tea.Cmd
 	for _, p := range a.registry.All() {
 		updated, cmd := p.Update(msg)
