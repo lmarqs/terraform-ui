@@ -47,6 +47,7 @@ type Plugin struct {
 	errMsg        string
 	lockInfo      *sdk.StateLock
 	targets       []string
+	stale         bool
 	scopedContext string
 	listHScroll   int
 	listWrap      bool
@@ -139,6 +140,11 @@ func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
 
 // HandlePlanInvalidated implements sdk.PlanInvalidatedHandler.
 func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
+	if e.status == sdk.StatusDone {
+		// Keep results visible; Activate() will re-plan on next entry
+		e.stale = true
+		return nil
+	}
 	e.reset()
 	return nil
 }
@@ -146,6 +152,7 @@ func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 // reset clears all plugin state to initial values.
 func (e *Plugin) reset() {
 	e.status = sdk.StatusIdle
+	e.stale = false
 	e.summary = nil
 	e.filtered = nil
 	e.tree = tree.New(nil)
@@ -164,7 +171,8 @@ func (e *Plugin) reset() {
 
 // Activate triggers the plan when the user enters the plugin view.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
+	if e.status == sdk.StatusIdle || e.status == sdk.StatusError || e.stale {
+		e.stale = false
 		e.status = sdk.StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
 		return tea.Batch(e.runPlan(), e.timer.Start())

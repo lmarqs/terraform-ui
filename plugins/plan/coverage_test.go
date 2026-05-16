@@ -88,13 +88,34 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenPlanInvalidated_ShouldResetState(t *testing.T) {
+func TestPlugin_WhenPlanInvalidated_WhileDone_ShouldMarkStale(t *testing.T) {
 	svc := &mockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
+
+	cmd := p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
+
+	if cmd != nil {
+		t.Error("HandlePlanInvalidated() cmd != nil, want nil")
+	}
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want Done (results preserved)", p.status)
+	}
+	if p.summary == nil {
+		t.Error("summary = nil, want preserved")
+	}
+	if !p.stale {
+		t.Error("stale = false, want true")
+	}
+}
+
+func TestPlugin_WhenPlanInvalidated_WhileNotDone_ShouldResetState(t *testing.T) {
+	svc := &mockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
 	p.errMsg = "something"
 
 	cmd := p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
@@ -104,12 +125,6 @@ func TestPlugin_WhenPlanInvalidated_ShouldResetState(t *testing.T) {
 	}
 	if p.status != sdk.StatusIdle {
 		t.Errorf("status = %v, want Idle", p.status)
-	}
-	if p.summary != nil {
-		t.Error("summary != nil after reset")
-	}
-	if p.tree.Cursor() != 0 {
-		t.Error("cursor != 0 after reset")
 	}
 	if p.errMsg != "" {
 		t.Errorf("errMsg = %q, want empty", p.errMsg)
@@ -135,6 +150,24 @@ func TestPlugin_WhenActivatedWhileDone_ShouldReturnNil(t *testing.T) {
 	cmd := p.Activate()
 	if cmd != nil {
 		t.Error("Activate() while done returned non-nil cmd, want nil")
+	}
+}
+
+func TestPlugin_WhenActivatedWhileStale_ShouldReplan(t *testing.T) {
+	svc := &mockService{planResult: &sdk.PlanSummary{}}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.stale = true
+
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() while stale returned nil cmd, want re-plan")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want Loading", p.status)
+	}
+	if p.stale {
+		t.Error("stale should be cleared after Activate")
 	}
 }
 
