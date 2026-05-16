@@ -125,7 +125,8 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 // HandleLockCleared implements sdk.LockClearedHandler.
 func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 	e.lockInfo = nil
-	return e.Refresh()
+	e.reset()
+	return nil
 }
 
 // HandleChdirChanged implements sdk.ChdirHandler.
@@ -824,6 +825,11 @@ func (e *Plugin) renderOverallRisk() string {
 	default:
 		return ""
 	}
+}
+
+// PlanEditMsg signals the app to open $EDITOR at the resource's source file.
+type PlanEditMsg struct {
+	Address string
 }
 
 // ApplyRequestMsg signals the app to start applying the plan.

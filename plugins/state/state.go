@@ -135,16 +135,15 @@ func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 
 // HandlePlanInvalidated implements sdk.PlanInvalidatedHandler.
 func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
-	if e.status == sdk.StatusDone {
-		return e.Refresh()
-	}
+	e.reset()
 	return nil
 }
 
 // HandleLockCleared implements sdk.LockClearedHandler.
 func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 	e.lockInfo = nil
-	return e.Refresh()
+	e.reset()
+	return nil
 }
 
 // HandleChdirChanged implements sdk.ChdirHandler.
