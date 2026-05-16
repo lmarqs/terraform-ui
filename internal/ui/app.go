@@ -465,6 +465,10 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
 			cmd := stackable.Stack().Update(msg)
 			if stackable.Stack().IsEmpty() {
+				if len(a.navStack) > 0 {
+					a.navigateBack()
+					return a, tea.Batch(cmd, a.activate(a.activePlugin))
+				}
 				prev := a.activePlugin.ID()
 				a.activePlugin = nil
 				a.navStack = nil

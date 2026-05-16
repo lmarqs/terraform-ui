@@ -1633,7 +1633,41 @@ func TestApp_BestCommandMatch_WhenMatchesBuiltinOnly_ShouldReturn(t *testing.T) 
 
 // --- Test for StackablePlugin key handling when stack becomes empty ---
 
-func TestApp_HandleKey_WhenStackableKeyAndReturnToClear_ShouldClearReturnTo(t *testing.T) {
+func TestApp_HandleKey_WhenStackableKeyAndNavStack_ShouldNavigateBack(t *testing.T) {
+	stack := sdk.NewStack()
+	stack.Push(&mockFrame{
+		id: "root",
+		updateFn: func(msg tea.Msg) (sdk.Frame, tea.Cmd) {
+			return nil, nil // pop the frame
+		},
+	})
+
+	p := &mockStackablePlugin{
+		mockPlugin: mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"},
+		stack:      stack,
+	}
+
+	origin := &mockPlugin{id: "context", name: "Context"}
+
+	app := setupTestApp()
+	app.activePlugin = p
+	app.navStack = []sdk.Plugin{origin}
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("should navigate back to origin, not go home")
+	}
+	if updated.activePlugin.ID() != "context" {
+		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "context")
+	}
+	if len(updated.navStack) != 0 {
+		t.Error("navStack should be consumed after navigating back")
+	}
+}
+
+func TestApp_HandleKey_WhenStackableKeyAndEmptyNavStack_ShouldGoHome(t *testing.T) {
 	stack := sdk.NewStack()
 	stack.Push(&mockFrame{
 		id: "root",
@@ -1649,16 +1683,13 @@ func TestApp_HandleKey_WhenStackableKeyAndReturnToClear_ShouldClearReturnTo(t *t
 
 	app := setupTestApp()
 	app.activePlugin = p
-	app.navStack = []sdk.Plugin{&mockPlugin{id: "other"}}
+	app.navStack = nil
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	updated := model.(App)
 
 	if updated.activePlugin != nil {
-		t.Error("when stack empties, activePlugin should be nil")
-	}
-	if len(updated.navStack) != 0 {
-		t.Error("when stack empties, navStack should be cleared")
+		t.Error("when stack empties with no navStack, should go home")
 	}
 }
 
