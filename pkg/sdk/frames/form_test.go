@@ -245,19 +245,16 @@ func TestFormFrame_WhenEsc_ShouldPop(t *testing.T) {
 	}
 }
 
-func TestFormFrame_WhenQ_ShouldPop(t *testing.T) {
+func TestFormFrame_WhenQ_ShouldNotPop(t *testing.T) {
 	f := NewFormFrame(FormOpts{
 		Fields: []FormField{
 			{Label: "A", Value: func() string { return "a" }, Selectable: true},
 		},
 	})
 
-	result, cmd := f.Update(keyMsg("q"))
-	if result != nil {
-		t.Fatal("q should pop form frame (return nil)")
-	}
-	if cmd != nil {
-		t.Fatal("q should not produce cmd")
+	result, _ := f.Update(keyMsg("q"))
+	if result == nil {
+		t.Fatal("q should not pop form frame (app handles q globally)")
 	}
 }
 
@@ -370,7 +367,7 @@ func TestFormFrame_Hints(t *testing.T) {
 	if hints[1].Key != "Enter" || hints[1].Description != "select" {
 		t.Fatalf("unexpected second hint: %v", hints[1])
 	}
-	if hints[2].Key != "esc" || hints[2].Description != "back" {
+	if hints[2].Key != "Esc" || hints[2].Description != "cancel" {
 		t.Fatalf("unexpected third hint: %v", hints[2])
 	}
 }

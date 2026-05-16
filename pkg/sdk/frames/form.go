@@ -70,7 +70,7 @@ func (f *FormFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 				return f, field.OnSelect()
 			}
 		}
-	case "esc", "q":
+	case "esc":
 		return nil, nil
 	}
 	return f, nil
@@ -145,7 +145,7 @@ func (f *FormFrame) renderAction(field FormField, selected bool) string {
 func (f *FormFrame) Hints() []sdk.KeyHint {
 	return []sdk.KeyHint{
 		{Key: "↑↓", Description: "navigate"},
-		{Key: "Enter", Description: "select"},
-		{Key: "esc", Description: "back"},
+		sdk.HintSelect,
+		sdk.HintCancel,
 	}
 }

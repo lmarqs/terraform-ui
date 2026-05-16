@@ -357,13 +357,13 @@ func TestPlugin_WhenFormEscPressed_ShouldPopFrame(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenFormQPressed_ShouldPopFrame(t *testing.T) {
+func TestPlugin_WhenFormQPressed_ShouldNotPopFrame(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.Activate()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if p.stack.Depth() != 0 {
-		t.Errorf("stack depth = %d, want 0 after q", p.stack.Depth())
+	if p.stack.Depth() == 0 {
+		t.Error("q should not pop form frame (app handles q globally)")
 	}
 }
 
