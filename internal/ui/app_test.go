@@ -97,7 +97,7 @@ func setupTestApp() App {
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	return NewApp(cfg, svc, registry)
+	return NewApp(cfg, svc, registry, nil)
 }
 
 func TestNewApp(t *testing.T) {
@@ -353,7 +353,7 @@ func TestApp_LoadWorkspace_Success(t *testing.T) {
 	svc := &mockService{workspace: "production"}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// Call loadWorkspace directly
 	msg := app.loadWorkspace()
@@ -375,7 +375,7 @@ func TestApp_LoadWorkspace_Error(t *testing.T) {
 	svc := &mockService{workspace: "", workspaceErr: fmt.Errorf("connection failed")}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// Call loadWorkspace directly - error should return "default"
 	msg := app.loadWorkspace()
@@ -403,7 +403,7 @@ func TestApp_Init_WithPluginInitCmd(t *testing.T) {
 	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, nil, registry)
+	app := NewApp(cfg, nil, registry, nil)
 	cmd := app.Init()
 	if cmd == nil {
 		t.Fatal("Init() should return a batch command including plugin init")
@@ -427,7 +427,7 @@ func TestApp_OpenContextOnStartup_ActivatesChdirPlugin(t *testing.T) {
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	model, _ := app.Update(openContextOnStartupMsg{})
 	updated := model.(App)
@@ -454,7 +454,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenChdirSet(t *testing.T) {
 	}, plugin.PluginMeta{MenuVisible: false})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	model, _ := app.Update(openContextOnStartupMsg{})
 	updated := model.(App)
@@ -478,7 +478,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenPreloadedData(t *testing.T) {
 	}, plugin.PluginMeta{MenuVisible: false})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	model, _ := app.Update(openContextOnStartupMsg{})
 	updated := model.(App)
@@ -502,7 +502,7 @@ func TestApp_ChdirChangedEvent_DeactivatesPlugin(t *testing.T) {
 	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// Simulate chdir plugin being active (as if startup activated it)
 	model, _ := app.Update(openContextOnStartupMsg{})
@@ -795,7 +795,7 @@ func setupTestAppWithBusyPlugin(busy bool) App {
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	return NewApp(cfg, svc, registry)
+	return NewApp(cfg, svc, registry, nil)
 }
 
 func TestApp_CommandMode_QuitBlockedWhenBusy(t *testing.T) {
@@ -902,7 +902,7 @@ func setupTestAppWithTransientPlugins() App {
 	}, plugin.PluginMeta{MenuVisible: false})
 	registry.Build(nil, nil)
 
-	return NewApp(cfg, svc, registry)
+	return NewApp(cfg, svc, registry, nil)
 }
 
 func TestApp_ChdirSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
@@ -1472,5 +1472,69 @@ func TestApp_StateRefreshedEvent_ClearsStaleBadge(t *testing.T) {
 	view := app.View()
 	if strings.Contains(view, "stale") {
 		t.Error("header should not contain 'stale' badge after StateRefreshedEvent")
+	}
+}
+
+func TestApp_WorkspaceChanged_ResolvesOptions(t *testing.T) {
+	rootCfg := &config.RootConfig{
+		Defaults: config.DefaultsConfig{
+			VarFiles: []string{"common.tfvars"},
+		},
+	}
+	childCfg := &config.ChildConfig{
+		Workspaces: []config.WorkspaceConfig{
+			{Name: "staging", VarFiles: []string{"staging.tfvars"}, Vars: map[string]string{"env": "stg"}},
+			{Name: "production", VarFiles: []string{"prod.tfvars"}, Vars: map[string]string{"env": "prd"}},
+		},
+	}
+
+	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	svc := &mockService{workspace: "default"}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, rootCfg)
+	app.childCfg = childCfg
+
+	// Workspace switch to staging
+	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	app = model.(App)
+
+	if len(app.options.VarFiles) != 2 || app.options.VarFiles[1] != "staging.tfvars" {
+		t.Errorf("VarFiles after staging switch = %v, want [common.tfvars staging.tfvars]", app.options.VarFiles)
+	}
+	if app.options.Vars["env"] != "stg" {
+		t.Errorf("Vars[env] = %q, want %q", app.options.Vars["env"], "stg")
+	}
+
+	// Workspace switch to production
+	model, _ = app.Update(sdk.WorkspaceChangedEvent{Name: "production"})
+	app = model.(App)
+
+	if len(app.options.VarFiles) != 2 || app.options.VarFiles[1] != "prod.tfvars" {
+		t.Errorf("VarFiles after prod switch = %v, want [common.tfvars prod.tfvars]", app.options.VarFiles)
+	}
+	if app.options.Vars["env"] != "prd" {
+		t.Errorf("Vars[env] = %q, want %q", app.options.Vars["env"], "prd")
+	}
+}
+
+func TestApp_WorkspaceChanged_NilRootCfg_NoOp(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+		VarFiles:  []string{"original.tfvars"},
+	}
+	svc := &mockService{workspace: "default"}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+
+	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	app = model.(App)
+
+	if len(app.options.VarFiles) != 1 || app.options.VarFiles[0] != "original.tfvars" {
+		t.Errorf("Options should be unchanged without rootCfg, got VarFiles = %v", app.options.VarFiles)
 	}
 }

@@ -117,7 +117,7 @@ func setupAppWithSourceIndex(t *testing.T) App {
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	return app
 }
 
@@ -277,7 +277,7 @@ func TestApp_Update_WhenReceivingApplyRequestMsg_ShouldActivateApplyPlugin(t *te
 	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
 	registry.Build(svc, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	// Activate plan plugin
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	app = model.(App)
@@ -314,7 +314,7 @@ func TestApp_Update_WhenReceivingApplyRequestMsgWithPins_ShouldSetTargets(t *tes
 	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
 	registry.Build(svc, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	app.pins.Toggle("aws_instance.foo")
 	app.pins.Toggle("aws_instance.bar")
 
@@ -1372,7 +1372,7 @@ func TestApp_BestCommandMatch_WhenMultipleMatches_ShouldReturnEmpty(t *testing.T
 		return &mockPlugin{id: "phantom", name: "Phantom"}
 	}, plugin.PluginMeta{Keybinding: "P", MenuVisible: true})
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	match := app.bestCommandMatch("p")
 	if match != "" {
@@ -1392,7 +1392,7 @@ func TestNewApp_WhenBaseDirSet_ShouldSetHeaderChdir(t *testing.T) {
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	app.width = 80
 	app.height = 24
 
@@ -1417,7 +1417,7 @@ func TestApp_Init_WhenChdirSet_ShouldScopeService(t *testing.T) {
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	cmd := app.Init()
 	if cmd == nil {
 		t.Fatal("Init should return a batch cmd")
@@ -1471,7 +1471,7 @@ func TestApp_OpenContextOnStartup_WhenNoChdirPlugin_ShouldDoNothing(t *testing.T
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	model, cmd := app.Update(openContextOnStartupMsg{})
 	updated := model.(App)
 
@@ -1604,7 +1604,7 @@ func TestApp_Init_WhenNoPlugins_ShouldStillReturnCmd(t *testing.T) {
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	cmd := app.Init()
 	if cmd == nil {
 		t.Fatal("Init should always return a cmd (at least loadWorkspace)")
@@ -1623,7 +1623,7 @@ func TestApp_BestCommandMatch_WhenMatchesBuiltinOnly_ShouldReturn(t *testing.T) 
 	svc := &mockService{workspace: "default"}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	match := app.bestCommandMatch("q!")
 	if match != "q!" {
@@ -1797,7 +1797,7 @@ func TestApp_DeactivateMsg_WhenReturnToActivatable_ShouldCallActivate(t *testing
 	}, plugin.PluginMeta{Nav: plugin.NavPush})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// Set up pushed state
 	app.activePlugin, _ = app.registry.ByID("chdir")
@@ -1858,7 +1858,7 @@ func TestApp_BestCommandMatch_WhenMatchesByName_ShouldReturnID(t *testing.T) {
 		return &mockPlugin{id: "state", name: "State Browser"}
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// "state" matches by ID prefix
 	match := app.bestCommandMatch("state")
@@ -1889,7 +1889,7 @@ func TestApp_Update_WhenStateEditMsgWithMatchingAddress(t *testing.T) {
 	svc := &mockService{workspace: "default"}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// The source index should now contain aws_instance.web
 	if app.sourceIndex == nil {
@@ -1926,7 +1926,7 @@ resource "aws_instance" "api" {
 	svc := &mockService{workspace: "default"}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	_, cmd := app.Update(tfuistate.StateEditMsg{Addresses: []string{"aws_instance.web", "aws_instance.api"}})
 	if cmd == nil {
@@ -1953,7 +1953,7 @@ func TestApp_Update_WhenStateEditMsgAddressesPartialMatch(t *testing.T) {
 	svc := &mockService{workspace: "default"}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// One matches, one doesn't
 	_, cmd := app.Update(tfuistate.StateEditMsg{Addresses: []string{"aws_instance.web", "aws_instance.nonexistent"}})
@@ -1981,7 +1981,7 @@ func TestApp_Update_WhenStateEditMsgAddressesNoneMatch(t *testing.T) {
 	svc := &mockService{workspace: "default"}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	_, cmd := app.Update(tfuistate.StateEditMsg{Addresses: []string{"aws_s3_bucket.nonexistent"}})
 	if cmd != nil {
@@ -2003,7 +2003,7 @@ func TestApp_HandleKey_WhenHomeEnterKeyNotInRegistry_ShouldReturnNil(t *testing.
 		return &mockPlugin{id: "nokey", name: "NoKey", viewOutput: "nokey view"}
 	}, plugin.PluginMeta{Keybinding: "", MenuVisible: true})
 	registry.Build(nil, nil)
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 
 	// Enter should try to find the plugin by key "" which will fail
 	model, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -2030,7 +2030,7 @@ func TestApp_Init_WhenPluginInitReturnsNil_ShouldNotAppend(t *testing.T) {
 	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	cmd := app.Init()
 	if cmd == nil {
 		t.Fatal("Init should return a cmd even when plugin Init returns nil")
@@ -2048,7 +2048,7 @@ func TestApp_Init_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
-	app := NewApp(cfg, svc, registry)
+	app := NewApp(cfg, svc, registry, nil)
 	cmd := app.Init()
 	if cmd == nil {
 		t.Fatal("Init should return a batch command")

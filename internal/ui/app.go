@@ -31,6 +31,8 @@ type App struct {
 	options     *sdk.ResolvedOptions
 	bus         *sdk.EventBus
 	sourceIndex *terraform.SourceIndex
+	rootCfg     *config.RootConfig
+	childCfg    *config.ChildConfig
 	width       int
 	height      int
 
@@ -40,15 +42,16 @@ type App struct {
 	statusBar     components.StatusBar
 	homeView      views.HomeView
 
-	activePlugin  sdk.Plugin   // nil = home screen
-	navStack      []sdk.Plugin // LIFO stack of return destinations; empty = no history
-	activeOverlay sdk.Overlay
-	activeChdir   string // tracks last known active chdir for header updates
-	lockInfo      *sdk.StateLock
-	staleState    bool
-	commandMode   bool
-	commandInput  string
-	commandError  string
+	activePlugin    sdk.Plugin   // nil = home screen
+	navStack        []sdk.Plugin // LIFO stack of return destinations; empty = no history
+	activeOverlay   sdk.Overlay
+	activeChdir     string // tracks last known active chdir for header updates
+	activeWorkspace string // tracks current workspace for config re-resolution
+	lockInfo        *sdk.StateLock
+	staleState      bool
+	commandMode     bool
+	commandInput    string
+	commandError    string
 
 	inputActive   bool
 	inputMode     sdk.InputRequestMode
@@ -57,7 +60,7 @@ type App struct {
 	inputCallback func(string) tea.Cmd
 }
 
-func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
+func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootCfg *config.RootConfig) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
 	header := components.NewHeader(workDir, "default")
@@ -76,6 +79,11 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 
 	bus := sdk.NewEventBus(registry.All())
 
+	var childCfg *config.ChildConfig
+	if rootCfg != nil {
+		childCfg, _ = config.LoadChild(workDir)
+	}
+
 	return App{
 		cfg:           cfg,
 		svc:           svc,
@@ -84,6 +92,8 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry) App {
 		options:       opts,
 		bus:           bus,
 		sourceIndex:   sourceIndex,
+		rootCfg:       rootCfg,
+		childCfg:      childCfg,
 		header:        header,
 		contentBorder: components.NewContentBorder(),
 		commandBar:    components.NewCommandBar(),
@@ -146,6 +156,8 @@ func (a App) loadWorkspace() tea.Msg {
 func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
+		a.activeWorkspace = msg.workspace
+		a.resolveOptions(msg.workspace)
 		a.header = a.header.WithWorkspace(msg.workspace)
 		return a, nil
 
@@ -172,6 +184,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.activeChdir = msg.RelPath
 		a.lockInfo = nil
 		a.staleState = false
+		if a.rootCfg != nil {
+			childCfg, err := config.LoadChild(msg.AbsPath)
+			if err != nil {
+				logging.Logger().Debug("config.load_child", "dir", msg.AbsPath, "err", err)
+			}
+			a.childCfg = childCfg
+		}
+		a.resolveOptions(a.activeWorkspace)
 		a.header = a.header.WithChdir(msg.RelPath).WithLockInfo(nil).WithStale(false)
 		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
@@ -179,12 +199,16 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.bus.Dispatch(msg)
 
 	case sdk.WorkspaceCreatedEvent:
+		a.activeWorkspace = msg.Name
+		a.resolveOptions(msg.Name)
 		a.header = a.header.WithWorkspace(msg.Name)
 		return a, a.bus.Dispatch(sdk.WorkspaceChangedEvent(msg))
 
 	case sdk.WorkspaceChangedEvent:
+		a.activeWorkspace = msg.Name
 		a.lockInfo = nil
 		a.staleState = false
+		a.resolveOptions(msg.Name)
 		a.header = a.header.WithWorkspace(msg.Name).WithLockInfo(nil).WithStale(false)
 		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
@@ -592,6 +616,18 @@ func (a *App) navigateBack() {
 		to = prev.ID()
 	}
 	logging.Logger().Debug("view.transition", "from", from, "to", to)
+}
+
+// resolveOptions re-runs config resolution and updates the shared ResolvedOptions pointer.
+// ExtraArgs is intentionally preserved — CLI passthrough (--) takes precedence over config.
+func (a *App) resolveOptions(workspace string) {
+	if a.rootCfg == nil {
+		return
+	}
+	resolved := config.Resolve(a.rootCfg, a.childCfg, workspace)
+	a.options.VarFiles = resolved.VarFiles()
+	a.options.Vars = resolved.Vars()
+	logging.Logger().Debug("options.resolved", "workspace", workspace, "var_files", len(a.options.VarFiles), "vars", len(a.options.Vars))
 }
 
 func (a *App) popIfPushed(busCmd tea.Cmd) tea.Cmd {

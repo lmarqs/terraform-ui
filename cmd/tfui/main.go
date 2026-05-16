@@ -61,6 +61,7 @@ func init() {
 
 func main() {
 	var cfg config.Config
+	var rootCfg *config.RootConfig
 	var debug bool
 	var configOverrides []string
 	var planURI, stateURI, macroURI string
@@ -75,7 +76,8 @@ func main() {
 			cfg.Dir = resolveProjectDir(cfg.Dir)
 			cfg.ApplyOverrides(configOverrides)
 
-			rootCfg, err := config.LoadRoot(cfg.Dir)
+			var err error
+			rootCfg, err = config.LoadRoot(cfg.Dir)
 			if err != nil {
 				var notFound *config.ConfigNotFoundError
 				if !errors.As(err, &notFound) {
@@ -99,7 +101,7 @@ func main() {
 			if macroURI != "" {
 				return runMacro(cfg, macroURI, planURI, stateURI)
 			}
-			return runTUI(cfg, planURI, stateURI)
+			return runTUI(cfg, rootCfg, planURI, stateURI)
 		},
 	}
 
@@ -181,7 +183,7 @@ func main() {
 	}
 }
 
-func runTUI(cfg config.Config, planURI, stateURI string) error {
+func runTUI(cfg config.Config, rootCfg *config.RootConfig, planURI, stateURI string) error {
 	if !hasTTY() {
 		if planURI != "" || stateURI != "" {
 			return runStaticNonInteractive(cfg, planURI, stateURI)
@@ -206,7 +208,7 @@ func runTUI(cfg config.Config, planURI, stateURI string) error {
 
 	registry := buildRegistry(svc, cfg)
 
-	app := ui.NewApp(cfg, svc, registry)
+	app := ui.NewApp(cfg, svc, registry, rootCfg)
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	_, err := p.Run()
 	return err
@@ -301,7 +303,7 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 
 	svc := terraform.NewMacroService(cfg.TerraformBinary(), cache)
 	registry := buildRegistry(svc, cfg)
-	app := ui.NewApp(cfg, svc, registry)
+	app := ui.NewApp(cfg, svc, registry, nil)
 
 	driver := macro.NewDriver(app, 80, 24)
 	runner := macro.NewRunner(driver)

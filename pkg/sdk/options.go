@@ -1,7 +1,7 @@
 package sdk
 
-// ResolvedOptions holds CLI/config values resolved at startup.
-// Shared across plugins via Context — immutable after boot.
+// ResolvedOptions holds CLI/config values resolved from tfui.hcl.
+// Shared across plugins via Context pointer — re-resolved on workspace/chdir change.
 type ResolvedOptions struct {
 	VarFiles  []string
 	Vars      map[string]string
