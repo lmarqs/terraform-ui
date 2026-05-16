@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/mattn/go-runewidth"
+
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -72,20 +74,19 @@ func buildTopBorder(title string, width int) string {
 		innerWidth = 1
 	}
 
-	titleLen := len(title)
-	if titleLen == 0 {
+	if title == "" {
 		return "┌" + strings.Repeat("─", innerWidth) + "┐"
 	}
 
 	decorated := " " + title + " "
-	decoratedLen := len(decorated)
+	decoratedWidth := runewidth.StringWidth(decorated)
 
-	if decoratedLen >= innerWidth {
+	if decoratedWidth >= innerWidth {
 		return "┌" + decorated[:innerWidth] + "┐"
 	}
 
-	leftPad := (innerWidth - decoratedLen) / 2
-	rightPad := innerWidth - decoratedLen - leftPad
+	leftPad := (innerWidth - decoratedWidth) / 2
+	rightPad := innerWidth - decoratedWidth - leftPad
 
 	return "┌" + strings.Repeat("─", leftPad) + decorated + strings.Repeat("─", rightPad) + "┐"
 }
