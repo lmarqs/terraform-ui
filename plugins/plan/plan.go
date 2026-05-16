@@ -805,6 +805,13 @@ func (e *Plugin) renderOverallRisk() string {
 // ApplyRequestMsg signals the app to start applying the plan.
 type ApplyRequestMsg struct{}
 
+// AutoApplyRequestMsg signals the app to apply without confirmation.
+type AutoApplyRequestMsg struct{}
+
 func (e *Plugin) requestApply() tea.Cmd {
 	return func() tea.Msg { return ApplyRequestMsg{} }
+}
+
+func (e *Plugin) requestAutoApply() tea.Cmd {
+	return func() tea.Msg { return AutoApplyRequestMsg{} }
 }

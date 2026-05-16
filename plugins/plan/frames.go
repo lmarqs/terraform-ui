@@ -2,6 +2,8 @@ package plan
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/plugins/taint"
+	"github.com/lmarqs/terraform-ui/plugins/untaint"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
@@ -77,6 +79,24 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if f.plugin.status == sdk.StatusDone && f.plugin.summary != nil && len(f.plugin.summary.Changes) > 0 {
 			return f, f.plugin.requestApply()
 		}
+	case "A":
+		if f.plugin.status == sdk.StatusDone && f.plugin.summary != nil && len(f.plugin.summary.Changes) > 0 {
+			return f, f.plugin.requestAutoApply()
+		}
+	case "t":
+		if f.plugin.status == sdk.StatusDone {
+			change := f.plugin.SelectedChange()
+			if change != nil {
+				return f, func() tea.Msg { return taint.TaintRequestMsg{Addresses: []string{change.Resource.Address}} }
+			}
+		}
+	case "T":
+		if f.plugin.status == sdk.StatusDone {
+			change := f.plugin.SelectedChange()
+			if change != nil {
+				return f, func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: []string{change.Resource.Address}} }
+			}
+		}
 	case "u":
 		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
 			return f, func() tea.Msg { return sdk.NavigateMsg{PluginID: "forceunlock"} }
@@ -140,7 +160,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
 			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
 		}
-		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetApply | sdk.HintSetRefresh | sdk.HintSetBack
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetApply | sdk.HintSetTaint | sdk.HintSetUntaint | sdk.HintSetRefresh | sdk.HintSetBack
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse | sdk.HintSetExpand
 		}
