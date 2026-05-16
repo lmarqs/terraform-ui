@@ -223,6 +223,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			if msg.Summary != nil {
 				e.filtered = msg.Summary.Changes
 				e.fuzzy.SetItems(msg.Summary.Changes)
+				e.pruneStale(msg.Summary.Changes)
 				e.rebuildTree()
 			}
 			changes := 0
@@ -417,6 +418,26 @@ func (e *Plugin) isPinnedAddress(address string) bool {
 		return e.pins.IsPinned(address)
 	}
 	return false
+}
+
+func (e *Plugin) pruneStale(changes []sdk.PlanChange) {
+	if e.pins == nil || e.pins.Count() == 0 {
+		return
+	}
+	valid := make(map[string]bool, len(changes))
+	for _, c := range changes {
+		valid[c.Resource.Address] = true
+	}
+	var retained []string
+	for _, addr := range e.pins.All() {
+		if valid[addr] {
+			retained = append(retained, addr)
+		}
+	}
+	if len(retained) != e.pins.Count() {
+		e.pins.Set(retained)
+		e.log.Debug("plan.pin.prune", "before", e.pins.Count()+len(retained), "after", len(retained))
+	}
 }
 
 func (e *Plugin) clearAllPins() {
