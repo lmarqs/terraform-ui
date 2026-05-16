@@ -36,3 +36,4 @@ just_the_docs:
 exclude:
   - Gemfile
   - Gemfile.lock
+  - vendor
