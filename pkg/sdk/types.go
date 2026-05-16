@@ -167,6 +167,7 @@ type ApplyOptions struct {
 	Parallelism int
 	Lock        *bool
 	LockTimeout string
+	AutoApprove bool
 	ExtraArgs   []string
 }
 

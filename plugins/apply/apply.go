@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -10,7 +11,16 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-const StatusConfirming = sdk.Status(10)
+const (
+	StatusConfirming  = sdk.Status(10)
+	StatusReplanning  = sdk.Status(11)
+)
+
+// ReplanResultMsg is sent when the targeted replan completes.
+type ReplanResultMsg struct {
+	Summary *sdk.PlanSummary
+	Err     error
+}
 
 // ApplyResultMsg is sent when apply completes.
 type ApplyResultMsg struct {
@@ -28,6 +38,7 @@ type Plugin struct {
 	timer          ui.Timer
 	confirmed      bool
 	totalResources int
+	replanSummary  *sdk.PlanSummary
 	scopedContext  string
 }
 
@@ -54,6 +65,8 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	switch e.status {
 	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
+	case StatusReplanning:
+		return (sdk.HintSetCancel).Hints()
 	case StatusConfirming:
 		return []sdk.KeyHint{
 			{Key: "y/n", Description: "confirm"},
@@ -122,11 +135,39 @@ func (e *Plugin) TotalResources() int {
 	return e.totalResources
 }
 
-// RequestApply transitions to the confirmation state.
-func (e *Plugin) RequestApply() {
-	e.status = StatusConfirming
+// RequestApply transitions to replan (if targets) or confirmation (if no targets).
+func (e *Plugin) RequestApply() tea.Cmd {
 	e.confirmed = false
 	e.errMsg = ""
+	e.replanSummary = nil
+	if len(e.targets) > 0 {
+		e.status = StatusReplanning
+		return tea.Batch(e.runReplan(), e.timer.Start())
+	}
+	e.status = StatusConfirming
+	return nil
+}
+
+func (e *Plugin) runReplan() tea.Cmd {
+	svc := e.svc
+	opts := sdk.BuildPlanOptions(e.options, e.targets)
+	return func() tea.Msg {
+		summary, err := svc.Plan(context.Background(), opts)
+		return ReplanResultMsg{Summary: summary, Err: err}
+	}
+}
+
+// AutoApply skips confirmation and begins apply immediately.
+func (e *Plugin) AutoApply() tea.Cmd {
+	e.confirmed = true
+	e.errMsg = ""
+	e.replanSummary = nil
+	if len(e.targets) > 0 {
+		e.status = StatusReplanning
+		return tea.Batch(e.runReplan(), e.timer.Start())
+	}
+	e.status = sdk.StatusLoading
+	return tea.Batch(e.runApply(), e.timer.Start())
 }
 
 // Confirm executes the apply after user confirmation.
@@ -156,6 +197,21 @@ func (e *Plugin) runApply() tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ReplanResultMsg:
+		e.timer.Stop()
+		if msg.Err != nil {
+			e.status = sdk.StatusError
+			e.errMsg = msg.Err.Error()
+			return e, nil
+		}
+		e.replanSummary = msg.Summary
+		if e.confirmed {
+			e.status = sdk.StatusLoading
+			return e, tea.Batch(e.runApply(), e.timer.Start())
+		}
+		e.status = StatusConfirming
+		return e, nil
+
 	case ApplyResultMsg:
 		e.timer.Stop()
 		if msg.Err != nil {
@@ -181,7 +237,12 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case sdk.StatusIdle:
 		switch msg.String() {
 		case "enter":
-			e.RequestApply()
+			return e.RequestApply()
+		}
+	case StatusReplanning:
+		switch msg.String() {
+		case "esc":
+			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	case StatusConfirming:
 		switch msg.String() {
@@ -215,6 +276,9 @@ func (e *Plugin) View(width, height int) string {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.")
 
+	case StatusReplanning:
+		return e.renderReplanning()
+
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
 
@@ -234,15 +298,42 @@ func (e *Plugin) View(width, height int) string {
 	}
 }
 
-func (e *Plugin) renderConfirmation(width, height int) string {
-	warning := sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
-	detail := sdk.StyleFaint.Render("This will modify your infrastructure.")
+func (e *Plugin) renderReplanning() string {
+	header := sdk.StyleFaintItalic.Render(fmt.Sprintf("Replanning with %d targets... %s", len(e.targets), e.timer.FormatElapsed()))
+	var targets []string
+	for _, t := range e.targets {
+		targets = append(targets, "  -target="+t)
+	}
+	return header + "\n\n" + strings.Join(targets, "\n")
+}
 
-	if len(e.targets) > 0 {
-		detail = sdk.StyleFaint.Render(fmt.Sprintf("Targeting %d resource(s).", len(e.targets)))
+func (e *Plugin) renderConfirmation(width, height int) string {
+	var header, detail string
+
+	if len(e.targets) > 0 && e.replanSummary != nil {
+		header = sdk.StyleRiskHigh.Render("Apply targeted plan?")
+		detail = sdk.StyleFaint.Render(fmt.Sprintf("  %d resources targeted", len(e.targets)))
+		if e.replanSummary != nil {
+			parts := []string{}
+			if e.replanSummary.ToCreate > 0 {
+				parts = append(parts, fmt.Sprintf("%d to add", e.replanSummary.ToCreate))
+			}
+			if e.replanSummary.ToUpdate > 0 {
+				parts = append(parts, fmt.Sprintf("%d to change", e.replanSummary.ToUpdate))
+			}
+			if e.replanSummary.ToDelete > 0 {
+				parts = append(parts, fmt.Sprintf("%d to destroy", e.replanSummary.ToDelete))
+			}
+			if len(parts) > 0 {
+				detail += "\n" + sdk.StyleFaint.Render("  "+strings.Join(parts, ", "))
+			}
+		}
+	} else {
+		header = sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
+		detail = sdk.StyleFaint.Render("This will modify your infrastructure.")
 	}
 
 	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
 
-	return warning + "\n" + detail + "\n\n" + prompt
+	return header + "\n" + detail + "\n\n" + prompt
 }
