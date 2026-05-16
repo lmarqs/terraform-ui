@@ -176,6 +176,9 @@ func (e *Plugin) Activate() tea.Cmd {
 		e.status = sdk.StatusLoading
 		return tea.Batch(e.loadState(), e.timer.Start())
 	}
+	if e.status == sdk.StatusLoading && e.timer.Running() {
+		return e.timer.Tick()
+	}
 	return nil
 }
 
