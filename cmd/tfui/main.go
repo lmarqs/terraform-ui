@@ -107,7 +107,7 @@ func main() {
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 	rootCmd.PersistentFlags().StringVar(&planURI, "plan", "", "Pre-seed plan data from file (./path, /path, file://) or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&stateURI, "state", "", "Pre-seed state data from file (./path, /path, file://) or - for stdin")
-	rootCmd.Flags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
+	rootCmd.PersistentFlags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 
 	var ciMode bool
@@ -117,6 +117,9 @@ func main() {
 		Use:   "plan",
 		Short: "Run terraform plan",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "plan")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "plan", args, jsonMode, planURI, stateURI)
@@ -133,6 +136,9 @@ func main() {
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "apply")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "apply", args, jsonMode, planURI, stateURI)
@@ -162,6 +168,9 @@ func main() {
 		Use:   "version",
 		Short: "Print version",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "version")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "version", args, versionJSON, planURI, stateURI)
@@ -176,6 +185,9 @@ func main() {
 		Use:   "init",
 		Short: "Run terraform init",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "init")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "init", args, false, planURI, stateURI)
@@ -189,6 +201,9 @@ func main() {
 		Use:   "validate",
 		Short: "Run terraform validate",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "validate")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "validate", args, jsonMode, planURI, stateURI)
@@ -203,6 +218,9 @@ func main() {
 		Use:   "output",
 		Short: "Show terraform outputs",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "output")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "output", args, jsonMode, planURI, stateURI)
@@ -217,6 +235,9 @@ func main() {
 		Use:   "state",
 		Short: "Terraform state operations",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if macroURI != "" {
+				return runStandaloneMacro(cfg, macroURI, planURI, stateURI, "state")
+			}
 			mode := resolveMode(ciMode)
 			if mode == modeCI {
 				return runCI(cfg, rootCfg, "state", args, jsonMode, planURI, stateURI)
@@ -365,6 +386,59 @@ func runMacro(cfg config.Config, macroURI, planURI, stateURI string) error {
 	svc := terraform.NewMacroService(cfg.TerraformBinary(), cache)
 	registry := buildRegistry(svc, cfg)
 	app := ui.NewApp(cfg, svc, registry, nil)
+
+	driver := macro.NewDriver(app, 80, 24)
+	runner := macro.NewRunner(driver)
+
+	if err := runner.Execute(commands); err != nil {
+		return err
+	}
+
+	for _, cmd := range svc.Commands() {
+		fmt.Println(cmd.String())
+	}
+	return nil
+}
+
+func runStandaloneMacro(cfg config.Config, macroURI, planURI, stateURI, pluginID string) error {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("getting working directory: %w", err)
+	}
+
+	resolver := source.NewResolver(
+		&source.LocalProvider{BaseDir: cwd},
+		&source.StdinProvider{},
+	)
+	ctx := context.Background()
+
+	tapeData, err := resolver.Resolve(ctx, macroURI)
+	if err != nil {
+		return fmt.Errorf("loading macro tape: %w", err)
+	}
+
+	commands, err := macro.ParseTape(tapeData)
+	if err != nil {
+		return &macro.RunError{Code: macro.ExitSyntaxError, Message: err.Error()}
+	}
+
+	if len(commands) == 0 {
+		return nil
+	}
+
+	cache := terraform.NewServiceCache()
+	if planURI != "" || stateURI != "" {
+		cfg.PreloadedData = true
+		if err := seedCache(cache, planURI, stateURI); err != nil {
+			return err
+		}
+	}
+
+	svc := terraform.NewMacroService(cfg.TerraformBinary(), cache)
+	registry := buildRegistry(svc, cfg)
+
+	standalone := &ui.StandaloneConfig{PluginID: pluginID}
+	app := ui.NewApp(cfg, svc, registry, nil, standalone)
 
 	driver := macro.NewDriver(app, 80, 24)
 	runner := macro.NewRunner(driver)
