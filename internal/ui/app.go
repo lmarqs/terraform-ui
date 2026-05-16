@@ -24,6 +24,14 @@ import (
 	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
+// StandaloneConfig configures the app to run a single plugin without
+// home screen or inter-plugin navigation (the fzf model).
+type StandaloneConfig struct {
+	PluginID string   // which plugin is the app
+	Args     []string // positional args (e.g., "mv", "src", "dst")
+	JSONMode bool     // user passed -json
+}
+
 type App struct {
 	cfg         config.Config
 	svc         sdk.Service
@@ -34,6 +42,7 @@ type App struct {
 	sourceIndex *terraform.SourceIndex
 	rootCfg     *config.RootConfig
 	childCfg    *config.ChildConfig
+	standalone  *StandaloneConfig
 	width       int
 	height      int
 
@@ -61,7 +70,7 @@ type App struct {
 	inputCallback func(string) tea.Cmd
 }
 
-func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootCfg *config.RootConfig) App {
+func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootCfg *config.RootConfig, standalone ...*StandaloneConfig) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
 	header := components.NewHeader(workDir, "default")
@@ -85,6 +94,11 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		childCfg, _ = config.LoadChild(workDir)
 	}
 
+	var sc *StandaloneConfig
+	if len(standalone) > 0 && standalone[0] != nil {
+		sc = standalone[0]
+	}
+
 	return App{
 		cfg:           cfg,
 		svc:           svc,
@@ -95,12 +109,23 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		sourceIndex:   sourceIndex,
 		rootCfg:       rootCfg,
 		childCfg:      childCfg,
+		standalone:    sc,
 		header:        header,
 		contentBorder: components.NewContentBorder(),
 		commandBar:    components.NewCommandBar(),
 		statusBar:     components.NewStatusBar().WithBinaryName(filepath.Base(cfg.TerraformBinary())),
 		homeView:      views.NewHomeView(registry.MenuItems()),
 	}
+}
+
+// ActivePlugin returns the currently active plugin (for output extraction after TUI exit).
+func (a App) ActivePlugin() sdk.Plugin {
+	return a.activePlugin
+}
+
+// IsStandalone reports whether the app is running in standalone mode.
+func (a App) IsStandalone() bool {
+	return a.standalone != nil
 }
 
 func (a App) Init() tea.Cmd {
@@ -163,6 +188,20 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case openContextOnStartupMsg:
+		// Standalone mode: activate the target plugin directly
+		if a.standalone != nil {
+			if p, ok := a.registry.ByID(a.standalone.PluginID); ok {
+				a.activePlugin = p
+				var cmd tea.Cmd
+				if activator, ok := p.(sdk.ActivateWithArgs); ok && len(a.standalone.Args) > 0 {
+					cmd = activator.ActivateWithArgs(a.standalone.Args)
+				} else if activatable, ok := p.(sdk.Activatable); ok {
+					cmd = activatable.Activate()
+				}
+				return a, cmd
+			}
+			return a, nil
+		}
 		// Skip chdir picker if scope is pre-set or data is loaded externally
 		if a.cfg.Chdir != "" || a.cfg.PreloadedData {
 			if a.cfg.Chdir != "" {
@@ -239,6 +278,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.NavigateMsg:
 		if p, ok := a.registry.ByID(msg.PluginID); ok {
+			// Standalone mode: only allow NavPush navigation (sub-states)
+			if a.standalone != nil && a.registry.NavBehaviorFor(msg.PluginID) != plugin.NavPush {
+				return a, nil
+			}
 			return a, a.navigateTo(p)
 		}
 		return a, nil
@@ -251,6 +294,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if len(a.navStack) > 0 {
 				a.navigateBack()
 				return a, a.activate(a.activePlugin)
+			}
+			// Standalone mode: quit when root plugin deactivates
+			if a.standalone != nil {
+				return a, tea.Quit
 			}
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
@@ -552,6 +599,9 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return a, tea.Quit
 	case "C":
+		if a.standalone != nil {
+			break
+		}
 		if p, ok := a.registry.ByID("context"); ok {
 			return a, a.navigateTo(p)
 		}
@@ -560,10 +610,25 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		logging.Logger().Info("screen.capture", "content", a.View())
 		return a, nil
 	case ":":
+		if a.standalone != nil {
+			break
+		}
 		a.commandMode = true
 		a.commandInput = ""
 		return a, nil
 	case "q":
+		// Standalone mode: q always quits (after clearing sub-frames)
+		if a.standalone != nil {
+			if a.activePlugin != nil {
+				if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
+					if stackable.Stack().Depth() > 1 {
+						stackable.Stack().Clear()
+						return a, nil
+					}
+				}
+			}
+			return a, a.cmdQuit()
+		}
 		if a.activePlugin != nil {
 			// For stackable plugins, clear sub-frames first before deactivating
 			if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
@@ -811,6 +876,11 @@ func (a App) View() string {
 		return "Loading..."
 	}
 
+	// Standalone mode: minimal chrome (single header line + hint bar)
+	if a.standalone != nil {
+		return a.viewStandalone()
+	}
+
 	headerHeight := 3
 	footerHeight := 1
 	borderChrome := 2
@@ -909,6 +979,89 @@ func (a App) View() string {
 	parts = append(parts, bordered)
 	parts = append(parts, statusBar)
 	return strings.Join(parts, "\n")
+}
+
+func (a App) viewStandalone() string {
+	headerHeight := 1
+	footerHeight := 1
+	contentHeight := a.height - headerHeight - footerHeight
+
+	// Minimal header: context info + tfui label
+	headerStyle := lipgloss.NewStyle().
+		Background(sdk.ColorBg).
+		Foreground(sdk.ColorFaint).
+		Width(a.width)
+	headerParts := []string{"tfui"}
+	if a.activeChdir != "" {
+		headerParts = append(headerParts, a.activeChdir)
+	}
+	if a.activeWorkspace != "" && a.activeWorkspace != "default" {
+		headerParts = append(headerParts, a.activeWorkspace)
+	}
+	if a.lockInfo != nil {
+		headerParts = append(headerParts, "[locked]")
+	}
+	header := headerStyle.Render(" " + strings.Join(headerParts, " │ "))
+
+	// Content
+	var content string
+	if a.activePlugin != nil {
+		content = a.activePlugin.View(a.width, contentHeight)
+	}
+
+	// Status bar / input prompt
+	var statusBar string
+	if a.commandError != "" {
+		errorStyle := lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorDanger).
+			Padding(0, 1).
+			Width(a.width)
+		statusBar = errorStyle.Render(a.commandError)
+	} else if a.inputActive {
+		promptStyle := lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorText).
+			Bold(true).
+			Padding(0, 1).
+			Width(a.width)
+		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
+	} else if a.activePlugin != nil {
+		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
+			if hints := stackable.Stack().Hints(); hints != nil {
+				statusBar = a.statusBar.RenderHints(hints, a.width)
+			} else {
+				statusBar = a.statusBar.Render(a.width)
+			}
+		} else if hintable, ok := a.activePlugin.(sdk.Hintable); ok {
+			if hints := hintable.Hints(); hints != nil {
+				statusBar = a.statusBar.RenderHints(hints, a.width)
+			} else {
+				statusBar = a.statusBar.Render(a.width)
+			}
+		} else {
+			statusBar = a.statusBar.Render(a.width)
+		}
+	}
+
+	// Overlay handling
+	if a.activeOverlay != nil {
+		overlayContent := a.activeOverlay.View(a.width, a.height)
+		boxStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(sdk.ColorPrimary).
+			Padding(1, 2).
+			Width(a.width / 2).
+			MaxHeight(a.height - 4)
+		box := boxStyle.Render(overlayContent)
+		overlayView := lipgloss.Place(a.width, a.height-1, lipgloss.Center, lipgloss.Center, box)
+		if hints := a.activeOverlay.Hints(); hints != nil {
+			statusBar = a.statusBar.RenderHints(hints, a.width)
+		}
+		return overlayView + "\n" + statusBar
+	}
+
+	return header + "\n" + content + "\n" + statusBar
 }
 
 func activeViewID(navStack []sdk.Plugin) string {
