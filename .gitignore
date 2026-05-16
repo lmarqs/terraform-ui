@@ -23,3 +23,7 @@ node_modules/
 # Generated
 coverage/
 reports/
+
+# Jekyll
+_site/
+.jekyll-cache/

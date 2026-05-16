@@ -1,0 +1,19 @@
+---
+layout: default
+---
+<article>
+  <header>
+    <h1>{{ page.title }}</h1>
+    <p class="meta">
+      {% if page.key %}<kbd>{{ page.key }}</kbd>{% endif %}
+      {% if page.category %}<span class="category">{{ page.category }}</span>{% endif %}
+      {% if page.default_enabled %}<span class="badge">enabled by default</span>{% endif %}
+    </p>
+  </header>
+
+  {% if page.description %}
+  <p class="description">{{ page.description }}</p>
+  {% endif %}
+
+  {{ content }}
+</article>

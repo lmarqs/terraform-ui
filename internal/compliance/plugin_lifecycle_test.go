@@ -248,10 +248,12 @@ func (s *nopService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return
 func (s *nopService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 	return nil, nil
 }
-func (s *nopService) Show(_ context.Context, _ string) (string, error)   { return "", nil }
-func (s *nopService) Workspace(_ context.Context) (string, error)        { return "default", nil }
-func (s *nopService) WorkspaceList(_ context.Context) ([]string, error)  { return []string{"default"}, nil }
-func (s *nopService) WorkspaceSelect(_ context.Context, _ string) error  { return nil }
+func (s *nopService) Show(_ context.Context, _ string) (string, error) { return "", nil }
+func (s *nopService) Workspace(_ context.Context) (string, error)      { return "default", nil }
+func (s *nopService) WorkspaceList(_ context.Context) ([]string, error) {
+	return []string{"default"}, nil
+}
+func (s *nopService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
 func (s *nopService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
 	return nil
 }
