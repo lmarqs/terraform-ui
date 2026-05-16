@@ -185,7 +185,49 @@ func main() {
 	}
 	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
-	rootCmd.AddCommand(planCmd, applyCmd, initCmd, scaffoldCmd, versionCmd)
+	validateCmd := &cobra.Command{
+		Use:   "validate",
+		Short: "Run terraform validate",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "validate", args, jsonMode)
+			}
+			return runStandalone(cfg, rootCfg, "validate", args, jsonMode)
+		},
+	}
+	validateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
+	validateCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON")
+
+	outputCmd := &cobra.Command{
+		Use:   "output",
+		Short: "Show terraform outputs",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "output", args, jsonMode)
+			}
+			return runStandalone(cfg, rootCfg, "output", args, jsonMode)
+		},
+	}
+	outputCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
+	outputCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON")
+
+	stateCmd := &cobra.Command{
+		Use:   "state",
+		Short: "Terraform state operations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			mode := resolveMode(ciMode)
+			if mode == modeCI {
+				return runCI(cfg, rootCfg, "state", args, jsonMode)
+			}
+			return runStandalone(cfg, rootCfg, "state", args, jsonMode)
+		},
+	}
+	stateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
+	stateCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON")
+
+	rootCmd.AddCommand(planCmd, applyCmd, initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, versionCmd)
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {
