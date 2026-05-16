@@ -16,8 +16,11 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
+	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
+	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
+	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 type App struct {
@@ -266,6 +269,39 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case tfuitaint.TaintRequestMsg:
+		if p, ok := a.registry.ByID("taint"); ok {
+			taintPlugin := p.(*tfuitaint.Plugin)
+			taintPlugin.SetTargets(msg.Addresses)
+			a.navStack = append(a.navStack, a.activePlugin)
+			a.activePlugin = p
+			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "taint", "targets", len(msg.Addresses))
+			return a, a.activate(p)
+		}
+		return a, nil
+
+	case tfuiuntaint.UntaintRequestMsg:
+		if p, ok := a.registry.ByID("untaint"); ok {
+			untaintPlugin := p.(*tfuiuntaint.Plugin)
+			untaintPlugin.SetTargets(msg.Addresses)
+			a.navStack = append(a.navStack, a.activePlugin)
+			a.activePlugin = p
+			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "untaint", "targets", len(msg.Addresses))
+			return a, a.activate(p)
+		}
+		return a, nil
+
+	case tfuiimport.ImportRequestMsg:
+		if p, ok := a.registry.ByID("import"); ok {
+			importPlugin := p.(*tfuiimport.Plugin)
+			importPlugin.SetAddress(msg.Address)
+			a.navStack = append(a.navStack, a.activePlugin)
+			a.activePlugin = p
+			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "import")
+			return a, a.activate(p)
+		}
+		return a, nil
+
 	case tfuiplan.ApplyRequestMsg:
 		if p, ok := a.registry.ByID("apply"); ok {
 			applyPlugin := p.(*tfuiapply.Plugin)
@@ -274,9 +310,23 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
-			applyPlugin.RequestApply()
+			cmd := applyPlugin.RequestApply()
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
-			return a, nil
+			return a, cmd
+		}
+		return a, nil
+
+	case tfuiplan.AutoApplyRequestMsg:
+		if p, ok := a.registry.ByID("apply"); ok {
+			applyPlugin := p.(*tfuiapply.Plugin)
+			if pinned := a.pins.All(); len(pinned) > 0 {
+				applyPlugin.SetTargets(pinned)
+			}
+			a.navStack = append(a.navStack, a.activePlugin)
+			a.activePlugin = p
+			cmd := applyPlugin.AutoApply()
+			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "auto_approve", true, "targets", len(applyPlugin.Targets()))
+			return a, cmd
 		}
 		return a, nil
 
@@ -765,4 +815,15 @@ func (a App) View() string {
 	parts = append(parts, bordered)
 	parts = append(parts, statusBar)
 	return strings.Join(parts, "\n")
+}
+
+func activeViewID(navStack []sdk.Plugin) string {
+	if len(navStack) == 0 {
+		return "home"
+	}
+	last := navStack[len(navStack)-1]
+	if last == nil {
+		return "home"
+	}
+	return last.ID()
 }
