@@ -239,7 +239,9 @@ Constraint: only one flag can use `-` (stdin) per invocation.
 
 ## Macro Mode (`--macro`)
 
-Macros are command generators, never executors. They record what terraform would run and output commands to stdout:
+Macros are command generators, never executors. They record what terraform would run and output commands to stdout.
+
+`--macro` is only available on the root command (`tfui`), not on subcommands. This is intentional: subcommands launch standalone plugins with real execution, while macros drive the full TUI headlessly for recording and testing.
 
 ```bash
 tfui --macro deploy.tape --plan ./tfplan.out            # inspect commands

@@ -55,6 +55,10 @@ Plugins produce output via optional SDK interfaces:
 - `--ci` → changes execution MODE (headless vs TUI)
 - Both are orthogonal: `tfui plan --ci -json` = headless + JSON
 
+Root-only flags (`--macro`, `--plan`, `--state`):
+- These drive the full TUI (recording, pre-seeding) — a different execution model from subcommands
+- Subcommands launch standalone plugins with real execution; mixing would break the mental model
+
 Binary resolution:
 - `--terraform-bin` > `--config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"`
 

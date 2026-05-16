@@ -52,6 +52,7 @@ otherwise:           → Standalone TUI
 ### Novel flags (tfui-only)
 - Always double-dash: `--ci`, `--project`, `--macro`, `--plan`, `--state`, `--terraform-bin`, `--config`, `--chdir`
 - Use names terraform hasn't claimed — no collision risk
+- `--macro`, `--plan`, `--state` are root-only flags (not on subcommands) — subcommands launch standalone plugins with real execution; these flags drive the full TUI for a different purpose (recording, pre-seeding)
 
 ### Passthrough (`--`)
 - Everything after `--` is stored as ExtraArgs
