@@ -8,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 const (
@@ -98,7 +99,26 @@ func (r *Runner) executeOne(cmd Command) error {
 	case CmdSleep:
 		dur, _ := time.ParseDuration(cmd.Args[0])
 		time.Sleep(dur)
+
+	case CmdEmit:
+		r.driver.SendMsg(buildEmitMsg(cmd.Args))
 	}
 
 	return nil
+}
+
+func buildEmitMsg(args []string) tea.Msg {
+	switch args[0] {
+	case "stale":
+		return sdk.PlanInvalidatedEvent{}
+	case "refreshed":
+		return sdk.StateRefreshedEvent{}
+	case "lock":
+		who := strings.Join(args[1:], " ")
+		return sdk.LockDetectedEvent{Lock: &sdk.StateLock{Who: who, Created: time.Now()}}
+	case "lock-clear":
+		return sdk.LockClearedEvent{}
+	default:
+		return nil
+	}
 }

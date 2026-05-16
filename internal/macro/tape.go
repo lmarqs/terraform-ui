@@ -18,6 +18,7 @@ const (
 	CmdScreenshot
 	CmdResize
 	CmdSleep
+	CmdEmit
 )
 
 // Command represents a single instruction in a tape file.
@@ -132,7 +133,25 @@ func parseLine(line string, lineNum int) (Command, error) {
 		}
 		return Command{Type: CmdSleep, Args: args, Line: lineNum}, nil
 
+	case "emit":
+		if len(args) == 0 {
+			return Command{}, fmt.Errorf("emit requires an event name (stale, refreshed, lock, lock-clear)")
+		}
+		switch args[0] {
+		case "stale", "refreshed", "lock-clear":
+			if len(args) != 1 {
+				return Command{}, fmt.Errorf("emit %s takes no additional arguments", args[0])
+			}
+		case "lock":
+			if len(args) < 2 {
+				return Command{}, fmt.Errorf("emit lock requires a who argument (e.g., emit lock deploy-bot)")
+			}
+		default:
+			return Command{}, fmt.Errorf("unknown emit event %q (use: stale, refreshed, lock, lock-clear)", args[0])
+		}
+		return Command{Type: CmdEmit, Args: args, Line: lineNum}, nil
+
 	default:
-		return Command{}, fmt.Errorf("unknown command %q (available: key, wait, assert, screenshot, resize, sleep)", verb)
+		return Command{}, fmt.Errorf("unknown command %q (available: key, wait, assert, screenshot, resize, sleep, emit)", verb)
 	}
 }

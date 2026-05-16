@@ -86,15 +86,15 @@ func (h Header) Render(width int) string {
 	if h.pinnedCount > 0 {
 		projectParts = append(projectParts, sdk.StyleSuccess.Render(fmt.Sprintf("%d pinned", h.pinnedCount)))
 	}
-	if h.lockInfo != nil {
-		projectParts = append(projectParts, sdk.StyleError.Render(formatLockBadge(h.lockInfo)))
-	}
 	line1Left := headerLabelStyle.Render(" Project:") + " " + headerValueStyle.Render(strings.Join(projectParts, " │ "))
 	line2Left := headerLabelStyle.Render(" Chdir:") + " " + headerValueStyle.Render(chdirVal)
 
 	wsParts := []string{h.workspace}
 	if h.stale {
 		wsParts = append(wsParts, sdk.StyleUpdate.Render("stale"))
+	}
+	if h.lockInfo != nil {
+		wsParts = append(wsParts, sdk.StyleError.Render(formatLockBadge(h.lockInfo)))
 	}
 	line3Left := headerLabelStyle.Render(" Workspace:") + " " + headerValueStyle.Render(strings.Join(wsParts, " │ "))
 

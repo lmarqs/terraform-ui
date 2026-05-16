@@ -89,6 +89,31 @@ func TestParseTapeValid(t *testing.T) {
 				{Type: CmdWaitReady, Line: 2},
 			},
 		},
+		{
+			"emit stale",
+			"emit stale",
+			[]Command{{Type: CmdEmit, Args: []string{"stale"}, Line: 1}},
+		},
+		{
+			"emit refreshed",
+			"emit refreshed",
+			[]Command{{Type: CmdEmit, Args: []string{"refreshed"}, Line: 1}},
+		},
+		{
+			"emit lock with who",
+			"emit lock deploy-bot",
+			[]Command{{Type: CmdEmit, Args: []string{"lock", "deploy-bot"}, Line: 1}},
+		},
+		{
+			"emit lock with multi-word who",
+			"emit lock John Smith",
+			[]Command{{Type: CmdEmit, Args: []string{"lock", "John", "Smith"}, Line: 1}},
+		},
+		{
+			"emit lock-clear",
+			"emit lock-clear",
+			[]Command{{Type: CmdEmit, Args: []string{"lock-clear"}, Line: 1}},
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +173,12 @@ func TestParseTapeErrors(t *testing.T) {
 		{"sleep no arg", "sleep"},
 		{"sleep invalid duration", "sleep forever"},
 		{"sleep too many args", "sleep 1s 2s"},
+		{"emit no arg", "emit"},
+		{"emit unknown event", "emit explode"},
+		{"emit stale extra args", "emit stale now"},
+		{"emit refreshed extra args", "emit refreshed please"},
+		{"emit lock-clear extra args", "emit lock-clear now"},
+		{"emit lock no who", "emit lock"},
 	}
 
 	for _, tt := range tests {
