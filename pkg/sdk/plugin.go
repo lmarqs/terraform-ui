@@ -62,6 +62,14 @@ type Busy interface {
 	Busy() bool
 }
 
+// Cancellable is an optional interface plugins implement to support aborting
+// in-flight terraform operations. The app calls Cancel() when deactivating a
+// plugin or navigating away, which must cancel the context passed to the
+// service so the terraform subprocess is terminated.
+type Cancellable interface {
+	Cancel()
+}
+
 // DeactivateMsg is returned by a plugin's Update to signal the app should
 // deactivate it and return to the home screen.
 type DeactivateMsg struct{}

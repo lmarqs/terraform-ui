@@ -82,6 +82,7 @@ type Plugin struct {
 	detailHScroll int
 	detailWrap    bool
 	scopedContext string
+	cancelFn      context.CancelFunc
 }
 
 // New creates a new state browser plugin.
@@ -191,18 +192,32 @@ func (e *Plugin) Refresh() tea.Cmd {
 	return tea.Batch(e.loadState(sdk.SkipCache()), e.timer.Start())
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (e *Plugin) Cancel() {
+	if e.cancelFn != nil {
+		e.cancelFn()
+		e.cancelFn = nil
+	}
+}
+
 func (e *Plugin) loadState(opts ...sdk.StateListOption) tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	return func() tea.Msg {
-		resources, err := svc.StateList(context.Background(), opts...)
+		resources, err := svc.StateList(ctx, opts...)
 		return StateListMsg{Resources: resources, Err: err}
 	}
 }
 
 func (e *Plugin) loadDetail(address string) tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	return func() tea.Msg {
-		detail, err := svc.Show(context.Background(), address)
+		detail, err := svc.Show(ctx, address)
 		return ResourceDetailMsg{Address: address, Detail: detail, Err: err}
 	}
 }

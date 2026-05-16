@@ -34,6 +34,7 @@ type Plugin struct {
 	errMsg        string
 	selected      int
 	scopedContext string
+	cancelFn      context.CancelFunc
 }
 
 // New creates a new output plugin.
@@ -110,10 +111,21 @@ func (p *Plugin) Refresh() tea.Cmd {
 	return tea.Batch(p.loadOutputs(), p.timer.Start())
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 func (p *Plugin) loadOutputs() tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	svc := p.svc
 	return func() tea.Msg {
-		outputs, err := svc.Output(context.Background())
+		outputs, err := svc.Output(ctx)
 		return OutputResultMsg{Outputs: outputs, Err: err}
 	}
 }

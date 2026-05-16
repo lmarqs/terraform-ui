@@ -31,6 +31,7 @@ type Plugin struct {
 	lockID   string
 	lockInfo *sdk.StateLock
 	errMsg   string
+	cancelFn context.CancelFunc
 }
 
 // New creates a new force-unlock plugin.
@@ -104,13 +105,24 @@ func (p *Plugin) confirmUnlock(lockID string) tea.Cmd {
 	}
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 func (p *Plugin) executeUnlock(lockID string) tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	p.lockID = lockID
 	p.status = sdk.StatusLoading
 	svc := p.svc
 	log := p.log
 	return tea.Batch(func() tea.Msg {
-		err := svc.ForceUnlock(context.Background(), lockID)
+		err := svc.ForceUnlock(ctx, lockID)
 		if err != nil {
 			log.Debug("forceunlock.error", "lockID", lockID, "error", err.Error())
 		} else {

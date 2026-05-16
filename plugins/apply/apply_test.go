@@ -132,18 +132,18 @@ func TestConfirm(t *testing.T) {
 	}
 }
 
-func TestCancel(t *testing.T) {
+func TestAbort(t *testing.T) {
 	svc := &mockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 	p.confirmed = true
 
-	p.Cancel()
+	p.Abort()
 	if p.status != sdk.StatusIdle {
 		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
 	}
 	if p.confirmed {
-		t.Error("confirmed = true after cancel, want false")
+		t.Error("confirmed = true after abort, want false")
 	}
 }
 

@@ -40,6 +40,7 @@ type Plugin struct {
 	totalResources int
 	replanSummary  *sdk.PlanSummary
 	scopedContext  string
+	cancelFn       context.CancelFunc
 }
 
 // New creates a new apply plugin.
@@ -148,11 +149,22 @@ func (e *Plugin) RequestApply() tea.Cmd {
 	return nil
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (e *Plugin) Cancel() {
+	if e.cancelFn != nil {
+		e.cancelFn()
+		e.cancelFn = nil
+	}
+}
+
 func (e *Plugin) runReplan() tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	opts := sdk.BuildPlanOptions(e.options, e.targets)
 	return func() tea.Msg {
-		summary, err := svc.Plan(context.Background(), opts)
+		summary, err := svc.Plan(ctx, opts)
 		return ReplanResultMsg{Summary: summary, Err: err}
 	}
 }
@@ -178,18 +190,21 @@ func (e *Plugin) Confirm() tea.Cmd {
 	return tea.Batch(e.runApply(), e.timer.Start())
 }
 
-// Cancel aborts the apply confirmation.
-func (e *Plugin) Cancel() {
+// Abort resets confirmation state without cancelling in-flight operations.
+func (e *Plugin) Abort() {
 	e.status = sdk.StatusIdle
 	e.confirmed = false
 }
 
 func (e *Plugin) runApply() tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	opts := sdk.BuildApplyOptions(e.options, e.targets)
 	start := time.Now()
 	return func() tea.Msg {
-		err := svc.Apply(context.Background(), opts)
+		err := svc.Apply(ctx, opts)
 		return ApplyResultMsg{Err: err, Duration: time.Since(start)}
 	}
 }
@@ -249,7 +264,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "y", "Y", "enter":
 			return e.Confirm()
 		case "n", "N", "esc":
-			e.Cancel()
+			e.Abort()
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	case sdk.StatusDone:

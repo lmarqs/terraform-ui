@@ -47,6 +47,7 @@ type Plugin struct {
 	errMsg        string
 	loadingMsg    string
 	scopedContext string
+	cancelFn      context.CancelFunc
 }
 
 // New creates a new workspaces plugin.
@@ -118,14 +119,25 @@ func (e *Plugin) Refresh() tea.Cmd {
 	return tea.Batch(e.loadWorkspaces(), e.timer.Start())
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (e *Plugin) Cancel() {
+	if e.cancelFn != nil {
+		e.cancelFn()
+		e.cancelFn = nil
+	}
+}
+
 func (e *Plugin) loadWorkspaces() tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	return func() tea.Msg {
-		workspaces, err := svc.WorkspaceList(context.Background())
+		workspaces, err := svc.WorkspaceList(ctx)
 		if err != nil {
 			return WorkspaceListMsg{Err: err}
 		}
-		current, err := svc.Workspace(context.Background())
+		current, err := svc.Workspace(ctx)
 		if err != nil {
 			return WorkspaceListMsg{Err: err}
 		}
@@ -249,28 +261,37 @@ func (e *Plugin) SelectCurrent() tea.Cmd {
 }
 
 func (e *Plugin) selectWorkspace(name string, popBack bool) tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	return func() tea.Msg {
-		err := svc.WorkspaceSelect(context.Background(), name)
+		err := svc.WorkspaceSelect(ctx, name)
 		return WorkspaceSwitchMsg{Name: name, Err: err, PopBack: popBack}
 	}
 }
 
 func (e *Plugin) createWorkspace(name string) tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	return func() tea.Msg {
-		err := svc.WorkspaceNew(context.Background(), name, sdk.WorkspaceNewOptions{})
+		err := svc.WorkspaceNew(ctx, name, sdk.WorkspaceNewOptions{})
 		return WorkspaceCreateMsg{Name: name, Err: err}
 	}
 }
 
 // deleteWorkspace starts deletion of the named workspace with loading feedback.
 func (e *Plugin) deleteWorkspace(name string) tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	e.status = sdk.StatusLoading
 	e.loadingMsg = fmt.Sprintf("Deleting %s...", name)
 	svc := e.svc
 	return tea.Batch(func() tea.Msg {
-		err := svc.WorkspaceDelete(context.Background(), name, sdk.WorkspaceDeleteOptions{})
+		err := svc.WorkspaceDelete(ctx, name, sdk.WorkspaceDeleteOptions{})
 		return WorkspaceDeleteMsg{Err: err}
 	}, e.timer.Start())
 }

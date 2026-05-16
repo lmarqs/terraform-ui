@@ -29,6 +29,7 @@ type Plugin struct {
 	errMsg        string
 	selected      int
 	scopedContext string
+	cancelFn      context.CancelFunc
 }
 
 // New creates a new validate plugin.
@@ -120,10 +121,21 @@ func (p *Plugin) Refresh() tea.Cmd {
 	return tea.Batch(p.runValidate(), p.timer.Start())
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 func (p *Plugin) runValidate() tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	svc := p.svc
 	return func() tea.Msg {
-		diags, err := svc.Validate(context.Background())
+		diags, err := svc.Validate(ctx)
 		return ValidateResultMsg{Diagnostics: diags, Err: err}
 	}
 }

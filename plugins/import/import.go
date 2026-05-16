@@ -38,13 +38,14 @@ const (
 
 // Plugin implements the standalone import verb.
 type Plugin struct {
-	svc     sdk.Service
-	log     *slog.Logger
-	timer   ui.Timer
-	status  sdk.Status
-	address string
-	id      string
-	errMsg  string
+	svc      sdk.Service
+	log      *slog.Logger
+	timer    ui.Timer
+	status   sdk.Status
+	address  string
+	id       string
+	errMsg   string
+	cancelFn context.CancelFunc
 }
 
 // New creates a new import plugin.
@@ -126,14 +127,25 @@ func (p *Plugin) confirmImport() tea.Cmd {
 	}
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 func (p *Plugin) executeImport() tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
 	svc := p.svc
 	log := p.log
 	address := p.address
 	id := p.id
 	return tea.Batch(func() tea.Msg {
-		err := svc.Import(context.Background(), address, id)
+		err := svc.Import(ctx, address, id)
 		if err != nil {
 			log.Debug("import.error", "address", address, "id", id, "error", err.Error())
 		} else {

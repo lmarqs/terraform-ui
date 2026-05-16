@@ -26,9 +26,12 @@ func (e *Plugin) requestMove(address string) tea.Cmd {
 						Request: sdk.InputConfirm(
 							fmt.Sprintf("Move %s → %s?", address, dest),
 							func() tea.Cmd {
+								e.Cancel()
+								ctx, cancel := context.WithCancel(context.Background())
+								e.cancelFn = cancel
 								e.mutating = true
 								return func() tea.Msg {
-									err := svc.StateMove(context.Background(), address, dest)
+									err := svc.StateMove(ctx, address, dest)
 									if err != nil {
 										log.Debug("state.move.error", "source", address, "dest", dest, "error", err.Error())
 										return StateListMsg{Err: err}
@@ -54,10 +57,13 @@ func (e *Plugin) batchDelete(addresses []string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Remove %d resources from state?", len(addresses)),
 				func() tea.Cmd {
+					e.Cancel()
+					ctx, cancel := context.WithCancel(context.Background())
+					e.cancelFn = cancel
 					e.mutating = true
 					return func() tea.Msg {
 						for _, addr := range addresses {
-							if err := svc.StateRm(context.Background(), addr); err != nil {
+							if err := svc.StateRm(ctx, addr); err != nil {
 								log.Debug("state.rm.error", "address", addr, "error", err.Error())
 								return StateListMsg{Err: err}
 							}
@@ -162,9 +168,12 @@ func (e *Plugin) requestDelete(address string) tea.Cmd {
 			Request: sdk.InputConfirm(
 				fmt.Sprintf("Remove %s from state?", address),
 				func() tea.Cmd {
+					e.Cancel()
+					ctx, cancel := context.WithCancel(context.Background())
+					e.cancelFn = cancel
 					e.mutating = true
 					return func() tea.Msg {
-						err := svc.StateRm(context.Background(), address)
+						err := svc.StateRm(ctx, address)
 						if err != nil {
 							log.Debug("state.rm.error", "address", address, "error", err.Error())
 							return StateListMsg{Err: err}

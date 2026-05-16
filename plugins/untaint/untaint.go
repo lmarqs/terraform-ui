@@ -35,6 +35,7 @@ type Plugin struct {
 	addresses []string
 	untainted []string
 	errMsg    string
+	cancelFn  context.CancelFunc
 }
 
 // New creates a new untaint plugin.
@@ -93,7 +94,18 @@ func (p *Plugin) confirmUntaint() tea.Cmd {
 	}
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 func (p *Plugin) executeUntaint() tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
 	svc := p.svc
 	log := p.log
@@ -101,7 +113,7 @@ func (p *Plugin) executeUntaint() tea.Cmd {
 	return tea.Batch(func() tea.Msg {
 		var untainted []string
 		for _, addr := range addresses {
-			if err := svc.Untaint(context.Background(), addr); err != nil {
+			if err := svc.Untaint(ctx, addr); err != nil {
 				log.Debug("untaint.error", "address", addr, "error", err.Error())
 				return untaintResultMsg{Untainted: untainted, Err: fmt.Errorf("%s: %w", addr, err)}
 			}

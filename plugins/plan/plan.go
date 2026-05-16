@@ -52,6 +52,7 @@ type Plugin struct {
 	listHScroll   int
 	listWrap      bool
 	pinnedOnly    bool
+	cancelFn      context.CancelFunc
 	// detail view state
 	detail        string
 	detailAddr    string
@@ -204,11 +205,22 @@ func (e *Plugin) Refresh() tea.Cmd {
 	return tea.Batch(e.runPlan(), e.timer.Start())
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (e *Plugin) Cancel() {
+	if e.cancelFn != nil {
+		e.cancelFn()
+		e.cancelFn = nil
+	}
+}
+
 func (e *Plugin) runPlan() tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
 	svc := e.svc
 	opts := sdk.BuildPlanOptions(e.options, e.targets)
 	return func() tea.Msg {
-		summary, err := svc.Plan(context.Background(), opts)
+		summary, err := svc.Plan(ctx, opts)
 		return PlanResultMsg{Summary: summary, Err: err}
 	}
 }

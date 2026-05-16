@@ -31,6 +31,7 @@ type Plugin struct {
 	reconfigure bool
 	backend     bool
 	extraArgs   string
+	cancelFn    context.CancelFunc
 }
 
 // New creates a new init plugin.
@@ -154,7 +155,18 @@ func (p *Plugin) submitFromForm() tea.Cmd {
 	return func() tea.Msg { return initSubmitMsg{} }
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 func (p *Plugin) submit() tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	svc := p.svc
 	opts := sdk.InitOptions{
 		Upgrade:     p.upgrade,
@@ -170,7 +182,7 @@ func (p *Plugin) submit() tea.Cmd {
 
 	start := time.Now()
 	return tea.Batch(func() tea.Msg {
-		err := svc.Init(context.Background(), opts)
+		err := svc.Init(ctx, opts)
 		return InitResultMsg{Err: err, Duration: time.Since(start)}
 	}, p.timer.Start())
 }

@@ -245,6 +245,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
+			if c, ok := a.activePlugin.(sdk.Cancellable); ok {
+				c.Cancel()
+			}
 			if len(a.navStack) > 0 {
 				a.navigateBack()
 				return a, a.activate(a.activePlugin)
@@ -569,6 +572,11 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					return a, nil
 				}
 			}
+			if busy, ok := a.activePlugin.(sdk.Busy); ok && busy.Busy() {
+				// Don't cancel plugins holding a terraform lock
+			} else if c, ok := a.activePlugin.(sdk.Cancellable); ok {
+				c.Cancel()
+			}
 			prev := a.activePlugin.ID()
 			a.activePlugin = nil
 			a.navStack = nil
@@ -630,6 +638,11 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 	from := "home"
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
+		if busy, ok := a.activePlugin.(sdk.Busy); ok && busy.Busy() {
+			// Don't cancel plugins holding a terraform lock
+		} else if c, ok := a.activePlugin.(sdk.Cancellable); ok {
+			c.Cancel()
+		}
 	}
 	switch nav {
 	case plugin.NavPush:

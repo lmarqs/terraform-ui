@@ -19,11 +19,12 @@ type VersionResultMsg struct {
 
 // Plugin implements the version info viewer.
 type Plugin struct {
-	svc     sdk.Service
-	status  sdk.Status
-	info    *sdk.VersionInfo
-	errMsg  string
-	version string
+	svc      sdk.Service
+	status   sdk.Status
+	info     *sdk.VersionInfo
+	errMsg   string
+	version  string
+	cancelFn context.CancelFunc
 }
 
 // New creates a new version plugin.
@@ -50,12 +51,23 @@ func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
 	return nil
 }
 
+// Cancel aborts any in-flight terraform operation.
+func (p *Plugin) Cancel() {
+	if p.cancelFn != nil {
+		p.cancelFn()
+		p.cancelFn = nil
+	}
+}
+
 // Activate triggers version loading when the user enters the plugin.
 func (p *Plugin) Activate() tea.Cmd {
+	p.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
 	svc := p.svc
 	return func() tea.Msg {
-		info, err := svc.Version(context.Background())
+		info, err := svc.Version(ctx)
 		return VersionResultMsg{Info: info, Err: err}
 	}
 }
