@@ -67,6 +67,12 @@ func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) ModuleCount() int    { return len(e.modules) }
 func (e *Plugin) TotalChanges() int   { return e.total }
 func (e *Plugin) Count() (int, int)   { return len(e.modules), e.total }
+func (e *Plugin) CursorPosition() (int, int) {
+	if e.status != sdk.StatusDone || len(e.modules) == 0 {
+		return 0, 0
+	}
+	return e.selected + 1, len(e.modules)
+}
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {

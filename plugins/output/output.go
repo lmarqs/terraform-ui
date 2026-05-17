@@ -60,7 +60,13 @@ func (p *Plugin) Filtering() bool     { return p.filtering }
 func (p *Plugin) OutputCount() int    { return len(p.filtered) }
 func (p *Plugin) TotalCount() int     { return len(p.outputs) }
 func (p *Plugin) Count() (int, int)   { return len(p.filtered), len(p.outputs) }
-func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
+func (p *Plugin) CursorPosition() (int, int) {
+	if p.status != sdk.StatusDone || len(p.filtered) == 0 {
+		return 0, 0
+	}
+	return p.selected + 1, len(p.filtered)
+}
+func (p *Plugin) Stack() *sdk.Stack { return p.stack }
 
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(cfg map[string]interface{}) error {

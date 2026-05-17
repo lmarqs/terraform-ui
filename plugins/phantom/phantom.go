@@ -43,6 +43,12 @@ func (e *Plugin) Selected() int       { return e.selected }
 func (e *Plugin) PhantomCount() int   { return len(e.phantoms) }
 func (e *Plugin) RealCount() int      { return e.real }
 func (e *Plugin) TotalCount() int     { return e.total }
+func (e *Plugin) CursorPosition() (int, int) {
+	if e.status != sdk.StatusDone || len(e.phantoms) == 0 {
+		return 0, 0
+	}
+	return e.selected + 1, len(e.phantoms)
+}
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {

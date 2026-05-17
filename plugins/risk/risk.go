@@ -150,6 +150,13 @@ func (e *Plugin) totalItems() int {
 	return count
 }
 
+func (e *Plugin) CursorPosition() (int, int) {
+	if e.status != sdk.StatusDone || len(e.groups) == 0 {
+		return 0, 0
+	}
+	return e.selected + 1, e.totalItems()
+}
+
 // View renders the risk analysis plugin.
 func (e *Plugin) View(width, height int) string {
 	switch e.status {
