@@ -2084,45 +2084,6 @@ func TestApp_Init_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
 	}
 }
 
-// --- Mock types for additional coverage ---
-
-type mockCancellablePlugin struct {
-	mockPlugin
-	cancelCalled bool
-}
-
-func (m *mockCancellablePlugin) Cancel() { m.cancelCalled = true }
-
-type mockBusyCancellablePlugin struct {
-	mockPlugin
-	busy         bool
-	cancelCalled bool
-}
-
-func (m *mockBusyCancellablePlugin) Busy() bool { return m.busy }
-func (m *mockBusyCancellablePlugin) Cancel()    { m.cancelCalled = true }
-
-type mockKeyCapturerPlugin struct {
-	mockPlugin
-	captures   bool
-	lastKeyMsg tea.Msg
-}
-
-func (m *mockKeyCapturerPlugin) CapturesKeys() bool { return m.captures }
-func (m *mockKeyCapturerPlugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	m.lastKeyMsg = msg
-	return m, nil
-}
-
-type mockActivateWithArgsPlugin struct {
-	mockPlugin
-	activatedWithArgs []string
-}
-
-func (m *mockActivateWithArgsPlugin) ActivateWithArgs(args []string) tea.Cmd {
-	m.activatedWithArgs = args
-	return func() tea.Msg { return customMsg{} }
-}
 
 // --- Tests for ActivePlugin and IsStandalone ---
 
