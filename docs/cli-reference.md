@@ -214,13 +214,13 @@ tfui state --state ./state.json     # standalone state TUI, browses pre-loaded s
 tfui plan --ci --plan ./tfplan.out  # CI mode, outputs tree from pre-seeded plan
 ```
 
-## Macro Flag (root command only)
+## Macro Flag
 
 | Flag | Description |
 |------|-------------|
 | `--macro` | Run tape file (headless TUI recording) |
 
-`--macro` is root-only because it drives the full multi-plugin TUI headlessly — it doesn't map to a single subcommand.
+`--macro` is available on all commands. On the root command it drives the full multi-plugin TUI headlessly; on subcommands it drives the standalone plugin headlessly and outputs recorded commands to stdout.
 
 ### `--plan` behavior
 
@@ -257,7 +257,7 @@ Constraint: only one flag can use `-` (stdin) per invocation.
 
 Macros are command generators, never executors. They record what terraform would run and output commands to stdout.
 
-`--macro` is only available on the root command (`tfui`), not on subcommands. This is intentional: subcommands launch standalone plugins with real execution, while macros drive the full TUI headlessly for recording and testing.
+`--macro` works on both the root command and subcommands. On root, it drives the full TUI headlessly for multi-plugin recording. On subcommands, it drives the standalone plugin headlessly with the macro service (recording commands without execution).
 
 ```bash
 tfui --macro deploy.tape --plan ./tfplan.out            # inspect commands

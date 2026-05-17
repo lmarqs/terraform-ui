@@ -53,7 +53,7 @@ otherwise:           → Standalone TUI
 - Always double-dash: `--ci`, `--project`, `--macro`, `--plan`, `--state`, `--terraform-bin`, `--config`, `--chdir`
 - Use names terraform hasn't claimed — no collision risk
 - `--plan` and `--state` are available on ALL commands (pre-seed data, skip terraform execution)
-- `--macro` is root-only (drives full multi-plugin TUI headlessly — doesn't map to a single subcommand)
+- `--macro` is available on ALL commands (on root: drives full TUI headlessly; on subcommands: drives standalone plugin headlessly, outputs recorded commands)
 
 ### Passthrough (`--`)
 - Everything after `--` is stored as ExtraArgs

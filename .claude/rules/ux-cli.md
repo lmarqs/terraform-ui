@@ -56,8 +56,9 @@ Plugins produce output via optional SDK interfaces:
 - Both are orthogonal: `tfui plan --ci -json` = headless + JSON
 
 Flag scoping:
-- `--plan`, `--state`: available on ALL commands (pre-seed cache, plugin reads from cache instead of terraform)
-- `--macro`: root-only (drives full multi-plugin TUI headlessly, doesn't map to a single subcommand)
+- `--plan`, `--state`, `--macro`: available on ALL commands (persistent flags)
+- On root: `--macro` drives the full multi-plugin TUI headlessly
+- On subcommands: `--macro` drives the standalone plugin headlessly, outputs recorded commands
 - All other flags: persistent (available everywhere)
 
 Binary resolution:
