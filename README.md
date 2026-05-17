@@ -15,11 +15,11 @@ A k9s-style interactive terminal UI for Terraform. Plan, analyze risk, inspect b
 ├─────────────────────────────────────────────────────────┤
 │                                                         │
 │   [p] Plan          [R] Risk Analysis                   │
-│   [a] Apply         [P] Phantom Changes                 │
-│   [s] State         [B] Blast Radius                    │
-│   [w] Workspaces    [o] Outputs                         │
-│   [v] Validate      [t] Console                         │
-│   [C] Context       [I] Scaffold                        │
+│   [s] State         [P] Phantom Changes                 │
+│   [w] Workspaces    [B] Blast Radius                    │
+│   [v] Validate      [o] Outputs                         │
+│   [i] Init          [~] Console                         │
+│   [C] Context                                           │
 │                                                         │
 ├─────────────────────────────────────────────────────────┤
 │  q quit  / filter  : command                            │
@@ -192,8 +192,8 @@ See [docs/guides/configuration.md](docs/guides/configuration.md) for all options
 ## Development
 
 ```bash
-mise install              # Install tools (go, golangci-lint, terraform, node)
-mise run setup            # Install CI dependencies (npm + gotestsum)
+mise install              # Install tools (go, golangci-lint, terraform, node, ruby, python)
+mise run setup            # Bootstrap all dependencies (one command)
 mise run dev              # Run TUI in development mode
 mise run check:lint       # Lint (golangci-lint)
 mise run test:unit        # Unit tests

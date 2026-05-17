@@ -8,18 +8,15 @@ Generate animated GIFs from macro tapes for the documentation site.
 # 1. Build the binary
 mise run build
 
-# 2. Generate recordings (frames + manifest)
-./demo/generate.sh
-
-# 3. Stitch into GIFs (requires agg or vhs)
-# This happens automatically in generate.sh if a stitch tool is available
+# 2. Generate recordings + stitch GIFs (all-in-one)
+mise run demo:generate
 ```
 
 ## How it works
 
 1. **Tapes** (`demo/tapes/*.tape`) define scripted interactions using the macro DSL
 2. **`--record`** flag captures each frame as ANSI text with timing metadata
-3. **`stitch.sh`** converts frames into an asciicast, then renders as GIF
+3. **`stitch.sh`** renders frames as GIF using Python + Pillow
 
 ```
 tape + fixtures → tfui --macro --record → frames/ + manifest.json → stitch.sh → .gif
