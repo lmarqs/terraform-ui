@@ -53,6 +53,7 @@ ldflags → ReadBuildInfo().Main.Version → "0.0.0-SNAPSHOT"
 | `check:*` | Static analysis (no build) |
 | `build` | Produce artifacts |
 | `test:*` | Verify correctness |
+| `docs:*` | Jekyll documentation site |
 | `demo:*` | Demo GIF generation and Python lockfile |
 | `release` | Publish (CI only) |
 | _(top-level)_ | Developer tools |

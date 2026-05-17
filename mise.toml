@@ -5,6 +5,7 @@ golangci-lint = "2.12"
 goreleaser = "2.15"
 node = "22.21"
 opentofu = "1.9"
+ruby = "3.4"
 terraform = "1.14"
 terragrunt = "0.77"
 
@@ -107,6 +108,23 @@ fi
 echo "All tapes passed."
 """
 description = "Macro tapes against built binary (blackbox)"
+
+# ─── Docs (Jekyll site) ────────────────────────────────────────────────────────
+
+[tasks."docs:install"]
+run = "bundle install"
+dir = "docs"
+description = "Install Jekyll gem dependencies"
+
+[tasks."docs:serve"]
+run = "bundle exec jekyll serve --livereload"
+dir = "docs"
+description = "Serve docs site locally with live reload"
+
+[tasks."docs:build"]
+run = "bundle exec jekyll build"
+dir = "docs"
+description = "Build docs site for production"
 
 # ─── Demo (developer tools) ────────────────────────────────────────────────────
 

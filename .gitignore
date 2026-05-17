@@ -27,6 +27,8 @@ reports/
 # Jekyll
 _site/
 .jekyll-cache/
+docs/vendor/
+docs/.bundle/
 
 # Python
 .venv/

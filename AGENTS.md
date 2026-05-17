@@ -16,6 +16,9 @@ mise run test:coverage    # Coverage (100% threshold)
 mise run build            # Cross-platform binaries
 mise run test:macro       # Macro tapes against binary
 mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
+mise run docs:install     # Install Jekyll gem dependencies
+mise run docs:serve       # Serve docs site locally with live reload
+mise run docs:build       # Build docs site for production
 mise run demo:generate    # Record demo GIFs from macro tapes
 mise run demo:lock        # Lock Python deps from pyproject.toml
 ```
