@@ -13,29 +13,40 @@ default_enabled: true
 
 The Risk Analysis plugin groups plan changes by risk level (critical, high, medium, low, none) and displays an overall risk assessment. It provides a reason for each change's risk classification, such as destructive operations or modifications to critical resources.
 
-## Usage
+## Interactive (TUI)
 
 Press `R` (uppercase) to open the Risk Analysis view. It requires a completed plan -- if no plan has been run, it will prompt you to run one first.
 
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Navigate up/down through groups and changes |
-| `Esc` | Go back |
+### Keybindings
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `j` / `k` | Navigate up/down through groups and changes | List |
+| `Esc` | Go back | Always |
+
+### Flow
+
+```
+Home ──R──→ Risk Analysis (loading) ──→ Risk Analysis (grouped list)
+                                           │
+                                           ├── j/k → Navigate groups and changes
+                                           └── Esc → Home
+```
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  risk:
-    enabled: true
+plugin "risk" {
+  enabled = true
+}
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
 
-## Screenshots/Output
+## Screenshots
 
 ```
 Risk Analysis

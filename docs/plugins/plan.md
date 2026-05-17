@@ -26,19 +26,19 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 
 ### Keybindings
 
-| Key | Action |
-|-----|--------|
-| `j` / `k` / `↑` / `↓` | Navigate up/down |
-| `g` / `G` | Jump to first/last change |
-| `Enter` / `i` | Expand/collapse attribute diffs |
-| `Space` | Pin/unpin selected resource |
-| `a` | Apply (replans if targets pinned, then confirms) |
-| `A` | Auto-approve (apply immediately, no confirmation) |
-| `t` | Taint → navigates to taint plugin |
-| `T` | Untaint → navigates to untaint plugin |
-| `ctrl+r` | Re-run plan (refresh) |
-| `u` | Force-unlock (when state is locked) |
-| `Esc` / `q` | Back to home |
+| Key | Action | Context |
+|-----|--------|---------|
+| `j` / `k` / `↑` / `↓` | Navigate up/down | List |
+| `g` / `G` | Jump to first/last change | List |
+| `Enter` / `i` | Expand/collapse attribute diffs | List |
+| `Space` | Pin/unpin selected resource | List |
+| `a` | Apply (replans if targets pinned, then confirms) | List |
+| `A` | Auto-approve (apply immediately, no confirmation) | List |
+| `t` | Taint -- navigates to taint plugin | List |
+| `T` | Untaint -- navigates to untaint plugin | List |
+| `ctrl+r` | Re-run plan (refresh) | Always |
+| `u` | Force-unlock | Locked error |
+| `Esc` / `q` | Back to home | Always |
 
 ### Flow
 
@@ -51,7 +51,7 @@ Home ──p──→ Plan (loading) ──→ Plan (results)
                                   └── q → Home
 ```
 
-### Screenshot
+### Screenshots
 
 ```
 Plan Review
@@ -133,14 +133,12 @@ Risk: CRITICAL
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  plan:
-    enabled: true
-    targets:
-      - "module.networking"
-      - "aws_instance.web"
+plugin "plan" {
+  enabled = true
+  targets = ["module.networking", "aws_instance.web"]
+}
 ```
 
 | Option | Type | Default | Description |

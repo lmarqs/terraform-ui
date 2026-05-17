@@ -13,30 +13,41 @@ default_enabled: true
 
 The Phantom Changes plugin identifies plan changes that are cosmetic only -- they appear in the plan output but result in no actual infrastructure modification. Common causes include JSON field reordering, tag ordering differences, and semantically equivalent value serialization. Each phantom change includes an explanation of why it is a no-op.
 
-## Usage
+## Interactive (TUI)
 
 Press `P` (uppercase) to open the Phantom Changes view. It requires a completed plan to analyze.
 
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Navigate up/down |
-| `Enter` / `Space` | Expand/collapse phantom details |
-| `Esc` | Go back |
+### Keybindings
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `j` / `k` | Navigate up/down | List |
+| `Enter` / `Space` | Expand/collapse phantom details | List |
+| `Esc` | Go back | Always |
+
+### Flow
+
+```
+Home ──P──→ Phantom Changes (loading) ──→ Phantom Changes (list)
+                                             │
+                                             ├── Enter/Space → Expand phantom details
+                                             └── Esc → Home
+```
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  phantom:
-    enabled: true
+plugin "phantom" {
+  enabled = true
+}
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
 
-## Screenshots/Output
+## Screenshots
 
 ```
 Phantom Changes

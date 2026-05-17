@@ -23,12 +23,12 @@ Current workaround: fork the repo, add your plugin, maintain the fork forever.
 
 ## Expected UX
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  my-compliance:
-    path: ~/.tfui/plugins/compliance-checker
-    keybinding: "X"
+plugin "my-compliance" {
+  path       = "~/.tfui/plugins/compliance-checker"
+  keybinding = "X"
+}
 ```
 
 - External plugins appear in the home menu alongside built-in ones

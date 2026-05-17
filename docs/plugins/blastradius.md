@@ -13,30 +13,41 @@ default_enabled: true
 
 The Blast Radius plugin groups plan changes by terraform module and calculates an impact score for each group. Impact is derived from the number of changes, risk levels, and whether destructive operations are involved. Modules are sorted highest-impact first, giving you a quick overview of which parts of your infrastructure are most affected.
 
-## Usage
+## Interactive (TUI)
 
 Press `b` to open the Blast Radius view. It requires a completed plan to analyze.
 
-| Key | Action |
-|-----|--------|
-| `j` / `k` | Navigate up/down |
-| `Enter` / `Space` | Expand/collapse module changes |
-| `Esc` | Go back |
+### Keybindings
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `j` / `k` | Navigate up/down | List |
+| `Enter` / `Space` | Expand/collapse module changes | List |
+| `Esc` | Go back | Always |
+
+### Flow
+
+```
+Home ──b──→ Blast Radius (loading) ──→ Blast Radius (list)
+                                          │
+                                          ├── Enter/Space → Expand module changes
+                                          └── Esc → Home
+```
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  blastradius:
-    enabled: true
+plugin "blastradius" {
+  enabled = true
+}
 ```
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
 
-## Screenshots/Output
+## Screenshots
 
 ```
 Blast Radius

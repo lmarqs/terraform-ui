@@ -29,13 +29,13 @@ The Apply screen adds:
 
 ### Keybindings
 
-| Key | Action | When |
-|-----|--------|------|
-| `Enter` | Start apply (shows confirmation) | Idle state |
-| `y` / `Enter` | Confirm and execute | Confirming state |
-| `n` / `Esc` | Cancel | Confirming state |
-| `r` | Retry after failure | Error state |
-| `Esc` / `q` | Back to home | Any state |
+| Key | Action | Context |
+|-----|--------|---------|
+| `Enter` | Start apply (shows confirmation) | Idle |
+| `y` / `Enter` | Confirm and execute | Confirming |
+| `n` / `Esc` | Cancel | Confirming |
+| `r` | Retry after failure | Error |
+| `Esc` / `q` | Back to home | Always |
 
 ### Flow
 
@@ -53,7 +53,7 @@ Plan ──A──→ Apply (auto-approve: skip confirmation)
 
 When pinned resources exist, apply does NOT use the saved plan file directly (terraform constraint). Instead it replans with `-target` flags to produce a targeted plan, shows it for review, then applies that plan file. This ensures the user always reviews exactly what will be applied.
 
-### Screenshots
+## Screenshots
 
 **Confirmation (targeted):**
 ```
@@ -143,13 +143,12 @@ Apply complete.
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  apply:
-    enabled: true
-    targets:
-      - "module.networking"
+plugin "apply" {
+  enabled = true
+  targets = ["module.networking"]
+}
 ```
 
 | Option | Type | Default | Description |

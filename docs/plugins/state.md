@@ -171,11 +171,11 @@ terraform state pull | tfui --state -
 
 ## Configuration
 
-```yaml
+```hcl
 # tfui.hcl
-plugins:
-  state:
-    enabled: true
+plugin "state" {
+  enabled = true
+}
 ```
 
 | Option | Type | Default | Description |
