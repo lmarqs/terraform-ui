@@ -51,16 +51,18 @@ echo ""
 echo "Recordings complete. Frame directories in: $OUTPUT/"
 echo ""
 
-# Stitch into GIFs if stitch tool is available
-if [ -x "$SCRIPT_DIR/stitch.sh" ]; then
-  echo "Stitching GIFs..."
-  for dir in "$OUTPUT"/*/; do
-    [ -d "$dir" ] || continue
-    name=$(basename "$dir")
-    "$SCRIPT_DIR/stitch.sh" "$dir" "$OUTPUT/$name.gif" && echo "  $name.gif" || echo "  SKIP: $name (stitch failed)"
-  done
-  echo ""
-  echo "GIFs written to: $OUTPUT/"
-else
-  echo "To create GIFs, run: ./demo/stitch.sh <frame-dir> <output.gif>"
-fi
+# Stitch into GIFs
+echo "Stitching GIFs..."
+for dir in "$OUTPUT"/*/; do
+  [ -d "$dir" ] || continue
+  name=$(basename "$dir")
+  "$SCRIPT_DIR/stitch.sh" "$dir" "$OUTPUT/$name.gif" && echo "  $name.gif" || echo "  SKIP: $name (stitch failed)"
+done
+
+# Copy to docs assets for GitHub Pages
+DOCS_ASSETS="$PROJECT_DIR/docs/assets/demo"
+mkdir -p "$DOCS_ASSETS"
+cp "$OUTPUT"/*.gif "$DOCS_ASSETS/" 2>/dev/null && echo "" && echo "Copied GIFs to docs/assets/demo/" || true
+
+echo ""
+echo "Done. GIFs in: $OUTPUT/"
