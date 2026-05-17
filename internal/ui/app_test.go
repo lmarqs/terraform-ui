@@ -79,7 +79,7 @@ func setupTestApp() App {
 	return NewApp(cfg, svc, registry, nil)
 }
 
-func TestNewApp(t *testing.T) {
+func TestNewApp_WhenCreated_ShouldHaveNoActivePlugin(t *testing.T) {
 	app := setupTestApp()
 
 	if app.cfg.Dir != "/test/dir" {
@@ -90,7 +90,7 @@ func TestNewApp(t *testing.T) {
 	}
 }
 
-func TestApp_View_Loading(t *testing.T) {
+func TestApp_View_WhenNoSizeSet_ShouldShowLoadingMessage(t *testing.T) {
 	app := setupTestApp()
 	// width and height are 0 by default
 	output := app.View()
@@ -99,7 +99,7 @@ func TestApp_View_Loading(t *testing.T) {
 	}
 }
 
-func TestApp_View_WithSize(t *testing.T) {
+func TestApp_View_WhenSizeSet_ShouldRenderFullUI(t *testing.T) {
 	app := setupTestApp()
 	app.width = 80
 	app.height = 24
@@ -113,7 +113,7 @@ func TestApp_View_WithSize(t *testing.T) {
 	}
 }
 
-func TestApp_Update_WindowSize(t *testing.T) {
+func TestApp_Update_WhenWindowSizeMsg_ShouldUpdateDimensions(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.WindowSizeMsg{Width: 100, Height: 30}
@@ -128,7 +128,7 @@ func TestApp_Update_WindowSize(t *testing.T) {
 	}
 }
 
-func TestApp_Update_WorkspaceLoaded(t *testing.T) {
+func TestApp_Update_WhenWorkspaceLoaded_ShouldShowWorkspaceInHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -148,7 +148,7 @@ func TestApp_Update_WorkspaceLoaded(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_Quit(t *testing.T) {
+func TestApp_HandleKey_WhenCtrlCPressed_ShouldQuit(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.KeyMsg{Type: tea.KeyCtrlC}
@@ -159,7 +159,7 @@ func TestApp_HandleKey_Quit(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_QuitFromHome(t *testing.T) {
+func TestApp_HandleKey_WhenQFromHome_ShouldQuit(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -170,7 +170,7 @@ func TestApp_HandleKey_QuitFromHome(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_EscFromHome(t *testing.T) {
+func TestApp_HandleKey_WhenEscFromHome_ShouldDoNothing(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.KeyMsg{Type: tea.KeyEsc}
@@ -182,7 +182,7 @@ func TestApp_HandleKey_EscFromHome(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_PluginActivation(t *testing.T) {
+func TestApp_HandleKey_WhenPluginKeyPressed_ShouldActivatePlugin(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}
@@ -197,7 +197,7 @@ func TestApp_HandleKey_PluginActivation(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_EscDelegatesToPlugin(t *testing.T) {
+func TestApp_HandleKey_WhenEscWithActivePlugin_ShouldDelegateToPlugin(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate a plugin first
@@ -219,7 +219,7 @@ func TestApp_HandleKey_EscDelegatesToPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_DeactivateMsg(t *testing.T) {
+func TestApp_Update_WhenDeactivateMsg_ShouldDeactivatePlugin(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate a plugin first
@@ -240,7 +240,7 @@ func TestApp_DeactivateMsg(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_QReturnsToHome(t *testing.T) {
+func TestApp_HandleKey_WhenQWithActivePlugin_ShouldReturnToHome(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate a plugin first
@@ -262,7 +262,7 @@ func TestApp_HandleKey_QReturnsToHome(t *testing.T) {
 	}
 }
 
-func TestApp_HomeNavigation_Down(t *testing.T) {
+func TestApp_HandleKey_WhenDownOnHome_ShouldMoveSelectionDown(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
@@ -274,7 +274,7 @@ func TestApp_HomeNavigation_Down(t *testing.T) {
 	}
 }
 
-func TestApp_HomeNavigation_Up(t *testing.T) {
+func TestApp_HandleKey_WhenUpOnHome_ShouldMoveSelectionUp(t *testing.T) {
 	app := setupTestApp()
 
 	// Move down first
@@ -292,7 +292,7 @@ func TestApp_HomeNavigation_Up(t *testing.T) {
 	}
 }
 
-func TestApp_HomeNavigation_Enter(t *testing.T) {
+func TestApp_HandleKey_WhenEnterOnHome_ShouldActivateSelected(t *testing.T) {
 	app := setupTestApp()
 
 	// Move to second item and press enter
@@ -314,7 +314,7 @@ func TestApp_HomeNavigation_Enter(t *testing.T) {
 	}
 }
 
-func TestApp_Init_ReturnsCmd(t *testing.T) {
+func TestApp_Init_WhenCalled_ShouldReturnBatchCmd(t *testing.T) {
 	app := setupTestApp()
 
 	cmd := app.Init()
@@ -323,7 +323,7 @@ func TestApp_Init_ReturnsCmd(t *testing.T) {
 	}
 }
 
-func TestApp_LoadWorkspace_Success(t *testing.T) {
+func TestApp_Init_WhenWorkspaceLoads_ShouldSetWorkspace(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -345,7 +345,7 @@ func TestApp_LoadWorkspace_Success(t *testing.T) {
 	}
 }
 
-func TestApp_LoadWorkspace_Error(t *testing.T) {
+func TestApp_Init_WhenWorkspaceFails_ShouldFallbackToDefault(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -367,7 +367,7 @@ func TestApp_LoadWorkspace_Error(t *testing.T) {
 	}
 }
 
-func TestApp_Init_WithPluginInitCmd(t *testing.T) {
+func TestApp_Init_WhenPluginReturnsInitCmd_ShouldIncludeInBatch(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -389,7 +389,7 @@ func TestApp_Init_WithPluginInitCmd(t *testing.T) {
 	}
 }
 
-func TestApp_OpenContextOnStartup_ActivatesChdirPlugin(t *testing.T) {
+func TestApp_Update_WhenOpenContextOnStartup_ShouldActivateChdirPlugin(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -419,7 +419,7 @@ func TestApp_OpenContextOnStartup_ActivatesChdirPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_OpenContextOnStartup_SkipsWhenChdirSet(t *testing.T) {
+func TestApp_Update_WhenOpenContextOnStartupWithChdirSet_ShouldSkipActivation(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Chdir:     "modules/vpc",
@@ -443,7 +443,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenChdirSet(t *testing.T) {
 	}
 }
 
-func TestApp_OpenContextOnStartup_SkipsWhenPreloadedData(t *testing.T) {
+func TestApp_Update_WhenOpenContextOnStartupWithPreloadedData_ShouldSkipActivation(t *testing.T) {
 	cfg := config.Config{
 		Dir:           "/test/dir",
 		PreloadedData: true,
@@ -467,7 +467,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenPreloadedData(t *testing.T) {
 	}
 }
 
-func TestApp_ChdirChangedEvent_DeactivatesPlugin(t *testing.T) {
+func TestApp_Update_WhenChdirChangedEvent_ShouldDeactivatePlugin(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -502,7 +502,7 @@ func TestApp_ChdirChangedEvent_DeactivatesPlugin(t *testing.T) {
 // customMsg is a tea.Msg that doesn't match any case in Update.
 type customMsg struct{}
 
-func TestApp_DelegateNonKeyMsgToActivePlugin(t *testing.T) {
+func TestApp_Update_WhenNonKeyMsgWithActivePlugin_ShouldDelegateToPlugin(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate a plugin
@@ -525,7 +525,7 @@ func TestApp_DelegateNonKeyMsgToActivePlugin(t *testing.T) {
 	}
 }
 
-func TestApp_NonKeyMsgWithNoActivePlugin(t *testing.T) {
+func TestApp_Update_WhenNonKeyMsgWithNoActivePlugin_ShouldReturnNil(t *testing.T) {
 	app := setupTestApp()
 
 	// Send a custom message with no active plugin
@@ -541,7 +541,7 @@ func TestApp_NonKeyMsgWithNoActivePlugin(t *testing.T) {
 	}
 }
 
-func TestApp_ActivePluginKeyDelegation(t *testing.T) {
+func TestApp_HandleKey_WhenUnknownKeyWithActivePlugin_ShouldDelegateToPlugin(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate a plugin
@@ -564,7 +564,7 @@ func TestApp_ActivePluginKeyDelegation(t *testing.T) {
 	}
 }
 
-func TestApp_View_ActivePlugin(t *testing.T) {
+func TestApp_View_WhenActivePlugin_ShouldShowPluginView(t *testing.T) {
 	app := setupTestApp()
 	app.width = 80
 	app.height = 24
@@ -584,7 +584,7 @@ func TestApp_View_ActivePlugin(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_ColonEnters(t *testing.T) {
+func TestApp_HandleKey_WhenColonPressed_ShouldEnterCommandMode(t *testing.T) {
 	app := setupTestApp()
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}}
@@ -599,7 +599,7 @@ func TestApp_CommandMode_ColonEnters(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_TypingAndEnter(t *testing.T) {
+func TestApp_HandleKey_WhenCommandTypedAndEnter_ShouldExecuteCommand(t *testing.T) {
 	app := setupTestApp()
 
 	// Enter command mode
@@ -631,7 +631,7 @@ func TestApp_CommandMode_TypingAndEnter(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_PrefixMatch(t *testing.T) {
+func TestApp_HandleKey_WhenCommandPrefixAndEnter_ShouldAutoComplete(t *testing.T) {
 	app := setupTestApp()
 
 	// Enter command mode and type "st"
@@ -654,7 +654,7 @@ func TestApp_CommandMode_PrefixMatch(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_TabAutocomplete(t *testing.T) {
+func TestApp_HandleKey_WhenCommandModeTab_ShouldAutoComplete(t *testing.T) {
 	app := setupTestApp()
 
 	// Enter command mode and type "st"
@@ -674,7 +674,7 @@ func TestApp_CommandMode_TabAutocomplete(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_EscCancels(t *testing.T) {
+func TestApp_HandleKey_WhenCommandModeEsc_ShouldCancelCommandMode(t *testing.T) {
 	app := setupTestApp()
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
@@ -693,7 +693,7 @@ func TestApp_CommandMode_EscCancels(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_Quit(t *testing.T) {
+func TestApp_HandleKey_WhenCommandQEnter_ShouldQuit(t *testing.T) {
 	app := setupTestApp()
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
@@ -707,7 +707,7 @@ func TestApp_CommandMode_Quit(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_ForceQuit(t *testing.T) {
+func TestApp_HandleKey_WhenCommandQBangEnter_ShouldForceQuit(t *testing.T) {
 	app := setupTestApp()
 
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
@@ -723,7 +723,7 @@ func TestApp_CommandMode_ForceQuit(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_ColonFromActivePlugin(t *testing.T) {
+func TestApp_HandleKey_WhenColonFromActivePlugin_ShouldEnterCommandMode(t *testing.T) {
 	app := setupTestApp()
 
 	// Activate plan plugin
@@ -777,7 +777,7 @@ func setupTestAppWithBusyPlugin(busy bool) App {
 	return NewApp(cfg, svc, registry, nil)
 }
 
-func TestApp_CommandMode_QuitBlockedWhenBusy(t *testing.T) {
+func TestApp_HandleKey_WhenCommandQWithBusyPlugin_ShouldBlockQuit(t *testing.T) {
 	app := setupTestAppWithBusyPlugin(true)
 
 	// Enter command mode, type :q, press enter
@@ -797,7 +797,7 @@ func TestApp_CommandMode_QuitBlockedWhenBusy(t *testing.T) {
 	}
 }
 
-func TestApp_CommandMode_ForceQuitBypassesBusy(t *testing.T) {
+func TestApp_HandleKey_WhenCommandQBangWithBusyPlugin_ShouldForceQuit(t *testing.T) {
 	app := setupTestAppWithBusyPlugin(true)
 
 	// Enter command mode, type :q!, press enter
@@ -814,7 +814,7 @@ func TestApp_CommandMode_ForceQuitBypassesBusy(t *testing.T) {
 	}
 }
 
-func TestApp_CommandError_ClearedOnKeypress(t *testing.T) {
+func TestApp_HandleKey_WhenCommandErrorAndKeyPressed_ShouldClearError(t *testing.T) {
 	app := setupTestAppWithBusyPlugin(true)
 
 	// Trigger the error via :q
@@ -838,7 +838,7 @@ func TestApp_CommandError_ClearedOnKeypress(t *testing.T) {
 	}
 }
 
-func TestApp_HandleKey_QuitFromHomeBlockedWhenBusy(t *testing.T) {
+func TestApp_HandleKey_WhenQFromHomeWithBusyPlugin_ShouldBlockQuit(t *testing.T) {
 	app := setupTestAppWithBusyPlugin(true)
 
 	msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}}
@@ -884,7 +884,7 @@ func setupTestAppWithTransientPlugins() App {
 	return NewApp(cfg, svc, registry, nil)
 }
 
-func TestApp_ChdirSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
+func TestApp_Update_WhenChdirSelected_ShouldNavigateBackToPrevious(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "state" plugin via keybinding
@@ -921,7 +921,7 @@ func TestApp_ChdirSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_ChdirSelection_NavigatesToHomeWhenNoPrevious(t *testing.T) {
+func TestApp_Update_WhenChdirSelectedWithNoPrevious_ShouldNavigateToHome(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate chdir directly (no previous plugin, simulates startup)
@@ -941,7 +941,7 @@ func TestApp_ChdirSelection_NavigatesToHomeWhenNoPrevious(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
+func TestApp_Update_WhenWorkspaceSelected_ShouldNavigateBackToPrevious(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "state" plugin via keybinding
@@ -978,7 +978,7 @@ func TestApp_WorkspaceSelection_NavigatesBackToPreviousPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceSelection_FromContextDoesNotNavigateBack(t *testing.T) {
+func TestApp_Update_WhenWorkspaceSelectedFromContext_ShouldNotNavigateBack(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "context" plugin directly
@@ -1003,7 +1003,7 @@ func TestApp_WorkspaceSelection_FromContextDoesNotNavigateBack(t *testing.T) {
 	}
 }
 
-func TestApp_ChdirSelection_FromContextDoesNotNavigateBack(t *testing.T) {
+func TestApp_Update_WhenChdirSelectedFromContext_ShouldNotNavigateBack(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "context" plugin directly (NavReplace — no returnTo saved)
@@ -1024,7 +1024,7 @@ func TestApp_ChdirSelection_FromContextDoesNotNavigateBack(t *testing.T) {
 	}
 }
 
-func TestApp_DeactivateMsg_NavigatesBackToReturnTo(t *testing.T) {
+func TestApp_Update_WhenDeactivateMsgWithNavStack_ShouldNavigateBackToReturnTo(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Manually set navStack to simulate NavPush from state → chdir
@@ -1047,7 +1047,7 @@ func TestApp_DeactivateMsg_NavigatesBackToReturnTo(t *testing.T) {
 	}
 }
 
-func TestApp_NavigateMsg_ActivatesTargetPlugin(t *testing.T) {
+func TestApp_Update_WhenNavigateMsg_ShouldActivateTargetPlugin(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "context" plugin
@@ -1068,7 +1068,7 @@ func TestApp_NavigateMsg_ActivatesTargetPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_NavigateMsg_UnknownPlugin(t *testing.T) {
+func TestApp_Update_WhenNavigateMsgUnknownPlugin_ShouldDoNothing(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 	app.activePlugin = nil
 
@@ -1080,7 +1080,7 @@ func TestApp_NavigateMsg_UnknownPlugin(t *testing.T) {
 	}
 }
 
-func TestApp_DeactivateMsg_NavigatesBackWhenPushed(t *testing.T) {
+func TestApp_Update_WhenDeactivateMsgFromPushedPlugin_ShouldNavigateBack(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "context" then navigate to "workspace" (NavPush)
@@ -1116,7 +1116,7 @@ func TestApp_DeactivateMsg_NavigatesBackWhenPushed(t *testing.T) {
 	}
 }
 
-func TestApp_DeactivateMsg_GoesHomeWhenNotPushed(t *testing.T) {
+func TestApp_Update_WhenDeactivateMsgFromNonPushedPlugin_ShouldGoHome(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	// Activate "state" directly (NavReplace, no returnTo)
@@ -1136,7 +1136,7 @@ func TestApp_DeactivateMsg_GoesHomeWhenNotPushed(t *testing.T) {
 	}
 }
 
-func TestApp_NavStack_MultiLevelPush_PopsOneAtATime(t *testing.T) {
+func TestApp_NavStack_WhenMultiLevelPush_ShouldPopOneAtATime(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	statePlugin, _ := app.registry.ByID("state")
@@ -1177,7 +1177,7 @@ func TestApp_NavStack_MultiLevelPush_PopsOneAtATime(t *testing.T) {
 	}
 }
 
-func TestApp_NavStack_QKey_ClearsEntireStack(t *testing.T) {
+func TestApp_NavStack_WhenQKeyPressed_ShouldClearEntireStack(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	statePlugin, _ := app.registry.ByID("state")
@@ -1201,7 +1201,7 @@ func TestApp_NavStack_QKey_ClearsEntireStack(t *testing.T) {
 	}
 }
 
-func TestApp_NavStack_NavReplace_ClearsStack(t *testing.T) {
+func TestApp_NavStack_WhenNavReplace_ShouldClearStack(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	statePlugin, _ := app.registry.ByID("state")
@@ -1223,7 +1223,7 @@ func TestApp_NavStack_NavReplace_ClearsStack(t *testing.T) {
 	}
 }
 
-func TestApp_NavStack_PushFromHome_PushesNilAndPopsToHome(t *testing.T) {
+func TestApp_NavStack_WhenPushFromHome_ShouldPushNilAndPopToHome(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 	app.activePlugin = nil
 
@@ -1247,7 +1247,7 @@ func TestApp_NavStack_PushFromHome_PushesNilAndPopsToHome(t *testing.T) {
 	}
 }
 
-func TestApp_NavStack_DeactivateMsg_MultiLevel_PopsOnce(t *testing.T) {
+func TestApp_NavStack_WhenDeactivateMsgMultiLevel_ShouldPopOnce(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	statePlugin, _ := app.registry.ByID("state")
@@ -1273,7 +1273,7 @@ func TestApp_NavStack_DeactivateMsg_MultiLevel_PopsOnce(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceChanged_ShouldPreserveChdirInHeader(t *testing.T) {
+func TestApp_Update_WhenWorkspaceChanged_ShouldPreserveChdirInHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -1302,7 +1302,7 @@ func TestApp_WorkspaceChanged_ShouldPreserveChdirInHeader(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceLoaded_ShouldPreserveChdirInHeader(t *testing.T) {
+func TestApp_Update_WhenWorkspaceLoaded_ShouldPreserveChdirInHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -1325,7 +1325,7 @@ func TestApp_WorkspaceLoaded_ShouldPreserveChdirInHeader(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
+func TestApp_Update_WhenWorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 	app.width = 120
 	app.height = 30
@@ -1367,7 +1367,7 @@ func TestApp_WorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
 	}
 }
 
-func TestApp_LockDetectedEvent_SetsLockInfoAndUpdatesHeader(t *testing.T) {
+func TestApp_Update_WhenLockDetectedEvent_ShouldSetLockInfoAndUpdateHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -1389,7 +1389,7 @@ func TestApp_LockDetectedEvent_SetsLockInfoAndUpdatesHeader(t *testing.T) {
 	}
 }
 
-func TestApp_LockClearedEvent_ClearsLockInfoAndUpdatesHeader(t *testing.T) {
+func TestApp_Update_WhenLockClearedEvent_ShouldClearLockInfoAndUpdateHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -1413,7 +1413,7 @@ func TestApp_LockClearedEvent_ClearsLockInfoAndUpdatesHeader(t *testing.T) {
 	}
 }
 
-func TestApp_PlanInvalidatedEvent_SetsStaleBadge(t *testing.T) {
+func TestApp_Update_WhenPlanInvalidatedEvent_ShouldSetStaleBadge(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -1431,7 +1431,7 @@ func TestApp_PlanInvalidatedEvent_SetsStaleBadge(t *testing.T) {
 	}
 }
 
-func TestApp_StateRefreshedEvent_ClearsStaleBadge(t *testing.T) {
+func TestApp_Update_WhenStateRefreshedEvent_ShouldClearStaleBadge(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120
 	app.height = 30
@@ -1454,7 +1454,7 @@ func TestApp_StateRefreshedEvent_ClearsStaleBadge(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceChanged_ResolvesOptions(t *testing.T) {
+func TestApp_Update_WhenWorkspaceChanged_ShouldResolveOptions(t *testing.T) {
 	rootCfg := &config.RootConfig{
 		Defaults: config.DefaultsConfig{
 			VarFiles: []string{"common.tfvars"},
@@ -1498,7 +1498,7 @@ func TestApp_WorkspaceChanged_ResolvesOptions(t *testing.T) {
 	}
 }
 
-func TestApp_WorkspaceChanged_NilRootCfg_NoOp(t *testing.T) {
+func TestApp_Update_WhenWorkspaceChangedWithNilRootCfg_ShouldNotChangeOptions(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -3579,7 +3579,7 @@ func TestApp_Init_WhenPluginInitReturnsNil_ShouldNotAppend(t *testing.T) {
 
 // --- Test for Init anonymous function body (openContextOnStartupMsg producer) ---
 
-func TestApp_Init_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
+func TestApp_Init_WhenCalled_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
