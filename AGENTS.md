@@ -72,9 +72,9 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 ### Testing
 
 - **TDD workflow**: write a failing test first, then implement
-- 100% coverage gate on all packages excluding `cmd/` glue
+- 100% coverage gate on all packages excluding `cmd/`, `internal/terraform`, `internal/ui` (app shell)
 - Table-driven tests preferred
-- Mock services implement `sdk.Service` with no-op methods
+- Use `sdktest.MockService` from `pkg/sdk/sdktest/` — never duplicate mock boilerplate per package
 - Integration tests in `tests/integration/`
 
 ### Roadmap
