@@ -2,6 +2,11 @@ package terraform
 
 import "github.com/lmarqs/terraform-ui/pkg/sdk"
 
+// Service is a type alias for the SDK Service interface. Internal packages and
+// existing code can continue to reference terraform.Service. New code should
+// prefer importing pkg/sdk directly.
+type Service = sdk.Service
+
 // Type aliases re-export SDK types so that internal packages can continue using
 // the terraform package without breaking existing code. New code should prefer
 // importing pkg/sdk directly.

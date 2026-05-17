@@ -1,4 +1,4 @@
-package terraform
+package exec
 
 import (
 	"context"
@@ -11,15 +11,11 @@ import (
 	"github.com/hashicorp/terraform-exec/tfexec"
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/internal/logging"
+	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 const planFileName = "tfplan.out"
-
-// Service is a type alias for the SDK Service interface. Internal packages and
-// existing code can continue to reference terraform.Service. New code should
-// prefer importing pkg/sdk directly.
-type Service = sdk.Service
 
 // ExecService implements the Service interface using hashicorp/terraform-exec
 // to shell out to the terraform (or tofu) binary.
@@ -27,13 +23,13 @@ type ExecService struct {
 	workingDir string
 	binaryPath string
 	statePath  string
-	cache      *ServiceCache
+	cache      *terraform.ServiceCache
 }
 
 // NewExecService creates an ExecService with the given cache.
-func NewExecService(workingDir, binaryPath string, cache *ServiceCache) *ExecService {
+func NewExecService(workingDir, binaryPath string, cache *terraform.ServiceCache) *ExecService {
 	if cache == nil {
-		cache = NewServiceCache()
+		cache = terraform.NewServiceCache()
 	}
 	return &ExecService{
 		workingDir: workingDir,
@@ -43,12 +39,12 @@ func NewExecService(workingDir, binaryPath string, cache *ServiceCache) *ExecSer
 }
 
 // WithDir returns a new ExecService scoped to the given working directory.
-func (s *ExecService) WithDir(dir string) Service {
+func (s *ExecService) WithDir(dir string) sdk.Service {
 	return &ExecService{
 		workingDir: dir,
 		binaryPath: s.binaryPath,
 		statePath:  s.statePath,
-		cache:      NewServiceCache(),
+		cache:      terraform.NewServiceCache(),
 	}
 }
 
@@ -64,9 +60,9 @@ func (s *ExecService) loadState(ctx context.Context) (*tfjson.State, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading terraform state: %w", err)
 	}
-	var resources []Resource
+	var resources []sdk.Resource
 	if state != nil && state.Values != nil {
-		resources = ParseStateResources(state.Values.RootModule)
+		resources = terraform.ParseStateResources(state.Values.RootModule)
 	}
 	s.cache.SetState(resources, state)
 	return state, nil
@@ -81,7 +77,7 @@ func (s *ExecService) newTerraform() (*tfexec.Terraform, error) {
 }
 
 // Plan runs terraform plan and returns the parsed changes.
-func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*PlanSummary, error) {
+func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir)
 	start := time.Now()
 
@@ -139,13 +135,13 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*PlanSumm
 		return nil, fmt.Errorf("reading plan file: %w", err)
 	}
 
-	summary := ParsePlan(plan)
+	summary := terraform.ParsePlan(plan)
 
 	for i := range summary.Changes {
-		summary.Changes[i].Risk = ClassifyRisk(&summary.Changes[i])
+		summary.Changes[i].Risk = terraform.ClassifyRisk(&summary.Changes[i])
 	}
 
-	DetectPhantomChanges(summary.Changes)
+	terraform.DetectPhantomChanges(summary.Changes)
 
 	logging.Logger().Debug("terraform.result", "cmd", "plan", "changes", len(summary.Changes), "duration", time.Since(start).String())
 	return summary, nil

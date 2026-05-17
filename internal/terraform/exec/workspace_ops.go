@@ -1,4 +1,4 @@
-package terraform
+package exec
 
 import (
 	"context"

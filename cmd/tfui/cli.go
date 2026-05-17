@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
-	"github.com/lmarqs/terraform-ui/internal/terraform"
+	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -33,7 +33,7 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 		Short: "Show current workspace name",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 			name, err := svc.Workspace(context.Background())
 			if err != nil {
 				return fmt.Errorf("workspace show failed: %w", err)
@@ -48,7 +48,7 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 		Short: "List workspaces",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 			workspaces, err := svc.WorkspaceList(context.Background())
 			if err != nil {
 				return fmt.Errorf("workspace list failed: %w", err)
@@ -73,7 +73,7 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 		Short: "Select a workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 			if err := svc.WorkspaceSelect(context.Background(), args[0]); err != nil {
 				return fmt.Errorf("workspace select failed: %w", err)
 			}
@@ -89,7 +89,7 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 		Short: "Create a new workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 			opts := sdk.WorkspaceNewOptions{LockTimeout: newLockTimeout}
 			if cmd.Flags().Changed("lock") {
 				opts.Lock = newLock
@@ -112,7 +112,7 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 		Short: "Delete a workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 			opts := sdk.WorkspaceDeleteOptions{
 				Force:       deleteForce,
 				LockTimeout: deleteLockTimeout,
@@ -143,7 +143,7 @@ func buildForceUnlockCommand(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			lockID := args[0]
-			svc := terraform.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 
 			if !force && hasTTY() {
 				fmt.Fprintf(os.Stderr, "Terraform state has been locked. Force-unlock will remove the lock.\n")

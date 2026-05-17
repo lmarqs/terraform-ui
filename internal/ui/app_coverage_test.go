@@ -12,9 +12,13 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
+	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
+	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
+	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 // --- Additional mock types for interface coverage ---
@@ -2077,6 +2081,1246 @@ func TestApp_Init_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
 		if !found {
 			t.Error("Init batch should contain openContextOnStartupMsg producer")
 		}
+	}
+}
+
+// --- Mock types for additional coverage ---
+
+type mockCancellablePlugin struct {
+	mockPlugin
+	cancelCalled bool
+}
+
+func (m *mockCancellablePlugin) Cancel() { m.cancelCalled = true }
+
+type mockBusyCancellablePlugin struct {
+	mockPlugin
+	busy         bool
+	cancelCalled bool
+}
+
+func (m *mockBusyCancellablePlugin) Busy() bool { return m.busy }
+func (m *mockBusyCancellablePlugin) Cancel()    { m.cancelCalled = true }
+
+type mockKeyCapturerPlugin struct {
+	mockPlugin
+	captures   bool
+	lastKeyMsg tea.Msg
+}
+
+func (m *mockKeyCapturerPlugin) CapturesKeys() bool { return m.captures }
+func (m *mockKeyCapturerPlugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
+	m.lastKeyMsg = msg
+	return m, nil
+}
+
+type mockActivateWithArgsPlugin struct {
+	mockPlugin
+	activatedWithArgs []string
+}
+
+func (m *mockActivateWithArgsPlugin) ActivateWithArgs(args []string) tea.Cmd {
+	m.activatedWithArgs = args
+	return func() tea.Msg { return customMsg{} }
+}
+
+// --- Tests for ActivePlugin and IsStandalone ---
+
+func TestApp_WhenCreated_ShouldExposeActivePlugin(t *testing.T) {
+	app := setupTestApp()
+	if app.ActivePlugin() != nil {
+		t.Error("ActivePlugin() should be nil on fresh app")
+	}
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	app = model.(App)
+
+	if app.ActivePlugin() == nil {
+		t.Fatal("ActivePlugin() should not be nil after activation")
+	}
+	if app.ActivePlugin().ID() != "plan" {
+		t.Errorf("ActivePlugin().ID() = %q, want %q", app.ActivePlugin().ID(), "plan")
+	}
+}
+
+func TestApp_WhenNotStandalone_ShouldReturnFalse(t *testing.T) {
+	app := setupTestApp()
+	if app.IsStandalone() {
+		t.Error("IsStandalone() should be false when no standalone config")
+	}
+}
+
+func TestApp_WhenStandalone_ShouldReturnTrue(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "plan"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	if !app.IsStandalone() {
+		t.Error("IsStandalone() should be true when standalone config set")
+	}
+}
+
+// --- Tests for standalone mode Update branches ---
+
+func TestApp_Update_WhenStandaloneOpenContextOnStartup_ShouldActivateTargetPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockActivatablePlugin{
+			mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("standalone openContextOnStartupMsg should activate target plugin")
+	}
+	if updated.activePlugin.ID() != "state" {
+		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "state")
+	}
+}
+
+func TestApp_Update_WhenStandaloneOpenContextOnStartupWithArgs_ShouldActivateWithArgs(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+
+	argPlugin := &mockActivateWithArgsPlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+	}
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return argPlugin
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state", Args: []string{"mv", "src", "dst"}}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	model, cmd := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("standalone with args should activate target plugin")
+	}
+	if len(argPlugin.activatedWithArgs) != 3 {
+		t.Errorf("ActivateWithArgs called with %v, want [mv src dst]", argPlugin.activatedWithArgs)
+	}
+	if cmd == nil {
+		t.Error("ActivateWithArgs should return a cmd")
+	}
+}
+
+func TestApp_Update_WhenStandaloneOpenContextOnStartupUnknownPlugin_ShouldReturnNil(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "nonexistent"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	model, cmd := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin != nil {
+		t.Error("standalone with unknown plugin should not activate anything")
+	}
+	if cmd != nil {
+		t.Error("should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenStandaloneNavigateMsg_ShouldRejectNonNavPush(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true}) // NavReplace (default)
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, cmd := app.Update(sdk.NavigateMsg{PluginID: "plan"})
+	updated := model.(App)
+
+	if updated.activePlugin.ID() != "state" {
+		t.Errorf("standalone should reject NavReplace navigation, activePlugin = %q", updated.activePlugin.ID())
+	}
+	if cmd != nil {
+		t.Error("should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenStandaloneNavigateMsg_ShouldAllowNavPush(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{Nav: plugin.NavPush})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, _ := app.Update(sdk.NavigateMsg{PluginID: "chdir"})
+	updated := model.(App)
+
+	if updated.activePlugin == nil || updated.activePlugin.ID() != "chdir" {
+		t.Errorf("standalone should allow NavPush navigation, activePlugin = %v", updated.activePlugin)
+	}
+}
+
+func TestApp_Update_WhenStandaloneDeactivateMsg_ShouldQuit(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	_, cmd := app.Update(sdk.DeactivateMsg{})
+
+	if cmd == nil {
+		t.Fatal("DeactivateMsg in standalone should produce quit cmd")
+	}
+}
+
+// --- Tests for TaintRequestMsg, UntaintRequestMsg, ImportRequestMsg ---
+
+func TestApp_Update_WhenReceivingTaintRequestMsg_ShouldActivateTaintPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("taint", func(s terraform.Service) plugin.Plugin {
+		return tfuitaint.New(s)
+	}, plugin.PluginMeta{Nav: plugin.NavPush})
+	registry.Build(svc, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, _ := app.Update(tfuitaint.TaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("TaintRequestMsg should activate taint plugin")
+	}
+	if updated.activePlugin.ID() != "taint" {
+		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "taint")
+	}
+	if len(updated.navStack) != 1 {
+		t.Errorf("navStack depth = %d, want 1", len(updated.navStack))
+	}
+}
+
+func TestApp_Update_WhenReceivingTaintRequestMsgNoTaintPlugin_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp() // no taint plugin
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	_, cmd := app.Update(tfuitaint.TaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	if cmd != nil {
+		t.Error("TaintRequestMsg without taint plugin should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenReceivingUntaintRequestMsg_ShouldActivateUntaintPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("untaint", func(s terraform.Service) plugin.Plugin {
+		return tfuiuntaint.New(s)
+	}, plugin.PluginMeta{Nav: plugin.NavPush})
+	registry.Build(svc, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, _ := app.Update(tfuiuntaint.UntaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("UntaintRequestMsg should activate untaint plugin")
+	}
+	if updated.activePlugin.ID() != "untaint" {
+		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "untaint")
+	}
+	if len(updated.navStack) != 1 {
+		t.Errorf("navStack depth = %d, want 1", len(updated.navStack))
+	}
+}
+
+func TestApp_Update_WhenReceivingUntaintRequestMsgNoUntaintPlugin_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp() // no untaint plugin
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	_, cmd := app.Update(tfuiuntaint.UntaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	if cmd != nil {
+		t.Error("UntaintRequestMsg without untaint plugin should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenReceivingImportRequestMsg_ShouldActivateImportPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("import", func(s terraform.Service) plugin.Plugin {
+		return tfuiimport.New(s)
+	}, plugin.PluginMeta{Nav: plugin.NavPush})
+	registry.Build(svc, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, _ := app.Update(tfuiimport.ImportRequestMsg{Address: "aws_instance.foo"})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("ImportRequestMsg should activate import plugin")
+	}
+	if updated.activePlugin.ID() != "import" {
+		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "import")
+	}
+	if len(updated.navStack) != 1 {
+		t.Errorf("navStack depth = %d, want 1", len(updated.navStack))
+	}
+}
+
+func TestApp_Update_WhenReceivingImportRequestMsgNoImportPlugin_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp() // no import plugin
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	_, cmd := app.Update(tfuiimport.ImportRequestMsg{Address: "aws_instance.foo"})
+	if cmd != nil {
+		t.Error("ImportRequestMsg without import plugin should return nil cmd")
+	}
+}
+
+// --- Tests for AutoApplyRequestMsg ---
+
+func TestApp_Update_WhenReceivingAutoApplyRequestMsg_ShouldActivateApplyPlugin(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
+		return tfuiapply.New(s)
+	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
+	registry.Build(svc, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+	app = model.(App)
+
+	model, _ = app.Update(tfuiplan.AutoApplyRequestMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("AutoApplyRequestMsg should activate the apply plugin")
+	}
+	if updated.activePlugin.ID() != "apply" {
+		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "apply")
+	}
+}
+
+func TestApp_Update_WhenReceivingAutoApplyRequestMsgNoApplyPlugin_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp() // no apply plugin
+
+	_, cmd := app.Update(tfuiplan.AutoApplyRequestMsg{})
+	if cmd != nil {
+		t.Error("AutoApplyRequestMsg without apply plugin should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenReceivingAutoApplyRequestMsgWithPins_ShouldSetTargets(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
+		return tfuiapply.New(s)
+	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
+	registry.Build(svc, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	app.pins.Toggle("aws_instance.foo")
+
+	model, _ := app.Update(tfuiplan.AutoApplyRequestMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Fatal("AutoApplyRequestMsg with pins should activate apply plugin")
+	}
+}
+
+// --- Tests for PlanEditMsg ---
+
+func TestApp_Update_WhenReceivingPlanEditMsgNilSourceIndex_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp()
+	app.sourceIndex = nil
+
+	_, cmd := app.Update(tfuiplan.PlanEditMsg{Address: "aws_instance.foo"})
+	if cmd != nil {
+		t.Error("PlanEditMsg with nil sourceIndex should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenReceivingPlanEditMsgNoMatch_ShouldReturnNil(t *testing.T) {
+	app := setupAppWithSourceIndex(t)
+
+	_, cmd := app.Update(tfuiplan.PlanEditMsg{Address: "aws_instance.nonexistent"})
+	if cmd != nil {
+		t.Error("PlanEditMsg with no matching address should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenReceivingPlanEditMsgWithMatch_ShouldReturnEditorCmd(t *testing.T) {
+	dir := t.TempDir()
+
+	tfContent := `resource "aws_instance" "web" {
+  ami = "abc"
+}
+`
+	if err := writeTestFile(dir+"/main.tf", tfContent); err != nil {
+		t.Fatalf("failed to write test tf file: %v", err)
+	}
+
+	cfg := config.Config{
+		Dir:       dir,
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+	app := NewApp(cfg, svc, registry, nil)
+
+	_, cmd := app.Update(tfuiplan.PlanEditMsg{Address: "aws_instance.web"})
+	if cmd == nil {
+		t.Error("PlanEditMsg with matching address should return editor cmd")
+	}
+}
+
+// --- Tests for TimerTickMsg routing ---
+
+func TestApp_Update_WhenTimerTickMsgWithActivePlugin_ShouldRouteToPlugin(t *testing.T) {
+	app := setupTestApp()
+	app.activePlugin = &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+
+	model, _ := app.Update(sdkui.TimerTickMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Error("TimerTickMsg should keep active plugin")
+	}
+}
+
+func TestApp_Update_WhenTimerTickMsgWithNoActivePlugin_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp()
+	app.activePlugin = nil
+
+	_, cmd := app.Update(sdkui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("TimerTickMsg with no active plugin should return nil cmd")
+	}
+}
+
+// --- Tests for handleKey with KeyCapturer ---
+
+func TestApp_HandleKey_WhenKeyCapturerActive_ShouldDelegateAllKeys(t *testing.T) {
+	capturer := &mockKeyCapturerPlugin{
+		mockPlugin: mockPlugin{id: "console", name: "Console", viewOutput: "console view"},
+		captures:   true,
+	}
+
+	app := setupTestApp()
+	app.activePlugin = capturer
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	_ = model.(App)
+
+	if capturer.lastKeyMsg == nil {
+		t.Error("key capturer should receive all keys")
+	}
+}
+
+func TestApp_HandleKey_WhenKeyCapturerActiveCtrlC_ShouldQuit(t *testing.T) {
+	capturer := &mockKeyCapturerPlugin{
+		mockPlugin: mockPlugin{id: "console", name: "Console", viewOutput: "console view"},
+		captures:   true,
+	}
+
+	app := setupTestApp()
+	app.activePlugin = capturer
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cmd == nil {
+		t.Fatal("ctrl+c with key capturer should still produce quit cmd")
+	}
+}
+
+func TestApp_HandleKey_WhenKeyCapturerActiveCtrlS_ShouldCapture(t *testing.T) {
+	capturer := &mockKeyCapturerPlugin{
+		mockPlugin: mockPlugin{id: "console", name: "Console", viewOutput: "console view"},
+		captures:   true,
+	}
+
+	app := setupTestApp()
+	app.width = 80
+	app.height = 24
+	app.activePlugin = capturer
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlS})
+	if cmd != nil {
+		t.Error("ctrl+s with key capturer should return nil cmd")
+	}
+}
+
+func TestApp_HandleKey_WhenKeyCapturerNotCapturing_ShouldFollowNormalFlow(t *testing.T) {
+	capturer := &mockKeyCapturerPlugin{
+		mockPlugin: mockPlugin{id: "console", name: "Console", viewOutput: "console view"},
+		captures:   false,
+	}
+
+	app := setupTestApp()
+	app.activePlugin = capturer
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	updated := model.(App)
+
+	if updated.activePlugin != nil {
+		t.Error("q with non-capturing KeyCapturer should deactivate")
+	}
+}
+
+// --- Tests for standalone mode key handling ---
+
+func TestApp_HandleKey_WhenStandaloneCKey_ShouldNotNavigateToContext(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("context", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "context", name: "Context", viewOutput: "context view"}
+	}, plugin.PluginMeta{})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'C'}})
+	updated := model.(App)
+
+	if updated.activePlugin != nil && updated.activePlugin.ID() == "context" {
+		t.Error("C in standalone mode should not navigate to context")
+	}
+}
+
+func TestApp_HandleKey_WhenStandaloneColonKey_ShouldNotEnterCommandMode(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{':'}})
+	updated := model.(App)
+
+	if updated.commandMode {
+		t.Error(": in standalone mode should not enter command mode")
+	}
+}
+
+func TestApp_HandleKey_WhenStandaloneQKey_ShouldQuit(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd == nil {
+		t.Fatal("q in standalone mode should produce quit cmd")
+	}
+}
+
+func TestApp_HandleKey_WhenStandaloneQKeyWithStackDepthGreaterThanOne_ShouldClearStack(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	stack := sdk.NewStack()
+	stack.Push(&mockFrame{id: "root"})
+	stack.Push(&mockFrame{id: "detail"})
+	stackableP := &mockStackablePlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		stack:      stack,
+	}
+	app.activePlugin = stackableP
+
+	model, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Error("q in standalone with stack depth > 1 should clear stack, not quit")
+	}
+	if cmd != nil {
+		t.Error("should return nil cmd (just clearing stack)")
+	}
+	if stack.Depth() != 1 {
+		t.Errorf("stack depth = %d, want 1", stack.Depth())
+	}
+}
+
+func TestApp_HandleKey_WhenStandaloneQKeyBusy_ShouldStillQuit(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockBusyPlugin{
+			mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+			busy:       true,
+		}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	// In standalone, q when busy should block via cmdQuit
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd != nil {
+		t.Error("q in standalone with busy plugin should NOT quit (cmdQuit blocks)")
+	}
+}
+
+// --- Tests for navigateTo with busy active plugin ---
+
+func TestApp_NavigateTo_WhenActivePluginBusy_ShouldNotCancel(t *testing.T) {
+	app := setupTestAppWithTransientPlugins()
+
+	busyPlugin := &mockBusyCancellablePlugin{
+		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+		busy:       true,
+	}
+	app.activePlugin = busyPlugin
+
+	statePlugin, _ := app.registry.ByID("state")
+	app.navigateTo(statePlugin)
+
+	if busyPlugin.cancelCalled {
+		t.Error("navigateTo should not cancel busy plugin")
+	}
+}
+
+func TestApp_NavigateTo_WhenActivePluginNotBusy_ShouldCancel(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockCancellablePlugin{
+			mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+		}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+
+	planPlugin, _ := app.registry.ByID("plan")
+	app.activePlugin = planPlugin
+
+	statePlugin, _ := app.registry.ByID("state")
+	app.navigateTo(statePlugin)
+
+	cancellable := planPlugin.(*mockCancellablePlugin)
+	if !cancellable.cancelCalled {
+		t.Error("navigateTo should cancel non-busy active plugin")
+	}
+}
+
+// --- Tests for viewStandalone ---
+
+func TestApp_View_WhenStandalone_ShouldRenderStandaloneView(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state standalone view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin, _ = app.registry.ByID("state")
+
+	output := app.View()
+	if !strings.Contains(output, "state standalone view") {
+		t.Error("standalone View() should contain plugin view output")
+	}
+	if !strings.Contains(output, "tfui") {
+		t.Error("standalone View() should contain 'tfui' in header")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithChdir_ShouldShowChdir(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin, _ = app.registry.ByID("state")
+	app.activeChdir = "modules/vpc"
+	app.activeWorkspace = "staging"
+
+	output := app.View()
+	if !strings.Contains(output, "modules/vpc") {
+		t.Error("standalone View() should show activeChdir")
+	}
+	if !strings.Contains(output, "staging") {
+		t.Error("standalone View() should show workspace")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithLockInfo_ShouldShowLocked(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin, _ = app.registry.ByID("state")
+	app.lockInfo = &sdk.StateLock{ID: "abc-123"}
+
+	output := app.View()
+	if !strings.Contains(output, "[locked]") {
+		t.Error("standalone View() with lockInfo should show [locked]")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithCommandError_ShouldShowError(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin, _ = app.registry.ByID("state")
+	app.commandError = "Operation in progress"
+
+	output := app.View()
+	if !strings.Contains(output, "Operation in progress") {
+		t.Error("standalone View() should display commandError")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithInputActive_ShouldShowPrompt(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin, _ = app.registry.ByID("state")
+	app.inputActive = true
+	app.inputPrompt = "Delete?"
+	app.inputAnswer = "y"
+
+	output := app.View()
+	if !strings.Contains(output, "Delete?") {
+		t.Error("standalone View() should display input prompt")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithStackablePlugin_ShouldShowHints(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+
+	stack := sdk.NewStack()
+	stack.Push(&mockFrame{
+		id:    "list",
+		hints: []sdk.KeyHint{{Key: "q", Description: "quit"}},
+	})
+	app.activePlugin = &mockStackablePlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		stack:      stack,
+	}
+
+	output := app.View()
+	if !strings.Contains(output, "quit") {
+		t.Error("standalone View() with stackable plugin should show stack hints")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithStackablePluginNoHints_ShouldShowDefaultBar(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+
+	stack := sdk.NewStack()
+	stack.Push(&mockFrame{id: "list", hints: nil})
+	app.activePlugin = &mockStackablePlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		stack:      stack,
+	}
+
+	output := app.View()
+	if output == "" {
+		t.Error("standalone View() should not be empty")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithHintablePlugin_ShouldShowHints(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin = &mockHintablePlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		hints:      []sdk.KeyHint{{Key: "d", Description: "delete"}},
+	}
+
+	output := app.View()
+	if !strings.Contains(output, "delete") {
+		t.Error("standalone View() with hintable plugin should show hints")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithHintablePluginNilHints_ShouldShowDefaultBar(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin = &mockHintablePlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		hints:      nil,
+	}
+
+	output := app.View()
+	if output == "" {
+		t.Error("standalone View() should not be empty")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithPlainPlugin_ShouldShowDefaultStatusBar(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin = &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+
+	output := app.View()
+	if output == "" {
+		t.Error("standalone View() with plain plugin should not be empty")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithOverlay_ShouldRenderOverlay(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin = &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	app.activeOverlay = &mockOverlay{
+		id:         "test-overlay",
+		viewOutput: "standalone-overlay-content",
+		hints:      []sdk.KeyHint{{Key: "esc", Description: "close"}},
+	}
+
+	output := app.View()
+	if !strings.Contains(output, "standalone-overlay-content") {
+		t.Error("standalone View() with overlay should render overlay content")
+	}
+}
+
+func TestApp_View_WhenStandaloneWithOverlayNoHints_ShouldStillRender(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin = &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	app.activeOverlay = &mockOverlay{
+		id:         "test-overlay",
+		viewOutput: "standalone-overlay-no-hints",
+		hints:      nil,
+	}
+
+	output := app.View()
+	if !strings.Contains(output, "standalone-overlay-no-hints") {
+		t.Error("standalone View() with overlay (no hints) should render overlay")
+	}
+}
+
+func TestApp_View_WhenStandaloneNoActivePlugin_ShouldNotPanic(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 80
+	app.height = 24
+	app.activePlugin = nil
+
+	output := app.View()
+	if output == "" {
+		t.Error("standalone View() with nil activePlugin should not be empty")
+	}
+}
+
+func TestApp_View_WhenStandaloneNarrowWidth_ShouldForceMinGap(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.width = 5 // very narrow to trigger gap < 1
+	app.height = 24
+	app.activePlugin = &mockPlugin{id: "state", name: "State", viewOutput: "s"}
+	app.activeChdir = "very/long/path/exceeding/width"
+	app.activeWorkspace = "production-extra-long"
+	app.lockInfo = &sdk.StateLock{ID: "lock"}
+
+	output := app.View()
+	if output == "" {
+		t.Error("standalone View() with narrow width should still render")
+	}
+}
+
+// --- Tests for activeViewID ---
+
+func TestActiveViewID_WhenEmptyNavStack_ShouldReturnHome(t *testing.T) {
+	result := activeViewID(nil)
+	if result != "home" {
+		t.Errorf("activeViewID(nil) = %q, want %q", result, "home")
+	}
+}
+
+func TestActiveViewID_WhenNavStackWithNilEntry_ShouldReturnHome(t *testing.T) {
+	result := activeViewID([]sdk.Plugin{nil})
+	if result != "home" {
+		t.Errorf("activeViewID([nil]) = %q, want %q", result, "home")
+	}
+}
+
+func TestActiveViewID_WhenNavStackWithPlugin_ShouldReturnPluginID(t *testing.T) {
+	p := &mockPlugin{id: "state", name: "State"}
+	result := activeViewID([]sdk.Plugin{p})
+	if result != "state" {
+		t.Errorf("activeViewID([state]) = %q, want %q", result, "state")
+	}
+}
+
+func TestActiveViewID_WhenNavStackWithMultiple_ShouldReturnLastPluginID(t *testing.T) {
+	p1 := &mockPlugin{id: "state", name: "State"}
+	p2 := &mockPlugin{id: "plan", name: "Plan"}
+	result := activeViewID([]sdk.Plugin{p1, p2})
+	if result != "plan" {
+		t.Errorf("activeViewID([state, plan]) = %q, want %q", result, "plan")
+	}
+}
+
+// --- Tests for DeactivateMsg with Cancellable plugin ---
+
+func TestApp_DeactivateMsg_WhenCancellablePlugin_ShouldCallCancel(t *testing.T) {
+	cancellable := &mockCancellablePlugin{
+		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+	}
+
+	app := setupTestApp()
+	app.activePlugin = cancellable
+
+	app.Update(sdk.DeactivateMsg{})
+
+	if !cancellable.cancelCalled {
+		t.Error("DeactivateMsg should call Cancel on cancellable plugin")
+	}
+}
+
+// --- Tests for q with busy plugin at app level ---
+
+func TestApp_HandleKey_WhenQWithBusyPlugin_ShouldNotCancel(t *testing.T) {
+	busyCancellable := &mockBusyCancellablePlugin{
+		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+		busy:       true,
+	}
+
+	app := setupTestApp()
+	app.activePlugin = busyCancellable
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	updated := model.(App)
+
+	if busyCancellable.cancelCalled {
+		t.Error("q with busy plugin should not call Cancel")
+	}
+	if updated.activePlugin != nil {
+		t.Error("q should still go home even with busy plugin")
+	}
+}
+
+func TestApp_HandleKey_WhenQWithNonBusyCancellable_ShouldCancel(t *testing.T) {
+	cancellable := &mockBusyCancellablePlugin{
+		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+		busy:       false,
+	}
+
+	app := setupTestApp()
+	app.activePlugin = cancellable
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	updated := model.(App)
+
+	if !cancellable.cancelCalled {
+		t.Error("q with non-busy cancellable plugin should call Cancel")
+	}
+	if updated.activePlugin != nil {
+		t.Error("q should go home")
+	}
+}
+
+// --- Test for NewApp with rootCfg but childCfg load error ---
+
+func TestNewApp_WhenRootCfgSetWithInvalidChildDir_ShouldStillCreate(t *testing.T) {
+	rootCfg := &config.RootConfig{}
+	cfg := config.Config{
+		Dir:       "/nonexistent/dir/that/should/not/exist",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, rootCfg)
+	if app.rootCfg == nil {
+		t.Error("app should have rootCfg even if childCfg failed to load")
 	}
 }
 

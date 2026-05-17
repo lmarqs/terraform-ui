@@ -12,6 +12,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/source"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
+	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 	"github.com/lmarqs/terraform-ui/internal/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -174,7 +175,7 @@ func (s *Session) buildService(ax axes) (sdk.Service, *terraform.MacroService, e
 		svc := terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
 		return svc, svc, nil
 	default:
-		svc := terraform.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
+		svc := tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
 		return svc, nil, nil
 	}
 }
