@@ -1,0 +1,2 @@
+# No external dependencies — demo tooling uses Python stdlib only (json, os, sys).
+# Generated from: pip freeze (empty venv)

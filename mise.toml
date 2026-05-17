@@ -8,6 +8,10 @@ opentofu = "1.9"
 terraform = "1.14"
 terragrunt = "0.77"
 
+[env]
+_.python.venv = { path = ".venv", create = true }
+_.file = ".env"
+
 # ─── Developer tools ────────────────────────────────────────────────────────────
 
 [tasks.dev]
@@ -103,6 +107,16 @@ fi
 echo "All tapes passed."
 """
 description = "Macro tapes against built binary (blackbox)"
+
+# ─── Demo (developer tools) ────────────────────────────────────────────────────
+
+[tasks."demo:generate"]
+run = "./demo/generate.sh"
+description = "Generate demo recordings from macro tapes (requires built binary)"
+
+[tasks."demo:lock"]
+run = "pip install -r pyproject.toml && pip freeze > requirements.txt"
+description = "Lock Python dependencies from pyproject.toml"
 
 # ─── Release (CI only) ─────────────────────────────────────────────────────────
 

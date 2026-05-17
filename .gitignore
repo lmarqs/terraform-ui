@@ -27,3 +27,10 @@ reports/
 # Jekyll
 _site/
 .jekyll-cache/
+
+# Python
+.venv/
+
+# Demo recordings (regenerated from tapes)
+demo/output/*/
+demo/output/*.gif
