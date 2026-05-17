@@ -11,50 +11,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-// mockService implements sdk.Service for testing.
-type mockService struct {
-	validateResult []sdk.Diagnostic
-	validateErr    error
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return nil, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)      { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error      { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error    { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error        { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error      { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
-	return m.validateResult, m.validateErr
-}
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
-
 func TestNew(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "validate" {
@@ -72,7 +33,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -81,7 +42,7 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -102,7 +63,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestActivate(t *testing.T) {
-	svc := &mockService{validateResult: nil}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -125,7 +86,11 @@ func TestActivateCmdReturnsValidateResultMsg(t *testing.T) {
 	diags := []sdk.Diagnostic{
 		{Severity: "error", Summary: "Missing required argument", File: "main.tf", Line: 10},
 	}
-	svc := &mockService{validateResult: diags}
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return diags, nil
+		},
+	}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
@@ -159,7 +124,11 @@ func TestActivateCmdReturnsValidateResultMsg(t *testing.T) {
 }
 
 func TestActivateCmdReturnsError(t *testing.T) {
-	svc := &mockService{validateErr: errors.New("validate failed")}
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return nil, errors.New("validate failed")
+		},
+	}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
@@ -190,7 +159,7 @@ func TestActivateCmdReturnsError(t *testing.T) {
 }
 
 func TestUpdateValidateResultSuccess(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -218,7 +187,7 @@ func TestUpdateValidateResultSuccess(t *testing.T) {
 }
 
 func TestUpdateValidateResultErrorsSortedFirst(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -249,7 +218,7 @@ func TestUpdateValidateResultErrorsSortedFirst(t *testing.T) {
 }
 
 func TestUpdateValidateResultError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -269,7 +238,7 @@ func TestUpdateValidateResultError(t *testing.T) {
 }
 
 func TestUpdateValidateResultZeroDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -286,7 +255,7 @@ func TestUpdateValidateResultZeroDiagnostics(t *testing.T) {
 }
 
 func TestUpdateKeyMsgNavigation(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -334,7 +303,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 }
 
 func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -358,7 +327,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 }
 
 func TestUpdateKeyMsgToggleExpand(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -386,7 +355,11 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 }
 
 func TestUpdateKeyMsgRefresh(t *testing.T) {
-	svc := &mockService{validateResult: []sdk.Diagnostic{}}
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return []sdk.Diagnostic{}, nil
+		},
+	}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -413,7 +386,7 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 }
 
 func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -427,7 +400,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 }
 
 func TestMoveUpDown(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "a"},
@@ -453,7 +426,7 @@ func TestMoveUpDown(t *testing.T) {
 }
 
 func TestMoveDownNilDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = nil
 	p.MoveDown()
@@ -463,7 +436,7 @@ func TestMoveDownNilDiagnostics(t *testing.T) {
 }
 
 func TestMoveToStartEnd(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "a"},
@@ -482,7 +455,7 @@ func TestMoveToStartEnd(t *testing.T) {
 }
 
 func TestMoveToEndNilDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = nil
 	p.MoveToEnd()
@@ -492,7 +465,7 @@ func TestMoveToEndNilDiagnostics(t *testing.T) {
 }
 
 func TestMoveToEndEmptyDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{}
 	p.MoveToEnd()
@@ -502,7 +475,7 @@ func TestMoveToEndEmptyDiagnostics(t *testing.T) {
 }
 
 func TestToggleExpand(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 2
 
@@ -517,7 +490,7 @@ func TestToggleExpand(t *testing.T) {
 }
 
 func TestIsExpanded(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.IsExpanded(0) {
 		t.Error("IsExpanded(0) = true before toggle, want false")
@@ -525,7 +498,11 @@ func TestIsExpanded(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	svc := &mockService{validateResult: []sdk.Diagnostic{}}
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return []sdk.Diagnostic{}, nil
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.selected = 5
@@ -544,7 +521,7 @@ func TestRefresh(t *testing.T) {
 }
 
 func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -555,7 +532,7 @@ func TestViewIdle(t *testing.T) {
 }
 
 func TestViewLoading(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -566,7 +543,7 @@ func TestViewLoading(t *testing.T) {
 }
 
 func TestViewError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "some error"
@@ -578,7 +555,7 @@ func TestViewError(t *testing.T) {
 }
 
 func TestViewDoneNoDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
@@ -593,7 +570,7 @@ func TestViewDoneNoDiagnostics(t *testing.T) {
 }
 
 func TestViewDoneWithDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
@@ -609,7 +586,7 @@ func TestViewDoneWithDiagnostics(t *testing.T) {
 }
 
 func TestViewDoneWithExpandedDetail(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
@@ -624,7 +601,7 @@ func TestViewDoneWithExpandedDetail(t *testing.T) {
 }
 
 func TestViewDoneScrolling(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -643,7 +620,7 @@ func TestViewDoneScrolling(t *testing.T) {
 }
 
 func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99) // invalid status
 
@@ -654,7 +631,7 @@ func TestViewDefaultStatus(t *testing.T) {
 }
 
 func TestViewSmallHeight(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
@@ -708,7 +685,7 @@ func TestSortDiagnosticsEmpty(t *testing.T) {
 }
 
 func TestDiagnostics(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Diagnostics() != nil {
 		t.Error("Diagnostics() = non-nil before validate, want nil")
@@ -721,7 +698,7 @@ func TestDiagnostics(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	if p.Status() != sdk.StatusIdle {
@@ -730,7 +707,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestSelected(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 5
 
@@ -740,7 +717,7 @@ func TestSelected(t *testing.T) {
 }
 
 func TestViewDiagnosticWithFileNoLine(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
@@ -754,7 +731,7 @@ func TestViewDiagnosticWithFileNoLine(t *testing.T) {
 }
 
 func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
@@ -767,7 +744,7 @@ func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
 }
 
 func TestHints_WhenLoading_ShouldReturnBackOnly(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	hints := p.Hints()
@@ -779,7 +756,7 @@ func TestHints_WhenLoading_ShouldReturnBackOnly(t *testing.T) {
 }
 
 func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
 	hints := p.Hints()
@@ -792,7 +769,7 @@ func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
 }
 
 func TestHints_WhenDoneWithDiagnostics_ShouldReturnInspectRefreshBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "some error"},
@@ -809,7 +786,7 @@ func TestHints_WhenDoneWithDiagnostics_ShouldReturnInspectRefreshBack(t *testing
 }
 
 func TestHints_WhenDoneWithoutDiagnostics_ShouldReturnRefreshAndBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
@@ -824,7 +801,7 @@ func TestHints_WhenDoneWithoutDiagnostics_ShouldReturnRefreshAndBack(t *testing.
 }
 
 func TestHints_WhenUnknownStatus_ShouldReturnBackOnly(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.Status(99)
 
 	hints := p.Hints()
@@ -836,9 +813,11 @@ func TestHints_WhenUnknownStatus_ShouldReturnBackOnly(t *testing.T) {
 }
 
 func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {
-	svc := &mockService{validateResult: []sdk.Diagnostic{
-		{Severity: "error", Summary: "old error"},
-	}}
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return []sdk.Diagnostic{{Severity: "error", Summary: "old error"}}, nil
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{{Severity: "error", Summary: "old"}}
@@ -875,7 +854,7 @@ func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {
 }
 
 func TestHandleChdirChanged_ShouldCallWithDir(t *testing.T) {
-	originalSvc := &mockService{}
+	originalSvc := &sdktest.MockService{}
 	p := New(originalSvc).(*Plugin)
 	ctx := &sdk.Context{
 		Service: originalSvc,
@@ -894,7 +873,7 @@ func TestHandleChdirChanged_ShouldCallWithDir(t *testing.T) {
 }
 
 func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		Service: svc,
@@ -910,7 +889,7 @@ func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
 }
 
 func TestActivate_WhenDone_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		Service: svc,
@@ -926,7 +905,7 @@ func TestActivate_WhenDone_ShouldReturnNil(t *testing.T) {
 }
 
 func TestActivate_WhenError_ShouldRetriggerValidation(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
 		Service: svc,
@@ -973,7 +952,7 @@ func assertNotContains(t *testing.T, descs []string, notWant string) {
 }
 
 func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Missing arg", Detail: "Required", File: "main.tf", Line: 10},
@@ -1000,7 +979,7 @@ func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
 }
 
 func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
@@ -1015,7 +994,7 @@ func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
 }
 
 func TestOutput_WhenJsonFalseWithDiagnostics_ShouldReturnText(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
 		{Severity: "error", Summary: "Invalid ref", File: "main.tf", Line: 5, Detail: "Not found"},
@@ -1042,7 +1021,7 @@ func TestOutput_WhenJsonFalseWithDiagnostics_ShouldReturnText(t *testing.T) {
 }
 
 func TestOutput_WhenJsonFalseNoDiagnostics_ShouldReturnValid(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
@@ -1056,7 +1035,7 @@ func TestOutput_WhenJsonFalseNoDiagnostics_ShouldReturnValid(t *testing.T) {
 }
 
 func TestExitCode_WhenNoErrors_ShouldReturnZero(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{{Severity: "warning", Summary: "x"}}
 	if code := p.ExitCode(); code != 0 {
 		t.Errorf("ExitCode() = %d, want 0", code)
@@ -1064,7 +1043,7 @@ func TestExitCode_WhenNoErrors_ShouldReturnZero(t *testing.T) {
 }
 
 func TestExitCode_WhenErrorsPresent_ShouldReturnOne(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{{Severity: "error", Summary: "x"}}
 	if code := p.ExitCode(); code != 1 {
 		t.Errorf("ExitCode() = %d, want 1", code)
@@ -1072,7 +1051,7 @@ func TestExitCode_WhenErrorsPresent_ShouldReturnOne(t *testing.T) {
 }
 
 func TestExitCode_WhenNilDiagnostics_ShouldReturnZero(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.diagnostics = nil
 	if code := p.ExitCode(); code != 0 {
 		t.Errorf("ExitCode() = %d, want 0", code)
@@ -1080,13 +1059,13 @@ func TestExitCode_WhenNilDiagnostics_ShouldReturnZero(t *testing.T) {
 }
 
 func TestCancel_WhenNil_ShouldNotPanic(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestCancel_WhenSet_ShouldCallAndClear(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -1099,7 +1078,7 @@ func TestCancel_WhenSet_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 
 	type customMsg struct{}
 	result, cmd := p.Update(customMsg{})
@@ -1112,7 +1091,7 @@ func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
 }
 
 func TestOutput_WhenTextWithFileNoLine_ShouldFormatCorrectly(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
