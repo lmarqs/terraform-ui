@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,10 +13,15 @@ import (
 )
 
 type mockService struct {
-	applyErr error
+	applyErr   error
+	planResult *sdk.PlanSummary
+	planErr    error
 }
 
 func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+	if m.planResult != nil || m.planErr != nil {
+		return m.planResult, m.planErr
+	}
 	return &sdk.PlanSummary{}, nil
 }
 func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return m.applyErr }
@@ -795,5 +801,318 @@ func TestPlugin_WhenDoneAndCtrlR_ShouldNavigateToPlan(t *testing.T) {
 	}
 	if nav.PluginID != "plan" {
 		t.Errorf("NavigateMsg.PluginID = %q, want %q", nav.PluginID, "plan")
+	}
+}
+
+func TestPlugin_WhenActivatedInIdleStatus_ShouldNotReset(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusIdle
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() in idle should return nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle", p.status)
+	}
+}
+
+func TestPlugin_WhenActivatedInLoadingStatus_ShouldNotReset(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() in loading should return nil")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+}
+
+func TestPlugin_WhenRequestApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
+	svc := &mockService{planResult: &sdk.PlanSummary{ToCreate: 1}}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.targets = []string{"aws_instance.web"}
+
+	cmd := p.RequestApply()
+	if cmd == nil {
+		t.Fatal("RequestApply() with targets should return cmd")
+	}
+	if p.status != StatusReplanning {
+		t.Errorf("status = %v, want StatusReplanning", p.status)
+	}
+}
+
+func TestPlugin_WhenCancelWithNilCancelFn_ShouldNotPanic(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestPlugin_WhenCancelWithCancelFn_ShouldCallIt(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}
+
+func TestPlugin_WhenAutoApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
+	svc := &mockService{planResult: &sdk.PlanSummary{ToCreate: 1}}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.targets = []string{"aws_instance.web"}
+
+	cmd := p.AutoApply()
+	if cmd == nil {
+		t.Fatal("AutoApply() with targets should return cmd")
+	}
+	if p.status != StatusReplanning {
+		t.Errorf("status = %v, want StatusReplanning", p.status)
+	}
+	if !p.confirmed {
+		t.Error("confirmed = false, want true")
+	}
+}
+
+func TestPlugin_WhenAutoApplyWithoutTargets_ShouldEnterLoading(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.targets = nil
+
+	cmd := p.AutoApply()
+	if cmd == nil {
+		t.Fatal("AutoApply() without targets should return cmd")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+	if !p.confirmed {
+		t.Error("confirmed = false, want true")
+	}
+}
+
+func TestPlugin_WhenReplanResultError_ShouldTransitionToError(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusReplanning
+	p.timer.Start()
+
+	_, cmd := p.Update(ReplanResultMsg{Err: errors.New("plan failed")})
+	if cmd != nil {
+		t.Error("ReplanResultMsg error should return nil cmd")
+	}
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+	if p.errMsg != "plan failed" {
+		t.Errorf("errMsg = %q, want %q", p.errMsg, "plan failed")
+	}
+}
+
+func TestPlugin_WhenReplanResultSuccessAndConfirmed_ShouldRunApply(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.status = StatusReplanning
+	p.confirmed = true
+	p.timer.Start()
+
+	_, cmd := p.Update(ReplanResultMsg{Summary: &sdk.PlanSummary{ToCreate: 1}})
+	if cmd == nil {
+		t.Fatal("ReplanResultMsg success+confirmed should return cmd (runApply)")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+}
+
+func TestPlugin_WhenReplanResultSuccessAndNotConfirmed_ShouldTransitionToConfirming(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusReplanning
+	p.confirmed = false
+	p.timer.Start()
+
+	_, cmd := p.Update(ReplanResultMsg{Summary: &sdk.PlanSummary{ToCreate: 1}})
+	if cmd != nil {
+		t.Error("ReplanResultMsg success+not confirmed should return nil cmd")
+	}
+	if p.status != StatusConfirming {
+		t.Errorf("status = %v, want StatusConfirming", p.status)
+	}
+}
+
+func TestPlugin_WhenViewInReplanning_ShouldRenderTargets(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusReplanning
+	p.targets = []string{"aws_instance.web", "aws_s3_bucket.data"}
+	p.timer.Start()
+
+	view := p.View(80, 24)
+	if view == "" {
+		t.Error("View(StatusReplanning) returned empty string")
+	}
+}
+
+func TestPlugin_WhenViewConfirmingWithTargetsAndReplanSummary_ShouldShowCounts(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusConfirming
+	p.targets = []string{"aws_instance.web"}
+	p.replanSummary = &sdk.PlanSummary{ToCreate: 1, ToUpdate: 2, ToDelete: 3}
+
+	view := p.View(80, 24)
+	if view == "" {
+		t.Error("View(StatusConfirming with targets+replan) returned empty string")
+	}
+}
+
+func TestPlugin_WhenOutputJsonSuccess_ShouldReturnCompleteStatus(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"status": "complete"`) {
+		t.Errorf("Output(true) success missing 'complete', got: %s", s)
+	}
+}
+
+func TestPlugin_WhenOutputJsonError_ShouldReturnErrorStatus(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusError
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"status": "error"`) {
+		t.Errorf("Output(true) error missing 'error', got: %s", s)
+	}
+}
+
+func TestPlugin_WhenOutputTextSuccess_ShouldReturnCompleteLine(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if string(data) != "Apply complete.\n" {
+		t.Errorf("Output(false) = %q, want %q", string(data), "Apply complete.\n")
+	}
+}
+
+func TestPlugin_WhenOutputTextError_ShouldReturnErrorMessage(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "something broke"
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if !strings.Contains(string(data), "something broke") {
+		t.Errorf("Output(false) missing error msg, got: %s", string(data))
+	}
+}
+
+func TestPlugin_WhenEscInReplanning_ShouldEmitDeactivateMsg(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusReplanning
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc in replanning should return cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
+	}
+}
+
+func TestPlugin_WhenEscInDone_ShouldEmitDeactivateMsg(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc in done should return cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
+	}
+}
+
+func TestPlugin_WhenEscInError_ShouldEmitDeactivateMsg(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusError
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc in error should return cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
+	}
+}
+
+func TestPlugin_WhenHintsInReplanning_ShouldReturnCancel(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusReplanning
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() in replanning returned empty")
+	}
+	if hints[0].Key != "Esc" {
+		t.Errorf("Hints()[0].Key = %q, want %q", hints[0].Key, "Esc")
+	}
+}
+
+func TestPlugin_WhenRunReplan_ShouldReturnReplanResultMsg(t *testing.T) {
+	svc := &mockService{planResult: &sdk.PlanSummary{ToCreate: 2}}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.options = &sdk.ResolvedOptions{}
+	p.targets = []string{"aws_instance.web"}
+
+	cmd := p.runReplan()
+	msg := cmd()
+	result, ok := msg.(ReplanResultMsg)
+	if !ok {
+		t.Fatalf("runReplan cmd returned %T, want ReplanResultMsg", msg)
+	}
+	if result.Err != nil {
+		t.Errorf("ReplanResultMsg.Err = %v, want nil", result.Err)
+	}
+	if result.Summary == nil {
+		t.Fatal("ReplanResultMsg.Summary = nil, want non-nil")
+	}
+}
+
+func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
+	svc := &mockService{planErr: errors.New("plan broken")}
+	p := New(svc).(*Plugin)
+	p.svc = svc
+	p.options = &sdk.ResolvedOptions{}
+	p.targets = []string{"aws_instance.web"}
+
+	cmd := p.runReplan()
+	msg := cmd()
+	result := msg.(ReplanResultMsg)
+	if result.Err == nil {
+		t.Error("ReplanResultMsg.Err = nil, want error")
 	}
 }
