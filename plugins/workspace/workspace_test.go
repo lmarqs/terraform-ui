@@ -8,58 +8,20 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-type mockService struct {
-	workspaceList      []string
-	workspaceListErr   error
-	workspace          string
-	workspaceErr       error
-	workspaceSelectErr error
-	workspaceNewErr    error
-	workspaceDeleteErr error
+func mockSvc(list []string, current string) *sdktest.MockService {
+	return &sdktest.MockService{
+		WorkspaceListFn: func(_ context.Context) ([]string, error) { return list, nil },
+		WorkspaceFn:     func(_ context.Context) (string, error) { return current, nil },
+	}
 }
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return &sdk.PlanSummary{}, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error) {
-	return m.workspace, m.workspaceErr
-}
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return m.workspaceList, m.workspaceListErr
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error {
-	return m.workspaceSelectErr
-}
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return m.workspaceNewErr
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return m.workspaceDeleteErr
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error               { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error                  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error                      { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error)         { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
 
 // --- Plugin identity and lifecycle ---
 
 func TestNew_ShouldReturn_PluginWithCorrectIdentity(t *testing.T) {
-	p := New(&mockService{})
+	p := New(&sdktest.MockService{})
 	if p.ID() != "workspace" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "workspace")
 	}
@@ -72,21 +34,21 @@ func TestNew_ShouldReturn_PluginWithCorrectIdentity(t *testing.T) {
 }
 
 func TestNew_ShouldNotBeReady_BeforeActivation(t *testing.T) {
-	p := New(&mockService{})
+	p := New(&sdktest.MockService{})
 	if p.(*Plugin).Ready() {
 		t.Error("Ready() = true before activation, want false")
 	}
 }
 
 func TestConfigure_ShouldAcceptAnyConfig(t *testing.T) {
-	p := New(&mockService{})
+	p := New(&sdktest.MockService{})
 	if err := p.(*Plugin).Configure(map[string]interface{}{"key": "value"}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
 }
 
 func TestInit_ShouldSetStatusIdle_WithoutAutoLoading(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	cmd := p.Init(&sdk.Context{Service: svc, WorkingDir: "/tmp", Workspace: "default"})
 	if cmd != nil {
@@ -98,7 +60,7 @@ func TestInit_ShouldSetStatusIdle_WithoutAutoLoading(t *testing.T) {
 }
 
 func TestStack_ShouldReturn_NonNilStack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Stack() == nil {
 		t.Fatal("Stack() = nil")
 	}
@@ -110,7 +72,7 @@ func TestStack_ShouldReturn_NonNilStack(t *testing.T) {
 // --- Activation ---
 
 func TestActivate_GivenIdle_ShouldStartLoading(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 
@@ -124,7 +86,7 @@ func TestActivate_GivenIdle_ShouldStartLoading(t *testing.T) {
 }
 
 func TestActivate_GivenError_ShouldRetryLoading(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 	p.status = sdk.StatusError
@@ -139,7 +101,7 @@ func TestActivate_GivenError_ShouldRetryLoading(t *testing.T) {
 }
 
 func TestActivate_GivenDone_ShouldNotReload(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 	p.status = sdk.StatusDone
@@ -151,7 +113,7 @@ func TestActivate_GivenDone_ShouldNotReload(t *testing.T) {
 }
 
 func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default", "staging"}, workspace: "staging"}
+	svc := mockSvc([]string{"default", "staging"}, "staging")
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 
@@ -184,7 +146,11 @@ func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
 }
 
 func TestActivate_GivenListError_ShouldReturnErrorMsg(t *testing.T) {
-	svc := &mockService{workspaceListErr: errors.New("network error")}
+	svc := &sdktest.MockService{
+		WorkspaceListFn: func(_ context.Context) ([]string, error) {
+			return nil, errors.New("network error")
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 
@@ -209,7 +175,10 @@ func TestActivate_GivenListError_ShouldReturnErrorMsg(t *testing.T) {
 }
 
 func TestActivate_GivenWorkspaceError_ShouldReturnErrorMsg(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspaceErr: errors.New("fail")}
+	svc := &sdktest.MockService{
+		WorkspaceListFn: func(_ context.Context) ([]string, error) { return []string{"default"}, nil },
+		WorkspaceFn: func(_ context.Context) (string, error) { return "", errors.New("fail") },
+	}
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 
@@ -236,7 +205,7 @@ func TestActivate_GivenWorkspaceError_ShouldReturnErrorMsg(t *testing.T) {
 // --- Update: WorkspaceListMsg ---
 
 func TestUpdate_GivenSuccessfulList_ShouldPopulateWorkspaces(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceListMsg{
@@ -265,7 +234,7 @@ func TestUpdate_GivenSuccessfulList_ShouldPopulateWorkspaces(t *testing.T) {
 }
 
 func TestUpdate_GivenListError_ShouldSetErrorStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	result, _ := p.Update(WorkspaceListMsg{Err: errors.New("timeout")})
@@ -281,8 +250,8 @@ func TestUpdate_GivenListError_ShouldSetErrorStatus(t *testing.T) {
 // --- Switch workspace flow ---
 
 func TestSwitchToSelected_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -301,7 +270,7 @@ func TestSwitchToSelected_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t 
 }
 
 func TestSwitchToSelected_GivenSameWorkspace_ShouldDeactivate(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -318,7 +287,7 @@ func TestSwitchToSelected_GivenSameWorkspace_ShouldDeactivate(t *testing.T) {
 }
 
 func TestSwitchToSelected_GivenEmptyList_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.workspaces = []string{}
 
 	cmd := p.SwitchToSelected()
@@ -328,7 +297,7 @@ func TestSwitchToSelected_GivenEmptyList_ShouldReturnNil(t *testing.T) {
 }
 
 func TestUpdate_GivenSwitchSuccess_WithPopBack_ShouldEmitWorkspaceChangedEvent(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -348,7 +317,7 @@ func TestUpdate_GivenSwitchSuccess_WithPopBack_ShouldEmitWorkspaceChangedEvent(t
 }
 
 func TestUpdate_GivenSwitchError_ShouldSetErrorStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceSwitchMsg{Name: "x", Err: errors.New("fail"), PopBack: true})
@@ -362,7 +331,7 @@ func TestUpdate_GivenSwitchError_ShouldSetErrorStatus(t *testing.T) {
 }
 
 func TestSelectWorkspaceCmd_PopBack_ShouldCallService(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -378,7 +347,7 @@ func TestSelectWorkspaceCmd_PopBack_ShouldCallService(t *testing.T) {
 }
 
 func TestSelectWorkspaceCmd_NoPopBack_ShouldCallService(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -394,7 +363,9 @@ func TestSelectWorkspaceCmd_NoPopBack_ShouldCallService(t *testing.T) {
 }
 
 func TestSelectWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
-	svc := &mockService{workspaceSelectErr: errors.New("fail")}
+	svc := &sdktest.MockService{
+		WorkspaceSelectFn: func(_ context.Context, _ string) error { return errors.New("fail") },
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -409,7 +380,7 @@ func TestSelectWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
 // --- Create workspace flow ---
 
 func TestStartCreate_ShouldSetLoadingAndDispatch(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -427,7 +398,7 @@ func TestStartCreate_ShouldSetLoadingAndDispatch(t *testing.T) {
 }
 
 func TestCreateWorkspaceCmd_ShouldReturnCreateMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -443,7 +414,9 @@ func TestCreateWorkspaceCmd_ShouldReturnCreateMsg(t *testing.T) {
 }
 
 func TestCreateWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
-	svc := &mockService{workspaceNewErr: errors.New("exists")}
+	svc := &sdktest.MockService{
+		WorkspaceNewFn: func(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error { return errors.New("exists") },
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -456,7 +429,7 @@ func TestCreateWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
 }
 
 func TestUpdate_GivenCreateSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default", "feature-x"}, workspace: "feature-x"}
+	svc := mockSvc([]string{"default", "feature-x"}, "feature-x")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusLoading
@@ -476,7 +449,7 @@ func TestUpdate_GivenCreateSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T
 }
 
 func TestUpdate_GivenCreateError_ShouldSetErrorStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceCreateMsg{Name: "x", Err: errors.New("already exists")})
@@ -495,7 +468,7 @@ func TestUpdate_GivenCreateError_ShouldSetErrorStatus(t *testing.T) {
 // --- Delete workspace flow ---
 
 func TestDeleteWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -515,7 +488,7 @@ func TestDeleteWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
 }
 
 func TestDeleteWorkspace_GivenServiceSuccess_ShouldRefresh(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusLoading
@@ -533,7 +506,7 @@ func TestDeleteWorkspace_GivenServiceSuccess_ShouldRefresh(t *testing.T) {
 }
 
 func TestDeleteWorkspace_GivenServiceError_ShouldSetErrorStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceDeleteMsg{Err: errors.New("locked")})
@@ -549,7 +522,7 @@ func TestDeleteWorkspace_GivenServiceError_ShouldSetErrorStatus(t *testing.T) {
 // --- Select workspace (stays in list) ---
 
 func TestSelectCurrent_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -570,7 +543,7 @@ func TestSelectCurrent_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t *te
 }
 
 func TestSelectCurrent_GivenSameWorkspace_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -583,7 +556,7 @@ func TestSelectCurrent_GivenSameWorkspace_ShouldReturnNil(t *testing.T) {
 }
 
 func TestSelectCurrent_GivenEmptyList_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.workspaces = []string{}
 
 	cmd := p.SelectCurrent()
@@ -593,7 +566,7 @@ func TestSelectCurrent_GivenEmptyList_ShouldReturnNil(t *testing.T) {
 }
 
 func TestUpdate_GivenSelectSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default", "staging"}, workspace: "staging"}
+	svc := mockSvc([]string{"default", "staging"}, "staging")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusLoading
@@ -636,7 +609,7 @@ func TestUpdate_GivenSelectSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T
 }
 
 func TestFrame_SKey_GivenDifferentWorkspace_ShouldSelect(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -654,8 +627,8 @@ func TestFrame_SKey_GivenDifferentWorkspace_ShouldSelect(t *testing.T) {
 }
 
 func TestFrame_SKey_GivenSameWorkspace_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -668,7 +641,7 @@ func TestFrame_SKey_GivenSameWorkspace_ShouldReturnNil(t *testing.T) {
 }
 
 func TestFrame_SKey_GivenLoading_ShouldBeIgnored(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.workspaces = []string{"default", "staging"}
 	p.selected = 1
@@ -682,7 +655,7 @@ func TestFrame_SKey_GivenLoading_ShouldBeIgnored(t *testing.T) {
 // --- Frame: Loading guards ---
 
 func TestFrame_GivenLoading_EnterKey_ShouldBeIgnored(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.workspaces = []string{"default", "staging"}
 	p.selected = 1
@@ -694,7 +667,7 @@ func TestFrame_GivenLoading_EnterKey_ShouldBeIgnored(t *testing.T) {
 }
 
 func TestFrame_GivenLoading_DeleteKey_ShouldBeIgnored(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -707,7 +680,7 @@ func TestFrame_GivenLoading_DeleteKey_ShouldBeIgnored(t *testing.T) {
 }
 
 func TestFrame_GivenLoading_RefreshKey_ShouldBeIgnored(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
@@ -717,7 +690,7 @@ func TestFrame_GivenLoading_RefreshKey_ShouldBeIgnored(t *testing.T) {
 }
 
 func TestFrame_GivenLoading_NewKey_ShouldBeIgnored(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
@@ -727,7 +700,7 @@ func TestFrame_GivenLoading_NewKey_ShouldBeIgnored(t *testing.T) {
 }
 
 func TestFrame_CtrlR_GivenError_ShouldRetry(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusError
@@ -745,8 +718,8 @@ func TestFrame_CtrlR_GivenError_ShouldRetry(t *testing.T) {
 // --- Frame: Delete confirmation ---
 
 func TestFrame_GivenDeletableWorkspace_DKey_ShouldPushConfirmFrame(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -763,8 +736,8 @@ func TestFrame_GivenDeletableWorkspace_DKey_ShouldPushConfirmFrame(t *testing.T)
 }
 
 func TestFrame_GivenConfirmFrame_YKey_ShouldTriggerDelete(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -782,8 +755,8 @@ func TestFrame_GivenConfirmFrame_YKey_ShouldTriggerDelete(t *testing.T) {
 }
 
 func TestFrame_GivenConfirmFrame_NKey_ShouldCancelDelete(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -798,7 +771,7 @@ func TestFrame_GivenConfirmFrame_NKey_ShouldCancelDelete(t *testing.T) {
 }
 
 func TestFrame_GivenCurrentWorkspace_DKey_ShouldDoNothing(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -814,7 +787,7 @@ func TestFrame_GivenCurrentWorkspace_DKey_ShouldDoNothing(t *testing.T) {
 }
 
 func TestFrame_GivenDefaultWorkspace_DKey_ShouldDoNothing(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "staging"
@@ -829,8 +802,8 @@ func TestFrame_GivenDefaultWorkspace_DKey_ShouldDoNothing(t *testing.T) {
 // --- Frame: Create via RequestInputMsg ---
 
 func TestFrame_NKey_ShouldEmitRequestInputMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 	p.current = "default"
@@ -851,7 +824,7 @@ func TestFrame_NKey_ShouldEmitRequestInputMsg(t *testing.T) {
 }
 
 func TestFrame_NKey_Callback_GivenValidName_ShouldStartCreate(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -872,8 +845,8 @@ func TestFrame_NKey_Callback_GivenValidName_ShouldStartCreate(t *testing.T) {
 }
 
 func TestFrame_NKey_Callback_GivenEmptyName_ShouldCancel(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
@@ -888,8 +861,8 @@ func TestFrame_NKey_Callback_GivenEmptyName_ShouldCancel(t *testing.T) {
 }
 
 func TestFrame_NKey_Callback_GivenInvalidName_ShouldReject(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
@@ -909,7 +882,7 @@ func TestFrame_NKey_Callback_GivenInvalidName_ShouldReject(t *testing.T) {
 // --- Frame: Navigation ---
 
 func TestFrame_EscKey_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
@@ -924,7 +897,7 @@ func TestFrame_EscKey_ShouldEmitDeactivateMsg(t *testing.T) {
 }
 
 func TestFrame_JKey_ShouldMoveDown(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"a", "b", "c"}
 
@@ -935,7 +908,7 @@ func TestFrame_JKey_ShouldMoveDown(t *testing.T) {
 }
 
 func TestFrame_KKey_ShouldMoveUp(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"a", "b", "c"}
 	p.selected = 2
@@ -947,7 +920,7 @@ func TestFrame_KKey_ShouldMoveUp(t *testing.T) {
 }
 
 func TestFrame_DownKey_ShouldMoveDown(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"a", "b"}
 
@@ -958,7 +931,7 @@ func TestFrame_DownKey_ShouldMoveDown(t *testing.T) {
 }
 
 func TestFrame_UpKey_ShouldMoveUp(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"a", "b"}
 	p.selected = 1
@@ -970,8 +943,8 @@ func TestFrame_UpKey_ShouldMoveUp(t *testing.T) {
 }
 
 func TestFrame_EnterKey_GivenSameWorkspace_ShouldDeactivate(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -988,8 +961,8 @@ func TestFrame_EnterKey_GivenSameWorkspace_ShouldDeactivate(t *testing.T) {
 }
 
 func TestFrame_EnterKey_GivenDifferentWorkspace_ShouldSwitch(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
-	p.svc = &mockService{}
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -1002,7 +975,7 @@ func TestFrame_EnterKey_GivenDifferentWorkspace_ShouldSwitch(t *testing.T) {
 }
 
 func TestFrame_NonKeyMsg_ShouldBeIgnored(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	frame := p.stack.Peek()
@@ -1019,7 +992,7 @@ func TestFrame_NonKeyMsg_ShouldBeIgnored(t *testing.T) {
 // --- Hints: context-sensitive ---
 
 func TestHints_GivenLoading_ShouldShowOnlyBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	hints := p.stack.Peek().Hints()
@@ -1031,7 +1004,7 @@ func TestHints_GivenLoading_ShouldShowOnlyBack(t *testing.T) {
 }
 
 func TestHints_GivenError_ShouldShowRetryAndBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
 	hints := p.stack.Peek().Hints()
@@ -1041,7 +1014,7 @@ func TestHints_GivenError_ShouldShowRetryAndBack(t *testing.T) {
 }
 
 func TestHints_GivenDone_CursorOnDeletable_ShouldShowDeleteAndSelect(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging", "temp"}
 	p.current = "default"
@@ -1067,7 +1040,7 @@ func TestHints_GivenDone_CursorOnDeletable_ShouldShowDeleteAndSelect(t *testing.
 }
 
 func TestHints_GivenDone_CursorOnCurrent_ShouldHideDelete(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "staging"
@@ -1082,7 +1055,7 @@ func TestHints_GivenDone_CursorOnCurrent_ShouldHideDelete(t *testing.T) {
 }
 
 func TestHints_GivenDone_CursorOnDefault_ShouldHideDelete(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "staging"
@@ -1099,7 +1072,7 @@ func TestHints_GivenDone_CursorOnDefault_ShouldHideDelete(t *testing.T) {
 // --- View rendering ---
 
 func TestView_GivenIdleStatus_ShouldShowLoadingMessage(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
@@ -1109,7 +1082,7 @@ func TestView_GivenIdleStatus_ShouldShowLoadingMessage(t *testing.T) {
 }
 
 func TestView_GivenLoadingWithMessage_ShouldShowContextualMessage(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.loadingMsg = "Switching to staging..."
 
@@ -1120,7 +1093,7 @@ func TestView_GivenLoadingWithMessage_ShouldShowContextualMessage(t *testing.T) 
 }
 
 func TestView_GivenError_ShouldShowErrorMessage(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "connection failed"
 
@@ -1131,7 +1104,7 @@ func TestView_GivenError_ShouldShowErrorMessage(t *testing.T) {
 }
 
 func TestView_GivenDone_ShouldShowWorkspaceList(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging", "production"}
 	p.current = "staging"
@@ -1144,7 +1117,7 @@ func TestView_GivenDone_ShouldShowWorkspaceList(t *testing.T) {
 }
 
 func TestView_GivenDone_ShouldScrollLargeList(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.current = "ws-0"
 
@@ -1162,7 +1135,7 @@ func TestView_GivenDone_ShouldScrollLargeList(t *testing.T) {
 }
 
 func TestView_GivenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
@@ -1174,7 +1147,7 @@ func TestView_GivenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 // --- ChdirChanged handler ---
 
 func TestHandleChdirChanged_ShouldResetAndUpdateService(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
 	p.status = sdk.StatusDone
@@ -1193,7 +1166,7 @@ func TestHandleChdirChanged_ShouldResetAndUpdateService(t *testing.T) {
 // --- Helpers ---
 
 func TestMoveUp_AtBoundary_ShouldStay(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.workspaces = []string{"a", "b"}
 	p.selected = 0
 
@@ -1204,7 +1177,7 @@ func TestMoveUp_AtBoundary_ShouldStay(t *testing.T) {
 }
 
 func TestMoveDown_AtBoundary_ShouldStay(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.workspaces = []string{"a", "b"}
 	p.selected = 1
 
@@ -1215,7 +1188,7 @@ func TestMoveDown_AtBoundary_ShouldStay(t *testing.T) {
 }
 
 func TestSelectedWorkspace_GivenEmptyList_ShouldReturnEmpty(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.workspaces = []string{}
 	if p.SelectedWorkspace() != "" {
 		t.Error("SelectedWorkspace with empty list should return empty")
@@ -1223,7 +1196,7 @@ func TestSelectedWorkspace_GivenEmptyList_ShouldReturnEmpty(t *testing.T) {
 }
 
 func TestCurrent_ShouldReturnCurrentWorkspace(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.current = "staging"
 	if p.Current() != "staging" {
 		t.Errorf("Current() = %q, want %q", p.Current(), "staging")
@@ -1231,7 +1204,7 @@ func TestCurrent_ShouldReturnCurrentWorkspace(t *testing.T) {
 }
 
 func TestWorkspaces_ShouldReturnList(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.workspaces = []string{"a", "b"}
 	if len(p.Workspaces()) != 2 {
 		t.Errorf("Workspaces() len = %d, want 2", len(p.Workspaces()))
@@ -1239,14 +1212,14 @@ func TestWorkspaces_ShouldReturnList(t *testing.T) {
 }
 
 func TestStatus_ShouldReturnCurrentStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want Idle", p.Status())
 	}
 }
 
 func TestSelected_ShouldReturnCurrentIndex(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.selected = 3
 	if p.Selected() != 3 {
 		t.Errorf("Selected() = %d, want 3", p.Selected())
@@ -1254,7 +1227,7 @@ func TestSelected_ShouldReturnCurrentIndex(t *testing.T) {
 }
 
 func TestRefresh_ShouldResetAndStartLoading(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -1270,7 +1243,7 @@ func TestRefresh_ShouldResetAndStartLoading(t *testing.T) {
 }
 
 func TestUpdate_UnknownMsg_ShouldPassThrough(t *testing.T) {
-	p := New(&mockService{})
+	p := New(&sdktest.MockService{})
 	type unknownMsg struct{}
 	result, cmd := p.Update(unknownMsg{})
 	if cmd != nil {
@@ -1282,7 +1255,7 @@ func TestUpdate_UnknownMsg_ShouldPassThrough(t *testing.T) {
 }
 
 func TestListFrame_ID(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	frame := p.stack.Peek()
 	if frame.ID() != "list" {
 		t.Errorf("listFrame.ID() = %q, want %q", frame.ID(), "list")
@@ -1290,7 +1263,7 @@ func TestListFrame_ID(t *testing.T) {
 }
 
 func TestListFrame_View_ShouldDelegateToPlugin(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -1305,7 +1278,7 @@ func TestListFrame_View_ShouldDelegateToPlugin(t *testing.T) {
 // --- Frame: ctrl+r refresh ---
 
 func TestFrame_CtrlR_GivenDone_ShouldRefresh(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -1323,7 +1296,7 @@ func TestFrame_CtrlR_GivenDone_ShouldRefresh(t *testing.T) {
 // --- Delete command execution ---
 
 func TestDeleteWorkspaceCmd_ShouldCallServiceAndReturnMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -1356,7 +1329,7 @@ func TestDeleteWorkspaceCmd_ShouldCallServiceAndReturnMsg(t *testing.T) {
 // --- Create event emission ---
 
 func TestUpdate_GivenCreateSuccess_BatchContainsCreatedEvent(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default", "new-ws"}, workspace: "new-ws"}
+	svc := mockSvc([]string{"default", "new-ws"}, "new-ws")
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusLoading
@@ -1395,7 +1368,7 @@ func TestUpdate_GivenCreateSuccess_BatchContainsCreatedEvent(t *testing.T) {
 // --- View edge case ---
 
 func TestView_GivenVerySmallHeight_ShouldUseMinVisibleArea(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"a", "b", "c", "d", "e"}
 	p.current = "a"
@@ -1433,14 +1406,14 @@ func TestIsValidWorkspaceName(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	called := false
 	p.cancelFn = func() { called = true }
@@ -1454,7 +1427,7 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
-	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 
 	type customMsg struct{}

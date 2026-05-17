@@ -8,7 +8,7 @@ import (
 )
 
 func newGoldenPlugin() *Plugin {
-	svc := &mockService{workspace: "default", workspaceList: []string{"default"}}
+	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
 	return p
 }
