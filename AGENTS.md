@@ -1,5 +1,3 @@
-# AGENTS.md
-
 ## Overview
 
 terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Single Go binary, plugin architecture, BubbleTea framework.
@@ -18,7 +16,7 @@ mise run docs:install     # Install Jekyll gem dependencies
 mise run docs:serve       # Serve docs site locally with live reload
 mise run docs:build       # Build docs site for production
 mise run demo:generate    # Record demo GIFs from macro tapes
-mise run demo:lock        # Lock Python deps from pyproject.toml
+mise run demo:lock        # Lock Python deps to requirements.txt
 ```
 
 ## Architecture
