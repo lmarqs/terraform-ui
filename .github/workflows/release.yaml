@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -19,7 +20,45 @@ jobs:
 
       - uses: ./.github/actions/prepare-env
 
+      - name: Install demo dependencies
+        run: pip install -r requirements.txt -q
+
       - name: Release
         run: mise run release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Get release version
+        id: version
+        run: |
+          if [ -f VERSION ]; then
+            echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+            echo "released=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Login to GHCR
+        if: steps.version.outputs.released == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        if: steps.version.outputs.released == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: demo/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/lmarqs/terraform-ui:demo
+            ghcr.io/lmarqs/terraform-ui:${{ steps.version.outputs.version }}
+
+      - name: Trigger pages deploy
+        if: steps.version.outputs.released == 'true'
+        run: gh workflow run pages.yaml --ref main
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
