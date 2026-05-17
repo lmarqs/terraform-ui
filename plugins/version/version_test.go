@@ -292,6 +292,149 @@ func TestPlugin_Init(t *testing.T) {
 	}
 }
 
+func TestPlugin_WhenCancelCalledWithNilCancelFn_ShouldNotPanic(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestPlugin_WhenCancelCalledWithActiveCancelFn_ShouldCallItAndClear(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}
+
+func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = "1.0.0"
+	p.info = nil
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !contains(s, `"tfui_version": "1.0.0"`) {
+		t.Errorf("Output(true) missing tfui_version, got: %s", s)
+	}
+	if !contains(s, `"platform"`) {
+		t.Errorf("Output(true) missing platform, got: %s", s)
+	}
+	if contains(s, `"terraform_version"`) {
+		t.Errorf("Output(true) should not contain terraform_version when info is nil, got: %s", s)
+	}
+	if contains(s, `"provider_selections"`) {
+		t.Errorf("Output(true) should not contain provider_selections when info is nil, got: %s", s)
+	}
+}
+
+func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = "1.0.0"
+	p.info = &sdk.VersionInfo{
+		TerraformVersion: "1.5.0",
+		Providers: map[string]string{
+			"registry.terraform.io/hashicorp/aws": "5.0.0",
+		},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !contains(s, `"terraform_version": "1.5.0"`) {
+		t.Errorf("Output(true) missing terraform_version, got: %s", s)
+	}
+	if !contains(s, `"provider_selections"`) {
+		t.Errorf("Output(true) missing provider_selections, got: %s", s)
+	}
+	if !contains(s, `"registry.terraform.io/hashicorp/aws": "5.0.0"`) {
+		t.Errorf("Output(true) missing provider entry, got: %s", s)
+	}
+}
+
+func TestPlugin_WhenOutputText_ShouldReturnTfuiLineOnly(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = "1.0.0"
+	p.info = nil
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !contains(s, "tfui v1.0.0") {
+		t.Errorf("Output(false) missing tfui version line, got: %s", s)
+	}
+	if contains(s, "terraform v") {
+		t.Errorf("Output(false) should not contain terraform version when info is nil, got: %s", s)
+	}
+}
+
+func TestPlugin_WhenOutputText_ShouldReturnFullTextWithProviders(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = "1.0.0"
+	p.info = &sdk.VersionInfo{
+		TerraformVersion: "1.5.0",
+		Providers: map[string]string{
+			"registry.terraform.io/hashicorp/aws":  "5.0.0",
+			"registry.terraform.io/hashicorp/null": "3.2.1",
+		},
+	}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !contains(s, "tfui v1.0.0") {
+		t.Errorf("Output(false) missing tfui version, got: %s", s)
+	}
+	if !contains(s, "terraform v1.5.0") {
+		t.Errorf("Output(false) missing terraform version, got: %s", s)
+	}
+	if !contains(s, "provider registry.terraform.io/hashicorp/aws v5.0.0") {
+		t.Errorf("Output(false) missing aws provider, got: %s", s)
+	}
+	if !contains(s, "provider registry.terraform.io/hashicorp/null v3.2.1") {
+		t.Errorf("Output(false) missing null provider, got: %s", s)
+	}
+}
+
+func TestPlugin_WhenOutputWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = ""
+	p.info = nil
+
+	tests := []struct {
+		name       string
+		jsonOutput bool
+		want       string
+	}{
+		{"ShouldShowUnknownInJSON", true, "unknown"},
+		{"ShouldShowUnknownInText", false, "tfui vunknown"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data, err := p.Output(tt.jsonOutput)
+			if err != nil {
+				t.Fatalf("Output(%v) error = %v", tt.jsonOutput, err)
+			}
+			if !contains(string(data), tt.want) {
+				t.Errorf("Output(%v) = %s, want to contain %q", tt.jsonOutput, string(data), tt.want)
+			}
+		})
+	}
+}
+
 func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }
