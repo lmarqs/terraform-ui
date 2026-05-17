@@ -11,7 +11,7 @@ import (
 )
 
 func newGoldenPlugin() *Plugin {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return p

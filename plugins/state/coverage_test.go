@@ -1,6 +1,7 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"io"
 	"log/slog"
@@ -9,11 +10,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 )
 
 func TestBusy_WhenMutating_ShouldReturnTrue(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Busy() {
 		t.Error("Busy() = true before mutation, want false")
 	}
@@ -24,7 +26,7 @@ func TestBusy_WhenMutating_ShouldReturnTrue(t *testing.T) {
 }
 
 func TestStack_ShouldReturnStackReference(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	s := p.Stack()
 	if s == nil {
 		t.Fatal("Stack() = nil, want non-nil")
@@ -35,7 +37,7 @@ func TestStack_ShouldReturnStackReference(t *testing.T) {
 }
 
 func TestNavigate_WhenDirectionPositive_ShouldMoveDown(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -51,7 +53,7 @@ func TestNavigate_WhenDirectionPositive_ShouldMoveDown(t *testing.T) {
 }
 
 func TestPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.viewWidth = 80
 	p.detail = strings.Repeat("x", 200)
 	p.detailHScroll = 0
@@ -63,7 +65,7 @@ func TestPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
 }
 
 func TestPanDetailRight_ShouldNotExceedMaxScroll(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.viewWidth = 80
 	p.detail = "short line"
 	p.detailHScroll = 0
@@ -75,7 +77,7 @@ func TestPanDetailRight_ShouldNotExceedMaxScroll(t *testing.T) {
 }
 
 func TestPanDetailRight_ShouldClampToMaxScroll(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.viewWidth = 80
 	contentWidth := 80 - 6
 	line := strings.Repeat("x", contentWidth+20)
@@ -90,7 +92,7 @@ func TestPanDetailRight_ShouldClampToMaxScroll(t *testing.T) {
 }
 
 func TestPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.detailHScroll = 20
 
 	p.panDetailLeft()
@@ -100,7 +102,7 @@ func TestPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
 }
 
 func TestPanDetailLeft_ShouldNotGoBelowZero(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.detailHScroll = 5
 
 	p.panDetailLeft()
@@ -160,7 +162,7 @@ func TestWrapLines_WhenMultipleLines_ShouldWrapEachIndependently(t *testing.T) {
 }
 
 func TestTogglePin_ShouldTogglePinInTree(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "aws_instance.web"}, {Address: "aws_s3_bucket.data"}}
 	p.filtered = p.resources
@@ -184,7 +186,7 @@ func TestTogglePin_ShouldTogglePinInTree(t *testing.T) {
 }
 
 func TestTogglePin_WhenNoPinService_ShouldNotPanic(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.pins = nil
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
@@ -197,7 +199,7 @@ func TestTogglePin_WhenNoPinService_ShouldNotPanic(t *testing.T) {
 }
 
 func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
 
 	t.Run("ShouldReturnConfirmRequest", func(t *testing.T) {
@@ -213,7 +215,7 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 	})
 
 	t.Run("ShouldDeleteOnConfirmation", func(t *testing.T) {
-		svc2 := &trackingMockService{}
+		svc2 := &sdktest.MockService{}
 		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
 		cmd := p2.requestDelete("aws_instance.web")
 		msg := cmd()
@@ -230,13 +232,13 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 		if deleted.Address != "aws_instance.web" {
 			t.Errorf("expected address 'aws_instance.web', got %q", deleted.Address)
 		}
-		if len(svc2.stateRmCalled) != 1 {
-			t.Errorf("expected 1 stateRm call, got %d", len(svc2.stateRmCalled))
+		if len(svc2.StateRmCalls) != 1 {
+			t.Errorf("expected 1 stateRm call, got %d", len(svc2.StateRmCalls))
 		}
 	})
 
 	t.Run("ShouldReturnErrorOnDeleteFailure", func(t *testing.T) {
-		svc2 := &trackingMockService{stateRmErr: errors.New("rm failed")}
+		svc2 := &sdktest.MockService{StateRmFn: func(_ context.Context, _ string) error { return errors.New("rm failed") }}
 		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
 		cmd := p2.requestDelete("aws_instance.web")
 		msg := cmd()
@@ -263,7 +265,7 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 	})
 
 	t.Run("ShouldSetMutatingTrue", func(t *testing.T) {
-		svc2 := &trackingMockService{}
+		svc2 := &sdktest.MockService{}
 		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
 		cmd := p2.requestDelete("aws_instance.web")
 		msg := cmd()
@@ -277,7 +279,7 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 }
 
 func TestRequestEdit_ShouldProduceStateEditMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 
 	cmd := p.requestEdit("aws_instance.web")
 	if cmd == nil {
@@ -294,7 +296,7 @@ func TestRequestEdit_ShouldProduceStateEditMsg(t *testing.T) {
 }
 
 func TestUpdate_WhenStateDeletedMsg_ShouldRefresh(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.svc = svc
@@ -311,7 +313,7 @@ func TestUpdate_WhenStateDeletedMsg_ShouldRefresh(t *testing.T) {
 }
 
 func TestInspectSelected_WhenLoading_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
@@ -324,7 +326,7 @@ func TestInspectSelected_WhenLoading_ShouldReturnNil(t *testing.T) {
 }
 
 func TestInspectSelected_WhenFilterFrameActive_ShouldPopIt(t *testing.T) {
-	svc := &mockService{showResult: `{"id": "123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
@@ -352,7 +354,7 @@ func TestInspectSelected_WhenFilterFrameActive_ShouldPopIt(t *testing.T) {
 }
 
 func TestView_WhenLoadingWithErrMsg_ShouldShowCustomMessage(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.errMsg = "Loading aws_instance.web..."
 
@@ -363,7 +365,7 @@ func TestView_WhenLoadingWithErrMsg_ShouldShowCustomMessage(t *testing.T) {
 }
 
 func TestRenderResources_WhenFilteringWithPinnedOnly_ShouldShowBothIndicators(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
@@ -381,7 +383,7 @@ func TestRenderResources_WhenFilteringWithPinnedOnly_ShouldShowBothIndicators(t 
 }
 
 func TestRenderResources_WhenFilterInactiveWithPinnedOnly_ShouldShowPinnedLabel(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -398,7 +400,7 @@ func TestRenderResources_WhenFilterInactiveWithPinnedOnly_ShouldShowPinnedLabel(
 }
 
 func TestRenderDetail_WhenWrapped_ShouldWrapLongLines(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = strings.Repeat("x", 200)
@@ -414,7 +416,7 @@ func TestRenderDetail_WhenWrapped_ShouldWrapLongLines(t *testing.T) {
 }
 
 func TestRenderDetail_WhenHScrolled_ShouldShiftContent(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -431,7 +433,7 @@ func TestRenderDetail_WhenHScrolled_ShouldShiftContent(t *testing.T) {
 }
 
 func TestRenderDetail_WhenScrolled_ShouldShowScrollIndicator(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	lines := make([]string, 50)
@@ -448,7 +450,7 @@ func TestRenderDetail_WhenScrolled_ShouldShowScrollIndicator(t *testing.T) {
 }
 
 func TestRenderDetail_WhenPinned_ShouldShowPinnedIndicator(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "123"}`
@@ -462,7 +464,7 @@ func TestRenderDetail_WhenPinned_ShouldShowPinnedIndicator(t *testing.T) {
 }
 
 func TestRenderDetail_WhenSmallHeight_ShouldClampMinLines(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	lines := make([]string, 20)
@@ -480,7 +482,7 @@ func TestRenderDetail_WhenSmallHeight_ShouldClampMinLines(t *testing.T) {
 }
 
 func TestRenderDetail_WhenContentWidthTooSmall_ShouldUseMinimum(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = strings.Repeat("y", 100)
@@ -494,7 +496,7 @@ func TestRenderDetail_WhenContentWidthTooSmall_ShouldUseMinimum(t *testing.T) {
 }
 
 func TestFormatResourceRow_WhenHScrollExceedsContent_ShouldReturnEmpty(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.listHScroll = 1000
 	p.listWrap = false
 
@@ -506,7 +508,7 @@ func TestFormatResourceRow_WhenHScrollExceedsContent_ShouldReturnEmpty(t *testin
 }
 
 func TestRenderResources_TreeMode_WithFilterScores(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.treeMode = true
@@ -527,7 +529,7 @@ func TestRenderResources_TreeMode_WithFilterScores(t *testing.T) {
 }
 
 func TestRenderResources_TreeMode_WithHScroll(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.treeMode = true
@@ -546,7 +548,7 @@ func TestRenderResources_TreeMode_WithHScroll(t *testing.T) {
 }
 
 func TestRenderResources_TreeMode_WithListHScrollExceedingContent(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.treeMode = true
@@ -941,7 +943,7 @@ func TestListFrame_Hints_WhenDoneWithPins_ShouldIncludeActions(t *testing.T) {
 }
 
 func TestListFrame_Update_WhenU_InErrorWithLock_ShouldNavigateToForceUnlock(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.svc = svc
@@ -1044,7 +1046,7 @@ func TestListFrame_Update_WhenTreeToggle_ShouldSwitchMode(t *testing.T) {
 }
 
 func TestPanDetailRight_WhenViewWidthSmall_ShouldUseMinContentWidth(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.viewWidth = 20
 	p.detail = strings.Repeat("x", 200)
 	p.detailHScroll = 0
@@ -1056,7 +1058,7 @@ func TestPanDetailRight_WhenViewWidthSmall_ShouldUseMinContentWidth(t *testing.T
 }
 
 func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.treeMode = true
@@ -1075,7 +1077,7 @@ func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
 }
 
 func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = "short\nline"
@@ -1089,7 +1091,7 @@ func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T)
 }
 
 func TestRenderDetail_WhenLineTruncatedByContentWidth_ShouldTruncate(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = strings.Repeat("x", 200)
@@ -1113,7 +1115,7 @@ func TestListFrame_Update_WhenIKey_ShouldInspect(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
-	svc := &mockService{showResult: `{"id": "i-123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1132,7 +1134,7 @@ func TestListFrame_Update_WhenFilterSelectOnLeaf_ShouldInspect(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
-	svc := &mockService{showResult: `{"id": "i-123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1227,7 +1229,7 @@ func TestListFrame_Update_WhenFilterSelectOnBranch_ShouldToggle(t *testing.T) {
 		{Address: "module.a.aws_instance.one", Type: "aws_instance"},
 		{Address: "module.a.aws_instance.two", Type: "aws_instance"},
 	}
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1406,7 +1408,7 @@ func TestListFrame_Update_WhenIKeyOnLeafInTreeMode_ShouldInspect(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
-	svc := &mockService{showResult: `{"id": "123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1427,7 +1429,7 @@ func TestListFrame_Update_WhenFilterSelectOnLeafInTreeMode_ShouldInspect(t *test
 	resources := []sdk.Resource{
 		{Address: "aws_instance.one", Type: "aws_instance"},
 	}
-	svc := &mockService{showResult: `{"id": "123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1533,7 +1535,7 @@ func TestListFrame_Update_WhenEnterInTreeModeOnLeaf_ShouldInspect(t *testing.T) 
 	resources := []sdk.Resource{
 		{Address: "module.a.aws_instance.web", Type: "aws_instance"},
 	}
-	svc := &mockService{showResult: `{"id": "123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1558,7 +1560,7 @@ func TestListFrame_Update_WhenEnterInTreeModeOnLeaf_ShouldInspect(t *testing.T) 
 }
 
 func TestRenderResources_WhenHeightVerySmall_ShouldClampMinVisible(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
@@ -1573,7 +1575,7 @@ func TestRenderResources_WhenHeightVerySmall_ShouldClampMinVisible(t *testing.T)
 }
 
 func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -1585,7 +1587,7 @@ func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
 }
 
 func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusLoading
 
@@ -1596,7 +1598,7 @@ func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
 }
 
 func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.svc = svc
@@ -1613,7 +1615,7 @@ func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
 }
 
 func TestIsTaintedAddress_WhenResourceTainted_ShouldReturnTrue(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Tainted: false},
@@ -1631,7 +1633,7 @@ func TestIsTaintedAddress_WhenResourceTainted_ShouldReturnTrue(t *testing.T) {
 }
 
 func TestRenderDetail_WhenTainted_ShouldShowTaintedIndicator(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "123"}`
@@ -1644,7 +1646,7 @@ func TestRenderDetail_WhenTainted_ShouldShowTaintedIndicator(t *testing.T) {
 }
 
 func TestFormatResourceRow_WhenTainted_ShouldShowTaintedBadge(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.listHScroll = 0
 	p.listWrap = false
 
@@ -1655,7 +1657,7 @@ func TestFormatResourceRow_WhenTainted_ShouldShowTaintedBadge(t *testing.T) {
 }
 
 func TestFormatResourceRow_WhenWrapMode_ShouldNotTruncate(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.listHScroll = 0
 	p.listWrap = true
 
@@ -1667,7 +1669,7 @@ func TestFormatResourceRow_WhenWrapMode_ShouldNotTruncate(t *testing.T) {
 }
 
 func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = nil
 
 	data, err := p.Output(true)
@@ -1680,7 +1682,7 @@ func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
 }
 
 func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = nil
 
 	data, err := p.Output(false)
@@ -1693,7 +1695,7 @@ func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
 }
 
 func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
@@ -1709,7 +1711,7 @@ func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.
 }
 
 func TestBuildActionFrame_WhenSingleTarget_ShouldEnableAllActions(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1723,7 +1725,7 @@ func TestBuildActionFrame_WhenSingleTarget_ShouldEnableAllActions(t *testing.T) 
 }
 
 func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
@@ -1746,7 +1748,7 @@ func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testi
 }
 
 func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
@@ -1764,7 +1766,7 @@ func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *test
 }
 
 func TestBuildActionFrame_WhenSingleTargetTaintHandler_ShouldEmitTaintRequest(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1780,7 +1782,7 @@ func TestBuildActionFrame_WhenSingleTargetTaintHandler_ShouldEmitTaintRequest(t 
 }
 
 func TestBuildActionFrame_WhenSingleTargetUntaintHandler_ShouldEmitUntaintRequest(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1796,7 +1798,7 @@ func TestBuildActionFrame_WhenSingleTargetUntaintHandler_ShouldEmitUntaintReques
 }
 
 func TestBuildActionFrame_WhenSingleTargetImportHandler_ShouldEmitImportRequest(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1812,7 +1814,7 @@ func TestBuildActionFrame_WhenSingleTargetImportHandler_ShouldEmitImportRequest(
 }
 
 func TestBuildActionFrame_WhenSingleTargetMoveHandler_ShouldEmitMoveRequest(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.pins = sdk.NewPinService()
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1936,7 +1938,7 @@ func TestListFrame_Update_WhenLeftKeyWithWrap_ShouldNotPan(t *testing.T) {
 }
 
 func TestRenderDetail_WhenScrollExceedsMax_ShouldClamp(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	lines := make([]string, 5)
@@ -1953,7 +1955,7 @@ func TestRenderDetail_WhenScrollExceedsMax_ShouldClamp(t *testing.T) {
 }
 
 func TestUpdate_WhenStateListMsgSuccess_ShouldClearMutating(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.mutating = true
 	p.status = sdk.StatusLoading
@@ -1965,7 +1967,7 @@ func TestUpdate_WhenStateListMsgSuccess_ShouldClearMutating(t *testing.T) {
 }
 
 func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusLoading
 
@@ -1984,7 +1986,7 @@ func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) 
 }
 
 func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -2002,7 +2004,7 @@ func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
 }
 
 func TestPlugin_WhenHandleLockCleared_ShouldClearLockAndReset(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "abc"}
@@ -2020,7 +2022,7 @@ func TestPlugin_WhenHandleLockCleared_ShouldClearLockAndReset(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
@@ -2040,7 +2042,7 @@ func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web"},
 		{Address: "aws_s3_bucket.data"},

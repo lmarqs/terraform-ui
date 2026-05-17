@@ -7,52 +7,10 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-type trackingMockService struct {
-	mockService
-	taintCalled   []string
-	untaintCalled []string
-	stateRmCalled []string
-	moveSource    string
-	moveDest      string
-	importAddr    string
-	importID      string
-	taintErr      error
-	untaintErr    error
-	stateRmErr    error
-	stateMoveErr  error
-	importErr     error
-}
-
-func (m *trackingMockService) Taint(_ context.Context, addr string) error {
-	m.taintCalled = append(m.taintCalled, addr)
-	return m.taintErr
-}
-
-func (m *trackingMockService) Untaint(_ context.Context, addr string) error {
-	m.untaintCalled = append(m.untaintCalled, addr)
-	return m.untaintErr
-}
-
-func (m *trackingMockService) StateRm(_ context.Context, addr string) error {
-	m.stateRmCalled = append(m.stateRmCalled, addr)
-	return m.stateRmErr
-}
-
-func (m *trackingMockService) StateMove(_ context.Context, source, dest string) error {
-	m.moveSource = source
-	m.moveDest = dest
-	return m.stateMoveErr
-}
-
-func (m *trackingMockService) Import(_ context.Context, addr, id string) error {
-	m.importAddr = addr
-	m.importID = id
-	return m.importErr
-}
-
-func newTrackingPlugin(svc *trackingMockService, resources []sdk.Resource) *Plugin {
+func newTrackingPlugin(svc *sdktest.MockService, resources []sdk.Resource) *Plugin {
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = sdk.StatusDone
@@ -64,7 +22,7 @@ func newTrackingPlugin(svc *trackingMockService, resources []sdk.Resource) *Plug
 }
 
 func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *testing.T) {
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, nil)
 
 	t.Run("ShouldReturnRequestInputMsg", func(t *testing.T) {
@@ -124,7 +82,7 @@ func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *
 	})
 
 	t.Run("ShouldExecuteMoveOnConfirmation", func(t *testing.T) {
-		svc2 := &trackingMockService{}
+		svc2 := &sdktest.MockService{}
 		p2 := newTrackingPlugin(svc2, nil)
 		cmd := p2.requestMove("aws_instance.web")
 		msg := cmd()
@@ -147,13 +105,13 @@ func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *
 		if moved.Dest != "aws_instance.new_name" {
 			t.Errorf("expected dest 'aws_instance.new_name', got %q", moved.Dest)
 		}
-		if svc2.moveSource != "aws_instance.web" || svc2.moveDest != "aws_instance.new_name" {
-			t.Errorf("service.StateMove not called correctly: source=%q dest=%q", svc2.moveSource, svc2.moveDest)
+		if len(svc2.StateMoveCalls) == 0 || svc2.StateMoveCalls[0][0] != "aws_instance.web" || svc2.StateMoveCalls[0][1] != "aws_instance.new_name" {
+			t.Errorf("service.StateMove not called correctly: %v", svc2.StateMoveCalls)
 		}
 	})
 
 	t.Run("ShouldReturnErrorOnMoveFailure", func(t *testing.T) {
-		svc2 := &trackingMockService{stateMoveErr: errors.New("move failed")}
+		svc2 := &sdktest.MockService{StateMoveFn: func(_ context.Context, _, _ string) error { return errors.New("move failed") }}
 		p2 := newTrackingPlugin(svc2, nil)
 		cmd := p2.requestMove("aws_instance.web")
 		msg := cmd()
@@ -190,7 +148,7 @@ func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(
 	addresses := []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
 
 	t.Run("ShouldDeleteAllOnConfirmation", func(t *testing.T) {
-		svc := &trackingMockService{}
+		svc := &sdktest.MockService{}
 		p := newTrackingPlugin(svc, nil)
 		cmd := p.batchDelete(addresses)
 		msg := cmd()
@@ -204,13 +162,13 @@ func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(
 		if deleted.Address != "3 resources" {
 			t.Errorf("expected '3 resources', got %q", deleted.Address)
 		}
-		if len(svc.stateRmCalled) != 3 {
-			t.Errorf("expected 3 stateRm calls, got %d", len(svc.stateRmCalled))
+		if len(svc.StateRmCalls) != 3 {
+			t.Errorf("expected 3 stateRm calls, got %d", len(svc.StateRmCalls))
 		}
 	})
 
 	t.Run("ShouldStopOnFirstError", func(t *testing.T) {
-		svc := &trackingMockService{stateRmErr: errors.New("rm failed")}
+		svc := &sdktest.MockService{StateRmFn: func(_ context.Context, _ string) error { return errors.New("rm failed") }}
 		p := newTrackingPlugin(svc, nil)
 		cmd := p.batchDelete(addresses)
 		msg := cmd()
@@ -227,7 +185,7 @@ func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(
 	})
 
 	t.Run("ShouldReturnNilOnDecline", func(t *testing.T) {
-		svc := &trackingMockService{}
+		svc := &sdktest.MockService{}
 		p := newTrackingPlugin(svc, nil)
 		cmd := p.batchDelete(addresses)
 		msg := cmd()
@@ -245,7 +203,7 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 		{Address: "aws_instance.b", Type: "aws_instance"},
 		{Address: "aws_instance.c", Type: "aws_instance"},
 	}
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, resources)
 
 	t.Run("ShouldReturnCursorWhenNoPins", func(t *testing.T) {
@@ -265,7 +223,7 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 	})
 
 	t.Run("ShouldReturnNilWhenNoSelectionAndNoPins", func(t *testing.T) {
-		svc2 := &trackingMockService{}
+		svc2 := &sdktest.MockService{}
 		p2 := newTrackingPlugin(svc2, []sdk.Resource{})
 		targets := p2.actionTargets()
 		if targets != nil {
@@ -278,7 +236,7 @@ func TestBuildActionFrame_WhenSingleTarget_ShouldHaveAllActionsEnabled(t *testin
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, resources)
 
 	t.Run("ShouldUseAddressAsTitle", func(t *testing.T) {
@@ -390,7 +348,7 @@ func TestBuildActionFrame_WhenMultiplePinned_ShouldDisableMoveAndImport(t *testi
 		{Address: "aws_instance.a", Type: "aws_instance"},
 		{Address: "aws_instance.b", Type: "aws_instance"},
 	}
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, resources)
 	p.pins.Toggle("aws_instance.a")
 	p.pins.Toggle("aws_instance.b")
@@ -620,7 +578,7 @@ func TestDetailFrame_WhenActionKeyPressed_ShouldTriggerAction(t *testing.T) {
 }
 
 func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
-	svc := &trackingMockService{mockService: mockService{stateListResult: []sdk.Resource{}}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	_, cmd := p.Update(StateMovedMsg{Source: "a", Dest: "b"})
@@ -633,7 +591,7 @@ func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
 }
 
 func TestRequestEditMultiple_ShouldProduceStateEditMsgWithAddresses(t *testing.T) {
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, nil)
 
 	addresses := []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
@@ -659,7 +617,7 @@ func TestBuildActionFrame_EditHandler_MultiTarget(t *testing.T) {
 		{Address: "aws_instance.a", Type: "aws_instance"},
 		{Address: "aws_instance.b", Type: "aws_instance"},
 	}
-	svc := &trackingMockService{}
+	svc := &sdktest.MockService{}
 	p := newTrackingPlugin(svc, resources)
 	p.pins.Toggle("aws_instance.a")
 	p.pins.Toggle("aws_instance.b")

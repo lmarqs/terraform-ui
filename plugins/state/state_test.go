@@ -10,51 +10,11 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-type mockService struct {
-	stateListResult []sdk.Resource
-	stateListErr    error
-	showResult      string
-	showErr         error
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return &sdk.PlanSummary{}, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return m.stateListResult, m.stateListErr
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) {
-	return m.showResult, m.showErr
-}
-func (m *mockService) Workspace(_ context.Context) (string, error) { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error               { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error                  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error                      { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error)         { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
-
 func TestNew(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "state" {
@@ -72,7 +32,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestCountable(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	var c sdk.Countable = p
@@ -90,7 +50,7 @@ func TestCountable(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -99,11 +59,12 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	svc := &mockService{
-		stateListResult: []sdk.Resource{
-			{Address: "aws_instance.web", Type: "aws_instance"},
-		},
-	}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}, nil }}
+
+
+
+
+
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -128,7 +89,7 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 		{Address: "aws_instance.web", Type: "aws_instance"},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
-	svc := &mockService{stateListResult: resources}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return resources, nil }}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 
@@ -163,7 +124,7 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 }
 
 func TestActivateCmdReturnsError(t *testing.T) {
-	svc := &mockService{stateListErr: errors.New("state error")}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return nil, errors.New("state error") }}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
@@ -195,7 +156,7 @@ func TestActivateCmdReturnsError(t *testing.T) {
 }
 
 func TestUpdateStateListMsgSuccess(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -229,7 +190,7 @@ func TestUpdateStateListMsgSuccess(t *testing.T) {
 }
 
 func TestUpdateStateListMsgError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -249,7 +210,7 @@ func TestUpdateStateListMsgError(t *testing.T) {
 }
 
 func TestUpdateResourceDetailMsgSuccess(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -275,7 +236,7 @@ func TestUpdateResourceDetailMsgSuccess(t *testing.T) {
 }
 
 func TestUpdateResourceDetailMsgError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -295,7 +256,7 @@ func TestUpdateResourceDetailMsgError(t *testing.T) {
 }
 
 func TestUpdateKeyMsgNavigation(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -332,7 +293,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 }
 
 func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -357,7 +318,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 }
 
 func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
-	svc := &mockService{showResult: `{"id": "i-123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -373,7 +334,7 @@ func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
 }
 
 func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
@@ -387,7 +348,7 @@ func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
 }
 
 func TestUpdateKeyMsgRefresh(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -413,7 +374,7 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 }
 
 func TestUpdateKeyMsgBackspace(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -436,7 +397,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 }
 
 func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -458,7 +419,7 @@ func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
 }
 
 func TestFilterModeBlocksHotkeys(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -482,7 +443,7 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 }
 
 func TestUpdateKeyMsgDetailViewEsc(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detail = "some detail"
@@ -500,7 +461,7 @@ func TestUpdateKeyMsgDetailViewEsc(t *testing.T) {
 }
 
 func TestUpdateKeyMsgDetailViewQ(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detail = "some detail"
@@ -514,7 +475,7 @@ func TestUpdateKeyMsgDetailViewQ(t *testing.T) {
 }
 
 func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -528,7 +489,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 }
 
 func TestMoveUpDown(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.rebuildTree()
@@ -552,7 +513,7 @@ func TestMoveUpDown(t *testing.T) {
 }
 
 func TestMoveToStartEnd(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
 	p.rebuildTree()
@@ -568,7 +529,7 @@ func TestMoveToStartEnd(t *testing.T) {
 }
 
 func TestMoveToEndEmpty(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{}
 	p.rebuildTree()
@@ -579,7 +540,7 @@ func TestMoveToEndEmpty(t *testing.T) {
 }
 
 func TestSetFilter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Name: "web", Module: ""},
@@ -627,7 +588,7 @@ func TestSetFilter(t *testing.T) {
 }
 
 func TestSetFilterFzf(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Name: "this", Module: "module.postgresql_aurora"},
@@ -717,7 +678,7 @@ func TestSetFilterFzf(t *testing.T) {
 }
 
 func TestFilterTreeMonotonicity(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.treeMode = true
 	p.resources = []sdk.Resource{
@@ -771,7 +732,7 @@ func TestFilterTreeMonotonicity(t *testing.T) {
 }
 
 func TestFilterTreeMonotonicityLargeSet(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.treeMode = true
 	p.resources = []sdk.Resource{
@@ -832,7 +793,7 @@ func TestFilterTreeMonotonicityLargeSet(t *testing.T) {
 }
 
 func TestAppendFilter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -851,7 +812,7 @@ func TestAppendFilter(t *testing.T) {
 }
 
 func TestBackspaceFilter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -874,7 +835,7 @@ func TestBackspaceFilter(t *testing.T) {
 }
 
 func TestSelectedResource(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// Empty filtered
@@ -899,7 +860,7 @@ func TestSelectedResource(t *testing.T) {
 }
 
 func TestInspectSelected(t *testing.T) {
-	svc := &mockService{showResult: `{"id": "i-123"}`}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{
 		{Address: "aws_instance.web"},
@@ -936,7 +897,7 @@ func TestInspectSelected(t *testing.T) {
 }
 
 func TestInspectSelectedEmptyAddress(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: ""}}
 
@@ -947,7 +908,7 @@ func TestInspectSelectedEmptyAddress(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	// Set up some items and move cursor to simulate non-zero selection
@@ -975,7 +936,7 @@ func TestRefresh(t *testing.T) {
 }
 
 func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -986,7 +947,7 @@ func TestViewIdle(t *testing.T) {
 }
 
 func TestViewLoading(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -997,7 +958,7 @@ func TestViewLoading(t *testing.T) {
 }
 
 func TestViewError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "some error"
@@ -1009,7 +970,7 @@ func TestViewError(t *testing.T) {
 }
 
 func TestViewShowingDetail(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
@@ -1022,7 +983,7 @@ func TestViewShowingDetail(t *testing.T) {
 }
 
 func TestViewShowingDetailLong(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
@@ -1041,7 +1002,7 @@ func TestViewShowingDetailLong(t *testing.T) {
 }
 
 func TestViewDoneNoResources(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
@@ -1055,7 +1016,7 @@ func TestViewDoneNoResources(t *testing.T) {
 }
 
 func TestViewDoneWithResources(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -1072,7 +1033,7 @@ func TestViewDoneWithResources(t *testing.T) {
 }
 
 func TestViewDoneWithFilter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -1089,7 +1050,7 @@ func TestViewDoneWithFilter(t *testing.T) {
 }
 
 func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -1107,7 +1068,7 @@ func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 }
 
 func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
 
@@ -1118,7 +1079,7 @@ func TestViewDefaultStatus(t *testing.T) {
 }
 
 func TestViewScrolling(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -1140,7 +1101,7 @@ func TestViewScrolling(t *testing.T) {
 }
 
 func TestResourceCount(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{}, {}, {}}
 	if p.ResourceCount() != 3 {
@@ -1149,7 +1110,7 @@ func TestResourceCount(t *testing.T) {
 }
 
 func TestTotalCount(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{{}, {}, {}, {}}
 	if p.TotalCount() != 4 {
@@ -1158,7 +1119,7 @@ func TestTotalCount(t *testing.T) {
 }
 
 func TestFilter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filter = "test"
 	if p.Filter() != "test" {
@@ -1167,7 +1128,7 @@ func TestFilter(t *testing.T) {
 }
 
 func TestUpdateKeyMsgDelete(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1186,7 +1147,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 }
 
 func TestUpdateKeyMsgSlash(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1201,7 +1162,7 @@ func TestUpdateKeyMsgSlash(t *testing.T) {
 }
 
 func TestUpdateKeyMsgDownKey(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
@@ -1220,7 +1181,7 @@ func TestUpdateKeyMsgDownKey(t *testing.T) {
 }
 
 func TestInspectSelectedCmdError(t *testing.T) {
-	svc := &mockService{showErr: errors.New("show failed")}
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return "", errors.New("show failed") }}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{
 		{Address: "aws_instance.web"},
@@ -1256,7 +1217,7 @@ func TestInspectSelectedCmdError(t *testing.T) {
 }
 
 func TestUpdateKeyMsgCtrlH(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
@@ -1271,7 +1232,7 @@ func TestUpdateKeyMsgCtrlH(t *testing.T) {
 }
 
 func TestHandleKeyDefaultPrintable(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
@@ -1296,7 +1257,7 @@ func TestHandleKeyDefaultPrintable(t *testing.T) {
 }
 
 func TestHandleKeyDetailIgnoresOtherKeys(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
 	p.detail = "data"
@@ -1310,7 +1271,7 @@ func TestHandleKeyDetailIgnoresOtherKeys(t *testing.T) {
 }
 
 func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -1322,14 +1283,14 @@ func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
 }
 
 func TestStatusGetter(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
 func TestSelectedGetter(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}, {Address: "d"}, {Address: "e"}, {Address: "f"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1342,14 +1303,14 @@ func TestSelectedGetter(t *testing.T) {
 }
 
 func TestFilteringGetter(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Filtering() {
 		t.Error("Filtering() = true, want false")
 	}
 }
 
 func TestHandleChdirChanged(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{{Address: "a"}}, nil }}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1370,7 +1331,7 @@ func TestHandleChdirChanged(t *testing.T) {
 }
 
 func TestHandleChdirChanged_ClearsPins(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{{Address: "a"}, {Address: "b"}}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{{Address: "a"}, {Address: "b"}}, nil }}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1393,7 +1354,7 @@ func TestHandleChdirChanged_ClearsPins(t *testing.T) {
 }
 
 func TestActivateWithSameContext(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1406,7 +1367,7 @@ func TestActivateWithSameContext(t *testing.T) {
 }
 
 func TestActivateMultiContextNoSelection(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1421,7 +1382,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 }
 
 func TestActivateWithScopeDir(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1432,7 +1393,7 @@ func TestActivateWithScopeDir(t *testing.T) {
 }
 
 func TestActivateNoPins(t *testing.T) {
-	svc := &mockService{stateListResult: []sdk.Resource{}}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
@@ -1443,7 +1404,7 @@ func TestActivateNoPins(t *testing.T) {
 }
 
 func TestHandleKeyFilterMode(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_s3_bucket.b"}}
@@ -1458,7 +1419,7 @@ func TestHandleKeyFilterMode(t *testing.T) {
 }
 
 func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	resources := make([]sdk.Resource, 50)
@@ -1501,7 +1462,7 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 }
 
 func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
@@ -1540,7 +1501,7 @@ func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 }
 
 func TestRenderFlatList_WrapMode_ShouldNotOverflow(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	resources := make([]sdk.Resource, 20)
@@ -1565,7 +1526,7 @@ func TestRenderFlatList_WrapMode_ShouldNotOverflow(t *testing.T) {
 }
 
 func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	resources := make([]sdk.Resource, 50)
@@ -1589,7 +1550,7 @@ func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 }
 
 func TestFilterForTree_ScoreThreshold(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.treeMode = true
 	p.resources = []sdk.Resource{
@@ -1643,7 +1604,7 @@ func TestFilterForTree_ScoreThreshold(t *testing.T) {
 }
 
 func TestRenderDetailUsesFullHeight(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
