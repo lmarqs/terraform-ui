@@ -48,10 +48,12 @@ internal/
   macro/                   — Macro engine (Driver, tape DSL parser)
   ui/
     app.go                 — Root Bubbletea model, plugin routing
-    components/            — Header, statusbar
+    components/            — Header, statusbar, AI panel, command bar, content border
   editor/                  — Editor integration ($EDITOR at file:line)
   ai/                      — AI provider (Claude via Bedrock, auto-detection)
   logging/                 — Structured logger setup
+  scaffold/                — Project scaffolding (tfui.hcl generation)
+  compliance/              — Plugin lifecycle compliance tests
 plugins/
   context/                 — Context dashboard: Project + Chdir + Workspace
   chdir/                   — Chdir picker: select member from explicit list
@@ -150,28 +152,49 @@ This makes macros deterministic and safe: the UI renders real data (from cache) 
 
 OpenTofu is supported via explicit `terraform.bin = "tofu"` in HCL config, or by letting terraform-exec resolve the binary from PATH. There is no auto-detection logic.
 
-## Entry Point (`cmd/tfui/main.go`)
+## Entry Point (`cmd/tfui/`)
 
-main.go is the composition root — it wires everything together but contains no domain logic:
+The CLI layer is split across two files:
 
 ```
-main.go
-├── rootCmd (cobra)           → runTUI() or runMacro()
-├── planCmd, applyCmd         → runPlan(), runApply()
-├── scaffoldCmd               → runScaffold()
-├── versionCmd
-└── plugin CLI commands       → buildPluginCommands()
+cmd/tfui/
+├── main.go        — Cobra command tree, flag bindings, buildRegistry()
+└── session.go     — Session builder: orthogonal dispatch pipeline
 ```
 
-### Architectural decisions in main.go
+Every subcommand's `RunE` is a single fluent chain:
+
+```go
+NewSession(cfg, rootCfg).
+    ForPlugin("plan").
+    WithArgs(args).
+    WithJSON(jsonMode).
+    WithSeeds(planURI, stateURI).
+    WithMacro(macroURI).
+    WithCI(ciMode).
+    Run()
+```
+
+### Session pipeline (`session.go`)
+
+`Session.Run()` executes: `validate → resolveAxes → loadTape → buildService → buildApp → present → emit`
+
+Two orthogonal axes are resolved from flags:
+
+| Axis | Values | Determines |
+|------|--------|-----------|
+| **Presentation** | `Interactive` / `Headless` | Whether user sees a TUI (tea.Program) or headless driver |
+| **Backend** | `Exec` / `Recording` | Whether terraform runs live (ExecService) or commands are recorded (MacroService) |
+
+### Architectural decisions
 
 | Decision | Rationale |
 |----------|-----------|
-| Two orthogonal axes: income × outcome | Income = how the user drives (TUI or CLI). Outcome = what happens (ExecService executes live, MacroService records). These are independent — macro is not bound to TUI or CLI; any income can pair with any outcome. |
-| `buildRegistry()` is axis-agnostic | Plugins don't know their income or outcome. Same registry regardless of which axis combination is active |
+| Orthogonal axes (Presentation × Backend) | Any combination is valid: Interactive+Exec (TUI), Headless+Exec (CI), Headless+Recording (macro). Flags compose, not branch. |
+| `buildRegistry()` is axis-agnostic | Plugins don't know their presentation or backend. Same registry regardless of which axis combination is active |
 | ServiceCache pre-seeded before service creation | `seedCache()` runs first, then the service wraps it. Pre-seeded data serves reads without shelling out |
-| `buildRegistry()` as single composition point | All 12 plugins registered with metadata in one place. Config injection happens here, not scattered |
-| TTY detection gates interactive mode | No TTY + `--plan`/`--state` → auto-renders non-interactively. No TTY without data → actionable error |
+| `buildRegistry()` as single composition point | All 18 plugins registered with metadata in one place. Config injection happens here, not scattered |
+| TTY detection gates interactive mode | No TTY → Headless axis. No TTY without data → actionable error |
 | `splitPassthrough()` + `normalizeArgs()` | Terraform flag compatibility: `--` separates tfui flags from terraform extras; short flags normalized |
 | Version resolution chain | `ldflags` (CI) → `ReadBuildInfo` (go install) → `"0.0.0-SNAPSHOT"` (dev) |
 | Spinner on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr (suppressed with `--ci`) |

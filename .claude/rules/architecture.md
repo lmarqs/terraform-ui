@@ -110,10 +110,6 @@ Config propagation: App stores `rootCfg` and `childCfg`. On `WorkspaceChangedEve
 
 Workflow transitions (plan→apply): The app sets `returnTo` manually when a plugin triggers a workflow to another plugin. This is distinct from `NavPush` metadata — it's a runtime decision. Example: `ApplyRequestMsg` handler sets `returnTo = plan` before activating apply.
 
-Naming rationale (benchmarked against React Router, iOS UIKit, Flutter Navigator, lazygit, k9s):
-- `NavBehavior` over "NavMode" — "behavior" fits static metadata; "mode" implies runtime toggle
-- `NavPush`/`NavReplace` — universal terms across all frameworks studied
-- `returnTo` over "previousPlugin" — communicates intent (destination), not time (temporal)
 
 ## Inter-Plugin Navigation (`pkg/sdk/plugin.go`)
 

@@ -66,43 +66,23 @@ Frame lifecycle:
   └── User presses q → global handler → home (returnTo cleared)
 ```
 
-## UX Model (k9s-inspired)
-
-- **`:` command mode**: type plugin name to switch views. Tab autocomplete. Built-in: `:q` quit (guarded when terraform holds a lock), `:q!` force quit.
-- **`/` filter mode**: fzf-style fuzzy filter. `esc` exits.
-- **`space` pin**: toggle pin on selected resource. Pinned = apply/plan target.
-- **`enter` inspect**: show detail view with expanded values.
-- **`d` delete**: remove from state — triggers confirmation.
-- **`e` edit**: opens $EDITOR at resource's .tf file:line.
-- **`m` move**: rename resource address in state.
-- **`t` taint**: mark for recreation.
-- **`T` untaint**: remove taint mark.
-- **`n` import**: import existing resource.
-- **`!` batch**: open batch action palette (only when pins > 0).
-- **`ctrl+r` refresh**: reload data from terraform.
-- **`ctrl+w` wrap**: toggle line wrapping.
-- **`←→` pan**: horizontal scroll (10 chars/press, when wrap is off).
-
-## Keybinding Ergonomics
+## Keybinding Rules
 
 Two layers — bare alpha keys talk to terraform, everything else talks to the interface:
 
-- Bare lowercase = terraform mutation on cursor resource (`d` delete, `t` taint, `e` edit, `a` apply, `n` import, `u` force-unlock)
-- Bare uppercase = non-terraform plugin switch (`C` Context, `R` Risk, `P` Phantom, `B` Blast Radius, `T` untaint)
-- `ctrl+key` = interface control — view modes and reload (`^t` tree, `^w` wrap, `^r` refresh, `^p` pinned, `^u` unpin all)
-- Non-alpha / punctuation = navigation and mode triggers (`/` filter, `!` batch, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect)
+- Bare lowercase = terraform mutation on cursor resource
+- Bare uppercase = non-terraform plugin switch
+- `ctrl+key` = interface control (view modes and reload)
+- Non-alpha / punctuation = navigation and mode triggers
 - `q` / `Esc` = leave (universal TUI convention, exception to alpha rule)
 
-Redundant keybindings for accessibility (hints show only primary):
-- Navigation: `↓` (shown), `j` (alias); `↑` (shown), `k` (alias)
-- Back to home: `q` (shown), `esc` when no sub-state (alias)
-
-Rules:
+Invariants:
 - `enter` always means inspect — never overloaded
 - `space` always means pin — never overloaded
 - `q` shown at plugin top-level; `esc` shown only in sub-states
 - Plugins must NOT start in filter mode by default
-- Full keybinding map: `docs/tui-ux.md` §16
+
+Full keybinding map and assignments: `docs/tui-ux.md` §7 and §16
 
 ## Action Model (cursor vs batch)
 
