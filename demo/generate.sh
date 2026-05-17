@@ -28,20 +28,32 @@ fi
 FIXTURES="$SCRIPT_DIR/fixtures"
 PLAN="$FIXTURES/plan-large.json"
 STATE="$FIXTURES/state-large.json"
+OUTPUTS="$FIXTURES/outputs.json"
+VALIDATE_RESULT="$FIXTURES/validate.json"
+WORKSPACES="$FIXTURES/workspaces.json"
 OUTPUT="$SCRIPT_DIR/output"
 
 echo "Using binary: $TFUI"
 echo ""
 
-# Record all tapes
+# Optional: record a single tape for development
+TAPE_FILTER="${2:-}"
+
+# Record all tapes (or a single one if specified)
 for tape in "$SCRIPT_DIR"/tapes/*.tape; do
   name=$(basename "$tape" .tape)
+  if [ -n "$TAPE_FILTER" ] && [ "$name" != "$TAPE_FILTER" ]; then
+    continue
+  fi
   echo "Recording $name..."
   rm -rf "$OUTPUT/$name"
   mkdir -p "$OUTPUT/$name"
   "$TFUI" \
     --plan "$PLAN" \
     --state "$STATE" \
+    --outputs "$OUTPUTS" \
+    --validate-result "$VALIDATE_RESULT" \
+    --workspaces "$WORKSPACES" \
     --macro "$tape" \
     --record "$OUTPUT/$name" \
     >/dev/null 2>&1 || echo "  WARNING: $name exited with error (may be expected for partial flows)"
