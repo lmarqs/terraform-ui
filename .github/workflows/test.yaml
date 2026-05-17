@@ -16,8 +16,8 @@ jobs:
         with:
           name: binaries
           path: dist/
-      - run: chmod +x dist/tfui_linux_amd64_v1/tfui
-      - run: mise run test:macro dist/tfui_linux_amd64_v1/tfui
+      - run: chmod +x dist/tfui_linux_amd64_*/tfui
+      - run: mise run test:macro
 
   integration:
     runs-on: ubuntu-latest
