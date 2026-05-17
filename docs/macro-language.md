@@ -43,6 +43,32 @@ terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
 
 When `--plan`/`--state` are provided, the app renders pre-loaded data. Without them, the app starts in live mode (for testing project-level flows like scaffold wizard, chdir selection). In both cases, mutations are never executed.
 
+## Recording (`--record`)
+
+The `--record <dir>` flag captures rendered frames during macro playback (or interactive use). It is orthogonal to `--macro`:
+
+```bash
+# Record macro playback as frames (for GIF generation)
+tfui --plan ./plan.json --macro ./demo.tape --record ./recording/
+
+# Record an interactive session (generates tape + frames)
+tfui --plan ./plan.json --record ./my-session/
+```
+
+Output directory structure:
+```
+recording/
+├── manifest.json       # Frame timing + terminal dimensions
+├── recording.tape      # Reconstructed tape (interactive mode only)
+├── frame_0001.txt      # ANSI frame after each command
+├── frame_0002.txt
+└── ...
+```
+
+The generated `recording.tape` is directly replayable: `tfui --macro ./recording/recording.tape`.
+
+Frames can be stitched into GIFs using `demo/stitch.sh` (converts to asciicast, renders via `agg` or `vhs`).
+
 ## Command Output (stdout)
 
 Every terraform operation triggered during macro playback is recorded and printed to stdout after the macro completes. This enables piping macros into a shell:

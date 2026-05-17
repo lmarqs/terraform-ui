@@ -56,9 +56,10 @@ Plugins produce output via optional SDK interfaces:
 - Both are orthogonal: `tfui plan --ci -json` = headless + JSON
 
 Flag scoping:
-- `--plan`, `--state`, `--macro`: available on ALL commands (persistent flags)
+- `--plan`, `--state`, `--macro`, `--record`: available on ALL commands (persistent flags)
 - On root: `--macro` drives the full multi-plugin TUI headlessly
 - On subcommands: `--macro` drives the standalone plugin headlessly, outputs recorded commands
+- `--record <dir>`: captures ANSI frames + manifest.json (orthogonal to `--macro`)
 - All other flags: persistent (available everywhere)
 
 Binary resolution:

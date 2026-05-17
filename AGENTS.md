@@ -16,6 +16,8 @@ mise run test:coverage    # Coverage (100% threshold)
 mise run build            # Cross-platform binaries
 mise run test:macro       # Macro tapes against binary
 mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
+mise run demo:generate    # Record demo GIFs from macro tapes
+mise run demo:lock        # Lock Python deps from pyproject.toml
 ```
 
 ## Architecture
@@ -26,6 +28,7 @@ pkg/sdk/      — Public SDK: Plugin, Service, types, UI primitives, frames
 internal/     — App internals (config, terraform, source, macro, ui, editor, ai, plugin, logging)
 plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, console, output, validate, risk, phantom, blastradius, forceunlock, version)
 tests/        — Integration tests + fixtures
+demo/         — Demo pipeline: fixtures, macro tapes, GIF generation scripts
 ```
 
 ## Terminology
@@ -102,6 +105,8 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - CLI reference: `docs/cli-reference.md`
 - Architecture overview: `docs/architecture.md`
 - Macro DSL reference: `docs/macro-language.md`
+- Demo pipeline: `demo/README.md`
+- Demo landing page: `docs/demo.md`
 - Configuration reference: `docs/configuration.md`
 - Testing strategy: `docs/testing.md`
 - Plugin catalog: `docs/plugins/index.md`

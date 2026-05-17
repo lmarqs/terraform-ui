@@ -219,8 +219,11 @@ tfui plan --ci --plan ./tfplan.out  # CI mode, outputs tree from pre-seeded plan
 | Flag | Description |
 |------|-------------|
 | `--macro` | Run tape file (headless TUI recording) |
+| `--record` | Capture session frames to directory |
 
 `--macro` is available on all commands. On the root command it drives the full multi-plugin TUI headlessly; on subcommands it drives the standalone plugin headlessly and outputs recorded commands to stdout.
+
+`--record` is orthogonal to `--macro`. It captures ANSI frames + timing metadata to a directory. Combined with `--macro`, it enables deterministic GIF generation from tapes. Without `--macro`, it records interactive sessions and generates a replayable tape.
 
 ### `--plan` behavior
 

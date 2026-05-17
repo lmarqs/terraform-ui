@@ -208,7 +208,7 @@ Domain parsing in `internal/terraform/loader.go`: `LoadPlan([]byte)` and `LoadSt
 
 ## Macro Engine (`internal/macro/`)
 
-Programmatic TUI driver + tape DSL for automated testing.
+Programmatic TUI driver + tape DSL for automated testing and demo recording.
 
 Driver:
 ```go
@@ -228,6 +228,15 @@ screenshot /tmp/plan.txt
 resize 120 40
 sleep 500ms
 ```
+
+Recorder (`recorder.go`): Wraps `tea.Model` to capture ANSI frames + generate tape during interactive sessions. Used by `--record` flag. In headless mode, the Runner captures frames via `CaptureView()`.
+
+Key files:
+- `driver.go` — synchronous model driver (no terminal needed)
+- `runner.go` — executes parsed tape commands against the driver
+- `tape.go` — tape DSL parser
+- `recorder.go` — recording middleware (frames + tape generation)
+- `key_string.go` — reverse mapping (`tea.KeyMsg` → tape DSL string)
 
 ## SDK Utilities (pkg/sdk/ and pkg/sdk/ui/)
 
