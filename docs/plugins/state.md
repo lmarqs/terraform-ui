@@ -76,54 +76,7 @@ Home ──s──→ State (list)
 
 ### Screenshots
 
-**Flat mode with filter:**
-```
-State Browser                                    [12 resources]
-
-filter: instance
-
- > aws_instance.web                     aws_instance  [module.compute]
-   aws_instance.api                     aws_instance  [module.compute]
-   aws_db_instance.primary              aws_db_instance
-
-3/12 resources
-
-/ filter  Enter inspect  Space pin  d delete  t taint  q back
-```
-
-**Tree mode:**
-```
-State Browser                                    [12 resources]
-
-  ├── module.compute
-  │   ├── aws_instance.web
-  │   └── aws_instance.api
-  ├── module.networking
-  │   ├── aws_security_group.main
-  │   └── aws_nat_gateway.public
-  └── aws_s3_bucket.logs
-
-12 resources
-
-Ctrl+t flat  [ collapse  ] expand  Enter inspect  q back
-```
-
-**Resource detail:**
-```
-aws_instance.web                                    [pinned]
-
-{
-  "ami": "ami-0c55b159cbfafe1f0",
-  "instance_type": "t3.medium",
-  "tags": {
-    "Name": "web-server",
-    "env": "production"
-  },
-  "vpc_security_group_ids": ["sg-12345"]
-}
-
-Ctrl+w wrap  ←→ pan  Space pin  d delete  e edit  Esc back
-```
+![State Browser]({{ site.baseurl }}/assets/demo/state-browse.gif)
 
 ## Command Line (CLI)
 

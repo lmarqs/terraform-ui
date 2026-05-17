@@ -53,19 +53,7 @@ Home ──p──→ Plan (loading) ──→ Plan (results)
 
 ### Screenshots
 
-```
-Plan Review
-
- > + aws_instance.web                          [low]
-   ~ aws_security_group.main                   [medium]
- * - aws_s3_bucket.old                         [HIGH]
-   -/+ aws_db_instance.primary                 [CRITICAL]
-
-Plan: 1 to add, 1 to change, 1 to destroy, 1 to replace
-Overall risk: CRITICAL
-
-Enter expand  Space pin  a apply  ^r refresh  q back
-```
+![Plan Review]({{ site.baseurl }}/assets/demo/plan-review.gif)
 
 ## Command Line (CLI)
 

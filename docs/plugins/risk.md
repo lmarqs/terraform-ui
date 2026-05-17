@@ -48,23 +48,7 @@ plugin "risk" {
 
 ## Screenshots
 
-```
-Risk Analysis
-
-!! CRITICAL RISK DETECTED !!
-
---- CRITICAL (1) ---
-   -/+ aws_db_instance.primary    destructive operation
---- HIGH (1) ---
-   - aws_s3_bucket.old            destructive operation
---- MEDIUM (1) ---
-   ~ aws_security_group.main      modification of critical resource
---- LOW (1) ---
-   + aws_instance.web
-
-Total: 4 changes  [critical: 1 | high: 1 | medium: 1 | low: 1]
-j/k navigate  Esc back
-```
+![Risk Analysis]({{ site.baseurl }}/assets/demo/risk-analysis.gif)
 
 ## Related
 

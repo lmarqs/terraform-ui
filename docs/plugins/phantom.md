@@ -49,27 +49,7 @@ plugin "phantom" {
 
 ## Screenshots
 
-```
-Phantom Changes
-
-Detected 2 phantom change(s) out of 5 total
-These changes appear in the plan but result in no actual infrastructure modification.
-
- > ~ aws_iam_policy.deploy      (3 attrs)
-   ~ aws_s3_bucket.config       (1 attrs)
-
-j/k navigate  Enter expand  Esc back
-```
-
-Expanded detail:
-
-```
- v ~ aws_iam_policy.deploy      (3 attrs)
-   Reason: JSON/policy field reordering or whitespace difference
-     policy: {"Action":["s3:Get*"... = {"Action":["s3:Get*"...
-     tags.managed_by: "terraform" = "terraform"
-     tags_all.managed_by: "terraform" = "terraform"
-```
+![Phantom Changes]({{ site.baseurl }}/assets/demo/phantom.gif)
 
 ## Related
 
