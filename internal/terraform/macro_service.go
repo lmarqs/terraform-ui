@@ -105,6 +105,11 @@ func (r *MacroService) Workspace(_ context.Context) (string, error) {
 }
 
 func (r *MacroService) WorkspaceList(_ context.Context) ([]string, error) {
+	if r.cache != nil {
+		if ws, ok := r.cache.GetWorkspaces(); ok {
+			return ws, nil
+		}
+	}
 	return []string{"default"}, nil
 }
 
@@ -149,10 +154,20 @@ func (r *MacroService) Untaint(_ context.Context, address string) error {
 }
 
 func (r *MacroService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
+	if r.cache != nil {
+		if diags, ok := r.cache.GetDiagnostics(); ok {
+			return diags, nil
+		}
+	}
 	return []sdk.Diagnostic{}, nil
 }
 
 func (r *MacroService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
+	if r.cache != nil {
+		if outputs, ok := r.cache.GetOutputs(); ok {
+			return outputs, nil
+		}
+	}
 	return map[string]sdk.OutputValue{}, nil
 }
 

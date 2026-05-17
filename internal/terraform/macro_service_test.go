@@ -61,7 +61,7 @@ func TestMacroService_ReadsFromCache(t *testing.T) {
 		}
 	})
 
-	t.Run("WorkspaceList", func(t *testing.T) {
+	t.Run("WorkspaceList without cache", func(t *testing.T) {
 		got, err := svc.WorkspaceList(ctx)
 		if err != nil {
 			t.Fatal(err)
@@ -129,6 +129,61 @@ func TestMacroService_ReadsFromCache(t *testing.T) {
 			t.Error("Output returned nil")
 		}
 	})
+}
+
+func TestMacroService_WhenOutputsCached_ShouldReturnFromCache(t *testing.T) {
+	cache := NewServiceCache()
+	cache.SetOutputs(map[string]sdk.OutputValue{
+		"url": {Name: "url", Value: "http://localhost", Type: "string"},
+	})
+
+	svc := NewMacroService("terraform", cache)
+	got, err := svc.Output(context.Background())
+	if err != nil {
+		t.Fatalf("Output() error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(outputs) = %d, want 1", len(got))
+	}
+	if got["url"].Value != "http://localhost" {
+		t.Errorf("outputs[\"url\"].Value = %v, want %q", got["url"].Value, "http://localhost")
+	}
+}
+
+func TestMacroService_WhenDiagnosticsCached_ShouldReturnFromCache(t *testing.T) {
+	cache := NewServiceCache()
+	cache.SetDiagnostics([]sdk.Diagnostic{
+		{Severity: "warning", Summary: "Deprecated"},
+	})
+
+	svc := NewMacroService("terraform", cache)
+	got, err := svc.Validate(context.Background())
+	if err != nil {
+		t.Fatalf("Validate() error = %v", err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("len(diagnostics) = %d, want 1", len(got))
+	}
+	if got[0].Summary != "Deprecated" {
+		t.Errorf("diagnostics[0].Summary = %q, want %q", got[0].Summary, "Deprecated")
+	}
+}
+
+func TestMacroService_WhenWorkspacesCached_ShouldReturnFromCache(t *testing.T) {
+	cache := NewServiceCache()
+	cache.SetWorkspaces([]string{"default", "staging", "production"})
+
+	svc := NewMacroService("terraform", cache)
+	got, err := svc.WorkspaceList(context.Background())
+	if err != nil {
+		t.Fatalf("WorkspaceList() error = %v", err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("len(workspaces) = %d, want 3", len(got))
+	}
+	if got[1] != "staging" {
+		t.Errorf("workspaces[1] = %q, want %q", got[1], "staging")
+	}
 }
 
 func TestMacroService_ReturnsEmptyWhenCacheEmpty(t *testing.T) {
