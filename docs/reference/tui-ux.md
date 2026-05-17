@@ -17,16 +17,24 @@ description: UX design guidelines for the TUI interface
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ :context                                                                   │
 └────────────────────────────────────────────────────────────────────────────┘
-┌────────────────────── State Browser (30/1549) ─────────────────────────────┐
-│ content...                                                                 │
+┌──────────────── State Browser (30/1549) [3/30] ────────────────────────────┐
+│ module.networking.aws_vpc.main                                           ▲ │
+│ module.networking.aws_security_group.web                                  ┃ │
+│ module.compute.aws_launch_template.app                                   ┃ │
+│ module.compute.aws_iam_role.app                                          │ │
+│ module.storage.aws_s3_bucket.logs                                        ▼ │
+│                                                                            │
+│ d delete  e edit  t taint  T untaint  ! batch                              │
 └────────────────────────────────────────────────────────────────────────────┘
- Enter inspect  / filter  Space pin  ^t flat  d delete  e edit  t taint  T untaint  q back    terraform
+ Enter inspect  / filter  Space pin  ^t flat  ^r refresh  q back    terraform
 ```
 
 - **Header** (3 lines): left=Project/Chdir/Workspace, right=ASCII logo. Always visible.
 - **Command bar**: bordered `:` input, visible only when active.
 - **Content**: bordered box, view title + count embedded in top border.
-- **Footer**: single hint line (left), binary name right-aligned faint.
+- **Footer**: single hint line (left), binary name right-aligned faint. Shows only UI/navigation keys.
+- **Actions bar**: inside the bordered frame, pinned to bottom. Shows terraform mutation keys as button chips.
+- **Scroll indicators**: scrollbar gutter (right edge) + `[cursor/navigable]` counter in title bar.
 - **No separators** — borders handle visual separation.
 
 ## 1b. Standalone Mode Layout
@@ -36,9 +44,14 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 ```
  my-infra │ modules/sa-east-1 │ production                              tfui
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ plugin content fills the screen                                             │
+│ plugin content fills the screen                                           ▲ │
+│ ...                                                                       ┃ │
+│ ...                                                                       │ │
+│ ...                                                                       ▼ │
+│                                                                             │
+│ d delete  e edit  t taint  T untaint                                        │
 └─────────────────────────────────────────────────────────────────────────────┘
- Enter inspect  / filter  Space pin  d delete  e edit  q quit                terraform
+ Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit    terraform
 ```
 
 ### Differences from full TUI
@@ -75,8 +88,10 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 |----------|---------|
 | Header left | Project (+ pinned count), Chdir, Workspace |
 | Header right | ASCII logo (brand identity) |
-| Content border title | View name + filtered/total count |
-| Footer | Context-sensitive key hints (from frame's Hints()) |
+| Content border title | View name + `(filtered/total)` count + `[cursor/navigable]` position |
+| Actions bar (inside frame) | Terraform mutation keys as button chips (cyan bg, black text) |
+| Scroll gutter (inside frame) | `▲` top cap, `┃` thumb, `│` track, `▼` bottom cap |
+| Footer (hint bar) | UI/navigation keys only (from frame's Hints()) |
 | Command bar | `:` input with autocomplete matches |
 
 ## 3. Keybinding Conventions
@@ -123,7 +138,7 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` 
 
 ### Borders
 - Content: `lipgloss.RoundedBorder()` with primary blue foreground
-- Title embedded in top border line (manual construction)
+- Title embedded in top border line (manual construction): `View Name (filtered/total) [cursor/navigable]`
 - Overlays: rounded border, centered via `lipgloss.Place()`
 
 ### Tree connectors (2-char width)
@@ -133,7 +148,21 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` 
 │   (ancestor continuation)
 ```
 
-### Indicators
+### Scroll Indicators
+| Symbol | Meaning |
+|--------|---------|
+| `▲` | Gutter top cap (more content above) |
+| `┃` | Gutter thumb (viewport position) |
+| `│` | Gutter track (scrollable area) |
+| `▼` | Gutter bottom cap (more content below) |
+
+Gutter rules:
+- Only appears when content overflows the viewport
+- Spans content rows only (not the blank separator or actions bar)
+- `[cursor/navigable]` counter always visible in the title bar (even when content fits)
+- Counter reflects navigable items (respects tree collapse state and filter)
+
+### Other Indicators
 | Symbol | Meaning |
 |--------|---------|
 | `*` (green) | Pinned |
@@ -178,9 +207,12 @@ The user sees every step. There is no shortcut.
 
 Rendered with `sdk.StyleFaintItalic` — visually distinct from content, clearly transient.
 
-#### Hint Bar During Loading
+#### Hint Bar & Actions Bar During Loading
 
-Only show actions that work during loading:
+Only show keys that work during loading:
+
+- **Hint bar**: only `q back`
+- **Actions bar**: not rendered (no content to act on)
 
 ```go
 // Loading state — only back is available
@@ -189,7 +221,7 @@ Only show actions that work during loading:
 }
 ```
 
-Never show `↑↓ navigate`, `Enter inspect`, or other content-dependent hints during loading — there's nothing to navigate or inspect yet. Showing unavailable actions is lying to the user.
+Never show content-dependent hints during loading — there's nothing to navigate or act on. Showing unavailable keys is lying to the user.
 
 #### State Lifecycle
 
@@ -399,32 +431,64 @@ Every plugin's `View(width, height)` must:
 - NOT add padding (the bordered box handles spacing)
 - Return pure content that fills the available space
 - Handle empty state gracefully (show informative placeholder)
+- MAY render an actions bar at the bottom (see §13) using the SDK `ActionsBar` primitive
 - MAY include plugin-specific contextual hints (see §13)
 
 ## 13. Hint Placement Rules
 
-### Two layers
+### Three layers
 
 | Layer | Location | Content | Source |
 |-------|----------|---------|--------|
-| **Hint bar** | Footer (status bar) | Standard keys that work in current state | `Frame.Hints()` (Stackable) or `Plugin.Hints()` (Hintable) |
+| **Actions bar** | Inside bordered frame (bottom, pinned) | Terraform mutation keys as button chips | Plugin's `View()` using SDK `ActionsBar` primitive |
+| **Hint bar** | Footer (status bar, outside border) | UI/navigation keys only | `Frame.Hints()` (Stackable) or `Plugin.Hints()` (Hintable) |
 | **Inline hints** | Inside plugin view | Plugin-specific contextual keys not in standard vocabulary | Hardcoded in `View()` near relevant content |
 
+### The split rule
+
+**Bare key = actions bar. Ctrl+key or punctuation = hint bar.**
+
+The modifier (`^`) is the visual signal. Users don't need to memorize categories — they just look at whether there's a `^` prefix or not.
+
+| Actions bar (terraform mutations) | Hint bar (UI/navigation) |
+|-----------------------------------|--------------------------|
+| `d` delete | `Enter` inspect |
+| `e` edit | `/` filter |
+| `t` taint | `Space` pin |
+| `T` untaint | `^t` tree/flat |
+| `a` apply | `^r` refresh |
+| `A` auto-apply | `^w` wrap |
+| `m` move | `^p` pinned filter |
+| `n` import | `^u` clear pins |
+| `u` force-unlock | `:` command |
+| `!` batch | `q` back |
+| | `Esc` cancel |
+
+### Actions bar rules
+- SDK rendering primitive — plugins own placement and visibility
+- Pinned to bottom of the available frame space
+- Blank line separator between scrollable content and actions bar
+- Styled as button chips: cyan background, black text, single space between buttons
+- Left-aligned (matches content indent)
+- Static per frame — content does NOT change based on cursor position
+- Not rendered when plugin has no terraform actions (output, validate, version, etc.)
+- `!` batch appears only when pins > 0
+- In inspect/detail frame: shows single-item actions for the inspected resource
+
 ### Hint bar rules
-- Shows standard `HintSet` vocabulary: navigate, inspect, pin, filter, back, retry, etc.
+- Shows only UI/navigation keys from `HintSet` vocabulary
+- Does NOT show `↑↓ navigate` (scroll indicators teach this implicitly)
 - MUST be state-aware: return different hints per plugin status
 - Loading state: only `q back`
-- Error state: `r retry` + `q back` (+ `u force-unlock` if locked)
-- Done state: full navigation set for that plugin
+- Error state: `^r retry` + `q back` (+ contextual unlock hint)
+- Done state: full UI navigation set for that plugin
 - Never show keys that don't work in the current state
 
 ### Inline hint rules
 - ONLY for plugin-specific keys with no `HintSet` equivalent
-- Examples: `u force-unlock` (near lock info), `Space toggle` (in pattern selection)
-- NEVER duplicate the hint bar (no `q back`, `r retry`, `↑↓ navigate` inline)
+- NEVER duplicate the hint bar or actions bar
 - Format: terse `key action` separated by double-space, styled with `sdk.StyleFaintItalic`
 - Position: near the UI element they act on (proximity = comprehension)
-- Dangerous/narrow-scope actions belong inline (visual friction is intentional)
 
 ### View content (NOT hints)
 - State messages: "Loading terraform state...", "Running terraform plan..."
@@ -436,6 +500,7 @@ Every plugin's `View(width, height)` must:
 - Stackable plugins: hints come from `Frame.Hints()` on the active frame
 - Non-stackable plugins: implement `Hintable` interface with `Hints() []KeyHint`
 - Both must return state-appropriate hints (check plugin status in the method)
+- Actions bar rendered by plugin `View()` using the SDK `ActionsBar` component
 
 ## 14. Performance
 
@@ -515,14 +580,15 @@ Activate → Form (home state)
 
 ### Design layers
 
-| Layer | Keys | Scope | Examples |
-|-------|------|-------|---------|
-| Terraform verbs | bare lowercase | cursor resource | `d` delete, `t` taint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `A` auto-approve |
-| Plugin switches (home) | bare lowercase | home screen only | `s` state, `p` plan, `w` workspace, `o` output, `v` validate, `~` console, `i` init |
-| Plugin switches (global) | bare uppercase | anywhere | `C` context, `R` risk, `P` phantom, `B` blast radius |
-| Interface controls | ctrl+key | view modes, reload | `ctrl+t` tree, `ctrl+w` wrap, `ctrl+r` refresh, `ctrl+p` pinned, `ctrl+u` unpin all |
-| Navigation & modes | non-alpha / punctuation | navigation, mode triggers | `/` filter, `!` batch, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect |
-| Leave | `q` / `Esc` | universal | `q` home, `Esc` pop sub-state |
+| Layer | Keys | Scope | Shown in | Examples |
+|-------|------|-------|----------|---------|
+| Terraform verbs | bare lowercase | cursor resource | **Actions bar** | `d` delete, `t` taint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `A` auto-approve |
+| Batch | `!` | pinned set | **Actions bar** | `!` batch palette |
+| Plugin switches (home) | bare lowercase | home screen only | — (home menu) | `s` state, `p` plan, `w` workspace, `o` output, `v` validate, `~` console, `i` init |
+| Plugin switches (global) | bare uppercase | anywhere | — | `C` context, `R` risk, `P` phantom, `B` blast radius |
+| Interface controls | ctrl+key | view modes, reload | **Hint bar** | `ctrl+t` tree, `ctrl+w` wrap, `ctrl+r` refresh, `ctrl+p` pinned, `ctrl+u` unpin all |
+| Navigation & modes | non-alpha / punctuation | navigation, mode triggers | **Hint bar** | `/` filter, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect |
+| Leave | `q` / `Esc` | universal | **Hint bar** | `q` home, `Esc` pop sub-state |
 
 ### Bare lowercase (a-z)
 

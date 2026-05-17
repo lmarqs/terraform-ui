@@ -40,6 +40,20 @@ _Avoid_: page, screen, panel (when meaning sub-view within a plugin)
 The public contract (`pkg/sdk/`) that plugins depend on. The only allowed import for plugin code.
 _Avoid_: API, library, framework (when referring to the plugin contract)
 
+### UI Zones
+
+**Actions Bar**:
+A row of button chips (cyan background, black text) inside the bordered plugin frame, pinned to the bottom. Shows terraform mutation keys only. Owned and rendered by the plugin.
+_Avoid_: toolbar, action palette, command bar
+
+**Hint Bar**:
+The single-line footer outside the bordered frame. Shows UI/navigation keys only (ctrl+key, punctuation, Enter, Esc, q).
+_Avoid_: status bar (when meaning the hint line), footer (ambiguous)
+
+**Scroll Gutter**:
+A vertical column at the right edge of the content area showing viewport position. `▲` top cap, `┃` thumb, `│` track, `▼` bottom cap. Only visible when content overflows.
+_Avoid_: scrollbar (implies interactivity)
+
 ### Operations
 
 **Pin**:
@@ -73,6 +87,8 @@ _Avoid_: store, buffer, data layer
 - A **Plugin** contains one or more **Frames** (via a stack)
 - A **Pin** targets a resource address; pins are shared across **Plugins** via PinService
 - Both **ExecService** and **MacroService** read from the same **ServiceCache**
+- The **Actions Bar** lives inside the bordered frame; the **Hint Bar** lives outside it
+- The **Scroll Gutter** spans content rows only (not the actions bar)
 
 ## Example dialogue
 

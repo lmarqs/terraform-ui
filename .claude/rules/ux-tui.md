@@ -88,15 +88,15 @@ Full keybinding map and assignments: `docs/reference/tui-ux.md` §7 and §16
 
 **CRITICAL: direct keys always act on the cursor item. Batch operations go through `!` palette only.**
 
-| Layer | Keys | Scope |
-|-------|------|-------|
-| Navigate | `↑↓`, `Enter`, `/`, `q`, `Esc` | — |
-| Act (single) | `d`, `e`, `t`, `T`, `m`, `n` | Cursor |
-| Batch | `!` (palette) | Pinned set |
+| Layer | Keys | Location | Scope |
+|-------|------|----------|-------|
+| Navigate | `Enter`, `/`, `Space`, `^t`, `^r`, `q`, `Esc` | Hint bar (outside border) | — |
+| Act (single) | `d`, `e`, `t`, `T`, `m`, `n` | Actions bar (inside frame) | Cursor |
+| Batch | `!` (palette) | Actions bar (inside frame) | Pinned set |
 
 - Direct action keys NEVER read the pinned set
 - `!` is hidden when no pins exist
-- Detail/inspect frame has no `!`
+- Detail/inspect frame has no `!` (single-item actions only)
 - Destructive batch ops always show confirmation with count
 
 Pin semantics:
@@ -104,16 +104,41 @@ Pin semantics:
 - SECONDARY: enabling batch state actions via `!` palette
 - Pins are persistent (survive view switches and sessions)
 
-## Hint Bar Design
+## Actions Bar (inside bordered frame)
 
-- Always 1 line. Never 2 lines.
-- One key per entry: `d delete`, `t taint`, `T untaint`
+Terraform mutation keys live inside the plugin frame as button chips (cyan background, black text).
+
+- SDK rendering primitive — plugins own when/where to show it
+- Pinned to bottom of available frame space, blank line separator above
+- Left-aligned, slim: tight background, single space between buttons
+- Static per frame — does NOT change based on cursor position
+- Contains: `d`, `e`, `t`, `T`, `a`, `A`, `m`, `n`, `u`, `!` (bare alpha + `!`)
+- `!` appears only when pins > 0
+- Not rendered when plugin has no terraform actions
+- In inspect frame: shows single-item actions for the inspected resource
+
+## Hint Bar (outside border, footer)
+
+UI/navigation keys only. Always 1 line.
+
+- Contains: `Enter`, `/`, `Space`, `^t`, `^r`, `^w`, `^p`, `^u`, `:`, `q`, `Esc`
+- Does NOT show `↑↓ navigate` (scroll indicators teach this)
 - Context-sensitive: content changes per frame/state
 - No novel notation (no `d/D`, no `(t/T) taint/untaint`)
-- Display preferences (`^w` wrap) shown only in detail frame
-- List frame hints = navigation + state-changing actions
-- Detail frame hints = display controls + single-item actions
 - Dynamic hints show target state: `^t tree` means "press to enter tree mode"
+
+## The Split Rule
+
+**Bare key = actions bar. Ctrl+key or punctuation = hint bar.** The modifier is the visual signal.
+
+## Scroll Indicators
+
+- Scrollbar gutter: `▲` top cap, `┃` thumb, `│` track, `▼` bottom cap
+- Only appears when content overflows the viewport
+- Spans content rows only (not blank separator or actions bar)
+- `[cursor/navigable]` counter always visible in title bar
+- `(filtered/total)` count also in title bar
+- Counter reflects navigable items (respects collapse state and filter)
 
 ## UX Anti-patterns (do NOT introduce)
 
@@ -122,12 +147,16 @@ Pin semantics:
 - Novel hint bar notation (slash grouping, parenthetical pairs)
 - 2-line hint bars
 - Auto-batch for non-destructive actions
+- Terraform action keys in the hint bar (they belong in the actions bar)
+- UI/navigation keys in the actions bar (they belong in the hint bar)
+- Cursor-reactive actions bar (content must be static per frame)
 
 ## Detail/Inspect View
 
 - Shows expanded attribute values (JSON)
-- Context actions remain: `space` pin, `d` delete, `e` edit
-- Scroll indicator `[n/total]` when content overflows
+- Actions bar shows single-item mutations: `d` delete, `e` edit, `t` taint, `T` untaint
+- Hint bar shows UI controls: `^w` wrap, `Space` pin, `Esc` back
+- Scroll gutter appears when content overflows
 - `[pinned]` indicator shown if resource is pinned
 
 ## Confirmation Ownership
