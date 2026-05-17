@@ -20,9 +20,6 @@ jobs:
 
       - uses: ./.github/actions/prepare-env
 
-      - name: Install demo dependencies
-        run: pip install -r requirements.txt -q
-
       - name: Release
         run: mise run release
         env:
