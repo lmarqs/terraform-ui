@@ -97,6 +97,44 @@ func (f *mockFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	return f, nil
 }
 
+type mockActivateWithArgsPlugin struct {
+	mockPlugin
+	activatedWithArgs []string
+}
+
+func (m *mockActivateWithArgsPlugin) ActivateWithArgs(args []string) tea.Cmd {
+	m.activatedWithArgs = args
+	return func() tea.Msg { return nil }
+}
+
+func (m *mockActivateWithArgsPlugin) Activate() tea.Cmd { return nil }
+
+type mockKeyCapturerPlugin struct {
+	mockPlugin
+	captures   bool
+	lastKeyMsg tea.Msg
+}
+
+func (m *mockKeyCapturerPlugin) CapturesKeys() bool { return m.captures }
+func (m *mockKeyCapturerPlugin) Update(msg tea.Msg) (plugin.Plugin, tea.Cmd) {
+	m.lastKeyMsg = msg
+	return m, nil
+}
+
+type mockCancellablePlugin struct {
+	mockPlugin
+	cancelled bool
+}
+
+func (m *mockCancellablePlugin) Cancel() { m.cancelled = true }
+
+type mockBusyCancellablePlugin struct {
+	mockCancellablePlugin
+	busy bool
+}
+
+func (m *mockBusyCancellablePlugin) Busy() bool { return m.busy }
+
 // --- Helper functions ---
 
 func setupAppWithOverlay(overlay sdk.Overlay) App {
@@ -2773,15 +2811,15 @@ func TestApp_NavigateTo_WhenActivePluginBusy_ShouldNotCancel(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 
 	busyPlugin := &mockBusyCancellablePlugin{
-		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
-		busy:       true,
+		mockCancellablePlugin: mockCancellablePlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}},
+		busy:                  true,
 	}
 	app.activePlugin = busyPlugin
 
 	statePlugin, _ := app.registry.ByID("state")
 	app.navigateTo(statePlugin)
 
-	if busyPlugin.cancelCalled {
+	if busyPlugin.cancelled {
 		t.Error("navigateTo should not cancel busy plugin")
 	}
 }
@@ -2812,7 +2850,7 @@ func TestApp_NavigateTo_WhenActivePluginNotBusy_ShouldCancel(t *testing.T) {
 	app.navigateTo(statePlugin)
 
 	cancellable := planPlugin.(*mockCancellablePlugin)
-	if !cancellable.cancelCalled {
+	if !cancellable.cancelled {
 		t.Error("navigateTo should cancel non-busy active plugin")
 	}
 }
@@ -3220,7 +3258,7 @@ func TestApp_DeactivateMsg_WhenCancellablePlugin_ShouldCallCancel(t *testing.T) 
 
 	app.Update(sdk.DeactivateMsg{})
 
-	if !cancellable.cancelCalled {
+	if !cancellable.cancelled {
 		t.Error("DeactivateMsg should call Cancel on cancellable plugin")
 	}
 }
@@ -3229,8 +3267,8 @@ func TestApp_DeactivateMsg_WhenCancellablePlugin_ShouldCallCancel(t *testing.T) 
 
 func TestApp_HandleKey_WhenQWithBusyPlugin_ShouldNotCancel(t *testing.T) {
 	busyCancellable := &mockBusyCancellablePlugin{
-		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
-		busy:       true,
+		mockCancellablePlugin: mockCancellablePlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}},
+		busy:                  true,
 	}
 
 	app := setupTestApp()
@@ -3239,7 +3277,7 @@ func TestApp_HandleKey_WhenQWithBusyPlugin_ShouldNotCancel(t *testing.T) {
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	updated := model.(App)
 
-	if busyCancellable.cancelCalled {
+	if busyCancellable.cancelled {
 		t.Error("q with busy plugin should not call Cancel")
 	}
 	if updated.activePlugin != nil {
@@ -3249,8 +3287,8 @@ func TestApp_HandleKey_WhenQWithBusyPlugin_ShouldNotCancel(t *testing.T) {
 
 func TestApp_HandleKey_WhenQWithNonBusyCancellable_ShouldCancel(t *testing.T) {
 	cancellable := &mockBusyCancellablePlugin{
-		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
-		busy:       false,
+		mockCancellablePlugin: mockCancellablePlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}},
+		busy:                  false,
 	}
 
 	app := setupTestApp()
@@ -3259,7 +3297,7 @@ func TestApp_HandleKey_WhenQWithNonBusyCancellable_ShouldCancel(t *testing.T) {
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	updated := model.(App)
 
-	if !cancellable.cancelCalled {
+	if !cancellable.cancelled {
 		t.Error("q with non-busy cancellable plugin should call Cancel")
 	}
 	if updated.activePlugin != nil {
