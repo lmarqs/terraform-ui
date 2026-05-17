@@ -26,6 +26,8 @@ func KeyToString(msg tea.KeyMsg) string {
 		return "space"
 	case tea.KeyCtrlC:
 		return "ctrl+c"
+	case tea.KeyCtrlR:
+		return "ctrl+r"
 	case tea.KeyCtrlW:
 		return "ctrl+w"
 	case tea.KeyCtrlT:
@@ -34,6 +36,9 @@ func KeyToString(msg tea.KeyMsg) string {
 		return "ctrl+s"
 	case tea.KeyRunes:
 		if len(msg.Runes) == 1 {
+			return string(msg.Runes)
+		}
+		if len(msg.Runes) > 1 {
 			return string(msg.Runes)
 		}
 	}

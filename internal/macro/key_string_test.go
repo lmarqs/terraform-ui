@@ -13,7 +13,7 @@ func TestKeyToString_roundtrip(t *testing.T) {
 		"enter", "esc", "tab", "backspace",
 		"up", "down", "left", "right",
 		"space",
-		"ctrl+c", "ctrl+w", "ctrl+t", "ctrl+s",
+		"ctrl+c", "ctrl+r", "ctrl+w", "ctrl+t", "ctrl+s",
 	}
 
 	for _, key := range keys {

@@ -199,25 +199,23 @@ func (s *Session) present(app ui.App, registry *plugin.Registry, ax axes, tape [
 			opts = append(opts, tea.WithOutput(os.Stderr))
 		}
 
-		var model tea.Model
 		if s.recordDir != "" {
 			rec := macro.NewRecorder(app, s.recordDir, 80, 24)
-			m, err := tea.NewProgram(rec, opts...).Run()
+			_, err := tea.NewProgram(rec, opts...).Run()
+			_ = rec.Finalize()
 			if err != nil {
 				return app, err
 			}
-			if err := rec.Finalize(); err != nil {
-				return app, fmt.Errorf("finalizing recording: %w", err)
+			if inner, ok := rec.Inner().(ui.App); ok {
+				return inner, nil
 			}
-			model = m
-		} else {
-			m, err := tea.NewProgram(app, opts...).Run()
-			if err != nil {
-				return app, err
-			}
-			model = m
+			return app, nil
 		}
 
+		model, err := tea.NewProgram(app, opts...).Run()
+		if err != nil {
+			return app, err
+		}
 		if a, ok := model.(ui.App); ok {
 			return a, nil
 		}

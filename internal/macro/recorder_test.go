@@ -156,7 +156,6 @@ func TestRecorder_skips_unrecognized_keys(t *testing.T) {
 	inner := recorderTestModel{content: "x"}
 	rec := NewRecorder(inner, dir, 80, 24)
 
-	// F1 is not in our key map — should still capture frame but not add to tape
 	rec.Update(tea.KeyMsg{Type: tea.KeyF1})
 	rec.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
 
@@ -176,5 +175,59 @@ func TestRecorder_skips_unrecognized_keys(t *testing.T) {
 		if cmd.Type == CmdKey && len(cmd.Args) > 0 && cmd.Args[0] == "" {
 			t.Error("tape should not contain empty key command")
 		}
+	}
+}
+
+func TestRecorder_nil_inner_does_not_panic(t *testing.T) {
+	dir := t.TempDir()
+	rec := NewRecorder(nil, dir, 80, 24)
+
+	if rec.Init() != nil {
+		t.Error("Init with nil inner should return nil")
+	}
+	if rec.View() != "" {
+		t.Errorf("View with nil inner should be empty, got %q", rec.View())
+	}
+
+	rec.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+
+	rec.CaptureView("external view")
+
+	if err := rec.Finalize(); err != nil {
+		t.Fatal(err)
+	}
+	if len(rec.frames) != 1 {
+		t.Errorf("expected 1 frame from CaptureView, got %d", len(rec.frames))
+	}
+}
+
+func TestRunner_with_recorder_captures_frames(t *testing.T) {
+	dir := t.TempDir()
+	inner := mockModel{content: "start"}
+	driver := NewDriver(inner, 80, 24)
+	rec := NewRecorder(nil, dir, 80, 24)
+	runner := NewRunner(driver)
+	runner.WithRecorder(rec)
+
+	commands := []Command{
+		{Type: CmdKey, Args: []string{"p"}},
+		{Type: CmdKey, Args: []string{"s"}},
+	}
+
+	if err := runner.Execute(commands); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest Manifest
+	if err := json.Unmarshal(data, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	// Initial frame + 2 command frames = 3
+	if len(manifest.Frames) != 3 {
+		t.Errorf("expected 3 frames, got %d", len(manifest.Frames))
 	}
 }

@@ -54,15 +54,21 @@ func (r *Runner) Execute(commands []Command) error {
 	r.driver.Init()
 	r.captureFrame()
 
+	var execErr error
 	for _, cmd := range commands {
 		if err := r.executeOne(cmd); err != nil {
-			return err
+			execErr = err
+			break
 		}
 		r.captureFrame()
 	}
 
 	if r.recorder != nil {
-		return r.recorder.Finalize()
+		_ = r.recorder.Finalize()
+	}
+
+	if execErr != nil {
+		return execErr
 	}
 	return nil
 }
