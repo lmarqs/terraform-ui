@@ -2,7 +2,6 @@ package version
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"runtime"
 	"sort"
@@ -136,11 +135,7 @@ func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
 			out.TerraformPlatform = platform
 			out.Providers = p.info.Providers
 		}
-		data, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		return append(data, '\n'), nil
+		return sdk.MarshalJSON(out), nil
 	}
 
 	var b strings.Builder

@@ -2,7 +2,6 @@ package validate
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -368,11 +367,7 @@ func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
 				Line:     d.Line,
 			})
 		}
-		data, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		return append(data, '\n'), nil
+		return sdk.MarshalJSON(out), nil
 	}
 
 	if len(p.diagnostics) == 0 {

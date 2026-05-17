@@ -2,7 +2,6 @@ package state
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -791,11 +790,7 @@ func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
 				Tainted: r.Tainted,
 			})
 		}
-		data, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		return append(data, '\n'), nil
+		return sdk.MarshalJSON(out), nil
 	}
 
 	var b strings.Builder

@@ -1990,6 +1990,26 @@ func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) 
 	}
 }
 
+func TestUpdate_WhenStateListMsgWithLockError_ShouldEmitLockDetectedEvent(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+
+	lockErr := `Error acquiring the state lock
+  ID:        a1b2c3d4-e5f6-7890-abcd-ef1234567890
+  Who:       user@machine
+  Operation: OperationTypePlan`
+
+	_, cmd := p.Update(StateListMsg{Err: errors.New(lockErr)})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for lock error")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.LockDetectedEvent); !ok {
+		t.Errorf("cmd() = %T, want sdk.LockDetectedEvent", msg)
+	}
+}
+
 func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -2107,6 +2127,102 @@ func TestRenderResources_WhenPinnedOnlyWithoutFilter_ShouldNotAddFilterHeight(t 
 	}
 }
 
+func TestDetailFrame_WhenTKeyCmdExecuted_ShouldProduceTaintRequestMsg(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil")
+	}
+}
+
+func TestDetailFrame_WhenShiftTKeyCmdExecuted_ShouldProduceUntaintRequestMsg(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil")
+	}
+}
+
+func TestDetailFrame_WhenNKeyCmdExecuted_ShouldProduceImportRequestMsg(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil")
+	}
+}
+
+func TestListFrame_WhenTKeyCmdExecuted_ShouldProduceTaintRequestMsg(t *testing.T) {
+	resources := []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil")
+	}
+}
+
+func TestListFrame_WhenShiftTKeyCmdExecuted_ShouldProduceUntaintRequestMsg(t *testing.T) {
+	resources := []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil")
+	}
+}
+
+func TestListFrame_WhenNKeyCmdExecuted_ShouldProduceImportRequestMsg(t *testing.T) {
+	resources := []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}
+	p := newTestPlugin(resources)
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil")
+	}
+}
+
 func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.resources = []sdk.Resource{
@@ -2120,5 +2236,127 @@ func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing
 	s := string(data)
 	if !strings.Contains(s, `"tainted": true`) {
 		t.Errorf("JSON output should contain tainted field, got: %s", s)
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetTaintHandlerExecuted_ShouldProduceTaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("aws_instance.web", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for taint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for taint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetUntaintHandlerExecuted_ShouldProduceUntaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("aws_instance.web", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for untaint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for untaint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetImportHandlerExecuted_ShouldProduceImportMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("aws_instance.web", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for import action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for import action")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetTaintHandlerExecuted_ShouldProduceTaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for multi-target taint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for multi-target taint action")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetUntaintHandlerExecuted_ShouldProduceUntaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for multi-target untaint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for multi-target untaint action")
+	}
+}
+
+func TestRenderResources_TreeMode_WithTaintedResource_ShouldShowBadge(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusDone
+	p.treeMode = true
+	p.resources = []sdk.Resource{
+		{Address: "module.a.aws_instance.web", Type: "aws_instance", Tainted: true},
+	}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.tree.ExpandAll()
+
+	view := p.View(80, 24)
+	if !strings.Contains(view, "tainted") {
+		t.Error("tree mode view should show [tainted] badge for tainted resource")
 	}
 }

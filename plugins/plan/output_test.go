@@ -2901,3 +2901,29 @@ func TestListFrame_WhenEPressedDoneNoSelection_ShouldDoNothing(t *testing.T) {
 		t.Error("e key on branch node (no selection): cmd != nil, want nil")
 	}
 }
+
+func TestFilterFrame_WhenSpacePressedWithNoResults_ShouldReturnNil(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+
+	// Enter filter mode
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+	// Type something that matches nothing to empty the results
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+
+	// Press space (pin) with no cursor node — should return nil
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		t.Error("space in filter with no results: cmd != nil, want nil")
+	}
+}

@@ -88,10 +88,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 	case InitResultMsg, ui.TimerTickMsg:
 		if top := p.stack.Peek(); top != nil {
-			result, cmd := top.Update(msg)
-			if result == nil {
-				p.stack.Pop()
-			}
+			_, cmd := top.Update(msg)
 			return p, cmd
 		}
 	}

@@ -1,7 +1,6 @@
 package macro
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 type Manifest struct {
@@ -92,11 +92,7 @@ func (r *Recorder) Finalize() error {
 		Height: r.height,
 		Frames: r.frames,
 	}
-	manifestData, err := json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(r.dir, "manifest.json"), manifestData, 0644); err != nil {
+	if err := os.WriteFile(filepath.Join(r.dir, "manifest.json"), sdk.MarshalJSON(manifest), 0644); err != nil {
 		return err
 	}
 

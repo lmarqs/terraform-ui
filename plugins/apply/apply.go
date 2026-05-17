@@ -2,7 +2,6 @@ package apply
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -363,11 +362,7 @@ func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
 		if e.status == sdk.StatusError {
 			out.Status = "error"
 		}
-		data, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		return append(data, '\n'), nil
+		return sdk.MarshalJSON(out), nil
 	}
 
 	if e.status == sdk.StatusError {

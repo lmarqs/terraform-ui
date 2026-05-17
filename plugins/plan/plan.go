@@ -2,7 +2,6 @@ package plan
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -895,11 +894,7 @@ func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
 		out.Summary.Change = e.summary.ToUpdate + e.summary.ToReplace
 		out.Summary.Destroy = e.summary.ToDelete
 		out.Risk = sdk.OverallRisk(e.summary.Changes).String()
-		data, err := json.MarshalIndent(out, "", "  ")
-		if err != nil {
-			return nil, err
-		}
-		return append(data, '\n'), nil
+		return sdk.MarshalJSON(out), nil
 	}
 
 	var b strings.Builder
