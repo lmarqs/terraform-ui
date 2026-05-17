@@ -971,3 +971,129 @@ func assertNotContains(t *testing.T, descs []string, notWant string) {
 		}
 	}
 }
+
+func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{
+		{Severity: "error", Summary: "Missing arg", Detail: "Required", File: "main.tf", Line: 10},
+		{Severity: "warning", Summary: "Deprecated"},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"valid": false`) {
+		t.Error("JSON should contain valid: false")
+	}
+	if !strings.Contains(s, `"error_count": 1`) {
+		t.Error("JSON should contain error_count: 1")
+	}
+	if !strings.Contains(s, `"warning_count": 1`) {
+		t.Error("JSON should contain warning_count: 1")
+	}
+	if !strings.Contains(s, `"Missing arg"`) {
+		t.Error("JSON should contain diagnostic summary")
+	}
+}
+
+func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"valid": true`) {
+		t.Error("JSON should contain valid: true")
+	}
+}
+
+func TestOutput_WhenJsonFalseWithDiagnostics_ShouldReturnText(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{
+		{Severity: "error", Summary: "Invalid ref", File: "main.tf", Line: 5, Detail: "Not found"},
+		{Severity: "warning", Summary: "Deprecated", File: "vars.tf"},
+	}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "Invalid ref") {
+		t.Error("text should contain error summary")
+	}
+	if !strings.Contains(s, "main.tf:5") {
+		t.Error("text should contain file:line")
+	}
+	if !strings.Contains(s, "Not found") {
+		t.Error("text should contain detail")
+	}
+	if !strings.Contains(s, "Deprecated") {
+		t.Error("text should contain warning summary")
+	}
+}
+
+func TestOutput_WhenJsonFalseNoDiagnostics_ShouldReturnValid(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if !strings.Contains(string(data), "Configuration is valid") {
+		t.Error("text should contain 'Configuration is valid'")
+	}
+}
+
+func TestExitCode_WhenNoErrors_ShouldReturnZero(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.diagnostics = []sdk.Diagnostic{{Severity: "warning", Summary: "x"}}
+	if code := p.ExitCode(); code != 0 {
+		t.Errorf("ExitCode() = %d, want 0", code)
+	}
+}
+
+func TestExitCode_WhenErrorsPresent_ShouldReturnOne(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.diagnostics = []sdk.Diagnostic{{Severity: "error", Summary: "x"}}
+	if code := p.ExitCode(); code != 1 {
+		t.Errorf("ExitCode() = %d, want 1", code)
+	}
+}
+
+func TestExitCode_WhenNilDiagnostics_ShouldReturnZero(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.diagnostics = nil
+	if code := p.ExitCode(); code != 0 {
+		t.Errorf("ExitCode() = %d, want 0", code)
+	}
+}
+
+func TestCancel_WhenNil_ShouldNotPanic(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestCancel_WhenSet_ShouldCallAndClear(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}

@@ -1271,3 +1271,69 @@ func TestListFrame_WhenNonKeyMsg_ShouldReturnSelf(t *testing.T) {
 		t.Error("non-key message through stack should return nil cmd")
 	}
 }
+
+func TestOutput_WhenJsonTrue_ShouldReturnJSONMap(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.outputs = []sdk.OutputValue{
+		{Name: "vpc_id", Value: "vpc-abc123", Type: "string", Sensitive: false},
+		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"vpc_id"`) {
+		t.Error("JSON should contain vpc_id key")
+	}
+	if !strings.Contains(s, `"sensitive": true`) {
+		t.Error("JSON should contain sensitive: true")
+	}
+}
+
+func TestOutput_WhenJsonTrueEmpty_ShouldReturnEmptyObject(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.outputs = []sdk.OutputValue{}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	if !strings.Contains(string(data), "{}") {
+		t.Errorf("JSON for empty = %q, want '{}'", string(data))
+	}
+}
+
+func TestOutput_WhenJsonFalse_ShouldReturnKeyValueText(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.outputs = []sdk.OutputValue{
+		{Name: "vpc_id", Value: "vpc-abc123", Type: "string", Sensitive: false},
+		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
+	}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "vpc_id = vpc-abc123") {
+		t.Error("text should contain 'vpc_id = vpc-abc123'")
+	}
+	if !strings.Contains(s, "db_password = (sensitive)") {
+		t.Error("text should redact sensitive as '(sensitive)'")
+	}
+}
+
+func TestOutput_WhenJsonFalseEmpty_ShouldReturnEmpty(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.outputs = []sdk.OutputValue{}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("text for empty = %q, want empty", string(data))
+	}
+}

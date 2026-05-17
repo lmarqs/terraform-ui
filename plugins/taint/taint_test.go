@@ -492,3 +492,76 @@ func (m *failOnNthService) Taint(_ context.Context, addr string) error {
 	}
 	return nil
 }
+
+func TestPlugin_WhenCancelCalledWithNilFn_ShouldNotPanic(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestPlugin_WhenCancelCalledWithFn_ShouldCallAndClear(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}
+
+func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusDone
+
+	hints := p.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("Hints() in Done: len = %d, want 2", len(hints))
+	}
+	if hints[0].Key != "p" || hints[0].Description != "plan" {
+		t.Errorf("hints[0] = {%q, %q}, want {p, plan}", hints[0].Key, hints[0].Description)
+	}
+	if hints[1].Key != "Esc" || hints[1].Description != "cancel" {
+		t.Errorf("hints[1] = {%q, %q}, want {Esc, cancel}", hints[1].Key, hints[1].Description)
+	}
+}
+
+func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusError
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() in Error returned empty slice")
+	}
+	hasRetry := false
+	for _, h := range hints {
+		if h.Description == "retry" {
+			hasRetry = true
+		}
+	}
+	if !hasRetry {
+		t.Error("Hints() in Error should contain 'retry'")
+	}
+}
+
+func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() in Idle returned empty slice")
+	}
+	hasBack := false
+	for _, h := range hints {
+		if h.Description == "back" {
+			hasBack = true
+		}
+	}
+	if !hasBack {
+		t.Error("Hints() in Idle should contain 'back'")
+	}
+}
