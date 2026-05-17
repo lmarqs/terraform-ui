@@ -5,11 +5,11 @@
     "@semantic-release/release-notes-generator",
     "@semantic-release/changelog",
     ["@semantic-release/exec", {
-      "prepareCmd": "echo ${nextRelease.version} > VERSION",
-      "publishCmd": "goreleaser release --clean --skip=validate"
+      "prepareCmd": "mise run release:prepare ${nextRelease.version}",
+      "publishCmd": "mise run release:publish"
     }],
     ["@semantic-release/git", {
-      "assets": ["CHANGELOG.md", "VERSION"],
+      "assets": ["CHANGELOG.md", "VERSION", "docs/assets/demo/*.gif"],
       "message": "chore(release): v${nextRelease.version} [skip ci]"
     }]
   ]

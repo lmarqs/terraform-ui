@@ -57,13 +57,13 @@ packages=$(go list ./... | grep -v '/cmd/' | grep -v 'internal/terraform$' | gre
 go test -coverprofile=coverage.out $packages
 total=$(go tool cover -func=coverage.out | grep '^total:' | awk '{print $3}' | tr -d '%')
 echo "Coverage: ${total}%"
-threshold=95
+threshold=100
 if awk "BEGIN {exit !($total < $threshold)}"; then
   echo "FAIL: ${total}% is below ${threshold}% threshold"
   exit 1
 fi
 """
-description = "Coverage enforcement (95%, excludes cmd/, internal/terraform, internal/ui app shell)"
+description = "Coverage enforcement (100%, excludes cmd/, internal/terraform, internal/ui app shell)"
 
 [tasks."test:integration:terraform"]
 run = "go test -tags integration -timeout 300s ./tests/integration/..."
@@ -140,6 +140,18 @@ run = "pip install . && pip freeze --exclude-editable > requirements.txt"
 description = "Lock Python deps from pyproject.toml"
 
 # ─── Release (CI only) ─────────────────────────────────────────────────────────
+
+[tasks."release:prepare"]
+run = """
+echo ${1} > VERSION
+mise run build
+mise run demo:generate
+"""
+description = "Write version, build snapshot, regenerate demo GIFs (called by semantic-release)"
+
+[tasks."release:publish"]
+run = "goreleaser release --clean --skip=validate"
+description = "goreleaser release (called by semantic-release)"
 
 [tasks.release]
 run = "npx semantic-release"
