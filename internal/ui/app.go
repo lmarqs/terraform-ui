@@ -892,6 +892,7 @@ func (a App) View() string {
 
 	title := "Home"
 	filtered, total, pinned := 0, 0, 0
+	cursor, navigable := 0, 0
 	if a.activePlugin != nil {
 		title = a.activePlugin.Name()
 		if c, ok := a.activePlugin.(sdk.Countable); ok {
@@ -899,6 +900,9 @@ func (a App) View() string {
 		}
 		if p, ok := a.activePlugin.(sdk.Pinnable); ok {
 			pinned = p.PinnedCount()
+		}
+		if pos, ok := a.activePlugin.(sdk.Positionable); ok {
+			cursor, navigable = pos.CursorPosition()
 		}
 	}
 
@@ -911,7 +915,7 @@ func (a App) View() string {
 	}
 
 	header := a.header.Render(a.width)
-	bordered := a.contentBorder.Render(content, title, filtered, total, pinned, a.width, contentHeight+borderChrome)
+	bordered := a.contentBorder.Render(content, title, filtered, total, pinned, cursor, navigable, a.width, contentHeight+borderChrome)
 
 	var statusBar string
 	if a.commandError != "" {
@@ -947,7 +951,6 @@ func (a App) View() string {
 		}
 	} else {
 		homeHints := []sdk.KeyHint{
-			{Key: "↑↓", Description: "navigate"},
 			{Key: "Enter", Description: "select"},
 			{Key: ":", Description: "command"},
 			{Key: "q", Description: "quit"},

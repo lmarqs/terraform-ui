@@ -22,14 +22,15 @@ func NewContentBorder() ContentBorder {
 // Render wraps content in a bordered box with title in the top border.
 // If filtered != total, shows "(filtered/total)". If equal and > 0, shows "(total)".
 // If pinned > 0, appends a pin icon with count.
+// If navigable > 0, appends "[cursor/navigable]" position counter.
 // Width is the outer box width. Height is the outer box height (including borders).
-func (c ContentBorder) Render(content, title string, filtered, total, pinned, width, height int) string {
+func (c ContentBorder) Render(content, title string, filtered, total, pinned, cursor, navigable, width, height int) string {
 	innerWidth := width - 2
 	if innerWidth < 1 {
 		innerWidth = 1
 	}
 
-	titleStr := formatBorderTitle(title, filtered, total, pinned)
+	titleStr := formatBorderTitle(title, filtered, total, pinned, cursor, navigable)
 
 	topBorder := buildTopBorder(titleStr, width)
 	bottomBorder := "└" + strings.Repeat("─", innerWidth) + "┘"
@@ -53,7 +54,7 @@ func (c ContentBorder) Render(content, title string, filtered, total, pinned, wi
 	return topBorder + "\n" + strings.Join(lines, "\n") + "\n" + bottomBorder
 }
 
-func formatBorderTitle(title string, filtered, total, pinned int) string {
+func formatBorderTitle(title string, filtered, total, pinned, cursor, navigable int) string {
 	var s string
 	if total <= 0 {
 		s = title
@@ -64,6 +65,9 @@ func formatBorderTitle(title string, filtered, total, pinned int) string {
 	}
 	if pinned > 0 {
 		s += fmt.Sprintf(" ⌖%d", pinned)
+	}
+	if navigable > 0 {
+		s += fmt.Sprintf(" [%d/%d]", cursor, navigable)
 	}
 	return s
 }

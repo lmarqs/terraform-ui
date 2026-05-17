@@ -3106,8 +3106,8 @@ func TestApp_View_WhenHomeScreen_ShouldShowHomeHints(t *testing.T) {
 	app.height = 24
 
 	output := app.View()
-	if !strings.Contains(output, "navigate") {
-		t.Error("View() on home screen should show navigate hint")
+	if !strings.Contains(output, "select") {
+		t.Error("View() on home screen should show select hint")
 	}
 	if !strings.Contains(output, "quit") {
 		t.Error("View() on home screen should show quit hint")
