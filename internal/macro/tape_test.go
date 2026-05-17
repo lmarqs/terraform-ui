@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestParseTapeValid(t *testing.T) {
+func TestParseTape_WhenValidInput_ShouldReturnCommands(t *testing.T) {
 	tests := []struct {
 		name     string
 		input    string
@@ -147,7 +147,7 @@ func TestParseTapeValid(t *testing.T) {
 	}
 }
 
-func TestParseTapeErrors(t *testing.T) {
+func TestParseTape_WhenInvalidInput_ShouldReturnErrors(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -191,7 +191,7 @@ func TestParseTapeErrors(t *testing.T) {
 	}
 }
 
-func TestParseTapeEmptyInput(t *testing.T) {
+func TestParseTape_WhenEmptyInput_ShouldReturnNoCommands(t *testing.T) {
 	tests := []struct {
 		name  string
 		input string
@@ -215,7 +215,7 @@ func TestParseTapeEmptyInput(t *testing.T) {
 	}
 }
 
-func TestParseTapeLineNumbers(t *testing.T) {
+func TestParseTape_WhenCommentsAndBlanks_ShouldTrackCorrectLineNumbers(t *testing.T) {
 	input := `# header comment
 
 key p
@@ -240,7 +240,7 @@ assert view hello`
 	}
 }
 
-func TestParseTapeErrorLineNumbers(t *testing.T) {
+func TestParseTape_WhenErrorOnLaterLine_ShouldReferenceCorrectLine(t *testing.T) {
 	input := "key p\nwait ready\nbad command"
 	_, err := ParseTape([]byte(input))
 	if err == nil {
@@ -252,7 +252,7 @@ func TestParseTapeErrorLineNumbers(t *testing.T) {
 	}
 }
 
-func TestParseLineEmptyCommand(t *testing.T) {
+func TestParseLine_WhenEmptyCommand_ShouldReturnError(t *testing.T) {
 	_, err := parseLine("", 1)
 	if err == nil {
 		t.Error("expected error for empty line")

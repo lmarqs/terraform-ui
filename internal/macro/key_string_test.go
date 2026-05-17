@@ -6,7 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestKeyToString_roundtrip(t *testing.T) {
+func TestKeyToString_WhenValidKey_ShouldRoundTrip(t *testing.T) {
 	keys := []string{
 		"a", "z", "0", "9",
 		"/", ":", "!", "~",
@@ -27,7 +27,7 @@ func TestKeyToString_roundtrip(t *testing.T) {
 	}
 }
 
-func TestKeyToString_unknown(t *testing.T) {
+func TestKeyToString_WhenUnknownKey_ShouldReturnEmpty(t *testing.T) {
 	msg := tea.KeyMsg{Type: tea.KeyF1}
 	got := KeyToString(msg)
 	if got != "" {

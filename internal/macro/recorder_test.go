@@ -18,7 +18,7 @@ func (m recorderTestModel) Init() tea.Cmd                       { return nil }
 func (m recorderTestModel) Update(tea.Msg) (tea.Model, tea.Cmd) { return m, nil }
 func (m recorderTestModel) View() string                        { return m.content }
 
-func TestRecorder_captures_frames_on_key(t *testing.T) {
+func TestRecorder_WhenKeyPressed_ShouldCaptureFrame(t *testing.T) {
 	dir := t.TempDir()
 	inner := recorderTestModel{content: "hello world"}
 	rec := NewRecorder(inner, dir, 80, 24)
@@ -38,7 +38,7 @@ func TestRecorder_captures_frames_on_key(t *testing.T) {
 	}
 }
 
-func TestRecorder_generates_tape(t *testing.T) {
+func TestRecorder_WhenSessionEnds_ShouldGenerateTape(t *testing.T) {
 	dir := t.TempDir()
 	inner := recorderTestModel{content: "view"}
 	rec := NewRecorder(inner, dir, 80, 24)
@@ -75,7 +75,7 @@ func TestRecorder_generates_tape(t *testing.T) {
 	}
 }
 
-func TestRecorder_writes_manifest(t *testing.T) {
+func TestRecorder_WhenRecordingComplete_ShouldWriteManifest(t *testing.T) {
 	dir := t.TempDir()
 	inner := recorderTestModel{content: "x"}
 	rec := NewRecorder(inner, dir, 120, 35)
@@ -104,7 +104,7 @@ func TestRecorder_writes_manifest(t *testing.T) {
 	}
 }
 
-func TestRecorder_records_resize(t *testing.T) {
+func TestRecorder_WhenResized_ShouldRecordDimensions(t *testing.T) {
 	dir := t.TempDir()
 	inner := recorderTestModel{content: "x"}
 	rec := NewRecorder(inner, dir, 80, 24)
@@ -135,7 +135,7 @@ func TestRecorder_records_resize(t *testing.T) {
 	}
 }
 
-func TestRecorder_implements_tea_Model(t *testing.T) {
+func TestRecorder_WhenUsedAsTeaModel_ShouldSatisfyInterface(t *testing.T) {
 	dir := t.TempDir()
 	inner := recorderTestModel{content: "test"}
 	rec := NewRecorder(inner, dir, 80, 24)
@@ -152,7 +152,7 @@ func TestRecorder_implements_tea_Model(t *testing.T) {
 	}
 }
 
-func TestRecorder_skips_unrecognized_keys(t *testing.T) {
+func TestRecorder_WhenUnrecognizedKey_ShouldSkip(t *testing.T) {
 	dir := t.TempDir()
 	inner := recorderTestModel{content: "x"}
 	rec := NewRecorder(inner, dir, 80, 24)
@@ -179,7 +179,7 @@ func TestRecorder_skips_unrecognized_keys(t *testing.T) {
 	}
 }
 
-func TestRecorder_nil_inner_does_not_panic(t *testing.T) {
+func TestRecorder_WhenInnerIsNil_ShouldNotPanic(t *testing.T) {
 	dir := t.TempDir()
 	rec := NewRecorder(nil, dir, 80, 24)
 
@@ -387,7 +387,7 @@ func TestRecorder_RecordKey_WhenElapsedExceeds200ms_ShouldInsertSleepCommand(t *
 	}
 }
 
-func TestRunner_with_recorder_captures_frames(t *testing.T) {
+func TestRunner_WhenRecorderAttached_ShouldCaptureFrames(t *testing.T) {
 	dir := t.TempDir()
 	inner := mockModel{content: "start"}
 	driver := NewDriver(inner, 80, 24)

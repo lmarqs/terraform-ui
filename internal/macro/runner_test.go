@@ -11,7 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-func TestRunnerExecuteEmpty(t *testing.T) {
+func TestRunner_WhenTapeIsEmpty_ShouldSucceed(t *testing.T) {
 	model := mockModel{content: "ready"}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -22,7 +22,7 @@ func TestRunnerExecuteEmpty(t *testing.T) {
 	}
 }
 
-func TestRunnerKey(t *testing.T) {
+func TestRunner_WhenKeyCommand_ShouldSendKeyToDriver(t *testing.T) {
 	model := mockModel{content: "initial"}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -39,7 +39,7 @@ func TestRunnerKey(t *testing.T) {
 	}
 }
 
-func TestRunnerAssertViewPass(t *testing.T) {
+func TestRunner_WhenAssertViewMatches_ShouldPass(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -54,7 +54,7 @@ func TestRunnerAssertViewPass(t *testing.T) {
 	}
 }
 
-func TestRunnerAssertViewFail(t *testing.T) {
+func TestRunner_WhenAssertViewNoMatch_ShouldFail(t *testing.T) {
 	model := mockModel{content: "hello world"}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -82,7 +82,7 @@ func TestRunnerAssertViewFail(t *testing.T) {
 	}
 }
 
-func TestRunnerWaitReady(t *testing.T) {
+func TestRunner_WhenWaitReady_ShouldBlockUntilReady(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -99,7 +99,7 @@ func TestRunnerWaitReady(t *testing.T) {
 	}
 }
 
-func TestRunnerWaitViewPass(t *testing.T) {
+func TestRunner_WhenWaitViewMatches_ShouldPass(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -114,7 +114,7 @@ func TestRunnerWaitViewPass(t *testing.T) {
 	}
 }
 
-func TestRunnerWaitViewTimeout(t *testing.T) {
+func TestRunner_WhenWaitViewTimesOut_ShouldReturnTimeoutError(t *testing.T) {
 	model := mockModel{content: "something else"}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -140,7 +140,7 @@ func TestRunnerWaitViewTimeout(t *testing.T) {
 	}
 }
 
-func TestRunnerScreenshot(t *testing.T) {
+func TestRunner_WhenScreenshotCommand_ShouldWriteViewToFile(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -164,7 +164,7 @@ func TestRunnerScreenshot(t *testing.T) {
 	}
 }
 
-func TestRunnerResize(t *testing.T) {
+func TestRunner_WhenResizeCommand_ShouldSucceed(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -178,7 +178,7 @@ func TestRunnerResize(t *testing.T) {
 	}
 }
 
-func TestRunnerSleep(t *testing.T) {
+func TestRunner_WhenSleepCommand_ShouldSucceed(t *testing.T) {
 	model := mockModel{content: "ok"}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -192,7 +192,7 @@ func TestRunnerSleep(t *testing.T) {
 	}
 }
 
-func TestRunnerStopsOnFirstError(t *testing.T) {
+func TestRunner_WhenFirstCommandFails_ShouldStopExecution(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -212,7 +212,7 @@ func TestRunnerStopsOnFirstError(t *testing.T) {
 	}
 }
 
-func TestRunErrorFormat(t *testing.T) {
+func TestRunError_WhenFormatted_ShouldIncludeLineNumber(t *testing.T) {
 	tests := []struct {
 		name string
 		err  RunError
@@ -264,7 +264,7 @@ func (m windowModel) View() string {
 	return fmt.Sprintf("%dx%d", m.width, m.height)
 }
 
-func TestRunnerResizeUpdatesView(t *testing.T) {
+func TestRunner_WhenResizeCommand_ShouldUpdateModelView(t *testing.T) {
 	model := windowModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -279,7 +279,7 @@ func TestRunnerResizeUpdatesView(t *testing.T) {
 	}
 }
 
-func TestRunnerScreenshotWriteFailure(t *testing.T) {
+func TestRunner_WhenScreenshotWriteFails_ShouldReturnError(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -304,7 +304,7 @@ func TestRunnerScreenshotWriteFailure(t *testing.T) {
 	}
 }
 
-func TestRunnerWaitReadyTimeout(t *testing.T) {
+func TestRunner_WhenWaitReadyTimesOut_ShouldReturnTimeoutError(t *testing.T) {
 	model := loadingModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
@@ -424,7 +424,7 @@ func TestBuildEmitMsg_WhenUnknown_ShouldReturnNil(t *testing.T) {
 	}
 }
 
-func TestRunnerResizeUpdatesRecorder(t *testing.T) {
+func TestRunner_WhenResizeCommand_ShouldUpdateRecorderDimensions(t *testing.T) {
 	model := windowModel{}
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)

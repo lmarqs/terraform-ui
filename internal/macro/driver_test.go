@@ -49,7 +49,7 @@ func (m mockModel) View() string {
 	return m.content
 }
 
-func TestDriverInit(t *testing.T) {
+func TestDriver_WhenInitialized_ShouldReturnInitialView(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 	d.Init()
@@ -60,7 +60,7 @@ func TestDriverInit(t *testing.T) {
 	}
 }
 
-func TestDriverSendKey(t *testing.T) {
+func TestDriver_WhenKeySent_ShouldUpdateView(t *testing.T) {
 	model := mockModel{content: "initial"}
 	d := NewDriver(model, 80, 24)
 
@@ -75,7 +75,7 @@ func TestDriverSendKey(t *testing.T) {
 	}
 }
 
-func TestDriverSendKeySpecial(t *testing.T) {
+func TestDriver_WhenSpecialKeySent_ShouldUpdateView(t *testing.T) {
 	model := mockModel{content: "initial"}
 	d := NewDriver(model, 80, 24)
 
@@ -85,7 +85,7 @@ func TestDriverSendKeySpecial(t *testing.T) {
 	}
 }
 
-func TestDriverWaitUntil(t *testing.T) {
+func TestDriver_WhenWaitUntilConditionMet_ShouldSucceed(t *testing.T) {
 	model := mockModel{content: "waiting"}
 	d := NewDriver(model, 80, 24)
 
@@ -102,7 +102,7 @@ func TestDriverWaitUntil(t *testing.T) {
 	}
 }
 
-func TestDriverViewContains(t *testing.T) {
+func TestDriver_WhenViewContainsCalled_ShouldMatchSubstring(t *testing.T) {
 	model := mockModel{content: "hello world"}
 	d := NewDriver(model, 80, 24)
 
@@ -117,7 +117,7 @@ func TestDriverViewContains(t *testing.T) {
 	}
 }
 
-func TestDriverResize(t *testing.T) {
+func TestDriver_WhenResized_ShouldNotPanic(t *testing.T) {
 	model := mockModel{}
 	d := NewDriver(model, 80, 24)
 
@@ -156,7 +156,7 @@ func (m asyncModel) View() string {
 	return m.content
 }
 
-func TestDriverHandlesCommandResults(t *testing.T) {
+func TestDriver_WhenUpdateReturnsCommand_ShouldProcessResult(t *testing.T) {
 	model := asyncModel{}
 	d := NewDriver(model, 80, 24)
 
@@ -198,7 +198,7 @@ func (m batchModel) View() string {
 	return strings.Join(m.messages, ",")
 }
 
-func TestDriverHandlesBatchCommands(t *testing.T) {
+func TestDriver_WhenBatchCommandReturned_ShouldProcessAllResults(t *testing.T) {
 	model := batchModel{}
 	d := NewDriver(model, 80, 24)
 
@@ -235,7 +235,7 @@ func (m delayedProgressModel) View() string {
 	return "waiting"
 }
 
-func TestDriverWaitUntilProcessesCommands(t *testing.T) {
+func TestDriver_WhenWaitUntilCalled_ShouldPumpTicksToModel(t *testing.T) {
 	model := delayedProgressModel{}
 	d := NewDriver(model, 80, 24)
 
@@ -245,7 +245,7 @@ func TestDriverWaitUntilProcessesCommands(t *testing.T) {
 	}
 }
 
-func TestKeyToMsg(t *testing.T) {
+func TestKeyToMsg_WhenValidKey_ShouldReturnCorrectType(t *testing.T) {
 	tests := []struct {
 		key      string
 		wantType tea.KeyType
@@ -279,7 +279,7 @@ func TestKeyToMsg(t *testing.T) {
 	}
 }
 
-func TestKeyToMsgMultiCharUnknown(t *testing.T) {
+func TestKeyToMsg_WhenMultiCharUnknown_ShouldReturnAsRunes(t *testing.T) {
 	msg := keyToMsg("unknown")
 	if msg.Type != tea.KeyRunes {
 		t.Errorf("keyToMsg(%q).Type = %v, want %v", "unknown", msg.Type, tea.KeyRunes)
@@ -289,7 +289,7 @@ func TestKeyToMsgMultiCharUnknown(t *testing.T) {
 	}
 }
 
-func TestDriverProcessCmdNilMsg(t *testing.T) {
+func TestDriver_WhenCommandReturnsNilMsg_ShouldNotPanic(t *testing.T) {
 	model := mockModel{content: "initial"}
 	d := NewDriver(model, 80, 24)
 
