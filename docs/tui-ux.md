@@ -34,7 +34,7 @@ nav_exclude: true
 When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs in standalone mode with minimal chrome:
 
 ```
- tfui                              my-infra │ modules/sa-east-1 │ production
+ my-infra │ modules/sa-east-1 │ production                              tfui
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │ plugin content fills the screen                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -45,7 +45,7 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 
 | Aspect | Full TUI | Standalone |
 |--------|----------|------------|
-| Header | 3-line (project/chdir/workspace + ASCII logo) | 1-line (tfui left, project/chdir/workspace right-aligned) |
+| Header | 3-line (project/chdir/workspace + ASCII logo) | 1-line (project/chdir/workspace left, tfui right) |
 | Border | Content border with title | No border |
 | Navigation | `:` command mode, home screen, plugin switching | Disabled |
 | `q` key | Go home (or quit from home) | Quit app |
