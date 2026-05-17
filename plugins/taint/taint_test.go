@@ -448,7 +448,6 @@ func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
 	}
 }
 
-
 func TestPlugin_WhenCancelCalledWithNilFn_ShouldNotPanic(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil

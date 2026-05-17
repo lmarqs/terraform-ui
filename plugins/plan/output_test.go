@@ -2832,3 +2832,72 @@ func TestPlugin_WhenOutputJsonWithNoRisk_ShouldIncludeNoneRisk(t *testing.T) {
 		t.Error("JSON output should include risk field")
 	}
 }
+
+func TestListFrame_WhenBigAPressedWithNoResults_ShouldDoNothing(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
+	if cmd != nil {
+		t.Error("A key with no changes: cmd != nil, want nil")
+	}
+}
+
+func TestListFrame_WhenTPressedDoneNoSelection_ShouldDoNothing(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "module.a.aws_instance.one"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "module.a.aws_instance.two"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.treeMode = true
+	p.rebuildTree()
+	// Cursor is on branch node "module.a" - SelectedChange() returns nil
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd != nil {
+		t.Error("t key on branch node (no selection): cmd != nil, want nil")
+	}
+}
+
+func TestListFrame_WhenBigTPressedDoneNoSelection_ShouldDoNothing(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "module.a.aws_instance.one"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "module.a.aws_instance.two"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.treeMode = true
+	p.rebuildTree()
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd != nil {
+		t.Error("T key on branch node (no selection): cmd != nil, want nil")
+	}
+}
+
+func TestListFrame_WhenEPressedDoneNoSelection_ShouldDoNothing(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "module.a.aws_instance.one"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "module.a.aws_instance.two"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.treeMode = true
+	p.rebuildTree()
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	if cmd != nil {
+		t.Error("e key on branch node (no selection): cmd != nil, want nil")
+	}
+}

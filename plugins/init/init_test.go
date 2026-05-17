@@ -424,6 +424,31 @@ func TestResultFrame_WhenSuccess_ShouldReturnCmd(t *testing.T) {
 	if rf.status != sdk.StatusDone {
 		t.Errorf("status = %v, want Done", rf.status)
 	}
+	msg := cmd()
+	batchMsg, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want tea.BatchMsg", msg)
+	}
+	foundInvalidated := false
+	foundDeactivate := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		subMsg := subCmd()
+		switch subMsg.(type) {
+		case sdk.PlanInvalidatedEvent:
+			foundInvalidated = true
+		case sdk.DeactivateMsg:
+			foundDeactivate = true
+		}
+	}
+	if !foundInvalidated {
+		t.Error("batch should contain PlanInvalidatedEvent")
+	}
+	if !foundDeactivate {
+		t.Error("batch should contain DeactivateMsg")
+	}
 }
 
 func TestResultFrame_WhenError_ShouldSetErrorStatus(t *testing.T) {
@@ -645,5 +670,31 @@ func TestResultFrame_WhenUnhandledKeyInLoading_ShouldReturnSelf(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Error("unhandled key should return nil cmd")
+	}
+}
+
+func TestResultFrame_WhenNonEnterKeyInError_ShouldReturnSelf(t *testing.T) {
+	var timer ui.Timer
+	rf := newResultFrame(&timer)
+	rf.status = sdk.StatusError
+
+	frame, cmd := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if frame != rf {
+		t.Error("non-enter key in error should return self (not pop)")
+	}
+	if cmd != nil {
+		t.Error("non-enter key in error should return nil cmd")
+	}
+}
+
+func TestPlugin_WhenUpdateWithUnhandledMsgAndStackHasFrame_ShouldReturnNil(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Activate()
+	p.Update(initSubmitMsg{})
+
+	type customMsg struct{}
+	_, cmd := p.Update(customMsg{})
+	if cmd != nil {
+		t.Error("unhandled msg with result frame on stack should return nil cmd")
 	}
 }

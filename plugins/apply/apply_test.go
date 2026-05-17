@@ -1151,3 +1151,71 @@ func TestPlugin_WhenOutputJsonMarshalSuccess_ShouldNotReturnError(t *testing.T) 
 		t.Error("Output(true) should end with newline")
 	}
 }
+
+func TestPlugin_WhenActivatedInDoneStatus_ShouldResetToIdle(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.errMsg = "stale error"
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() should return nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
+	}
+	if p.errMsg != "" {
+		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
+	}
+}
+
+func TestPlugin_WhenActivatedInErrorStatus_ShouldResetToIdle(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "previous error"
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() should return nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
+	}
+	if p.errMsg != "" {
+		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
+	}
+}
+
+func TestPlugin_WhenOtherKeyInDone_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if cmd != nil {
+		t.Error("unhandled key in done: cmd != nil, want nil")
+	}
+}
+
+func TestPlugin_WhenOtherKeyInReplanning_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusReplanning
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if cmd != nil {
+		t.Error("unhandled key in replanning: cmd != nil, want nil")
+	}
+}
+
+func TestPlugin_WhenNoInConfirming_ShouldEmitDeactivateMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusConfirming
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("n in confirming: cmd = nil, want DeactivateMsg cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
+	}
+}

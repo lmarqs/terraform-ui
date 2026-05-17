@@ -11,9 +11,8 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
-
-import "github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 
 func TestNew(t *testing.T) {
 	svc := &sdktest.MockService{}

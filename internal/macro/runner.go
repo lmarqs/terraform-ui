@@ -119,6 +119,9 @@ func (r *Runner) executeOne(cmd Command) error {
 		w, _ := strconv.Atoi(cmd.Args[0])
 		h, _ := strconv.Atoi(cmd.Args[1])
 		r.driver.SendMsg(tea.WindowSizeMsg{Width: w, Height: h})
+		if r.recorder != nil {
+			r.recorder.Resize(w, h)
+		}
 
 	case CmdSleep:
 		dur, _ := time.ParseDuration(cmd.Args[0])

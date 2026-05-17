@@ -10,8 +10,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func TestBusy_WhenMutating_ShouldReturnTrue(t *testing.T) {
@@ -296,7 +297,9 @@ func TestRequestEdit_ShouldProduceStateEditMsg(t *testing.T) {
 }
 
 func TestUpdate_WhenStateDeletedMsg_ShouldRefresh(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.svc = svc
@@ -1598,7 +1601,9 @@ func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
 }
 
 func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.svc = svc
@@ -2058,5 +2063,62 @@ func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
 	}
 	if !strings.Contains(s, "aws_s3_bucket.data\n") {
 		t.Error("text missing aws_s3_bucket.data")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+	p.timer.Start()
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd == nil {
+		t.Error("Update(TimerTickMsg) with running timer should return tick cmd")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsgTimerStopped_ShouldReturnNil(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("Update(TimerTickMsg) with stopped timer should return nil")
+	}
+}
+
+func TestRenderResources_WhenPinnedOnlyWithoutFilter_ShouldNotAddFilterHeight(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
+	p.filtered = p.resources
+	p.pins = sdk.NewPinService()
+	p.rebuildTree()
+	p.filtering = false
+	p.filter = ""
+	p.pinnedOnly = true
+
+	view := p.View(80, 24)
+	if !strings.Contains(view, "[pinned]") {
+		t.Error("expected [pinned] indicator when pinnedOnly but no filter text")
+	}
+}
+
+func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"tainted": true`) {
+		t.Errorf("JSON output should contain tainted field, got: %s", s)
 	}
 }

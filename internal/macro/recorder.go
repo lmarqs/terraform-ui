@@ -143,6 +143,12 @@ func (r *Recorder) recordKey(msg tea.KeyMsg) {
 	r.lastTime = time.Now()
 }
 
+// Resize updates the recorder's dimensions (used by headless runner on CmdResize).
+func (r *Recorder) Resize(width, height int) {
+	r.width = width
+	r.height = height
+}
+
 func (r *Recorder) recordResize(msg tea.WindowSizeMsg) {
 	r.width = msg.Width
 	r.height = msg.Height

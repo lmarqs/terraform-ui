@@ -453,3 +453,27 @@ func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
 		t.Error("should not include terraform_version when info is nil")
 	}
 }
+
+func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.version = "1.2.3"
+	p.info = &sdk.VersionInfo{TerraformVersion: ""}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if contains(s, `"terraform_version"`) {
+		t.Errorf("should not include terraform_version when it's empty, got %q", s)
+	}
+
+	data, err = p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s = string(data)
+	if contains(s, "terraform v") {
+		t.Errorf("text should not include terraform version when empty, got %q", s)
+	}
+}

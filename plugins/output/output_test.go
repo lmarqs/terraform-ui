@@ -12,6 +12,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func sampleOutputs() map[string]sdk.OutputValue {
@@ -1374,5 +1375,26 @@ func TestUpdate_WhenUnhandledMsgType_ShouldPassThrough(t *testing.T) {
 	}
 	if result.(*Plugin) != p {
 		t.Error("unhandled msg should return same plugin")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+	p.timer.Start()
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd == nil {
+		t.Error("TimerTickMsg while timer running: cmd = nil, want non-nil")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("TimerTickMsg while timer stopped: cmd != nil, want nil")
 	}
 }

@@ -578,7 +578,9 @@ func TestDetailFrame_WhenActionKeyPressed_ShouldTriggerAction(t *testing.T) {
 }
 
 func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	_, cmd := p.Update(StateMovedMsg{Source: "a", Dest: "b"})

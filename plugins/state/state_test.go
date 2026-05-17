@@ -59,11 +59,9 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}, nil }}
-
-
-
-
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}, nil
+	}}
 
 	p := New(svc)
 	ctx := &sdk.Context{
@@ -124,7 +122,9 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 }
 
 func TestActivateCmdReturnsError(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return nil, errors.New("state error") }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return nil, errors.New("state error")
+	}}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)
@@ -348,7 +348,9 @@ func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
 }
 
 func TestUpdateKeyMsgRefresh(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -908,7 +910,9 @@ func TestInspectSelectedEmptyAddress(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	// Set up some items and move cursor to simulate non-zero selection
@@ -1310,7 +1314,9 @@ func TestFilteringGetter(t *testing.T) {
 }
 
 func TestHandleChdirChanged(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{{Address: "a"}}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{{Address: "a"}}, nil
+	}}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1331,7 +1337,9 @@ func TestHandleChdirChanged(t *testing.T) {
 }
 
 func TestHandleChdirChanged_ClearsPins(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{{Address: "a"}, {Address: "b"}}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{{Address: "a"}, {Address: "b"}}, nil
+	}}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1354,7 +1362,9 @@ func TestHandleChdirChanged_ClearsPins(t *testing.T) {
 }
 
 func TestActivateWithSameContext(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1382,7 +1392,9 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 }
 
 func TestActivateWithScopeDir(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -1393,7 +1405,9 @@ func TestActivateWithScopeDir(t *testing.T) {
 }
 
 func TestActivateNoPins(t *testing.T) {
-	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return []sdk.Resource{}, nil }}
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(ctx)

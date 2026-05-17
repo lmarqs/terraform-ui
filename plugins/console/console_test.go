@@ -929,3 +929,18 @@ func TestPlugin_WhenCtrlHKey_ShouldBackspace(t *testing.T) {
 		t.Errorf("input after ctrl+h = %q, want %q", p.input, "hell")
 	}
 }
+
+func TestPlugin_WhenQKeyWithEmptyInputNotEvaluating_ShouldDeactivate(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.input = ""
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd == nil {
+		t.Fatal("q with empty input in Done: cmd = nil, want DeactivateMsg cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("q cmd returned %T, want DeactivateMsg", msg)
+	}
+}

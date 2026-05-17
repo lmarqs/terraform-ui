@@ -659,3 +659,67 @@ func TestUpdate_WhenKeyOtherThanQEscCtrlR_ShouldDoNothing(t *testing.T) {
 		t.Error("unhandled key in done: cmd != nil, want nil")
 	}
 }
+
+func TestUpdate_WhenForceUnlockResultSuccessWithRunningTimer_ShouldStopTimerAndEmitEvents(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
+	p.lockID = "lock-123"
+	p.timer.Start()
+
+	result, cmd := p.Update(ForceUnlockResultMsg{LockID: "lock-123", Err: nil})
+	pp := result.(*Plugin)
+
+	if pp.status != sdk.StatusDone {
+		t.Errorf("status = %v, want StatusDone", pp.status)
+	}
+	if pp.timer.Running() {
+		t.Error("timer should be stopped after result")
+	}
+	if pp.lockInfo != nil {
+		t.Error("lockInfo should be nil after success")
+	}
+	if cmd == nil {
+		t.Fatal("success should return cmd (LockClearedEvent + PlanInvalidatedEvent)")
+	}
+	msg := cmd()
+	batchMsg, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want tea.BatchMsg", msg)
+	}
+	foundCleared := false
+	foundInvalidated := false
+	for _, subCmd := range batchMsg {
+		if subCmd == nil {
+			continue
+		}
+		subMsg := subCmd()
+		switch subMsg.(type) {
+		case sdk.LockClearedEvent:
+			foundCleared = true
+		case sdk.PlanInvalidatedEvent:
+			foundInvalidated = true
+		}
+	}
+	if !foundCleared {
+		t.Error("batch should contain LockClearedEvent")
+	}
+	if !foundInvalidated {
+		t.Error("batch should contain PlanInvalidatedEvent")
+	}
+}
+
+func TestUpdate_WhenForceUnlockResultErrorWithRunningTimer_ShouldStopTimer(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
+	p.lockID = "lock-err"
+	p.timer.Start()
+
+	result, _ := p.Update(ForceUnlockResultMsg{LockID: "lock-err", Err: errors.New("denied")})
+	pp := result.(*Plugin)
+
+	if pp.timer.Running() {
+		t.Error("timer should be stopped after error result")
+	}
+}

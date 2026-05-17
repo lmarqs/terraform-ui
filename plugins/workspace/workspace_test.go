@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func mockSvc(list []string, current string) *sdktest.MockService {
@@ -177,7 +178,7 @@ func TestActivate_GivenListError_ShouldReturnErrorMsg(t *testing.T) {
 func TestActivate_GivenWorkspaceError_ShouldReturnErrorMsg(t *testing.T) {
 	svc := &sdktest.MockService{
 		WorkspaceListFn: func(_ context.Context) ([]string, error) { return []string{"default"}, nil },
-		WorkspaceFn: func(_ context.Context) (string, error) { return "", errors.New("fail") },
+		WorkspaceFn:     func(_ context.Context) (string, error) { return "", errors.New("fail") },
 	}
 	p := New(svc).(*Plugin)
 	p.Init(&sdk.Context{Service: svc})
@@ -1437,5 +1438,26 @@ func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
 	}
 	if result.(*Plugin) != p {
 		t.Error("unhandled msg should return same plugin")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsgRunning_ShouldReturnTickCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+	p.timer.Start()
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd == nil {
+		t.Error("TimerTickMsg while timer running: cmd = nil, want non-nil")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("TimerTickMsg while timer stopped: cmd != nil, want nil")
 	}
 }

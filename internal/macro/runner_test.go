@@ -423,3 +423,25 @@ func TestBuildEmitMsg_WhenUnknown_ShouldReturnNil(t *testing.T) {
 		t.Fatalf("buildEmitMsg(unknown) should return nil, got %v", msg)
 	}
 }
+
+func TestRunnerResizeUpdatesRecorder(t *testing.T) {
+	model := windowModel{}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+
+	dir := t.TempDir()
+	rec := NewRecorder(nil, dir, 80, 24)
+	r.WithRecorder(rec)
+
+	commands := []Command{
+		{Type: CmdResize, Args: []string{"120", "40"}, Line: 1},
+	}
+	err := r.Execute(commands)
+	if err != nil {
+		t.Fatalf("should succeed: %v", err)
+	}
+
+	if rec.width != 120 || rec.height != 40 {
+		t.Errorf("recorder dimensions = %dx%d, want 120x40", rec.width, rec.height)
+	}
+}
