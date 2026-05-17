@@ -6,7 +6,7 @@ description: Interactive terminal UI for Terraform operations
 permalink: /
 ---
 
-# Stop reading terraform plan diffs in raw text.
+# terraform-ui - Stop reading terraform plan diffs in raw text.
 
 > k9s for Terraform. Navigate it, don't scroll it.
 
