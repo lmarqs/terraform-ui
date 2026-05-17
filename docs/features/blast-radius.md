@@ -6,20 +6,15 @@ nav_order: 3
 description: Visualize the scope and impact of terraform changes
 ---
 
-# Blast Radius
+## Overview
 
-The blast radius view shows the scope of your planned changes — how many resources are affected, which modules are involved, and the potential impact on your infrastructure.
+The blast radius view shows the scope of your planned changes -- how many resources are affected, which modules are involved, and the potential impact on your infrastructure. Modules are sorted highest-impact first.
 
-## What It Shows
+## How It Works
 
-- **Module grouping** — Changes organized by terraform module path
-- **Action summary** — Count of creates, updates, deletes per module
-- **Dependency visualization** — Which modules depend on changed resources
-- **Impact score** — Combined risk assessment across all changes
+### Module Grouping
 
-## Module Grouping
-
-Changes are grouped by their terraform module path:
+Changes are grouped by their terraform module path. Each group shows add/change/destroy counts and an impact score derived from risk levels.
 
 ```
 module.vpc (1 to add, 1 to change)
@@ -34,15 +29,7 @@ root (1 to add)
   + aws_cloudwatch_log_group.app
 ```
 
-## In the TUI
-
-Press `b` from the home screen after running a plan. The blast radius view shows:
-
-1. **Summary bar** — Total changes, overall risk level
-2. **Module tree** — Expandable tree grouped by module
-3. **Per-module stats** — Add/change/destroy counts with risk indicators
-
-## Module Path Extraction
+### Module Path Extraction
 
 terraform-ui extracts module paths from resource addresses:
 
@@ -51,3 +38,31 @@ terraform-ui extracts module paths from resource addresses:
 | `aws_instance.web` | `root` |
 | `module.vpc.aws_subnet.private` | `module.vpc` |
 | `module.vpc.module.subnets.aws_subnet.a` | `module.vpc.module.subnets` |
+
+### Impact Score
+
+| Score | Criteria |
+|-------|----------|
+| **critical** | Any change with critical risk |
+| **high** | High risk or 3+ destructive operations |
+| **moderate** | 3+ changes or medium risk |
+| **minimal** | 1-2 changes, all low risk |
+
+## In the TUI
+
+Press `b` from the home screen after running a plan. The blast radius view shows:
+
+1. **Summary bar** -- total changes, overall risk level
+2. **Module tree** -- expandable tree grouped by module
+3. **Per-module stats** -- add/change/destroy counts with risk indicators
+
+## Configuration
+
+```hcl
+# tfui.hcl
+plugin "blastradius" {
+  enabled = true
+}
+```
+
+See the [Blast Radius plugin](../plugins/blastradius.md) for the full TUI reference.
