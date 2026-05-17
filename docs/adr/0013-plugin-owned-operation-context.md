@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0013: Plugins own their operation context"
+grand_parent: Development
 parent: Architecture
 nav_order: 0013
 ---

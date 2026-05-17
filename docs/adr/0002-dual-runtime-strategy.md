@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0002: Dual runtime strategy: ExecService and MacroService"
+grand_parent: Development
 parent: Architecture
 nav_order: 0002
 ---

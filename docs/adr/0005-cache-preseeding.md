@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0005: Cache pre-seeding via --plan and --state flags"
+grand_parent: Development
 parent: Architecture
 nav_order: 0005
 ---

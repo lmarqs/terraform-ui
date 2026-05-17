@@ -33,6 +33,9 @@ just_the_docs:
       name: Roadmap
       nav_fold: true
 
+plugins:
+  - jekyll-seo-tag
+
 exclude:
   - Gemfile
   - Gemfile.lock

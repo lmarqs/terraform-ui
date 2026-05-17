@@ -99,21 +99,20 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - TUI UX rules: see `.claude/rules/ux-tui.md` (loaded automatically for `plugins/` and `internal/ui/` edits)
 - CLI UX rules: see `.claude/rules/ux-cli.md` (loaded automatically for `cmd/` edits)
 - CI/CD pipeline: see `.claude/rules/ci.md` (loaded automatically for `.github/` edits)
-- TUI UX spec: `docs/tui-ux.md`
-- CLI UX spec: `docs/cli-ux.md`
-- Full I/O contract: `docs/cli-io-contract.md`
-- CLI reference: `docs/cli-reference.md`
-- Architecture overview: `docs/architecture.md`
-- Macro DSL reference: `docs/macro-language.md`
+- TUI UX spec: `docs/reference/tui-ux.md`
+- CLI UX spec: `docs/reference/cli-ux.md`
+- Full I/O contract: `docs/reference/cli-io-contract.md`
+- CLI reference: `docs/reference/cli-reference.md`
+- Architecture overview: `docs/development/architecture.md`
+- Macro DSL reference: `docs/reference/macro-language.md`
 - Demo pipeline: `demo/README.md`
-- Demo landing page: `docs/demo.md`
-- Configuration reference: `docs/configuration.md`
-- Testing strategy: `docs/testing.md`
+- Configuration reference: `docs/guides/configuration.md`
+- Testing strategy: `docs/development/testing.md`
 - Plugin catalog: `docs/plugins/index.md`
-- Risk analysis methodology: `docs/risk-analysis.md`
-- Phantom change detection: `docs/phantom-changes.md`
-- Blast radius visualization: `docs/blast-radius.md`
-- Getting started: `docs/getting-started.md`
+- Risk analysis methodology: `docs/features/risk-analysis.md`
+- Phantom change detection: `docs/features/phantom-changes.md`
+- Blast radius visualization: `docs/features/blast-radius.md`
+- Getting started: `docs/guides/getting-started.md`
 - Domain glossary: `CONTEXT.md`
 - Architecture Decision Records: `docs/adr/`
 

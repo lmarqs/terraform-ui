@@ -1,7 +1,8 @@
 ---
 layout: default
 title: Configuration
-nav_order: 3
+parent: Getting Started
+nav_order: 2
 description: Configure terraform-ui for your project
 ---
 

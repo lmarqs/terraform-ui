@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0003: Typed event bus for inter-plugin communication"
+grand_parent: Development
 parent: Architecture
 nav_order: 0003
 ---

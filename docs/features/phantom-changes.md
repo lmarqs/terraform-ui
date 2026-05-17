@@ -1,7 +1,8 @@
 ---
 layout: default
 title: Phantom Changes
-nav_order: 11
+parent: Features
+nav_order: 2
 description: Detect and filter false-positive terraform plan changes
 ---
 

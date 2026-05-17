@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0008: 100% coverage as a behavioral forcing function"
+grand_parent: Development
 parent: Architecture
 nav_order: 0008
 ---

@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0009: Terraform's command namespace is reserved"
+grand_parent: Development
 parent: Architecture
 nav_order: 0009
 ---

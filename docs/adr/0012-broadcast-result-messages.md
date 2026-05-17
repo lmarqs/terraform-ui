@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0012: Broadcast result messages to all plugins"
+grand_parent: Development
 parent: Architecture
 nav_order: 0012
 ---

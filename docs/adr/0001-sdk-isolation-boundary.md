@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0001: SDK isolation: plugins import only pkg/sdk"
+grand_parent: Development
 parent: Architecture
 nav_order: 0001
 ---

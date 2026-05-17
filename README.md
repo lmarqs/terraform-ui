@@ -182,7 +182,7 @@ Two modes:
 - **Standalone** (no config): TUI skin over terraform, CWD = working dir
 - **Project** (`tfui.hcl` present): full config resolution, member directories, workspace overrides
 
-See [docs/configuration.md](docs/configuration.md) for all options.
+See [docs/guides/configuration.md](docs/guides/configuration.md) for all options.
 
 ## Requirements
 
@@ -201,18 +201,18 @@ mise run test:coverage    # Coverage report
 mise run build            # Cross-platform binaries (goreleaser snapshot)
 ```
 
-See [docs/getting-started.md](docs/getting-started.md) for contributor setup and [docs/testing.md](docs/testing.md) for test strategy.
+See [docs/guides/getting-started.md](docs/guides/getting-started.md) for contributor setup and [docs/development/testing.md](docs/development/testing.md) for test strategy.
 
 ## Documentation
 
-- [Getting Started](docs/getting-started.md) — Installation and first run
-- [Configuration](docs/configuration.md) — `tfui.hcl` reference
-- [CLI Reference](docs/cli-reference.md) — All commands and flags
-- [Architecture](docs/architecture.md) — Internal design
+- [Getting Started](docs/guides/getting-started.md) — Installation and first run
+- [Configuration](docs/guides/configuration.md) — `tfui.hcl` reference
+- [CLI Reference](docs/reference/cli-reference.md) — All commands and flags
+- [Architecture](docs/development/architecture.md) — Internal design
 - [Plugins](docs/plugins/) — Plugin catalog
-- [TUI UX Spec](docs/tui-ux.md) — Navigation and interaction patterns
-- [CLI I/O Contract](docs/cli-io-contract.md) — stdout/stderr specification
-- [Macro Language](docs/macro-language.md) — Tape DSL for automated testing
+- [TUI UX Spec](docs/reference/tui-ux.md) — Navigation and interaction patterns
+- [CLI I/O Contract](docs/reference/cli-io-contract.md) — stdout/stderr specification
+- [Macro Language](docs/reference/macro-language.md) — Tape DSL for automated testing
 - [Roadmap](docs/roadmap.md) — Planned features
 
 ## License

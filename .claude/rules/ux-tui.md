@@ -3,7 +3,7 @@ description: "TUI UX: keybinding conventions, hint bar design, navigation, actio
 globs: ["plugins/**", "internal/ui/**", "pkg/sdk/frames/**"]
 ---
 
-Full spec: `docs/tui-ux.md`
+Full spec: `docs/reference/tui-ux.md`
 
 # TUI UX Rules
 
@@ -82,7 +82,7 @@ Invariants:
 - `q` shown at plugin top-level; `esc` shown only in sub-states
 - Plugins must NOT start in filter mode by default
 
-Full keybinding map and assignments: `docs/tui-ux.md` §7 and §16
+Full keybinding map and assignments: `docs/reference/tui-ux.md` §7 and §16
 
 ## Action Model (cursor vs batch)
 

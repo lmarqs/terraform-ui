@@ -3,7 +3,7 @@ description: "CLI UX: standalone/CI modes, I/O contract, flag conventions, exit 
 globs: ["cmd/**"]
 ---
 
-Full spec: `docs/cli-ux.md`
+Full spec: `docs/reference/cli-ux.md`
 
 # CLI UX Rules
 

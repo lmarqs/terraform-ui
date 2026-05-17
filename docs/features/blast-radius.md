@@ -1,7 +1,8 @@
 ---
 layout: default
 title: Blast Radius
-nav_order: 12
+parent: Features
+nav_order: 3
 description: Visualize the scope and impact of terraform changes
 ---
 

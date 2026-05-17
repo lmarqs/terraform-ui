@@ -1,7 +1,9 @@
 ---
 layout: default
 title: Architecture
-nav_order: 5
+parent: Development
+nav_order: 1
+has_children: true
 description: Internal architecture of terraform-ui
 ---
 

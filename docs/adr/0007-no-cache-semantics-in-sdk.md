@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0007: No cache semantics in the SDK contract"
+grand_parent: Development
 parent: Architecture
 nav_order: 0007
 ---

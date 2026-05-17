@@ -1,9 +1,9 @@
 ---
 layout: default
 title: TUI UX Guidelines
-nav_order: 15
+parent: Reference
+nav_order: 5
 description: UX design guidelines for the TUI interface
-nav_exclude: true
 ---
 
 # UX Guidelines — terraform-ui

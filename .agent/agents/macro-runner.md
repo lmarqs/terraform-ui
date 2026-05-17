@@ -108,7 +108,7 @@ When no existing tape covers the modified area, write one to `tests/fixtures/tap
 | `internal/macro/driver_test.go` | Driver test patterns, mockModel, asyncModel, batchModel |
 | `internal/macro/runner_test.go` | Runner test patterns, all command types tested |
 | `cmd/tfui/main.go` | CLI wiring: --macro flag, runMacro(), buildRegistry() |
-| `docs/macro-language.md` | Full DSL reference, examples, limitations |
+| `docs/reference/macro-language.md` | Full DSL reference, examples, limitations |
 | `tests/fixtures/plan.json` | Test plan: aws_instance.web (create) + aws_s3_bucket.data (update) |
 | `tests/fixtures/state.json` | Test state file |
 | `tests/fixtures/tapes/` | Existing tape fixtures |

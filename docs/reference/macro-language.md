@@ -1,7 +1,8 @@
 ---
 layout: default
 title: Macro Language
-nav_order: 9
+parent: Reference
+nav_order: 3
 description: Tape DSL reference for automated TUI interaction
 ---
 

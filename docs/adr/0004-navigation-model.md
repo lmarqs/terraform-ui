@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0004: Navigation: Replace vs Push with return destination"
+grand_parent: Development
 parent: Architecture
 nav_order: 0004
 ---

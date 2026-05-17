@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0006: Orthogonal axes: income and outcome are independent"
+grand_parent: Development
 parent: Architecture
 nav_order: 0006
 ---

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Roadmap
-nav_order: 13
+nav_order: 7
 description: Planned features and enhancements for terraform-ui
 ---
 

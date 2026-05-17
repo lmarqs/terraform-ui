@@ -1,6 +1,7 @@
 ---
 layout: default
 title: "ADR-0011: Batch operations only through ! palette"
+grand_parent: Development
 parent: Architecture
 nav_order: 0011
 ---
