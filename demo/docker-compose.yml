@@ -1,0 +1,8 @@
+services:
+  tfui-demo:
+    image: ghcr.io/lmarqs/terraform-ui:demo
+    build:
+      context: ..
+      dockerfile: demo/Dockerfile
+    stdin_open: true
+    tty: true

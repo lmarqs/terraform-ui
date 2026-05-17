@@ -1,0 +1,231 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.7.0",
+  "resource_changes": [
+    {
+      "address": "module.networking.aws_vpc.main",
+      "module_address": "module.networking",
+      "type": "aws_vpc",
+      "name": "main",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["no-op"],
+        "before": {"id": "vpc-abc123", "cidr_block": "10.0.0.0/16", "tags": {"Name": "production"}},
+        "after": {"id": "vpc-abc123", "cidr_block": "10.0.0.0/16", "tags": {"Name": "production"}},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.networking.aws_subnet.public[0]",
+      "module_address": "module.networking",
+      "type": "aws_subnet",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"cidr_block": "10.0.1.0/24", "availability_zone": "us-east-1a", "map_public_ip_on_launch": true, "tags": {"Name": "public-1a"}},
+        "after_unknown": {"id": true, "arn": true, "vpc_id": true},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.networking.aws_subnet.public[1]",
+      "module_address": "module.networking",
+      "type": "aws_subnet",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"cidr_block": "10.0.2.0/24", "availability_zone": "us-east-1b", "map_public_ip_on_launch": true, "tags": {"Name": "public-1b"}},
+        "after_unknown": {"id": true, "arn": true, "vpc_id": true},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.networking.aws_security_group.web",
+      "module_address": "module.networking",
+      "type": "aws_security_group",
+      "name": "web",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"id": "sg-web123", "name": "web-sg", "ingress": [{"from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["10.0.0.0/8"]}]},
+        "after": {"id": "sg-web123", "name": "web-sg", "ingress": [{"from_port": 443, "to_port": 443, "protocol": "tcp", "cidr_blocks": ["0.0.0.0/0"]}]},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.compute.aws_instance.app[0]",
+      "module_address": "module.compute",
+      "type": "aws_instance",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"ami": "ami-0abcdef1234567890", "instance_type": "t3.medium", "subnet_id": null, "tags": {"Name": "app-1", "Environment": "production"}},
+        "after_unknown": {"id": true, "arn": true, "public_ip": true, "private_ip": true, "subnet_id": true},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.compute.aws_instance.app[1]",
+      "module_address": "module.compute",
+      "type": "aws_instance",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"ami": "ami-0abcdef1234567890", "instance_type": "t3.medium", "subnet_id": null, "tags": {"Name": "app-2", "Environment": "production"}},
+        "after_unknown": {"id": true, "arn": true, "public_ip": true, "private_ip": true, "subnet_id": true},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.compute.aws_launch_template.app",
+      "module_address": "module.compute",
+      "type": "aws_launch_template",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"id": "lt-abc123", "image_id": "ami-old123", "instance_type": "t3.small"},
+        "after": {"id": "lt-abc123", "image_id": "ami-0abcdef1234567890", "instance_type": "t3.medium"},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.compute.aws_iam_role.app",
+      "module_address": "module.compute",
+      "type": "aws_iam_role",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"id": "app-role", "name": "app-role", "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"ec2.amazonaws.com\"},\"Action\":\"sts:AssumeRole\"}]}"},
+        "after": {"id": "app-role", "name": "app-role", "assume_role_policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":[\"ec2.amazonaws.com\",\"ecs-tasks.amazonaws.com\"]},\"Action\":\"sts:AssumeRole\"}]}"},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.storage.aws_s3_bucket.logs",
+      "module_address": "module.storage",
+      "type": "aws_s3_bucket",
+      "name": "logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"id": "prod-logs-bucket", "bucket": "prod-logs-bucket", "tags": {"Name": "prod-logs-bucket", "managed_by": "terraform"}},
+        "after": {"id": "prod-logs-bucket", "bucket": "prod-logs-bucket", "tags": {"managed_by": "terraform", "Name": "prod-logs-bucket"}},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.storage.aws_s3_bucket_policy.logs",
+      "module_address": "module.storage",
+      "type": "aws_s3_bucket_policy",
+      "name": "logs",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"id": "prod-logs-bucket", "bucket": "prod-logs-bucket", "policy": "{\"Version\":\"2012-10-17\"}"},
+        "after": {"id": "prod-logs-bucket", "bucket": "prod-logs-bucket", "policy": "{\"Version\":\"2012-10-17\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"Service\":\"logging.s3.amazonaws.com\"},\"Action\":\"s3:PutObject\",\"Resource\":\"arn:aws:s3:::prod-logs-bucket/*\"}]}"},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.storage.aws_db_instance.primary",
+      "module_address": "module.storage",
+      "type": "aws_db_instance",
+      "name": "primary",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["delete"],
+        "before": {"id": "prod-db", "identifier": "prod-db", "engine": "postgres", "engine_version": "14.9", "instance_class": "db.r6g.xlarge", "allocated_storage": 500, "multi_az": true, "deletion_protection": false},
+        "after": null,
+        "after_unknown": {},
+        "before_sensitive": {"password": true},
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.storage.aws_db_instance.primary_v2",
+      "module_address": "module.storage",
+      "type": "aws_db_instance",
+      "name": "primary_v2",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"identifier": "prod-db-v2", "engine": "postgres", "engine_version": "16.1", "instance_class": "db.r7g.xlarge", "allocated_storage": 500, "multi_az": true, "deletion_protection": true},
+        "after_unknown": {"id": true, "arn": true, "endpoint": true, "address": true},
+        "before_sensitive": false,
+        "after_sensitive": {"password": true}
+      }
+    },
+    {
+      "address": "module.compute.aws_autoscaling_group.app",
+      "module_address": "module.compute",
+      "type": "aws_autoscaling_group",
+      "name": "app",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["update"],
+        "before": {"id": "app-asg", "name": "app-asg", "min_size": 2, "max_size": 4, "desired_capacity": 2, "tags": null},
+        "after": {"id": "app-asg", "name": "app-asg", "min_size": 2, "max_size": 8, "desired_capacity": 4, "tags": null},
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.networking.aws_route_table.public",
+      "module_address": "module.networking",
+      "type": "aws_route_table",
+      "name": "public",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"vpc_id": null, "tags": {"Name": "public-rt"}},
+        "after_unknown": {"id": true, "arn": true, "vpc_id": true},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "module.networking.aws_eip.nat",
+      "module_address": "module.networking",
+      "type": "aws_eip",
+      "name": "nat",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": ["create"],
+        "before": null,
+        "after": {"domain": "vpc", "tags": {"Name": "nat-eip"}},
+        "after_unknown": {"id": true, "allocation_id": true, "public_ip": true},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    }
+  ]
+}
