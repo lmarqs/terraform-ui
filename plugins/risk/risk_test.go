@@ -1,49 +1,15 @@
 package risk
 
 import (
-	"context"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-type mockService struct{}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return &sdk.PlanSummary{}, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)      { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error               { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error                  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error                      { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error)         { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
-
-func TestNew(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "risk" {
@@ -60,8 +26,8 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenConfigured_ShouldAcceptOptions(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -69,8 +35,8 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenInitialized_ShouldReturnNilCmd(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -84,8 +50,8 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNilSummary(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.Analyze(nil)
@@ -106,8 +72,8 @@ func TestAnalyzeNilSummary(t *testing.T) {
 	}
 }
 
-func TestAnalyzeEmptyChanges(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilGroups(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
@@ -119,8 +85,8 @@ func TestAnalyzeEmptyChanges(t *testing.T) {
 	}
 }
 
-func TestAnalyzeWithChanges(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenChangesPresent_ShouldGroupByRiskLevelDescending(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	summary := &sdk.PlanSummary{
@@ -157,8 +123,8 @@ func TestAnalyzeWithChanges(t *testing.T) {
 	}
 }
 
-func TestAnalyzeGroupsAllLevels(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenAllRiskLevels_ShouldCreateOneGroupPerLevel(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	summary := &sdk.PlanSummary{
@@ -177,16 +143,16 @@ func TestAnalyzeGroupsAllLevels(t *testing.T) {
 	}
 }
 
-func TestStatus(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenNew_ShouldHaveIdleStatus(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
-func TestSelected(t *testing.T) {
-	svc := &mockService{}
+func TestSelected_WhenSet_ShouldReturnCurrentIndex(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 3
 	if p.Selected() != 3 {
@@ -194,8 +160,8 @@ func TestSelected(t *testing.T) {
 	}
 }
 
-func TestOverall(t *testing.T) {
-	svc := &mockService{}
+func TestOverall_WhenSet_ShouldReturnHighestRiskLevel(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.overall = sdk.RiskHigh
 	if p.Overall() != sdk.RiskHigh {
@@ -203,8 +169,8 @@ func TestOverall(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgNavigation(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenJKPressed_ShouldNavigateUpAndDown(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// Setup groups to have items to navigate
@@ -234,8 +200,8 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 }
 
-func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -248,8 +214,8 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestMoveUpDown(t *testing.T) {
-	svc := &mockService{}
+func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// With a group that has items
@@ -292,8 +258,8 @@ func TestMoveUpDown(t *testing.T) {
 	}
 }
 
-func TestMoveDownEmptyGroups(t *testing.T) {
-	svc := &mockService{}
+func TestNavigation_WhenEmptyGroups_ShouldNotMoveSelection(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.groups = nil
 
@@ -303,8 +269,8 @@ func TestMoveDownEmptyGroups(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -314,8 +280,8 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewReady_NoGroups(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.groups = nil
@@ -326,8 +292,8 @@ func TestViewReady_NoGroups(t *testing.T) {
 	}
 }
 
-func TestViewReady_EmptyGroups(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithEmptyGroups_ShouldRenderNonEmpty(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.groups = []RiskGroup{}
@@ -338,8 +304,8 @@ func TestViewReady_EmptyGroups(t *testing.T) {
 	}
 }
 
-func TestViewReady_WithGroups(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithGroups_ShouldRenderRiskGroupList(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
@@ -371,8 +337,8 @@ func TestViewReady_WithGroups(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
 
@@ -382,8 +348,8 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestViewSmallHeight(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskMedium
@@ -398,8 +364,8 @@ func TestViewSmallHeight(t *testing.T) {
 	}
 }
 
-func TestRenderOverallBanner(t *testing.T) {
-	svc := &mockService{}
+func TestRenderOverallBanner_GivenRiskLevel_ShouldReturnStyledBanner(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	tests := []struct {
@@ -421,8 +387,8 @@ func TestRenderOverallBanner(t *testing.T) {
 	}
 }
 
-func TestRenderGroupHeader(t *testing.T) {
-	svc := &mockService{}
+func TestRenderGroupHeader_GivenRiskLevel_ShouldReturnFormattedHeader(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	levels := []sdk.RiskLevel{
@@ -442,7 +408,7 @@ func TestRenderGroupHeader(t *testing.T) {
 	}
 }
 
-func TestRiskReason(t *testing.T) {
+func TestRiskReason_GivenChange_ShouldReturnExplanation(t *testing.T) {
 	tests := []struct {
 		change  sdk.PlanChange
 		wantNon bool
@@ -465,7 +431,7 @@ func TestRiskReason(t *testing.T) {
 	}
 }
 
-func TestActionSymbol(t *testing.T) {
+func TestActionSymbol_GivenAction_ShouldReturnNonEmptySymbol(t *testing.T) {
 	actions := []sdk.Action{
 		sdk.ActionCreate,
 		sdk.ActionUpdate,
@@ -484,8 +450,8 @@ func TestActionSymbol(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyDown(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenArrowKeysPressed_ShouldNavigateUpAndDown(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.groups = []RiskGroup{
 		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}}},
@@ -504,8 +470,8 @@ func TestUpdateKeyDown(t *testing.T) {
 	}
 }
 
-func TestRenderChangeRow(t *testing.T) {
-	svc := &mockService{}
+func TestRenderChangeRow_GivenChange_ShouldReturnFormattedRow(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// Test with various actions and phantom
@@ -526,8 +492,8 @@ func TestRenderChangeRow(t *testing.T) {
 	}
 }
 
-func TestRenderStats(t *testing.T) {
-	svc := &mockService{}
+func TestRenderStats_WhenGroupsPresent_ShouldReturnStatsSummary(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.total = 5
 	p.groups = []RiskGroup{
@@ -541,8 +507,8 @@ func TestRenderStats(t *testing.T) {
 	}
 }
 
-func TestViewReadyWithScrolling(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
@@ -568,7 +534,7 @@ func TestViewReadyWithScrolling(t *testing.T) {
 	}
 }
 
-func TestRiskReasonUpdateHighRisk(t *testing.T) {
+func TestRiskReason_WhenUpdateWithHighRisk_ShouldReturnCriticalModification(t *testing.T) {
 	// Test the specific case: update + high risk = "modification of critical resource"
 	change := sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskHigh}
 	result := riskReason(change)
@@ -577,7 +543,7 @@ func TestRiskReasonUpdateHighRisk(t *testing.T) {
 	}
 }
 
-func TestRiskReasonUpdateCriticalRisk(t *testing.T) {
+func TestRiskReason_WhenUpdateWithCriticalRisk_ShouldReturnCriticalModification(t *testing.T) {
 	change := sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskCritical}
 	result := riskReason(change)
 	if result != "modification of critical resource" {
@@ -586,7 +552,7 @@ func TestRiskReasonUpdateCriticalRisk(t *testing.T) {
 }
 
 func TestHints_WhenStatusDoneWithGroups_ShouldReturnBackHint(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.groups = []RiskGroup{
 		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}}},
@@ -602,7 +568,7 @@ func TestHints_WhenStatusDoneWithGroups_ShouldReturnBackHint(t *testing.T) {
 }
 
 func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
@@ -615,7 +581,7 @@ func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
 }
 
 func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.groups = nil
 
@@ -629,7 +595,7 @@ func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
 }
 
 func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
 	p.total = 2
@@ -650,8 +616,8 @@ func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) 
 	}
 }
 
-func TestViewReadyMaxVisibleOverflow(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenMaxVisibleOverflow_ShouldTruncateRenderedItems(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh
@@ -676,8 +642,8 @@ func TestViewReadyMaxVisibleOverflow(t *testing.T) {
 	}
 }
 
-func TestViewReadyMultipleGroupsOverflow(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenMultipleGroupsOverflow_ShouldHandleGracefully(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskCritical
@@ -705,8 +671,8 @@ func TestViewReadyMultipleGroupsOverflow(t *testing.T) {
 	}
 }
 
-func TestViewReadyHeaderBeyondMaxVisible(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.overall = sdk.RiskHigh

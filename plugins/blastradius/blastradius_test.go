@@ -1,49 +1,15 @@
 package blastradius
 
 import (
-	"context"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-type mockService struct{}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return &sdk.PlanSummary{}, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)      { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error               { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error                  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error                      { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error)         { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
-
-func TestNew(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "blastradius" {
@@ -60,8 +26,8 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestCountable(t *testing.T) {
-	svc := &mockService{}
+func TestCount_WhenModulesPresent_ShouldReturnFilteredAndTotal(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	var c sdk.Countable = p
@@ -78,8 +44,8 @@ func TestCountable(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenConfigured_ShouldAcceptOptions(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -87,8 +53,8 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenInitialized_ShouldReturnNilCmd(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -102,8 +68,8 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNilSummary(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.Analyze(nil)
@@ -121,8 +87,8 @@ func TestAnalyzeNilSummary(t *testing.T) {
 	}
 }
 
-func TestAnalyzeEmptyChanges(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilModules(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
@@ -134,8 +100,8 @@ func TestAnalyzeEmptyChanges(t *testing.T) {
 	}
 }
 
-func TestAnalyzeWithChanges(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenChangesPresent_ShouldGroupByModuleAndSortByImpact(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	summary := &sdk.PlanSummary{
@@ -168,8 +134,8 @@ func TestAnalyzeWithChanges(t *testing.T) {
 	}
 }
 
-func TestAnalyzeSingleModule(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenSingleModule_ShouldReturnOneModuleGroup(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	summary := &sdk.PlanSummary{
@@ -184,16 +150,16 @@ func TestAnalyzeSingleModule(t *testing.T) {
 	}
 }
 
-func TestStatus(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenNew_ShouldHaveIdleStatus(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
-func TestSelected(t *testing.T) {
-	svc := &mockService{}
+func TestSelected_WhenSet_ShouldReturnCurrentIndex(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 3
 	if p.Selected() != 3 {
@@ -201,8 +167,8 @@ func TestSelected(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgNavigation(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenJKPressed_ShouldNavigateUpAndDown(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.modules = []ModuleImpact{
 		{Group: sdk.ModuleGroup{Module: "root"}, Score: ImpactMinimal},
@@ -247,8 +213,8 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgToggleExpand(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenEnterOrIPressed_ShouldToggleExpand(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.modules = []ModuleImpact{
 		{Group: sdk.ModuleGroup{Module: "root", Changes: []sdk.PlanChange{{}}}},
@@ -273,8 +239,8 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 	}
 }
 
-func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -287,8 +253,8 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestMoveUpDown(t *testing.T) {
-	svc := &mockService{}
+func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.modules = []ModuleImpact{{}, {}, {}}
 
@@ -315,8 +281,8 @@ func TestMoveUpDown(t *testing.T) {
 	}
 }
 
-func TestMoveDownEmpty(t *testing.T) {
-	svc := &mockService{}
+func TestNavigation_WhenEmptyModules_ShouldNotMoveSelection(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.modules = []ModuleImpact{}
 	p.MoveDown()
@@ -325,8 +291,8 @@ func TestMoveDownEmpty(t *testing.T) {
 	}
 }
 
-func TestToggleExpand(t *testing.T) {
-	svc := &mockService{}
+func TestToggleExpand_WhenCalled_ShouldFlipExpandedState(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 1
 
@@ -340,8 +306,8 @@ func TestToggleExpand(t *testing.T) {
 	}
 }
 
-func TestSelectedModule(t *testing.T) {
-	svc := &mockService{}
+func TestSelectedModule_WhenValidIndex_ShouldReturnModule(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// Empty modules
@@ -365,8 +331,8 @@ func TestSelectedModule(t *testing.T) {
 	}
 }
 
-func TestSelectedModuleOutOfBounds(t *testing.T) {
-	svc := &mockService{}
+func TestSelectedModule_WhenOutOfBounds_ShouldReturnNil(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.modules = []ModuleImpact{{}}
 	p.selected = 5
@@ -376,8 +342,8 @@ func TestSelectedModuleOutOfBounds(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -387,8 +353,8 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewReady_NoModules(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithNilModules_ShouldRenderNonEmpty(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = nil
@@ -399,8 +365,8 @@ func TestViewReady_NoModules(t *testing.T) {
 	}
 }
 
-func TestViewReady_EmptyModules(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithEmptyModules_ShouldRenderNonEmpty(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = []ModuleImpact{}
@@ -411,8 +377,8 @@ func TestViewReady_EmptyModules(t *testing.T) {
 	}
 }
 
-func TestViewReady_WithModules(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithModules_ShouldRenderModuleList(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 4
@@ -456,8 +422,8 @@ func TestViewReady_WithModules(t *testing.T) {
 	}
 }
 
-func TestViewReady_WithExpanded(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenModuleExpanded_ShouldShowChanges(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 2
@@ -482,8 +448,8 @@ func TestViewReady_WithExpanded(t *testing.T) {
 	}
 }
 
-func TestViewReady_WithReplaceAction(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenExpandedWithReplaceAction_ShouldRenderReplaceSymbol(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 1
@@ -507,8 +473,8 @@ func TestViewReady_WithReplaceAction(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
 
@@ -518,8 +484,8 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestViewSmallHeight(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 1
@@ -533,8 +499,8 @@ func TestViewSmallHeight(t *testing.T) {
 	}
 }
 
-func TestViewScrolling(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenManyModules_ShouldHandleScrolling(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 20
@@ -555,7 +521,7 @@ func TestViewScrolling(t *testing.T) {
 	}
 }
 
-func TestCalculateImpact(t *testing.T) {
+func TestCalculateImpact_GivenModuleGroup_ShouldReturnCorrectScore(t *testing.T) {
 	tests := []struct {
 		name  string
 		group sdk.ModuleGroup
@@ -663,7 +629,7 @@ func TestCalculateImpact(t *testing.T) {
 	}
 }
 
-func TestSortByImpact(t *testing.T) {
+func TestSortByImpact_WhenMultipleModules_ShouldOrderDescending(t *testing.T) {
 	modules := []ModuleImpact{
 		{Score: ImpactMinimal},
 		{Score: ImpactCritical},
@@ -680,12 +646,12 @@ func TestSortByImpact(t *testing.T) {
 	}
 }
 
-func TestSortByImpactEmpty(t *testing.T) {
+func TestSortByImpact_WhenEmpty_ShouldNotPanic(t *testing.T) {
 	modules := []ModuleImpact{}
 	sortByImpact(modules) // Should not panic
 }
 
-func TestSortByImpactSingle(t *testing.T) {
+func TestSortByImpact_WhenSingleModule_ShouldPreserveOrder(t *testing.T) {
 	modules := []ModuleImpact{{Score: ImpactHigh}}
 	sortByImpact(modules)
 	if modules[0].Score != ImpactHigh {
@@ -693,7 +659,7 @@ func TestSortByImpactSingle(t *testing.T) {
 	}
 }
 
-func TestImpactScoreString(t *testing.T) {
+func TestImpactScore_WhenStringCalled_ShouldReturnHumanReadableLabel(t *testing.T) {
 	tests := []struct {
 		score ImpactScore
 		want  string
@@ -714,7 +680,7 @@ func TestImpactScoreString(t *testing.T) {
 }
 
 func TestHints_WhenDoneWithModules_ShouldIncludeInspectAndBack(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = []ModuleImpact{
@@ -734,7 +700,7 @@ func TestHints_WhenDoneWithModules_ShouldIncludeInspectAndBack(t *testing.T) {
 }
 
 func TestHints_WhenNotReady_ShouldReturnOnlyBack(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -748,7 +714,7 @@ func TestHints_WhenNotReady_ShouldReturnOnlyBack(t *testing.T) {
 }
 
 func TestHints_WhenDoneWithNoModules_ShouldReturnOnlyBack(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = []ModuleImpact{}
@@ -762,7 +728,7 @@ func TestHints_WhenDoneWithNoModules_ShouldReturnOnlyBack(t *testing.T) {
 	}
 }
 
-func TestRenderImpactBadge(t *testing.T) {
+func TestRenderImpactBadge_GivenScore_ShouldReturnStyledBadge(t *testing.T) {
 	scores := []ImpactScore{ImpactMinimal, ImpactModerate, ImpactHigh, ImpactCritical, ImpactScore(99)}
 	for _, score := range scores {
 		result := renderImpactBadge(score)
@@ -772,7 +738,7 @@ func TestRenderImpactBadge(t *testing.T) {
 	}
 }
 
-func TestRenderActionBar(t *testing.T) {
+func TestRenderActionBar_GivenSummary_ShouldRenderActionCounts(t *testing.T) {
 	tests := []struct {
 		summary sdk.ActionSummary
 		wantNon bool
@@ -796,7 +762,7 @@ func TestRenderActionBar(t *testing.T) {
 	}
 }
 
-func TestActionSymbol(t *testing.T) {
+func TestActionSymbol_GivenAction_ShouldReturnNonEmptySymbol(t *testing.T) {
 	actions := []sdk.Action{
 		sdk.ActionCreate,
 		sdk.ActionUpdate,
@@ -814,7 +780,7 @@ func TestActionSymbol(t *testing.T) {
 	}
 }
 
-func TestRiskBadge(t *testing.T) {
+func TestRiskBadge_GivenRiskLevel_ShouldReturnStyledBadge(t *testing.T) {
 	tests := []struct {
 		risk    sdk.RiskLevel
 		wantNon bool
@@ -837,8 +803,8 @@ func TestRiskBadge(t *testing.T) {
 	}
 }
 
-func TestRenderOverallSummary(t *testing.T) {
-	svc := &mockService{}
+func TestRenderOverallSummary_GivenModules_ShouldRenderSummaryLine(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	tests := []struct {
@@ -880,8 +846,8 @@ func TestRenderOverallSummary(t *testing.T) {
 	}
 }
 
-func TestModuleCount(t *testing.T) {
-	svc := &mockService{}
+func TestModuleCount_WhenModulesPresent_ShouldReturnCount(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.modules = []ModuleImpact{{}, {}, {}}
 	if p.ModuleCount() != 3 {
@@ -889,8 +855,8 @@ func TestModuleCount(t *testing.T) {
 	}
 }
 
-func TestTotalChanges(t *testing.T) {
-	svc := &mockService{}
+func TestTotalChanges_WhenSet_ShouldReturnTotal(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.total = 7
 	if p.TotalChanges() != 7 {

@@ -8,7 +8,7 @@ import (
 )
 
 func newGoldenPlugin() *Plugin {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	return p
 }

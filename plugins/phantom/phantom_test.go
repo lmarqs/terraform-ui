@@ -1,49 +1,15 @@
 package phantom
 
 import (
-	"context"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-type mockService struct{}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return &sdk.PlanSummary{}, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)      { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error               { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error                  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error                      { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error)         { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                                 { return m }
-
-func TestNew(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "phantom" {
@@ -60,8 +26,8 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenConfigured_ShouldAcceptOptions(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -69,8 +35,8 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenInitialized_ShouldReturnNilCmd(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -84,8 +50,8 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNilSummary(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.Analyze(nil)
@@ -106,8 +72,8 @@ func TestAnalyzeNilSummary(t *testing.T) {
 	}
 }
 
-func TestAnalyzeEmptyChanges(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilPhantoms(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
@@ -119,8 +85,8 @@ func TestAnalyzeEmptyChanges(t *testing.T) {
 	}
 }
 
-func TestAnalyzeWithPhantoms(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenPhantomChangesPresent_ShouldFilterAndExplain(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	summary := &sdk.PlanSummary{
@@ -154,8 +120,8 @@ func TestAnalyzeWithPhantoms(t *testing.T) {
 	}
 }
 
-func TestAnalyzeNoPhantoms(t *testing.T) {
-	svc := &mockService{}
+func TestAnalyze_WhenNoPhantoms_ShouldReturnZeroPhantomCount(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	summary := &sdk.PlanSummary{
@@ -174,16 +140,16 @@ func TestAnalyzeNoPhantoms(t *testing.T) {
 	}
 }
 
-func TestStatus(t *testing.T) {
-	svc := &mockService{}
+func TestPlugin_WhenNew_ShouldHaveIdleStatus(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
-func TestSelected(t *testing.T) {
-	svc := &mockService{}
+func TestSelected_WhenSet_ShouldReturnCurrentIndex(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 2
 	if p.Selected() != 2 {
@@ -191,8 +157,8 @@ func TestSelected(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgNavigation(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenJKPressed_ShouldNavigateUpAndDown(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.phantoms = []PhantomChange{
 		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}},
@@ -237,8 +203,8 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgToggleExpand(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenEnterOrIPressed_ShouldToggleExpand(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.phantoms = []PhantomChange{
 		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}},
@@ -263,8 +229,8 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 	}
 }
 
-func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -277,8 +243,8 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestMoveUpDown(t *testing.T) {
-	svc := &mockService{}
+func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.phantoms = []PhantomChange{{}, {}, {}}
 
@@ -305,8 +271,8 @@ func TestMoveUpDown(t *testing.T) {
 	}
 }
 
-func TestMoveDownEmptyPhantoms(t *testing.T) {
-	svc := &mockService{}
+func TestNavigation_WhenEmptyPhantoms_ShouldNotMoveSelection(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.phantoms = []PhantomChange{}
 
@@ -316,8 +282,8 @@ func TestMoveDownEmptyPhantoms(t *testing.T) {
 	}
 }
 
-func TestToggleExpand(t *testing.T) {
-	svc := &mockService{}
+func TestToggleExpand_WhenCalled_ShouldFlipExpandedState(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 1
 
@@ -331,8 +297,8 @@ func TestToggleExpand(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -342,8 +308,8 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewReady_NoPhantoms(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithNoPhantoms_ShouldShowCleanMessage(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.phantoms = []PhantomChange{}
@@ -355,8 +321,8 @@ func TestViewReady_NoPhantoms(t *testing.T) {
 	}
 }
 
-func TestViewReady_WithPhantoms(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenDoneWithPhantoms_ShouldRenderPhantomList(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 3
@@ -383,8 +349,8 @@ func TestViewReady_WithPhantoms(t *testing.T) {
 	}
 }
 
-func TestViewReady_WithExpandedPhantom(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenPhantomExpanded_ShouldShowAttributeDiffs(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 2
@@ -407,8 +373,8 @@ func TestViewReady_WithExpandedPhantom(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
 
@@ -418,8 +384,8 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestViewSmallHeight(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 1
@@ -433,8 +399,8 @@ func TestViewSmallHeight(t *testing.T) {
 	}
 }
 
-func TestViewScrolling(t *testing.T) {
-	svc := &mockService{}
+func TestView_WhenManyPhantoms_ShouldHandleScrolling(t *testing.T) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.total = 20
@@ -455,7 +421,7 @@ func TestViewScrolling(t *testing.T) {
 	}
 }
 
-func TestExplainPhantom(t *testing.T) {
+func TestExplainPhantom_GivenChange_ShouldReturnAppropriateExplanation(t *testing.T) {
 	tests := []struct {
 		name   string
 		change sdk.PlanChange
@@ -514,7 +480,7 @@ func TestExplainPhantom(t *testing.T) {
 }
 
 func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectAndBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.phantoms = []PhantomChange{
 		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}},
@@ -533,7 +499,7 @@ func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectAndBack(t *testing
 }
 
 func TestHints_WhenStatusDoneNoPhantoms_ShouldReturnOnlyBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.phantoms = []PhantomChange{}
 
@@ -547,7 +513,7 @@ func TestHints_WhenStatusDoneNoPhantoms_ShouldReturnOnlyBack(t *testing.T) {
 }
 
 func TestHints_WhenStatusIdle_ShouldReturnOnlyBack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
@@ -559,7 +525,7 @@ func TestHints_WhenStatusIdle_ShouldReturnOnlyBack(t *testing.T) {
 	}
 }
 
-func TestTruncate(t *testing.T) {
+func TestTruncate_GivenString_ShouldRespectMaxLength(t *testing.T) {
 	tests := []struct {
 		input string
 		max   int

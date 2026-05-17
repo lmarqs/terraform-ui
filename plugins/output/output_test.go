@@ -38,7 +38,7 @@ func sampleOutputs() map[string]sdk.OutputValue {
 	}
 }
 
-func TestNew(t *testing.T) {
+func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -56,7 +56,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestCountable(t *testing.T) {
+func TestCount_WhenOutputsPresent_ShouldReturnFilteredAndTotal(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
@@ -74,7 +74,7 @@ func TestCountable(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
+func TestPlugin_WhenConfigured_ShouldAcceptOptions(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
@@ -83,7 +83,7 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
+func TestPlugin_WhenInitialized_ShouldReturnNilCmdAndRemainIdle(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -108,7 +108,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsOutputResultMsg(t *testing.T) {
+func TestActivate_WhenServiceSucceeds_ShouldReturnOutputResultMsg(t *testing.T) {
 	outputs := sampleOutputs()
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
@@ -150,7 +150,7 @@ func TestActivateCmdReturnsOutputResultMsg(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsError(t *testing.T) {
+func TestActivate_WhenServiceFails_ShouldReturnOutputResultMsgWithError(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return nil, errors.New("output error")
@@ -188,7 +188,7 @@ func TestActivateCmdReturnsError(t *testing.T) {
 	}
 }
 
-func TestUpdateOutputResultMsgSuccess(t *testing.T) {
+func TestUpdate_WhenOutputResultSuccess_ShouldTransitionToDone(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -216,7 +216,7 @@ func TestUpdateOutputResultMsgSuccess(t *testing.T) {
 	}
 }
 
-func TestUpdateOutputResultMsgSorted(t *testing.T) {
+func TestUpdate_WhenOutputResultReceived_ShouldSortOutputsByName(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -237,7 +237,7 @@ func TestUpdateOutputResultMsgSorted(t *testing.T) {
 	}
 }
 
-func TestUpdateOutputResultMsgError(t *testing.T) {
+func TestUpdate_WhenOutputResultError_ShouldTransitionToError(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -257,7 +257,7 @@ func TestUpdateOutputResultMsgError(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgNavigation(t *testing.T) {
+func TestUpdate_WhenArrowKeysPressed_ShouldNavigateUpAndDown(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -293,7 +293,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgJK(t *testing.T) {
+func TestUpdate_WhenJKPressed_ShouldNavigateUpAndDown(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -316,7 +316,7 @@ func TestUpdateKeyMsgJK(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
+func TestUpdate_WhenGgPressed_ShouldMoveToStartAndEnd(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -340,7 +340,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgRefresh(t *testing.T) {
+func TestUpdate_WhenCtrlRPressed_ShouldTriggerRefresh(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -370,7 +370,7 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgEscDeactivates(t *testing.T) {
+func TestUpdate_WhenEscPressed_ShouldEmitDeactivateMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -388,7 +388,7 @@ func TestUpdateKeyMsgEscDeactivates(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgFilterMode(t *testing.T) {
+func TestUpdate_WhenSlashPressed_ShouldEnterFilterMode(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -417,7 +417,7 @@ func TestUpdateKeyMsgFilterMode(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgFilterModeEscExits(t *testing.T) {
+func TestUpdate_WhenEscInFilterMode_ShouldExitFilterMode(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -431,7 +431,7 @@ func TestUpdateKeyMsgFilterModeEscExits(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgBackspace(t *testing.T) {
+func TestUpdate_WhenBackspaceInFilterMode_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -448,7 +448,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgDelete(t *testing.T) {
+func TestUpdate_WhenDeleteInFilterMode_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -463,7 +463,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 	}
 }
 
-func TestFilterModeBlocksHotkeys(t *testing.T) {
+func TestFilterMode_WhenTypingKeys_ShouldAppendToFilterNotTriggerHotkeys(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -484,7 +484,7 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 	}
 }
 
-func TestFilterModeNavigationDown(t *testing.T) {
+func TestFilterMode_WhenArrowKeys_ShouldNavigateList(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -508,7 +508,7 @@ func TestFilterModeNavigationDown(t *testing.T) {
 	}
 }
 
-func TestFilterModeJKAppendsToFilter(t *testing.T) {
+func TestFilterMode_WhenJKPressed_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -532,7 +532,7 @@ func TestFilterModeJKAppendsToFilter(t *testing.T) {
 	}
 }
 
-func TestMoveUpDown(t *testing.T) {
+func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.OutputValue{{Name: "a"}, {Name: "b"}}
@@ -555,7 +555,7 @@ func TestMoveUpDown(t *testing.T) {
 	}
 }
 
-func TestMoveToStartEnd(t *testing.T) {
+func TestNavigation_WhenMoveToStartEnd_ShouldJumpToExtremes(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.OutputValue{{Name: "a"}, {Name: "b"}, {Name: "c"}}
@@ -570,7 +570,7 @@ func TestMoveToStartEnd(t *testing.T) {
 	}
 }
 
-func TestMoveToEndEmpty(t *testing.T) {
+func TestNavigation_WhenEmptyList_ShouldNotMoveSelection(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.OutputValue{}
@@ -580,7 +580,7 @@ func TestMoveToEndEmpty(t *testing.T) {
 	}
 }
 
-func TestSetFilter(t *testing.T) {
+func TestSetFilter_WhenCalled_ShouldFilterOutputsByName(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.outputs = []sdk.OutputValue{
@@ -624,7 +624,7 @@ func TestSetFilter(t *testing.T) {
 	}
 }
 
-func TestSetFilterCaseInsensitive(t *testing.T) {
+func TestSetFilter_WhenDifferentCase_ShouldMatchCaseInsensitively(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.outputs = []sdk.OutputValue{
@@ -643,7 +643,7 @@ func TestSetFilterCaseInsensitive(t *testing.T) {
 	}
 }
 
-func TestAppendFilter(t *testing.T) {
+func TestAppendFilter_WhenCalled_ShouldGrowFilterString(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.outputs = []sdk.OutputValue{
@@ -661,7 +661,7 @@ func TestAppendFilter(t *testing.T) {
 	}
 }
 
-func TestBackspaceFilter(t *testing.T) {
+func TestBackspaceFilter_WhenCalled_ShouldRemoveLastCharacter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.outputs = []sdk.OutputValue{
@@ -683,7 +683,7 @@ func TestBackspaceFilter(t *testing.T) {
 	}
 }
 
-func TestFormatValue(t *testing.T) {
+func TestFormatValue_GivenOutputValue_ShouldReturnFormattedString(t *testing.T) {
 	tests := []struct {
 		name     string
 		output   sdk.OutputValue
@@ -726,7 +726,7 @@ func TestFormatValue(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
+func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
@@ -737,7 +737,7 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewLoading(t *testing.T) {
+func TestView_WhenLoading_ShouldShowLoadingMessage(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
@@ -748,7 +748,7 @@ func TestViewLoading(t *testing.T) {
 	}
 }
 
-func TestViewError(t *testing.T) {
+func TestView_WhenError_ShouldShowErrorMessage(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
@@ -760,7 +760,7 @@ func TestViewError(t *testing.T) {
 	}
 }
 
-func TestViewDoneNoOutputs(t *testing.T) {
+func TestView_WhenDoneWithNoOutputs_ShouldShowEmptyState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -773,7 +773,7 @@ func TestViewDoneNoOutputs(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithOutputs(t *testing.T) {
+func TestView_WhenDoneWithOutputs_ShouldRedactSensitiveValues(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -801,7 +801,7 @@ func TestViewDoneWithOutputs(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithFilter(t *testing.T) {
+func TestView_WhenDoneWithFilter_ShouldShowFilteredOutputs(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -817,7 +817,7 @@ func TestViewDoneWithFilter(t *testing.T) {
 	}
 }
 
-func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
+func TestView_WhenFilteredDiffersFromTotal_ShouldShowFilteredCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -839,7 +839,7 @@ func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
+func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
@@ -850,7 +850,7 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestViewScrolling(t *testing.T) {
+func TestView_WhenManyOutputs_ShouldHandleScrolling(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -869,7 +869,7 @@ func TestViewScrolling(t *testing.T) {
 	}
 }
 
-func TestViewFilteringMode(t *testing.T) {
+func TestView_WhenInFilteringMode_ShouldShowFilterPrompt(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -886,7 +886,7 @@ func TestViewFilteringMode(t *testing.T) {
 	}
 }
 
-func TestOutputCount(t *testing.T) {
+func TestOutputCount_WhenFiltered_ShouldReturnFilteredCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.OutputValue{{}, {}, {}}
@@ -895,7 +895,7 @@ func TestOutputCount(t *testing.T) {
 	}
 }
 
-func TestTotalCount(t *testing.T) {
+func TestTotalCount_WhenOutputsLoaded_ShouldReturnAllOutputsCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.outputs = []sdk.OutputValue{{}, {}, {}, {}}
@@ -904,7 +904,7 @@ func TestTotalCount(t *testing.T) {
 	}
 }
 
-func TestRefresh(t *testing.T) {
+func TestRefresh_WhenCalled_ShouldResetStateAndReturnCmd(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -930,7 +930,7 @@ func TestRefresh(t *testing.T) {
 	}
 }
 
-func TestUpdateUnknownMsg(t *testing.T) {
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -944,7 +944,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged(t *testing.T) {
+func TestHandleChdirChanged_WhenCalled_ShouldResetToIdleWithNewContext(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -969,7 +969,7 @@ func TestHandleChdirChanged(t *testing.T) {
 	}
 }
 
-func TestActivateWithSameContext(t *testing.T) {
+func TestActivate_WhenSameContextAlreadyDone_ShouldReturnNilCmd(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -986,7 +986,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	}
 }
 
-func TestActivateMultiContextNoSelection(t *testing.T) {
+func TestActivate_WhenNoContextSelected_ShouldProceedWithLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
@@ -1001,7 +1001,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithScopeDir(t *testing.T) {
+func TestActivate_WhenScopeDirSet_ShouldReturnLoadCmd(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -1016,7 +1016,7 @@ func TestActivateWithScopeDir(t *testing.T) {
 	}
 }
 
-func TestActivateNoSession(t *testing.T) {
+func TestActivate_WhenNoSession_ShouldReturnLoadCmd(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
@@ -1031,14 +1031,14 @@ func TestActivateNoSession(t *testing.T) {
 	}
 }
 
-func TestStatusGetter(t *testing.T) {
+func TestStatus_WhenNew_ShouldReturnIdle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
-func TestSelectedGetter(t *testing.T) {
+func TestSelected_WhenSet_ShouldReturnCurrentIndex(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.selected = 5
 	if p.Selected() != 5 {
@@ -1046,14 +1046,14 @@ func TestSelectedGetter(t *testing.T) {
 	}
 }
 
-func TestFilteringGetter(t *testing.T) {
+func TestFiltering_WhenNotInFilterMode_ShouldReturnFalse(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Filtering() {
 		t.Error("Filtering() = true, want false")
 	}
 }
 
-func TestFilterGetter(t *testing.T) {
+func TestFilter_WhenSet_ShouldReturnFilterString(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.filter = "test"
 	if p.Filter() != "test" {
@@ -1061,7 +1061,7 @@ func TestFilterGetter(t *testing.T) {
 	}
 }
 
-func TestSortedOutputs(t *testing.T) {
+func TestSortedOutputs_WhenMapGiven_ShouldReturnAlphabeticalSlice(t *testing.T) {
 	m := map[string]sdk.OutputValue{
 		"z_output": {Name: "z_output", Value: "z"},
 		"a_output": {Name: "a_output", Value: "a"},
@@ -1082,21 +1082,21 @@ func TestSortedOutputs(t *testing.T) {
 	}
 }
 
-func TestSortedOutputsNil(t *testing.T) {
+func TestSortedOutputs_WhenNil_ShouldReturnNil(t *testing.T) {
 	result := sortedOutputs(nil)
 	if result != nil {
 		t.Errorf("sortedOutputs(nil) = %v, want nil", result)
 	}
 }
 
-func TestSortedOutputsEmpty(t *testing.T) {
+func TestSortedOutputs_WhenEmpty_ShouldReturnEmptySlice(t *testing.T) {
 	result := sortedOutputs(map[string]sdk.OutputValue{})
 	if len(result) != 0 {
 		t.Errorf("sortedOutputs(empty) len = %d, want 0", len(result))
 	}
 }
 
-func TestFilterModeGgAppendsToFilter(t *testing.T) {
+func TestFilterMode_WhenGPressed_ShouldAppendToFilterNotNavigate(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
