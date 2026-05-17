@@ -93,8 +93,8 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 ## Deep Dive (read on demand)
 
 - Architecture details: see `.claude/rules/architecture.md` (loaded automatically for `pkg/sdk/` and `internal/` edits)
-- UX rules: see `.claude/rules/ux.md` (loaded automatically for `plugins/` and `internal/ui/` edits)
-- CLI design: see `.claude/rules/cli.md` (loaded automatically for `cmd/` edits)
+- TUI UX rules: see `.claude/rules/ux-tui.md` (loaded automatically for `plugins/` and `internal/ui/` edits)
+- CLI UX rules: see `.claude/rules/ux-cli.md` (loaded automatically for `cmd/` edits)
 - CI/CD pipeline: see `.claude/rules/ci.md` (loaded automatically for `.github/` edits)
 - TUI UX spec: `docs/tui-ux.md`
 - CLI UX spec: `docs/cli-ux.md`
@@ -122,20 +122,6 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 | `github.com/junegunn/fzf` | Fuzzy search algorithm |
 | `github.com/spf13/cobra` | CLI framework |
 
-## Agents
-
-| Agent | When to use |
-|-------|-------------|
-| `test-writer` | **MUST invoke BEFORE any implementation edit** — failing test first |
-| `code-checker` | Before commits, during PR review |
-| `tui-checker` | Changes to `View()`, `Hints()`, frames |
-| `cli-checker` | Changes to `cmd/tfui/`, CLI subcommands, flag handling |
-| `macro-runner` | After modifying `View()`, layout, navigation |
-| `architect` | New plugins or cross-cutting features |
-| `arch-checker` | Verify architectural boundaries (plugin imports, SDK isolation) |
-| `security-checker` | PRs touching terraform service, state, AI |
-| `exploratory-tester` | After bug fixes, before releases |
-
 ## Important Rules
 
 CRITICAL: **TDD is non-negotiable** — spawn `test-writer` agent to produce a failing test BEFORE writing implementation code.
@@ -147,6 +133,13 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 - AI features check `ctx.AI != nil` before offering
 - Config getters ALWAYS take a default value — no nil panics
 - Editor integration uses `tea.ExecProcess` for proper terminal handoff
+
+## Automation
+
+PostToolUse hooks run automatically (configured in `.claude/settings.json`):
+- `gofmt` on every `.go` file edit
+- Agent checks validate UI consistency, plugin boundaries, CLI contracts, and SDK changes
+- Stop hook runs build verification before session ends
 
 ## Learnings
 
