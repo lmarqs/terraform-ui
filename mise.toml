@@ -26,9 +26,11 @@ description = "Format Go source files"
 [tasks.setup]
 run = """
 npm ci
+pip install -r requirements.txt -q
+cd docs && bundle install -q
 go install gotest.tools/gotestsum@latest
 """
-description = "Install CI dependencies (npm + gotestsum)"
+description = "Bootstrap all dependencies (node, python, ruby, go tools)"
 
 # ─── Check (static analysis) ───────────────────────────────────────────────────
 
@@ -129,15 +131,12 @@ description = "Build docs site for production"
 # ─── Demo (developer tools) ────────────────────────────────────────────────────
 
 [tasks."demo:generate"]
-run = """
-pip install -r requirements.txt -q
-./demo/generate.sh
-"""
-description = "Record demo tapes and generate GIFs (batteries included)"
+run = "./demo/generate.sh"
+description = "Record demo tapes and generate GIFs"
 
 [tasks."demo:lock"]
-run = "pip install . && pip freeze --exclude-editable > requirements.txt"
-description = "Lock Python deps from pyproject.toml"
+run = "pip freeze > requirements.txt"
+description = "Lock current Python venv to requirements.txt"
 
 # ─── Release (CI only) ─────────────────────────────────────────────────────────
 
