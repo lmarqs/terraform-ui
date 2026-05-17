@@ -1,62 +1,18 @@
 package init
 
 import (
-	"context"
 	"errors"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-type mockService struct {
-	initErr  error
-	initOpts sdk.InitOptions
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return nil, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)      { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error      { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error    { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error        { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error      { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
-	return nil, nil
-}
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, nil
-}
-func (m *mockService) Refresh(_ context.Context) error { return nil }
-func (m *mockService) Init(_ context.Context, opts sdk.InitOptions) error {
-	m.initOpts = opts
-	return m.initErr
-}
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error       { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                        { return m }
-
 func TestNew(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.ID() != "init" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "init")
@@ -76,7 +32,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestActivate_ShowsForm(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
 	if p.stack.Peek() == nil {
@@ -88,7 +44,7 @@ func TestActivate_ShowsForm(t *testing.T) {
 }
 
 func TestToggleFields(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.upgrade {
 		t.Fatal("upgrade should start false")
@@ -107,7 +63,7 @@ func TestToggleFields(t *testing.T) {
 }
 
 func TestSubmit_PushesResultFrame(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
 	p.Update(initSubmitMsg{})
@@ -122,7 +78,7 @@ func TestSubmit_PushesResultFrame(t *testing.T) {
 }
 
 func TestInitResultMsg_Success_EmitsDeactivate(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 
@@ -133,7 +89,7 @@ func TestInitResultMsg_Success_EmitsDeactivate(t *testing.T) {
 }
 
 func TestInitResultMsg_Error_StaysOnResultFrame(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 
@@ -156,7 +112,7 @@ func TestInitResultMsg_Error_StaysOnResultFrame(t *testing.T) {
 }
 
 func TestError_EnterReturnsToForm(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 	p.Update(InitResultMsg{Err: errors.New("fail")})
@@ -177,7 +133,7 @@ func TestError_EnterReturnsToForm(t *testing.T) {
 }
 
 func TestHandleChdirChanged(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
 	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/dir"})
@@ -188,7 +144,7 @@ func TestHandleChdirChanged(t *testing.T) {
 }
 
 func TestTimerTick(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 
@@ -197,7 +153,7 @@ func TestTimerTick(t *testing.T) {
 }
 
 func TestView_DelegatesToStack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
 	view := p.View(80, 24)
@@ -207,7 +163,7 @@ func TestView_DelegatesToStack(t *testing.T) {
 }
 
 func TestView_ResultFrame_Loading(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 
@@ -218,7 +174,7 @@ func TestView_ResultFrame_Loading(t *testing.T) {
 }
 
 func TestView_ResultFrame_Error(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 	p.Update(InitResultMsg{Err: errors.New("something failed")})
@@ -230,7 +186,7 @@ func TestView_ResultFrame_Error(t *testing.T) {
 }
 
 func TestBusy(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.Busy() {
 		t.Error("should not be busy before submit")
@@ -251,16 +207,16 @@ func TestBusy(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if err := p.Configure(map[string]interface{}{"key": "value"}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
 }
 
 func TestPlugin_WhenInit_ShouldStoreService(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	newSvc := &mockService{}
+	newSvc := &sdktest.MockService{}
 
 	cmd := p.Init(&sdk.Context{Service: newSvc})
 	if cmd != nil {
@@ -272,14 +228,14 @@ func TestPlugin_WhenInit_ShouldStoreService(t *testing.T) {
 }
 
 func TestPlugin_WhenStack_ShouldReturnNonNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Stack() == nil {
 		t.Fatal("Stack() = nil, want non-nil")
 	}
 }
 
 func TestPlugin_WhenSubmitFromForm_ShouldEmitInitSubmitMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	cmd := p.submitFromForm()
 	if cmd == nil {
 		t.Fatal("submitFromForm() = nil")
@@ -291,7 +247,7 @@ func TestPlugin_WhenSubmitFromForm_ShouldEmitInitSubmitMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenEditExtraArgs_ShouldEmitRequestInputMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	cmd := p.editExtraArgs()
 	if cmd == nil {
 		t.Fatal("editExtraArgs() = nil")
@@ -303,13 +259,13 @@ func TestPlugin_WhenEditExtraArgs_ShouldEmitRequestInputMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -322,7 +278,7 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestPlugin_WhenSubmitWithBackendFalse_ShouldSetBackendPtr(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.backend = false
 	p.Activate()
@@ -334,16 +290,19 @@ func TestPlugin_WhenSubmitWithBackendFalse_ShouldSetBackendPtr(t *testing.T) {
 		}
 	}
 
-	if svc.initOpts.Backend == nil {
+	if len(svc.InitCalls) == 0 {
+		t.Fatal("Init should have been called")
+	}
+	if svc.InitCalls[0].Backend == nil {
 		t.Fatal("Backend should be non-nil when backend=false")
 	}
-	if *svc.initOpts.Backend != false {
+	if *svc.InitCalls[0].Backend != false {
 		t.Error("Backend should be &false")
 	}
 }
 
 func TestPlugin_WhenSubmitWithBackendTrue_ShouldLeaveBackendNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.backend = true
 	p.Activate()
@@ -355,13 +314,16 @@ func TestPlugin_WhenSubmitWithBackendTrue_ShouldLeaveBackendNil(t *testing.T) {
 		}
 	}
 
-	if svc.initOpts.Backend != nil {
+	if len(svc.InitCalls) == 0 {
+		t.Fatal("Init should have been called")
+	}
+	if svc.InitCalls[0].Backend != nil {
 		t.Error("Backend should be nil when backend=true")
 	}
 }
 
 func TestPlugin_WhenSubmitWithExtraArgs_ShouldSplitFields(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.extraArgs = "-lock=false -input=false"
 	p.Activate()
@@ -373,16 +335,19 @@ func TestPlugin_WhenSubmitWithExtraArgs_ShouldSplitFields(t *testing.T) {
 		}
 	}
 
-	if len(svc.initOpts.ExtraArgs) != 2 {
-		t.Fatalf("ExtraArgs len = %d, want 2", len(svc.initOpts.ExtraArgs))
+	if len(svc.InitCalls) == 0 {
+		t.Fatal("Init should have been called")
 	}
-	if svc.initOpts.ExtraArgs[0] != "-lock=false" {
-		t.Errorf("ExtraArgs[0] = %q, want %q", svc.initOpts.ExtraArgs[0], "-lock=false")
+	if len(svc.InitCalls[0].ExtraArgs) != 2 {
+		t.Fatalf("ExtraArgs len = %d, want 2", len(svc.InitCalls[0].ExtraArgs))
+	}
+	if svc.InitCalls[0].ExtraArgs[0] != "-lock=false" {
+		t.Errorf("ExtraArgs[0] = %q, want %q", svc.InitCalls[0].ExtraArgs[0], "-lock=false")
 	}
 }
 
 func TestPlugin_WhenExtraArgsDisplayEmpty_ShouldReturnNone(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.extraArgs = ""
 	if got := p.extraArgsDisplay(); got != "(none)" {
 		t.Errorf("extraArgsDisplay() = %q, want %q", got, "(none)")
@@ -390,7 +355,7 @@ func TestPlugin_WhenExtraArgsDisplayEmpty_ShouldReturnNone(t *testing.T) {
 }
 
 func TestPlugin_WhenExtraArgsDisplaySet_ShouldReturnValue(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.extraArgs = "-lock=false"
 	if got := p.extraArgsDisplay(); got != "-lock=false" {
 		t.Errorf("extraArgsDisplay() = %q, want %q", got, "-lock=false")
@@ -398,7 +363,7 @@ func TestPlugin_WhenExtraArgsDisplaySet_ShouldReturnValue(t *testing.T) {
 }
 
 func TestPlugin_WhenOutput_ShouldReturnSuccessMessage(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	data, err := p.Output(false)
 	if err != nil {
 		t.Fatalf("Output() error = %v", err)
@@ -496,7 +461,7 @@ func TestResultFrame_WhenEnterInLoading_ShouldNotPop(t *testing.T) {
 }
 
 func TestPlugin_WhenSubmitWithUpgrade_ShouldPassUpgradeOption(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.upgrade = true
 	p.reconfigure = true
@@ -509,10 +474,13 @@ func TestPlugin_WhenSubmitWithUpgrade_ShouldPassUpgradeOption(t *testing.T) {
 		}
 	}
 
-	if !svc.initOpts.Upgrade {
+	if len(svc.InitCalls) == 0 {
+		t.Fatal("Init should have been called")
+	}
+	if !svc.InitCalls[0].Upgrade {
 		t.Error("Upgrade should be true")
 	}
-	if !svc.initOpts.Reconfigure {
+	if !svc.InitCalls[0].Reconfigure {
 		t.Error("Reconfigure should be true")
 	}
 }
@@ -532,7 +500,7 @@ func executeBatch(cmd tea.Cmd) []tea.Msg {
 }
 
 func TestPlugin_WhenUpdateWithUnhandledMsg_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
 	type unknownMsg struct{}
@@ -543,7 +511,7 @@ func TestPlugin_WhenUpdateWithUnhandledMsg_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenUpdateTimerTickWithNoTopFrame_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	// Stack empty - no result frame
 	p.stack.Reset()
 
@@ -554,7 +522,7 @@ func TestPlugin_WhenUpdateTimerTickWithNoTopFrame_ShouldReturnNil(t *testing.T) 
 }
 
 func TestPlugin_WhenUpdateInitResultMsgWithNoTopFrame_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.stack.Reset()
 
 	_, cmd := p.Update(InitResultMsg{Err: nil, Duration: time.Second})
@@ -564,7 +532,7 @@ func TestPlugin_WhenUpdateInitResultMsgWithNoTopFrame_ShouldReturnNil(t *testing
 }
 
 func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.upgrade = false
 	p.Activate()
 
@@ -582,7 +550,7 @@ func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
 }
 
 func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.reconfigure = false
 	p.Activate()
 
@@ -595,7 +563,7 @@ func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
 }
 
 func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.backend = true
 	p.Activate()
 
@@ -609,7 +577,7 @@ func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
 }
 
 func TestPlugin_WhenFormFieldExtraArgsSelected_ShouldEmitInputRequest(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
 	// Move down to extra args field (4th selectable)
@@ -627,7 +595,7 @@ func TestPlugin_WhenFormFieldExtraArgsSelected_ShouldEmitInputRequest(t *testing
 }
 
 func TestPlugin_WhenEditExtraArgsCallback_ShouldStoreValue(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.extraArgs = ""
 
 	cmd := p.editExtraArgs()
