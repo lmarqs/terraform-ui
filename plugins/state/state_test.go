@@ -14,7 +14,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func TestNew(t *testing.T) {
+func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -32,7 +32,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestCountable(t *testing.T) {
+func TestCount_WhenResourcesFiltered_ShouldReturnFilteredAndTotal(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
@@ -50,7 +50,7 @@ func TestCountable(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
+func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
@@ -59,7 +59,7 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
+func TestPlugin_WhenInitialized_ShouldSetIdleStatus(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}, nil
 	}}
@@ -83,7 +83,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestInitCmdReturnsStateListMsg(t *testing.T) {
+func TestActivate_WhenServiceSucceeds_ShouldReturnStateListMsg(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
@@ -122,7 +122,7 @@ func TestInitCmdReturnsStateListMsg(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsError(t *testing.T) {
+func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return nil, errors.New("state error")
 	}}
@@ -156,7 +156,7 @@ func TestActivateCmdReturnsError(t *testing.T) {
 	}
 }
 
-func TestUpdateStateListMsgSuccess(t *testing.T) {
+func TestUpdate_WhenStateListSuccess_ShouldSetDoneWithResources(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -190,7 +190,7 @@ func TestUpdateStateListMsgSuccess(t *testing.T) {
 	}
 }
 
-func TestUpdateStateListMsgError(t *testing.T) {
+func TestUpdate_WhenStateListError_ShouldSetErrorStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -210,7 +210,7 @@ func TestUpdateStateListMsgError(t *testing.T) {
 	}
 }
 
-func TestUpdateResourceDetailMsgSuccess(t *testing.T) {
+func TestUpdate_WhenResourceDetailSuccess_ShouldShowDetail(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -236,7 +236,7 @@ func TestUpdateResourceDetailMsgSuccess(t *testing.T) {
 	}
 }
 
-func TestUpdateResourceDetailMsgError(t *testing.T) {
+func TestUpdate_WhenResourceDetailError_ShouldStayInDone(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -256,7 +256,7 @@ func TestUpdateResourceDetailMsgError(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgNavigation(t *testing.T) {
+func TestUpdate_WhenArrowKeys_ShouldMoveSelection(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -293,7 +293,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
+func TestUpdate_WhenGAndGKeys_ShouldMoveToEndAndStart(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -318,7 +318,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
+func TestUpdate_WhenEnterKey_ShouldInspectSelected(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -334,7 +334,7 @@ func TestUpdateKeyMsgEnter_InspectSelected(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
+func TestUpdate_WhenEnterKeyWithEmptyList_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -348,7 +348,7 @@ func TestUpdateKeyMsgEnter_EmptyAddress(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgRefresh(t *testing.T) {
+func TestUpdate_WhenCtrlRPressed_ShouldRefreshInDoneOrError(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
@@ -376,7 +376,7 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgBackspace(t *testing.T) {
+func TestUpdate_WhenBackspaceInFilter_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -399,7 +399,7 @@ func TestUpdateKeyMsgBackspace(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
+func TestUpdate_WhenTypingInFilter_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -421,7 +421,7 @@ func TestUpdateKeyMsgCharacterFilter(t *testing.T) {
 	}
 }
 
-func TestFilterModeBlocksHotkeys(t *testing.T) {
+func TestUpdate_WhenFilterMode_ShouldBlockHotkeys(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -445,7 +445,7 @@ func TestFilterModeBlocksHotkeys(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgDetailViewEsc(t *testing.T) {
+func TestUpdate_WhenEscInDetailView_ShouldReturnToList(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
@@ -463,7 +463,7 @@ func TestUpdateKeyMsgDetailViewEsc(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgDetailViewQ(t *testing.T) {
+func TestUpdate_WhenQInDetailView_ShouldNotExitDetail(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
@@ -477,7 +477,7 @@ func TestUpdateKeyMsgDetailViewQ(t *testing.T) {
 	}
 }
 
-func TestUpdateUnknownMsg(t *testing.T) {
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -491,7 +491,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestMoveUpDown(t *testing.T) {
+func TestNavigation_WhenMoving_ShouldRespectBounds(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}}
@@ -515,7 +515,7 @@ func TestMoveUpDown(t *testing.T) {
 	}
 }
 
-func TestMoveToStartEnd(t *testing.T) {
+func TestMoveToStartEnd_WhenCalled_ShouldMoveToExtremes(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
@@ -531,7 +531,7 @@ func TestMoveToStartEnd(t *testing.T) {
 	}
 }
 
-func TestMoveToEndEmpty(t *testing.T) {
+func TestMoveToEnd_WhenEmptyList_ShouldStayAtZero(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{}
@@ -542,7 +542,7 @@ func TestMoveToEndEmpty(t *testing.T) {
 	}
 }
 
-func TestSetFilter(t *testing.T) {
+func TestSetFilter_WhenCalled_ShouldFilterResources(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
@@ -590,7 +590,7 @@ func TestSetFilter(t *testing.T) {
 	}
 }
 
-func TestSetFilterFzf(t *testing.T) {
+func TestSetFilter_WhenFuzzyMatching_ShouldRankBestMatchFirst(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
@@ -680,7 +680,7 @@ func TestSetFilterFzf(t *testing.T) {
 	})
 }
 
-func TestFilterTreeMonotonicity(t *testing.T) {
+func TestSetFilter_WhenLengthening_ShouldDecreaseOrMaintainResults(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.treeMode = true
@@ -734,7 +734,7 @@ func TestFilterTreeMonotonicity(t *testing.T) {
 	}
 }
 
-func TestFilterTreeMonotonicityLargeSet(t *testing.T) {
+func TestSetFilter_WhenLargeSet_ShouldMaintainMonotonicity(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.treeMode = true
@@ -795,7 +795,7 @@ func TestFilterTreeMonotonicityLargeSet(t *testing.T) {
 	}
 }
 
-func TestAppendFilter(t *testing.T) {
+func TestAppendFilter_WhenCalled_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
@@ -814,7 +814,7 @@ func TestAppendFilter(t *testing.T) {
 	}
 }
 
-func TestBackspaceFilter(t *testing.T) {
+func TestBackspaceFilter_WhenCalled_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{
@@ -837,7 +837,7 @@ func TestBackspaceFilter(t *testing.T) {
 	}
 }
 
-func TestSelectedResource(t *testing.T) {
+func TestSelectedResource_WhenCalled_ShouldReturnCursorItem(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
@@ -862,7 +862,7 @@ func TestSelectedResource(t *testing.T) {
 	}
 }
 
-func TestInspectSelected(t *testing.T) {
+func TestInspectSelected_WhenServiceSucceeds_ShouldReturnDetailMsg(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{
@@ -899,7 +899,7 @@ func TestInspectSelected(t *testing.T) {
 	}
 }
 
-func TestInspectSelectedEmptyAddress(t *testing.T) {
+func TestInspectSelected_WhenEmptyAddress_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{Address: ""}}
@@ -910,7 +910,7 @@ func TestInspectSelectedEmptyAddress(t *testing.T) {
 	}
 }
 
-func TestRefresh(t *testing.T) {
+func TestRefresh_WhenCalled_ShouldResetAndStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
@@ -940,7 +940,7 @@ func TestRefresh(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
+func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
@@ -951,7 +951,7 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewLoading(t *testing.T) {
+func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
@@ -962,7 +962,7 @@ func TestViewLoading(t *testing.T) {
 	}
 }
 
-func TestViewError(t *testing.T) {
+func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
@@ -974,7 +974,7 @@ func TestViewError(t *testing.T) {
 	}
 }
 
-func TestViewShowingDetail(t *testing.T) {
+func TestView_WhenShowingDetail_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
@@ -987,7 +987,7 @@ func TestViewShowingDetail(t *testing.T) {
 	}
 }
 
-func TestViewShowingDetailLong(t *testing.T) {
+func TestView_WhenShowingLongDetail_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
@@ -1006,7 +1006,7 @@ func TestViewShowingDetailLong(t *testing.T) {
 	}
 }
 
-func TestViewDoneNoResources(t *testing.T) {
+func TestView_WhenDoneNoResources_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1020,7 +1020,7 @@ func TestViewDoneNoResources(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithResources(t *testing.T) {
+func TestView_WhenDoneWithResources_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1037,7 +1037,7 @@ func TestViewDoneWithResources(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithFilter(t *testing.T) {
+func TestView_WhenDoneWithFilter_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1054,7 +1054,7 @@ func TestViewDoneWithFilter(t *testing.T) {
 	}
 }
 
-func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
+func TestView_WhenFilteredDiffersFromTotal_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1072,7 +1072,7 @@ func TestViewDoneFilteredDiffFromTotal(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
+func TestView_WhenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
@@ -1083,7 +1083,7 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestViewScrolling(t *testing.T) {
+func TestView_WhenScrolling_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1105,7 +1105,7 @@ func TestViewScrolling(t *testing.T) {
 	}
 }
 
-func TestResourceCount(t *testing.T) {
+func TestResourceCount_WhenFiltered_ShouldReturnFilteredCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{{}, {}, {}}
@@ -1114,7 +1114,7 @@ func TestResourceCount(t *testing.T) {
 	}
 }
 
-func TestTotalCount(t *testing.T) {
+func TestTotalCount_WhenCalled_ShouldReturnAllResourcesCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.resources = []sdk.Resource{{}, {}, {}, {}}
@@ -1123,7 +1123,7 @@ func TestTotalCount(t *testing.T) {
 	}
 }
 
-func TestFilter(t *testing.T) {
+func TestFilter_WhenSet_ShouldReturnCurrentValue(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.filter = "test"
@@ -1132,7 +1132,7 @@ func TestFilter(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgDelete(t *testing.T) {
+func TestUpdate_WhenDeleteKeyInFilter_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1151,7 +1151,7 @@ func TestUpdateKeyMsgDelete(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgSlash(t *testing.T) {
+func TestUpdate_WhenSlashKey_ShouldEnterFilterMode(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1166,7 +1166,7 @@ func TestUpdateKeyMsgSlash(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgDownKey(t *testing.T) {
+func TestUpdate_WhenDownAndUpKeys_ShouldMoveSelection(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1185,7 +1185,7 @@ func TestUpdateKeyMsgDownKey(t *testing.T) {
 	}
 }
 
-func TestInspectSelectedCmdError(t *testing.T) {
+func TestInspectSelected_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return "", errors.New("show failed") }}
 	p := New(svc).(*Plugin)
 	p.filtered = []sdk.Resource{
@@ -1221,7 +1221,7 @@ func TestInspectSelectedCmdError(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgCtrlH(t *testing.T) {
+func TestUpdate_WhenCtrlHKey_ShouldActAsBackspace(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1236,7 +1236,7 @@ func TestUpdateKeyMsgCtrlH(t *testing.T) {
 	// Let's instead directly test the handler branch
 }
 
-func TestHandleKeyDefaultPrintable(t *testing.T) {
+func TestUpdate_WhenPrintableCharInFilter_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1261,7 +1261,7 @@ func TestHandleKeyDefaultPrintable(t *testing.T) {
 	}
 }
 
-func TestHandleKeyDetailIgnoresOtherKeys(t *testing.T) {
+func TestUpdate_WhenNonEscKeyInDetail_ShouldNotChangeState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusShowingDetail
@@ -1275,7 +1275,7 @@ func TestHandleKeyDetailIgnoresOtherKeys(t *testing.T) {
 	}
 }
 
-func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
+func TestUpdate_WhenKeyInLoading_ShouldBeIgnored(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
@@ -1301,7 +1301,7 @@ func TestFiltering_WhenNew_ShouldReturnFalse(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged(t *testing.T) {
+func TestHandleChdirChanged_WhenCalled_ShouldResetAndUpdateContext(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{{Address: "a"}}, nil
 	}}
@@ -1324,7 +1324,7 @@ func TestHandleChdirChanged(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged_ClearsPins(t *testing.T) {
+func TestHandleChdirChanged_WhenPinsExist_ShouldClearPins(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{{Address: "a"}, {Address: "b"}}, nil
 	}}
@@ -1349,7 +1349,7 @@ func TestHandleChdirChanged_ClearsPins(t *testing.T) {
 	}
 }
 
-func TestActivateWithSameContext(t *testing.T) {
+func TestActivate_WhenSameContextDone_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
@@ -1364,7 +1364,7 @@ func TestActivateWithSameContext(t *testing.T) {
 	}
 }
 
-func TestActivateMultiContextNoSelection(t *testing.T) {
+func TestActivate_WhenNoSelectionWithoutChdirGuard_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
@@ -1379,7 +1379,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithScopeDir(t *testing.T) {
+func TestActivate_WhenScopeDir_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
@@ -1392,7 +1392,7 @@ func TestActivateWithScopeDir(t *testing.T) {
 	}
 }
 
-func TestActivateNoPins(t *testing.T) {
+func TestActivate_WhenNoPinService_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
@@ -1405,7 +1405,7 @@ func TestActivateNoPins(t *testing.T) {
 	}
 }
 
-func TestHandleKeyFilterMode(t *testing.T) {
+func TestUpdate_WhenSlashActivatesFilter_ShouldSetFilteringTrue(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -1551,7 +1551,7 @@ func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 	}
 }
 
-func TestFilterForTree_ScoreThreshold(t *testing.T) {
+func TestSetFilter_WhenTreeMode_ShouldApplyScoreThreshold(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.treeMode = true
@@ -1605,7 +1605,7 @@ func TestFilterForTree_ScoreThreshold(t *testing.T) {
 	}
 }
 
-func TestRenderDetailUsesFullHeight(t *testing.T) {
+func TestView_WhenRenderingDetail_ShouldUseFullHeight(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}

@@ -11,7 +11,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func TestNew(t *testing.T) {
+func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.ID() != "init" {
@@ -31,7 +31,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestActivate_ShowsForm(t *testing.T) {
+func TestActivate_WhenCalled_ShouldPushFormFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
@@ -43,7 +43,7 @@ func TestActivate_ShowsForm(t *testing.T) {
 	}
 }
 
-func TestToggleFields(t *testing.T) {
+func TestPlugin_WhenFieldsToggled_ShouldFlipBooleanValues(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.upgrade {
@@ -62,7 +62,7 @@ func TestToggleFields(t *testing.T) {
 	}
 }
 
-func TestSubmit_PushesResultFrame(t *testing.T) {
+func TestUpdate_WhenInitSubmitMsg_ShouldPushResultFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
@@ -77,7 +77,7 @@ func TestSubmit_PushesResultFrame(t *testing.T) {
 	}
 }
 
-func TestInitResultMsg_Success_EmitsDeactivate(t *testing.T) {
+func TestUpdate_WhenInitResultSuccess_ShouldEmitDeactivate(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
@@ -88,7 +88,7 @@ func TestInitResultMsg_Success_EmitsDeactivate(t *testing.T) {
 	}
 }
 
-func TestInitResultMsg_Error_StaysOnResultFrame(t *testing.T) {
+func TestUpdate_WhenInitResultError_ShouldStayOnResultFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
@@ -111,7 +111,7 @@ func TestInitResultMsg_Error_StaysOnResultFrame(t *testing.T) {
 	}
 }
 
-func TestError_EnterReturnsToForm(t *testing.T) {
+func TestResultFrame_WhenEnterPressedInError_ShouldReturnToForm(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
@@ -132,7 +132,7 @@ func TestError_EnterReturnsToForm(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged(t *testing.T) {
+func TestHandleChdirChanged_WhenCalled_ShouldResetStack(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
@@ -143,7 +143,7 @@ func TestHandleChdirChanged(t *testing.T) {
 	}
 }
 
-func TestTimerTick(t *testing.T) {
+func TestUpdate_WhenTimerTickMsg_ShouldNotPanic(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
@@ -152,7 +152,7 @@ func TestTimerTick(t *testing.T) {
 	_ = cmd
 }
 
-func TestView_DelegatesToStack(t *testing.T) {
+func TestView_WhenFormActive_ShouldDelegateToStack(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 
@@ -162,7 +162,7 @@ func TestView_DelegatesToStack(t *testing.T) {
 	}
 }
 
-func TestView_ResultFrame_Loading(t *testing.T) {
+func TestView_WhenResultFrameLoading_ShouldReturnNonEmpty(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
@@ -173,7 +173,7 @@ func TestView_ResultFrame_Loading(t *testing.T) {
 	}
 }
 
-func TestView_ResultFrame_Error(t *testing.T) {
+func TestView_WhenResultFrameError_ShouldReturnNonEmpty(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
@@ -185,7 +185,7 @@ func TestView_ResultFrame_Error(t *testing.T) {
 	}
 }
 
-func TestBusy(t *testing.T) {
+func TestBusy_WhenStatusChanges_ShouldReflectLoadingState(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.Busy() {
@@ -206,7 +206,7 @@ func TestBusy(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
+func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if err := p.Configure(map[string]interface{}{"key": "value"}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)

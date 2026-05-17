@@ -15,7 +15,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func TestNew(t *testing.T) {
+func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -33,7 +33,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
+func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
@@ -42,7 +42,7 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
+func TestPlugin_WhenInitialized_ShouldSetIdleStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
@@ -63,7 +63,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestActivate(t *testing.T) {
+func TestActivate_WhenIdle_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
@@ -83,7 +83,7 @@ func TestActivate(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsValidateResultMsg(t *testing.T) {
+func TestActivate_WhenServiceSucceeds_ShouldReturnValidateResultMsg(t *testing.T) {
 	diags := []sdk.Diagnostic{
 		{Severity: "error", Summary: "Missing required argument", File: "main.tf", Line: 10},
 	}
@@ -124,7 +124,7 @@ func TestActivateCmdReturnsValidateResultMsg(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsError(t *testing.T) {
+func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	svc := &sdktest.MockService{
 		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
 			return nil, errors.New("validate failed")
@@ -159,7 +159,7 @@ func TestActivateCmdReturnsError(t *testing.T) {
 	}
 }
 
-func TestUpdateValidateResultSuccess(t *testing.T) {
+func TestUpdate_WhenValidateResultSuccess_ShouldSetDoneWithDiagnostics(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -187,7 +187,7 @@ func TestUpdateValidateResultSuccess(t *testing.T) {
 	}
 }
 
-func TestUpdateValidateResultErrorsSortedFirst(t *testing.T) {
+func TestUpdate_WhenValidateResult_ShouldSortErrorsFirst(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -218,7 +218,7 @@ func TestUpdateValidateResultErrorsSortedFirst(t *testing.T) {
 	}
 }
 
-func TestUpdateValidateResultError(t *testing.T) {
+func TestUpdate_WhenValidateResultError_ShouldSetErrorStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -238,7 +238,7 @@ func TestUpdateValidateResultError(t *testing.T) {
 	}
 }
 
-func TestUpdateValidateResultZeroDiagnostics(t *testing.T) {
+func TestUpdate_WhenValidateResultEmpty_ShouldSetDoneWithZeroDiagnostics(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -255,7 +255,7 @@ func TestUpdateValidateResultZeroDiagnostics(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgNavigation(t *testing.T) {
+func TestUpdate_WhenNavigationKeys_ShouldMoveCursor(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -303,7 +303,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
+func TestUpdate_WhenGAndGKeys_ShouldMoveToEndAndStart(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -327,7 +327,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgToggleExpand(t *testing.T) {
+func TestUpdate_WhenEnterOrIKey_ShouldToggleExpand(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
@@ -355,7 +355,7 @@ func TestUpdateKeyMsgToggleExpand(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgRefresh(t *testing.T) {
+func TestUpdate_WhenCtrlRPressed_ShouldRefreshInDoneOrError(t *testing.T) {
 	svc := &sdktest.MockService{
 		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
 			return []sdk.Diagnostic{}, nil
@@ -386,7 +386,7 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 	}
 }
 
-func TestUpdateUnknownMsg(t *testing.T) {
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelf(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -400,7 +400,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestMoveUpDown(t *testing.T) {
+func TestNavigation_WhenMoving_ShouldRespectBounds(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{
@@ -426,7 +426,7 @@ func TestMoveUpDown(t *testing.T) {
 	}
 }
 
-func TestMoveDownNilDiagnostics(t *testing.T) {
+func TestMoveDown_WhenNilDiagnostics_ShouldNotPanic(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = nil
@@ -436,7 +436,7 @@ func TestMoveDownNilDiagnostics(t *testing.T) {
 	}
 }
 
-func TestMoveToStartEnd(t *testing.T) {
+func TestMoveToStartEnd_WhenCalled_ShouldMoveToExtremes(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{
@@ -455,7 +455,7 @@ func TestMoveToStartEnd(t *testing.T) {
 	}
 }
 
-func TestMoveToEndNilDiagnostics(t *testing.T) {
+func TestMoveToEnd_WhenNilDiagnostics_ShouldNotPanic(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = nil
@@ -465,7 +465,7 @@ func TestMoveToEndNilDiagnostics(t *testing.T) {
 	}
 }
 
-func TestMoveToEndEmptyDiagnostics(t *testing.T) {
+func TestMoveToEnd_WhenEmptyDiagnostics_ShouldStayAtZero(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.diagnostics = []sdk.Diagnostic{}
@@ -475,7 +475,7 @@ func TestMoveToEndEmptyDiagnostics(t *testing.T) {
 	}
 }
 
-func TestToggleExpand(t *testing.T) {
+func TestToggleExpand_WhenCalled_ShouldFlipExpandState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 2
@@ -490,7 +490,7 @@ func TestToggleExpand(t *testing.T) {
 	}
 }
 
-func TestIsExpanded(t *testing.T) {
+func TestIsExpanded_WhenNotToggled_ShouldReturnFalse(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.IsExpanded(0) {
@@ -498,7 +498,7 @@ func TestIsExpanded(t *testing.T) {
 	}
 }
 
-func TestRefresh(t *testing.T) {
+func TestRefresh_WhenCalled_ShouldResetAndStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{
 		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
 			return []sdk.Diagnostic{}, nil
@@ -521,7 +521,7 @@ func TestRefresh(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
+func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
@@ -532,7 +532,7 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewLoading(t *testing.T) {
+func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
@@ -543,7 +543,7 @@ func TestViewLoading(t *testing.T) {
 	}
 }
 
-func TestViewError(t *testing.T) {
+func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
@@ -555,7 +555,7 @@ func TestViewError(t *testing.T) {
 	}
 }
 
-func TestViewDoneNoDiagnostics(t *testing.T) {
+func TestView_WhenDoneNoDiagnostics_ShouldShowValid(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -570,7 +570,7 @@ func TestViewDoneNoDiagnostics(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithDiagnostics(t *testing.T) {
+func TestView_WhenDoneWithDiagnostics_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -586,7 +586,7 @@ func TestViewDoneWithDiagnostics(t *testing.T) {
 	}
 }
 
-func TestViewDoneWithExpandedDetail(t *testing.T) {
+func TestView_WhenDoneWithExpandedDetail_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -601,7 +601,7 @@ func TestViewDoneWithExpandedDetail(t *testing.T) {
 	}
 }
 
-func TestViewDoneScrolling(t *testing.T) {
+func TestView_WhenManyDiagnostics_ShouldScrollCorrectly(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -620,7 +620,7 @@ func TestViewDoneScrolling(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
+func TestView_WhenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99) // invalid status
@@ -631,7 +631,7 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestViewSmallHeight(t *testing.T) {
+func TestView_WhenSmallHeight_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
@@ -645,7 +645,7 @@ func TestViewSmallHeight(t *testing.T) {
 	}
 }
 
-func TestSortDiagnostics(t *testing.T) {
+func TestSortDiagnostics_WhenMixed_ShouldPlaceErrorsFirst(t *testing.T) {
 	diags := []sdk.Diagnostic{
 		{Severity: "warning", Summary: "w1"},
 		{Severity: "error", Summary: "e1"},
@@ -671,21 +671,21 @@ func TestSortDiagnostics(t *testing.T) {
 	}
 }
 
-func TestSortDiagnosticsNil(t *testing.T) {
+func TestSortDiagnostics_WhenNil_ShouldReturnNil(t *testing.T) {
 	sorted := sortDiagnostics(nil)
 	if sorted != nil {
 		t.Errorf("sortDiagnostics(nil) = %v, want nil", sorted)
 	}
 }
 
-func TestSortDiagnosticsEmpty(t *testing.T) {
+func TestSortDiagnostics_WhenEmpty_ShouldReturnEmpty(t *testing.T) {
 	sorted := sortDiagnostics([]sdk.Diagnostic{})
 	if len(sorted) != 0 {
 		t.Errorf("len(sorted) = %d, want 0", len(sorted))
 	}
 }
 
-func TestDiagnostics(t *testing.T) {
+func TestDiagnostics_WhenCalled_ShouldReturnStoredDiagnostics(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Diagnostics() != nil {
@@ -698,7 +698,7 @@ func TestDiagnostics(t *testing.T) {
 	}
 }
 
-func TestStatus(t *testing.T) {
+func TestStatus_WhenNew_ShouldReturnIdle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
@@ -707,7 +707,7 @@ func TestStatus(t *testing.T) {
 	}
 }
 
-func TestSelected(t *testing.T) {
+func TestSelected_WhenSet_ShouldReturnCurrentIndex(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.selected = 5
@@ -717,7 +717,7 @@ func TestSelected(t *testing.T) {
 	}
 }
 
-func TestViewDiagnosticWithFileNoLine(t *testing.T) {
+func TestView_WhenDiagnosticHasFileButNoLine_ShouldRenderCorrectly(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone

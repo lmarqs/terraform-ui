@@ -26,7 +26,7 @@ func newTestPlugin() *Plugin {
 	return p
 }
 
-func TestNew(t *testing.T) {
+func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -44,7 +44,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-func TestConfigure(t *testing.T) {
+func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
@@ -53,7 +53,7 @@ func TestConfigure(t *testing.T) {
 	}
 }
 
-func TestInit(t *testing.T) {
+func TestPlugin_WhenInitialized_ShouldSetIdleState(t *testing.T) {
 	p := newTestPlugin()
 
 	if p.status != sdk.StatusIdle {
@@ -73,7 +73,7 @@ func TestInit(t *testing.T) {
 	}
 }
 
-func TestActivate(t *testing.T) {
+func TestPlugin_WhenActivated_ShouldSetDoneStatusAndBinaryPath(t *testing.T) {
 	p := newTestPlugin()
 	p.Activate()
 
@@ -88,7 +88,7 @@ func TestActivate(t *testing.T) {
 	}
 }
 
-func TestActivateMultiContextNoSelection(t *testing.T) {
+func TestPlugin_WhenActivatedWithoutChdirGuard_ShouldProceedToDone(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
@@ -107,7 +107,7 @@ func TestActivateMultiContextNoSelection(t *testing.T) {
 	}
 }
 
-func TestActivateWithScopeDir(t *testing.T) {
+func TestPlugin_WhenActivatedWithScopeDir_ShouldUseProjectDir(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
@@ -128,7 +128,7 @@ func TestActivateWithScopeDir(t *testing.T) {
 	}
 }
 
-func TestInputTyping(t *testing.T) {
+func TestUpdate_WhenTypingCharacters_ShouldAppendToInput(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.binaryPath = "terraform"
@@ -150,7 +150,7 @@ func TestInputTyping(t *testing.T) {
 	}
 }
 
-func TestInputBackspace(t *testing.T) {
+func TestUpdate_WhenBackspacePressed_ShouldRemoveLastCharacter(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = "hello"
@@ -168,7 +168,7 @@ func TestInputBackspace(t *testing.T) {
 	}
 }
 
-func TestInputEnter(t *testing.T) {
+func TestUpdate_WhenEnterWithInput_ShouldStartEvaluation(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.binaryPath = "terraform"
@@ -192,7 +192,7 @@ func TestInputEnter(t *testing.T) {
 	}
 }
 
-func TestInputEnterEmpty(t *testing.T) {
+func TestUpdate_WhenEnterWithEmptyInput_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = ""
@@ -203,7 +203,7 @@ func TestInputEnterEmpty(t *testing.T) {
 	}
 }
 
-func TestInputEnterWhitespace(t *testing.T) {
+func TestUpdate_WhenEnterWithWhitespace_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = "   "
@@ -214,7 +214,7 @@ func TestInputEnterWhitespace(t *testing.T) {
 	}
 }
 
-func TestInputEnterDuringEvaluating(t *testing.T) {
+func TestUpdate_WhenEnterDuringEvaluating_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin()
 	p.status = StatusEvaluating
 	p.input = "something"
@@ -225,7 +225,7 @@ func TestInputEnterDuringEvaluating(t *testing.T) {
 	}
 }
 
-func TestCtrlUClearsInput(t *testing.T) {
+func TestUpdate_WhenCtrlUPressed_ShouldClearInputAndResetHistory(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = "some expr"
@@ -240,7 +240,7 @@ func TestCtrlUClearsInput(t *testing.T) {
 	}
 }
 
-func TestEscDeactivates(t *testing.T) {
+func TestUpdate_WhenEscPressed_ShouldEmitDeactivateMsg(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 
@@ -254,7 +254,7 @@ func TestEscDeactivates(t *testing.T) {
 	}
 }
 
-func TestEscDuringEvaluatingDoesNothing(t *testing.T) {
+func TestUpdate_WhenEscDuringEvaluating_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin()
 	p.status = StatusEvaluating
 
@@ -264,7 +264,7 @@ func TestEscDuringEvaluatingDoesNothing(t *testing.T) {
 	}
 }
 
-func TestReplResultMsgSuccess(t *testing.T) {
+func TestUpdate_WhenReplResultSuccess_ShouldAddToHistory(t *testing.T) {
 	p := newTestPlugin()
 	p.status = StatusEvaluating
 
@@ -293,7 +293,7 @@ func TestReplResultMsgSuccess(t *testing.T) {
 	}
 }
 
-func TestReplResultMsgError(t *testing.T) {
+func TestUpdate_WhenReplResultError_ShouldAddErrorToHistory(t *testing.T) {
 	p := newTestPlugin()
 	p.status = StatusEvaluating
 
@@ -322,7 +322,7 @@ func TestReplResultMsgError(t *testing.T) {
 	}
 }
 
-func TestHistoryNavigation(t *testing.T) {
+func TestUpdate_WhenUpDownKeys_ShouldNavigateHistory(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.binaryPath = "terraform"
@@ -384,7 +384,7 @@ func TestHistoryNavigation(t *testing.T) {
 	}
 }
 
-func TestHistoryNavigationEmpty(t *testing.T) {
+func TestUpdate_WhenUpDownWithEmptyHistory_ShouldKeepCurrentInput(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.pastInputs = nil
@@ -403,7 +403,7 @@ func TestHistoryNavigationEmpty(t *testing.T) {
 	}
 }
 
-func TestMultipleResults(t *testing.T) {
+func TestUpdate_WhenMultipleResults_ShouldAccumulateHistory(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 
@@ -432,7 +432,7 @@ func TestMultipleResults(t *testing.T) {
 	}
 }
 
-func TestScrollingWithLongHistory(t *testing.T) {
+func TestView_WhenLongHistory_ShouldNotPanicWithSmallHeight(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 
@@ -456,7 +456,7 @@ func TestScrollingWithLongHistory(t *testing.T) {
 	}
 }
 
-func TestViewIdle(t *testing.T) {
+func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusIdle
 
@@ -466,7 +466,7 @@ func TestViewIdle(t *testing.T) {
 	}
 }
 
-func TestViewError(t *testing.T) {
+func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusError
 	p.errMsg = "something went wrong"
@@ -477,7 +477,7 @@ func TestViewError(t *testing.T) {
 	}
 }
 
-func TestViewReady(t *testing.T) {
+func TestView_WhenDone_ShouldReturnNonEmpty(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = "local.env"
@@ -488,7 +488,7 @@ func TestViewReady(t *testing.T) {
 	}
 }
 
-func TestViewEvaluating(t *testing.T) {
+func TestView_WhenEvaluating_ShouldReturnNonEmpty(t *testing.T) {
 	p := newTestPlugin()
 	p.status = StatusEvaluating
 
@@ -498,7 +498,7 @@ func TestViewEvaluating(t *testing.T) {
 	}
 }
 
-func TestViewWithHistory(t *testing.T) {
+func TestView_WhenHistoryPresent_ShouldReturnNonEmpty(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.history = []replEntry{
@@ -512,7 +512,7 @@ func TestViewWithHistory(t *testing.T) {
 	}
 }
 
-func TestViewDefaultStatus(t *testing.T) {
+func TestView_WhenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.Status(99)
 
@@ -522,7 +522,7 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestUnknownMsg(t *testing.T) {
+func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 
@@ -536,7 +536,7 @@ func TestUnknownMsg(t *testing.T) {
 	}
 }
 
-func TestHistoryEntryOutOfBounds(t *testing.T) {
+func TestHistoryEntry_WhenOutOfBounds_ShouldReturnEmptyValues(t *testing.T) {
 	p := newTestPlugin()
 
 	expr, res, errStr := p.HistoryEntry(-1)
@@ -550,7 +550,7 @@ func TestHistoryEntryOutOfBounds(t *testing.T) {
 	}
 }
 
-func TestFormatHistoryEntry(t *testing.T) {
+func TestFormatHistoryEntry_WhenCalled_ShouldFormatCorrectly(t *testing.T) {
 	// Success entry
 	entry := replEntry{Expr: "local.x", Result: "\"hello\""}
 	formatted := FormatHistoryEntry(entry)
@@ -606,7 +606,7 @@ func TestGetters_WhenFieldsSet_ShouldReturnCorrectValues(t *testing.T) {
 	}
 }
 
-func TestSetBinaryPath(t *testing.T) {
+func TestSetBinaryPath_WhenCalled_ShouldUpdatePath(t *testing.T) {
 	p := newTestPlugin()
 	p.SetBinaryPath("/custom/terraform")
 	if p.binaryPath != "/custom/terraform" {
@@ -614,7 +614,7 @@ func TestSetBinaryPath(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged(t *testing.T) {
+func TestHandleChdirChanged_WhenCalled_ShouldResetStateAndUpdateDir(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	ctx := &sdk.Context{
