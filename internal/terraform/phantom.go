@@ -55,10 +55,9 @@ func normalizeJSON(s string) string {
 		return s
 	}
 	normalized := normalizeValue(v)
-	b, err := json.Marshal(normalized)
-	if err != nil {
-		return s
-	}
+	// json.Marshal cannot fail here: normalizeValue only returns types that
+	// json.Unmarshal produces (nil, bool, float64, string, map, slice).
+	b, _ := json.Marshal(normalized)
 	return string(b)
 }
 

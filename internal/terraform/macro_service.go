@@ -225,10 +225,9 @@ func showFromState(state *tfjson.State, address string) (string, error) {
 		ProviderName: resource.ProviderName,
 		Values:       redacted,
 	}
-	output, err := json.MarshalIndent(display, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("marshaling resource: %w", err)
-	}
+	// json.MarshalIndent cannot fail here: the struct contains only strings and
+	// a map[string]interface{} produced by json.Unmarshal (JSON-safe types).
+	output, _ := json.MarshalIndent(display, "", "  ")
 	return string(output), nil
 }
 

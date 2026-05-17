@@ -1,7 +1,6 @@
 package terraform
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -24,7 +23,8 @@ func NewSourceIndex(dir string) (*SourceIndex, error) {
 		locations: make(map[string]editor.SourceLocation),
 	}
 
-	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+	// Walk never fails because the callback always returns nil or SkipDir.
+	_ = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return nil // skip inaccessible paths
 		}
@@ -40,9 +40,6 @@ func NewSourceIndex(dir string) (*SourceIndex, error) {
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, fmt.Errorf("walking directory %s: %w", dir, err)
-	}
 
 	return idx, nil
 }
@@ -182,21 +179,13 @@ func (idx *SourceIndex) scanFile(path string) {
 		return
 	}
 
-	// Determine the module prefix from the file path relative to the root dir
-	modulePrefix := idx.modulePrefix(path)
-
 	lines := strings.Split(string(data), "\n")
 	for i, line := range lines {
 		lineNum := i + 1
 
 		// Match resource blocks: resource "type" "name" {
 		if matches := resourceBlockRe.FindStringSubmatch(line); matches != nil {
-			resourceType := matches[1]
-			resourceName := matches[2]
-			address := resourceType + "." + resourceName
-			if modulePrefix != "" {
-				address = modulePrefix + "." + address
-			}
+			address := matches[1] + "." + matches[2]
 			idx.locations[address] = editor.SourceLocation{
 				File: path,
 				Line: lineNum,
@@ -207,12 +196,7 @@ func (idx *SourceIndex) scanFile(path string) {
 
 		// Match data blocks: data "type" "name" {
 		if matches := dataBlockRe.FindStringSubmatch(line); matches != nil {
-			dataType := matches[1]
-			dataName := matches[2]
-			address := "data." + dataType + "." + dataName
-			if modulePrefix != "" {
-				address = modulePrefix + "." + address
-			}
+			address := "data." + matches[1] + "." + matches[2]
 			idx.locations[address] = editor.SourceLocation{
 				File: path,
 				Line: lineNum,
@@ -223,11 +207,7 @@ func (idx *SourceIndex) scanFile(path string) {
 
 		// Match module blocks: module "name" {
 		if matches := moduleBlockRe.FindStringSubmatch(line); matches != nil {
-			moduleName := matches[1]
-			address := "module." + moduleName
-			if modulePrefix != "" {
-				address = modulePrefix + "." + address
-			}
+			address := "module." + matches[1]
 			idx.locations[address] = editor.SourceLocation{
 				File: path,
 				Line: lineNum,
@@ -236,25 +216,4 @@ func (idx *SourceIndex) scanFile(path string) {
 			continue
 		}
 	}
-}
-
-// modulePrefix determines the module path prefix for a file based on its directory
-// relative to the root. Returns empty for root-level files.
-func (idx *SourceIndex) modulePrefix(path string) string {
-	dir := filepath.Dir(path)
-	if dir == idx.dir {
-		return ""
-	}
-
-	rel, err := filepath.Rel(idx.dir, dir)
-	if err != nil {
-		return ""
-	}
-
-	// Only generate module prefix for known module directories
-	// (directories inside modules/ or similar structures)
-	// For simple cases, return empty — the resource address in state
-	// already contains the full module path.
-	_ = rel
-	return ""
 }
