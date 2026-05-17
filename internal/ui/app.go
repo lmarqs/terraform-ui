@@ -986,24 +986,24 @@ func (a App) viewStandalone() string {
 	footerHeight := 1
 	contentHeight := a.height - headerHeight - footerHeight
 
-	// Minimal header: tfui on left, context info on right
+	// Minimal header: context info on left, tfui on right
 	headerStyle := lipgloss.NewStyle().
 		Background(sdk.ColorBg).
 		Foreground(sdk.ColorFaint).
 		Width(a.width)
-	left := " tfui"
-	var rightParts []string
-	rightParts = append(rightParts, filepath.Base(a.cfg.WorkingDir()))
+	var leftParts []string
+	leftParts = append(leftParts, filepath.Base(a.cfg.WorkingDir()))
 	if a.activeChdir != "" {
-		rightParts = append(rightParts, a.activeChdir)
+		leftParts = append(leftParts, a.activeChdir)
 	}
 	if a.activeWorkspace != "" {
-		rightParts = append(rightParts, a.activeWorkspace)
+		leftParts = append(leftParts, a.activeWorkspace)
 	}
 	if a.lockInfo != nil {
-		rightParts = append(rightParts, "[locked]")
+		leftParts = append(leftParts, "[locked]")
 	}
-	right := strings.Join(rightParts, " │ ") + " "
+	left := " " + strings.Join(leftParts, " │ ")
+	right := "tfui "
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
