@@ -34,3 +34,4 @@ _site/
 # Demo recordings (regenerated from tapes)
 demo/output/*/
 demo/output/*.gif
+terraform_ui_demo.egg-info/

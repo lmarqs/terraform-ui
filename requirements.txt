@@ -1,0 +1,2 @@
+pillow==12.2.0
+terraform-ui-demo @ file:///home/lmarqs/Work/terraform-ui

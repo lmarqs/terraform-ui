@@ -111,12 +111,15 @@ description = "Macro tapes against built binary (blackbox)"
 # ─── Demo (developer tools) ────────────────────────────────────────────────────
 
 [tasks."demo:generate"]
-run = "./demo/generate.sh"
-description = "Generate demo recordings from macro tapes (requires built binary)"
+run = """
+pip install -r requirements.txt -q
+./demo/generate.sh
+"""
+description = "Record demo tapes and generate GIFs (batteries included)"
 
 [tasks."demo:lock"]
-run = "pip install -r pyproject.toml && pip freeze > requirements.txt"
-description = "Lock Python dependencies from pyproject.toml"
+run = "pip install . && pip freeze --exclude-editable > requirements.txt"
+description = "Lock Python deps from pyproject.toml"
 
 # ─── Release (CI only) ─────────────────────────────────────────────────────────
 

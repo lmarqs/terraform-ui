@@ -45,9 +45,7 @@ tfui --plan ./demo/fixtures/plan-large.json --macro ./my-session/recording.tape
 ## Prerequisites
 
 - **Build**: `mise run build` (Go 1.25+)
-- **GIF rendering** (pick one):
-  - `agg` — [asciinema GIF generator](https://github.com/asciinema/agg) (`cargo install agg`)
-  - `vhs` — [Charm VHS](https://github.com/charmbracelet/vhs) (`brew install charmbracelet/tap/vhs`)
+- **GIF rendering**: automatic via Python + Pillow (installed by mise venv from `requirements.txt`)
 
 ## Docker demo
 
