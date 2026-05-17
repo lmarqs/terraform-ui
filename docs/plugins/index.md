@@ -32,7 +32,7 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [init](init.md) | Init | `i` | operations | Run terraform init with form-based options |
 | [forceunlock](forceunlock.md) | Force Unlock | — | utility | Remove a stale state lock |
 | [version](version.md) | Version | — | utility | Show tfui and terraform version information |
-| [chdir](chdir.md) | Chdir Picker | — | internal | Select chdir member (hidden, activated by context plugin) |
+| [chdir](chdir.md) | Chdir Picker | — | navigation | Select chdir member (hidden, activated by context plugin) |
 
 ## Categories
 
@@ -77,10 +77,6 @@ Informational and recovery plugins.
 
 - **[Force Unlock](forceunlock.md)** — remove stale state locks
 - **[Version](version.md)** — show tfui and terraform version info
-
-### CLI Commands (not plugins)
-
-- **[Scaffold](scaffold.md)** — configuration file generator (`tfui scaffold`, CLI-only — no plugin directory)
 
 ## Enabling/Disabling Plugins
 

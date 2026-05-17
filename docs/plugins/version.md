@@ -5,24 +5,51 @@ title: Version
 id: version
 key:
 category: utility
+default_enabled: true
 description: Display tfui version, platform info, and terraform provider selections
 ---
 
-# Version
+## Overview
 
-Display tfui version, platform, and the resolved terraform binary version with provider selections.
+Display tfui version, platform, and the resolved terraform binary version with provider selections. Useful for debugging environment issues and confirming which terraform is in use.
 
 ## Interactive (TUI)
 
-Type `:version` in command mode. The plugin is NavPush — pressing `esc` or `q` returns to the previous view.
+Type `:version` in command mode. The plugin is NavPush -- pressing `Esc` or `q` returns to the previous view.
 
 ### Keybindings
 
-| Key | Action |
-|-----|--------|
-| `q` / `esc` | Back |
+| Key | Action | Context |
+|-----|--------|---------|
+| `q` / `Esc` | Back to previous view | Always |
 
-### Display
+### Flow
+
+```
+:version → Version (display) → Esc → Previous view
+```
+
+## Command Line (CLI)
+
+```bash
+tfui version          # Text output
+tfui version -json    # Structured JSON
+```
+
+| Code | Meaning |
+|------|---------|
+| 0 | Always succeeds |
+
+## Configuration
+
+```hcl
+# tfui.hcl
+plugin "version" {
+  enabled = true
+}
+```
+
+## Screenshots
 
 ```
 tfui v0.1.0
@@ -34,11 +61,6 @@ on linux_amd64
 + provider registry.terraform.io/hashicorp/local v2.8.0
 ```
 
-## CLI
+## Related
 
-```bash
-tfui version          # text output
-tfui version -json    # structured JSON
-```
-
-See [CLI Reference](../cli-reference.md#tfui-version) for full details.
+- [CLI Reference](../reference/cli-reference.md) -- full command documentation

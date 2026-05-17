@@ -3,53 +3,76 @@ layout: default
 parent: Plugins
 title: Force Unlock
 id: forceunlock
-key: —
+key:
 category: utility
+default_enabled: true
 description: Remove a stale terraform state lock safely from the TUI
 ---
 
-# Force Unlock
+## Overview
 
-Remove a stale terraform state lock.
+Remove a stale terraform state lock. Access via `:forceunlock` from the command bar, or press `u` from any plugin showing a lock error. The plugin subscribes to `LockDetectedEvent` -- when any plugin encounters a lock error, the lock ID is already known (no manual entry needed).
 
 ## Interactive (TUI)
 
-Access via `:forceunlock` from the command bar, or press `u` from any plugin showing a lock error.
+### Keybindings
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `y` | Confirm unlock | Confirming |
+| `n` / `Esc` | Cancel and return | Confirming |
+| `ctrl+r` | Retry | Error |
+| `q` / `Esc` | Back to previous plugin | Always |
 
 ### Flow
 
-1. If a lock was detected (via state/plan error), the plugin shows lock details and immediately prompts for confirmation
-2. If no lock is detected, offers manual lock ID entry
-3. On confirmation, shows loading state while the unlock RPC executes
-4. On success, emits `LockClearedEvent` (clears header badge) and `PlanInvalidatedEvent` (triggers refresh)
-5. NavPush returns the user to the previous plugin
-
-### Keybindings
-
-| Key | Action |
-|-----|--------|
-| `ctrl+r` | Retry (in error state) |
-| `q` / `Esc` | Back to previous plugin |
-
-### Lock Awareness
-
-The plugin subscribes to `LockDetectedEvent` — when any plugin encounters a lock error, the forceunlock plugin already knows the lock ID. No manual entry needed in the common case.
-
-## CLI
-
-```bash
-tfui force-unlock <lock-id>          # interactive confirmation
-tfui force-unlock --force <lock-id>  # skip confirmation (CI)
+```
+Idle → Confirming → Loading → Done/Error
 ```
 
-| Flag | Description |
-|------|-------------|
-| `--force` | Skip confirmation prompt |
+1. If a lock was detected (via state/plan error), shows lock details and prompts for confirmation
+2. If no lock is detected, offers manual lock ID entry
+3. On confirmation, executes `terraform force-unlock`
+4. On success, emits `LockClearedEvent` (clears header badge) + `PlanInvalidatedEvent` (triggers refresh)
+5. NavPush returns user to previous plugin
 
-| stdout | stderr | Exit |
-|--------|--------|------|
-| — | Progress + result | 0/1 |
+## Command Line (CLI)
 
-## Header Integration
+```bash
+tfui force-unlock <lock-id>          # Interactive confirmation
+tfui force-unlock --force <lock-id>  # Skip confirmation (CI)
+```
 
-When a lock is detected anywhere in the TUI, the header shows a `locked (who Xm ago)` badge on the Project line. After successful unlock, the badge clears automatically.
+| Code | Meaning |
+|------|---------|
+| 0 | Unlock succeeded |
+| 1 | Unlock failed |
+
+## Configuration
+
+```hcl
+# tfui.hcl
+plugin "forceunlock" {
+  enabled = true
+}
+```
+
+## Screenshots
+
+```
+Force Unlock
+
+Lock detected:
+  ID:      abc123-def456-789
+  Who:     user@host
+  Created: 5m ago
+
+Remove this lock? [y]es / [n]o
+```
+
+When a lock is active, the header shows a `locked (who Xm ago)` badge on the Project line. After successful unlock, the badge clears automatically.
+
+## Related
+
+- [State Browser](state.md) -- press `u` from lock error to reach this plugin
+- [Plan](plan.md) -- press `u` from lock error during planning

@@ -5,12 +5,13 @@ title: Taint
 id: taint
 key: t
 category: action
+default_enabled: true
 description: Mark terraform resources for recreation on next apply
 ---
 
-# Taint
+## Overview
 
-Mark resources for recreation on next apply. Standalone verb plugin — mirrors `terraform taint` as a top-level command.
+Mark resources for recreation on next apply. Standalone verb plugin -- mirrors `terraform taint` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
 
 ## Interactive (TUI)
 
@@ -23,38 +24,63 @@ Mark resources for recreation on next apply. Standalone verb plugin — mirrors 
 | Batch palette (`!`) | `t` | Navigate to taint with all pinned addresses |
 | Command mode | `:taint` | Navigate to taint |
 
+### Keybindings
+
+| Key | Action | Context |
+|-----|--------|---------|
+| `y` | Confirm taint | Confirming |
+| `n` / `Esc` | Cancel and return | Confirming |
+| `p` | Navigate to plan | Done |
+| `Esc` | Back to previous plugin | Any |
+| `ctrl+r` | Retry | Error |
+
 ### Flow
-
-1. Plugin receives target address(es) via `SetTargets()`
-2. Shows confirmation prompt: "Taint <address>? (will recreate on next apply)"
-3. For batch: shows count and lists all addresses
-4. On confirmation, executes `terraform taint` for each address sequentially
-5. On success, emits `PlanInvalidatedEvent` (plan auto-replans)
-6. NavPush returns user to origin plugin
-
-### States
 
 ```
 Idle → Confirming → Loading → Done/Error
 ```
 
-### Keybindings
+1. Plugin receives target address(es) via `SetTargets()`
+2. Shows confirmation: "Taint \<address\>? (will recreate on next apply)"
+3. For batch: shows count and lists all addresses
+4. On confirmation, executes `terraform taint` for each address sequentially
+5. On success, emits `PlanInvalidatedEvent` (plan auto-replans)
+6. NavPush returns user to origin plugin
 
-| Key | State | Action |
-|-----|-------|--------|
-| `p` | Done | Navigate to plan |
-| `Esc` | Any | Back to previous plugin |
-| `ctrl+r` | Error | Retry |
-
-## CLI
+## Command Line (CLI)
 
 ```bash
 tfui taint <address>           # Taint single resource
 tfui taint <addr1> <addr2>     # Batch taint
 ```
 
-## Navigation
+| Code | Meaning |
+|------|---------|
+| 0 | Taint succeeded |
+| 1 | Taint failed |
 
-- **Nav behavior**: NavPush (preserves origin, returns on completion/cancel)
-- **Menu visible**: No (hidden — reached via contextual keys or command mode)
-- **Events emitted**: `PlanInvalidatedEvent` on success
+## Configuration
+
+```hcl
+# tfui.hcl
+plugin "taint" {
+  enabled = true
+}
+```
+
+## Screenshots
+
+```
+Taint
+
+Taint aws_instance.web?
+This will mark it for recreation on next apply.
+
+[y]es / [n]o
+```
+
+## Related
+
+- [Untaint](untaint.md) -- reverse a taint operation
+- [State Browser](state.md) -- browse resources and taint from context
+- [Plan](plan.md) -- see the effect of tainting (forced replacement)
