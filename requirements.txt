@@ -1,2 +1,2 @@
-# No external dependencies — demo tooling uses Python stdlib only (json, os, sys).
-# Generated from: pip freeze (empty venv)
+agg==0.3.1
+userprovided==2.3.0
