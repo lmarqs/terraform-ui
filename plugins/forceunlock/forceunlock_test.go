@@ -9,57 +9,18 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-type mockService struct {
-	forceUnlockErr error
-	forceUnlockID  string
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return nil, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error)  { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)       { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) { return nil, nil }
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error            { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error          { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error              { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error            { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, nil
-}
-func (m *mockService) Refresh(_ context.Context) error                     { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error     { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
-func (m *mockService) ForceUnlock(_ context.Context, lockID string) error {
-	m.forceUnlockID = lockID
-	return m.forceUnlockErr
-}
-func (m *mockService) WithDir(_ string) sdk.Service { return m }
-
-func newTestPlugin(svc sdk.Service) *Plugin {
+func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return p
 }
 
 func TestNew(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "forceunlock" {
@@ -77,7 +38,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	if err := p.Configure(nil); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
@@ -85,7 +46,7 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -109,7 +70,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestActivate_WithLockInfo(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc-123", Who: "user@host"}
 
@@ -129,7 +90,7 @@ func TestActivate_WithLockInfo(t *testing.T) {
 }
 
 func TestActivate_WithoutLockInfo(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -148,7 +109,7 @@ func TestActivate_WithoutLockInfo(t *testing.T) {
 }
 
 func TestActivate_WhenLoading_Noop(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
@@ -159,7 +120,7 @@ func TestActivate_WhenLoading_Noop(t *testing.T) {
 }
 
 func TestUpdate_ForceUnlockResult_Success(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.lockID = "lock-123"
@@ -176,7 +137,7 @@ func TestUpdate_ForceUnlockResult_Success(t *testing.T) {
 }
 
 func TestUpdate_ForceUnlockResult_Error(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.lockID = "lock-123"
@@ -196,7 +157,7 @@ func TestUpdate_ForceUnlockResult_Error(t *testing.T) {
 }
 
 func TestUpdate_KeyQ_Deactivates(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
@@ -211,7 +172,7 @@ func TestUpdate_KeyQ_Deactivates(t *testing.T) {
 }
 
 func TestUpdate_KeyEsc_Deactivates(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
@@ -226,7 +187,7 @@ func TestUpdate_KeyEsc_Deactivates(t *testing.T) {
 }
 
 func TestUpdate_CtrlR_InError_Reactivates(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
@@ -238,7 +199,7 @@ func TestUpdate_CtrlR_InError_Reactivates(t *testing.T) {
 }
 
 func TestUpdate_CtrlR_InDone_Noop(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
@@ -249,7 +210,7 @@ func TestUpdate_CtrlR_InDone_Noop(t *testing.T) {
 }
 
 func TestView_Idle_NoLock(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusIdle
 
@@ -260,7 +221,7 @@ func TestView_Idle_NoLock(t *testing.T) {
 }
 
 func TestView_Idle_WithLock(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusIdle
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc", Who: "user@host"}
@@ -272,7 +233,7 @@ func TestView_Idle_WithLock(t *testing.T) {
 }
 
 func TestView_Loading(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.lockID = "lock-xyz"
@@ -284,7 +245,7 @@ func TestView_Loading(t *testing.T) {
 }
 
 func TestView_Done(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.lockID = "lock-xyz"
@@ -296,7 +257,7 @@ func TestView_Done(t *testing.T) {
 }
 
 func TestView_Error(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 	p.errMsg = "something went wrong"
@@ -308,7 +269,7 @@ func TestView_Error(t *testing.T) {
 }
 
 func TestHints_Done(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
@@ -319,7 +280,7 @@ func TestHints_Done(t *testing.T) {
 }
 
 func TestHints_Error(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 
@@ -330,7 +291,7 @@ func TestHints_Error(t *testing.T) {
 }
 
 func TestHandleLockDetected(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	lock := &sdk.StateLock{ID: "lock-new", Who: "other@host"}
@@ -348,7 +309,7 @@ func TestHandleLockDetected(t *testing.T) {
 }
 
 func TestHandleLockCleared(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "old-lock"}
 
@@ -363,7 +324,7 @@ func TestHandleLockCleared(t *testing.T) {
 }
 
 func TestHandleChdirChanged(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.lockInfo = &sdk.StateLock{ID: "old"}
@@ -390,7 +351,7 @@ func TestHandleChdirChanged(t *testing.T) {
 }
 
 func TestConfirmUnlock_Callback_CallsService(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
 
@@ -447,13 +408,17 @@ func TestConfirmUnlock_Callback_CallsService(t *testing.T) {
 	if result.LockID != "lock-abc" {
 		t.Errorf("ForceUnlockResultMsg.LockID = %q, want %q", result.LockID, "lock-abc")
 	}
-	if svc.forceUnlockID != "lock-abc" {
-		t.Errorf("service.ForceUnlock called with %q, want %q", svc.forceUnlockID, "lock-abc")
+	if len(svc.ForceUnlockCalls) == 0 || svc.ForceUnlockCalls[0] != "lock-abc" {
+		t.Errorf("service.ForceUnlock called with %v, want [lock-abc]", svc.ForceUnlockCalls)
 	}
 }
 
 func TestConfirmUnlock_Callback_ReturnsError(t *testing.T) {
-	svc := &mockService{forceUnlockErr: errors.New("denied")}
+	svc := &sdktest.MockService{
+		ForceUnlockFn: func(_ context.Context, _ string) error {
+			return errors.New("denied")
+		},
+	}
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-err"}
 
@@ -484,7 +449,7 @@ func TestConfirmUnlock_Callback_ReturnsError(t *testing.T) {
 }
 
 func TestConfirmUnlock_Callback_Declined(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
 
@@ -500,7 +465,7 @@ func TestConfirmUnlock_Callback_Declined(t *testing.T) {
 }
 
 func TestManualEntry_Callback_ConfirmYes(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -574,13 +539,13 @@ func TestManualEntry_Callback_ConfirmYes(t *testing.T) {
 	if result.LockID != "manual-lock-id" {
 		t.Errorf("LockID = %q, want %q", result.LockID, "manual-lock-id")
 	}
-	if svc.forceUnlockID != "manual-lock-id" {
-		t.Errorf("service called with %q, want %q", svc.forceUnlockID, "manual-lock-id")
+	if len(svc.ForceUnlockCalls) == 0 || svc.ForceUnlockCalls[0] != "manual-lock-id" {
+		t.Errorf("service called with %v, want [manual-lock-id]", svc.ForceUnlockCalls)
 	}
 }
 
 func TestManualEntry_Callback_EmptyLockID(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -604,7 +569,7 @@ func TestManualEntry_Callback_EmptyLockID(t *testing.T) {
 }
 
 func TestManualEntry_Callback_DeclinedManualEntry(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -619,7 +584,7 @@ func TestManualEntry_Callback_DeclinedManualEntry(t *testing.T) {
 }
 
 func TestView_DefaultStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = 99 // unknown status
 
@@ -630,7 +595,7 @@ func TestView_DefaultStatus(t *testing.T) {
 }
 
 func TestUpdate_UnhandledMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	result, cmd := p.Update(struct{}{})
@@ -643,13 +608,13 @@ func TestUpdate_UnhandledMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -662,7 +627,7 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -674,7 +639,7 @@ func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
@@ -685,7 +650,7 @@ func TestUpdate_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
 }
 
 func TestUpdate_WhenKeyOtherThanQEscCtrlR_ShouldDoNothing(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 

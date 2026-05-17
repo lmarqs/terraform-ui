@@ -9,59 +9,18 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-type mockService struct {
-	importErr  error
-	importAddr string
-	importID   string
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return nil, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error)  { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)       { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) { return nil, nil }
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error            { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error              { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error            { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, nil
-}
-func (m *mockService) Refresh(_ context.Context) error                     { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error     { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error       { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                        { return m }
-func (m *mockService) Import(_ context.Context, addr, id string) error {
-	m.importAddr = addr
-	m.importID = id
-	return m.importErr
-}
-
-func newTestPlugin(svc *mockService) *Plugin {
+func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return p
 }
 
 func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "import" {
@@ -79,7 +38,7 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 }
 
 func TestPlugin_WhenConfigured_ShouldAcceptAnyConfig(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	if err := p.Configure(map[string]interface{}{"unknown": "value"}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
@@ -87,7 +46,7 @@ func TestPlugin_WhenConfigured_ShouldAcceptAnyConfig(t *testing.T) {
 }
 
 func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -111,7 +70,7 @@ func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
 }
 
 func TestPlugin_WhenActivated_ShouldRequestAddress(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.SetAddress("aws_instance.web")
 
@@ -134,7 +93,7 @@ func TestPlugin_WhenActivated_ShouldRequestAddress(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
@@ -145,7 +104,7 @@ func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWithNoAddress_ShouldRequestEmptyDefault(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -164,7 +123,7 @@ func TestPlugin_WhenActivatedWithNoAddress_ShouldRequestEmptyDefault(t *testing.
 }
 
 func TestPlugin_WhenAddressSubmittedEmpty_ShouldDeactivate(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -182,7 +141,7 @@ func TestPlugin_WhenAddressSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 }
 
 func TestPlugin_WhenIDSubmittedEmpty_ShouldDeactivate(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -213,7 +172,7 @@ func TestPlugin_WhenIDSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 }
 
 func TestPlugin_WhenFormCompleted_ShouldRequestConfirmation(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	cmd := p.Activate()
@@ -266,7 +225,11 @@ func TestPlugin_WhenConfirmed_ShouldExecuteImport(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{importErr: tt.importErr}
+			svc := &sdktest.MockService{
+				ImportFn: func(_ context.Context, _, _ string) error {
+					return tt.importErr
+				},
+			}
 			p := newTestPlugin(svc)
 			p.address = "aws_instance.web"
 			p.id = "i-1234567890"
@@ -345,11 +308,11 @@ func TestPlugin_WhenConfirmed_ShouldExecuteImport(t *testing.T) {
 				if !hasPlanInvalidated {
 					t.Error("expected sdk.PlanInvalidatedEvent in batch")
 				}
-				if svc.importAddr != "aws_instance.web" {
-					t.Errorf("service.Import addr = %q, want %q", svc.importAddr, "aws_instance.web")
+				if len(svc.ImportCalls) == 0 || svc.ImportCalls[0][0] != "aws_instance.web" {
+					t.Errorf("service.Import addr = %v, want [aws_instance.web ...]", svc.ImportCalls)
 				}
-				if svc.importID != "i-1234567890" {
-					t.Errorf("service.Import id = %q, want %q", svc.importID, "i-1234567890")
+				if len(svc.ImportCalls) == 0 || svc.ImportCalls[0][1] != "i-1234567890" {
+					t.Errorf("service.Import id = %v, want [... i-1234567890]", svc.ImportCalls)
 				}
 			} else {
 				if eventCmd != nil {
@@ -364,7 +327,7 @@ func TestPlugin_WhenConfirmed_ShouldExecuteImport(t *testing.T) {
 }
 
 func TestPlugin_WhenConfirmDeclined_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.address = "aws_instance.web"
 	p.id = "i-123"
@@ -398,7 +361,7 @@ func TestPlugin_WhenReceivingKeys_ShouldNavigate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{}
+			svc := &sdktest.MockService{}
 			p := newTestPlugin(svc)
 			p.status = tt.status
 			p.address = "aws_instance.web"
@@ -446,7 +409,7 @@ func TestPlugin_WhenReceivingKeys_ShouldNavigate(t *testing.T) {
 }
 
 func TestPlugin_WhenTimerTicks_ShouldPropagate(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -489,7 +452,7 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{}
+			svc := &sdktest.MockService{}
 			p := newTestPlugin(svc)
 			tt.setup(p)
 
@@ -508,7 +471,7 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 }
 
 func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.address = "aws_instance.web"
@@ -535,7 +498,7 @@ func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
 }
 
 func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	p.status = sdk.StatusIdle
@@ -555,7 +518,7 @@ func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
 }
 
 func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	result, cmd := p.Update(struct{}{})
@@ -568,7 +531,7 @@ func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
 }
 
 func TestPlugin_WhenSetAddress_ShouldPreFillForm(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.SetAddress("aws_instance.web")
 
@@ -578,7 +541,7 @@ func TestPlugin_WhenSetAddress_ShouldPreFillForm(t *testing.T) {
 }
 
 func TestPlugin_WhenImportSubmitMsg_ShouldStoreAddressAndID(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	_, cmd := p.Update(importSubmitMsg{Address: "aws_instance.web", ID: "i-abc"})
@@ -594,13 +557,13 @@ func TestPlugin_WhenImportSubmitMsg_ShouldStoreAddressAndID(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -613,7 +576,7 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	hints := p.Hints()
 	if len(hints) != 2 {
@@ -625,7 +588,7 @@ func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	hints := p.Hints()
 	if len(hints) == 0 {
@@ -634,7 +597,7 @@ func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 	hints := p.Hints()
 	if len(hints) == 0 {

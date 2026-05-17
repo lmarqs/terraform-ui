@@ -10,57 +10,18 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-type mockService struct {
-	taintErr    error
-	taintCalled []string
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return nil, nil
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error)  { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)       { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) { return nil, nil }
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error            { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error          { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error            { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, nil
-}
-func (m *mockService) Refresh(_ context.Context) error                     { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error     { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error       { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
-func (m *mockService) WithDir(_ string) sdk.Service                        { return m }
-func (m *mockService) Taint(_ context.Context, addr string) error {
-	m.taintCalled = append(m.taintCalled, addr)
-	return m.taintErr
-}
-
-func newTestPlugin(svc *mockService) *Plugin {
+func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	p := New(svc).(*Plugin)
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return p
 }
 
 func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "taint" {
@@ -78,7 +39,7 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 }
 
 func TestPlugin_WhenConfigured_ShouldAcceptAnyConfig(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	if err := p.Configure(map[string]interface{}{"unknown": "value"}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
@@ -86,7 +47,7 @@ func TestPlugin_WhenConfigured_ShouldAcceptAnyConfig(t *testing.T) {
 }
 
 func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
@@ -122,7 +83,7 @@ func TestPlugin_WhenActivated_ShouldRequestConfirmation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{}
+			svc := &sdktest.MockService{}
 			p := newTestPlugin(svc)
 			p.SetTargets(tt.addresses)
 
@@ -151,7 +112,7 @@ func TestPlugin_WhenActivated_ShouldRequestConfirmation(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
@@ -176,7 +137,11 @@ func TestPlugin_WhenConfirmed_ShouldExecuteTaint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{taintErr: tt.taintErr}
+			svc := &sdktest.MockService{
+				TaintFn: func(_ context.Context, _ string) error {
+					return tt.taintErr
+				},
+			}
 			p := newTestPlugin(svc)
 			p.SetTargets(tt.addresses)
 
@@ -250,7 +215,7 @@ func TestPlugin_WhenConfirmed_ShouldExecuteTaint(t *testing.T) {
 }
 
 func TestPlugin_WhenConfirmDeclined_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.SetTargets([]string{"aws_instance.web"})
 
@@ -282,7 +247,7 @@ func TestPlugin_WhenReceivingKeys_ShouldNavigate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{}
+			svc := &sdktest.MockService{}
 			p := newTestPlugin(svc)
 			p.status = tt.status
 			p.addresses = []string{"aws_instance.web"}
@@ -329,7 +294,7 @@ func TestPlugin_WhenReceivingKeys_ShouldNavigate(t *testing.T) {
 }
 
 func TestPlugin_WhenTimerTicks_ShouldPropagate(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -372,7 +337,7 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := &mockService{}
+			svc := &sdktest.MockService{}
 			p := newTestPlugin(svc)
 			tt.setup(p)
 
@@ -391,7 +356,7 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 }
 
 func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.addresses = []string{"aws_instance.web"}
@@ -414,15 +379,19 @@ func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
 }
 
 func TestPlugin_WhenTaintPartiallyFails_ShouldReportTaintedAndError(t *testing.T) {
-	callCount := 0
-	svc := &mockService{}
-	svc.taintErr = nil
+	calls := 0
+	svc := &sdktest.MockService{
+		TaintFn: func(_ context.Context, addr string) error {
+			calls++
+			if calls >= 2 {
+				return errors.New("taint failed on " + addr)
+			}
+			return nil
+		},
+	}
 	p := newTestPlugin(svc)
+	p.svc = svc
 	p.addresses = []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
-
-	// Override service with a custom one that fails on second call
-	customSvc := &failOnNthService{failOn: 2}
-	p.svc = customSvc
 
 	cmd := p.executeTaint()
 	msg := cmd()
@@ -434,7 +403,6 @@ func TestPlugin_WhenTaintPartiallyFails_ShouldReportTaintedAndError(t *testing.T
 		}
 		if r, ok := subCmd().(taintResultMsg); ok {
 			result = r
-			_ = callCount
 		}
 	}
 
@@ -448,7 +416,7 @@ func TestPlugin_WhenTaintPartiallyFails_ShouldReportTaintedAndError(t *testing.T
 }
 
 func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	p.status = sdk.StatusIdle
@@ -468,7 +436,7 @@ func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
 }
 
 func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
 	result, cmd := p.Update(struct{}{})
@@ -480,28 +448,15 @@ func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
 	}
 }
 
-type failOnNthService struct {
-	mockService
-	failOn int
-	calls  int
-}
-
-func (m *failOnNthService) Taint(_ context.Context, addr string) error {
-	m.calls++
-	if m.calls >= m.failOn {
-		return errors.New("taint failed on " + addr)
-	}
-	return nil
-}
 
 func TestPlugin_WhenCancelCalledWithNilFn_ShouldNotPanic(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelCalledWithFn_ShouldCallAndClear(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -514,7 +469,7 @@ func TestPlugin_WhenCancelCalledWithFn_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 
 	hints := p.Hints()
@@ -530,7 +485,7 @@ func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 
 	hints := p.Hints()
@@ -549,7 +504,7 @@ func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
@@ -568,7 +523,7 @@ func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
 }
 
 func TestPlugin_WhenViewInLoadingWithMultipleAddresses_ShouldShowResourceCount(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 	p.addresses = []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
 
