@@ -49,6 +49,12 @@ type Pinnable interface {
 	PinnedCount() int
 }
 
+// Positionable is an optional interface plugins implement to report cursor
+// position for display in the content border title (e.g., "[3/30]").
+type Positionable interface {
+	CursorPosition() (cursor int, navigable int)
+}
+
 // Hintable is an optional interface plugins implement to supply
 // context-sensitive key hints for the status bar without needing a full Stack.
 type Hintable interface {
