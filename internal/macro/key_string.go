@@ -2,8 +2,6 @@ package macro
 
 import tea "github.com/charmbracelet/bubbletea"
 
-// KeyToString converts a tea.KeyMsg back to the string representation
-// used by the tape DSL. Returns empty string for unrecognized keys.
 func KeyToString(msg tea.KeyMsg) string {
 	switch msg.Type {
 	case tea.KeyEnter:
@@ -35,10 +33,7 @@ func KeyToString(msg tea.KeyMsg) string {
 	case tea.KeyCtrlS:
 		return "ctrl+s"
 	case tea.KeyRunes:
-		if len(msg.Runes) == 1 {
-			return string(msg.Runes)
-		}
-		if len(msg.Runes) > 1 {
+		if len(msg.Runes) > 0 {
 			return string(msg.Runes)
 		}
 	}

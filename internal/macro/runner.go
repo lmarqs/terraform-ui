@@ -44,10 +44,8 @@ func NewRunner(driver *Driver) *Runner {
 	}
 }
 
-// WithRecorder enables frame recording during execution.
-func (r *Runner) WithRecorder(rec *Recorder) *Runner {
+func (r *Runner) WithRecorder(rec *Recorder) {
 	r.recorder = rec
-	return r
 }
 
 func (r *Runner) Execute(commands []Command) error {

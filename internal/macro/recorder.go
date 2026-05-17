@@ -107,8 +107,6 @@ func (r *Recorder) Finalize() error {
 	return nil
 }
 
-// CaptureView records a frame with the given rendered view content.
-// Used by the Runner in headless mode where the Driver owns the model.
 func (r *Recorder) CaptureView(view string) {
 	r.frameNum++
 	filename := fmt.Sprintf("frame_%04d.txt", r.frameNum)
