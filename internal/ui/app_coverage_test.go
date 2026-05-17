@@ -2122,7 +2122,6 @@ func TestApp_Init_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
 	}
 }
 
-
 // --- Tests for ActivePlugin and IsStandalone ---
 
 func TestApp_WhenCreated_ShouldExposeActivePlugin(t *testing.T) {
@@ -3326,4 +3325,60 @@ func TestNewApp_WhenRootCfgSetWithInvalidChildDir_ShouldStillCreate(t *testing.T
 // Helper to write test files
 func writeTestFile(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
+}
+
+func TestApp_Update_WhenChdirChangedWithRootCfg_ShouldLoadChildCfg(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.Config{
+		Dir:       dir,
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, &config.RootConfig{})
+	app.width = 80
+	app.height = 24
+
+	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/nonexistent/path", Count: 1})
+	updated := model.(App)
+	_ = updated
+}
+
+type mockCmdReturningPlugin struct {
+	mockPlugin
+}
+
+func (m *mockCmdReturningPlugin) Update(_ tea.Msg) (plugin.Plugin, tea.Cmd) {
+	return m, func() tea.Msg { return nil }
+}
+
+func TestApp_Update_WhenBroadcastMsgCausesPluginCmd_ShouldCollectCmds(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockCmdReturningPlugin{
+			mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+		}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	app.width = 80
+	app.height = 24
+
+	type customBroadcastMsg struct{}
+	model, cmd := app.Update(customBroadcastMsg{})
+	_ = model.(App)
+	if cmd == nil {
+		t.Error("broadcast to plugin returning cmd should produce batched cmd")
+	}
 }

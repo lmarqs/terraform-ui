@@ -441,6 +441,10 @@ func TestListFrame_WhenTPressedDone_ShouldEmitTaintRequest(t *testing.T) {
 	if cmd == nil {
 		t.Fatal("t key should return cmd")
 	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("t cmd() should produce TaintRequestMsg")
+	}
 }
 
 func TestListFrame_WhenBigTPressedDone_ShouldEmitUntaintRequest(t *testing.T) {
@@ -457,6 +461,10 @@ func TestListFrame_WhenBigTPressedDone_ShouldEmitUntaintRequest(t *testing.T) {
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
 	if cmd == nil {
 		t.Fatal("T key should return cmd")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("T cmd() should produce UntaintRequestMsg")
 	}
 }
 
