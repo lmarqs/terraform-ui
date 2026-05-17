@@ -1,6 +1,7 @@
 package phantom
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -303,8 +304,8 @@ func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusIdle) returned empty string")
+	if !strings.Contains(view, "plan") || !strings.Contains(view, "phantom") {
+		t.Errorf("view should indicate waiting for plan to detect phantoms, got %q", view)
 	}
 }
 
@@ -316,8 +317,11 @@ func TestView_WhenDoneWithNoPhantoms_ShouldShowCleanMessage(t *testing.T) {
 	p.total = 5
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, no phantoms) returned empty string")
+	if !strings.Contains(view, "No phantom changes detected") {
+		t.Errorf("view should indicate no phantom changes detected, got %q", view)
+	}
+	if !strings.Contains(view, "5") {
+		t.Errorf("view should show total changes count '5', got %q", view)
 	}
 }
 
@@ -344,8 +348,14 @@ func TestView_WhenDoneWithPhantoms_ShouldRenderPhantomList(t *testing.T) {
 	}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, with phantoms) returned empty string")
+	if !strings.Contains(view, "aws_s3_bucket.data") {
+		t.Errorf("view should contain phantom resource 'aws_s3_bucket.data', got %q", view)
+	}
+	if !strings.Contains(view, "aws_iam_role.admin") {
+		t.Errorf("view should contain phantom resource 'aws_iam_role.admin', got %q", view)
+	}
+	if !strings.Contains(view, "2") && !strings.Contains(view, "phantom change") {
+		t.Errorf("view should show phantom change count, got %q", view)
 	}
 }
 
@@ -368,8 +378,17 @@ func TestView_WhenPhantomExpanded_ShouldShowAttributeDiffs(t *testing.T) {
 	p.expanded = map[int]bool{0: true}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View with expanded phantom returned empty string")
+	if !strings.Contains(view, "aws_s3_bucket.data") {
+		t.Errorf("expanded view should show resource address, got %q", view)
+	}
+	if !strings.Contains(view, "Reason") {
+		t.Errorf("expanded view should show explanation with 'Reason:', got %q", view)
+	}
+	if !strings.Contains(view, "policy") {
+		t.Errorf("expanded view should show attribute key 'policy', got %q", view)
+	}
+	if !strings.Contains(view, "sensitive") {
+		t.Errorf("expanded view should show '(sensitive)' for redacted attr, got %q", view)
 	}
 }
 
@@ -393,6 +412,7 @@ func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
 		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}, Explanation: "test"},
 	}
 
+	// verifies rendering completes without panic
 	view := p.View(80, 5)
 	if view == "" {
 		t.Error("View with small height returned empty string")
@@ -415,6 +435,7 @@ func TestView_WhenManyPhantoms_ShouldHandleScrolling(t *testing.T) {
 	p.phantoms = phantoms
 	p.selected = 15
 
+	// verifies rendering completes without panic under scrolling
 	view := p.View(80, 10)
 	if view == "" {
 		t.Error("View with scrolling returned empty string")

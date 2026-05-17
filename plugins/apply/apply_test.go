@@ -296,8 +296,8 @@ func TestView_WhenIdle_ShouldShowReadyMessage(t *testing.T) {
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusIdle) returned empty string")
+	if !strings.Contains(view, "plan") || !strings.Contains(view, "apply") {
+		t.Errorf("view should indicate run plan first then apply, got %q", view)
 	}
 }
 
@@ -307,8 +307,11 @@ func TestView_WhenConfirming_ShouldShowConfirmationPrompt(t *testing.T) {
 	p.status = StatusConfirming
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(StatusConfirming) returned empty string")
+	if !strings.Contains(view, "apply") {
+		t.Errorf("view should ask about applying changes, got %q", view)
+	}
+	if !strings.Contains(view, "y") || !strings.Contains(view, "n") {
+		t.Errorf("view should show y/n prompt options, got %q", view)
 	}
 }
 
@@ -317,10 +320,14 @@ func TestView_WhenConfirmingWithTargets_ShouldShowTargetList(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 	p.targets = []string{"aws_instance.web", "aws_s3_bucket.data"}
+	p.replanSummary = &sdk.PlanSummary{ToCreate: 1, ToDelete: 1}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(StatusConfirming, with targets) returned empty string")
+	if !strings.Contains(view, "targeted") {
+		t.Errorf("view should mention targeted plan, got %q", view)
+	}
+	if !strings.Contains(view, "2") {
+		t.Errorf("view should show target count, got %q", view)
 	}
 }
 
@@ -331,8 +338,8 @@ func TestView_WhenLoading_ShouldShowRunningState(t *testing.T) {
 	p.timer.Start()
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusLoading) returned empty string")
+	if !strings.Contains(view, "Applying") {
+		t.Errorf("view should indicate applying changes, got %q", view)
 	}
 }
 
@@ -344,8 +351,11 @@ func TestView_WhenDone_ShouldShowSuccessMessage(t *testing.T) {
 	p.timer.Stop()
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone) returned empty string")
+	if !strings.Contains(view, "Apply complete") {
+		t.Errorf("view should indicate apply complete, got %q", view)
+	}
+	if !strings.Contains(view, "Duration") {
+		t.Errorf("view should show duration, got %q", view)
 	}
 }
 
@@ -356,8 +366,8 @@ func TestView_WhenError_ShouldShowErrorMessage(t *testing.T) {
 	p.errMsg = "something failed"
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusError) returned empty string")
+	if !strings.Contains(view, "Apply failed") || !strings.Contains(view, "something failed") {
+		t.Errorf("view should show error message 'Apply failed: something failed', got %q", view)
 	}
 }
 
@@ -926,8 +936,14 @@ func TestPlugin_WhenViewInReplanning_ShouldRenderTargets(t *testing.T) {
 	p.timer.Start()
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(StatusReplanning) returned empty string")
+	if !strings.Contains(view, "Replanning") {
+		t.Errorf("view should indicate replanning, got %q", view)
+	}
+	if !strings.Contains(view, "aws_instance.web") {
+		t.Errorf("view should show target 'aws_instance.web', got %q", view)
+	}
+	if !strings.Contains(view, "aws_s3_bucket.data") {
+		t.Errorf("view should show target 'aws_s3_bucket.data', got %q", view)
 	}
 }
 
@@ -938,8 +954,17 @@ func TestPlugin_WhenViewConfirmingWithTargetsAndReplanSummary_ShouldShowCounts(t
 	p.replanSummary = &sdk.PlanSummary{ToCreate: 1, ToUpdate: 2, ToDelete: 3}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(StatusConfirming with targets+replan) returned empty string")
+	if !strings.Contains(view, "targeted") {
+		t.Errorf("view should mention targeted plan, got %q", view)
+	}
+	if !strings.Contains(view, "1 to add") {
+		t.Errorf("view should show '1 to add', got %q", view)
+	}
+	if !strings.Contains(view, "2 to change") {
+		t.Errorf("view should show '2 to change', got %q", view)
+	}
+	if !strings.Contains(view, "3 to destroy") {
+		t.Errorf("view should show '3 to destroy', got %q", view)
 	}
 }
 

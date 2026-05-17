@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -275,8 +276,8 @@ func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusIdle) returned empty string")
+	if !strings.Contains(view, "plan") || !strings.Contains(view, "risk") {
+		t.Errorf("view should indicate waiting for plan to analyze risk, got %q", view)
 	}
 }
 
@@ -287,8 +288,8 @@ func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
 	p.groups = nil
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, no groups) returned empty string")
+	if !strings.Contains(view, "No changes to analyze") {
+		t.Errorf("view should indicate no changes to analyze, got %q", view)
 	}
 }
 
@@ -299,8 +300,8 @@ func TestView_WhenDoneWithEmptyGroups_ShouldRenderNonEmpty(t *testing.T) {
 	p.groups = []RiskGroup{}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, empty groups) returned empty string")
+	if !strings.Contains(view, "No changes to analyze") {
+		t.Errorf("view should indicate no changes to analyze, got %q", view)
 	}
 }
 
@@ -332,8 +333,14 @@ func TestView_WhenDoneWithGroups_ShouldRenderRiskGroupList(t *testing.T) {
 	}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, with groups) returned empty string")
+	if !strings.Contains(view, "aws_s3_bucket.data") {
+		t.Errorf("view should contain resource address 'aws_s3_bucket.data', got %q", view)
+	}
+	if !strings.Contains(view, "aws_iam_role.admin") {
+		t.Errorf("view should contain resource address 'aws_iam_role.admin', got %q", view)
+	}
+	if !strings.Contains(view, "Total") {
+		t.Errorf("view should contain stats summary with 'Total', got %q", view)
 	}
 }
 
@@ -358,6 +365,7 @@ func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
 		{Level: sdk.RiskMedium, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}},
 	}
 
+	// verifies rendering completes without panic
 	view := p.View(80, 5)
 	if view == "" {
 		t.Error("View with small height returned empty string")
@@ -528,6 +536,7 @@ func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
 	// Set selected high to test maxVisible cutoff
 	p.selected = 15
 
+	// verifies rendering completes without panic under scrolling
 	view := p.View(80, 12)
 	if view == "" {
 		t.Error("View with scrolling/maxVisible returned empty string")
@@ -611,8 +620,8 @@ func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) 
 	p.selected = 1
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View returned empty string when change row is selected")
+	if !strings.Contains(view, "aws_instance.web") {
+		t.Errorf("view should contain selected resource address 'aws_instance.web', got %q", view)
 	}
 }
 
@@ -636,6 +645,7 @@ func TestView_WhenMaxVisibleOverflow_ShouldTruncateRenderedItems(t *testing.T) {
 	}
 
 	// Very small height to force overflow in the inner loop (itemIdx >= maxVisible)
+	// verifies rendering completes without panic under overflow
 	view := p.View(80, 15)
 	if view == "" {
 		t.Error("View with maxVisible overflow returned empty string")
@@ -665,6 +675,7 @@ func TestView_WhenMultipleGroupsOverflow_ShouldHandleGracefully(t *testing.T) {
 
 	// Height 15, maxVisible = 15-10 = 5. First group header(1) + 4 changes fills it.
 	// The 5th change and entire second group are beyond maxVisible.
+	// verifies rendering completes without panic under overflow
 	view := p.View(80, 15)
 	if view == "" {
 		t.Error("View with multiple groups overflow returned empty string")
@@ -694,6 +705,7 @@ func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
 		{Level: sdk.RiskLow, Changes: changes2},
 	}
 
+	// verifies rendering completes without panic when header overflows
 	view := p.View(80, 15)
 	if view == "" {
 		t.Error("View with header beyond maxVisible returned empty string")

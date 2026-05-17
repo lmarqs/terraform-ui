@@ -732,8 +732,8 @@ func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusIdle) returned empty string")
+	if !strings.Contains(view, "Loading") {
+		t.Errorf("view should indicate loading state, got %q", view)
 	}
 }
 
@@ -743,8 +743,8 @@ func TestView_WhenLoading_ShouldShowLoadingMessage(t *testing.T) {
 	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusLoading) returned empty string")
+	if !strings.Contains(view, "Loading") || !strings.Contains(view, "outputs") {
+		t.Errorf("view should indicate loading terraform outputs, got %q", view)
 	}
 }
 
@@ -755,8 +755,8 @@ func TestView_WhenError_ShouldShowErrorMessage(t *testing.T) {
 	p.errMsg = "some error"
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusError) returned empty string")
+	if !strings.Contains(view, "Error") || !strings.Contains(view, "some error") {
+		t.Errorf("view should show error message 'some error', got %q", view)
 	}
 }
 
@@ -768,8 +768,8 @@ func TestView_WhenDoneWithNoOutputs_ShouldShowEmptyState(t *testing.T) {
 	p.filtered = []sdk.OutputValue{}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, no outputs) returned empty string")
+	if !strings.Contains(view, "No outputs found") {
+		t.Errorf("view should indicate no outputs found, got %q", view)
 	}
 }
 
@@ -812,8 +812,11 @@ func TestView_WhenDoneWithFilter_ShouldShowFilteredOutputs(t *testing.T) {
 	p.filter = "vpc"
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, with filter) returned empty string")
+	if !strings.Contains(view, "vpc_id") {
+		t.Errorf("view should contain filtered output name 'vpc_id', got %q", view)
+	}
+	if !strings.Contains(view, "filter") {
+		t.Errorf("view should show filter indicator, got %q", view)
 	}
 }
 
@@ -863,6 +866,7 @@ func TestView_WhenManyOutputs_ShouldHandleScrolling(t *testing.T) {
 	p.filtered = outputs
 	p.selected = 40
 
+	// verifies rendering completes without panic under scrolling
 	view := p.View(80, 10)
 	if view == "" {
 		t.Error("View with scrolling returned empty string")

@@ -1,6 +1,7 @@
 package blastradius
 
 import (
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -348,8 +349,8 @@ func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusIdle) returned empty string")
+	if !strings.Contains(view, "plan") || !strings.Contains(view, "blast radius") {
+		t.Errorf("view should indicate waiting for plan data, got %q", view)
 	}
 }
 
@@ -360,8 +361,8 @@ func TestView_WhenDoneWithNilModules_ShouldRenderNonEmpty(t *testing.T) {
 	p.modules = nil
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, no modules) returned empty string")
+	if !strings.Contains(view, "No changes") || !strings.Contains(view, "zero") {
+		t.Errorf("view should indicate no changes/zero blast radius, got %q", view)
 	}
 }
 
@@ -372,8 +373,8 @@ func TestView_WhenDoneWithEmptyModules_ShouldRenderNonEmpty(t *testing.T) {
 	p.modules = []ModuleImpact{}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, empty modules) returned empty string")
+	if !strings.Contains(view, "No changes") || !strings.Contains(view, "zero") {
+		t.Errorf("view should indicate no changes/zero blast radius, got %q", view)
 	}
 }
 
@@ -417,8 +418,14 @@ func TestView_WhenDoneWithModules_ShouldRenderModuleList(t *testing.T) {
 	}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View(sdk.StatusDone, with modules) returned empty string")
+	if !strings.Contains(view, "module.rds") {
+		t.Errorf("view should contain module name 'module.rds', got %q", view)
+	}
+	if !strings.Contains(view, "module.vpc") {
+		t.Errorf("view should contain module name 'module.vpc', got %q", view)
+	}
+	if !strings.Contains(view, "module(s) affected") {
+		t.Errorf("view should contain overall summary, got %q", view)
 	}
 }
 
@@ -443,8 +450,14 @@ func TestView_WhenModuleExpanded_ShouldShowChanges(t *testing.T) {
 	p.expanded = map[int]bool{0: true}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View with expanded module returned empty string")
+	if !strings.Contains(view, "aws_subnet.a") {
+		t.Errorf("expanded view should show resource address 'aws_subnet.a', got %q", view)
+	}
+	if !strings.Contains(view, "aws_subnet.b") {
+		t.Errorf("expanded view should show resource address 'aws_subnet.b', got %q", view)
+	}
+	if !strings.Contains(view, "phantom") {
+		t.Errorf("expanded view should show '(phantom)' marker, got %q", view)
 	}
 }
 
@@ -468,8 +481,8 @@ func TestView_WhenExpandedWithReplaceAction_ShouldRenderReplaceSymbol(t *testing
 	p.expanded = map[int]bool{0: true}
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View with replace action returned empty string")
+	if !strings.Contains(view, "aws_instance.web") {
+		t.Errorf("expanded view should show resource address 'aws_instance.web', got %q", view)
 	}
 }
 
@@ -493,6 +506,7 @@ func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
 		{Group: sdk.ModuleGroup{Module: "root", Changes: []sdk.PlanChange{{}}}, Score: ImpactMinimal},
 	}
 
+	// verifies rendering completes without panic
 	view := p.View(80, 5)
 	if view == "" {
 		t.Error("View with small height returned empty string")
@@ -515,6 +529,7 @@ func TestView_WhenManyModules_ShouldHandleScrolling(t *testing.T) {
 	p.modules = modules
 	p.selected = 15
 
+	// verifies rendering completes without panic under scrolling
 	view := p.View(80, 10)
 	if view == "" {
 		t.Error("View with scrolling returned empty string")
