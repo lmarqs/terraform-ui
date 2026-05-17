@@ -573,7 +573,7 @@ func TestFormatHistoryEntry(t *testing.T) {
 	}
 }
 
-func TestExportedGetters(t *testing.T) {
+func TestGetters_WhenFieldsSet_ShouldReturnCorrectValues(t *testing.T) {
 	p := newTestPlugin()
 	p.status = sdk.StatusDone
 	p.input = "test"

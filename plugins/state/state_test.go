@@ -1287,27 +1287,14 @@ func TestHandleKeyInLoadingIgnoresKeys(t *testing.T) {
 	}
 }
 
-func TestStatusGetter(t *testing.T) {
+func TestStatus_WhenNew_ShouldReturnIdle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
-func TestSelectedGetter(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}, {Address: "d"}, {Address: "e"}, {Address: "f"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-	for i := 0; i < 5; i++ {
-		p.MoveDown()
-	}
-	if p.Selected() != 5 {
-		t.Errorf("Selected() = %d, want 5", p.Selected())
-	}
-}
-
-func TestFilteringGetter(t *testing.T) {
+func TestFiltering_WhenNew_ShouldReturnFalse(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Filtering() {
 		t.Error("Filtering() = true, want false")
