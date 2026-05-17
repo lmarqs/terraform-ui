@@ -3,15 +3,21 @@ layout: default
 parent: Plugins
 title: Chdir Picker
 id: chdir
-key:
+key: "—"
 category: navigation
 default_enabled: true
 description: Select a member directory within a multi-module terraform project
 ---
 
+# Chdir Picker
+
 ## Overview
 
 Select a member directory within a multi-module project. This is an internal plugin activated by the Context plugin (not directly accessible from the home menu). It uses NavPush behavior -- selecting a member or pressing `Esc` returns to the origin plugin.
+
+## Screenshot
+
+![Chdir Picker]({{ site.baseurl }}/assets/demo/chdir.gif)
 
 ## Interactive (TUI)
 
@@ -41,6 +47,20 @@ Not available as a standalone command. Use `--chdir` flag:
 tfui plan --project ./infra --chdir modules/networking
 ```
 
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Command with `--chdir` succeeded |
+| 1 | Invalid or non-existent member path |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Select member directory | `--chdir <member>` flag | Context → Chdir → select |
+| Filter members | Specify exact path | `/` → type filter |
+
 ## Configuration
 
 Members are declared in `tfui.hcl`:
@@ -49,18 +69,6 @@ Members are declared in `tfui.hcl`:
 member "modules/vpc" {}
 member "modules/ecs" {}
 member "modules/networking" {}
-```
-
-## Screenshots
-
-```
-Select Member
-
- > modules/vpc
-   modules/ecs
-   modules/networking
-
-Enter select  / filter  Esc cancel
 ```
 
 ## Related

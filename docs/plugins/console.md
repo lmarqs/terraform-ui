@@ -9,9 +9,15 @@ default_enabled: true
 description: Interactive terraform console REPL session within the TUI
 ---
 
+# Console
+
 ## Overview
 
 Interactive terraform console session within the TUI. Evaluate terraform expressions against the current state without leaving the application.
+
+## Screenshot
+
+![Console]({{ site.baseurl }}/assets/demo/console.gif)
 
 ## Interactive (TUI)
 
@@ -45,6 +51,20 @@ tfui console --project ./infra
 
 The CLI mode hands off to `terraform console` directly with proper terminal handling.
 
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Console session ended normally |
+| 1 | Error launching console |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Open terraform console | `tfui console` | Press `~` |
+| Evaluate expression | Type in console REPL | `~` → type → `Enter` |
+
 ## Configuration
 
 ```hcl
@@ -52,23 +72,6 @@ The CLI mode hands off to `terraform console` directly with proper terminal hand
 plugin "console" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Console
-
-> aws_instance.web.id
-"i-0abc123def456"
-
-> length(aws_instance.web.tags)
-3
-
-> formatdate("YYYY-MM-DD", timestamp())
-"2026-05-16"
-
->
 ```
 
 ## Related

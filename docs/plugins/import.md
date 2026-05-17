@@ -9,9 +9,15 @@ default_enabled: true
 description: Import existing infrastructure into terraform state interactively
 ---
 
+# Import
+
 ## Overview
 
 Import existing infrastructure into terraform state. Standalone verb plugin -- mirrors `terraform import` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
+
+## Screenshot
+
+![Import]({{ site.baseurl }}/assets/demo/import.gif)
 
 ## Interactive (TUI)
 
@@ -50,10 +56,18 @@ Form → Confirming → Loading → Done/Error
 tfui import <address> <id>     # Direct import, no TUI
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Import succeeded |
 | 1 | Import failed |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Import a resource | `tfui import <address> <id>` | From state: `n` → fill form → `y` |
 
 ## Configuration
 
@@ -62,19 +76,6 @@ tfui import <address> <id>     # Direct import, no TUI
 plugin "import" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Import
-
-Address: aws_instance.web
-ID:      i-0abc123def456
-
-Import i-0abc123def456 as aws_instance.web?
-
-[y]es / [n]o
 ```
 
 ## Related

@@ -9,9 +9,15 @@ default_enabled: true
 description: Run terraform validate and display configuration diagnostics
 ---
 
+# Validate
+
 ## Overview
 
 Run `terraform validate` and display diagnostics. The plugin groups errors and warnings by severity, with expandable source locations and suggestions for fixing each issue.
+
+## Screenshot
+
+![Validate]({{ site.baseurl }}/assets/demo/validate.gif)
 
 ## Interactive (TUI)
 
@@ -45,10 +51,20 @@ tfui validate --project ./infra --ci
 tfui validate --project ./infra -json
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Configuration valid |
 | 1 | Validation errors found |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Validate configuration | `tfui validate --ci` | Press `v` |
+| Get diagnostics as JSON | `tfui validate -json` | N/A (TUI is visual) |
+| Re-validate after fix | `tfui validate --ci` | `v` → `ctrl+r` |
 
 ## Configuration
 
@@ -57,23 +73,6 @@ tfui validate --project ./infra -json
 plugin "validate" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Validate
-
-✓ Configuration is valid  (0 errors, 2 warnings)
-
-  ⚠ Warning: Argument is deprecated
-    on modules/vpc/main.tf line 12
-    The "instance_tenancy" argument is deprecated. Use "default_instance_tenancy" instead.
-
-  ⚠ Warning: Version constraint not specific enough
-    on providers.tf line 3
-
-Enter detail  e edit  ctrl+r rerun  q back
 ```
 
 ## Related

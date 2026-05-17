@@ -3,15 +3,21 @@ layout: default
 parent: Plugins
 title: Version
 id: version
-key:
+key: "—"
 category: utility
 default_enabled: true
 description: Display tfui version, platform info, and terraform provider selections
 ---
 
+# Version
+
 ## Overview
 
 Display tfui version, platform, and the resolved terraform binary version with provider selections. Useful for debugging environment issues and confirming which terraform is in use.
+
+## Screenshot
+
+![Version]({{ site.baseurl }}/assets/demo/version.gif)
 
 ## Interactive (TUI)
 
@@ -36,9 +42,18 @@ tfui version          # Text output
 tfui version -json    # Structured JSON
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Always succeeds |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Show version info | `tfui version` | `:version` in command mode |
+| Get version as JSON | `tfui version -json` | N/A (TUI is visual) |
 
 ## Configuration
 
@@ -47,18 +62,6 @@ tfui version -json    # Structured JSON
 plugin "version" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-tfui v0.1.0
-on linux_amd64
-
-terraform v1.14.9
-on linux_amd64
-+ provider registry.terraform.io/hashicorp/aws v5.0.0
-+ provider registry.terraform.io/hashicorp/local v2.8.0
 ```
 
 ## Related

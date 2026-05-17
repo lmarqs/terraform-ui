@@ -9,9 +9,15 @@ default_enabled: true
 description: View terraform output values for the current workspace
 ---
 
+# Outputs
+
 ## Overview
 
 View terraform output values for the current workspace. Outputs are fetched via `terraform output -json` and displayed in a filterable list with expandable JSON detail for complex values.
+
+## Screenshot
+
+![Outputs]({{ site.baseurl }}/assets/demo/output.gif)
 
 ## Interactive (TUI)
 
@@ -46,10 +52,20 @@ tfui output --project ./infra -json
 tfui output --project ./infra --ci
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Outputs fetched successfully |
 | 1 | Error fetching outputs |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| List all outputs | `tfui output --ci` | Press `o` |
+| Get output as JSON | `tfui output -json` | N/A (TUI is visual) |
+| Inspect single output | `tfui output -json \| jq '.<name>'` | `o` → navigate → `Enter` |
 
 ## Configuration
 
@@ -58,20 +74,6 @@ tfui output --project ./infra --ci
 plugin "output" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Outputs                                          [5 values]
-
- > vpc_id          string   "vpc-0abc123def456"
-   subnet_ids      list     (3 elements)
-   db_endpoint     string   "db.example.com:5432"
-   api_url         string   "https://api.example.com"
-   config          object   (sensitive)
-
-Enter inspect  / filter  ctrl+r refresh  q back
 ```
 
 ## Related

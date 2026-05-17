@@ -9,6 +9,8 @@ category: navigation
 default_enabled: true
 ---
 
+# State Browser
+
 ## Overview
 
 Terraform's state commands are one-at-a-time, confirmationless, and require exact address typing:
@@ -28,6 +30,10 @@ The State Browser adds:
 - **Tree mode** — module hierarchy view (terraform has no grouped view)
 - **Safe mutations** — confirmation before rm/mv (terraform provides none!)
 - **Batch operations** — pin multiple, then act on all at once
+
+## Screenshot
+
+![State Browser]({{ site.baseurl }}/assets/demo/state-browse.gif)
 
 ## Interactive (TUI)
 
@@ -73,10 +79,6 @@ Home ──s──→ State (list)
                ├── ! → Batch palette (d/t/T/e) → act on all pinned
                └── q → Home
 ```
-
-### Screenshots
-
-![State Browser]({{ site.baseurl }}/assets/demo/state-browse.gif)
 
 ## Command Line (CLI)
 

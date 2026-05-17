@@ -9,9 +9,15 @@ category: navigation
 default_enabled: true
 ---
 
+# Workspace
+
 ## Overview
 
 The Workspaces plugin lists all terraform workspaces, highlights the current one, and lets you switch between them, create new workspaces, or delete unused ones. The current workspace is marked with an asterisk.
+
+## Screenshot
+
+![Workspace]({{ site.baseurl }}/assets/demo/workspace.gif)
 
 ## Interactive (TUI)
 
@@ -57,10 +63,21 @@ tfui workspace delete <name>           # Delete workspace
 | `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
 | `-force` | `delete` | Force deletion of a non-empty workspace |
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Operation succeeded |
 | 1 | Operation failed |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| List workspaces | `tfui workspace list` | Press `w` |
+| Switch workspace | `tfui workspace select <name>` | `w` → navigate → `Enter` |
+| Create workspace | `tfui workspace new <name>` | `w` → `n` → type name → `Enter` |
+| Delete workspace | `tfui workspace delete <name>` | `w` → navigate → `d` → confirm |
 
 ## Configuration
 
@@ -69,31 +86,6 @@ tfui workspace delete <name>           # Delete workspace
 plugin "workspace" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Workspaces
-
-* production
-  staging
-  development
-  default (default)
-
-3 workspace(s)  Current: production
-
-Enter switch  n new  d delete  ^r refresh  Esc back
-```
-
-Creating a new workspace:
-
-```
-Workspaces
-
-New workspace: feature-branch_
-
-Enter confirm  Esc cancel
 ```
 
 ## Related

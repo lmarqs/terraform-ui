@@ -9,9 +9,15 @@ default_enabled: true
 description: Mark terraform resources for recreation on next apply
 ---
 
+# Taint
+
 ## Overview
 
 Mark resources for recreation on next apply. Standalone verb plugin -- mirrors `terraform taint` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
+
+## Screenshot
+
+![Taint]({{ site.baseurl }}/assets/demo/taint.gif)
 
 ## Interactive (TUI)
 
@@ -54,10 +60,19 @@ tfui taint <address>           # Taint single resource
 tfui taint <addr1> <addr2>     # Batch taint
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Taint succeeded |
 | 1 | Taint failed |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Taint a resource | `tfui taint <address>` | From state/plan: `t` → `y` |
+| Batch taint | `tfui taint <addr1> <addr2>` | Pin multiple → `!` → `t` → `y` |
 
 ## Configuration
 
@@ -66,17 +81,6 @@ tfui taint <addr1> <addr2>     # Batch taint
 plugin "taint" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Taint
-
-Taint aws_instance.web?
-This will mark it for recreation on next apply.
-
-[y]es / [n]o
 ```
 
 ## Related

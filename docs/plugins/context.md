@@ -9,11 +9,17 @@ category: navigation
 default_enabled: true
 ---
 
+# Context
+
 ## Overview
 
 The Context plugin displays the current working context as a form dashboard -- Project directory, Chdir member, and Workspace. Selectable fields navigate to their respective picker plugins (chdir, workspace) for selection.
 
 Changing context invalidates all plugin state. This is a full view switch (`NavReplace`), not a push -- after a context change, plugins reload with fresh data.
+
+## Screenshot
+
+![Context]({{ site.baseurl }}/assets/demo/context.gif)
 
 ## Interactive (TUI)
 
@@ -53,6 +59,14 @@ Not available as a standalone command. Context is set via flags:
 tfui plan --project ./infra --chdir modules/networking
 ```
 
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Set working directory | `--chdir <member>` flag | `C` → Chdir → select |
+| Set workspace | `tfui workspace select <name>` | `C` → Workspace → select |
+| View current context | Implicit from flags | `C` (dashboard) |
+
 ## Configuration
 
 Members are declared as top-level `member "path" {}` blocks in `tfui.hcl`. When no members are configured, the Chdir field is non-selectable.
@@ -62,28 +76,6 @@ Members are declared as top-level `member "path" {}` blocks in `tfui.hcl`. When 
 member "modules/*" {}
 member "envs/**" {}
 member "stacks/networking" {}
-```
-
-## Screenshots
-
-With members configured (cursor on Chdir):
-
-```
-▸ Chdir        modules/vpc  ▸
-  Workspace    default      ▸
-  Project      /my/project
-
-↑↓ navigate  Enter select  Esc cancel
-```
-
-Without members (cursor on Workspace):
-
-```
-  Project      .
-  Chdir        -
-▸ Workspace    default  ▸
-
-↑↓ navigate  Enter select  Esc cancel
 ```
 
 ## Related

@@ -9,9 +9,15 @@ category: analysis
 default_enabled: true
 ---
 
+# Phantom Changes
+
 ## Overview
 
 The Phantom Changes plugin identifies plan changes that are cosmetic only -- they appear in the plan output but result in no actual infrastructure modification. Common causes include JSON field reordering, tag ordering differences, and semantically equivalent value serialization. Each phantom change includes an explanation of why it is a no-op.
+
+## Screenshot
+
+![Phantom Changes]({{ site.baseurl }}/assets/demo/phantom.gif)
 
 ## Interactive (TUI)
 
@@ -34,6 +40,26 @@ Home ──P──→ Phantom Changes (loading) ──→ Phantom Changes (list)
                                              └── Esc → Home
 ```
 
+## Command Line (CLI)
+
+Phantom Changes is an analysis view within the TUI. It does not have a standalone CLI command.
+
+Phantom detection data is available in structured form via:
+
+```bash
+tfui plan --project ./infra -json
+```
+
+The JSON output includes a `phantom` boolean on each change and a `phantom_resources` array.
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Identify phantom changes | `tfui plan -json` (filter `phantom: true`) | Press `P` |
+| Count phantoms | `tfui plan --ci` (shows phantom count) | Phantom badge in plan header |
+| See phantom explanations | `tfui plan -json` (parse phantom reasons) | `P` → expand change |
+
 ## Configuration
 
 ```hcl
@@ -46,10 +72,6 @@ plugin "phantom" {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-
-## Screenshots
-
-![Phantom Changes]({{ site.baseurl }}/assets/demo/phantom.gif)
 
 ## Related
 

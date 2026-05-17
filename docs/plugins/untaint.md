@@ -9,9 +9,15 @@ default_enabled: true
 description: Remove taint mark from terraform resources to prevent forced recreation
 ---
 
+# Untaint
+
 ## Overview
 
 Remove taint mark from resources to prevent forced recreation. Standalone verb plugin -- mirrors `terraform untaint` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
+
+## Screenshot
+
+![Untaint]({{ site.baseurl }}/assets/demo/untaint.gif)
 
 ## Interactive (TUI)
 
@@ -54,10 +60,19 @@ tfui untaint <address>           # Untaint single resource
 tfui untaint <addr1> <addr2>     # Batch untaint
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Untaint succeeded |
 | 1 | Untaint failed |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Untaint a resource | `tfui untaint <address>` | From state/plan: `T` → `y` |
+| Batch untaint | `tfui untaint <addr1> <addr2>` | Pin multiple → `!` → `T` → `y` |
 
 ## Configuration
 
@@ -66,17 +81,6 @@ tfui untaint <addr1> <addr2>     # Batch untaint
 plugin "untaint" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Untaint
-
-Untaint aws_instance.web?
-This will remove the taint mark (no forced recreation).
-
-[y]es / [n]o
 ```
 
 ## Related

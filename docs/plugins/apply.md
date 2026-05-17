@@ -9,6 +9,8 @@ category: operations
 default_enabled: true
 ---
 
+# Apply
+
 ## Overview
 
 Terraform's `apply` prompt says "Do you want to perform these actions?" with no context — the same prompt whether you're creating 1 resource or deleting 50. You type "yes" based on faith, not understanding.
@@ -19,6 +21,10 @@ The Apply screen adds:
 - **Elapsed time tracking** — long applies (10+ minutes) need progress feedback
 - **Pin-scoped execution** — apply only pinned resources without typing `--target` addresses
 - **Error recovery** — retry from same session without re-running the full command
+
+## Screenshot
+
+![Apply]({{ site.baseurl }}/assets/demo/apply.gif)
 
 ## Interactive (TUI)
 
@@ -52,33 +58,6 @@ Plan ──A──→ Apply (auto-approve: skip confirmation)
 ### Replan for Targeted Apply
 
 When pinned resources exist, apply does NOT use the saved plan file directly (terraform constraint). Instead it replans with `-target` flags to produce a targeted plan, shows it for review, then applies that plan file. This ensures the user always reviews exactly what will be applied.
-
-## Screenshots
-
-**Confirmation (targeted):**
-```
-Apply
-
-Are you sure you want to apply these changes?
-Targeting 3 resource(s).
-
-[y]es / [n]o
-```
-
-**Running:**
-```
-Apply
-
->>> Applying changes... 1m23s
-```
-
-**Success:**
-```
-Apply
-
-Apply complete! Resources are up-to-date.
-Duration: 2m45s
-```
 
 ## Command Line (CLI)
 
@@ -125,6 +104,14 @@ Apply complete.
 | 0 | Apply succeeded |
 | 1 | Apply failed (terraform error, no plan file, etc.) |
 
+### Targeting
+
+**CLI:** Pass `--target` to the `plan` command. The saved plan file already contains only targeted changes. Apply then applies that plan.
+
+**TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
+
+**Key insight:** You don't pass `--target` to `apply`. Targeting happens at plan time — apply always executes the saved plan file exactly.
+
 ## Equivalence
 
 | Goal | CLI | TUI |
@@ -132,14 +119,6 @@ Apply complete.
 | Apply all changes | `tfui plan && tfui apply` | `p` → `a` → `y` |
 | Apply specific resources | `tfui plan --target X && tfui apply` | `p` → pin X → `a` → `y` |
 | Check apply result | Exit code + stdout | Success/error screen |
-
-## How Targeting Works
-
-**CLI:** Pass `--target` to the `plan` command. The saved plan file already contains only targeted changes. Apply then applies that plan.
-
-**TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
-
-**Key insight:** You don't pass `--target` to `apply`. Targeting happens at plan time — apply always executes the saved plan file exactly.
 
 ## Configuration
 

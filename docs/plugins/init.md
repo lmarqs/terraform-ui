@@ -9,9 +9,15 @@ category: operations
 default_enabled: true
 ---
 
+# Init
+
 ## Overview
 
 The Init plugin provides a TUI interface for `terraform init`. It presents a form for common init options (upgrade, migrate-state, reconfigure, backend-config) and shows real-time progress. Form values are preserved across runs within a session for convenient re-initialization.
+
+## Screenshot
+
+![Init]({{ site.baseurl }}/assets/demo/init.gif)
 
 ## Interactive (TUI)
 
@@ -50,10 +56,20 @@ tfui init --project ./infra
 tfui init --project ./infra --upgrade
 ```
 
+### Exit Codes
+
 | Code | Meaning |
 |------|---------|
 | 0 | Init succeeded |
 | 1 | Init failed |
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| Initialize terraform | `tfui init` | Press `i` → `Enter` |
+| Init with upgrade | `tfui init --upgrade` | `i` → check Upgrade → `Enter` |
+| Reconfigure backend | `tfui init --reconfigure` | `i` → check Reconfigure → `Enter` |
 
 ## Configuration
 
@@ -62,19 +78,6 @@ tfui init --project ./infra --upgrade
 plugin "init" {
   enabled = true
 }
-```
-
-## Screenshots
-
-```
-Init
-
-  [ ] Upgrade
-  [ ] Migrate State
-  [ ] Reconfigure
-  Backend Config: _
-
-Enter submit  Tab next  Esc cancel
 ```
 
 ## Related

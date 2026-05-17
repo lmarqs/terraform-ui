@@ -9,9 +9,15 @@ category: analysis
 default_enabled: true
 ---
 
+# Risk Analysis
+
 ## Overview
 
 The Risk Analysis plugin groups plan changes by risk level (critical, high, medium, low, none) and displays an overall risk assessment. It provides a reason for each change's risk classification, such as destructive operations or modifications to critical resources.
+
+## Screenshot
+
+![Risk Analysis]({{ site.baseurl }}/assets/demo/risk-analysis.gif)
 
 ## Interactive (TUI)
 
@@ -33,6 +39,26 @@ Home ──R──→ Risk Analysis (loading) ──→ Risk Analysis (grouped l
                                            └── Esc → Home
 ```
 
+## Command Line (CLI)
+
+Risk Analysis is an analysis view within the TUI. It does not have a standalone CLI command.
+
+Plan data with risk classifications is available in structured form via:
+
+```bash
+tfui plan --project ./infra -json
+```
+
+The JSON output includes a `risk` field on each change and an overall `risk` summary.
+
+## Equivalence
+
+| Goal | CLI | TUI |
+|------|-----|-----|
+| See risk breakdown | `tfui plan -json` (parse `risk` field) | Press `R` |
+| Find critical changes | `tfui plan -json \| jq '.changes[] \| select(.risk=="critical")'` | `R` → navigate to critical group |
+| Get overall risk level | `tfui plan --ci` (shows `Risk: CRITICAL`) | Risk badge in header |
+
 ## Configuration
 
 ```hcl
@@ -45,10 +71,6 @@ plugin "risk" {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-
-## Screenshots
-
-![Risk Analysis]({{ site.baseurl }}/assets/demo/risk-analysis.gif)
 
 ## Related
 

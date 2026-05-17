@@ -9,6 +9,8 @@ category: operations
 default_enabled: true
 ---
 
+# Plan Review
+
 ## Overview
 
 Running `terraform plan` on a module with 30+ resources produces a wall of text. You must read every line to find the one dangerous delete among 29 creates. There's no prioritization, no risk signal, no way to focus on what matters.
@@ -19,6 +21,10 @@ The Plan screen transforms plan output from a data dump into a decision-support 
 - **Expand/collapse** lets you focus on relevant diffs (attention management)
 - **Phantom detection** separates real changes from computed-attribute noise
 - **Pin resources** to build a selective apply target list visually
+
+## Screenshot
+
+![Plan Review]({{ site.baseurl }}/assets/demo/plan-review.gif)
 
 ## Interactive (TUI)
 
@@ -50,10 +56,6 @@ Home ──p──→ Plan (loading) ──→ Plan (results)
                                   ├── a → Apply (pinned targets or all)
                                   └── q → Home
 ```
-
-### Screenshots
-
-![Plan Review]({{ site.baseurl }}/assets/demo/plan-review.gif)
 
 ## Command Line (CLI)
 
