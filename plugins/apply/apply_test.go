@@ -14,7 +14,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "apply" {
@@ -32,7 +32,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -41,7 +41,7 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	ctx := &sdk.Context{
 		WorkingDir: "/tmp",
@@ -56,7 +56,7 @@ func TestInit(t *testing.T) {
 }
 
 func TestSetTargets(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	targets := []string{"aws_instance.web", "aws_s3_bucket.data"}
 	p.SetTargets(targets)
@@ -66,7 +66,7 @@ func TestSetTargets(t *testing.T) {
 }
 
 func TestRequestApply(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	p.RequestApply()
@@ -82,7 +82,7 @@ func TestRequestApply(t *testing.T) {
 }
 
 func TestConfirm(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -99,7 +99,7 @@ func TestConfirm(t *testing.T) {
 }
 
 func TestAbort(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 	p.confirmed = true
@@ -114,7 +114,7 @@ func TestAbort(t *testing.T) {
 }
 
 func TestUpdateApplyResultMsgSuccess(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -141,7 +141,7 @@ func TestUpdateApplyResultMsgSuccess(t *testing.T) {
 }
 
 func TestUpdateApplyResultMsgError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -160,7 +160,7 @@ func TestUpdateApplyResultMsgError(t *testing.T) {
 }
 
 func TestUpdateTimerTickMsgRunning(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -172,7 +172,7 @@ func TestUpdateTimerTickMsgRunning(t *testing.T) {
 }
 
 func TestUpdateTimerTickMsgNotRunning(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -183,7 +183,7 @@ func TestUpdateTimerTickMsgNotRunning(t *testing.T) {
 }
 
 func TestUpdateKeyMsgIdle_Enter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -194,7 +194,7 @@ func TestUpdateKeyMsgIdle_Enter(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_Yes(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -208,7 +208,7 @@ func TestUpdateKeyMsgConfirming_Yes(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_YUppercase(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -219,7 +219,7 @@ func TestUpdateKeyMsgConfirming_YUppercase(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_Enter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -230,7 +230,7 @@ func TestUpdateKeyMsgConfirming_Enter(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_No(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -241,7 +241,7 @@ func TestUpdateKeyMsgConfirming_No(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_NUppercase(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -252,7 +252,7 @@ func TestUpdateKeyMsgConfirming_NUppercase(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_Esc(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -263,7 +263,7 @@ func TestUpdateKeyMsgConfirming_Esc(t *testing.T) {
 }
 
 func TestUpdateKeyMsgError_Retry(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 
@@ -277,7 +277,7 @@ func TestUpdateKeyMsgError_Retry(t *testing.T) {
 }
 
 func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -291,7 +291,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 }
 
 func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -302,7 +302,7 @@ func TestViewIdle(t *testing.T) {
 }
 
 func TestViewConfirming(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -313,7 +313,7 @@ func TestViewConfirming(t *testing.T) {
 }
 
 func TestViewConfirmingWithTargets(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 	p.targets = []string{"aws_instance.web", "aws_s3_bucket.data"}
@@ -325,7 +325,7 @@ func TestViewConfirmingWithTargets(t *testing.T) {
 }
 
 func TestViewRunning(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
@@ -337,7 +337,7 @@ func TestViewRunning(t *testing.T) {
 }
 
 func TestViewSuccess(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.timer.Start()
@@ -350,7 +350,7 @@ func TestViewSuccess(t *testing.T) {
 }
 
 func TestViewError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "something failed"
@@ -362,7 +362,7 @@ func TestViewError(t *testing.T) {
 }
 
 func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
 
@@ -373,7 +373,7 @@ func TestViewDefaultStatus(t *testing.T) {
 }
 
 func TestConfirm_ShouldStartTimer(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -384,7 +384,7 @@ func TestConfirm_ShouldStartTimer(t *testing.T) {
 }
 
 func TestElapsed(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.timer.Start()
 	time.Sleep(10 * time.Millisecond)
@@ -394,7 +394,7 @@ func TestElapsed(t *testing.T) {
 }
 
 func TestIsConfirming(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.IsConfirming() {
 		t.Error("IsConfirming() = true in idle, want false")
@@ -406,7 +406,7 @@ func TestIsConfirming(t *testing.T) {
 }
 
 func TestStatusGetter(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
@@ -414,7 +414,7 @@ func TestStatusGetter(t *testing.T) {
 }
 
 func TestRunApplyCmd(t *testing.T) {
-	svc := &mockService{applyErr: nil}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -431,7 +431,11 @@ func TestRunApplyCmd(t *testing.T) {
 }
 
 func TestRunApplyCmdError(t *testing.T) {
-	svc := &mockService{applyErr: errors.New("apply failed")}
+	svc := &sdktest.MockService{
+		ApplyFn: func(_ context.Context, _ sdk.ApplyOptions) error {
+			return errors.New("apply failed")
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
@@ -448,7 +452,7 @@ func TestRunApplyCmdError(t *testing.T) {
 }
 
 func TestUpdateKeyMsgIdle_OtherKey(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -463,7 +467,7 @@ func TestUpdateKeyMsgIdle_OtherKey(t *testing.T) {
 }
 
 func TestUpdateKeyMsgError_OtherKey(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 
@@ -475,7 +479,7 @@ func TestUpdateKeyMsgError_OtherKey(t *testing.T) {
 }
 
 func TestUpdateKeyMsgConfirming_OtherKey(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -490,7 +494,7 @@ func TestUpdateKeyMsgConfirming_OtherKey(t *testing.T) {
 }
 
 func TestUpdateKeyMsgRunning(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -502,7 +506,7 @@ func TestUpdateKeyMsgRunning(t *testing.T) {
 }
 
 func TestUpdateKeyMsgSuccess_CtrlR_ShouldNavigateToPlan(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -521,7 +525,7 @@ func TestUpdateKeyMsgSuccess_CtrlR_ShouldNavigateToPlan(t *testing.T) {
 }
 
 func TestBusy(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	if p.Busy() {
@@ -538,7 +542,7 @@ func TestBusy(t *testing.T) {
 }
 
 func TestTargets(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	if p.Targets() != nil {
@@ -553,7 +557,7 @@ func TestTargets(t *testing.T) {
 }
 
 func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -580,7 +584,7 @@ func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
 }
 
 func TestHints_WhenConfirming_ShouldReturnYNAndCancel(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = StatusConfirming
 
@@ -597,7 +601,7 @@ func TestHints_WhenConfirming_ShouldReturnYNAndCancel(t *testing.T) {
 }
 
 func TestHints_WhenLoading_ShouldReturnCancel(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -611,7 +615,7 @@ func TestHints_WhenLoading_ShouldReturnCancel(t *testing.T) {
 }
 
 func TestHints_WhenDone_ShouldReturnRefreshAndCancel(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -628,7 +632,7 @@ func TestHints_WhenDone_ShouldReturnRefreshAndCancel(t *testing.T) {
 }
 
 func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 
@@ -655,7 +659,7 @@ func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
 }
 
 func TestHints_WhenUnknownStatus_ShouldReturnBack(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99)
 
@@ -669,7 +673,7 @@ func TestHints_WhenUnknownStatus_ShouldReturnBack(t *testing.T) {
 }
 
 func TestHandleChdirChanged_ShouldResetState(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "some error"
@@ -694,7 +698,7 @@ func TestHandleChdirChanged_ShouldResetState(t *testing.T) {
 }
 
 func TestHandlePlanCompleted_ShouldStoreTotalResources(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	cmd := p.HandlePlanCompleted(sdk.PlanCompletedEvent{
@@ -710,7 +714,7 @@ func TestHandlePlanCompleted_ShouldStoreTotalResources(t *testing.T) {
 }
 
 func TestTotalResources_WhenNew_ShouldBeZero(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	if p.TotalResources() != 0 {
@@ -719,7 +723,7 @@ func TestTotalResources_WhenNew_ShouldBeZero(t *testing.T) {
 }
 
 func TestActivate_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	cmd := p.Activate()
@@ -729,7 +733,7 @@ func TestActivate_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenApplySucceeds_ShouldEmitPlanInvalidatedEvent(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -745,7 +749,7 @@ func TestPlugin_WhenApplySucceeds_ShouldEmitPlanInvalidatedEvent(t *testing.T) {
 }
 
 func TestPlugin_WhenDoneAndCtrlR_ShouldNavigateToPlan(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -765,7 +769,7 @@ func TestPlugin_WhenDoneAndCtrlR_ShouldNavigateToPlan(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedInIdleStatus_ShouldNotReset(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 	cmd := p.Activate()
 	if cmd != nil {
@@ -777,7 +781,7 @@ func TestPlugin_WhenActivatedInIdleStatus_ShouldNotReset(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedInLoadingStatus_ShouldNotReset(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	cmd := p.Activate()
 	if cmd != nil {
@@ -789,7 +793,11 @@ func TestPlugin_WhenActivatedInLoadingStatus_ShouldNotReset(t *testing.T) {
 }
 
 func TestPlugin_WhenRequestApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{ToCreate: 1}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{ToCreate: 1}, nil
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.targets = []string{"aws_instance.web"}
@@ -804,13 +812,13 @@ func TestPlugin_WhenRequestApplyWithTargets_ShouldEnterReplanning(t *testing.T) 
 }
 
 func TestPlugin_WhenCancelWithNilCancelFn_ShouldNotPanic(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelWithCancelFn_ShouldCallIt(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -823,7 +831,11 @@ func TestPlugin_WhenCancelWithCancelFn_ShouldCallIt(t *testing.T) {
 }
 
 func TestPlugin_WhenAutoApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{ToCreate: 1}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{ToCreate: 1}, nil
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.targets = []string{"aws_instance.web"}
@@ -841,7 +853,7 @@ func TestPlugin_WhenAutoApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
 }
 
 func TestPlugin_WhenAutoApplyWithoutTargets_ShouldEnterLoading(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.targets = nil
@@ -859,7 +871,7 @@ func TestPlugin_WhenAutoApplyWithoutTargets_ShouldEnterLoading(t *testing.T) {
 }
 
 func TestPlugin_WhenReplanResultError_ShouldTransitionToError(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusReplanning
 	p.timer.Start()
 
@@ -876,7 +888,7 @@ func TestPlugin_WhenReplanResultError_ShouldTransitionToError(t *testing.T) {
 }
 
 func TestPlugin_WhenReplanResultSuccessAndConfirmed_ShouldRunApply(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.status = StatusReplanning
@@ -893,7 +905,7 @@ func TestPlugin_WhenReplanResultSuccessAndConfirmed_ShouldRunApply(t *testing.T)
 }
 
 func TestPlugin_WhenReplanResultSuccessAndNotConfirmed_ShouldTransitionToConfirming(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusReplanning
 	p.confirmed = false
 	p.timer.Start()
@@ -908,7 +920,7 @@ func TestPlugin_WhenReplanResultSuccessAndNotConfirmed_ShouldTransitionToConfirm
 }
 
 func TestPlugin_WhenViewInReplanning_ShouldRenderTargets(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusReplanning
 	p.targets = []string{"aws_instance.web", "aws_s3_bucket.data"}
 	p.timer.Start()
@@ -920,7 +932,7 @@ func TestPlugin_WhenViewInReplanning_ShouldRenderTargets(t *testing.T) {
 }
 
 func TestPlugin_WhenViewConfirmingWithTargetsAndReplanSummary_ShouldShowCounts(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 	p.targets = []string{"aws_instance.web"}
 	p.replanSummary = &sdk.PlanSummary{ToCreate: 1, ToUpdate: 2, ToDelete: 3}
@@ -932,7 +944,7 @@ func TestPlugin_WhenViewConfirmingWithTargetsAndReplanSummary_ShouldShowCounts(t
 }
 
 func TestPlugin_WhenOutputJsonSuccess_ShouldReturnCompleteStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	data, err := p.Output(true)
@@ -946,7 +958,7 @@ func TestPlugin_WhenOutputJsonSuccess_ShouldReturnCompleteStatus(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJsonError_ShouldReturnErrorStatus(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
 	data, err := p.Output(true)
@@ -960,7 +972,7 @@ func TestPlugin_WhenOutputJsonError_ShouldReturnErrorStatus(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputTextSuccess_ShouldReturnCompleteLine(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	data, err := p.Output(false)
@@ -973,7 +985,7 @@ func TestPlugin_WhenOutputTextSuccess_ShouldReturnCompleteLine(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputTextError_ShouldReturnErrorMessage(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "something broke"
 
@@ -987,7 +999,7 @@ func TestPlugin_WhenOutputTextError_ShouldReturnErrorMessage(t *testing.T) {
 }
 
 func TestPlugin_WhenEscInReplanning_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusReplanning
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -1001,7 +1013,7 @@ func TestPlugin_WhenEscInReplanning_ShouldEmitDeactivateMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenEscInDone_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -1015,7 +1027,7 @@ func TestPlugin_WhenEscInDone_ShouldEmitDeactivateMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenEscInError_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -1029,7 +1041,7 @@ func TestPlugin_WhenEscInError_ShouldEmitDeactivateMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInReplanning_ShouldReturnCancel(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusReplanning
 
 	hints := p.Hints()
@@ -1042,7 +1054,11 @@ func TestPlugin_WhenHintsInReplanning_ShouldReturnCancel(t *testing.T) {
 }
 
 func TestPlugin_WhenRunReplan_ShouldReturnReplanResultMsg(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{ToCreate: 2}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{ToCreate: 2}, nil
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.options = &sdk.ResolvedOptions{}
@@ -1063,7 +1079,11 @@ func TestPlugin_WhenRunReplan_ShouldReturnReplanResultMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
-	svc := &mockService{planErr: errors.New("plan broken")}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return nil, errors.New("plan broken")
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.svc = svc
 	p.options = &sdk.ResolvedOptions{}
@@ -1078,7 +1098,7 @@ func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedInConfirmingStatus_ShouldNotReset(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 	cmd := p.Activate()
 	if cmd != nil {
@@ -1090,7 +1110,7 @@ func TestPlugin_WhenActivatedInConfirmingStatus_ShouldNotReset(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedInReplanningStatus_ShouldNotReset(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusReplanning
 	cmd := p.Activate()
 	if cmd != nil {
@@ -1102,7 +1122,7 @@ func TestPlugin_WhenActivatedInReplanningStatus_ShouldNotReset(t *testing.T) {
 }
 
 func TestPlugin_WhenKeyInLoadingStatus_ShouldDoNothing(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
@@ -1117,7 +1137,7 @@ func TestPlugin_WhenKeyInLoadingStatus_ShouldDoNothing(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJsonMarshalSuccess_ShouldNotReturnError(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	data, err := p.Output(true)
