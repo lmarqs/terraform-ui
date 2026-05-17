@@ -58,7 +58,7 @@ func main() {
 	var rootCfg *config.RootConfig
 	var debug bool
 	var configOverrides []string
-	var planURI, stateURI, macroURI string
+	var planURI, stateURI, macroURI, recordDir string
 	var extraArgs []string
 
 	rootCmd := &cobra.Command{
@@ -95,6 +95,7 @@ func main() {
 			return NewSession(cfg, rootCfg).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				Run()
 		},
 	}
@@ -106,6 +107,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&planURI, "plan", "", "Pre-seed plan data from file (./path, /path, file://) or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&stateURI, "state", "", "Pre-seed state data from file (./path, /path, file://) or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
+	rootCmd.PersistentFlags().StringVar(&recordDir, "record", "", "Record session frames and tape to directory")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 
 	var ciMode bool
@@ -121,6 +123,7 @@ func main() {
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},
@@ -140,6 +143,7 @@ func main() {
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},
@@ -172,6 +176,7 @@ func main() {
 				WithJSON(versionJSON).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},
@@ -188,6 +193,7 @@ func main() {
 				WithArgs(args).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},
@@ -204,6 +210,7 @@ func main() {
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},
@@ -221,6 +228,7 @@ func main() {
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},
@@ -238,6 +246,7 @@ func main() {
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
 				WithMacro(macroURI).
+				WithRecord(recordDir).
 				WithCI(ciMode).
 				Run()
 		},

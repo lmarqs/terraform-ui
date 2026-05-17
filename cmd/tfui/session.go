@@ -36,15 +36,16 @@ type axes struct {
 }
 
 type Session struct {
-	cfg      config.Config
-	rootCfg  *config.RootConfig
-	pluginID string
-	args     []string
-	jsonMode bool
-	planURI  string
-	stateURI string
-	macroURI string
-	ciMode   bool
+	cfg       config.Config
+	rootCfg   *config.RootConfig
+	pluginID  string
+	args      []string
+	jsonMode  bool
+	planURI   string
+	stateURI  string
+	macroURI  string
+	recordDir string
+	ciMode    bool
 }
 
 func NewSession(cfg config.Config, rootCfg *config.RootConfig) *Session {
@@ -74,6 +75,11 @@ func (s *Session) WithSeeds(plan, state string) *Session {
 
 func (s *Session) WithMacro(uri string) *Session {
 	s.macroURI = uri
+	return s
+}
+
+func (s *Session) WithRecord(dir string) *Session {
+	s.recordDir = dir
 	return s
 }
 
@@ -192,16 +198,40 @@ func (s *Session) present(app ui.App, registry *plugin.Registry, ax axes, tape [
 		if s.pluginID != "" {
 			opts = append(opts, tea.WithOutput(os.Stderr))
 		}
-		model, err := tea.NewProgram(app, opts...).Run()
-		if err != nil {
-			return app, err
+
+		var model tea.Model
+		if s.recordDir != "" {
+			rec := macro.NewRecorder(app, s.recordDir, 80, 24)
+			m, err := tea.NewProgram(rec, opts...).Run()
+			if err != nil {
+				return app, err
+			}
+			if err := rec.Finalize(); err != nil {
+				return app, fmt.Errorf("finalizing recording: %w", err)
+			}
+			model = m
+		} else {
+			m, err := tea.NewProgram(app, opts...).Run()
+			if err != nil {
+				return app, err
+			}
+			model = m
 		}
-		return model.(ui.App), nil
+
+		if a, ok := model.(ui.App); ok {
+			return a, nil
+		}
+		return app, nil
 
 	case Headless:
 		driver := macro.NewDriver(app, 80, 24)
 		if tape != nil {
-			return app, macro.NewRunner(driver).Execute(tape)
+			runner := macro.NewRunner(driver)
+			if s.recordDir != "" {
+				rec := macro.NewRecorder(nil, s.recordDir, 80, 24)
+				runner.WithRecorder(rec)
+			}
+			return app, runner.Execute(tape)
 		}
 		driver.Init()
 		pluginID := s.pluginID

@@ -32,8 +32,9 @@ func (e *RunError) Error() string {
 }
 
 type Runner struct {
-	driver  *Driver
-	timeout time.Duration
+	driver   *Driver
+	timeout  time.Duration
+	recorder *Recorder
 }
 
 func NewRunner(driver *Driver) *Runner {
@@ -43,15 +44,34 @@ func NewRunner(driver *Driver) *Runner {
 	}
 }
 
+// WithRecorder enables frame recording during execution.
+func (r *Runner) WithRecorder(rec *Recorder) *Runner {
+	r.recorder = rec
+	return r
+}
+
 func (r *Runner) Execute(commands []Command) error {
 	r.driver.Init()
+	r.captureFrame()
 
 	for _, cmd := range commands {
 		if err := r.executeOne(cmd); err != nil {
 			return err
 		}
+		r.captureFrame()
+	}
+
+	if r.recorder != nil {
+		return r.recorder.Finalize()
 	}
 	return nil
+}
+
+func (r *Runner) captureFrame() {
+	if r.recorder == nil {
+		return
+	}
+	r.recorder.CaptureView(r.driver.View())
 }
 
 func (r *Runner) executeOne(cmd Command) error {
