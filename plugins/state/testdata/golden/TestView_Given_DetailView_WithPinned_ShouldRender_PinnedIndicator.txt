@@ -1,3 +1,4 @@
 aws_instance.web [pinned]
 
 {"id": "i-0abc123def456"}
+ d delete e edit t taint T untaint

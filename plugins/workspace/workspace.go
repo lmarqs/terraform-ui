@@ -324,11 +324,29 @@ func (e *Plugin) View(width, height int) string {
 	}
 }
 
+func (e *Plugin) CursorPosition() (int, int) {
+	if e.status != sdk.StatusDone || len(e.workspaces) == 0 {
+		return 0, 0
+	}
+	return e.selected + 1, len(e.workspaces)
+}
+
+func (e *Plugin) workspaceActions() []ui.ActionChip {
+	chips := []ui.ActionChip{
+		{Key: "n", Label: "new"},
+	}
+	ws := e.SelectedWorkspace()
+	if ws != "" && ws != e.current && ws != "default" {
+		chips = append(chips, ui.ActionChip{Key: "d", Label: "delete"})
+	}
+	return chips
+}
+
 func (e *Plugin) renderWorkspaces(width, height int) string {
 	var b strings.Builder
 
-	// Calculate visible area
-	maxVisible := height - 5
+	actions := e.workspaceActions()
+	maxVisible := height - 3 - ui.ActionsBarHeight
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -342,20 +360,31 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 		endIdx = len(e.workspaces)
 	}
 
+	var lines []string
 	for i := startIdx; i < endIdx; i++ {
 		ws := e.workspaces[i]
 		row := e.renderWorkspaceRow(ws, i)
 		if i == e.selected {
 			row = sdk.StyleSelected.Width(width - 6).Render(row)
 		}
-		b.WriteString(row)
+		lines = append(lines, row)
+	}
+
+	lines = ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     startIdx,
+		TotalItems:     len(e.workspaces),
+		ViewportHeight: maxVisible,
+	})
+
+	for _, line := range lines {
+		b.WriteString(line)
 		b.WriteByte('\n')
 	}
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
 	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))
 
-	return b.String() + "\n" + count + "  " + currentInfo
+	return b.String() + "\n" + count + "  " + currentInfo + ui.RenderActionsBar(actions, width)
 }
 
 func isValidWorkspaceName(name string) bool {

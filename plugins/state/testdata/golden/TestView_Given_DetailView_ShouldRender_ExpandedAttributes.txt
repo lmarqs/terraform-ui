@@ -9,3 +9,4 @@ aws_instance.web
     "Environment": "production"
   }
 }
+ d delete e edit t taint T untaint

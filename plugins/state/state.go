@@ -681,9 +681,20 @@ func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource, contentWidth 
 	return pinMark + full
 }
 
+func (e *Plugin) detailActions() []ui.ActionChip {
+	return []ui.ActionChip{
+		{Key: "d", Label: "delete"},
+		{Key: "e", Label: "edit"},
+		{Key: "t", Label: "taint"},
+		{Key: "T", Label: "untaint"},
+	}
+}
+
 func (e *Plugin) renderDetail(width, height int) string {
 	e.viewWidth = width
 	address := sdk.StyleKey.Render(e.detailAddr)
+
+	actions := e.detailActions()
 
 	headerLines := 2
 	contentWidth := width - 6
@@ -707,7 +718,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		}
 	}
 
-	maxLines := height - headerLines
+	maxLines := height - headerLines - ui.ActionsBarHeight
 	if maxLines < 5 {
 		maxLines = 5
 	}
@@ -726,6 +737,12 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 	visible := lines[e.detailScroll:endIdx]
 
+	visible = ui.RenderScrollGutter(visible, ui.ScrollGutterOpts{
+		ViewOffset:     e.detailScroll,
+		TotalItems:     len(lines),
+		ViewportHeight: maxLines,
+	})
+
 	detail := strings.Join(visible, "\n")
 
 	scrollInfo := ""
@@ -743,7 +760,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		taintIndicator = " " + sdk.StyleUpdate.Render("[tainted]")
 	}
 
-	content := address + taintIndicator + pinIndicator + scrollInfo + "\n\n" + detail
+	content := address + taintIndicator + pinIndicator + scrollInfo + "\n\n" + detail + ui.RenderActionsBar(actions, width)
 	return content
 }
 

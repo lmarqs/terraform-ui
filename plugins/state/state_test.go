@@ -1622,12 +1622,13 @@ func TestView_WhenRenderingDetail_ShouldUseFullHeight(t *testing.T) {
 	output := p.renderDetail(80, 20)
 	outputLines := strings.Split(output, "\n")
 
-	// Header = address + blank line (2 lines), rest is content
-	wantContentLines := 18
-	wantTotal := 2 + wantContentLines
+	// Verify content fills available space:
+	// Total height 20 = 2 header + 16 content + 2 actions bar
+	// But RenderActionsBar appends "\n<chipRow>" (no trailing newline),
+	// so Split produces: header(1) + blank(1) + content(16) + chipRow(1) = 19
+	wantTotal := 19
 	if len(outputLines) != wantTotal {
-		t.Errorf("renderDetail(80, 20) produced %d lines, want %d (2 header + %d content)",
-			len(outputLines), wantTotal, wantContentLines)
+		t.Errorf("renderDetail(80, 20) produced %d lines, want %d", len(outputLines), wantTotal)
 	}
 }
 
