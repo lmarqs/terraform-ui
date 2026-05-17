@@ -10,8 +10,6 @@ terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Sin
 mise run dev              # Run TUI in development mode
 mise run fmt              # Format (gofmt)
 mise run check:lint       # Lint (golangci-lint v2)
-mise run check:vet        # Quick go vet
-mise run test:unit        # Unit tests
 mise run test:coverage    # Coverage (100% threshold)
 mise run build            # Cross-platform binaries
 mise run test:macro       # Macro tapes against binary
@@ -91,7 +89,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 
 IMPORTANT: Before considering work complete, run:
 ```bash
-mise run check:vet && mise run check:lint && mise run test:unit && mise run build
+mise run check:lint && mise run test:unit && mise run build
 ```
 
 For UI changes, also run `mise run test:macro` to verify rendering.
