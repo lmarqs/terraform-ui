@@ -4,6 +4,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/lmarqs/terraform-ui/internal/editor"
 )
 
 func TestNewSourceIndex(t *testing.T) {
@@ -486,5 +488,270 @@ func writeFile(t *testing.T, path, content string) {
 	}
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNewSourceIndex_WhenNodeModulesPresent_ShouldSkipDirectory(t *testing.T) {
+	dir := t.TempDir()
+	nodeModDir := filepath.Join(dir, "node_modules", "some-package")
+	if err := os.MkdirAll(nodeModDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(nodeModDir, "something.tf"), `
+resource "aws_s3_bucket" "hidden" {
+  bucket = "hidden"
+}
+`)
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_s3_bucket" "visible" {
+  bucket = "visible"
+}
+`)
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	if _, ok := idx.Lookup("aws_s3_bucket.hidden"); ok {
+		t.Error("aws_s3_bucket.hidden should not be indexed (inside node_modules)")
+	}
+	if _, ok := idx.Lookup("aws_s3_bucket.visible"); !ok {
+		t.Error("aws_s3_bucket.visible should be indexed")
+	}
+}
+
+func TestNewSourceIndex_WhenTofuFilesPresent_ShouldIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tofu"), `
+resource "aws_instance" "tofu_resource" {
+  ami = "ami-123"
+}
+`)
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	if _, ok := idx.Lookup("aws_instance.tofu_resource"); !ok {
+		t.Error("aws_instance.tofu_resource should be indexed from .tofu file")
+	}
+}
+
+func TestLookupModuleCall_WhenModuleWithIndexedKey_ShouldResolveViaStrippedIndex(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+module "users" {
+  source   = "./modules/users"
+  for_each = var.users
+}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	loc, ok := idx.Lookup(`module.users["admin"].aws_iam_user.this`)
+	if !ok {
+		t.Fatal("Lookup() should fall back to module.users declaration via lookupModuleCall")
+	}
+	if loc.Line != 2 {
+		t.Errorf("Line = %d, want 2", loc.Line)
+	}
+}
+
+func TestLookupModuleCall_WhenNoModulePrefix_ShouldReturnFalse(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	_, ok := idx.lookupModuleCall("aws_instance.nonexistent")
+	if ok {
+		t.Error("lookupModuleCall() should return false for non-module address")
+	}
+}
+
+func TestLookupModuleCall_WhenModuleNotDeclared_ShouldReturnFalse(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	_, ok := idx.lookupModuleCall("module.unknown.aws_instance.web")
+	if ok {
+		t.Error("lookupModuleCall() should return false when module is not declared")
+	}
+}
+
+func TestLookupModuleCall_WhenIndexedModuleWithBareNotFound_ShouldTryIndexedPath(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+module "users" {
+  source = "./modules/users"
+}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	// Manually add an indexed module location to test the bare != modulePath branch
+	// where bare is NOT found but modulePath IS found
+	idx.locations[`module.teams["dev"]`] = editor.SourceLocation{File: "fake.tf", Line: 10}
+
+	loc, ok := idx.lookupModuleCall(`module.teams["dev"].aws_iam_team.this`)
+	if !ok {
+		t.Fatal("lookupModuleCall() should find indexed module path")
+	}
+	if loc.Line != 10 {
+		t.Errorf("Line = %d, want 10", loc.Line)
+	}
+}
+
+func TestLookupModuleCall_WhenModuleHasNoDotsAfterName_ShouldBreak(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {}
+`)
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	_, ok := idx.lookupModuleCall("module.standalone")
+	if ok {
+		t.Error("lookupModuleCall() should return false for module address with no dot after segment")
+	}
+}
+
+func TestLookupFile_WhenOnlyTofuFiles_ShouldReturnFirstTofuFile(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "config.tofu"), `resource "null_resource" "x" {}`)
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	loc, ok := idx.LookupFile(dir)
+	if !ok {
+		t.Fatal("LookupFile() returned false")
+	}
+	if loc.File != filepath.Join(dir, "config.tofu") {
+		t.Errorf("File = %q, want %q", loc.File, filepath.Join(dir, "config.tofu"))
+	}
+}
+
+func TestLookupFile_WhenNonexistentDirectory_ShouldReturnFalse(t *testing.T) {
+	dir := t.TempDir()
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	_, ok := idx.LookupFile(filepath.Join(dir, "nonexistent"))
+	if ok {
+		t.Error("LookupFile() returned true for nonexistent directory")
+	}
+}
+
+func TestScanFile_WhenFileUnreadable_ShouldNotPanic(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {}
+`)
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	idx.scanFile(filepath.Join(dir, "nonexistent.tf"))
+	// Should not panic - just skip unreadable files
+}
+
+func TestNewSourceIndex_WhenInaccessibleSubdirectory_ShouldSkipGracefully(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {}
+`)
+	restrictedDir := filepath.Join(dir, "restricted")
+	if err := os.MkdirAll(restrictedDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(restrictedDir, "secret.tf"), `
+resource "aws_instance" "secret" {}
+`)
+	if err := os.Chmod(restrictedDir, 0o000); err != nil {
+		t.Skip("cannot restrict directory permissions on this OS")
+	}
+	t.Cleanup(func() { os.Chmod(restrictedDir, 0o755) })
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() should not error on inaccessible paths: %v", err)
+	}
+	if _, ok := idx.Lookup("aws_instance.web"); !ok {
+		t.Error("accessible resource should still be indexed")
+	}
+}
+
+func TestScanFile_WhenFileHasNoBlocks_ShouldNotAddLocations(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "variables.tf"), `
+variable "name" {
+  type    = string
+  default = "hello"
+}
+
+locals {
+  greeting = "world"
+}
+`)
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v", err)
+	}
+
+	if idx.Count() != 0 {
+		t.Errorf("Count() = %d, want 0 (no resource/data/module blocks)", idx.Count())
+	}
+}
+
+func TestNewSourceIndex_WhenBrokenSymlink_ShouldSkipGracefully(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "main.tf"), `
+resource "aws_instance" "web" {}
+`)
+	brokenLink := filepath.Join(dir, "broken.tf")
+	os.Symlink("/nonexistent/target.tf", brokenLink)
+
+	idx, err := NewSourceIndex(dir)
+	if err != nil {
+		t.Fatalf("NewSourceIndex() should not error on broken symlinks: %v", err)
+	}
+	if _, ok := idx.Lookup("aws_instance.web"); !ok {
+		t.Error("valid resource should still be indexed")
+	}
+}
+
+func TestNewSourceIndex_WhenDirectoryDoesNotExist_ShouldReturnEmptyIndex(t *testing.T) {
+	idx, err := NewSourceIndex("/nonexistent/path/that/does/not/exist")
+	if err != nil {
+		t.Fatalf("NewSourceIndex() error = %v (should gracefully handle missing dir)", err)
+	}
+	if idx.Count() != 0 {
+		t.Errorf("Count() = %d, want 0", idx.Count())
 	}
 }

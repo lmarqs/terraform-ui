@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func TestNew(t *testing.T) {
@@ -1640,5 +1641,621 @@ func TestRenderDetailUsesFullHeight(t *testing.T) {
 	if len(outputLines) != wantTotal {
 		t.Errorf("renderDetail(80, 20) produced %d lines, want %d (2 header + %d content)",
 			len(outputLines), wantTotal, wantContentLines)
+	}
+}
+
+func TestBusy_WhenMutating_ShouldReturnTrue(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	if p.Busy() {
+		t.Error("Busy() = true before mutation, want false")
+	}
+	p.mutating = true
+	if !p.Busy() {
+		t.Error("Busy() = false during mutation, want true")
+	}
+}
+
+func TestStack_ShouldReturnStackReference(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	s := p.Stack()
+	if s == nil {
+		t.Fatal("Stack() = nil, want non-nil")
+	}
+	if s.Depth() != 1 {
+		t.Errorf("Stack().Depth() = %d, want 1 (list frame)", s.Depth())
+	}
+}
+
+func TestNavigate_WhenDirectionPositive_ShouldMoveDown(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	p.navigate(1)
+	if p.Selected() != 1 {
+		t.Errorf("navigate(1): selected = %d, want 1", p.Selected())
+	}
+	p.navigate(-1)
+	if p.Selected() != 0 {
+		t.Errorf("navigate(-1): selected = %d, want 0", p.Selected())
+	}
+}
+
+func TestPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.viewWidth = 80
+	p.detail = strings.Repeat("x", 200)
+	p.detailHScroll = 0
+
+	p.panDetailRight()
+	if p.detailHScroll != 10 {
+		t.Errorf("panDetailRight: detailHScroll = %d, want 10", p.detailHScroll)
+	}
+}
+
+func TestPanDetailRight_ShouldNotExceedMaxScroll(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.viewWidth = 80
+	p.detail = "short line"
+	p.detailHScroll = 0
+
+	p.panDetailRight()
+	if p.detailHScroll != 0 {
+		t.Errorf("panDetailRight with short content: detailHScroll = %d, want 0", p.detailHScroll)
+	}
+}
+
+func TestPanDetailRight_ShouldClampToMaxScroll(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.viewWidth = 80
+	contentWidth := 80 - 6
+	line := strings.Repeat("x", contentWidth+20)
+	p.detail = line
+	p.detailHScroll = 10
+
+	p.panDetailRight()
+	maxScroll := len(line) - contentWidth
+	if p.detailHScroll > maxScroll {
+		t.Errorf("panDetailRight: detailHScroll = %d, exceeds max %d", p.detailHScroll, maxScroll)
+	}
+}
+
+func TestPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.detailHScroll = 20
+
+	p.panDetailLeft()
+	if p.detailHScroll != 10 {
+		t.Errorf("panDetailLeft: detailHScroll = %d, want 10", p.detailHScroll)
+	}
+}
+
+func TestPanDetailLeft_ShouldNotGoBelowZero(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.detailHScroll = 5
+
+	p.panDetailLeft()
+	if p.detailHScroll != 0 {
+		t.Errorf("panDetailLeft from 5: detailHScroll = %d, want 0", p.detailHScroll)
+	}
+}
+
+func TestWrapLines_WhenLineFitsWidth_ShouldNotWrap(t *testing.T) {
+	lines := []string{"short", "also short"}
+	result := wrapLines(lines, 20)
+	if len(result) != 2 {
+		t.Errorf("wrapLines: got %d lines, want 2", len(result))
+	}
+	if result[0] != "short" || result[1] != "also short" {
+		t.Errorf("wrapLines: unexpected content %v", result)
+	}
+}
+
+func TestWrapLines_WhenLineExceedsWidth_ShouldSplitAtBoundary(t *testing.T) {
+	lines := []string{"abcdefghij"}
+	result := wrapLines(lines, 4)
+	if len(result) != 3 {
+		t.Errorf("wrapLines('abcdefghij', 4): got %d lines, want 3", len(result))
+	}
+	if result[0] != "abcd" {
+		t.Errorf("wrapLines[0] = %q, want %q", result[0], "abcd")
+	}
+	if result[1] != "efgh" {
+		t.Errorf("wrapLines[1] = %q, want %q", result[1], "efgh")
+	}
+	if result[2] != "ij" {
+		t.Errorf("wrapLines[2] = %q, want %q", result[2], "ij")
+	}
+}
+
+func TestWrapLines_WhenExactWidth_ShouldNotSplit(t *testing.T) {
+	lines := []string{"abcd"}
+	result := wrapLines(lines, 4)
+	if len(result) != 1 {
+		t.Errorf("wrapLines exact width: got %d lines, want 1", len(result))
+	}
+}
+
+func TestWrapLines_WhenMultipleLines_ShouldWrapEachIndependently(t *testing.T) {
+	lines := []string{"abc", "defgh", "ij"}
+	result := wrapLines(lines, 3)
+	expected := []string{"abc", "def", "gh", "ij"}
+	if len(result) != len(expected) {
+		t.Fatalf("wrapLines: got %d lines, want %d", len(result), len(expected))
+	}
+	for i, r := range result {
+		if r != expected[i] {
+			t.Errorf("wrapLines[%d] = %q, want %q", i, r, expected[i])
+		}
+	}
+}
+
+func TestTogglePin_ShouldTogglePinInTree(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}, {Address: "aws_s3_bucket.data"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	cmd := p.togglePin("aws_instance.web")
+	if cmd != nil {
+		t.Error("togglePin returned non-nil cmd, want nil")
+	}
+	if p.pins.Count() != 1 {
+		t.Errorf("pins.Count() = %d after toggle, want 1", p.pins.Count())
+	}
+	if !p.pins.IsPinned("aws_instance.web") {
+		t.Error("expected aws_instance.web to be pinned")
+	}
+
+	p.togglePin("aws_instance.web")
+	if p.pins.Count() != 0 {
+		t.Errorf("pins.Count() = %d after second toggle, want 0", p.pins.Count())
+	}
+}
+
+func TestTogglePin_WhenNoPinService_ShouldNotPanic(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.pins = nil
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	cmd := p.togglePin("a")
+	if cmd != nil {
+		t.Error("togglePin without pin service returned non-nil cmd")
+	}
+}
+
+func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
+
+	t.Run("ShouldReturnConfirmRequest", func(t *testing.T) {
+		cmd := p.requestDelete("aws_instance.web")
+		msg := cmd()
+		reqMsg, ok := msg.(sdk.RequestInputMsg)
+		if !ok {
+			t.Fatalf("expected sdk.RequestInputMsg, got %T", msg)
+		}
+		if reqMsg.Request.Mode != sdk.InputRequestBool {
+			t.Errorf("expected InputRequestBool, got %d", reqMsg.Request.Mode)
+		}
+	})
+
+	t.Run("ShouldDeleteOnConfirmation", func(t *testing.T) {
+		svc2 := &sdktest.MockService{}
+		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
+		cmd := p2.requestDelete("aws_instance.web")
+		msg := cmd()
+		reqMsg := msg.(sdk.RequestInputMsg)
+		execCmd := reqMsg.Request.Callback("y")
+		if execCmd == nil {
+			t.Fatal("expected non-nil cmd after confirmation")
+		}
+		result := execCmd()
+		deleted, ok := result.(StateDeletedMsg)
+		if !ok {
+			t.Fatalf("expected StateDeletedMsg, got %T", result)
+		}
+		if deleted.Address != "aws_instance.web" {
+			t.Errorf("expected address 'aws_instance.web', got %q", deleted.Address)
+		}
+		if len(svc2.StateRmCalls) != 1 {
+			t.Errorf("expected 1 stateRm call, got %d", len(svc2.StateRmCalls))
+		}
+	})
+
+	t.Run("ShouldReturnErrorOnDeleteFailure", func(t *testing.T) {
+		svc2 := &sdktest.MockService{StateRmFn: func(_ context.Context, _ string) error { return errors.New("rm failed") }}
+		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
+		cmd := p2.requestDelete("aws_instance.web")
+		msg := cmd()
+		reqMsg := msg.(sdk.RequestInputMsg)
+		execCmd := reqMsg.Request.Callback("y")
+		result := execCmd()
+		listMsg, ok := result.(StateListMsg)
+		if !ok {
+			t.Fatalf("expected StateListMsg on error, got %T", result)
+		}
+		if listMsg.Err == nil {
+			t.Error("expected non-nil error")
+		}
+	})
+
+	t.Run("ShouldReturnNilOnDecline", func(t *testing.T) {
+		cmd := p.requestDelete("aws_instance.web")
+		msg := cmd()
+		reqMsg := msg.(sdk.RequestInputMsg)
+		result := reqMsg.Request.Callback("n")
+		if result != nil {
+			t.Error("expected nil cmd on decline")
+		}
+	})
+
+	t.Run("ShouldSetMutatingTrue", func(t *testing.T) {
+		svc2 := &sdktest.MockService{}
+		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
+		cmd := p2.requestDelete("aws_instance.web")
+		msg := cmd()
+		reqMsg := msg.(sdk.RequestInputMsg)
+		execCmd := reqMsg.Request.Callback("y")
+		if !p2.mutating {
+			t.Error("expected mutating=true after confirmation")
+		}
+		execCmd()
+	})
+}
+
+func TestRequestEdit_ShouldProduceStateEditMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	cmd := p.requestEdit("aws_instance.web")
+	if cmd == nil {
+		t.Fatal("requestEdit returned nil cmd")
+	}
+	msg := cmd()
+	editMsg, ok := msg.(StateEditMsg)
+	if !ok {
+		t.Fatalf("expected StateEditMsg, got %T", msg)
+	}
+	if editMsg.Address != "aws_instance.web" {
+		t.Errorf("expected Address 'aws_instance.web', got %q", editMsg.Address)
+	}
+}
+
+func TestUpdate_WhenStateDeletedMsg_ShouldRefresh(t *testing.T) {
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.svc = svc
+	p.status = sdk.StatusDone
+	p.mutating = true
+
+	_, cmd := p.Update(StateDeletedMsg{Address: "aws_instance.web"})
+	if cmd == nil {
+		t.Error("expected non-nil cmd (refresh) after StateDeletedMsg")
+	}
+	if p.mutating {
+		t.Error("expected mutating=false after StateDeletedMsg")
+	}
+}
+
+func TestInspectSelected_WhenLoading_ShouldReturnNil(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	cmd := p.InspectSelected()
+	if cmd != nil {
+		t.Error("InspectSelected during loading should return nil")
+	}
+}
+
+func TestInspectSelected_WhenFilterFrameActive_ShouldPopIt(t *testing.T) {
+	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.status = sdk.StatusDone
+	p.filtering = true
+
+	// Push a filter frame onto the stack
+	p.stack.Push(&stateFilterFrame{plugin: p, inner: nil})
+
+	// Verify stack depth before
+	depthBefore := p.stack.Depth()
+
+	cmd := p.InspectSelected()
+	if cmd == nil {
+		t.Fatal("InspectSelected should return cmd")
+	}
+	if p.stack.Depth() >= depthBefore {
+		t.Errorf("expected filter frame to be popped, depth before=%d after=%d", depthBefore, p.stack.Depth())
+	}
+	if p.filtering {
+		t.Error("expected filtering=false after InspectSelected")
+	}
+}
+
+func TestView_WhenLoadingWithErrMsg_ShouldShowCustomMessage(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+	p.errMsg = "Loading aws_instance.web..."
+
+	view := p.View(80, 24)
+	if !strings.Contains(view, "Loading aws_instance.web") {
+		t.Errorf("expected custom loading message, got %q", view)
+	}
+}
+
+func TestPanDetailRight_WhenViewWidthSmall_ShouldUseMinContentWidth(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.viewWidth = 20
+	p.detail = strings.Repeat("x", 200)
+	p.detailHScroll = 0
+
+	p.panDetailRight()
+	if p.detailHScroll != 10 {
+		t.Errorf("panDetailRight with small width: detailHScroll = %d, want 10", p.detailHScroll)
+	}
+}
+
+func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+	p.timer.Start()
+
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() when loading with running timer should return tick cmd")
+	}
+}
+
+func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() when loading with stopped timer should return nil")
+	}
+}
+
+func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{}, nil
+	}}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.svc = svc
+	p.status = sdk.StatusDone
+	p.mutating = true
+
+	_, cmd := p.Update(StateMovedMsg{Source: "a", Dest: "b"})
+	if cmd == nil {
+		t.Error("expected non-nil cmd (refresh) after StateMovedMsg")
+	}
+	if p.mutating {
+		t.Error("expected mutating=false after StateMovedMsg")
+	}
+}
+
+func TestIsTaintedAddress_WhenResourceTainted_ShouldReturnTrue(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
+		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Tainted: false},
+	}
+
+	if !p.isTaintedAddress("aws_instance.web") {
+		t.Error("expected isTaintedAddress to return true for tainted resource")
+	}
+	if p.isTaintedAddress("aws_s3_bucket.data") {
+		t.Error("expected isTaintedAddress to return false for non-tainted resource")
+	}
+	if p.isTaintedAddress("nonexistent") {
+		t.Error("expected isTaintedAddress to return false for nonexistent address")
+	}
+}
+
+func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = nil
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	if !strings.Contains(string(data), "[]") {
+		t.Errorf("JSON for nil resources = %q, want '[]'", string(data))
+	}
+}
+
+func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = nil
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("text for nil resources = %q, want empty", string(data))
+	}
+}
+
+func TestUpdate_WhenStateListMsgSuccess_ShouldClearMutating(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.mutating = true
+	p.status = sdk.StatusLoading
+
+	p.Update(StateListMsg{Resources: []sdk.Resource{{Address: "a"}}})
+	if p.mutating {
+		t.Error("expected mutating=false after StateListMsg success")
+	}
+}
+
+func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+
+	lockErr := `Error acquiring the state lock
+  ID:        a1b2c3d4-e5f6-7890-abcd-ef1234567890
+  Who:       user@machine
+  Operation: OperationTypePlan`
+
+	p.Update(StateListMsg{Err: errors.New(lockErr)})
+	if p.lockInfo == nil {
+		t.Fatal("expected lockInfo to be set after lock error")
+	}
+	if p.lockInfo.ID != "a1b2c3d4-e5f6-7890-abcd-ef1234567890" {
+		t.Errorf("lockInfo.ID = %q, want 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'", p.lockInfo.ID)
+	}
+}
+
+func TestUpdate_WhenStateListMsgWithLockError_ShouldEmitLockDetectedEvent(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+
+	lockErr := `Error acquiring the state lock
+  ID:        a1b2c3d4-e5f6-7890-abcd-ef1234567890
+  Who:       user@machine
+  Operation: OperationTypePlan`
+
+	_, cmd := p.Update(StateListMsg{Err: errors.New(lockErr)})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for lock error")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.LockDetectedEvent); !ok {
+		t.Errorf("cmd() = %T, want sdk.LockDetectedEvent", msg)
+	}
+}
+
+func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{{Address: "a"}}
+
+	cmd := p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
+	if cmd != nil {
+		t.Error("HandlePlanInvalidated() should return nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want Idle", p.status)
+	}
+	if p.resources != nil {
+		t.Error("resources should be nil after reset")
+	}
+}
+
+func TestPlugin_WhenHandleLockCleared_ShouldClearLockAndReset(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusError
+	p.lockInfo = &sdk.StateLock{ID: "abc"}
+
+	cmd := p.HandleLockCleared(sdk.LockClearedEvent{})
+	if cmd != nil {
+		t.Error("HandleLockCleared() should return nil")
+	}
+	if p.lockInfo != nil {
+		t.Error("lockInfo should be nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want Idle", p.status)
+	}
+}
+
+func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
+		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"aws_instance.web"`) {
+		t.Error("JSON missing address")
+	}
+	if !strings.Contains(s, `"tainted": true`) {
+		t.Error("JSON missing tainted flag")
+	}
+}
+
+func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web"},
+		{Address: "aws_s3_bucket.data"},
+	}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "aws_instance.web\n") {
+		t.Error("text missing aws_instance.web")
+	}
+	if !strings.Contains(s, "aws_s3_bucket.data\n") {
+		t.Error("text missing aws_s3_bucket.data")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+	p.timer.Start()
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd == nil {
+		t.Error("Update(TimerTickMsg) with running timer should return tick cmd")
+	}
+}
+
+func TestUpdate_WhenTimerTickMsgTimerStopped_ShouldReturnNil(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("Update(TimerTickMsg) with stopped timer should return nil")
+	}
+}
+
+func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"tainted": true`) {
+		t.Errorf("JSON output should contain tainted field, got: %s", s)
 	}
 }

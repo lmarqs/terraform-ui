@@ -934,3 +934,173 @@ func TestServiceCache_WhenSeedWithNoFileNoData_ShouldNotError(t *testing.T) {
 		}
 	})
 }
+
+func TestServiceCache_WhenSeedPlanFromFileWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	planFile := filepath.Join(dir, "plan.json")
+	if err := os.WriteFile(planFile, []byte(`{not valid}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedPlan(planFile, nil)
+	if err == nil {
+		t.Error("SeedPlan() with invalid JSON file: want error")
+	}
+}
+
+func TestServiceCache_WhenSeedStateFromFileWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	stateFile := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(stateFile, []byte(`{not valid}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedState(stateFile, nil)
+	if err == nil {
+		t.Error("SeedState() with invalid JSON file: want error")
+	}
+}
+
+func TestServiceCache_WhenInvalidatePlanWithCorruptedFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	planFile := filepath.Join(dir, "plan.json")
+	if err := os.WriteFile(planFile, []byte(minimalPlanJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedPlan(planFile, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, ok := c.GetPlan()
+	if !ok || plan == nil {
+		t.Fatal("plan should be cached before corruption")
+	}
+
+	if err := os.WriteFile(planFile, []byte(`{corrupt data`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	plan, ok = c.GetPlan()
+	if ok {
+		t.Error("GetPlan() ok = true after invalidation with corrupted file, want false")
+	}
+	if plan != nil {
+		t.Errorf("GetPlan() = %v, want nil", plan)
+	}
+}
+
+func TestServiceCache_WhenInvalidatePlanWithSourceNone_ShouldDoNothing(t *testing.T) {
+	c := NewServiceCache()
+	c.InvalidateAll()
+
+	plan, ok := c.GetPlan()
+	if ok {
+		t.Error("GetPlan() ok = true, want false")
+	}
+	if plan != nil {
+		t.Errorf("GetPlan() = %v, want nil", plan)
+	}
+}
+
+func TestServiceCache_WhenInvalidatePlanWithSourceStdin_ShouldPreserveData(t *testing.T) {
+	c := NewServiceCache()
+	if err := c.SeedPlan("", []byte(minimalPlanJSON)); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	plan, ok := c.GetPlan()
+	if !ok {
+		t.Fatal("GetPlan() ok = false, want true (stdin is immutable)")
+	}
+	if plan == nil {
+		t.Fatal("GetPlan() = nil, want non-nil")
+	}
+}
+
+func TestServiceCache_WhenInvalidateStateWithCorruptedFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	stateFile := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(stateFile, []byte(minimalStateJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedState(stateFile, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	resources, ok := c.GetResources()
+	if !ok || resources == nil {
+		t.Fatal("state should be cached before corruption")
+	}
+
+	if err := os.WriteFile(stateFile, []byte(`{corrupt data`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateState()
+
+	resources, ok = c.GetResources()
+	if ok {
+		t.Error("GetResources() ok = true after invalidation with corrupted file, want false")
+	}
+	if resources != nil {
+		t.Errorf("GetResources() = %v, want nil", resources)
+	}
+}
+
+func TestServiceCache_WhenInvalidateStateWithSourceNone_ShouldDoNothing(t *testing.T) {
+	c := NewServiceCache()
+	c.InvalidateState()
+
+	resources, ok := c.GetResources()
+	if ok {
+		t.Error("GetResources() ok = true, want false")
+	}
+	if resources != nil {
+		t.Errorf("GetResources() = %v, want nil", resources)
+	}
+}
+
+func TestServiceCache_WhenInvalidateStateWithDeletedFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	stateFile := filepath.Join(dir, "state.json")
+	if err := os.WriteFile(stateFile, []byte(minimalStateJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedState(stateFile, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(stateFile); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateState()
+
+	resources, ok := c.GetResources()
+	if ok {
+		t.Error("GetResources() ok = true after invalidation with deleted file, want false")
+	}
+	if resources != nil {
+		t.Errorf("GetResources() = %v, want nil", resources)
+	}
+
+	state, sok := c.GetState()
+	if sok {
+		t.Error("GetState() ok = true after invalidation with deleted file, want false")
+	}
+	if state != nil {
+		t.Errorf("GetState() = %v, want nil", state)
+	}
+}

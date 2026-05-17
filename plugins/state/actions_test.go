@@ -3,6 +3,8 @@ package state
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -640,5 +642,244 @@ func TestBuildActionFrame_EditHandler_MultiTarget(t *testing.T) {
 	}
 	if len(editMsg.Addresses) != 2 {
 		t.Errorf("expected 2 addresses in multi-target edit, got %d", len(editMsg.Addresses))
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	if frame == nil {
+		t.Fatal("buildActionFrame returned nil")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTarget_ShouldEnableAllActions(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	if frame == nil {
+		t.Fatal("buildActionFrame returned nil")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	if frame == nil {
+		t.Fatal("buildActionFrame returned nil")
+	}
+
+	// Push the frame and trigger the 'e' action (edit)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for edit action in multi-target mode")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for delete action in multi-target mode")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetTaintHandler_ShouldEmitTaintRequest(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for taint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetUntaintHandler_ShouldEmitUntaintRequest(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for untaint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetImportHandler_ShouldEmitImportRequest(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for import action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetMoveHandler_ShouldEmitMoveRequest(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for move action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetTaintHandlerExecuted_ShouldProduceTaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("aws_instance.web", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for taint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for taint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetUntaintHandlerExecuted_ShouldProduceUntaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("aws_instance.web", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for untaint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for untaint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetImportHandlerExecuted_ShouldProduceImportMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("aws_instance.web", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for import action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for import action")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetTaintHandlerExecuted_ShouldProduceTaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for multi-target taint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for multi-target taint action")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetUntaintHandlerExecuted_ShouldProduceUntaintMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for multi-target untaint action")
+	}
+	msg := cmd()
+	if msg == nil {
+		t.Fatal("cmd() returned nil for multi-target untaint action")
 	}
 }

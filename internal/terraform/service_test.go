@@ -454,56 +454,6 @@ func TestMarshalValue_Map(t *testing.T) {
 	}
 }
 
-func TestIsKeySensitive_NilSensitive(t *testing.T) {
-	result := isKeySensitive(nil, "anything")
-	if result {
-		t.Error("isKeySensitive(nil) should return false")
-	}
-}
-
-func TestIsKeySensitive_BoolTrue(t *testing.T) {
-	// When sensitive is just "true", all keys are sensitive
-	result := isKeySensitive(true, "anything")
-	if !result {
-		t.Error("isKeySensitive(true) should return true for any key")
-	}
-}
-
-func TestIsKeySensitive_BoolFalse(t *testing.T) {
-	result := isKeySensitive(false, "anything")
-	if result {
-		t.Error("isKeySensitive(false) should return false")
-	}
-}
-
-func TestIsKeySensitive_MapWithKey(t *testing.T) {
-	sensitive := map[string]interface{}{
-		"password": true,
-		"name":     false,
-	}
-
-	if !isKeySensitive(sensitive, "password") {
-		t.Error("isKeySensitive should return true for 'password'")
-	}
-	if isKeySensitive(sensitive, "name") {
-		t.Error("isKeySensitive should return false for 'name'")
-	}
-	if isKeySensitive(sensitive, "nonexistent") {
-		t.Error("isKeySensitive should return false for missing key")
-	}
-}
-
-func TestIsKeySensitive_MapWithNonBoolValue(t *testing.T) {
-	sensitive := map[string]interface{}{
-		"nested": map[string]interface{}{"a": true},
-	}
-
-	result := isKeySensitive(sensitive, "nested")
-	if result {
-		t.Error("isKeySensitive with non-bool value should return false")
-	}
-}
-
 func TestParseStateResources_NilModule(t *testing.T) {
 	resources := ParseStateResources(nil)
 	if len(resources) != 0 {
@@ -733,5 +683,196 @@ func TestParsePlan_MixedActions(t *testing.T) {
 	// no-op and read are excluded from Changes
 	if len(summary.Changes) != 3 {
 		t.Errorf("Changes length = %d, want 3", len(summary.Changes))
+	}
+}
+
+func TestMapActions_WhenDestroyBeforeCreate_ShouldReturnDeleteThenCreate(t *testing.T) {
+	actions := tfjson.Actions{tfjson.ActionDelete, tfjson.ActionCreate}
+	result := mapActions(actions)
+	if result != ActionDeleteThenCreate {
+		t.Errorf("mapActions([delete,create]) = %q, want %q", result, ActionDeleteThenCreate)
+	}
+}
+
+func TestMapActions_WhenCreateBeforeDestroy_ShouldReturnCreateThenDelete(t *testing.T) {
+	actions := tfjson.Actions{tfjson.ActionCreate, tfjson.ActionDelete}
+	result := mapActions(actions)
+	if result != ActionCreateThenDelete {
+		t.Errorf("mapActions([create,delete]) = %q, want %q", result, ActionCreateThenDelete)
+	}
+}
+
+func TestMapActions_WhenUnknownActions_ShouldReturnNoOp(t *testing.T) {
+	actions := tfjson.Actions{"unknown-action"}
+	result := mapActions(actions)
+	if result != ActionNoOp {
+		t.Errorf("mapActions([unknown]) = %q, want %q", result, ActionNoOp)
+	}
+}
+
+func TestMarshalValue_WhenNil_ShouldReturnNull(t *testing.T) {
+	result := marshalValue(nil)
+	if result != "null" {
+		t.Errorf("marshalValue(nil) = %q, want %q", result, "null")
+	}
+}
+
+func TestMarshalValue_WhenJsonSerializable_ShouldReturnJSON(t *testing.T) {
+	result := marshalValue(map[string]interface{}{"key": "value"})
+	if result != `{"key":"value"}` {
+		t.Errorf("marshalValue(map) = %q, want %q", result, `{"key":"value"}`)
+	}
+}
+
+func TestMarshalValue_WhenUnsupported_ShouldFallbackToSprintf(t *testing.T) {
+	ch := make(chan int)
+	result := marshalValue(ch)
+	if result == "" {
+		t.Error("marshalValue(chan) returned empty string")
+	}
+}
+
+func TestRedactSensitiveValues_WhenNilValues_ShouldReturnNil(t *testing.T) {
+	result := RedactSensitiveValues(nil, nil)
+	if result != nil {
+		t.Errorf("RedactSensitiveValues(nil, nil) = %v, want nil", result)
+	}
+}
+
+func TestRedactSensitiveValues_WhenNoSensitive_ShouldReturnOriginalValues(t *testing.T) {
+	values := map[string]interface{}{
+		"id":   "i-123",
+		"name": "web",
+	}
+	result := RedactSensitiveValues(values, nil)
+	if result["id"] != "i-123" {
+		t.Errorf("id = %v, want i-123", result["id"])
+	}
+	if result["name"] != "web" {
+		t.Errorf("name = %v, want web", result["name"])
+	}
+}
+
+func TestRedactSensitiveValues_WhenSensitiveMap_ShouldRedactMarkedKeys(t *testing.T) {
+	values := map[string]interface{}{
+		"id":       "i-123",
+		"password": "secret123",
+		"token":    "tok-abc",
+	}
+	sensitive := map[string]interface{}{
+		"password": true,
+		"token":    true,
+	}
+	result := RedactSensitiveValues(values, sensitive)
+	if result["id"] != "i-123" {
+		t.Errorf("id = %v, want i-123", result["id"])
+	}
+	if result["password"] != "(sensitive)" {
+		t.Errorf("password = %v, want (sensitive)", result["password"])
+	}
+	if result["token"] != "(sensitive)" {
+		t.Errorf("token = %v, want (sensitive)", result["token"])
+	}
+}
+
+func TestRedactSensitiveValues_WhenSensitiveBoolTrue_ShouldRedactAllKeys(t *testing.T) {
+	values := map[string]interface{}{
+		"id":   "i-123",
+		"name": "web",
+	}
+	result := RedactSensitiveValues(values, true)
+	if result["id"] != "(sensitive)" {
+		t.Errorf("id = %v, want (sensitive)", result["id"])
+	}
+	if result["name"] != "(sensitive)" {
+		t.Errorf("name = %v, want (sensitive)", result["name"])
+	}
+}
+
+func TestRedactSensitiveValues_WhenSensitiveBoolFalse_ShouldNotRedact(t *testing.T) {
+	values := map[string]interface{}{
+		"id":   "i-123",
+		"name": "web",
+	}
+	result := RedactSensitiveValues(values, false)
+	if result["id"] != "i-123" {
+		t.Errorf("id = %v, want i-123", result["id"])
+	}
+	if result["name"] != "web" {
+		t.Errorf("name = %v, want web", result["name"])
+	}
+}
+
+func TestIsSensitiveKey_WhenNilSensitive_ShouldReturnFalse(t *testing.T) {
+	result := isSensitiveKey(nil, "password")
+	if result {
+		t.Error("isSensitiveKey(nil, ...) = true, want false")
+	}
+}
+
+func TestIsSensitiveKey_WhenBoolTrue_ShouldReturnTrue(t *testing.T) {
+	result := isSensitiveKey(true, "anything")
+	if !result {
+		t.Error("isSensitiveKey(true, ...) = false, want true")
+	}
+}
+
+func TestIsSensitiveKey_WhenBoolFalse_ShouldReturnFalse(t *testing.T) {
+	result := isSensitiveKey(false, "anything")
+	if result {
+		t.Error("isSensitiveKey(false, ...) = true, want false")
+	}
+}
+
+func TestIsSensitiveKey_WhenMapWithKeyTrue_ShouldReturnTrue(t *testing.T) {
+	sensitive := map[string]interface{}{
+		"password": true,
+		"token":    true,
+	}
+	if !isSensitiveKey(sensitive, "password") {
+		t.Error("isSensitiveKey(map, 'password') = false, want true")
+	}
+}
+
+func TestIsSensitiveKey_WhenMapWithKeyFalse_ShouldReturnFalse(t *testing.T) {
+	sensitive := map[string]interface{}{
+		"id": false,
+	}
+	if isSensitiveKey(sensitive, "id") {
+		t.Error("isSensitiveKey(map, 'id' => false) = true, want false")
+	}
+}
+
+func TestIsSensitiveKey_WhenMapWithKeyAbsent_ShouldReturnFalse(t *testing.T) {
+	sensitive := map[string]interface{}{
+		"password": true,
+	}
+	if isSensitiveKey(sensitive, "id") {
+		t.Error("isSensitiveKey(map, 'id') = true, want false")
+	}
+}
+
+func TestIsSensitiveKey_WhenMapWithNonBoolValue_ShouldReturnTrue(t *testing.T) {
+	sensitive := map[string]interface{}{
+		"nested": map[string]interface{}{"inner": true},
+	}
+	if !isSensitiveKey(sensitive, "nested") {
+		t.Error("isSensitiveKey(map, 'nested' => non-bool non-nil) = false, want true")
+	}
+}
+
+func TestIsSensitiveKey_WhenUnsupportedType_ShouldReturnFalse(t *testing.T) {
+	result := isSensitiveKey("string-value", "key")
+	if result {
+		t.Error("isSensitiveKey(string, ...) = true, want false")
+	}
+}
+
+func TestIsSensitiveKey_WhenMapWithNilValue_ShouldReturnFalse(t *testing.T) {
+	sensitive := map[string]interface{}{
+		"key": nil,
+	}
+	if isSensitiveKey(sensitive, "key") {
+		t.Error("isSensitiveKey(map, 'key' => nil) = true, want false")
 	}
 }

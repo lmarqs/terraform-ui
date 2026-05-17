@@ -433,7 +433,44 @@ func TestView_GivenError_ShouldShowErrorMessage(t *testing.T) {
 
 ### 6. Separate "behavior tests" and "coverage tests" files
 
-There is ONE test suite that serves both purposes. If you need a separate file to hit coverage, you missed a behavior. The `coverage_test.go` files that exist in this codebase follow behavioral patterns — they test edge cases and boundary conditions that are genuine behaviors, not synthetic path exercises.
+There is ONE test suite that serves both purposes. If you need a separate file to hit coverage, you missed a behavior. Never create `coverage_test.go` or `coverage_gaps_test.go` files — they signal coverage-driven testing, which this project explicitly rejects.
+
+## File Organization
+
+Test files are organized by domain concern, not by coverage goals.
+
+### Splitting Strategy
+
+| Rule | Example |
+|------|---------|
+| Default: one test file per source file | `loader.go` → `loader_test.go` |
+| Split by concern when a source file has distinct responsibilities | `state.go` → `state_test.go` (behavior) + `frames_test.go` (navigation) + `actions_test.go` (batch ops) |
+| Golden snapshots get their own file | `golden_test.go` in any package using `sdktest.AssertGolden` |
+| Never create files named after testing methodology | No `coverage_test.go`, `unit_test.go`, `integration_test.go` within a package |
+
+### When to split vs merge
+
+- **Split** when a single test file exceeds ~1500 lines AND contains logically separable concerns (different frames, rendering vs behavior, different sub-systems within one source file)
+- **Merge** when tests for the same function/type are scattered across multiple files without clear domain separation
+- **Each test file name** describes WHAT it tests, not WHY it was written
+
+### Allowed test file patterns
+
+```
+plugins/<name>/
+├── <name>_test.go       # Plugin behavior (activation, messages, state transitions)
+├── frames_test.go       # Frame-level behavior (key handling, navigation)
+├── actions_test.go      # Batch/action-specific behavior
+├── output_test.go       # Output formatting behavior
+├── rendering_test.go    # View rendering edge cases
+└── golden_test.go       # Visual snapshot assertions
+```
+
+```
+internal/<pkg>/
+├── <subject>_test.go    # 1:1 with <subject>.go
+└── golden_test.go       # If visual output is tested
+```
 
 ## Conventions
 

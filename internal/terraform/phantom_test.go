@@ -1,6 +1,9 @@
 package terraform
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
 
 func TestIsPhantomChange(t *testing.T) {
 	tests := []struct {
@@ -359,6 +362,48 @@ func TestNormalizedEqual(t *testing.T) {
 			result := NormalizedEqual(tt.a, tt.b)
 			if result != tt.expected {
 				t.Errorf("NormalizedEqual() = %v, want %v", result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeJSON_WhenInvalidJSON_ShouldReturnOriginalString(t *testing.T) {
+	input := "not valid json {"
+	result := normalizeJSON(input)
+	if result != input {
+		t.Errorf("normalizeJSON(%q) = %q, want original string", input, result)
+	}
+}
+
+func TestNormalizeJSON_WhenValidJSON_ShouldNormalize(t *testing.T) {
+	input := `{"b":2,"a":1}`
+	result := normalizeJSON(input)
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result not valid JSON: %v", err)
+	}
+	if parsed["a"] != float64(1) || parsed["b"] != float64(2) {
+		t.Errorf("unexpected result: %s", result)
+	}
+}
+
+func TestNormalizeJSON_WhenScalarValue_ShouldReturnAsIs(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+		want  string
+	}{
+		{"number", "42", "42"},
+		{"string", `"hello"`, `"hello"`},
+		{"boolean", "true", "true"},
+		{"null", "null", "null"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeJSON(tt.input)
+			if got != tt.want {
+				t.Errorf("normalizeJSON(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}

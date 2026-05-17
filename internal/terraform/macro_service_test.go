@@ -2,9 +2,12 @@ package terraform
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 
+	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -385,5 +388,304 @@ func TestMacroService_MutationsNeverExecute(t *testing.T) {
 	}
 	if len(resources) != 1 || resources[0].Address != "before" {
 		t.Errorf("state changed after mutations: %v", resources)
+	}
+}
+
+func TestMacroService_WhenSetApplyError_ShouldReturnErrorOnApply(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	expectedErr := errors.New("apply failed")
+	svc.SetApplyError(expectedErr)
+
+	err := svc.Apply(context.Background(), sdk.ApplyOptions{})
+	if err == nil {
+		t.Fatal("expected error from Apply")
+	}
+	if err != expectedErr {
+		t.Errorf("error = %v, want %v", err, expectedErr)
+	}
+}
+
+func TestMacroService_WhenSetApplyErrorNil_ShouldReturnNilOnApply(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	svc.SetApplyError(errors.New("initial error"))
+	svc.SetApplyError(nil)
+
+	err := svc.Apply(context.Background(), sdk.ApplyOptions{})
+	if err != nil {
+		t.Errorf("expected nil error, got %v", err)
+	}
+}
+
+func TestMacroService_WhenShowWithCachedState_ShouldReturnResourceJSON(t *testing.T) {
+	cache := NewServiceCache()
+	state := &tfjson.State{
+		FormatVersion: "1.0",
+		Values: &tfjson.StateValues{
+			RootModule: &tfjson.StateModule{
+				Resources: []*tfjson.StateResource{
+					{
+						Address:         "aws_instance.web",
+						Type:            "aws_instance",
+						Name:            "web",
+						ProviderName:    "registry.terraform.io/hashicorp/aws",
+						AttributeValues: map[string]interface{}{"id": "i-123", "ami": "ami-abc"},
+						SensitiveValues: json.RawMessage(`{}`),
+					},
+				},
+			},
+		},
+	}
+	cache.SetState([]sdk.Resource{{Address: "aws_instance.web"}}, state)
+
+	svc := NewMacroService("terraform", cache)
+	result, err := svc.Show(context.Background(), "aws_instance.web")
+	if err != nil {
+		t.Fatalf("Show() error = %v", err)
+	}
+	if result == "" || result == "{}" {
+		t.Error("Show() returned empty/default when resource should exist")
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if parsed["address"] != "aws_instance.web" {
+		t.Errorf("address = %v, want aws_instance.web", parsed["address"])
+	}
+}
+
+func TestMacroService_WhenShowWithCachedStateAndMissingResource_ShouldReturnError(t *testing.T) {
+	cache := NewServiceCache()
+	state := &tfjson.State{
+		FormatVersion: "1.0",
+		Values: &tfjson.StateValues{
+			RootModule: &tfjson.StateModule{
+				Resources: []*tfjson.StateResource{
+					{
+						Address:         "aws_instance.web",
+						Type:            "aws_instance",
+						Name:            "web",
+						ProviderName:    "registry.terraform.io/hashicorp/aws",
+						AttributeValues: map[string]interface{}{"id": "i-123"},
+						SensitiveValues: json.RawMessage(`{}`),
+					},
+				},
+			},
+		},
+	}
+	cache.SetState([]sdk.Resource{{Address: "aws_instance.web"}}, state)
+
+	svc := NewMacroService("terraform", cache)
+	_, err := svc.Show(context.Background(), "aws_instance.nonexistent")
+	if err == nil {
+		t.Fatal("expected error for missing resource")
+	}
+}
+
+func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T) {
+	backendFalse := false
+	opts := sdk.InitOptions{
+		Upgrade:       true,
+		Reconfigure:   true,
+		Backend:       &backendFalse,
+		BackendConfig: []string{"key=value", "region=us-east-1"},
+		ExtraArgs:     []string{"-input=false"},
+	}
+
+	flags := buildInitFlags(opts)
+
+	expected := []string{
+		"-upgrade",
+		"-reconfigure",
+		"-backend=false",
+		"-backend-config=key=value",
+		"-backend-config=region=us-east-1",
+		"-input=false",
+	}
+
+	if len(flags) != len(expected) {
+		t.Fatalf("len(flags) = %d, want %d; flags = %v", len(flags), len(expected), flags)
+	}
+	for i, want := range expected {
+		if flags[i] != want {
+			t.Errorf("flags[%d] = %q, want %q", i, flags[i], want)
+		}
+	}
+}
+
+func TestBuildInitFlags_WhenBackendTrue_ShouldNotIncludeBackendFlag(t *testing.T) {
+	backendTrue := true
+	opts := sdk.InitOptions{
+		Backend: &backendTrue,
+	}
+
+	flags := buildInitFlags(opts)
+	for _, f := range flags {
+		if f == "-backend=false" {
+			t.Error("flags should not include -backend=false when backend is true")
+		}
+	}
+}
+
+func TestBuildInitFlags_WhenBackendNil_ShouldNotIncludeBackendFlag(t *testing.T) {
+	opts := sdk.InitOptions{
+		Backend: nil,
+	}
+
+	flags := buildInitFlags(opts)
+	for _, f := range flags {
+		if f == "-backend=false" {
+			t.Error("flags should not include -backend=false when backend is nil")
+		}
+	}
+}
+
+func TestBuildInitFlags_WhenEmpty_ShouldReturnNil(t *testing.T) {
+	flags := buildInitFlags(sdk.InitOptions{})
+	if flags != nil {
+		t.Errorf("expected nil, got %v", flags)
+	}
+}
+
+func TestMacroService_WhenInitWithFlags_ShouldRecordCommand(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	backendFalse := false
+	opts := sdk.InitOptions{
+		Upgrade:       true,
+		Reconfigure:   true,
+		Backend:       &backendFalse,
+		BackendConfig: []string{"key=val"},
+		ExtraArgs:     []string{"-input=false"},
+	}
+	svc.Init(context.Background(), opts)
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	expected := "terraform init -upgrade -reconfigure -backend=false -backend-config=key=val -input=false"
+	if cmds[0].String() != expected {
+		t.Errorf("got %q, want %q", cmds[0].String(), expected)
+	}
+}
+
+func TestMacroService_WhenVersion_ShouldReturnDefaultVersion(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	info, err := svc.Version(context.Background())
+	if err != nil {
+		t.Fatalf("Version() error = %v", err)
+	}
+	if info == nil {
+		t.Fatal("Version() returned nil")
+	}
+	if info.TerraformVersion != "0.0.0" {
+		t.Errorf("TerraformVersion = %q, want %q", info.TerraformVersion, "0.0.0")
+	}
+}
+
+func TestShowFromState_WhenNilState_ShouldReturnError(t *testing.T) {
+	_, err := showFromState(nil, "aws_instance.web")
+	if err == nil {
+		t.Fatal("expected error for nil state")
+	}
+}
+
+func TestShowFromState_WhenNilValues_ShouldReturnError(t *testing.T) {
+	state := &tfjson.State{FormatVersion: "1.0", Values: nil}
+	_, err := showFromState(state, "aws_instance.web")
+	if err == nil {
+		t.Fatal("expected error for nil Values")
+	}
+}
+
+func TestShowFromState_WhenResourceNotFound_ShouldReturnError(t *testing.T) {
+	state := &tfjson.State{
+		FormatVersion: "1.0",
+		Values: &tfjson.StateValues{
+			RootModule: &tfjson.StateModule{
+				Resources: []*tfjson.StateResource{
+					{Address: "aws_instance.web", Type: "aws_instance", Name: "web"},
+				},
+			},
+		},
+	}
+	_, err := showFromState(state, "aws_instance.nonexistent")
+	if err == nil {
+		t.Fatal("expected error for missing resource")
+	}
+}
+
+func TestShowFromState_WhenResourceFound_ShouldReturnJSON(t *testing.T) {
+	state := &tfjson.State{
+		FormatVersion: "1.0",
+		Values: &tfjson.StateValues{
+			RootModule: &tfjson.StateModule{
+				Resources: []*tfjson.StateResource{
+					{
+						Address:         "aws_instance.web",
+						Type:            "aws_instance",
+						Name:            "web",
+						ProviderName:    "registry.terraform.io/hashicorp/aws",
+						AttributeValues: map[string]interface{}{"id": "i-123"},
+						SensitiveValues: json.RawMessage(`{}`),
+					},
+				},
+			},
+		},
+	}
+
+	result, err := showFromState(state, "aws_instance.web")
+	if err != nil {
+		t.Fatalf("showFromState() error = %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result not valid JSON: %v", err)
+	}
+	if parsed["address"] != "aws_instance.web" {
+		t.Errorf("address = %v, want aws_instance.web", parsed["address"])
+	}
+	if parsed["type"] != "aws_instance" {
+		t.Errorf("type = %v, want aws_instance", parsed["type"])
+	}
+	if parsed["name"] != "web" {
+		t.Errorf("name = %v, want web", parsed["name"])
+	}
+}
+
+func TestShowFromState_WhenResourceHasSensitiveValues_ShouldProduceValidJSON(t *testing.T) {
+	state := &tfjson.State{
+		FormatVersion: "1.0",
+		Values: &tfjson.StateValues{
+			RootModule: &tfjson.StateModule{
+				Resources: []*tfjson.StateResource{
+					{
+						Address:         "aws_instance.web",
+						Type:            "aws_instance",
+						Name:            "web",
+						ProviderName:    "registry.terraform.io/hashicorp/aws",
+						AttributeValues: map[string]interface{}{"id": "i-123", "password": "secret"},
+						SensitiveValues: json.RawMessage(`{"password": true}`),
+					},
+				},
+			},
+		},
+	}
+
+	result, err := showFromState(state, "aws_instance.web")
+	if err != nil {
+		t.Fatalf("showFromState() error = %v", err)
+	}
+
+	var parsed struct {
+		Values map[string]interface{} `json:"values"`
+	}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result not valid JSON: %v", err)
+	}
+	if parsed.Values["id"] != "i-123" {
+		t.Errorf("id = %v, want i-123", parsed.Values["id"])
 	}
 }

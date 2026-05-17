@@ -438,3 +438,55 @@ func containsSubstr(s, substr string) bool {
 	}
 	return false
 }
+
+func TestParseShowState_WhenStateHasInvalidJSON_ShouldReturnError(t *testing.T) {
+	_, _, err := parseShowState([]byte(`{not valid json`))
+	if err == nil {
+		t.Fatal("expected error for invalid JSON")
+	}
+}
+
+func TestParseShowState_WhenStateHasNilValues_ShouldReturnEmptyResources(t *testing.T) {
+	data := []byte(`{"format_version":"1.0","values":null}`)
+	resources, state, err := parseShowState(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 0 {
+		t.Errorf("len(resources) = %d, want 0", len(resources))
+	}
+	if state == nil {
+		t.Fatal("state should not be nil")
+	}
+}
+
+func TestParseShowState_WhenStateHasResources_ShouldReturnParsedResources(t *testing.T) {
+	data := []byte(`{
+		"format_version":"1.0",
+		"values": {
+			"root_module": {
+				"resources": [{
+					"address": "aws_instance.web",
+					"type": "aws_instance",
+					"name": "web",
+					"provider_name": "registry.terraform.io/hashicorp/aws",
+					"values": {"id": "i-123"},
+					"sensitive_values": {}
+				}]
+			}
+		}
+	}`)
+	resources, state, err := parseShowState(data)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(resources) != 1 {
+		t.Fatalf("len(resources) = %d, want 1", len(resources))
+	}
+	if resources[0].Address != "aws_instance.web" {
+		t.Errorf("address = %q, want aws_instance.web", resources[0].Address)
+	}
+	if state == nil || state.Values == nil {
+		t.Fatal("state.Values should not be nil")
+	}
+}
