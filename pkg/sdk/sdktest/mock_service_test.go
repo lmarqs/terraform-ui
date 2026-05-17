@@ -147,6 +147,86 @@ func TestMockService_WhenFnSet_ShouldDelegateToFn(t *testing.T) {
 	}
 }
 
+func TestMockService_WhenAllFnsSet_ShouldDelegateEveryMethod(t *testing.T) {
+	e := errors.New("err")
+	m := &MockService{
+		ApplyFn:           func(_ context.Context, _ sdk.ApplyOptions) error { return e },
+		StateListFn:       func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return nil, e },
+		ShowFn:            func(_ context.Context, _ string) (string, error) { return "x", e },
+		WorkspaceFn:       func(_ context.Context) (string, error) { return "ws", e },
+		WorkspaceListFn:   func(_ context.Context) ([]string, error) { return []string{"a"}, e },
+		WorkspaceSelectFn: func(_ context.Context, _ string) error { return e },
+		WorkspaceNewFn:    func(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error { return e },
+		WorkspaceDeleteFn: func(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error { return e },
+		StateRmFn:         func(_ context.Context, _ string) error { return e },
+		StateMoveFn:       func(_ context.Context, _, _ string) error { return e },
+		ImportFn:          func(_ context.Context, _, _ string) error { return e },
+		UntaintFn:         func(_ context.Context, _ string) error { return e },
+		ValidateFn:        func(_ context.Context) ([]sdk.Diagnostic, error) { return nil, e },
+		OutputFn:          func(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, e },
+		RefreshFn:         func(_ context.Context) error { return e },
+		InitFn:            func(_ context.Context, _ sdk.InitOptions) error { return e },
+		ForceUnlockFn:     func(_ context.Context, _ string) error { return e },
+		VersionFn:         func(_ context.Context) (*sdk.VersionInfo, error) { return nil, e },
+	}
+	ctx := context.Background()
+
+	if err := m.Apply(ctx, sdk.ApplyOptions{}); err != e {
+		t.Errorf("Apply() = %v, want %v", err, e)
+	}
+	if _, err := m.StateList(ctx); err != e {
+		t.Errorf("StateList() err = %v, want %v", err, e)
+	}
+	if s, _ := m.Show(ctx, "a"); s != "x" {
+		t.Errorf("Show() = %q, want %q", s, "x")
+	}
+	if ws, _ := m.Workspace(ctx); ws != "ws" {
+		t.Errorf("Workspace() = %q, want %q", ws, "ws")
+	}
+	if list, _ := m.WorkspaceList(ctx); len(list) != 1 {
+		t.Errorf("WorkspaceList() len = %d, want 1", len(list))
+	}
+	if err := m.WorkspaceSelect(ctx, "x"); err != e {
+		t.Errorf("WorkspaceSelect() = %v, want %v", err, e)
+	}
+	if err := m.WorkspaceNew(ctx, "x", sdk.WorkspaceNewOptions{}); err != e {
+		t.Errorf("WorkspaceNew() = %v, want %v", err, e)
+	}
+	if err := m.WorkspaceDelete(ctx, "x", sdk.WorkspaceDeleteOptions{}); err != e {
+		t.Errorf("WorkspaceDelete() = %v, want %v", err, e)
+	}
+	if err := m.StateRm(ctx, "a"); err != e {
+		t.Errorf("StateRm() = %v, want %v", err, e)
+	}
+	if err := m.StateMove(ctx, "a", "b"); err != e {
+		t.Errorf("StateMove() = %v, want %v", err, e)
+	}
+	if err := m.Import(ctx, "a", "b"); err != e {
+		t.Errorf("Import() = %v, want %v", err, e)
+	}
+	if err := m.Untaint(ctx, "a"); err != e {
+		t.Errorf("Untaint() = %v, want %v", err, e)
+	}
+	if _, err := m.Validate(ctx); err != e {
+		t.Errorf("Validate() err = %v, want %v", err, e)
+	}
+	if _, err := m.Output(ctx); err != e {
+		t.Errorf("Output() err = %v, want %v", err, e)
+	}
+	if err := m.Refresh(ctx); err != e {
+		t.Errorf("Refresh() = %v, want %v", err, e)
+	}
+	if err := m.Init(ctx, sdk.InitOptions{}); err != e {
+		t.Errorf("Init() = %v, want %v", err, e)
+	}
+	if err := m.ForceUnlock(ctx, "x"); err != e {
+		t.Errorf("ForceUnlock() = %v, want %v", err, e)
+	}
+	if _, err := m.Version(ctx); err != e {
+		t.Errorf("Version() err = %v, want %v", err, e)
+	}
+}
+
 func TestMockService_ShouldTrackCalls(t *testing.T) {
 	m := &MockService{}
 	ctx := context.Background()
