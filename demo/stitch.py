@@ -20,8 +20,6 @@ ANSI_ESCAPE = re.compile(r"\x1b\[[0-9;]*[A-Za-z]|\x1b\].*?\x07|\x1b[()][AB012]")
 BG_COLOR = (40, 42, 54)
 FG_COLOR = (248, 248, 242)
 FONT_SIZE = 14
-CELL_WIDTH = 8
-CELL_HEIGHT = 18
 PADDING = 16
 
 
@@ -45,9 +43,28 @@ def load_font() -> ImageFont.FreeTypeFont:
     return ImageFont.load_default()
 
 
-def render_frame(text: str, width: int, height: int, font: ImageFont.FreeTypeFont) -> Image.Image:
-    img_width = width * CELL_WIDTH + PADDING * 2
-    img_height = height * CELL_HEIGHT + PADDING * 2
+def measure_cell_dimensions(font: ImageFont.FreeTypeFont) -> tuple[float, float]:
+    img = Image.new("RGB", (2000, 200))
+    draw = ImageDraw.Draw(img)
+    ref = "X" * 120
+    bbox = draw.textbbox((0, 0), ref, font=font)
+    cell_width = (bbox[2] - bbox[0]) / 120.0
+    lines = "\n".join(["X"] * 10)
+    bbox = draw.textbbox((0, 0), lines, font=font)
+    cell_height = (bbox[3] - bbox[1]) / 10.0
+    return cell_width, cell_height
+
+
+def render_frame(
+    text: str,
+    width: int,
+    height: int,
+    font: ImageFont.FreeTypeFont,
+    cell_width: float,
+    cell_height: float,
+) -> Image.Image:
+    img_width = int(cell_width * width) + PADDING * 2
+    img_height = int(cell_height * height) + PADDING * 2
     img = Image.new("RGB", (img_width, img_height), BG_COLOR)
     draw = ImageDraw.Draw(img)
 
@@ -57,7 +74,7 @@ def render_frame(text: str, width: int, height: int, font: ImageFont.FreeTypeFon
     for row, line in enumerate(lines):
         truncated = line[:width]
         x = PADDING
-        y = PADDING + row * CELL_HEIGHT
+        y = PADDING + int(row * cell_height)
         draw.text((x, y), truncated, font=font, fill=FG_COLOR)
 
     return img
@@ -86,6 +103,7 @@ def main() -> None:
         sys.exit(1)
 
     font = load_font()
+    cell_width, cell_height = measure_cell_dimensions(font)
     images: list[Image.Image] = []
     durations: list[int] = []
 
@@ -94,7 +112,7 @@ def main() -> None:
         if not frame_path.exists():
             continue
         text = frame_path.read_text()
-        img = render_frame(text, width, height, font)
+        img = render_frame(text, width, height, font, cell_width, cell_height)
         images.append(img)
         durations.append(max(meta["delay_ms"], 50))
 
