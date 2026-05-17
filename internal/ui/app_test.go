@@ -11,6 +11,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 // mockPlugin implements plugin.Plugin for app tests.
@@ -38,47 +39,16 @@ type mockBusyPlugin struct {
 
 func (m *mockBusyPlugin) Busy() bool { return m.busy }
 
-// mockService implements terraform.Service with no-op methods for testing.
-type mockService struct {
-	workspace    string
-	workspaceErr error
+// newMockService creates a mock service with optional workspace override.
+func newMockService(workspace string, workspaceErr error) *sdktest.MockService {
+	svc := &sdktest.MockService{}
+	if workspace != "" || workspaceErr != nil {
+		svc.WorkspaceFn = func(_ context.Context) (string, error) {
+			return workspace, workspaceErr
+		}
+	}
+	return svc
 }
-
-func (s *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*terraform.PlanSummary, error) {
-	return nil, nil
-}
-func (s *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (s *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]terraform.Resource, error) {
-	return nil, nil
-}
-func (s *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (s *mockService) Workspace(_ context.Context) (string, error) {
-	return s.workspace, s.workspaceErr
-}
-func (s *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (s *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (s *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (s *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (s *mockService) StateRm(_ context.Context, _ string) error            { return nil }
-func (s *mockService) StateMove(_ context.Context, _, _ string) error       { return nil }
-func (s *mockService) Import(_ context.Context, _, _ string) error          { return nil }
-func (s *mockService) Taint(_ context.Context, _ string) error              { return nil }
-func (s *mockService) Untaint(_ context.Context, _ string) error            { return nil }
-func (s *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error) { return nil, nil }
-func (s *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
-	return nil, nil
-}
-func (s *mockService) Refresh(_ context.Context) error                     { return nil }
-func (s *mockService) Init(_ context.Context, _ sdk.InitOptions) error     { return nil }
-func (s *mockService) ForceUnlock(_ context.Context, _ string) error       { return nil }
-func (s *mockService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
-func (s *mockService) WithDir(_ string) terraform.Service                  { return s }
 
 func setupTestApp() App {
 	cfg := config.Config{
@@ -86,7 +56,7 @@ func setupTestApp() App {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
@@ -350,7 +320,7 @@ func TestApp_LoadWorkspace_Success(t *testing.T) {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "production"}
+	svc := newMockService("production", nil)
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -372,7 +342,7 @@ func TestApp_LoadWorkspace_Error(t *testing.T) {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "", workspaceErr: fmt.Errorf("connection failed")}
+	svc := newMockService("", fmt.Errorf("connection failed"))
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -416,7 +386,7 @@ func TestApp_OpenContextOnStartup_ActivatesChdirPlugin(t *testing.T) {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
@@ -447,7 +417,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenChdirSet(t *testing.T) {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
@@ -471,7 +441,7 @@ func TestApp_OpenContextOnStartup_SkipsWhenPreloadedData(t *testing.T) {
 		Terraform:     config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
@@ -494,7 +464,7 @@ func TestApp_ChdirChangedEvent_DeactivatesPlugin(t *testing.T) {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
@@ -781,7 +751,7 @@ func setupTestAppWithBusyPlugin(busy bool) App {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
@@ -882,7 +852,7 @@ func setupTestAppWithTransientPlugins() App {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
 
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
@@ -1489,7 +1459,7 @@ func TestApp_WorkspaceChanged_ResolvesOptions(t *testing.T) {
 	}
 
 	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
@@ -1525,7 +1495,7 @@ func TestApp_WorkspaceChanged_NilRootCfg_NoOp(t *testing.T) {
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 		VarFiles:  []string{"original.tfvars"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := newMockService("default", nil)
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 

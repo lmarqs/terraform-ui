@@ -11,6 +11,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
@@ -110,7 +111,7 @@ func setupAppWithSourceIndex(t *testing.T) App {
 		Dir:       dir,
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
@@ -267,7 +268,7 @@ func TestApp_Update_WhenReceivingApplyRequestMsg_ShouldActivateApplyPlugin(t *te
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("plan", func(s terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
@@ -307,7 +308,7 @@ func TestApp_Update_WhenReceivingApplyRequestMsgWithPins_ShouldSetTargets(t *tes
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
 		return tfuiapply.New(s)
@@ -1363,7 +1364,7 @@ func TestApp_BestCommandMatch_WhenMultipleMatches_ShouldReturnEmpty(t *testing.T
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "plan", name: "Plan"}
@@ -1388,7 +1389,7 @@ func TestNewApp_WhenBaseDirSet_ShouldSetHeaderChdir(t *testing.T) {
 		BaseDir:   "modules/vpc",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
@@ -1410,7 +1411,7 @@ func TestApp_Init_WhenChdirSet_ShouldScopeService(t *testing.T) {
 		Chdir:     "modules/vpc",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "state", name: "State"}
@@ -1464,7 +1465,7 @@ func TestApp_OpenContextOnStartup_WhenNoChdirPlugin_ShouldDoNothing(t *testing.T
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "state", name: "State"}
@@ -1600,7 +1601,7 @@ func TestApp_Init_WhenNoPlugins_ShouldStillReturnCmd(t *testing.T) {
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
@@ -1620,7 +1621,7 @@ func TestApp_BestCommandMatch_WhenMatchesBuiltinOnly_ShouldReturn(t *testing.T) 
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -1781,7 +1782,7 @@ func TestApp_DeactivateMsg_WhenReturnToActivatable_ShouldCallActivate(t *testing
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 
 	activatable := &mockActivatablePlugin{
@@ -1852,7 +1853,7 @@ func TestApp_BestCommandMatch_WhenMatchesByName_ShouldReturnID(t *testing.T) {
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "state", name: "State Browser"}
@@ -1886,7 +1887,7 @@ func TestApp_Update_WhenStateEditMsgWithMatchingAddress(t *testing.T) {
 		Dir:       dir,
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -1923,7 +1924,7 @@ resource "aws_instance" "api" {
 		Dir:       dir,
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -1950,7 +1951,7 @@ func TestApp_Update_WhenStateEditMsgAddressesPartialMatch(t *testing.T) {
 		Dir:       dir,
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -1978,7 +1979,7 @@ func TestApp_Update_WhenStateEditMsgAddressesNoneMatch(t *testing.T) {
 		Dir:       dir,
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 	app := NewApp(cfg, svc, registry, nil)
@@ -1996,7 +1997,7 @@ func TestApp_HandleKey_WhenHomeEnterKeyNotInRegistry_ShouldReturnNil(t *testing.
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	// Plugin with menu visible but NO keybinding - ByKey("") will return false
 	registry.RegisterFactory("nokey", func(_ terraform.Service) plugin.Plugin {
@@ -2023,7 +2024,7 @@ func TestApp_Init_WhenPluginInitReturnsNil_ShouldNotAppend(t *testing.T) {
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
 		return &mockPlugin{id: "state", name: "State", initCmd: nil}
@@ -2044,7 +2045,7 @@ func TestApp_Init_ShouldProduceOpenContextOnStartupMsg(t *testing.T) {
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
 	}
-	svc := &mockService{workspace: "default"}
+	svc := &sdktest.MockService{}
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
