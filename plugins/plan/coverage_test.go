@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"context"
 	"io"
 	"log/slog"
 	"strings"
@@ -8,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func newTestPlugin(svc sdk.Service) *Plugin {
@@ -22,7 +24,7 @@ func newTestPlugin(svc sdk.Service) *Plugin {
 }
 
 func TestPlugin_WhenCreated_ShouldExposeStack(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Stack() == nil {
 		t.Error("Stack() = nil, want non-nil")
 	}
@@ -32,14 +34,14 @@ func TestPlugin_WhenCreated_ShouldExposeStack(t *testing.T) {
 }
 
 func TestPlugin_WhenCreated_ShouldReportNotBusy(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Busy() {
 		t.Error("Busy() = true, want false when status is Idle")
 	}
 }
 
 func TestPlugin_WhenLoading_ShouldReportBusy(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	if !p.Busy() {
 		t.Error("Busy() = false, want true when status is Loading")
@@ -47,7 +49,7 @@ func TestPlugin_WhenLoading_ShouldReportBusy(t *testing.T) {
 }
 
 func TestPlugin_WhenDone_ShouldReportNotBusy(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	if p.Busy() {
 		t.Error("Busy() = true, want false when status is Done")
@@ -55,7 +57,7 @@ func TestPlugin_WhenDone_ShouldReportNotBusy(t *testing.T) {
 }
 
 func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}}
@@ -89,7 +91,7 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 }
 
 func TestPlugin_WhenPlanInvalidated_WhileDone_ShouldMarkStale(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}}
@@ -113,7 +115,7 @@ func TestPlugin_WhenPlanInvalidated_WhileDone_ShouldMarkStale(t *testing.T) {
 }
 
 func TestPlugin_WhenPlanInvalidated_WhileNotDone_ShouldResetState(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.errMsg = "something"
@@ -132,7 +134,7 @@ func TestPlugin_WhenPlanInvalidated_WhileNotDone_ShouldResetState(t *testing.T) 
 }
 
 func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
@@ -143,7 +145,7 @@ func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWhileDone_ShouldReturnNil(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
@@ -154,7 +156,11 @@ func TestPlugin_WhenActivatedWhileDone_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWhileStale_ShouldReplan(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.stale = true
@@ -172,7 +178,11 @@ func TestPlugin_WhenActivatedWhileStale_ShouldReplan(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWhileError_ShouldRetriggerPlan(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 
@@ -186,7 +196,7 @@ func TestPlugin_WhenActivatedWhileError_ShouldRetriggerPlan(t *testing.T) {
 }
 
 func TestPlugin_WhenPlanResultNilSummary_ShouldNotEmitPlanCompletedEvent(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
@@ -207,7 +217,7 @@ func TestPlugin_WhenPlanResultNilSummary_ShouldNotEmitPlanCompletedEvent(t *test
 }
 
 func TestPlugin_WhenViewErrorWithLockInfo_ShouldShowLockDetails(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 	p.errMsg = "Error acquiring the state lock"
@@ -226,7 +236,7 @@ func TestPlugin_WhenViewErrorWithLockInfo_ShouldShowLockDetails(t *testing.T) {
 }
 
 func TestPlugin_WhenTogglePin_ShouldPinAndUnpin(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -248,7 +258,7 @@ func TestPlugin_WhenTogglePin_ShouldPinAndUnpin(t *testing.T) {
 }
 
 func TestPlugin_WhenTogglePinWithNilPins_ShouldNotPanic(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.pins = nil
 
@@ -259,7 +269,7 @@ func TestPlugin_WhenTogglePinWithNilPins_ShouldNotPanic(t *testing.T) {
 }
 
 func TestPlugin_WhenRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -281,7 +291,7 @@ func TestPlugin_WhenRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 // --- Frame tests ---
 
 func TestListFrame_WhenCreated_ShouldHaveCorrectID(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	frame := p.stack.Peek()
 
 	lf, ok := frame.(*listFrame)
@@ -294,7 +304,7 @@ func TestListFrame_WhenCreated_ShouldHaveCorrectID(t *testing.T) {
 }
 
 func TestListFrame_WhenViewCalled_ShouldDelegateToPlugin(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 
 	view := p.stack.View(80, 24)
@@ -304,7 +314,7 @@ func TestListFrame_WhenViewCalled_ShouldDelegateToPlugin(t *testing.T) {
 }
 
 func TestListFrame_WhenEscPressed_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -319,7 +329,7 @@ func TestListFrame_WhenEscPressed_ShouldEmitDeactivateMsg(t *testing.T) {
 }
 
 func TestListFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -344,7 +354,7 @@ func TestListFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 }
 
 func TestListFrame_WhenSpacePressedWithNoSelection_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = nil
 
@@ -355,7 +365,7 @@ func TestListFrame_WhenSpacePressedWithNoSelection_ShouldDoNothing(t *testing.T)
 }
 
 func TestListFrame_WhenAPressedWithResults_ShouldRequestApply(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -377,7 +387,7 @@ func TestListFrame_WhenAPressedWithResults_ShouldRequestApply(t *testing.T) {
 }
 
 func TestListFrame_WhenAPressedWithNoResults_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 
@@ -388,7 +398,7 @@ func TestListFrame_WhenAPressedWithNoResults_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenAPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
@@ -398,7 +408,7 @@ func TestListFrame_WhenAPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenUPressedWithLockInfo_ShouldNavigateToForceUnlock(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
 
@@ -418,7 +428,7 @@ func TestListFrame_WhenUPressedWithLockInfo_ShouldNavigateToForceUnlock(t *testi
 }
 
 func TestListFrame_WhenUPressedWithoutLockInfo_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	p.lockInfo = nil
 
@@ -429,7 +439,7 @@ func TestListFrame_WhenUPressedWithoutLockInfo_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenUPressedWhileNotError_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
 
@@ -440,7 +450,7 @@ func TestListFrame_WhenUPressedWhileNotError_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenCtrlRPressedWhileIdle_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
@@ -450,7 +460,7 @@ func TestListFrame_WhenCtrlRPressedWhileIdle_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenDownKeyPressed_ShouldMoveDown(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -468,7 +478,7 @@ func TestListFrame_WhenDownKeyPressed_ShouldMoveDown(t *testing.T) {
 }
 
 func TestListFrame_WhenUpKeyPressed_ShouldMoveUp(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -487,7 +497,7 @@ func TestListFrame_WhenUpKeyPressed_ShouldMoveUp(t *testing.T) {
 }
 
 func TestListFrame_WhenIKeyPressed_ShouldOpenInspect(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -504,7 +514,7 @@ func TestListFrame_WhenIKeyPressed_ShouldOpenInspect(t *testing.T) {
 }
 
 func TestListFrame_WhenNonKeyMsgReceived_ShouldReturnSelf(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	type customMsg struct{}
 	cmd := p.stack.Update(customMsg{})
 	if cmd != nil {
@@ -513,7 +523,7 @@ func TestListFrame_WhenNonKeyMsgReceived_ShouldReturnSelf(t *testing.T) {
 }
 
 func TestListFrame_WhenHintsCalledIdle_ShouldReturnConfirmAndBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 
 	hints := p.stack.Hints()
@@ -540,7 +550,7 @@ func TestListFrame_WhenHintsCalledIdle_ShouldReturnConfirmAndBack(t *testing.T) 
 }
 
 func TestListFrame_WhenHintsCalledLoading_ShouldReturnBackOnly(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	hints := p.stack.Hints()
@@ -560,7 +570,7 @@ func TestListFrame_WhenHintsCalledLoading_ShouldReturnBackOnly(t *testing.T) {
 }
 
 func TestListFrame_WhenHintsCalledErrorWithLock_ShouldIncludeUnlock(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
 
@@ -577,7 +587,7 @@ func TestListFrame_WhenHintsCalledErrorWithLock_ShouldIncludeUnlock(t *testing.T
 }
 
 func TestListFrame_WhenHintsCalledErrorWithoutLock_ShouldNotIncludeUnlock(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	p.lockInfo = nil
 
@@ -590,7 +600,7 @@ func TestListFrame_WhenHintsCalledErrorWithoutLock_ShouldNotIncludeUnlock(t *tes
 }
 
 func TestListFrame_WhenHintsCalledDoneWithChanges_ShouldIncludeApplyAndPin(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -624,7 +634,7 @@ func TestListFrame_WhenHintsCalledDoneWithChanges_ShouldIncludeApplyAndPin(t *te
 }
 
 func TestListFrame_WhenHintsCalledDoneNoChanges_ShouldIncludeRefreshAndBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 
@@ -648,7 +658,7 @@ func TestListFrame_WhenHintsCalledDoneNoChanges_ShouldIncludeRefreshAndBack(t *t
 }
 
 func TestListFrame_WhenHintsCalledDoneNilSummary_ShouldIncludeRefreshAndBack(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = nil
 
@@ -672,7 +682,7 @@ func TestListFrame_WhenHintsCalledDoneNilSummary_ShouldIncludeRefreshAndBack(t *
 }
 
 func TestListFrame_WhenHintsCalledUnknownStatus_ShouldReturnBackOnly(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.Status(99)
 
 	hints := p.stack.Hints()
@@ -691,7 +701,7 @@ func TestListFrame_WhenHintsCalledUnknownStatus_ShouldReturnBackOnly(t *testing.
 }
 
 func TestPlugin_WhenViewLoadingState_ShouldShowRunningMessage(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
@@ -701,7 +711,7 @@ func TestPlugin_WhenViewLoadingState_ShouldShowRunningMessage(t *testing.T) {
 }
 
 func TestPlugin_WhenPinnedResourceRendered_ShouldShowPinMark(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{

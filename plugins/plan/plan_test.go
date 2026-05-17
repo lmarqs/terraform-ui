@@ -13,47 +13,10 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// mockService implements sdk.Service for testing.
-type mockService struct {
-	planResult  *sdk.PlanSummary
-	planErr     error
-	withDirPath string
-}
-
-func (m *mockService) Plan(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-	return m.planResult, m.planErr
-}
-func (m *mockService) Apply(_ context.Context, _ sdk.ApplyOptions) error { return nil }
-func (m *mockService) StateList(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
-	return nil, nil
-}
-func (m *mockService) Show(_ context.Context, _ string) (string, error) { return "", nil }
-func (m *mockService) Workspace(_ context.Context) (string, error)      { return "default", nil }
-func (m *mockService) WorkspaceList(_ context.Context) ([]string, error) {
-	return []string{"default"}, nil
-}
-func (m *mockService) WorkspaceSelect(_ context.Context, _ string) error { return nil }
-func (m *mockService) WorkspaceNew(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error {
-	return nil
-}
-func (m *mockService) WorkspaceDelete(_ context.Context, _ string, _ sdk.WorkspaceDeleteOptions) error {
-	return nil
-}
-func (m *mockService) StateRm(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) StateMove(_ context.Context, _, _ string) error               { return nil }
-func (m *mockService) Import(_ context.Context, _, _ string) error                  { return nil }
-func (m *mockService) Taint(_ context.Context, _ string) error                      { return nil }
-func (m *mockService) Untaint(_ context.Context, _ string) error                    { return nil }
-func (m *mockService) Validate(_ context.Context) ([]sdk.Diagnostic, error)         { return nil, nil }
-func (m *mockService) Output(_ context.Context) (map[string]sdk.OutputValue, error) { return nil, nil }
-func (m *mockService) Refresh(_ context.Context) error                              { return nil }
-func (m *mockService) Init(_ context.Context, _ sdk.InitOptions) error              { return nil }
-func (m *mockService) ForceUnlock(_ context.Context, _ string) error                { return nil }
-func (m *mockService) Version(_ context.Context) (*sdk.VersionInfo, error)          { return nil, nil }
-func (m *mockService) WithDir(dir string) sdk.Service                               { m.withDirPath = dir; return m }
+import "github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 
 func TestNew(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	if p.ID() != "plan" {
@@ -71,7 +34,7 @@ func TestNew(t *testing.T) {
 }
 
 func TestCountable(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	var c sdk.Countable = p
@@ -91,7 +54,7 @@ func TestCountable(t *testing.T) {
 }
 
 func TestConfigure(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
@@ -100,10 +63,9 @@ func TestConfigure(t *testing.T) {
 }
 
 func TestInit(t *testing.T) {
-	svc := &mockService{
-		planResult: &sdk.PlanSummary{
-			Changes:  []sdk.PlanChange{},
-			ToCreate: 0,
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{Changes: []sdk.PlanChange{}, ToCreate: 0}, nil
 		},
 	}
 	p := New(svc)
@@ -127,8 +89,10 @@ func TestInit(t *testing.T) {
 }
 
 func TestActivate(t *testing.T) {
-	svc := &mockService{
-		planResult: &sdk.PlanSummary{Changes: []sdk.PlanChange{}},
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
+		},
 	}
 	p := New(svc)
 	ctx := &sdk.Context{
@@ -150,8 +114,10 @@ func TestActivate(t *testing.T) {
 }
 
 func TestActivateWhileLoadingRestartsTick(t *testing.T) {
-	svc := &mockService{
-		planResult: &sdk.PlanSummary{Changes: []sdk.PlanChange{}},
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
+		},
 	}
 	p := New(svc)
 	ctx := &sdk.Context{
@@ -183,7 +149,11 @@ func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 		},
 		ToCreate: 1,
 	}
-	svc := &mockService{planResult: summary}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return summary, nil
+		},
+	}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -220,7 +190,11 @@ func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 }
 
 func TestActivateCmdReturnsError(t *testing.T) {
-	svc := &mockService{planErr: errors.New("plan failed")}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return nil, errors.New("plan failed")
+		},
+	}
 	p := New(svc)
 	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
 	p.Init(ctx)
@@ -251,7 +225,7 @@ func TestActivateCmdReturnsError(t *testing.T) {
 }
 
 func TestUpdatePlanResultSuccess(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -313,7 +287,7 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 }
 
 func TestUpdatePlanResultError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
@@ -333,7 +307,7 @@ func TestUpdatePlanResultError(t *testing.T) {
 }
 
 func TestUpdateKeyMsgNavigation(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -385,7 +359,7 @@ func TestUpdateKeyMsgNavigation(t *testing.T) {
 }
 
 func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -413,7 +387,7 @@ func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 }
 
 func TestUpdateKeyMsgInspect(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.pins = sdk.NewPinService()
@@ -443,7 +417,11 @@ func TestUpdateKeyMsgInspect(t *testing.T) {
 }
 
 func TestUpdateKeyMsgRefresh(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
 	p := New(svc)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
@@ -470,7 +448,7 @@ func TestUpdateKeyMsgRefresh(t *testing.T) {
 }
 
 func TestUpdateUnknownMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc)
 
 	type unknownMsg struct{}
@@ -484,7 +462,7 @@ func TestUpdateUnknownMsg(t *testing.T) {
 }
 
 func TestMoveUpDown(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -514,7 +492,7 @@ func TestMoveUpDown(t *testing.T) {
 }
 
 func TestMoveDownNilSummary(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = nil
 	p.MoveDown()
@@ -524,7 +502,7 @@ func TestMoveDownNilSummary(t *testing.T) {
 }
 
 func TestMoveToStartEnd(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -547,7 +525,7 @@ func TestMoveToStartEnd(t *testing.T) {
 }
 
 func TestMoveToEndNilSummary(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = nil
 	p.MoveToEnd()
@@ -557,7 +535,7 @@ func TestMoveToEndNilSummary(t *testing.T) {
 }
 
 func TestMoveToEndEmptyChanges(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 	p.MoveToEnd()
@@ -567,7 +545,7 @@ func TestMoveToEndEmptyChanges(t *testing.T) {
 }
 
 func TestSelectedChange(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// empty tree
@@ -595,7 +573,7 @@ func TestSelectedChange(t *testing.T) {
 }
 
 func TestSetTargets(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	targets := []string{"aws_instance.web", "aws_s3_bucket.data"}
 	p.SetTargets(targets)
@@ -605,7 +583,11 @@ func TestSetTargets(t *testing.T) {
 }
 
 func TestRefresh(t *testing.T) {
-	svc := &mockService{planResult: &sdk.PlanSummary{}}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -622,7 +604,7 @@ func TestRefresh(t *testing.T) {
 }
 
 func TestViewIdle(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusIdle
 
@@ -633,7 +615,7 @@ func TestViewIdle(t *testing.T) {
 }
 
 func TestViewLoading(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusLoading
 
@@ -644,7 +626,7 @@ func TestViewLoading(t *testing.T) {
 }
 
 func TestViewError(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "some error"
@@ -656,7 +638,7 @@ func TestViewError(t *testing.T) {
 }
 
 func TestViewDoneNoChanges(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
@@ -668,7 +650,7 @@ func TestViewDoneNoChanges(t *testing.T) {
 }
 
 func TestViewDoneNilSummary(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.summary = nil
@@ -680,7 +662,7 @@ func TestViewDoneNilSummary(t *testing.T) {
 }
 
 func TestViewDoneWithChanges(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -731,7 +713,7 @@ func TestViewDoneWithChanges(t *testing.T) {
 }
 
 func TestViewDoneWithInspectDetail(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.pins = sdk.NewPinService()
 	p.status = sdk.StatusDone
@@ -763,7 +745,7 @@ func TestViewDoneWithInspectDetail(t *testing.T) {
 }
 
 func TestViewDoneScrolling(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 
@@ -790,7 +772,7 @@ func TestViewDoneScrolling(t *testing.T) {
 }
 
 func TestViewDefaultStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.Status(99) // invalid status
 
@@ -801,7 +783,7 @@ func TestViewDefaultStatus(t *testing.T) {
 }
 
 func TestRenderSummaryLineAllZero(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{}
 
@@ -812,7 +794,7 @@ func TestRenderSummaryLineAllZero(t *testing.T) {
 }
 
 func TestRenderOverallRisk(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	// nil summary
@@ -935,7 +917,7 @@ func TestRiskBadge(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
 	if p.Status() != sdk.StatusIdle {
@@ -944,7 +926,7 @@ func TestStatus(t *testing.T) {
 }
 
 func TestTreeCursor(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -962,7 +944,7 @@ func TestTreeCursor(t *testing.T) {
 }
 
 func TestTargets(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.targets = []string{"a", "b"}
 
@@ -973,7 +955,7 @@ func TestTargets(t *testing.T) {
 }
 
 func TestSummary(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	if p.Summary() != nil {
 		t.Error("Summary() = non-nil before plan, want nil")
@@ -986,7 +968,7 @@ func TestSummary(t *testing.T) {
 }
 
 func TestViewSmallHeight(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -1004,7 +986,7 @@ func TestViewSmallHeight(t *testing.T) {
 }
 
 func TestRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
-	svc := &mockService{}
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{

@@ -7,11 +7,12 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func TestPlugin_WhenOutputJsonWithNilSummary_ShouldReturnNil(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = nil
 
 	data, err := p.Output(true)
@@ -24,7 +25,7 @@ func TestPlugin_WhenOutputJsonWithNilSummary_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJsonWithChanges_ShouldReturnValidJSON(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
@@ -51,7 +52,7 @@ func TestPlugin_WhenOutputJsonWithChanges_ShouldReturnValidJSON(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputTextWithChanges_ShouldReturnPlainText(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
@@ -91,7 +92,7 @@ func TestPlugin_WhenOutputTextWithChanges_ShouldReturnPlainText(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputTextWithNoAction_ShouldUseSpaceSymbol(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.x"}, Action: sdk.Action("noop")},
@@ -109,7 +110,7 @@ func TestPlugin_WhenOutputTextWithNoAction_ShouldUseSpaceSymbol(t *testing.T) {
 }
 
 func TestPlugin_WhenExitCodeWithNilSummary_ShouldReturnZero(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = nil
 	if code := p.ExitCode(); code != 0 {
 		t.Errorf("ExitCode() = %d, want 0", code)
@@ -117,7 +118,7 @@ func TestPlugin_WhenExitCodeWithNilSummary_ShouldReturnZero(t *testing.T) {
 }
 
 func TestPlugin_WhenExitCodeWithChanges_ShouldReturnTwo(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}},
 	}
@@ -127,7 +128,7 @@ func TestPlugin_WhenExitCodeWithChanges_ShouldReturnTwo(t *testing.T) {
 }
 
 func TestPlugin_WhenExitCodeWithEmptyChanges_ShouldReturnZero(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 	if code := p.ExitCode(); code != 0 {
 		t.Errorf("ExitCode() = %d, want 0", code)
@@ -135,7 +136,7 @@ func TestPlugin_WhenExitCodeWithEmptyChanges_ShouldReturnZero(t *testing.T) {
 }
 
 func TestPlugin_WhenHandleLockCleared_ShouldClearLockInfo(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.lockInfo = &sdk.StateLock{ID: "abc"}
 
 	cmd := p.HandleLockCleared(sdk.LockClearedEvent{})
@@ -148,7 +149,7 @@ func TestPlugin_WhenHandleLockCleared_ShouldClearLockInfo(t *testing.T) {
 }
 
 func TestPlugin_WhenPinnedCountWithNilPins_ShouldReturnZero(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.pins = nil
 	if c := p.PinnedCount(); c != 0 {
 		t.Errorf("PinnedCount() = %d, want 0", c)
@@ -156,7 +157,7 @@ func TestPlugin_WhenPinnedCountWithNilPins_ShouldReturnZero(t *testing.T) {
 }
 
 func TestPlugin_WhenPinnedCountWithPins_ShouldReturnCount(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.pins.Toggle("a")
 	p.pins.Toggle("b")
 	if c := p.PinnedCount(); c != 2 {
@@ -165,7 +166,7 @@ func TestPlugin_WhenPinnedCountWithPins_ShouldReturnCount(t *testing.T) {
 }
 
 func TestPlugin_WhenRequestAutoApply_ShouldEmitAutoApplyRequestMsg(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	cmd := p.requestAutoApply()
 	if cmd == nil {
 		t.Fatal("requestAutoApply() = nil")
@@ -177,7 +178,7 @@ func TestPlugin_WhenRequestAutoApply_ShouldEmitAutoApplyRequestMsg(t *testing.T)
 }
 
 func TestPlugin_WhenClearAllPins_ShouldUnpinAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -196,7 +197,7 @@ func TestPlugin_WhenClearAllPins_ShouldUnpinAll(t *testing.T) {
 }
 
 func TestDetailFrame_WhenEscPressed_ShouldPop(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -220,7 +221,7 @@ func TestDetailFrame_WhenEscPressed_ShouldPop(t *testing.T) {
 }
 
 func TestDetailFrame_WhenScrollDown_ShouldIncrementScroll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -238,7 +239,7 @@ func TestDetailFrame_WhenScrollDown_ShouldIncrementScroll(t *testing.T) {
 }
 
 func TestDetailFrame_WhenScrollUp_ShouldDecrementScroll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -257,7 +258,7 @@ func TestDetailFrame_WhenScrollUp_ShouldDecrementScroll(t *testing.T) {
 }
 
 func TestDetailFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -275,7 +276,7 @@ func TestDetailFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 }
 
 func TestDetailFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -293,7 +294,7 @@ func TestDetailFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 }
 
 func TestDetailFrame_WhenEPressed_ShouldEmitPlanEditMsg(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -319,7 +320,7 @@ func TestDetailFrame_WhenEPressed_ShouldEmitPlanEditMsg(t *testing.T) {
 }
 
 func TestDetailFrame_Hints_ShouldIncludeWrapPinEditCancel(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -337,7 +338,7 @@ func TestDetailFrame_Hints_ShouldIncludeWrapPinEditCancel(t *testing.T) {
 }
 
 func TestListFrame_WhenFilterSlashPressed_ShouldPushFilterFrame(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -357,7 +358,7 @@ func TestListFrame_WhenFilterSlashPressed_ShouldPushFilterFrame(t *testing.T) {
 }
 
 func TestListFrame_WhenCtrlTPressed_ShouldToggleTreeMode(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -374,7 +375,7 @@ func TestListFrame_WhenCtrlTPressed_ShouldToggleTreeMode(t *testing.T) {
 }
 
 func TestListFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -391,7 +392,7 @@ func TestListFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 }
 
 func TestListFrame_WhenCtrlPPressed_ShouldTogglePinnedOnly(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -408,7 +409,7 @@ func TestListFrame_WhenCtrlPPressed_ShouldTogglePinnedOnly(t *testing.T) {
 }
 
 func TestListFrame_WhenCtrlUPressed_ShouldClearPins(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -426,7 +427,7 @@ func TestListFrame_WhenCtrlUPressed_ShouldClearPins(t *testing.T) {
 }
 
 func TestListFrame_WhenTPressedDone_ShouldEmitTaintRequest(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -443,7 +444,7 @@ func TestListFrame_WhenTPressedDone_ShouldEmitTaintRequest(t *testing.T) {
 }
 
 func TestListFrame_WhenBigTPressedDone_ShouldEmitUntaintRequest(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -460,7 +461,7 @@ func TestListFrame_WhenBigTPressedDone_ShouldEmitUntaintRequest(t *testing.T) {
 }
 
 func TestListFrame_WhenBigAPressed_ShouldRequestAutoApply(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -480,7 +481,7 @@ func TestListFrame_WhenBigAPressed_ShouldRequestAutoApply(t *testing.T) {
 }
 
 func TestListFrame_WhenEPressedDone_ShouldEmitEditMsg(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -505,7 +506,7 @@ func TestListFrame_WhenEPressedDone_ShouldEmitEditMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenNavigateDown_ShouldMoveDown(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -522,7 +523,7 @@ func TestPlugin_WhenNavigateDown_ShouldMoveDown(t *testing.T) {
 }
 
 func TestPlugin_WhenNavigateUp_ShouldMoveUp(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -540,7 +541,7 @@ func TestPlugin_WhenNavigateUp_ShouldMoveUp(t *testing.T) {
 }
 
 func TestPlugin_WhenPanListRight_ShouldIncrementHScroll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 
 	p.panListRight()
 	if p.listHScroll != 10 {
@@ -554,7 +555,7 @@ func TestPlugin_WhenPanListRight_ShouldIncrementHScroll(t *testing.T) {
 }
 
 func TestPlugin_WhenPanListLeft_ShouldDecrementHScroll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.listHScroll = 20
 
 	p.panListLeft()
@@ -569,7 +570,7 @@ func TestPlugin_WhenPanListLeft_ShouldDecrementHScroll(t *testing.T) {
 }
 
 func TestPlugin_WhenPanListLeftAtZero_ShouldRemainZero(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.listHScroll = 0
 
 	p.panListLeft()
@@ -579,7 +580,7 @@ func TestPlugin_WhenPanListLeftAtZero_ShouldRemainZero(t *testing.T) {
 }
 
 func TestPlugin_WhenPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.viewWidth = 100
 	p.detail = strings.Repeat("x", 200)
 
@@ -590,7 +591,7 @@ func TestPlugin_WhenPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
 }
 
 func TestPlugin_WhenPanDetailRightAtMax_ShouldClampToMax(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.viewWidth = 100
 	p.detail = "short"
 
@@ -601,7 +602,7 @@ func TestPlugin_WhenPanDetailRightAtMax_ShouldClampToMax(t *testing.T) {
 }
 
 func TestPlugin_WhenPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detailHScroll = 20
 
 	p.panDetailLeft()
@@ -611,7 +612,7 @@ func TestPlugin_WhenPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
 }
 
 func TestPlugin_WhenPanDetailLeftAtZero_ShouldRemainZero(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detailHScroll = 0
 
 	p.panDetailLeft()
@@ -621,7 +622,7 @@ func TestPlugin_WhenPanDetailLeftAtZero_ShouldRemainZero(t *testing.T) {
 }
 
 func TestPlugin_WhenSourceChangesWithNilSummary_ShouldReturnNil(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = nil
 
 	result := p.sourceChanges()
@@ -631,7 +632,7 @@ func TestPlugin_WhenSourceChangesWithNilSummary_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenSourceChangesNotPinnedOnly_ShouldReturnAllChanges(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -647,7 +648,7 @@ func TestPlugin_WhenSourceChangesNotPinnedOnly_ShouldReturnAllChanges(t *testing
 }
 
 func TestPlugin_WhenSourceChangesPinnedOnly_ShouldReturnOnlyPinned(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -672,7 +673,7 @@ func TestPlugin_WhenSourceChangesPinnedOnly_ShouldReturnOnlyPinned(t *testing.T)
 }
 
 func TestPlugin_WhenSetFilterEmpty_ShouldResetToAllChanges(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}},
@@ -697,7 +698,7 @@ func TestPlugin_WhenSetFilterEmpty_ShouldResetToAllChanges(t *testing.T) {
 }
 
 func TestPlugin_WhenSetFilterWithQuery_ShouldFilterResults(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}},
@@ -718,7 +719,7 @@ func TestPlugin_WhenSetFilterWithQuery_ShouldFilterResults(t *testing.T) {
 }
 
 func TestPlugin_WhenSetFilterInTreeMode_ShouldUseOriginalOrder(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -736,7 +737,7 @@ func TestPlugin_WhenSetFilterInTreeMode_ShouldUseOriginalOrder(t *testing.T) {
 }
 
 func TestPlugin_WhenSetFilterPinnedOnly_ShouldFilterFromPinnedSubset(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}},
@@ -756,7 +757,7 @@ func TestPlugin_WhenSetFilterPinnedOnly_ShouldFilterFromPinnedSubset(t *testing.
 }
 
 func TestPlugin_WhenRebuildTreeInFlatMode_ShouldPreserveOrder(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.treeMode = false
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -773,7 +774,7 @@ func TestPlugin_WhenRebuildTreeInFlatMode_ShouldPreserveOrder(t *testing.T) {
 }
 
 func TestPlugin_WhenRebuildTreeInTreeModeWithFilter_ShouldExpandAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.treeMode = true
 	p.filter = "vpc"
 	p.summary = &sdk.PlanSummary{
@@ -792,7 +793,7 @@ func TestPlugin_WhenRebuildTreeInTreeModeWithFilter_ShouldExpandAll(t *testing.T
 }
 
 func TestPlugin_WhenPruneStaleWithNilPins_ShouldNotPanic(t *testing.T) {
-	p := New(&mockService{}).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.pins = nil
 	p.pruneStale([]sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "a"}},
@@ -800,7 +801,7 @@ func TestPlugin_WhenPruneStaleWithNilPins_ShouldNotPanic(t *testing.T) {
 }
 
 func TestPlugin_WhenPruneStaleWithNoPins_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.pruneStale([]sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "a"}},
 	})
@@ -810,7 +811,7 @@ func TestPlugin_WhenPruneStaleWithNoPins_ShouldDoNothing(t *testing.T) {
 }
 
 func TestPlugin_WhenPruneStaleWithValidPins_ShouldRetainAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.pins.Toggle("a")
 	p.pins.Toggle("b")
 
@@ -825,7 +826,7 @@ func TestPlugin_WhenPruneStaleWithValidPins_ShouldRetainAll(t *testing.T) {
 }
 
 func TestPlugin_WhenPruneStaleWithStalePins_ShouldRemoveStale(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.pins.Toggle("a")
 	p.pins.Toggle("removed_resource")
 
@@ -845,7 +846,7 @@ func TestPlugin_WhenPruneStaleWithStalePins_ShouldRemoveStale(t *testing.T) {
 }
 
 func TestPlugin_WhenClearAllPinsWithPinnedOnly_ShouldResetPinnedOnlyAndRefilter(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -872,7 +873,7 @@ func TestPlugin_WhenClearAllPinsWithPinnedOnly_ShouldResetPinnedOnlyAndRefilter(
 }
 
 func TestPlugin_WhenInspectSelectedNoChange_ShouldReturnNil(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = nil
 
 	cmd := p.inspectSelected()
@@ -882,7 +883,7 @@ func TestPlugin_WhenInspectSelectedNoChange_ShouldReturnNil(t *testing.T) {
 }
 
 func TestPlugin_WhenInspectSelectedWithDiffs_ShouldPushDetailFrame(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
@@ -908,7 +909,7 @@ func TestPlugin_WhenInspectSelectedWithDiffs_ShouldPushDetailFrame(t *testing.T)
 }
 
 func TestPlugin_WhenInspectSelectedPopsFilterFrame(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
@@ -936,7 +937,7 @@ func TestPlugin_WhenInspectSelectedPopsFilterFrame(t *testing.T) {
 }
 
 func TestPlugin_WhenBuildInspectContentWithRisk_ShouldIncludeRiskLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := &sdk.PlanChange{
 		Resource: sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", ProviderName: "aws"},
 		Action:   sdk.ActionDelete,
@@ -950,7 +951,7 @@ func TestPlugin_WhenBuildInspectContentWithRisk_ShouldIncludeRiskLine(t *testing
 }
 
 func TestPlugin_WhenBuildInspectContentWithPhantom_ShouldIncludePhantomLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := &sdk.PlanChange{
 		Resource:  sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", ProviderName: "aws"},
 		Action:    sdk.ActionUpdate,
@@ -964,7 +965,7 @@ func TestPlugin_WhenBuildInspectContentWithPhantom_ShouldIncludePhantomLine(t *t
 }
 
 func TestPlugin_WhenBuildInspectContentWithModule_ShouldIncludeModuleLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := &sdk.PlanChange{
 		Resource: sdk.Resource{Address: "module.vpc.aws_subnet.a", Type: "aws_subnet", Module: "module.vpc", ProviderName: "aws"},
 		Action:   sdk.ActionCreate,
@@ -980,7 +981,7 @@ func TestPlugin_WhenBuildInspectContentWithModule_ShouldIncludeModuleLine(t *tes
 }
 
 func TestPlugin_WhenBuildInspectContentWithForcesNew_ShouldAnnotateAttribute(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := &sdk.PlanChange{
 		Resource: sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", ProviderName: "aws"},
 		Action:   sdk.ActionDeleteThenCreate,
@@ -996,7 +997,7 @@ func TestPlugin_WhenBuildInspectContentWithForcesNew_ShouldAnnotateAttribute(t *
 }
 
 func TestPlugin_WhenBuildInspectContentWithSensitive_ShouldMaskValues(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := &sdk.PlanChange{
 		Resource: sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", ProviderName: "aws"},
 		Action:   sdk.ActionUpdate,
@@ -1012,7 +1013,7 @@ func TestPlugin_WhenBuildInspectContentWithSensitive_ShouldMaskValues(t *testing
 }
 
 func TestPlugin_WhenViewDoneWithFilterActive_ShouldShowFilterLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1032,7 +1033,7 @@ func TestPlugin_WhenViewDoneWithFilterActive_ShouldShowFilterLine(t *testing.T) 
 }
 
 func TestPlugin_WhenViewDoneWithFilterAndPinnedOnly_ShouldShowBothIndicators(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1053,7 +1054,7 @@ func TestPlugin_WhenViewDoneWithFilterAndPinnedOnly_ShouldShowBothIndicators(t *
 }
 
 func TestPlugin_WhenViewDoneWithInactiveFilterText_ShouldShowFilterLabel(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1073,7 +1074,7 @@ func TestPlugin_WhenViewDoneWithInactiveFilterText_ShouldShowFilterLabel(t *test
 }
 
 func TestPlugin_WhenViewDoneWithNoMatches_ShouldShowNoMatchingChanges(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1092,7 +1093,7 @@ func TestPlugin_WhenViewDoneWithNoMatches_ShouldShowNoMatchingChanges(t *testing
 }
 
 func TestPlugin_WhenRenderResultsInTreeMode_ShouldRenderTree(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1112,7 +1113,7 @@ func TestPlugin_WhenRenderResultsInTreeMode_ShouldRenderTree(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderResultsInTreeModeWithHScroll_ShouldApplyOffset(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.listHScroll = 5
@@ -1133,7 +1134,7 @@ func TestPlugin_WhenRenderResultsInTreeModeWithHScroll_ShouldApplyOffset(t *test
 }
 
 func TestPlugin_WhenRenderResultsInTreeModeWithHScrollBeyondContent_ShouldShowEmpty(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.listHScroll = 500
@@ -1154,7 +1155,7 @@ func TestPlugin_WhenRenderResultsInTreeModeWithHScrollBeyondContent_ShouldShowEm
 }
 
 func TestPlugin_WhenRenderResultsInTreeModeWithPhantom_ShouldShowPhantomBadge(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1174,7 +1175,7 @@ func TestPlugin_WhenRenderResultsInTreeModeWithPhantom_ShouldShowPhantomBadge(t 
 }
 
 func TestPlugin_WhenRenderFlatListWithHScroll_ShouldTruncateFromLeft(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listHScroll = 5
 	p.summary = &sdk.PlanSummary{
@@ -1193,7 +1194,7 @@ func TestPlugin_WhenRenderFlatListWithHScroll_ShouldTruncateFromLeft(t *testing.
 }
 
 func TestPlugin_WhenRenderFlatListWithWrap_ShouldNotTruncate(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = true
 	p.summary = &sdk.PlanSummary{
@@ -1212,7 +1213,7 @@ func TestPlugin_WhenRenderFlatListWithWrap_ShouldNotTruncate(t *testing.T) {
 }
 
 func TestPlugin_WhenFormatChangeRowWithRisk_ShouldIncludeRiskBadge(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := sdk.PlanChange{
 		Resource: sdk.Resource{Address: "aws_instance.web"},
 		Action:   sdk.ActionDelete,
@@ -1226,7 +1227,7 @@ func TestPlugin_WhenFormatChangeRowWithRisk_ShouldIncludeRiskBadge(t *testing.T)
 }
 
 func TestPlugin_WhenFormatChangeRowWithPhantom_ShouldIncludePhantomMarker(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	change := sdk.PlanChange{
 		Resource:  sdk.Resource{Address: "aws_instance.web"},
 		Action:    sdk.ActionUpdate,
@@ -1240,7 +1241,7 @@ func TestPlugin_WhenFormatChangeRowWithPhantom_ShouldIncludePhantomMarker(t *tes
 }
 
 func TestPlugin_WhenFormatChangeRowWithHScrollBeyondContent_ShouldReturnPinOnly(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.listHScroll = 500
 	change := sdk.PlanChange{
 		Resource: sdk.Resource{Address: "a"},
@@ -1254,7 +1255,7 @@ func TestPlugin_WhenFormatChangeRowWithHScrollBeyondContent_ShouldReturnPinOnly(
 }
 
 func TestPlugin_WhenRenderDetailWithWrap_ShouldWrapLongLines(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = strings.Repeat("abcdefghij", 20)
 	p.detailAddr = "aws_instance.web"
 	p.detailWrap = true
@@ -1269,7 +1270,7 @@ func TestPlugin_WhenRenderDetailWithWrap_ShouldWrapLongLines(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderDetailWithHScroll_ShouldOffsetContent(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = strings.Repeat("x", 200)
 	p.detailAddr = "aws_instance.web"
 	p.detailHScroll = 10
@@ -1282,7 +1283,7 @@ func TestPlugin_WhenRenderDetailWithHScroll_ShouldOffsetContent(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderDetailWithPinnedAddress_ShouldShowPinIndicator(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
 	p.pins.Toggle("aws_instance.web")
@@ -1294,7 +1295,7 @@ func TestPlugin_WhenRenderDetailWithPinnedAddress_ShouldShowPinIndicator(t *test
 }
 
 func TestPlugin_WhenRenderDetailScrollClamped_ShouldNotExceedMax(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "line1\nline2\nline3"
 	p.detailAddr = "test"
 	p.detailScroll = 100
@@ -1306,7 +1307,7 @@ func TestPlugin_WhenRenderDetailScrollClamped_ShouldNotExceedMax(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderDetailSmallHeight_ShouldClampToMinimum(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "line1\nline2\nline3\nline4\nline5\nline6\nline7\nline8\nline9\nline10"
 	p.detailAddr = "test"
 
@@ -1317,7 +1318,7 @@ func TestPlugin_WhenRenderDetailSmallHeight_ShouldClampToMinimum(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderDetailSmallWidth_ShouldUseMinWidth(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "some content"
 	p.detailAddr = "test"
 
@@ -1371,7 +1372,7 @@ func TestWrapLines_WhenEmptyLine_ShouldPreserve(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderSummaryLineWithReplace_ShouldIncludeReplaceCount(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		ToCreate:  1,
 		ToUpdate:  2,
@@ -1386,7 +1387,7 @@ func TestPlugin_WhenRenderSummaryLineWithReplace_ShouldIncludeReplaceCount(t *te
 }
 
 func TestPlugin_WhenOutputTextWithPhantom_ShouldIncludeInList(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.phantom"}, Action: sdk.ActionUpdate, IsPhantom: true},
@@ -1405,7 +1406,7 @@ func TestPlugin_WhenOutputTextWithPhantom_ShouldIncludeInList(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJsonWithPhantom_ShouldSetPhantomFlag(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.phantom"}, Action: sdk.ActionUpdate, IsPhantom: true},
@@ -1424,7 +1425,7 @@ func TestPlugin_WhenOutputJsonWithPhantom_ShouldSetPhantomFlag(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputTextWithRisk_ShouldIncludeRiskLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
@@ -1443,7 +1444,7 @@ func TestPlugin_WhenOutputTextWithRisk_ShouldIncludeRiskLine(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputTextWithNoRisk_ShouldOmitRiskLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskNone},
@@ -1462,7 +1463,7 @@ func TestPlugin_WhenOutputTextWithNoRisk_ShouldOmitRiskLine(t *testing.T) {
 }
 
 func TestPlugin_WhenUpdateTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
@@ -1472,7 +1473,7 @@ func TestPlugin_WhenUpdateTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
 }
 
 func TestPlugin_WhenPlanResultWithLockError_ShouldEmitLockDetectedEvent(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	lockErrMsg := "Error acquiring the state lock\n  ID:        abc-123\n  Path:      terraform.tfstate\n  Operation: OperationTypePlan\n  Who:       user@host\n  Version:   1.5.0\n  Created:   2023-01-01 00:00:00.000000000 +0000 UTC"
@@ -1495,7 +1496,7 @@ func TestPlugin_WhenPlanResultWithLockError_ShouldEmitLockDetectedEvent(t *testi
 }
 
 func TestPlugin_WhenCancelWithCancelFn_ShouldCallCancel(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	called := false
 	p.cancelFn = func() { called = true }
 
@@ -1509,13 +1510,13 @@ func TestPlugin_WhenCancelWithCancelFn_ShouldCallCancel(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelWithNilCancelFn_ShouldNotPanic(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlanFilterFrame_WhenViewCalled_ShouldDelegateToInner(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1538,7 +1539,7 @@ func TestPlanFilterFrame_WhenViewCalled_ShouldDelegateToInner(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenHintsCalled_ShouldReturnHints(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1557,7 +1558,7 @@ func TestPlanFilterFrame_WhenHintsCalled_ShouldReturnHints(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenHintsCalledInTreeMode_ShouldIncludeCollapseExpand(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1577,7 +1578,7 @@ func TestPlanFilterFrame_WhenHintsCalledInTreeMode_ShouldIncludeCollapseExpand(t
 }
 
 func TestPlanFilterFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1599,7 +1600,7 @@ func TestPlanFilterFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenCtrlPPressed_ShouldTogglePinnedOnly(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1618,7 +1619,7 @@ func TestPlanFilterFrame_WhenCtrlPPressed_ShouldTogglePinnedOnly(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenRightPressed_ShouldPanListRight(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = false
 	p.summary = &sdk.PlanSummary{
@@ -1638,7 +1639,7 @@ func TestPlanFilterFrame_WhenRightPressed_ShouldPanListRight(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenLeftPressed_ShouldPanListLeft(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = false
 	p.listHScroll = 20
@@ -1659,7 +1660,7 @@ func TestPlanFilterFrame_WhenLeftPressed_ShouldPanListLeft(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenRightPressedWithWrap_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = true
 	p.summary = &sdk.PlanSummary{
@@ -1679,7 +1680,7 @@ func TestPlanFilterFrame_WhenRightPressedWithWrap_ShouldDoNothing(t *testing.T) 
 }
 
 func TestPlanFilterFrame_WhenCloseBracketPressed_ShouldExpandAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1697,7 +1698,7 @@ func TestPlanFilterFrame_WhenCloseBracketPressed_ShouldExpandAll(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenOpenBracketPressed_ShouldCollapseAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1716,7 +1717,7 @@ func TestPlanFilterFrame_WhenOpenBracketPressed_ShouldCollapseAll(t *testing.T) 
 }
 
 func TestPlanFilterFrame_WhenBracketPressedNotTreeMode_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = false
 	p.summary = &sdk.PlanSummary{
@@ -1734,7 +1735,7 @@ func TestPlanFilterFrame_WhenBracketPressedNotTreeMode_ShouldDoNothing(t *testin
 }
 
 func TestPlanFilterFrame_WhenEscPressed_ShouldPopAndClearFiltering(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1760,7 +1761,7 @@ func TestPlanFilterFrame_WhenEscPressed_ShouldPopAndClearFiltering(t *testing.T)
 }
 
 func TestListFrame_WhenEnterInTreeModeOnBranch_ShouldToggleBranch(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1781,7 +1782,7 @@ func TestListFrame_WhenEnterInTreeModeOnBranch_ShouldToggleBranch(t *testing.T) 
 }
 
 func TestListFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = true
 	p.summary = &sdk.PlanSummary{
@@ -1800,7 +1801,7 @@ func TestListFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
 }
 
 func TestListFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = true
 	p.listHScroll = 10
@@ -1820,7 +1821,7 @@ func TestListFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
 }
 
 func TestListFrame_WhenCloseBracketInTreeMode_ShouldExpandAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1837,7 +1838,7 @@ func TestListFrame_WhenCloseBracketInTreeMode_ShouldExpandAll(t *testing.T) {
 }
 
 func TestListFrame_WhenOpenBracketInTreeMode_ShouldCollapseAll(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1855,7 +1856,7 @@ func TestListFrame_WhenOpenBracketInTreeMode_ShouldCollapseAll(t *testing.T) {
 }
 
 func TestListFrame_WhenBracketNotTreeMode_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = false
 	p.summary = &sdk.PlanSummary{
@@ -1872,7 +1873,7 @@ func TestListFrame_WhenBracketNotTreeMode_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenHintsDoneInTreeModeWithPins_ShouldIncludeTreeAndClearPins(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1890,7 +1891,7 @@ func TestListFrame_WhenHintsDoneInTreeModeWithPins_ShouldIncludeTreeAndClearPins
 }
 
 func TestPlugin_WhenRenderResultsWithListWrapInTreeMode_ShouldNotTruncate(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.listWrap = true
@@ -1911,7 +1912,7 @@ func TestPlugin_WhenRenderResultsWithListWrapInTreeMode_ShouldNotTruncate(t *tes
 }
 
 func TestDetailFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.viewWidth = 100
 	p.summary = &sdk.PlanSummary{
@@ -1933,7 +1934,7 @@ func TestDetailFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
 }
 
 func TestDetailFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1955,7 +1956,7 @@ func TestDetailFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
 }
 
 func TestDetailFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1977,7 +1978,7 @@ func TestDetailFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
 }
 
 func TestDetailFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2000,7 +2001,7 @@ func TestDetailFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
 }
 
 func TestDetailFrame_WhenNonKeyMsg_ShouldReturnSelf(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2025,7 +2026,7 @@ func TestDetailFrame_WhenNonKeyMsg_ShouldReturnSelf(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenNonKeyMsgDelegated_ShouldReturnSelf(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2048,7 +2049,7 @@ func TestPlanFilterFrame_WhenNonKeyMsgDelegated_ShouldReturnSelf(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderResultsWithPinnedOnlyIndicator_ShouldShowInView(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.pinnedOnly = true
 	p.summary = &sdk.PlanSummary{
@@ -2068,7 +2069,7 @@ func TestPlugin_WhenRenderResultsWithPinnedOnlyIndicator_ShouldShowInView(t *tes
 }
 
 func TestPlugin_WhenRenderDetailWithScrollIndicator_ShouldShowPosition(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	longContent := ""
 	for i := 0; i < 50; i++ {
 		longContent += fmt.Sprintf("line %d\n", i)
@@ -2083,7 +2084,7 @@ func TestPlugin_WhenRenderDetailWithScrollIndicator_ShouldShowPosition(t *testin
 }
 
 func TestDetailFrame_WhenViewCalled_ShouldDelegateToRenderDetail(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2112,7 +2113,7 @@ func TestDetailFrame_WhenViewCalled_ShouldDelegateToRenderDetail(t *testing.T) {
 }
 
 func TestListFrame_WhenTPressedWithNoSelection_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{},
@@ -2126,7 +2127,7 @@ func TestListFrame_WhenTPressedWithNoSelection_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenBigTPressedWithNoSelection_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{},
@@ -2140,7 +2141,7 @@ func TestListFrame_WhenBigTPressedWithNoSelection_ShouldDoNothing(t *testing.T) 
 }
 
 func TestListFrame_WhenEPressedWithNoSelection_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{},
@@ -2154,7 +2155,7 @@ func TestListFrame_WhenEPressedWithNoSelection_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenTPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
@@ -2164,7 +2165,7 @@ func TestListFrame_WhenTPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenEPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -2174,7 +2175,7 @@ func TestListFrame_WhenEPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
 }
 
 func TestPlugin_WhenViewWithStackedDetailFrame_ShouldDelegateToDetail(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2196,7 +2197,7 @@ func TestPlugin_WhenViewWithStackedDetailFrame_ShouldDelegateToDetail(t *testing
 }
 
 func TestPlugin_WhenPanDetailRightWithSmallViewWidth_ShouldUseMinContentWidth(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.viewWidth = 10
 	p.detail = strings.Repeat("x", 200)
 
@@ -2207,7 +2208,7 @@ func TestPlugin_WhenPanDetailRightWithSmallViewWidth_ShouldUseMinContentWidth(t 
 }
 
 func TestPlugin_WhenPanDetailRightExceedsMaxScroll_ShouldClamp(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.viewWidth = 100
 	contentWidth := 100 - 6
 	p.detail = strings.Repeat("x", contentWidth+15)
@@ -2219,7 +2220,7 @@ func TestPlugin_WhenPanDetailRightExceedsMaxScroll_ShouldClamp(t *testing.T) {
 }
 
 func TestPlugin_WhenFormatChangeRowWithWrap_ShouldNotTruncate(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.listWrap = true
 	change := sdk.PlanChange{
 		Resource: sdk.Resource{Address: strings.Repeat("x", 200)},
@@ -2233,7 +2234,7 @@ func TestPlugin_WhenFormatChangeRowWithWrap_ShouldNotTruncate(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJsonWithCreateThenDelete_ShouldSetCorrectAction(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreateThenDelete},
@@ -2252,7 +2253,7 @@ func TestPlugin_WhenOutputJsonWithCreateThenDelete_ShouldSetCorrectAction(t *tes
 }
 
 func TestListFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = false
 	p.summary = &sdk.PlanSummary{
@@ -2271,7 +2272,7 @@ func TestListFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
 }
 
 func TestListFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.listWrap = false
 	p.listHScroll = 20
@@ -2291,7 +2292,7 @@ func TestListFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderResultsWithNarrowWidth_ShouldUseMinContentWidth(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2309,7 +2310,7 @@ func TestPlugin_WhenRenderResultsWithNarrowWidth_ShouldUseMinContentWidth(t *tes
 }
 
 func TestPlugin_WhenRenderDetailWithMultilineHScroll_ShouldOffsetAllLines(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "short\n" + strings.Repeat("x", 100) + "\nend"
 	p.detailAddr = "test"
 	p.detailHScroll = 5
@@ -2322,7 +2323,7 @@ func TestPlugin_WhenRenderDetailWithMultilineHScroll_ShouldOffsetAllLines(t *tes
 }
 
 func TestPlugin_WhenRenderDetailWithHScrollBeyondLine_ShouldShowEmptyLine(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "hi\n" + strings.Repeat("y", 100)
 	p.detailAddr = "test"
 	p.detailHScroll = 50
@@ -2335,7 +2336,7 @@ func TestPlugin_WhenRenderDetailWithHScrollBeyondLine_ShouldShowEmptyLine(t *tes
 }
 
 func TestListFrame_WhenBigTPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
@@ -2345,7 +2346,7 @@ func TestListFrame_WhenBigTPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenAPressedWithNilSummary_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = nil
 
@@ -2356,7 +2357,7 @@ func TestListFrame_WhenAPressedWithNilSummary_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenBigAPressedWithNilSummary_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = nil
 
@@ -2367,7 +2368,7 @@ func TestListFrame_WhenBigAPressedWithNilSummary_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenBigAPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
@@ -2377,7 +2378,7 @@ func TestListFrame_WhenBigAPressedWhileNotDone_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenEnterPressedWithNoSelection_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 	p.filtered = nil
@@ -2389,7 +2390,7 @@ func TestListFrame_WhenEnterPressedWithNoSelection_ShouldDoNothing(t *testing.T)
 }
 
 func TestPlugin_WhenFormatChangeRowLongAddressNoWrap_ShouldTruncateToAvailWidth(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.listWrap = false
 	p.listHScroll = 0
 	change := sdk.PlanChange{
@@ -2404,7 +2405,7 @@ func TestPlugin_WhenFormatChangeRowLongAddressNoWrap_ShouldTruncateToAvailWidth(
 }
 
 func TestPlugin_WhenOutputTextWithCreateThenDelete_ShouldUseCorrectSymbol(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreateThenDelete},
@@ -2423,7 +2424,7 @@ func TestPlugin_WhenOutputTextWithCreateThenDelete_ShouldUseCorrectSymbol(t *tes
 }
 
 func TestPlugin_WhenRenderResultsWithFilterButNoFilteringAndPinnedOnly_ShouldShowBothParts(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.filtering = false
 	p.filter = "aws"
@@ -2448,7 +2449,7 @@ func TestPlugin_WhenRenderResultsWithFilterButNoFilteringAndPinnedOnly_ShouldSho
 }
 
 func TestPlugin_WhenRenderResultsOnlyPinnedOnly_ShouldShowPinnedIndicator(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.filtering = false
 	p.filter = ""
@@ -2470,7 +2471,7 @@ func TestPlugin_WhenRenderResultsOnlyPinnedOnly_ShouldShowPinnedIndicator(t *tes
 }
 
 func TestListFrame_WhenEnterInTreeModeOnLeaf_ShouldInspect(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2492,7 +2493,7 @@ func TestListFrame_WhenEnterInTreeModeOnLeaf_ShouldInspect(t *testing.T) {
 }
 
 func TestListFrame_WhenEnterInTreeModeWithNilNode_ShouldCallInspect(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2508,7 +2509,7 @@ func TestListFrame_WhenEnterInTreeModeWithNilNode_ShouldCallInspect(t *testing.T
 }
 
 func TestPlugin_WhenOutputJsonWithEmptyChanges_ShouldReturnEmptyArray(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{},
 	}
@@ -2524,7 +2525,7 @@ func TestPlugin_WhenOutputJsonWithEmptyChanges_ShouldReturnEmptyArray(t *testing
 }
 
 func TestPlugin_WhenRenderResultsTreeModeWithRiskInLeaf_ShouldShowRisk(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2544,7 +2545,7 @@ func TestPlugin_WhenRenderResultsTreeModeWithRiskInLeaf_ShouldShowRisk(t *testin
 }
 
 func TestListFrame_WhenBigAPressedWithEmptyChanges_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 
@@ -2555,7 +2556,7 @@ func TestListFrame_WhenBigAPressedWithEmptyChanges_ShouldDoNothing(t *testing.T)
 }
 
 func TestListFrame_WhenAPressedWithEmptyChanges_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 
@@ -2566,7 +2567,7 @@ func TestListFrame_WhenAPressedWithEmptyChanges_ShouldDoNothing(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderResultsTreeModeWithSelectedStyle_ShouldHighlight(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2588,7 +2589,7 @@ func TestPlugin_WhenRenderResultsTreeModeWithSelectedStyle_ShouldHighlight(t *te
 }
 
 func TestPlugin_WhenRenderResultsTreeModeWithPins_ShouldShowPinIndicators(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2610,7 +2611,7 @@ func TestPlugin_WhenRenderResultsTreeModeWithPins_ShouldShowPinIndicators(t *tes
 }
 
 func TestPlanFilterFrame_WhenEnterPressedInTreeModeOnBranch_ShouldToggle(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2637,7 +2638,7 @@ func TestPlanFilterFrame_WhenEnterPressedInTreeModeOnBranch_ShouldToggle(t *test
 }
 
 func TestPlanFilterFrame_WhenEnterPressedOnLeaf_ShouldInspect(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = false
 	p.summary = &sdk.PlanSummary{
@@ -2658,7 +2659,7 @@ func TestPlanFilterFrame_WhenEnterPressedOnLeaf_ShouldInspect(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2677,7 +2678,7 @@ func TestPlanFilterFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenSpacePressedWithNoNode_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{},
@@ -2693,7 +2694,7 @@ func TestPlanFilterFrame_WhenSpacePressedWithNoNode_ShouldDoNothing(t *testing.T
 }
 
 func TestPlanFilterFrame_WhenCtrlTPressed_ShouldToggleTreeMode(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = false
 	p.summary = &sdk.PlanSummary{
@@ -2713,7 +2714,7 @@ func TestPlanFilterFrame_WhenCtrlTPressed_ShouldToggleTreeMode(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenDownPressed_ShouldNavigateDown(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2733,7 +2734,7 @@ func TestPlanFilterFrame_WhenDownPressed_ShouldNavigateDown(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenUpPressed_ShouldNavigateUp(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2754,7 +2755,7 @@ func TestPlanFilterFrame_WhenUpPressed_ShouldNavigateUp(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenTyping_ShouldFilter(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2777,7 +2778,7 @@ func TestPlanFilterFrame_WhenTyping_ShouldFilter(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderResultsVerySmallHeight_ShouldUseMinimumVisibleLines(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2795,7 +2796,7 @@ func TestPlugin_WhenRenderResultsVerySmallHeight_ShouldUseMinimumVisibleLines(t 
 }
 
 func TestListFrame_WhenIPressedWithDiffs_ShouldOpenInspect(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2814,7 +2815,7 @@ func TestListFrame_WhenIPressedWithDiffs_ShouldOpenInspect(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJsonWithNoRisk_ShouldIncludeNoneRisk(t *testing.T) {
-	p := newTestPlugin(&mockService{})
+	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate, Risk: sdk.RiskNone},
