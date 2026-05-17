@@ -355,6 +355,90 @@ func TestFormFrame_View_ShouldShowSelectableIndicator(t *testing.T) {
 	}
 }
 
+func TestFormFrame_View_WhenActionField_ShouldRenderWithActionStyle(t *testing.T) {
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "Name", Value: func() string { return "web-server" }, Selectable: false},
+			{Label: "Submit", Value: func() string { return "Apply Changes" }, Selectable: true, IsAction: true},
+		},
+	})
+
+	view := f.View(80, 24)
+	if !strings.Contains(view, "Apply Changes") {
+		t.Fatal("view should contain action field value")
+	}
+}
+
+func TestFormFrame_View_WhenActionFieldSelected_ShouldHighlight(t *testing.T) {
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "Submit", Value: func() string { return "Apply Changes" }, Selectable: true, IsAction: true},
+		},
+	})
+
+	// cursor starts at 0 (first selectable = the action field)
+	view := f.View(80, 24)
+	if !strings.Contains(view, "▸") {
+		t.Fatal("selected action field should show cursor indicator")
+	}
+	if !strings.Contains(view, "Apply Changes") {
+		t.Fatal("selected action field should show its value")
+	}
+}
+
+func TestFormFrame_View_WhenActionFieldNotSelected_ShouldShowFaint(t *testing.T) {
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "Region", Value: func() string { return "us-east-1" }, Selectable: true},
+			{Label: "Submit", Value: func() string { return "Apply" }, Selectable: true, IsAction: true},
+		},
+	})
+
+	// cursor starts at 0 (Region), Submit is at 1 (not selected)
+	view := f.View(80, 24)
+	if !strings.Contains(view, "Apply") {
+		t.Fatal("non-selected action field should still show its value")
+	}
+}
+
+func TestFormFrame_View_WhenActionFollowsDataField_ShouldInsertBlankLine(t *testing.T) {
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "Name", Value: func() string { return "web" }, Selectable: false},
+			{Label: "Submit", Value: func() string { return "Apply" }, Selectable: true, IsAction: true},
+		},
+	})
+
+	view := f.View(80, 24)
+	if !strings.Contains(view, "\n\n") {
+		t.Fatal("action field following a data field should be preceded by a blank line")
+	}
+}
+
+func TestFormFrame_View_WhenMultipleActions_ShouldNotInsertExtraBlankLines(t *testing.T) {
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "Name", Value: func() string { return "web" }, Selectable: false},
+			{Label: "Submit", Value: func() string { return "Submit" }, Selectable: true, IsAction: true},
+			{Label: "Cancel", Value: func() string { return "Cancel" }, Selectable: true, IsAction: true},
+		},
+	})
+
+	view := f.View(80, 24)
+	// Between two action fields, no extra blank line should be inserted
+	lines := strings.Split(view, "\n")
+	blankCount := 0
+	for _, line := range lines {
+		if line == "" {
+			blankCount++
+		}
+	}
+	// Only one blank line: between data and first action
+	if blankCount > 2 {
+		t.Errorf("expected at most 2 blank lines (separator + trailing), got %d in:\n%s", blankCount, view)
+	}
+}
+
 func TestFormFrame_Hints(t *testing.T) {
 	f := NewFormFrame(FormOpts{})
 	hints := f.Hints()

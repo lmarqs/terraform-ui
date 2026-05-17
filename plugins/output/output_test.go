@@ -1337,3 +1337,44 @@ func TestOutput_WhenJsonFalseEmpty_ShouldReturnEmpty(t *testing.T) {
 		t.Errorf("text for empty = %q, want empty", string(data))
 	}
 }
+
+func TestOutput_WhenJsonTrueNilOutputs_ShouldReturnEmptyObject(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.outputs = nil
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	if !strings.Contains(string(data), "{}") {
+		t.Errorf("JSON for nil outputs = %q, want '{}'", string(data))
+	}
+}
+
+func TestOutput_WhenJsonFalseNilOutputs_ShouldReturnEmpty(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.outputs = nil
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("text for nil outputs = %q, want empty", string(data))
+	}
+}
+
+func TestUpdate_WhenUnhandledMsgType_ShouldPassThrough(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+
+	type customMsg struct{}
+	result, cmd := p.Update(customMsg{})
+	if cmd != nil {
+		t.Error("unhandled msg should return nil cmd")
+	}
+	if result.(*Plugin) != p {
+		t.Error("unhandled msg should return same plugin")
+	}
+}

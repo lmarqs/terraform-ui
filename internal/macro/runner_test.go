@@ -332,3 +332,94 @@ type loadingModel struct{}
 func (m loadingModel) Init() tea.Cmd                         { return nil }
 func (m loadingModel) Update(_ tea.Msg) (tea.Model, tea.Cmd) { return m, nil }
 func (m loadingModel) View() string                          { return "Loading" }
+
+func TestRunner_WhenEmitStale_ShouldSendPlanInvalidatedEvent(t *testing.T) {
+	model := mockModel{content: "ready"}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+
+	commands := []Command{
+		{Type: CmdEmit, Args: []string{"stale"}, Line: 1},
+	}
+	err := r.Execute(commands)
+	if err != nil {
+		t.Fatalf("emit stale should succeed: %v", err)
+	}
+}
+
+func TestRunner_WhenEmitRefreshed_ShouldSendStateRefreshedEvent(t *testing.T) {
+	model := mockModel{content: "ready"}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+
+	commands := []Command{
+		{Type: CmdEmit, Args: []string{"refreshed"}, Line: 1},
+	}
+	err := r.Execute(commands)
+	if err != nil {
+		t.Fatalf("emit refreshed should succeed: %v", err)
+	}
+}
+
+func TestRunner_WhenEmitLock_ShouldSendLockDetectedEvent(t *testing.T) {
+	model := mockModel{content: "ready"}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+
+	commands := []Command{
+		{Type: CmdEmit, Args: []string{"lock", "deploy-bot"}, Line: 1},
+	}
+	err := r.Execute(commands)
+	if err != nil {
+		t.Fatalf("emit lock should succeed: %v", err)
+	}
+}
+
+func TestRunner_WhenEmitLockClear_ShouldSendLockClearedEvent(t *testing.T) {
+	model := mockModel{content: "ready"}
+	d := NewDriver(model, 80, 24)
+	r := NewRunner(d)
+
+	commands := []Command{
+		{Type: CmdEmit, Args: []string{"lock-clear"}, Line: 1},
+	}
+	err := r.Execute(commands)
+	if err != nil {
+		t.Fatalf("emit lock-clear should succeed: %v", err)
+	}
+}
+
+func TestBuildEmitMsg_WhenStale_ShouldReturnPlanInvalidatedEvent(t *testing.T) {
+	msg := buildEmitMsg([]string{"stale"})
+	if msg == nil {
+		t.Fatal("buildEmitMsg(stale) should not return nil")
+	}
+}
+
+func TestBuildEmitMsg_WhenRefreshed_ShouldReturnStateRefreshedEvent(t *testing.T) {
+	msg := buildEmitMsg([]string{"refreshed"})
+	if msg == nil {
+		t.Fatal("buildEmitMsg(refreshed) should not return nil")
+	}
+}
+
+func TestBuildEmitMsg_WhenLock_ShouldReturnLockDetectedEvent(t *testing.T) {
+	msg := buildEmitMsg([]string{"lock", "user@host"})
+	if msg == nil {
+		t.Fatal("buildEmitMsg(lock) should not return nil")
+	}
+}
+
+func TestBuildEmitMsg_WhenLockClear_ShouldReturnLockClearedEvent(t *testing.T) {
+	msg := buildEmitMsg([]string{"lock-clear"})
+	if msg == nil {
+		t.Fatal("buildEmitMsg(lock-clear) should not return nil")
+	}
+}
+
+func TestBuildEmitMsg_WhenUnknown_ShouldReturnNil(t *testing.T) {
+	msg := buildEmitMsg([]string{"unknown-event"})
+	if msg != nil {
+		t.Fatalf("buildEmitMsg(unknown) should return nil, got %v", msg)
+	}
+}

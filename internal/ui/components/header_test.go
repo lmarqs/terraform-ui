@@ -209,6 +209,75 @@ func TestHeader_WithStale_False_HidesBadge(t *testing.T) {
 	}
 }
 
+func TestFormatBadgeAge_WhenSeconds_ShouldShowSecondsAgo(t *testing.T) {
+	result := formatBadgeAge(30 * time.Second)
+	if result != "30s ago" {
+		t.Errorf("formatBadgeAge(30s) = %q, want %q", result, "30s ago")
+	}
+}
+
+func TestFormatBadgeAge_WhenMinutes_ShouldShowMinutesAgo(t *testing.T) {
+	result := formatBadgeAge(5 * time.Minute)
+	if result != "5m ago" {
+		t.Errorf("formatBadgeAge(5m) = %q, want %q", result, "5m ago")
+	}
+}
+
+func TestFormatBadgeAge_WhenHours_ShouldShowHoursAgo(t *testing.T) {
+	result := formatBadgeAge(3 * time.Hour)
+	if result != "3h ago" {
+		t.Errorf("formatBadgeAge(3h) = %q, want %q", result, "3h ago")
+	}
+}
+
+func TestFormatBadgeAge_WhenDays_ShouldShowDaysAgo(t *testing.T) {
+	result := formatBadgeAge(48 * time.Hour)
+	if result != "2d ago" {
+		t.Errorf("formatBadgeAge(48h) = %q, want %q", result, "2d ago")
+	}
+}
+
+func TestFormatBadgeAge_WhenExactlyOneMinute_ShouldShowMinutes(t *testing.T) {
+	result := formatBadgeAge(60 * time.Second)
+	if result != "1m ago" {
+		t.Errorf("formatBadgeAge(60s) = %q, want %q", result, "1m ago")
+	}
+}
+
+func TestFormatBadgeAge_WhenExactly24Hours_ShouldShowDays(t *testing.T) {
+	result := formatBadgeAge(24 * time.Hour)
+	if result != "1d ago" {
+		t.Errorf("formatBadgeAge(24h) = %q, want %q", result, "1d ago")
+	}
+}
+
+func TestFormatLockBadge_WhenOnlyCreated_ShouldShowAgeWithoutWho(t *testing.T) {
+	lock := &sdk.StateLock{
+		ID:      "abc-123",
+		Created: time.Now().Add(-30 * time.Second),
+	}
+	result := formatLockBadge(lock)
+	if !strings.Contains(result, "locked") {
+		t.Error("should contain 'locked'")
+	}
+	if !strings.Contains(result, "s ago") {
+		t.Errorf("should contain age, got: %q", result)
+	}
+	if strings.Contains(result, "  ") {
+		t.Errorf("should not contain double-space from empty Who, got: %q", result)
+	}
+}
+
+func TestFormatLockBadge_WhenNoWhoNoCreated_ShouldShowOnlyLocked(t *testing.T) {
+	lock := &sdk.StateLock{
+		ID: "abc-123",
+	}
+	result := formatLockBadge(lock)
+	if result != "locked" {
+		t.Errorf("formatLockBadge with no details = %q, want %q", result, "locked")
+	}
+}
+
 func TestHeader_WithLockInfo_PreservesOtherFields(t *testing.T) {
 	lock := &sdk.StateLock{ID: "x", Who: "user"}
 	h := NewHeader("/project", "prod").

@@ -1452,3 +1452,17 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 		t.Error("Cancel() should set cancelFn to nil")
 	}
 }
+
+func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+
+	type customMsg struct{}
+	result, cmd := p.Update(customMsg{})
+	if cmd != nil {
+		t.Error("unhandled msg should return nil cmd")
+	}
+	if result.(*Plugin) != p {
+		t.Error("unhandled msg should return same plugin")
+	}
+}

@@ -530,3 +530,152 @@ func executeBatch(cmd tea.Cmd) []tea.Msg {
 	}
 	return []tea.Msg{msg}
 }
+
+func TestPlugin_WhenUpdateWithUnhandledMsg_ShouldReturnNil(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.Activate()
+
+	type unknownMsg struct{}
+	_, cmd := p.Update(unknownMsg{})
+	if cmd != nil {
+		t.Error("Update(unknownMsg) should return nil cmd")
+	}
+}
+
+func TestPlugin_WhenUpdateTimerTickWithNoTopFrame_ShouldReturnNil(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	// Stack empty - no result frame
+	p.stack.Reset()
+
+	_, cmd := p.Update(ui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("TimerTickMsg with empty stack should return nil cmd")
+	}
+}
+
+func TestPlugin_WhenUpdateInitResultMsgWithNoTopFrame_ShouldReturnNil(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.stack.Reset()
+
+	_, cmd := p.Update(InitResultMsg{Err: nil, Duration: time.Second})
+	if cmd != nil {
+		t.Error("InitResultMsg with empty stack should return nil cmd")
+	}
+}
+
+func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.upgrade = false
+	p.Activate()
+
+	// Form is on top of stack with cursor on first selectable field (upgrade)
+	// Press enter to invoke OnSelect
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !p.upgrade {
+		t.Error("expected upgrade=true after pressing enter on upgrade field")
+	}
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if p.upgrade {
+		t.Error("expected upgrade=false after second press on upgrade field")
+	}
+}
+
+func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.reconfigure = false
+	p.Activate()
+
+	// Move down to reconfigure field
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if !p.reconfigure {
+		t.Error("expected reconfigure=true after pressing enter on reconfigure field")
+	}
+}
+
+func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.backend = true
+	p.Activate()
+
+	// Move down to backend field (3rd selectable)
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if p.backend {
+		t.Error("expected backend=false after pressing enter on backend field")
+	}
+}
+
+func TestPlugin_WhenFormFieldExtraArgsSelected_ShouldEmitInputRequest(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.Activate()
+
+	// Move down to extra args field (4th selectable)
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for extra args field selection")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.RequestInputMsg); !ok {
+		t.Errorf("expected RequestInputMsg, got %T", msg)
+	}
+}
+
+func TestPlugin_WhenEditExtraArgsCallback_ShouldStoreValue(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.extraArgs = ""
+
+	cmd := p.editExtraArgs()
+	msg := cmd()
+	reqMsg, ok := msg.(sdk.RequestInputMsg)
+	if !ok {
+		t.Fatalf("editExtraArgs cmd returned %T, want RequestInputMsg", msg)
+	}
+
+	result := reqMsg.Request.Callback("-lock=false")
+	if result != nil {
+		t.Error("callback should return nil cmd")
+	}
+	if p.extraArgs != "-lock=false" {
+		t.Errorf("extraArgs = %q, want %q", p.extraArgs, "-lock=false")
+	}
+}
+
+func TestResultFrame_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	var timer ui.Timer
+	timer.Start()
+	rf := newResultFrame(&timer)
+
+	_, cmd := rf.Update(ui.TimerTickMsg{})
+	if cmd == nil {
+		t.Error("TimerTickMsg with running timer should return non-nil cmd")
+	}
+}
+
+func TestResultFrame_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
+	var timer ui.Timer
+	rf := newResultFrame(&timer)
+
+	_, cmd := rf.Update(ui.TimerTickMsg{})
+	if cmd != nil {
+		t.Error("TimerTickMsg with stopped timer should return nil cmd")
+	}
+}
+
+func TestResultFrame_WhenUnhandledKeyInLoading_ShouldReturnSelf(t *testing.T) {
+	var timer ui.Timer
+	rf := newResultFrame(&timer)
+
+	frame, cmd := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if frame != rf {
+		t.Error("unhandled key in loading should return self")
+	}
+	if cmd != nil {
+		t.Error("unhandled key should return nil cmd")
+	}
+}

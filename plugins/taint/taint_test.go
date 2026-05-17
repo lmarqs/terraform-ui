@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -563,5 +564,19 @@ func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
 	}
 	if !hasBack {
 		t.Error("Hints() in Idle should contain 'back'")
+	}
+}
+
+func TestPlugin_WhenViewInLoadingWithMultipleAddresses_ShouldShowResourceCount(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusLoading
+	p.addresses = []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
+
+	view := p.View(80, 24)
+	if view == "" {
+		t.Error("View() in loading with multiple addresses returned empty")
+	}
+	if !strings.Contains(view, "3 resources") {
+		t.Errorf("View() should show '3 resources', got %q", view)
 	}
 }

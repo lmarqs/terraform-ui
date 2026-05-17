@@ -1097,3 +1097,39 @@ func TestCancel_WhenSet_ShouldCallAndClear(t *testing.T) {
 		t.Error("Cancel() should set cancelFn to nil")
 	}
 }
+
+func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+
+	type customMsg struct{}
+	result, cmd := p.Update(customMsg{})
+	if cmd != nil {
+		t.Error("unhandled msg should return nil cmd")
+	}
+	if result.(*Plugin) != p {
+		t.Error("unhandled msg should return same plugin")
+	}
+}
+
+func TestOutput_WhenTextWithFileNoLine_ShouldFormatCorrectly(t *testing.T) {
+	svc := &mockService{}
+	p := New(svc).(*Plugin)
+	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(ctx)
+	p.status = sdk.StatusDone
+	p.diagnostics = []sdk.Diagnostic{
+		{Severity: "warning", Summary: "deprecated", File: "main.tf", Line: 0},
+	}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "(main.tf)") {
+		t.Errorf("expected '(main.tf)' without line number, got %q", s)
+	}
+	if strings.Contains(s, "main.tf:0") {
+		t.Error("should not show line number 0")
+	}
+}

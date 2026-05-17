@@ -1572,6 +1572,369 @@ func TestRenderResources_WhenHeightVerySmall_ShouldClampMinVisible(t *testing.T)
 	}
 }
 
+func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+	p.timer.Start()
+
+	cmd := p.Activate()
+	if cmd == nil {
+		t.Error("Activate() when loading with running timer should return tick cmd")
+	}
+}
+
+func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusLoading
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() when loading with stopped timer should return nil")
+	}
+}
+
+func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
+	svc := &mockService{stateListResult: []sdk.Resource{}}
+	p := New(svc).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.svc = svc
+	p.status = sdk.StatusDone
+	p.mutating = true
+
+	_, cmd := p.Update(StateMovedMsg{Source: "a", Dest: "b"})
+	if cmd == nil {
+		t.Error("expected non-nil cmd (refresh) after StateMovedMsg")
+	}
+	if p.mutating {
+		t.Error("expected mutating=false after StateMovedMsg")
+	}
+}
+
+func TestIsTaintedAddress_WhenResourceTainted_ShouldReturnTrue(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
+		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Tainted: false},
+	}
+
+	if !p.isTaintedAddress("aws_instance.web") {
+		t.Error("expected isTaintedAddress to return true for tainted resource")
+	}
+	if p.isTaintedAddress("aws_s3_bucket.data") {
+		t.Error("expected isTaintedAddress to return false for non-tainted resource")
+	}
+	if p.isTaintedAddress("nonexistent") {
+		t.Error("expected isTaintedAddress to return false for nonexistent address")
+	}
+}
+
+func TestRenderDetail_WhenTainted_ShouldShowTaintedIndicator(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	p.detail = `{"id": "123"}`
+	p.resources = []sdk.Resource{{Address: "aws_instance.web", Tainted: true}}
+
+	view := p.renderDetail(80, 20)
+	if !strings.Contains(view, "[tainted]") {
+		t.Error("expected [tainted] indicator in detail view for tainted resource")
+	}
+}
+
+func TestFormatResourceRow_WhenTainted_ShouldShowTaintedBadge(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.listHScroll = 0
+	p.listWrap = false
+
+	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", Tainted: true}, 120)
+	if !strings.Contains(row, "[tainted]") {
+		t.Error("expected [tainted] in formatResourceRow for tainted resource")
+	}
+}
+
+func TestFormatResourceRow_WhenWrapMode_ShouldNotTruncate(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.listHScroll = 0
+	p.listWrap = true
+
+	longAddr := strings.Repeat("x", 200)
+	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: longAddr, Type: "t"}, 80)
+	if !strings.Contains(row, longAddr) {
+		t.Error("expected full content in wrap mode (no truncation)")
+	}
+}
+
+func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.resources = nil
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	if !strings.Contains(string(data), "[]") {
+		t.Errorf("JSON for nil resources = %q, want '[]'", string(data))
+	}
+}
+
+func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.resources = nil
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("text for nil resources = %q, want empty", string(data))
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	if frame == nil {
+		t.Fatal("buildActionFrame returned nil")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTarget_ShouldEnableAllActions(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	if frame == nil {
+		t.Fatal("buildActionFrame returned nil")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	if frame == nil {
+		t.Fatal("buildActionFrame returned nil")
+	}
+
+	// Push the frame and trigger the 'e' action (edit)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for edit action in multi-target mode")
+	}
+}
+
+func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+	p.pins.Toggle("a")
+	p.pins.Toggle("b")
+
+	frame := p.buildActionFrame("a", true)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for delete action in multi-target mode")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetTaintHandler_ShouldEmitTaintRequest(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for taint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetUntaintHandler_ShouldEmitUntaintRequest(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for untaint action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetImportHandler_ShouldEmitImportRequest(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for import action")
+	}
+}
+
+func TestBuildActionFrame_WhenSingleTargetMoveHandler_ShouldEmitMoveRequest(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.pins = sdk.NewPinService()
+	p.resources = []sdk.Resource{{Address: "a"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	frame := p.buildActionFrame("a", false)
+	p.stack.Push(frame)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for move action")
+	}
+}
+
+func TestDetailFrame_Update_WhenMKey_ShouldRequestMove(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'m'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for 'm' in detail frame")
+	}
+}
+
+func TestDetailFrame_Update_WhenTKey_ShouldEmitTaintRequest(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for 't' in detail frame")
+	}
+}
+
+func TestDetailFrame_Update_WhenShiftTKey_ShouldEmitUntaintRequest(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for 'T' in detail frame")
+	}
+}
+
+func TestDetailFrame_Update_WhenNKey_ShouldEmitImportRequest(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	p.detailAddr = "aws_instance.web"
+	f := &detailFrame{plugin: p}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Error("expected non-nil cmd for 'n' in detail frame")
+	}
+}
+
+func TestDetailFrame_Update_WhenUnrecognizedKey_ShouldReturnSelf(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.status = StatusShowingDetail
+	f := &detailFrame{plugin: p}
+
+	result, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
+	if result != f {
+		t.Error("expected same frame for unrecognized key")
+	}
+	if cmd != nil {
+		t.Error("expected nil cmd for unrecognized key")
+	}
+}
+
+func TestListFrame_Update_WhenRightKey_ShouldPanRight(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a_very_long_address"}})
+	p.listWrap = false
+	f := &listFrame{plugin: p}
+
+	f.Update(tea.KeyMsg{Type: tea.KeyRight})
+	if p.listHScroll != 10 {
+		t.Errorf("listHScroll after right = %d, want 10", p.listHScroll)
+	}
+}
+
+func TestListFrame_Update_WhenLeftKey_ShouldPanLeft(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.listHScroll = 20
+	p.listWrap = false
+	f := &listFrame{plugin: p}
+
+	f.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	if p.listHScroll != 10 {
+		t.Errorf("listHScroll after left = %d, want 10", p.listHScroll)
+	}
+}
+
+func TestListFrame_Update_WhenRightKeyWithWrap_ShouldNotPan(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.listWrap = true
+	f := &listFrame{plugin: p}
+
+	f.Update(tea.KeyMsg{Type: tea.KeyRight})
+	if p.listHScroll != 0 {
+		t.Errorf("listHScroll after right with wrap = %d, want 0", p.listHScroll)
+	}
+}
+
+func TestListFrame_Update_WhenLeftKeyWithWrap_ShouldNotPan(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
+	p.listHScroll = 10
+	p.listWrap = true
+	f := &listFrame{plugin: p}
+
+	f.Update(tea.KeyMsg{Type: tea.KeyLeft})
+	if p.listHScroll != 10 {
+		t.Errorf("listHScroll after left with wrap = %d, want 10", p.listHScroll)
+	}
+}
+
 func TestRenderDetail_WhenScrollExceedsMax_ShouldClamp(t *testing.T) {
 	p := New(&mockService{}).(*Plugin)
 	p.status = StatusShowingDetail

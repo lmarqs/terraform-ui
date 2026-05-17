@@ -1116,3 +1116,58 @@ func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
 		t.Error("ReplanResultMsg.Err = nil, want error")
 	}
 }
+
+func TestPlugin_WhenActivatedInConfirmingStatus_ShouldNotReset(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusConfirming
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() in confirming should return nil")
+	}
+	if p.status != StatusConfirming {
+		t.Errorf("status = %v, want StatusConfirming (unchanged)", p.status)
+	}
+}
+
+func TestPlugin_WhenActivatedInReplanningStatus_ShouldNotReset(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = StatusReplanning
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() in replanning should return nil")
+	}
+	if p.status != StatusReplanning {
+		t.Errorf("status = %v, want StatusReplanning (unchanged)", p.status)
+	}
+}
+
+func TestPlugin_WhenKeyInLoadingStatus_ShouldDoNothing(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusLoading
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	if cmd != nil {
+		t.Error("key in loading: cmd != nil, want nil")
+	}
+
+	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd != nil {
+		t.Error("esc in loading: cmd != nil, want nil")
+	}
+}
+
+func TestPlugin_WhenOutputJsonMarshalSuccess_ShouldNotReturnError(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v, want nil", err)
+	}
+	if len(data) == 0 {
+		t.Error("Output(true) returned empty data")
+	}
+	if !strings.Contains(string(data), "\n") {
+		t.Error("Output(true) should end with newline")
+	}
+}

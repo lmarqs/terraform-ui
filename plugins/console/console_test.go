@@ -908,3 +908,56 @@ func TestPlugin_WhenCapturesKeysInIdle_ShouldReturnFalse(t *testing.T) {
 		t.Error("CapturesKeys() in Idle should be false")
 	}
 }
+
+func TestPlugin_WhenQKeyWithNonEmptyInput_ShouldAppendQ(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.input = "hello"
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd != nil {
+		t.Error("q with non-empty input: cmd != nil, want nil")
+	}
+	if p.input != "helloq" {
+		t.Errorf("input = %q, want %q", p.input, "helloq")
+	}
+	if p.historyIdx != -1 {
+		t.Errorf("historyIdx = %d, want -1", p.historyIdx)
+	}
+}
+
+func TestPlugin_WhenQKeyWithEmptyInputDuringEvaluating_ShouldDoNothing(t *testing.T) {
+	p := newTestPlugin()
+	p.status = StatusEvaluating
+	p.input = ""
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	if cmd != nil {
+		t.Error("q during evaluating: cmd != nil, want nil")
+	}
+	if p.input != "q" {
+		t.Errorf("input = %q, want %q (appended since evaluating captures keys)", p.input, "q")
+	}
+}
+
+func TestPlugin_WhenNonPrintableKey_ShouldNotAppend(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.input = "hello"
+
+	p.Update(tea.KeyMsg{Type: tea.KeyTab})
+	if p.input != "hello" {
+		t.Errorf("input = %q after tab, want %q (unchanged)", p.input, "hello")
+	}
+}
+
+func TestPlugin_WhenCtrlHKey_ShouldBackspace(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	p.input = "hello"
+
+	p.Update(tea.KeyMsg{Type: tea.KeyCtrlH})
+	if p.input != "hell" {
+		t.Errorf("input after ctrl+h = %q, want %q", p.input, "hell")
+	}
+}

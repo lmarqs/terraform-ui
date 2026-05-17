@@ -447,3 +447,39 @@ func containsHelper(s, substr string) bool {
 	}
 	return false
 }
+
+func TestOutput_WhenTextWithNilInfo_ShouldShowOnlyTfuiVersion(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = "1.2.3"
+	p.info = nil
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !contains(s, "tfui v1.2.3") {
+		t.Errorf("expected 'tfui v1.2.3', got %q", s)
+	}
+	if contains(s, "terraform v") {
+		t.Error("should not show terraform version when info is nil")
+	}
+}
+
+func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.version = "1.2.3"
+	p.info = nil
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !contains(s, `"tfui_version": "1.2.3"`) {
+		t.Errorf("expected tfui_version in JSON, got %q", s)
+	}
+	if contains(s, `"terraform_version"`) {
+		t.Error("should not include terraform_version when info is nil")
+	}
+}

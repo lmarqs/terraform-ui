@@ -258,6 +258,80 @@ func TestAssertGolden_WhenUpdateFlagIsSet_ShouldWriteGoldenFile(t *testing.T) {
 	})
 }
 
+func TestAssertGolden_WhenUpdateAndMkdirFails_ShouldFail(t *testing.T) {
+	// Use a path where directory creation will fail (file exists where dir expected)
+	dir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working dir: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	t.Cleanup(func() { os.Chdir(origDir) })
+
+	// Create a file where the golden directory should be, so MkdirAll fails
+	if err := os.WriteFile(filepath.Join(dir, "testdata"), []byte("blocker"), 0o644); err != nil {
+		t.Fatalf("failed to create blocker file: %v", err)
+	}
+
+	oldUpdate := *update
+	*update = true
+	t.Cleanup(func() { *update = oldUpdate })
+
+	mockT := &testing.T{}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		AssertGolden(mockT, "content")
+	}()
+	wg.Wait()
+	if !mockT.Failed() {
+		t.Fatal("expected test to fail when MkdirAll fails")
+	}
+}
+
+func TestAssertGolden_WhenUpdateAndWriteFileFails_ShouldFail(t *testing.T) {
+	dir := t.TempDir()
+
+	origDir, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("failed to get working dir: %v", err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatalf("failed to chdir: %v", err)
+	}
+	t.Cleanup(func() { os.Chdir(origDir) })
+
+	// Create the golden directory but make it read-only so WriteFile fails
+	goldenDir := filepath.Join(dir, "testdata", "golden")
+	if err := os.MkdirAll(goldenDir, 0o755); err != nil {
+		t.Fatalf("failed to create golden dir: %v", err)
+	}
+	if err := os.Chmod(goldenDir, 0o555); err != nil {
+		t.Fatalf("failed to chmod golden dir: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(goldenDir, 0o755) })
+
+	oldUpdate := *update
+	*update = true
+	t.Cleanup(func() { *update = oldUpdate })
+
+	mockT := &testing.T{}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		AssertGolden(mockT, "content")
+	}()
+	wg.Wait()
+	if !mockT.Failed() {
+		t.Fatal("expected test to fail when WriteFile fails")
+	}
+}
+
 func TestAssertGolden_WhenInputHasTrailingWhitespace_ShouldNormalizeBeforeComparing(t *testing.T) {
 	dir := t.TempDir()
 	goldenDir := filepath.Join(dir, "testdata", "golden")

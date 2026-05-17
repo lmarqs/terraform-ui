@@ -85,3 +85,28 @@ func TestTimer_StopWhenNotRunning(t *testing.T) {
 		t.Errorf("Elapsed() = %v after Stop on fresh timer, want 0", timer.Elapsed())
 	}
 }
+
+func TestTimer_Tick_WhenRunning_ShouldReturnCmdThatProducesTimerTickMsg(t *testing.T) {
+	var timer Timer
+	cmd := timer.Start()
+	if cmd == nil {
+		t.Fatal("Start() should return a tick cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(TimerTickMsg); !ok {
+		t.Errorf("tick cmd should produce TimerTickMsg, got %T", msg)
+	}
+}
+
+func TestTimer_Tick_WhenCalledWhileRunning_ShouldReturnCmdThatProducesTimerTickMsg(t *testing.T) {
+	var timer Timer
+	timer.Start()
+	cmd := timer.Tick()
+	if cmd == nil {
+		t.Fatal("Tick() should return next tick cmd when running")
+	}
+	msg := cmd()
+	if _, ok := msg.(TimerTickMsg); !ok {
+		t.Errorf("tick cmd should produce TimerTickMsg, got %T", msg)
+	}
+}
