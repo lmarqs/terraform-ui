@@ -892,3 +892,19 @@ func TestRenderREPL_WhenHistoryHasMultilineResult_ShouldSplitLines(t *testing.T)
 		t.Error("View should contain last line of multiline result")
 	}
 }
+
+func TestPlugin_WhenCapturesKeysInDone_ShouldReturnTrue(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusDone
+	if !p.CapturesKeys() {
+		t.Error("CapturesKeys() in Done should be true")
+	}
+}
+
+func TestPlugin_WhenCapturesKeysInIdle_ShouldReturnFalse(t *testing.T) {
+	p := newTestPlugin()
+	p.status = sdk.StatusIdle
+	if p.CapturesKeys() {
+		t.Error("CapturesKeys() in Idle should be false")
+	}
+}

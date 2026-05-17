@@ -1619,3 +1619,79 @@ func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) 
 		t.Errorf("lockInfo.ID = %q, want 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'", p.lockInfo.ID)
 	}
 }
+
+func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{{Address: "a"}}
+
+	cmd := p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
+	if cmd != nil {
+		t.Error("HandlePlanInvalidated() should return nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want Idle", p.status)
+	}
+	if p.resources != nil {
+		t.Error("resources should be nil after reset")
+	}
+}
+
+func TestPlugin_WhenHandleLockCleared_ShouldClearLockAndReset(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.status = sdk.StatusError
+	p.lockInfo = &sdk.StateLock{ID: "abc"}
+
+	cmd := p.HandleLockCleared(sdk.LockClearedEvent{})
+	if cmd != nil {
+		t.Error("HandleLockCleared() should return nil")
+	}
+	if p.lockInfo != nil {
+		t.Error("lockInfo should be nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want Idle", p.status)
+	}
+}
+
+func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
+		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
+	}
+
+	data, err := p.Output(true)
+	if err != nil {
+		t.Fatalf("Output(true) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, `"aws_instance.web"`) {
+		t.Error("JSON missing address")
+	}
+	if !strings.Contains(s, `"tainted": true`) {
+		t.Error("JSON missing tainted flag")
+	}
+}
+
+func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
+	p := New(&mockService{}).(*Plugin)
+	p.resources = []sdk.Resource{
+		{Address: "aws_instance.web"},
+		{Address: "aws_s3_bucket.data"},
+	}
+
+	data, err := p.Output(false)
+	if err != nil {
+		t.Fatalf("Output(false) error = %v", err)
+	}
+	s := string(data)
+	if !strings.Contains(s, "aws_instance.web\n") {
+		t.Error("text missing aws_instance.web")
+	}
+	if !strings.Contains(s, "aws_s3_bucket.data\n") {
+		t.Error("text missing aws_s3_bucket.data")
+	}
+}

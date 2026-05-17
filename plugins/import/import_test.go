@@ -592,3 +592,52 @@ func TestPlugin_WhenImportSubmitMsg_ShouldStoreAddressAndID(t *testing.T) {
 		t.Errorf("id = %q, want %q", p.id, "i-abc")
 	}
 }
+
+func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}
+
+func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusDone
+	hints := p.Hints()
+	if len(hints) != 2 {
+		t.Fatalf("Hints() in Done: len = %d, want 2", len(hints))
+	}
+	if hints[0].Key != "p" {
+		t.Errorf("hints[0].Key = %q, want %q", hints[0].Key, "p")
+	}
+}
+
+func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusError
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() in Error returned empty")
+	}
+}
+
+func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.status = sdk.StatusIdle
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() in Idle returned empty")
+	}
+}

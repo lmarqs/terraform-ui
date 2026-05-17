@@ -1431,3 +1431,24 @@ func TestIsValidWorkspaceName(t *testing.T) {
 		}
 	}
 }
+
+func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
+	svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
+	p := New(svc).(*Plugin)
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}

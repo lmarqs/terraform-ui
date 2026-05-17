@@ -640,3 +640,22 @@ func TestUpdate_UnhandledMsg(t *testing.T) {
 		t.Error("unhandled msg should return nil cmd")
 	}
 }
+
+func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	p.cancelFn = nil
+	p.Cancel()
+}
+
+func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
+	p := newTestPlugin(&mockService{})
+	called := false
+	p.cancelFn = func() { called = true }
+	p.Cancel()
+	if !called {
+		t.Error("Cancel() should call cancelFn")
+	}
+	if p.cancelFn != nil {
+		t.Error("Cancel() should set cancelFn to nil")
+	}
+}

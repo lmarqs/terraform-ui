@@ -317,3 +317,16 @@ func TestSelectMember_WhenNoMembers_ShouldReturnNil(t *testing.T) {
 		t.Error("selectMember() with no members should return nil")
 	}
 }
+
+func TestPlugin_WhenHandleChdirChanged_ShouldMarkSelected(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.selected = false
+
+	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{RelPath: "mod/a", AbsPath: "/x"})
+	if cmd != nil {
+		t.Error("HandleChdirChanged() should return nil")
+	}
+	if !p.selected {
+		t.Error("selected should be true after HandleChdirChanged")
+	}
+}

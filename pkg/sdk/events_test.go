@@ -31,3 +31,27 @@ func TestPlanInvalidatedEvent_WhenCalled_ShouldSatisfyEventInterface(t *testing.
 	e.event()
 	var _ Event = e
 }
+
+func TestWorkspaceCreatedEvent_WhenCalled_ShouldSatisfyEventInterface(t *testing.T) {
+	e := WorkspaceCreatedEvent{Name: "staging"}
+	e.event()
+	var _ Event = e
+}
+
+func TestLockDetectedEvent_WhenCalled_ShouldSatisfyEventInterface(t *testing.T) {
+	e := LockDetectedEvent{Lock: &StateLock{ID: "abc"}}
+	e.event()
+	var _ Event = e
+}
+
+func TestLockClearedEvent_WhenCalled_ShouldSatisfyEventInterface(t *testing.T) {
+	e := LockClearedEvent{}
+	e.event()
+	var _ Event = e
+}
+
+func TestStateRefreshedEvent_WhenCalled_ShouldSatisfyEventInterface(t *testing.T) {
+	e := StateRefreshedEvent{}
+	e.event()
+	var _ Event = e
+}
