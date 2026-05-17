@@ -33,8 +33,11 @@ just_the_docs:
       name: Roadmap
       nav_fold: true
 
+ga_tracking: G-4D40875MH6
+
 plugins:
   - jekyll-seo-tag
+  - jekyll-sitemap
 
 exclude:
   - Gemfile
