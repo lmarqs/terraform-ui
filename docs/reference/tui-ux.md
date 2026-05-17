@@ -36,7 +36,7 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 ```
  my-infra │ modules/sa-east-1 │ production                              tfui
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│ plugin content fills the screen                                              │
+│ plugin content fills the screen                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
  Enter inspect  / filter  Space pin  d delete  e edit  q quit                terraform
 ```
