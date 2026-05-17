@@ -37,3 +37,4 @@ docs/.bundle/
 demo/output/*/
 demo/output/*.gif
 terraform_ui_demo.egg-info/
+.records/
