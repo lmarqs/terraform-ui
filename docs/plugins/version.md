@@ -5,6 +5,7 @@ title: Version
 id: version
 key:
 category: utility
+description: Display tfui version, platform info, and terraform provider selections
 ---
 
 # Version

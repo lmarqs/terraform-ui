@@ -4,6 +4,7 @@ parent: Plugins
 title: Chdir Picker
 id: chdir
 category: internal
+description: Select a member directory within a multi-module terraform project
 ---
 
 # Chdir Picker

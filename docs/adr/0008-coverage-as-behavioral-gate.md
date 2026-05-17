@@ -4,6 +4,7 @@ title: "ADR-0008: 100% coverage as a behavioral forcing function"
 grand_parent: Development
 parent: Architecture
 nav_order: 0008
+description: Decision to enforce 100% test coverage as a quality gate for behavioral completeness
 ---
 
 # 100% coverage as a behavioral forcing function

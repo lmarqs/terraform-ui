@@ -5,6 +5,7 @@ title: Validate
 id: validate
 key: v
 category: operations
+description: Run terraform validate and display configuration diagnostics
 ---
 
 # Validate

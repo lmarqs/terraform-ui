@@ -4,6 +4,7 @@ title: "ADR-0001: SDK isolation: plugins import only pkg/sdk"
 grand_parent: Development
 parent: Architecture
 nav_order: 0001
+description: Architecture decision to enforce plugin isolation through a public SDK boundary
 ---
 
 # SDK isolation: plugins import only pkg/sdk

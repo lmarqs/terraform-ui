@@ -4,6 +4,7 @@ title: "ADR-0007: No cache semantics in the SDK contract"
 grand_parent: Development
 parent: Architecture
 nav_order: 0007
+description: Decision to hide caching behind the service implementation, not expose it in the SDK
 ---
 
 # No cache semantics in the SDK contract

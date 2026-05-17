@@ -3,6 +3,7 @@ layout: default
 title: Features
 nav_order: 3
 has_children: true
+description: Risk analysis, phantom change detection, and blast radius visualization for terraform
 ---
 
 # Features

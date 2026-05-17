@@ -5,6 +5,7 @@ title: Console
 id: console
 key: "~"
 category: operations
+description: Interactive terraform console REPL session within the TUI
 ---
 
 # Console (REPL)

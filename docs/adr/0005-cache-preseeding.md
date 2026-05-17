@@ -4,6 +4,7 @@ title: "ADR-0005: Cache pre-seeding via --plan and --state flags"
 grand_parent: Development
 parent: Architecture
 nav_order: 0005
+description: Decision to allow pre-seeding the service cache from local files or stdin
 ---
 
 # Cache pre-seeding via --plan and --state flags

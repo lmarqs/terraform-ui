@@ -4,6 +4,7 @@ title: "ADR-0013: Plugins own their operation context"
 grand_parent: Development
 parent: Architecture
 nav_order: 0013
+description: Decision that plugins manage their own operation lifecycle and context independently
 ---
 
 # Plugins own their operation context

@@ -5,6 +5,7 @@ title: Taint
 id: taint
 key: t
 category: action
+description: Mark terraform resources for recreation on next apply
 ---
 
 # Taint

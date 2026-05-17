@@ -5,6 +5,7 @@ title: Outputs
 id: output
 key: o
 category: navigation
+description: View terraform output values for the current workspace
 ---
 
 # Outputs

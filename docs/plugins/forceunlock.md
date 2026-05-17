@@ -5,6 +5,7 @@ title: Force Unlock
 id: forceunlock
 key: —
 category: utility
+description: Remove a stale terraform state lock safely from the TUI
 ---
 
 # Force Unlock

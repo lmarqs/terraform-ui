@@ -4,6 +4,7 @@ title: Plugins
 nav_order: 4
 has_children: true
 permalink: /plugins/
+description: Modular plugin catalog for terraform-ui with keybindings and categories
 ---
 
 # Plugins

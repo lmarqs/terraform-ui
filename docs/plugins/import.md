@@ -5,6 +5,7 @@ title: Import
 id: import
 key: n
 category: action
+description: Import existing infrastructure into terraform state interactively
 ---
 
 # Import
