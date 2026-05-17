@@ -26,12 +26,18 @@ type cacheSource struct {
 
 // ServiceCache is a typed, thread-safe cache for terraform service data.
 type ServiceCache struct {
-	mu          sync.RWMutex
-	plan        *sdk.PlanSummary
-	planSource  cacheSource
-	resources   []sdk.Resource
-	state       *tfjson.State
-	stateSource cacheSource
+	mu                sync.RWMutex
+	plan              *sdk.PlanSummary
+	planSource        cacheSource
+	resources         []sdk.Resource
+	state             *tfjson.State
+	stateSource       cacheSource
+	outputs           map[string]sdk.OutputValue
+	outputsSource     cacheSource
+	diagnostics       []sdk.Diagnostic
+	diagnosticsSource cacheSource
+	workspaces        []string
+	workspacesSource  cacheSource
 }
 
 // NewServiceCache returns an empty ServiceCache.
@@ -183,6 +189,12 @@ func (c *ServiceCache) Clear() {
 	c.resources = nil
 	c.state = nil
 	c.stateSource = cacheSource{kind: sourceNone}
+	c.outputs = nil
+	c.outputsSource = cacheSource{kind: sourceNone}
+	c.diagnostics = nil
+	c.diagnosticsSource = cacheSource{kind: sourceNone}
+	c.workspaces = nil
+	c.workspacesSource = cacheSource{kind: sourceNone}
 }
 
 func (c *ServiceCache) invalidatePlan() {
