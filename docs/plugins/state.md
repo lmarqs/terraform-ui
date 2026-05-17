@@ -9,7 +9,7 @@ category: navigation
 default_enabled: true
 ---
 
-## Why This Screen Exists
+## Overview
 
 Terraform's state commands are one-at-a-time, confirmationless, and require exact address typing:
 

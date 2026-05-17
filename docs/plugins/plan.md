@@ -9,7 +9,7 @@ category: operations
 default_enabled: true
 ---
 
-## Why This Screen Exists
+## Overview
 
 Running `terraform plan` on a module with 30+ resources produces a wall of text. You must read every line to find the one dangerous delete among 29 creates. There's no prioritization, no risk signal, no way to focus on what matters.
 

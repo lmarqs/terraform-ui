@@ -9,7 +9,7 @@ category: operations
 default_enabled: true
 ---
 
-## Why This Screen Exists
+## Overview
 
 Terraform's `apply` prompt says "Do you want to perform these actions?" with no context — the same prompt whether you're creating 1 resource or deleting 50. You type "yes" based on faith, not understanding.
 
