@@ -58,7 +58,7 @@ func main() {
 	var rootCfg *config.RootConfig
 	var debug bool
 	var configOverrides []string
-	var planURI, stateURI, macroURI, recordDir string
+	var planURI, stateURI, outputsURI, validateResultURI, workspacesURI, macroURI, recordDir string
 	var extraArgs []string
 
 	rootCmd := &cobra.Command{
@@ -94,6 +94,7 @@ func main() {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return NewSession(cfg, rootCfg).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				Run()
@@ -106,6 +107,9 @@ func main() {
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
 	rootCmd.PersistentFlags().StringVar(&planURI, "plan", "", "Pre-seed plan data from file (./path, /path, file://) or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&stateURI, "state", "", "Pre-seed state data from file (./path, /path, file://) or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&outputsURI, "outputs", "", "Pre-seed outputs data from file or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&validateResultURI, "validate-result", "", "Pre-seed validate diagnostics from file or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&workspacesURI, "workspaces", "", "Pre-seed workspace list from file or - for stdin")
 	rootCmd.PersistentFlags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
 	rootCmd.PersistentFlags().StringVar(&recordDir, "record", "", "Record session frames and tape to directory")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
@@ -122,6 +126,7 @@ func main() {
 				WithArgs(args).
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -142,6 +147,7 @@ func main() {
 				WithArgs(args).
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -175,6 +181,7 @@ func main() {
 				WithArgs(args).
 				WithJSON(versionJSON).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -192,6 +199,7 @@ func main() {
 				ForPlugin("init").
 				WithArgs(args).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -209,6 +217,7 @@ func main() {
 				WithArgs(args).
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -227,6 +236,7 @@ func main() {
 				WithArgs(args).
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -245,6 +255,7 @@ func main() {
 				WithArgs(args).
 				WithJSON(jsonMode).
 				WithSeeds(planURI, stateURI).
+				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
 				WithRecord(recordDir).
 				WithCI(ciMode).
@@ -327,9 +338,15 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	return registry
 }
 
-func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
-	if planURI == "-" && stateURI == "-" {
-		return fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
+func seedCache(cache *terraform.ServiceCache, planURI, stateURI, outputsURI, validateResultURI, workspacesURI string) error {
+	stdinCount := 0
+	for _, uri := range []string{planURI, stateURI, outputsURI, validateResultURI, workspacesURI} {
+		if uri == "-" {
+			stdinCount++
+		}
+	}
+	if stdinCount > 1 {
+		return fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the others")
 	}
 
 	cwd, err := os.Getwd()
@@ -379,6 +396,66 @@ func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 			}
 			if err := cache.SeedState(stateFile, nil); err != nil {
 				return fmt.Errorf("loading state: %w", err)
+			}
+		}
+	}
+
+	if outputsURI != "" {
+		if outputsURI == "-" {
+			data, resolveErr := resolver.Resolve(ctx, outputsURI)
+			if resolveErr != nil {
+				return fmt.Errorf("loading outputs: %w", resolveErr)
+			}
+			if err := cache.SeedOutputs("", data); err != nil {
+				return fmt.Errorf("parsing outputs: %w", err)
+			}
+		} else {
+			file, resolveErr := resolveToAbsPath(cwd, outputsURI)
+			if resolveErr != nil {
+				return fmt.Errorf("resolving outputs path: %w", resolveErr)
+			}
+			if err := cache.SeedOutputs(file, nil); err != nil {
+				return fmt.Errorf("loading outputs: %w", err)
+			}
+		}
+	}
+
+	if validateResultURI != "" {
+		if validateResultURI == "-" {
+			data, resolveErr := resolver.Resolve(ctx, validateResultURI)
+			if resolveErr != nil {
+				return fmt.Errorf("loading validate result: %w", resolveErr)
+			}
+			if err := cache.SeedDiagnostics("", data); err != nil {
+				return fmt.Errorf("parsing validate result: %w", err)
+			}
+		} else {
+			file, resolveErr := resolveToAbsPath(cwd, validateResultURI)
+			if resolveErr != nil {
+				return fmt.Errorf("resolving validate result path: %w", resolveErr)
+			}
+			if err := cache.SeedDiagnostics(file, nil); err != nil {
+				return fmt.Errorf("loading validate result: %w", err)
+			}
+		}
+	}
+
+	if workspacesURI != "" {
+		if workspacesURI == "-" {
+			data, resolveErr := resolver.Resolve(ctx, workspacesURI)
+			if resolveErr != nil {
+				return fmt.Errorf("loading workspaces: %w", resolveErr)
+			}
+			if err := cache.SeedWorkspaces("", data); err != nil {
+				return fmt.Errorf("parsing workspaces: %w", err)
+			}
+		} else {
+			file, resolveErr := resolveToAbsPath(cwd, workspacesURI)
+			if resolveErr != nil {
+				return fmt.Errorf("resolving workspaces path: %w", resolveErr)
+			}
+			if err := cache.SeedWorkspaces(file, nil); err != nil {
+				return fmt.Errorf("loading workspaces: %w", err)
 			}
 		}
 	}

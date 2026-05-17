@@ -37,16 +37,19 @@ type axes struct {
 }
 
 type Session struct {
-	cfg       config.Config
-	rootCfg   *config.RootConfig
-	pluginID  string
-	args      []string
-	jsonMode  bool
-	planURI   string
-	stateURI  string
-	macroURI  string
-	recordDir string
-	ciMode    bool
+	cfg               config.Config
+	rootCfg           *config.RootConfig
+	pluginID          string
+	args              []string
+	jsonMode          bool
+	planURI           string
+	stateURI          string
+	outputsURI        string
+	validateResultURI string
+	workspacesURI     string
+	macroURI          string
+	recordDir         string
+	ciMode            bool
 }
 
 func NewSession(cfg config.Config, rootCfg *config.RootConfig) *Session {
@@ -71,6 +74,13 @@ func (s *Session) WithJSON(on bool) *Session {
 func (s *Session) WithSeeds(plan, state string) *Session {
 	s.planURI = plan
 	s.stateURI = state
+	return s
+}
+
+func (s *Session) WithExtraSeeds(outputs, validateResult, workspaces string) *Session {
+	s.outputsURI = outputs
+	s.validateResultURI = validateResult
+	s.workspacesURI = workspaces
 	return s
 }
 
@@ -164,9 +174,9 @@ func (s *Session) loadTape() ([]macro.Command, error) {
 
 func (s *Session) buildService(ax axes) (sdk.Service, *terraform.MacroService, error) {
 	cache := terraform.NewServiceCache()
-	if s.planURI != "" || s.stateURI != "" {
+	if s.planURI != "" || s.stateURI != "" || s.outputsURI != "" || s.validateResultURI != "" || s.workspacesURI != "" {
 		s.cfg.PreloadedData = true
-		if err := seedCache(cache, s.planURI, s.stateURI); err != nil {
+		if err := seedCache(cache, s.planURI, s.stateURI, s.outputsURI, s.validateResultURI, s.workspacesURI); err != nil {
 			return nil, nil, err
 		}
 	}
