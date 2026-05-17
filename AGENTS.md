@@ -26,7 +26,7 @@ mise run demo:lock        # Lock Python deps from pyproject.toml
 cmd/tfui/     — CLI entry point (cobra, plugin registration, normalizeArgs)
 pkg/sdk/      — Public SDK: Plugin, Service, types, UI primitives, frames
 internal/     — App internals (config, terraform, source, macro, ui, editor, ai, plugin, logging)
-plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, console, output, validate, risk, phantom, blastradius, forceunlock, version)
+plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, console, output, validate, risk, phantom, blastradius, forceunlock, version, taint, untaint, import, init)
 tests/        — Integration tests + fixtures
 demo/         — Demo pipeline: fixtures, macro tapes, GIF generation scripts
 ```
@@ -113,6 +113,7 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - Risk analysis methodology: `docs/risk-analysis.md`
 - Phantom change detection: `docs/phantom-changes.md`
 - Blast radius visualization: `docs/blast-radius.md`
+- Getting started: `docs/getting-started.md`
 - Domain glossary: `CONTEXT.md`
 - Architecture Decision Records: `docs/adr/`
 

@@ -128,3 +128,5 @@ Bare `tfui` opens the full-screen TUI. Subcommands (`plan`, `apply`) run in non-
 - [Risk Analysis](risk-analysis.md) — Risk classification methodology
 - [Phantom Changes](phantom-changes.md) — No-op change detection
 - [Blast Radius](blast-radius.md) — Module impact visualization
+- [Demo](demo.md) — Animated demos of key workflows
+- [Architecture Decision Records](adr/) — Design decisions and rationale
