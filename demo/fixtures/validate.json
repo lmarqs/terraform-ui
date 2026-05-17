@@ -1,0 +1,4 @@
+[
+  {"Severity": "warning", "Summary": "Deprecated attribute", "Detail": "The attribute \"engine\" is deprecated. Use \"engine_type\" instead.", "File": "modules/database/main.tf", "Line": 42},
+  {"Severity": "warning", "Summary": "Unused variable", "Detail": "Variable \"legacy_flag\" is declared but never referenced in module \"networking\".", "File": "modules/networking/variables.tf", "Line": 17}
+]

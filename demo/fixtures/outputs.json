@@ -1,0 +1,7 @@
+[
+  {"Name": "api_endpoint", "Value": "https://api.example.com/v1", "Type": "string", "Sensitive": false},
+  {"Name": "instance_ips", "Value": ["10.0.1.10", "10.0.1.11", "10.0.1.12"], "Type": "list", "Sensitive": false},
+  {"Name": "database_password", "Value": "***", "Type": "string", "Sensitive": true},
+  {"Name": "dashboard_url", "Value": "https://grafana.internal:3000/d/abc123", "Type": "string", "Sensitive": false},
+  {"Name": "tags", "Value": {"environment": "production", "team": "platform", "cost_center": "CC-1234"}, "Type": "object", "Sensitive": false}
+]
