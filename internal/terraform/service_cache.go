@@ -1,6 +1,7 @@
 package terraform
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"sync"
@@ -164,6 +165,156 @@ func (c *ServiceCache) SetState(resources []sdk.Resource, state *tfjson.State) {
 	c.stateSource = cacheSource{kind: sourceExec}
 }
 
+// SeedOutputs seeds the cache from a file path OR raw bytes (stdin).
+func (c *ServiceCache) SeedOutputs(filePath string, data []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if filePath != "" {
+		raw, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("reading outputs file: %w", err)
+		}
+		outputs, err := parseOutputs(raw)
+		if err != nil {
+			return err
+		}
+		c.outputs = outputs
+		c.outputsSource = cacheSource{kind: sourceFile, filePath: filePath}
+		return nil
+	}
+
+	if data != nil {
+		outputs, err := parseOutputs(data)
+		if err != nil {
+			return err
+		}
+		c.outputs = outputs
+		c.outputsSource = cacheSource{kind: sourceStdin, data: data}
+		return nil
+	}
+
+	return nil
+}
+
+// GetOutputs returns the cached outputs or (nil, false) if not available.
+func (c *ServiceCache) GetOutputs() (map[string]sdk.OutputValue, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.outputsSource.kind == sourceNone {
+		return nil, false
+	}
+	return c.outputs, c.outputs != nil
+}
+
+// SetOutputs stores outputs from execution, setting sourceExec.
+func (c *ServiceCache) SetOutputs(outputs map[string]sdk.OutputValue) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.outputs = outputs
+	c.outputsSource = cacheSource{kind: sourceExec}
+}
+
+// SeedDiagnostics seeds the cache from a file path OR raw bytes (stdin).
+func (c *ServiceCache) SeedDiagnostics(filePath string, data []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if filePath != "" {
+		raw, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("reading diagnostics file: %w", err)
+		}
+		var diags []sdk.Diagnostic
+		if err := json.Unmarshal(raw, &diags); err != nil {
+			return fmt.Errorf("parsing diagnostics: %w", err)
+		}
+		c.diagnostics = diags
+		c.diagnosticsSource = cacheSource{kind: sourceFile, filePath: filePath}
+		return nil
+	}
+
+	if data != nil {
+		var diags []sdk.Diagnostic
+		if err := json.Unmarshal(data, &diags); err != nil {
+			return fmt.Errorf("parsing diagnostics: %w", err)
+		}
+		c.diagnostics = diags
+		c.diagnosticsSource = cacheSource{kind: sourceStdin, data: data}
+		return nil
+	}
+
+	return nil
+}
+
+// GetDiagnostics returns the cached diagnostics or (nil, false) if not available.
+func (c *ServiceCache) GetDiagnostics() ([]sdk.Diagnostic, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.diagnosticsSource.kind == sourceNone {
+		return nil, false
+	}
+	return c.diagnostics, c.diagnostics != nil
+}
+
+// SetDiagnostics stores diagnostics from execution, setting sourceExec.
+func (c *ServiceCache) SetDiagnostics(diagnostics []sdk.Diagnostic) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.diagnostics = diagnostics
+	c.diagnosticsSource = cacheSource{kind: sourceExec}
+}
+
+// SeedWorkspaces seeds the cache from a file path OR raw bytes (stdin).
+func (c *ServiceCache) SeedWorkspaces(filePath string, data []byte) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if filePath != "" {
+		raw, err := os.ReadFile(filePath)
+		if err != nil {
+			return fmt.Errorf("reading workspaces file: %w", err)
+		}
+		var ws []string
+		if err := json.Unmarshal(raw, &ws); err != nil {
+			return fmt.Errorf("parsing workspaces: %w", err)
+		}
+		c.workspaces = ws
+		c.workspacesSource = cacheSource{kind: sourceFile, filePath: filePath}
+		return nil
+	}
+
+	if data != nil {
+		var ws []string
+		if err := json.Unmarshal(data, &ws); err != nil {
+			return fmt.Errorf("parsing workspaces: %w", err)
+		}
+		c.workspaces = ws
+		c.workspacesSource = cacheSource{kind: sourceStdin, data: data}
+		return nil
+	}
+
+	return nil
+}
+
+// GetWorkspaces returns the cached workspaces or (nil, false) if not available.
+func (c *ServiceCache) GetWorkspaces() ([]string, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.workspacesSource.kind == sourceNone {
+		return nil, false
+	}
+	return c.workspaces, c.workspaces != nil
+}
+
+// SetWorkspaces stores workspaces from execution, setting sourceExec.
+func (c *ServiceCache) SetWorkspaces(workspaces []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.workspaces = workspaces
+	c.workspacesSource = cacheSource{kind: sourceExec}
+}
+
 // InvalidateAll clears exec-sourced data, re-reads file-sourced data, and
 // leaves stdin-sourced data unchanged.
 func (c *ServiceCache) InvalidateAll() {
@@ -171,6 +322,9 @@ func (c *ServiceCache) InvalidateAll() {
 	defer c.mu.Unlock()
 	c.invalidatePlan()
 	c.invalidateState()
+	c.invalidateOutputs()
+	c.invalidateDiagnostics()
+	c.invalidateWorkspaces()
 }
 
 // InvalidateState clears/re-reads only state data, leaving plan unchanged.
@@ -251,4 +405,94 @@ func (c *ServiceCache) invalidateState() {
 	case sourceNone:
 		// nothing to do
 	}
+}
+
+func (c *ServiceCache) invalidateOutputs() {
+	switch c.outputsSource.kind {
+	case sourceExec:
+		c.outputs = nil
+		c.outputsSource = cacheSource{kind: sourceNone}
+	case sourceFile:
+		raw, err := os.ReadFile(c.outputsSource.filePath)
+		if err != nil {
+			c.outputs = nil
+			c.outputsSource = cacheSource{kind: sourceNone}
+			return
+		}
+		outputs, err := parseOutputs(raw)
+		if err != nil {
+			c.outputs = nil
+			c.outputsSource = cacheSource{kind: sourceNone}
+			return
+		}
+		c.outputs = outputs
+	case sourceStdin:
+		// stdin data is immutable, cannot re-read
+	case sourceNone:
+		// nothing to do
+	}
+}
+
+func (c *ServiceCache) invalidateDiagnostics() {
+	switch c.diagnosticsSource.kind {
+	case sourceExec:
+		c.diagnostics = nil
+		c.diagnosticsSource = cacheSource{kind: sourceNone}
+	case sourceFile:
+		raw, err := os.ReadFile(c.diagnosticsSource.filePath)
+		if err != nil {
+			c.diagnostics = nil
+			c.diagnosticsSource = cacheSource{kind: sourceNone}
+			return
+		}
+		var diags []sdk.Diagnostic
+		if err := json.Unmarshal(raw, &diags); err != nil {
+			c.diagnostics = nil
+			c.diagnosticsSource = cacheSource{kind: sourceNone}
+			return
+		}
+		c.diagnostics = diags
+	case sourceStdin:
+		// stdin data is immutable, cannot re-read
+	case sourceNone:
+		// nothing to do
+	}
+}
+
+func (c *ServiceCache) invalidateWorkspaces() {
+	switch c.workspacesSource.kind {
+	case sourceExec:
+		c.workspaces = nil
+		c.workspacesSource = cacheSource{kind: sourceNone}
+	case sourceFile:
+		raw, err := os.ReadFile(c.workspacesSource.filePath)
+		if err != nil {
+			c.workspaces = nil
+			c.workspacesSource = cacheSource{kind: sourceNone}
+			return
+		}
+		var ws []string
+		if err := json.Unmarshal(raw, &ws); err != nil {
+			c.workspaces = nil
+			c.workspacesSource = cacheSource{kind: sourceNone}
+			return
+		}
+		c.workspaces = ws
+	case sourceStdin:
+		// stdin data is immutable, cannot re-read
+	case sourceNone:
+		// nothing to do
+	}
+}
+
+func parseOutputs(data []byte) (map[string]sdk.OutputValue, error) {
+	var list []sdk.OutputValue
+	if err := json.Unmarshal(data, &list); err != nil {
+		return nil, fmt.Errorf("parsing outputs: %w", err)
+	}
+	m := make(map[string]sdk.OutputValue, len(list))
+	for _, o := range list {
+		m[o.Name] = o
+	}
+	return m, nil
 }

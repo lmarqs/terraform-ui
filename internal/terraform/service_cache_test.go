@@ -10,6 +10,17 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
+const minimalOutputsJSON = `[
+  {"Name": "endpoint", "Value": "https://api.example.com", "Type": "string", "Sensitive": false},
+  {"Name": "secret", "Value": "***", "Type": "string", "Sensitive": true}
+]`
+
+const minimalDiagnosticsJSON = `[
+  {"Severity": "warning", "Summary": "Deprecated attribute", "Detail": "Use engine_type instead", "File": "main.tf", "Line": 42}
+]`
+
+const minimalWorkspacesJSON = `["default", "staging", "production"]`
+
 const minimalPlanJSON = `{
   "format_version": "1.0",
   "terraform_version": "1.5.0",
@@ -83,6 +94,36 @@ func TestNewServiceCache_WhenCreated_ShouldReturnEmptyCache(t *testing.T) {
 		}
 		if state != nil {
 			t.Errorf("GetState() = %v, want nil", state)
+		}
+	})
+
+	t.Run("ShouldReturnNilForGetOutputs", func(t *testing.T) {
+		outputs, ok := c.GetOutputs()
+		if ok {
+			t.Error("GetOutputs() ok = true, want false")
+		}
+		if outputs != nil {
+			t.Errorf("GetOutputs() = %v, want nil", outputs)
+		}
+	})
+
+	t.Run("ShouldReturnNilForGetDiagnostics", func(t *testing.T) {
+		diagnostics, ok := c.GetDiagnostics()
+		if ok {
+			t.Error("GetDiagnostics() ok = true, want false")
+		}
+		if diagnostics != nil {
+			t.Errorf("GetDiagnostics() = %v, want nil", diagnostics)
+		}
+	})
+
+	t.Run("ShouldReturnNilForGetWorkspaces", func(t *testing.T) {
+		workspaces, ok := c.GetWorkspaces()
+		if ok {
+			t.Error("GetWorkspaces() ok = true, want false")
+		}
+		if workspaces != nil {
+			t.Errorf("GetWorkspaces() = %v, want nil", workspaces)
 		}
 	})
 }
@@ -753,11 +794,20 @@ func TestServiceCache_WhenConcurrentAccess_ShouldNotPanic(t *testing.T) {
 	if err := c.SeedState("", []byte(minimalStateJSON)); err != nil {
 		t.Fatal(err)
 	}
+	if err := c.SeedOutputs("", []byte(minimalOutputsJSON)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SeedDiagnostics("", []byte(minimalDiagnosticsJSON)); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SeedWorkspaces("", []byte(minimalWorkspacesJSON)); err != nil {
+		t.Fatal(err)
+	}
 
 	var wg sync.WaitGroup
 	const goroutines = 50
 
-	wg.Add(goroutines * 6)
+	wg.Add(goroutines * 12)
 
 	for i := 0; i < goroutines; i++ {
 		go func() {
@@ -774,11 +824,35 @@ func TestServiceCache_WhenConcurrentAccess_ShouldNotPanic(t *testing.T) {
 		}()
 		go func() {
 			defer wg.Done()
+			c.GetOutputs()
+		}()
+		go func() {
+			defer wg.Done()
+			c.GetDiagnostics()
+		}()
+		go func() {
+			defer wg.Done()
+			c.GetWorkspaces()
+		}()
+		go func() {
+			defer wg.Done()
 			c.SetPlan(&sdk.PlanSummary{ToCreate: 1})
 		}()
 		go func() {
 			defer wg.Done()
 			c.SetState([]sdk.Resource{{Address: "x"}}, &tfjson.State{})
+		}()
+		go func() {
+			defer wg.Done()
+			c.SetOutputs(map[string]sdk.OutputValue{"x": {Name: "x"}})
+		}()
+		go func() {
+			defer wg.Done()
+			c.SetDiagnostics([]sdk.Diagnostic{{Severity: "warning"}})
+		}()
+		go func() {
+			defer wg.Done()
+			c.SetWorkspaces([]string{"default"})
 		}()
 		go func() {
 			defer wg.Done()
@@ -1102,5 +1176,748 @@ func TestServiceCache_WhenInvalidateStateWithDeletedFile_ShouldClearData(t *test
 	}
 	if state != nil {
 		t.Errorf("GetState() = %v, want nil", state)
+	}
+}
+
+// --- Outputs ---
+
+func TestServiceCache_WhenSeedOutputsFromFile_ShouldCacheOutputs(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "outputs.json")
+	if err := os.WriteFile(file, []byte(minimalOutputsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedOutputs(file, nil)
+	if err != nil {
+		t.Fatalf("SeedOutputs() error = %v", err)
+	}
+
+	t.Run("ShouldReturnCachedOutputs", func(t *testing.T) {
+		outputs, ok := c.GetOutputs()
+		if !ok {
+			t.Fatal("GetOutputs() ok = false, want true")
+		}
+		if len(outputs) != 2 {
+			t.Fatalf("len(outputs) = %d, want 2", len(outputs))
+		}
+		ep, exists := outputs["endpoint"]
+		if !exists {
+			t.Fatal("outputs[\"endpoint\"] not found")
+		}
+		if ep.Value != "https://api.example.com" {
+			t.Errorf("outputs[\"endpoint\"].Value = %v, want %q", ep.Value, "https://api.example.com")
+		}
+	})
+
+	t.Run("ShouldSetSourceFile", func(t *testing.T) {
+		if c.outputsSource.kind != sourceFile {
+			t.Errorf("outputsSource.kind = %v, want sourceFile", c.outputsSource.kind)
+		}
+	})
+}
+
+func TestServiceCache_WhenSeedOutputsFromBytes_ShouldCacheOutputs(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedOutputs("", []byte(minimalOutputsJSON))
+	if err != nil {
+		t.Fatalf("SeedOutputs() error = %v", err)
+	}
+
+	t.Run("ShouldReturnCachedOutputs", func(t *testing.T) {
+		outputs, ok := c.GetOutputs()
+		if !ok {
+			t.Fatal("GetOutputs() ok = false, want true")
+		}
+		if len(outputs) != 2 {
+			t.Fatalf("len(outputs) = %d, want 2", len(outputs))
+		}
+		secret, exists := outputs["secret"]
+		if !exists {
+			t.Fatal("outputs[\"secret\"] not found")
+		}
+		if !secret.Sensitive {
+			t.Error("outputs[\"secret\"].Sensitive = false, want true")
+		}
+	})
+
+	t.Run("ShouldSetSourceStdin", func(t *testing.T) {
+		if c.outputsSource.kind != sourceStdin {
+			t.Errorf("outputsSource.kind = %v, want sourceStdin", c.outputsSource.kind)
+		}
+	})
+}
+
+func TestServiceCache_WhenSeedOutputsWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedOutputs("", []byte(`not json`))
+	if err == nil {
+		t.Error("SeedOutputs() with invalid JSON: want error")
+	}
+
+	outputs, ok := c.GetOutputs()
+	if ok {
+		t.Error("GetOutputs() after failed seed: ok = true, want false")
+	}
+	if outputs != nil {
+		t.Errorf("GetOutputs() after failed seed = %v, want nil", outputs)
+	}
+}
+
+func TestServiceCache_WhenSeedOutputsFromNonexistentFile_ShouldReturnError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedOutputs("/nonexistent/path/outputs.json", nil)
+	if err == nil {
+		t.Error("SeedOutputs() with missing file: want error")
+	}
+}
+
+func TestServiceCache_WhenSeedOutputsWithNoFileNoData_ShouldNotError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedOutputs("", nil)
+	if err != nil {
+		t.Errorf("SeedOutputs('', nil) error = %v, want nil (no-op)", err)
+	}
+	outputs, ok := c.GetOutputs()
+	if ok {
+		t.Error("GetOutputs() ok = true after no-op seed")
+	}
+	if outputs != nil {
+		t.Errorf("GetOutputs() = %v, want nil", outputs)
+	}
+}
+
+func TestServiceCache_WhenSetOutputs_ShouldStoreExecSourcedOutputs(t *testing.T) {
+	c := NewServiceCache()
+	outputs := map[string]sdk.OutputValue{
+		"url": {Name: "url", Value: "http://localhost", Type: "string"},
+	}
+
+	c.SetOutputs(outputs)
+
+	t.Run("ShouldReturnStoredOutputs", func(t *testing.T) {
+		got, ok := c.GetOutputs()
+		if !ok {
+			t.Fatal("GetOutputs() ok = false, want true")
+		}
+		if len(got) != 1 {
+			t.Fatalf("len(outputs) = %d, want 1", len(got))
+		}
+	})
+
+	t.Run("ShouldSetSourceExec", func(t *testing.T) {
+		if c.outputsSource.kind != sourceExec {
+			t.Errorf("outputsSource.kind = %v, want sourceExec", c.outputsSource.kind)
+		}
+	})
+}
+
+// --- Diagnostics ---
+
+func TestServiceCache_WhenSeedDiagnosticsFromFile_ShouldCacheDiagnostics(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "validate.json")
+	if err := os.WriteFile(file, []byte(minimalDiagnosticsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedDiagnostics(file, nil)
+	if err != nil {
+		t.Fatalf("SeedDiagnostics() error = %v", err)
+	}
+
+	t.Run("ShouldReturnCachedDiagnostics", func(t *testing.T) {
+		diags, ok := c.GetDiagnostics()
+		if !ok {
+			t.Fatal("GetDiagnostics() ok = false, want true")
+		}
+		if len(diags) != 1 {
+			t.Fatalf("len(diagnostics) = %d, want 1", len(diags))
+		}
+		if diags[0].Severity != "warning" {
+			t.Errorf("diagnostics[0].Severity = %q, want %q", diags[0].Severity, "warning")
+		}
+		if diags[0].Line != 42 {
+			t.Errorf("diagnostics[0].Line = %d, want 42", diags[0].Line)
+		}
+	})
+
+	t.Run("ShouldSetSourceFile", func(t *testing.T) {
+		if c.diagnosticsSource.kind != sourceFile {
+			t.Errorf("diagnosticsSource.kind = %v, want sourceFile", c.diagnosticsSource.kind)
+		}
+	})
+}
+
+func TestServiceCache_WhenSeedDiagnosticsFromBytes_ShouldCacheDiagnostics(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedDiagnostics("", []byte(minimalDiagnosticsJSON))
+	if err != nil {
+		t.Fatalf("SeedDiagnostics() error = %v", err)
+	}
+
+	t.Run("ShouldReturnCachedDiagnostics", func(t *testing.T) {
+		diags, ok := c.GetDiagnostics()
+		if !ok {
+			t.Fatal("GetDiagnostics() ok = false, want true")
+		}
+		if len(diags) != 1 {
+			t.Fatalf("len(diagnostics) = %d, want 1", len(diags))
+		}
+	})
+
+	t.Run("ShouldSetSourceStdin", func(t *testing.T) {
+		if c.diagnosticsSource.kind != sourceStdin {
+			t.Errorf("diagnosticsSource.kind = %v, want sourceStdin", c.diagnosticsSource.kind)
+		}
+	})
+}
+
+func TestServiceCache_WhenSeedDiagnosticsWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedDiagnostics("", []byte(`{broken`))
+	if err == nil {
+		t.Error("SeedDiagnostics() with invalid JSON: want error")
+	}
+
+	diags, ok := c.GetDiagnostics()
+	if ok {
+		t.Error("GetDiagnostics() after failed seed: ok = true, want false")
+	}
+	if diags != nil {
+		t.Errorf("GetDiagnostics() after failed seed = %v, want nil", diags)
+	}
+}
+
+func TestServiceCache_WhenSeedDiagnosticsFromNonexistentFile_ShouldReturnError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedDiagnostics("/nonexistent/path/validate.json", nil)
+	if err == nil {
+		t.Error("SeedDiagnostics() with missing file: want error")
+	}
+}
+
+func TestServiceCache_WhenSeedDiagnosticsWithNoFileNoData_ShouldNotError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedDiagnostics("", nil)
+	if err != nil {
+		t.Errorf("SeedDiagnostics('', nil) error = %v, want nil (no-op)", err)
+	}
+	diags, ok := c.GetDiagnostics()
+	if ok {
+		t.Error("GetDiagnostics() ok = true after no-op seed")
+	}
+	if diags != nil {
+		t.Errorf("GetDiagnostics() = %v, want nil", diags)
+	}
+}
+
+func TestServiceCache_WhenSetDiagnostics_ShouldStoreExecSourcedDiagnostics(t *testing.T) {
+	c := NewServiceCache()
+	diags := []sdk.Diagnostic{
+		{Severity: "error", Summary: "Missing provider"},
+	}
+
+	c.SetDiagnostics(diags)
+
+	t.Run("ShouldReturnStoredDiagnostics", func(t *testing.T) {
+		got, ok := c.GetDiagnostics()
+		if !ok {
+			t.Fatal("GetDiagnostics() ok = false, want true")
+		}
+		if len(got) != 1 {
+			t.Fatalf("len(diagnostics) = %d, want 1", len(got))
+		}
+		if got[0].Severity != "error" {
+			t.Errorf("diagnostics[0].Severity = %q, want %q", got[0].Severity, "error")
+		}
+	})
+
+	t.Run("ShouldSetSourceExec", func(t *testing.T) {
+		if c.diagnosticsSource.kind != sourceExec {
+			t.Errorf("diagnosticsSource.kind = %v, want sourceExec", c.diagnosticsSource.kind)
+		}
+	})
+}
+
+// --- Workspaces ---
+
+func TestServiceCache_WhenSeedWorkspacesFromFile_ShouldCacheWorkspaces(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "workspaces.json")
+	if err := os.WriteFile(file, []byte(minimalWorkspacesJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedWorkspaces(file, nil)
+	if err != nil {
+		t.Fatalf("SeedWorkspaces() error = %v", err)
+	}
+
+	t.Run("ShouldReturnCachedWorkspaces", func(t *testing.T) {
+		ws, ok := c.GetWorkspaces()
+		if !ok {
+			t.Fatal("GetWorkspaces() ok = false, want true")
+		}
+		if len(ws) != 3 {
+			t.Fatalf("len(workspaces) = %d, want 3", len(ws))
+		}
+		if ws[0] != "default" {
+			t.Errorf("workspaces[0] = %q, want %q", ws[0], "default")
+		}
+		if ws[2] != "production" {
+			t.Errorf("workspaces[2] = %q, want %q", ws[2], "production")
+		}
+	})
+
+	t.Run("ShouldSetSourceFile", func(t *testing.T) {
+		if c.workspacesSource.kind != sourceFile {
+			t.Errorf("workspacesSource.kind = %v, want sourceFile", c.workspacesSource.kind)
+		}
+	})
+}
+
+func TestServiceCache_WhenSeedWorkspacesFromBytes_ShouldCacheWorkspaces(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedWorkspaces("", []byte(minimalWorkspacesJSON))
+	if err != nil {
+		t.Fatalf("SeedWorkspaces() error = %v", err)
+	}
+
+	t.Run("ShouldReturnCachedWorkspaces", func(t *testing.T) {
+		ws, ok := c.GetWorkspaces()
+		if !ok {
+			t.Fatal("GetWorkspaces() ok = false, want true")
+		}
+		if len(ws) != 3 {
+			t.Fatalf("len(workspaces) = %d, want 3", len(ws))
+		}
+	})
+
+	t.Run("ShouldSetSourceStdin", func(t *testing.T) {
+		if c.workspacesSource.kind != sourceStdin {
+			t.Errorf("workspacesSource.kind = %v, want sourceStdin", c.workspacesSource.kind)
+		}
+	})
+}
+
+func TestServiceCache_WhenSeedWorkspacesWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedWorkspaces("", []byte(`not an array`))
+	if err == nil {
+		t.Error("SeedWorkspaces() with invalid JSON: want error")
+	}
+
+	ws, ok := c.GetWorkspaces()
+	if ok {
+		t.Error("GetWorkspaces() after failed seed: ok = true, want false")
+	}
+	if ws != nil {
+		t.Errorf("GetWorkspaces() after failed seed = %v, want nil", ws)
+	}
+}
+
+func TestServiceCache_WhenSeedWorkspacesFromNonexistentFile_ShouldReturnError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedWorkspaces("/nonexistent/path/workspaces.json", nil)
+	if err == nil {
+		t.Error("SeedWorkspaces() with missing file: want error")
+	}
+}
+
+func TestServiceCache_WhenSeedWorkspacesWithNoFileNoData_ShouldNotError(t *testing.T) {
+	c := NewServiceCache()
+	err := c.SeedWorkspaces("", nil)
+	if err != nil {
+		t.Errorf("SeedWorkspaces('', nil) error = %v, want nil (no-op)", err)
+	}
+	ws, ok := c.GetWorkspaces()
+	if ok {
+		t.Error("GetWorkspaces() ok = true after no-op seed")
+	}
+	if ws != nil {
+		t.Errorf("GetWorkspaces() = %v, want nil", ws)
+	}
+}
+
+func TestServiceCache_WhenSetWorkspaces_ShouldStoreExecSourcedWorkspaces(t *testing.T) {
+	c := NewServiceCache()
+	ws := []string{"default", "dev"}
+
+	c.SetWorkspaces(ws)
+
+	t.Run("ShouldReturnStoredWorkspaces", func(t *testing.T) {
+		got, ok := c.GetWorkspaces()
+		if !ok {
+			t.Fatal("GetWorkspaces() ok = false, want true")
+		}
+		if len(got) != 2 {
+			t.Fatalf("len(workspaces) = %d, want 2", len(got))
+		}
+		if got[1] != "dev" {
+			t.Errorf("workspaces[1] = %q, want %q", got[1], "dev")
+		}
+	})
+
+	t.Run("ShouldSetSourceExec", func(t *testing.T) {
+		if c.workspacesSource.kind != sourceExec {
+			t.Errorf("workspacesSource.kind = %v, want sourceExec", c.workspacesSource.kind)
+		}
+	})
+}
+
+// --- InvalidateAll for new data types ---
+
+func TestServiceCache_WhenInvalidateAll_ShouldClearExecSourcedOutputs(t *testing.T) {
+	c := NewServiceCache()
+	c.SetOutputs(map[string]sdk.OutputValue{"x": {Name: "x"}})
+
+	c.InvalidateAll()
+
+	outputs, ok := c.GetOutputs()
+	if ok {
+		t.Error("GetOutputs() ok = true after invalidation of exec-sourced outputs")
+	}
+	if outputs != nil {
+		t.Errorf("GetOutputs() = %v, want nil", outputs)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldPreserveStdinSourcedOutputs(t *testing.T) {
+	c := NewServiceCache()
+	if err := c.SeedOutputs("", []byte(minimalOutputsJSON)); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	outputs, ok := c.GetOutputs()
+	if !ok {
+		t.Fatal("GetOutputs() ok = false, want true (stdin data preserved)")
+	}
+	if len(outputs) != 2 {
+		t.Errorf("len(outputs) = %d, want 2", len(outputs))
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldReReadFileSourcedOutputs(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "outputs.json")
+	if err := os.WriteFile(file, []byte(minimalOutputsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedOutputs(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	updatedJSON := `[{"Name": "new_output", "Value": "new", "Type": "string", "Sensitive": false}]`
+	if err := os.WriteFile(file, []byte(updatedJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	outputs, ok := c.GetOutputs()
+	if !ok {
+		t.Fatal("GetOutputs() ok = false after re-read")
+	}
+	if len(outputs) != 1 {
+		t.Fatalf("len(outputs) = %d, want 1 (re-read from updated file)", len(outputs))
+	}
+	if _, exists := outputs["new_output"]; !exists {
+		t.Error("outputs[\"new_output\"] not found after re-read")
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldClearExecSourcedDiagnostics(t *testing.T) {
+	c := NewServiceCache()
+	c.SetDiagnostics([]sdk.Diagnostic{{Severity: "error", Summary: "test"}})
+
+	c.InvalidateAll()
+
+	diags, ok := c.GetDiagnostics()
+	if ok {
+		t.Error("GetDiagnostics() ok = true after invalidation of exec-sourced diagnostics")
+	}
+	if diags != nil {
+		t.Errorf("GetDiagnostics() = %v, want nil", diags)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldPreserveStdinSourcedDiagnostics(t *testing.T) {
+	c := NewServiceCache()
+	if err := c.SeedDiagnostics("", []byte(minimalDiagnosticsJSON)); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	diags, ok := c.GetDiagnostics()
+	if !ok {
+		t.Fatal("GetDiagnostics() ok = false, want true (stdin data preserved)")
+	}
+	if len(diags) != 1 {
+		t.Errorf("len(diagnostics) = %d, want 1", len(diags))
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldClearExecSourcedWorkspaces(t *testing.T) {
+	c := NewServiceCache()
+	c.SetWorkspaces([]string{"default", "dev"})
+
+	c.InvalidateAll()
+
+	ws, ok := c.GetWorkspaces()
+	if ok {
+		t.Error("GetWorkspaces() ok = true after invalidation of exec-sourced workspaces")
+	}
+	if ws != nil {
+		t.Errorf("GetWorkspaces() = %v, want nil", ws)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldPreserveStdinSourcedWorkspaces(t *testing.T) {
+	c := NewServiceCache()
+	if err := c.SeedWorkspaces("", []byte(minimalWorkspacesJSON)); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	ws, ok := c.GetWorkspaces()
+	if !ok {
+		t.Fatal("GetWorkspaces() ok = false, want true (stdin data preserved)")
+	}
+	if len(ws) != 3 {
+		t.Errorf("len(workspaces) = %d, want 3", len(ws))
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldReReadFileSourcedDiagnostics(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "validate.json")
+	if err := os.WriteFile(file, []byte(minimalDiagnosticsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedDiagnostics(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	updatedJSON := `[{"Severity": "error", "Summary": "New error", "Detail": "details", "File": "x.tf", "Line": 1}]`
+	if err := os.WriteFile(file, []byte(updatedJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	diags, ok := c.GetDiagnostics()
+	if !ok {
+		t.Fatal("GetDiagnostics() ok = false after re-read")
+	}
+	if len(diags) != 1 {
+		t.Fatalf("len(diagnostics) = %d, want 1", len(diags))
+	}
+	if diags[0].Severity != "error" {
+		t.Errorf("diagnostics[0].Severity = %q, want %q", diags[0].Severity, "error")
+	}
+}
+
+func TestServiceCache_WhenInvalidateAll_ShouldReReadFileSourcedWorkspaces(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "workspaces.json")
+	if err := os.WriteFile(file, []byte(minimalWorkspacesJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedWorkspaces(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	updatedJSON := `["default", "new-ws"]`
+	if err := os.WriteFile(file, []byte(updatedJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	ws, ok := c.GetWorkspaces()
+	if !ok {
+		t.Fatal("GetWorkspaces() ok = false after re-read")
+	}
+	if len(ws) != 2 {
+		t.Fatalf("len(workspaces) = %d, want 2", len(ws))
+	}
+	if ws[1] != "new-ws" {
+		t.Errorf("workspaces[1] = %q, want %q", ws[1], "new-ws")
+	}
+}
+
+func TestServiceCache_WhenInvalidateAllWithDeletedOutputsFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "outputs.json")
+	if err := os.WriteFile(file, []byte(minimalOutputsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedOutputs(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	outputs, ok := c.GetOutputs()
+	if ok {
+		t.Error("GetOutputs() ok = true after invalidation with deleted file")
+	}
+	if outputs != nil {
+		t.Errorf("GetOutputs() = %v, want nil", outputs)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAllWithDeletedDiagnosticsFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "validate.json")
+	if err := os.WriteFile(file, []byte(minimalDiagnosticsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedDiagnostics(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	diags, ok := c.GetDiagnostics()
+	if ok {
+		t.Error("GetDiagnostics() ok = true after invalidation with deleted file")
+	}
+	if diags != nil {
+		t.Errorf("GetDiagnostics() = %v, want nil", diags)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAllWithDeletedWorkspacesFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "workspaces.json")
+	if err := os.WriteFile(file, []byte(minimalWorkspacesJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedWorkspaces(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	ws, ok := c.GetWorkspaces()
+	if ok {
+		t.Error("GetWorkspaces() ok = true after invalidation with deleted file")
+	}
+	if ws != nil {
+		t.Errorf("GetWorkspaces() = %v, want nil", ws)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAllWithCorruptedOutputsFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "outputs.json")
+	if err := os.WriteFile(file, []byte(minimalOutputsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedOutputs(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(file, []byte(`{corrupt`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	outputs, ok := c.GetOutputs()
+	if ok {
+		t.Error("GetOutputs() ok = true after invalidation with corrupted file")
+	}
+	if outputs != nil {
+		t.Errorf("GetOutputs() = %v, want nil", outputs)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAllWithCorruptedDiagnosticsFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "validate.json")
+	if err := os.WriteFile(file, []byte(minimalDiagnosticsJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedDiagnostics(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(file, []byte(`{corrupt`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	diags, ok := c.GetDiagnostics()
+	if ok {
+		t.Error("GetDiagnostics() ok = true after invalidation with corrupted file")
+	}
+	if diags != nil {
+		t.Errorf("GetDiagnostics() = %v, want nil", diags)
+	}
+}
+
+func TestServiceCache_WhenInvalidateAllWithCorruptedWorkspacesFile_ShouldClearData(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "workspaces.json")
+	if err := os.WriteFile(file, []byte(minimalWorkspacesJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	if err := c.SeedWorkspaces(file, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.WriteFile(file, []byte(`{corrupt`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c.InvalidateAll()
+
+	ws, ok := c.GetWorkspaces()
+	if ok {
+		t.Error("GetWorkspaces() ok = true after invalidation with corrupted file")
+	}
+	if ws != nil {
+		t.Errorf("GetWorkspaces() = %v, want nil", ws)
 	}
 }
