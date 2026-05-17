@@ -29,11 +29,7 @@ func TestHintSet_WhenSingleHint_ShouldReturnCorrectKeyHint(t *testing.T) {
 		{"ShouldShowWrapDefault", HintSetWrap, "^w", "wrap(off)"},
 		{"ShouldShowRefresh", HintSetRefresh, "^r", "refresh"},
 		{"ShouldShowRetry", HintSetRetry, "^r", "retry"},
-		{"ShouldShowDelete", HintSetDelete, "d", "delete"},
-		{"ShouldShowEdit", HintSetEdit, "e", "edit"},
-		{"ShouldShowApply", HintSetApply, "a", "apply"},
-		{"ShouldShowNew", HintSetNew, "n", "new"},
-		{"ShouldShowUnlock", HintSetUnlock, "u", "force-unlock"},
+		{"ShouldShowClearPins", HintSetClearPins, "^u", "unpin all"},
 		{"ShouldShowCancel", HintSetCancel, "Esc", "cancel"},
 		{"ShouldShowBack", HintSetBack, "q", "back"},
 	}
@@ -77,13 +73,13 @@ func TestHintSet_WhenCombined_ShouldProduceFixedOrder(t *testing.T) {
 		},
 		{
 			"ShouldMatchStateDetailPattern",
-			HintSetCancel | HintSetWrap | HintSetPin | HintSetDelete | HintSetEdit,
-			[]string{"pin", "wrap(off)", "delete", "edit", "cancel"},
+			HintSetCancel | HintSetWrap | HintSetPin,
+			[]string{"pin", "wrap(off)", "cancel"},
 		},
 		{
 			"ShouldMatchPlanDonePattern",
-			HintSetInspect | HintSetPin | HintSetApply | HintSetRefresh | HintSetBack,
-			[]string{"inspect", "pin", "refresh", "apply", "back"},
+			HintSetInspect | HintSetPin | HintSetRefresh | HintSetBack,
+			[]string{"inspect", "pin", "refresh", "back"},
 		},
 		{
 			"ShouldMatchPlanErrorPattern",
@@ -213,14 +209,12 @@ func TestHintSet_WhenAllBitsSet_ShouldProduceAllHints(t *testing.T) {
 		HintSetSelect | HintSetConfirm | HintSetFilter | HintSetPin |
 		HintSetTree | HintSetCollapse | HintSetExpand | HintSetWrap |
 		HintSetPinnedFilter | HintSetRefresh |
-		HintSetRetry | HintSetDelete | HintSetEdit | HintSetTaint |
-		HintSetUntaint | HintSetApply |
-		HintSetNew | HintSetUnlock | HintSetClearPins | HintSetActions |
+		HintSetRetry | HintSetClearPins |
 		HintSetCancel | HintSetBack
 
 	hints := all.Hints()
-	if len(hints) != 23 {
-		t.Fatalf("expected 23 hints, got %d", len(hints))
+	if len(hints) != 15 {
+		t.Fatalf("expected 15 hints, got %d", len(hints))
 	}
 }
 
@@ -300,20 +294,6 @@ func TestResolveDynamic_WhenUnknownBit_ShouldReturnEmptyHint(t *testing.T) {
 	}
 	if hint.Description != "" {
 		t.Errorf("expected empty description, got %q", hint.Description)
-	}
-}
-
-func TestHintSet_WhenTaintAndUntaint_ShouldShowCorrectHints(t *testing.T) {
-	set := HintSetTaint | HintSetUntaint
-	hints := set.Hints()
-	if len(hints) != 2 {
-		t.Fatalf("expected 2 hints, got %d", len(hints))
-	}
-	if hints[0].Key != "t" || hints[0].Description != "taint" {
-		t.Errorf("hints[0] = {%q, %q}, want {t, taint}", hints[0].Key, hints[0].Description)
-	}
-	if hints[1].Key != "T" || hints[1].Description != "untaint" {
-		t.Errorf("hints[1] = {%q, %q}, want {T, untaint}", hints[1].Key, hints[1].Description)
 	}
 }
 

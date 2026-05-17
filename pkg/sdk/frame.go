@@ -15,8 +15,6 @@ var (
 	HintRetry   = KeyHint{Key: "^r", Description: "retry"}
 	HintFilter  = KeyHint{Key: "/", Description: "filter"}
 	HintPin     = KeyHint{Key: "Space", Description: "pin"}
-	HintDelete  = KeyHint{Key: "d", Description: "delete"}
-	HintEdit    = KeyHint{Key: "e", Description: "edit"}
 	HintInspect = KeyHint{Key: "Enter", Description: "inspect"}
 	HintSelect  = KeyHint{Key: "Enter", Description: "select"}
 	HintConfirm = KeyHint{Key: "Enter", Description: "confirm"}
@@ -68,17 +66,9 @@ const (
 	HintSetExpand                           // ] expand
 	HintSetWrap                             // ^w wrap(on/off) (dynamic label)
 	HintSetPinnedFilter                     // ^p pinned(on/off) (dynamic label)
-	HintSetRefresh                          // r refresh
-	HintSetRetry                            // r retry
-	HintSetDelete                           // d delete
-	HintSetEdit                             // e edit
-	HintSetTaint                            // t taint
-	HintSetUntaint                          // T untaint
-	HintSetApply                            // a apply
-	HintSetNew                              // n new
-	HintSetUnlock                           // u force-unlock
+	HintSetRefresh                          // ^r refresh
+	HintSetRetry                            // ^r retry
 	HintSetClearPins                        // ^u unpin all
-	HintSetActions                          // ! actions
 	HintSetCancel                           // Esc cancel
 	HintSetBack                             // q back
 )
@@ -98,8 +88,8 @@ type hintDef struct {
 	dynamic bool // if true, resolved via opts
 }
 
-// hintOrder defines the fixed rendering order for all standard hints.
-// Grouped: navigation → view modes → resource actions → batch/pins → escape.
+// hintOrder defines the fixed rendering order for all standard UI hints.
+// Grouped: navigation → view modes → pin management → escape.
 var hintOrder = []hintDef{
 	// Navigation
 	{bit: HintSetInspect, hint: KeyHint{Key: "Enter", Description: "inspect"}},
@@ -115,17 +105,8 @@ var hintOrder = []hintDef{
 	{bit: HintSetPinnedFilter, dynamic: true},
 	{bit: HintSetRefresh, hint: KeyHint{Key: "^r", Description: "refresh"}},
 	{bit: HintSetRetry, hint: KeyHint{Key: "^r", Description: "retry"}},
-	// Resource actions
-	{bit: HintSetDelete, hint: KeyHint{Key: "d", Description: "delete"}},
-	{bit: HintSetEdit, hint: KeyHint{Key: "e", Description: "edit"}},
-	{bit: HintSetTaint, hint: KeyHint{Key: "t", Description: "taint"}},
-	{bit: HintSetUntaint, hint: KeyHint{Key: "T", Description: "untaint"}},
-	{bit: HintSetApply, hint: KeyHint{Key: "a", Description: "apply"}},
-	{bit: HintSetNew, hint: KeyHint{Key: "n", Description: "new"}},
-	{bit: HintSetUnlock, hint: KeyHint{Key: "u", Description: "force-unlock"}},
-	// Batch/pin management
+	// Pin management
 	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
-	{bit: HintSetActions, hint: KeyHint{Key: "!", Description: "batch"}},
 	// Escape
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
 	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
