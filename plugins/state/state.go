@@ -499,6 +499,26 @@ func (e *Plugin) View(width, height int) string {
 	}
 }
 
+func (e *Plugin) CursorPosition() (int, int) {
+	if e.status != sdk.StatusDone || len(e.filtered) == 0 {
+		return 0, 0
+	}
+	return e.tree.Cursor() + 1, e.tree.VisibleCount()
+}
+
+func (e *Plugin) listActions() []ui.ActionChip {
+	chips := []ui.ActionChip{
+		{Key: "d", Label: "delete"},
+		{Key: "e", Label: "edit"},
+		{Key: "t", Label: "taint"},
+		{Key: "T", Label: "untaint"},
+	}
+	if e.PinnedCount() > 0 {
+		chips = append(chips, ui.ActionChip{Key: "!", Label: "batch"})
+	}
+	return chips
+}
+
 func (e *Plugin) renderResources(width, height int) string {
 	e.viewWidth = width
 
@@ -525,11 +545,13 @@ func (e *Plugin) renderResources(width, height int) string {
 		return filterLine + noResources
 	}
 
+	actions := e.listActions()
+
 	filterHeight := 0
 	if e.filtering || e.filter != "" {
 		filterHeight = 2
 	}
-	maxVisible := height - filterHeight
+	maxVisible := height - filterHeight - ui.ActionsBarHeight
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -589,7 +611,15 @@ func (e *Plugin) renderResources(width, height int) string {
 		treeContent = e.renderFlatList(contentWidth, maxVisible)
 	}
 
-	return filterLine + treeContent
+	lines := strings.Split(treeContent, "\n")
+	lines = ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     e.tree.ViewOffset(maxVisible),
+		TotalItems:     e.tree.VisibleCount(),
+		ViewportHeight: maxVisible,
+	})
+	treeContent = strings.Join(lines, "\n")
+
+	return filterLine + treeContent + ui.RenderActionsBar(actions, width)
 }
 
 func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {

@@ -168,18 +168,14 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	case sdk.StatusLoading:
 		return (sdk.HintSetBack).Hints()
 	case sdk.StatusError:
-		set := sdk.HintSetRetry | sdk.HintSetBack
-		if f.plugin.lockInfo != nil {
-			set |= sdk.HintSetUnlock
-		}
-		return set.Hints()
+		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	default:
-		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetTaint | sdk.HintSetUntaint | sdk.HintSetBack
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetBack
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse | sdk.HintSetExpand
 		}
 		if f.plugin.PinnedCount() > 0 {
-			set |= sdk.HintSetActions | sdk.HintSetClearPins
+			set |= sdk.HintSetClearPins
 		}
 		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap, PinnedFilter: f.plugin.pinnedOnly})
 	}
@@ -247,7 +243,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetDelete | sdk.HintSetEdit | sdk.HintSetTaint | sdk.HintSetUntaint | sdk.HintSetCancel
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetCancel
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),

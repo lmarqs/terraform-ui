@@ -90,16 +90,8 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
 	case sdk.StatusDone:
-		set := sdk.HintSetSelect | sdk.HintSetNew | sdk.HintSetRefresh | sdk.HintSetBack
-		ws := f.plugin.SelectedWorkspace()
-		if ws != "" && ws != f.plugin.current && ws != "default" {
-			set |= sdk.HintSetDelete
-		}
-		hints := set.Hints()
-		if ws != "" && ws != f.plugin.current {
-			hints = append(hints[:1], append([]sdk.KeyHint{{Key: "s", Description: "select"}}, hints[1:]...)...)
-		}
-		return hints
+		set := sdk.HintSetSelect | sdk.HintSetRefresh | sdk.HintSetBack
+		return set.Hints()
 	default:
 		return (sdk.HintSetBack).Hints()
 	}

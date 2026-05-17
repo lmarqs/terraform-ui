@@ -3,3 +3,4 @@
 [ ] module.vpc.aws_subnet.public  aws_subnet
 [ ] aws_security_group.allow_ssh  aws_security_group
 [ ] aws_iam_role.lambda_exec  aws_iam_role
+ d delete e edit t taint T untaint ! batch

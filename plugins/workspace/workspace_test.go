@@ -1014,7 +1014,7 @@ func TestHints_GivenError_ShouldShowRetryAndBack(t *testing.T) {
 	}
 }
 
-func TestHints_GivenDone_CursorOnDeletable_ShouldShowDeleteAndSelect(t *testing.T) {
+func TestHints_GivenDone_ShouldShowUIHintsOnly(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging", "temp"}
@@ -1022,25 +1022,21 @@ func TestHints_GivenDone_CursorOnDeletable_ShouldShowDeleteAndSelect(t *testing.
 	p.selected = 2
 
 	hints := p.stack.Peek().Hints()
-	foundDelete := false
 	foundSelect := false
 	for _, h := range hints {
 		if h.Key == "d" {
-			foundDelete = true
+			t.Error("'d' (delete) should not appear in hint bar — belongs in actions bar")
 		}
-		if h.Key == "s" && h.Description == "select" {
+		if h.Key == "Enter" && h.Description == "select" {
 			foundSelect = true
 		}
 	}
-	if !foundDelete {
-		t.Error("delete hint should appear when cursor is on deletable workspace")
-	}
 	if !foundSelect {
-		t.Error("select hint should appear when cursor is on non-current workspace")
+		t.Error("'Enter select' hint should appear in hint bar")
 	}
 }
 
-func TestHints_GivenDone_CursorOnCurrent_ShouldHideDelete(t *testing.T) {
+func TestHints_GivenDone_ShouldNeverShowActionKeys(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
@@ -1049,13 +1045,13 @@ func TestHints_GivenDone_CursorOnCurrent_ShouldHideDelete(t *testing.T) {
 
 	hints := p.stack.Peek().Hints()
 	for _, h := range hints {
-		if h.Key == "d" {
-			t.Error("delete hint should NOT appear when cursor is on current workspace")
+		if h.Key == "d" || h.Key == "n" {
+			t.Errorf("action key %q should not appear in hint bar", h.Key)
 		}
 	}
 }
 
-func TestHints_GivenDone_CursorOnDefault_ShouldHideDelete(t *testing.T) {
+func TestHints_GivenDone_CursorOnDefault_ShouldNotShowDelete(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}

@@ -1014,22 +1014,28 @@ func TestListFrame_Hints_WhenError_ShouldIncludeRetry(t *testing.T) {
 	}
 }
 
-func TestListFrame_Hints_WhenErrorWithLock_ShouldIncludeUnlock(t *testing.T) {
+func TestListFrame_Hints_WhenErrorWithLock_ShouldShowRetryAndBack(t *testing.T) {
 	p := newTestPlugin(nil)
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "abc"}
 	f := &listFrame{plugin: p}
 
 	hints := f.Hints()
-	foundUnlock := false
+	foundRetry := false
+	foundBack := false
 	for _, h := range hints {
-		if h.Key == "u" {
-			foundUnlock = true
-			break
+		if h.Key == "^r" {
+			foundRetry = true
+		}
+		if h.Key == "q" {
+			foundBack = true
 		}
 	}
-	if !foundUnlock {
-		t.Error("expected 'u' (unlock) in error+lock state hints")
+	if !foundRetry {
+		t.Error("expected '^r' (retry) in error state hints")
+	}
+	if !foundBack {
+		t.Error("expected 'q' (back) in error state hints")
 	}
 }
 
@@ -1044,22 +1050,22 @@ func TestListFrame_Hints_WhenLoading_ShouldShowBackOnly(t *testing.T) {
 	}
 }
 
-func TestListFrame_Hints_WhenDoneWithPins_ShouldIncludeActions(t *testing.T) {
+func TestListFrame_Hints_WhenDoneWithPins_ShouldIncludeClearPins(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.pins = sdk.NewPinService()
 	p.pins.Toggle("a")
 	f := &listFrame{plugin: p}
 
 	hints := f.Hints()
-	foundBang := false
+	foundClearPins := false
 	for _, h := range hints {
-		if h.Key == "!" {
-			foundBang = true
+		if h.Key == "^u" {
+			foundClearPins = true
 			break
 		}
 	}
-	if !foundBang {
-		t.Error("expected '!' (actions) in hints when pins exist")
+	if !foundClearPins {
+		t.Error("expected '^u' (unpin all) in hints when pins exist")
 	}
 }
 

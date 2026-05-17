@@ -1560,20 +1560,27 @@ func TestListFrame_WhenHintsCalledLoading_ShouldReturnBackOnly(t *testing.T) {
 	}
 }
 
-func TestListFrame_WhenHintsCalledErrorWithLock_ShouldIncludeUnlock(t *testing.T) {
+func TestListFrame_WhenHintsCalledErrorWithLock_ShouldShowRetryAndBack(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
 
 	hints := p.stack.Hints()
-	hasUnlock := false
+	hasRetry := false
+	hasBack := false
 	for _, h := range hints {
-		if h.Key == "u" {
-			hasUnlock = true
+		if h.Key == "^r" {
+			hasRetry = true
+		}
+		if h.Key == "q" {
+			hasBack = true
 		}
 	}
-	if !hasUnlock {
-		t.Error("Hints(Error with lock): missing 'u' force-unlock hint")
+	if !hasRetry {
+		t.Error("Hints(Error): missing '^r' retry hint")
+	}
+	if !hasBack {
+		t.Error("Hints(Error): missing 'q' back hint")
 	}
 }
 
@@ -1590,7 +1597,7 @@ func TestListFrame_WhenHintsCalledErrorWithoutLock_ShouldNotIncludeUnlock(t *tes
 	}
 }
 
-func TestListFrame_WhenHintsCalledDoneWithChanges_ShouldIncludeApplyAndPin(t *testing.T) {
+func TestListFrame_WhenHintsCalledDoneWithChanges_ShouldIncludeUIHintsOnly(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -1600,21 +1607,17 @@ func TestListFrame_WhenHintsCalledDoneWithChanges_ShouldIncludeApplyAndPin(t *te
 	}
 
 	hints := p.stack.Hints()
-	hasApply := false
 	hasPin := false
 	hasInspect := false
 	for _, h := range hints {
 		switch h.Key {
 		case "a":
-			hasApply = true
+			t.Error("Hints should not contain 'a' (apply) — actions belong in actions bar")
 		case "Space":
 			hasPin = true
 		case "Enter":
 			hasInspect = true
 		}
-	}
-	if !hasApply {
-		t.Error("Hints(Done with changes): missing 'a' apply hint")
 	}
 	if !hasPin {
 		t.Error("Hints(Done with changes): missing 'Space' pin hint")

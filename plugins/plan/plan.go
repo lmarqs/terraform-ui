@@ -563,6 +563,27 @@ func (e *Plugin) View(width, height int) string {
 	}
 }
 
+func (e *Plugin) CursorPosition() (int, int) {
+	if e.status != sdk.StatusDone || e.summary == nil || len(e.summary.Changes) == 0 {
+		return 0, 0
+	}
+	return e.tree.Cursor() + 1, e.tree.VisibleCount()
+}
+
+func (e *Plugin) listActions() []ui.ActionChip {
+	chips := []ui.ActionChip{
+		{Key: "e", Label: "edit"},
+		{Key: "t", Label: "taint"},
+		{Key: "T", Label: "untaint"},
+		{Key: "a", Label: "apply"},
+		{Key: "A", Label: "auto-apply"},
+	}
+	if e.PinnedCount() > 0 {
+		chips = append(chips, ui.ActionChip{Key: "!", Label: "batch"})
+	}
+	return chips
+}
+
 func (e *Plugin) renderResults(width, height int) string {
 	if e.summary == nil || len(e.summary.Changes) == 0 {
 		return sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
@@ -591,13 +612,14 @@ func (e *Plugin) renderResults(width, height int) string {
 		return filterLine + noChanges
 	}
 
+	actions := e.listActions()
+
 	filterHeight := 0
 	if e.filtering || e.filter != "" || e.pinnedOnly {
 		filterHeight = 2
 	}
-	// summary + risk take ~3 lines
 	summaryHeight := 3
-	maxVisible := height - filterHeight - summaryHeight
+	maxVisible := height - filterHeight - summaryHeight - ui.ActionsBarHeight
 	if maxVisible < 3 {
 		maxVisible = 3
 	}
@@ -657,6 +679,14 @@ func (e *Plugin) renderResults(width, height int) string {
 		treeContent = e.renderFlatList(contentWidth, maxVisible)
 	}
 
+	lines := strings.Split(treeContent, "\n")
+	lines = ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     e.tree.ViewOffset(maxVisible),
+		TotalItems:     e.tree.VisibleCount(),
+		ViewportHeight: maxVisible,
+	})
+	treeContent = strings.Join(lines, "\n")
+
 	summary := e.renderSummaryLine()
 	riskLine := e.renderOverallRisk()
 
@@ -664,6 +694,7 @@ func (e *Plugin) renderResults(width, height int) string {
 	if riskLine != "" {
 		content += "\n" + riskLine
 	}
+	content += ui.RenderActionsBar(actions, width)
 	return content
 }
 

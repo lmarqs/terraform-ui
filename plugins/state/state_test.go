@@ -1441,9 +1441,9 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 		height        int
 		wantListLines int
 	}{
-		{"ShouldShow20LinesInHeight20", 20, 20},
-		{"ShouldShow10LinesInHeight10", 10, 10},
-		{"ShouldShow30LinesInHeight30", 30, 30},
+		{"ShouldShow18LinesInHeight20", 20, 18},
+		{"ShouldShow8LinesInHeight10", 10, 8},
+		{"ShouldShow28LinesInHeight30", 30, 28},
 	}
 
 	for _, tt := range tests {
