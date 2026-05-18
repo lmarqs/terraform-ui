@@ -1,10 +1,17 @@
 package ui
 
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
 // ScrollGutterOpts configures the scroll gutter rendering.
 type ScrollGutterOpts struct {
 	ViewOffset     int
 	TotalItems     int
 	ViewportHeight int
+	Width          int
 }
 
 const (
@@ -57,6 +64,12 @@ func RenderScrollGutter(lines []string, opts ScrollGutterOpts) []string {
 			ch = gutterThumb
 		default:
 			ch = gutterTrack
+		}
+		if opts.Width > 0 {
+			pad := opts.Width - lipgloss.Width(line)
+			if pad > 0 {
+				line = line + strings.Repeat(" ", pad)
+			}
 		}
 		result[i] = line + ch
 	}
