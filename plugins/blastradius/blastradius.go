@@ -216,7 +216,7 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 		mi := e.modules[i]
 		row := e.renderModuleRow(mi, i)
 		if i == e.selected {
-			row = sdk.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')

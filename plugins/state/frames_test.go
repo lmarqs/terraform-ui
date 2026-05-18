@@ -407,23 +407,24 @@ func TestStateFilterFrame_PanRightLeft(t *testing.T) {
 	}
 
 	t.Run("ShouldPanRightInFilterMode", func(t *testing.T) {
-		p.listHScroll = 0
+		p.listPanel.ResetScroll()
 		p.Update(tea.KeyMsg{Type: tea.KeyRight})
-		if p.listHScroll != 10 {
-			t.Errorf("expected listHScroll=10 after right, got %d", p.listHScroll)
+		if p.listPanel.HScroll() != 10 {
+			t.Errorf("expected listHScroll=10 after right, got %d", p.listPanel.HScroll())
 		}
 	})
 
 	t.Run("ShouldPanLeftInFilterMode", func(t *testing.T) {
-		p.listHScroll = 10
+		p.listPanel.ResetScroll()
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // set to 10
 		p.Update(tea.KeyMsg{Type: tea.KeyLeft})
-		if p.listHScroll != 0 {
-			t.Errorf("expected listHScroll=0 after left, got %d", p.listHScroll)
+		if p.listPanel.HScroll() != 0 {
+			t.Errorf("expected listHScroll=0 after left, got %d", p.listPanel.HScroll())
 		}
 	})
 
 	t.Run("ShouldNotAddArrowsToFilter", func(t *testing.T) {
-		p.listHScroll = 0
+		p.listPanel.ResetScroll()
 		p.Update(tea.KeyMsg{Type: tea.KeyRight})
 		p.Update(tea.KeyMsg{Type: tea.KeyLeft})
 		if p.filter != "" {
@@ -442,24 +443,34 @@ func TestListFrame_WrapToggle(t *testing.T) {
 	f := &listFrame{plugin: p}
 
 	t.Run("ShouldToggleWrapOnCtrlW", func(t *testing.T) {
-		p.listWrap = false
+		// Ensure wrap is off (default for fresh panel)
+		if p.listPanel.WrapMode() {
+			p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle off
+		}
 		f.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-		if !p.listWrap {
+		if !p.listPanel.WrapMode() {
 			t.Error("expected listWrap=true after ctrl+w")
 		}
 	})
 
 	t.Run("ShouldResetHScrollOnWrap", func(t *testing.T) {
-		p.listHScroll = 20
-		p.listWrap = false
+		// Ensure wrap is off and hscroll is non-zero
+		if p.listPanel.WrapMode() {
+			p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle off
+		}
+		p.listPanel.ResetScroll()
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 20
 		f.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-		if p.listHScroll != 0 {
-			t.Errorf("expected listHScroll=0 after wrap toggle, got %d", p.listHScroll)
+		if p.listPanel.HScroll() != 0 {
+			t.Errorf("expected listHScroll=0 after wrap toggle, got %d", p.listPanel.HScroll())
 		}
 	})
 
 	t.Run("ShouldNotTruncateWhenWrapped", func(t *testing.T) {
-		p.listWrap = true
+		if !p.listPanel.WrapMode() {
+			p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle on
+		}
 		output := p.View(40, 10)
 		if !strings.Contains(output, "server_with_long_name") {
 			t.Error("expected full address visible when wrap is on")
@@ -467,7 +478,9 @@ func TestListFrame_WrapToggle(t *testing.T) {
 	})
 
 	t.Run("ShouldTruncateWhenNotWrapped", func(t *testing.T) {
-		p.listWrap = false
+		if p.listPanel.WrapMode() {
+			p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle off
+		}
 		output := p.View(40, 10)
 		if strings.Contains(output, "server_with_long_name") {
 			t.Error("expected address to be truncated when wrap is off")
@@ -475,9 +488,11 @@ func TestListFrame_WrapToggle(t *testing.T) {
 	})
 
 	t.Run("WKeyShouldNotToggleWrap", func(t *testing.T) {
-		p.listWrap = false
+		if p.listPanel.WrapMode() {
+			p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle off
+		}
 		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'w'}})
-		if p.listWrap {
+		if p.listPanel.WrapMode() {
 			t.Error("expected 'w' to not toggle wrap in list frame")
 		}
 	})
@@ -574,12 +589,12 @@ func TestListFrame_PanDisabledWhenWrapOn(t *testing.T) {
 	}
 	p := newTestPlugin(resources)
 	p.rebuildTree()
-	p.listWrap = true
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // wrap on
 	f := &listFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 0 {
-		t.Errorf("expected pan disabled when wrap is on, got listHScroll=%d", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("expected pan disabled when wrap is on, got listHScroll=%d", p.listPanel.HScroll())
 	}
 }
 
@@ -593,9 +608,12 @@ func TestStateFilterFrame_WrapToggle(t *testing.T) {
 	f := &listFrame{plugin: p}
 	f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 
-	p.listWrap = false
+	// Ensure wrap is off (default)
+	if p.listPanel.WrapMode() {
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+	}
 	p.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	if !p.listWrap {
+	if !p.listPanel.WrapMode() {
 		t.Error("expected ctrl+w to toggle wrap in filter mode")
 	}
 }
@@ -610,11 +628,11 @@ func TestStateFilterFrame_PanDisabledWhenWrapOn(t *testing.T) {
 	f := &listFrame{plugin: p}
 	f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 
-	p.listWrap = true
-	p.listHScroll = 0
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // wrap on
+	p.listPanel.ResetScroll()
 	p.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 0 {
-		t.Errorf("expected pan disabled in filter mode when wrap is on, got listHScroll=%d", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("expected pan disabled in filter mode when wrap is on, got listHScroll=%d", p.listPanel.HScroll())
 	}
 }
 
@@ -627,26 +645,27 @@ func TestListFrame_PanRightLeft(t *testing.T) {
 	f := &listFrame{plugin: p}
 
 	t.Run("ShouldPanRight", func(t *testing.T) {
-		p.listHScroll = 0
+		p.listPanel.ResetScroll()
 		f.Update(tea.KeyMsg{Type: tea.KeyRight})
-		if p.listHScroll != 10 {
-			t.Errorf("expected listHScroll=10 after right, got %d", p.listHScroll)
+		if p.listPanel.HScroll() != 10 {
+			t.Errorf("expected listHScroll=10 after right, got %d", p.listPanel.HScroll())
 		}
 	})
 
 	t.Run("ShouldPanLeft", func(t *testing.T) {
-		p.listHScroll = 10
+		p.listPanel.ResetScroll()
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // set to 10
 		f.Update(tea.KeyMsg{Type: tea.KeyLeft})
-		if p.listHScroll != 0 {
-			t.Errorf("expected listHScroll=0 after left, got %d", p.listHScroll)
+		if p.listPanel.HScroll() != 0 {
+			t.Errorf("expected listHScroll=0 after left, got %d", p.listPanel.HScroll())
 		}
 	})
 
 	t.Run("ShouldNotPanBelowZero", func(t *testing.T) {
-		p.listHScroll = 0
+		p.listPanel.ResetScroll()
 		f.Update(tea.KeyMsg{Type: tea.KeyLeft})
-		if p.listHScroll != 0 {
-			t.Errorf("expected listHScroll=0, got %d", p.listHScroll)
+		if p.listPanel.HScroll() != 0 {
+			t.Errorf("expected listHScroll=0, got %d", p.listPanel.HScroll())
 		}
 	})
 }
@@ -736,70 +755,73 @@ func TestDetailFrame_Update_WhenRight_ShouldPanRight(t *testing.T) {
 	p.status = StatusShowingDetail
 	p.detail = strings.Repeat("x", 200)
 	p.viewWidth = 80
-	p.detailWrap = false
+	// default: wrap off
 	f := &detailFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.detailHScroll != 10 {
-		t.Errorf("detailHScroll after right = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("detailHScroll after right = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
 func TestDetailFrame_Update_WhenLeft_ShouldPanLeft(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
-	p.detailHScroll = 20
-	p.detailWrap = false
+	// Set hscroll to 20 via two right pans
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	// default: wrap off
 	f := &detailFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.detailHScroll != 10 {
-		t.Errorf("detailHScroll after left = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("detailHScroll after left = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
 func TestDetailFrame_Update_WhenRightWithWrap_ShouldNotPan(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
-	p.detailWrap = true
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // wrap on
 	f := &detailFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.detailHScroll != 0 {
-		t.Errorf("detailHScroll after right with wrap = %d, want 0", p.detailHScroll)
+	if p.detailPanel.HScroll() != 0 {
+		t.Errorf("detailHScroll after right with wrap = %d, want 0", p.detailPanel.HScroll())
 	}
 }
 
 func TestDetailFrame_Update_WhenLeftWithWrap_ShouldNotPan(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
-	p.detailHScroll = 10
-	p.detailWrap = true
+	// Set hscroll to 10 then toggle wrap on
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // wrap on, resets hscroll to 0
 	f := &detailFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.detailHScroll != 10 {
-		t.Errorf("detailHScroll after left with wrap = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 0 {
+		t.Errorf("detailHScroll after left with wrap = %d, want 0", p.detailPanel.HScroll())
 	}
 }
 
 func TestDetailFrame_Update_WhenCtrlW_ShouldToggleWrap(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
-	p.detailWrap = false
+	// default: wrap off
 	p.detailScroll = 5
-	p.detailHScroll = 10
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
 	f := &detailFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	if !p.detailWrap {
+	if !p.detailPanel.WrapMode() {
 		t.Error("expected detailWrap=true after ctrl+w")
 	}
 	if p.detailScroll != 0 {
 		t.Errorf("expected detailScroll=0 after wrap toggle, got %d", p.detailScroll)
 	}
-	if p.detailHScroll != 0 {
-		t.Errorf("expected detailHScroll=0 after wrap toggle, got %d", p.detailHScroll)
+	if p.detailPanel.HScroll() != 0 {
+		t.Errorf("expected detailHScroll=0 after wrap toggle, got %d", p.detailPanel.HScroll())
 	}
 }
 
@@ -846,7 +868,7 @@ func TestDetailFrame_Update_WhenEsc_ShouldReturnNilAndResetState(t *testing.T) {
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
 	p.detailScroll = 5
-	p.detailHScroll = 10
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
 	f := &detailFrame{plugin: p}
 
 	result, _ := f.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -865,7 +887,7 @@ func TestDetailFrame_Update_WhenEsc_ShouldReturnNilAndResetState(t *testing.T) {
 	if p.detailScroll != 0 {
 		t.Error("expected detailScroll=0 after esc")
 	}
-	if p.detailHScroll != 0 {
+	if p.detailPanel.HScroll() != 0 {
 		t.Error("expected detailHScroll=0 after esc")
 	}
 }
@@ -1684,47 +1706,50 @@ func TestDetailFrame_Update_WhenUnrecognizedKey_ShouldReturnSelf(t *testing.T) {
 
 func TestListFrame_Update_WhenRightKey_ShouldPanRight(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a_very_long_address"}})
-	p.listWrap = false
+	// default: wrap off
 	f := &listFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 10 {
-		t.Errorf("listHScroll after right = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("listHScroll after right = %d, want 10", p.listPanel.HScroll())
 	}
 }
 
 func TestListFrame_Update_WhenLeftKey_ShouldPanLeft(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
-	p.listHScroll = 20
-	p.listWrap = false
+	// Set hscroll to 20 via two right pans
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	// default: wrap off
 	f := &listFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.listHScroll != 10 {
-		t.Errorf("listHScroll after left = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("listHScroll after left = %d, want 10", p.listPanel.HScroll())
 	}
 }
 
 func TestListFrame_Update_WhenRightKeyWithWrap_ShouldNotPan(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
-	p.listWrap = true
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // wrap on
 	f := &listFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 0 {
-		t.Errorf("listHScroll after right with wrap = %d, want 0", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("listHScroll after right with wrap = %d, want 0", p.listPanel.HScroll())
 	}
 }
 
 func TestListFrame_Update_WhenLeftKeyWithWrap_ShouldNotPan(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
-	p.listHScroll = 10
-	p.listWrap = true
+	// Set hscroll to 10, then toggle wrap on (which resets scroll to 0)
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // wrap on, resets hscroll to 0
 	f := &listFrame{plugin: p}
 
 	f.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.listHScroll != 10 {
-		t.Errorf("listHScroll after left with wrap = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("listHScroll after left with wrap = %d, want 0", p.listPanel.HScroll())
 	}
 }
 

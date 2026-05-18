@@ -360,27 +360,25 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 		endIdx = len(e.workspaces)
 	}
 
-	var lines []string
+	rows := make([]string, 0, endIdx-startIdx)
 	for i := startIdx; i < endIdx; i++ {
-		ws := e.workspaces[i]
-		row := e.renderWorkspaceRow(ws, i)
-		if i == e.selected {
-			row = sdk.StyleSelected.Width(width - 6).Render(row)
-		}
-		lines = append(lines, row)
+		rows = append(rows, e.renderWorkspaceRow(e.workspaces[i], i))
 	}
 
-	lines = ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
-		ViewOffset:     startIdx,
-		TotalItems:     len(e.workspaces),
-		ViewportHeight: maxVisible,
-		Width:          width - 6,
-	})
-
-	for _, line := range lines {
-		b.WriteString(line)
-		b.WriteByte('\n')
+	panel := ui.NewContentPanel()
+	panel.SelectedStyle = func(s string, w int) string {
+		return sdk.StyleSelected.Width(w).Render(s)
 	}
+
+	b.WriteString(panel.Render(ui.RenderParams{
+		Rows:       rows,
+		Width:      width,
+		Height:     maxVisible,
+		TotalItems: len(e.workspaces),
+		ViewOffset: startIdx,
+		Cursor:     e.selected,
+	}))
+	b.WriteByte('\n')
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))
 	currentInfo := sdk.StyleFaint.Render(fmt.Sprintf("Current: %s", e.current))

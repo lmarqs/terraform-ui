@@ -270,7 +270,7 @@ func TestDetailFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	if !p.detailWrap {
+	if !p.detailPanel.WrapMode() {
 		t.Error("ctrl+w should toggle detailWrap to true")
 	}
 }
@@ -386,7 +386,7 @@ func TestListFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	if !p.listWrap {
+	if !p.listPanel.WrapMode() {
 		t.Error("ctrl+w should toggle listWrap to true")
 	}
 }
@@ -552,38 +552,38 @@ func TestPlugin_WhenPanListRight_ShouldIncrementHScroll(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 
 	p.panListRight()
-	if p.listHScroll != 10 {
-		t.Errorf("panListRight(): listHScroll = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("panListRight(): listHScroll = %d, want 10", p.listPanel.HScroll())
 	}
 
 	p.panListRight()
-	if p.listHScroll != 20 {
-		t.Errorf("panListRight() x2: listHScroll = %d, want 20", p.listHScroll)
+	if p.listPanel.HScroll() != 20 {
+		t.Errorf("panListRight() x2: listHScroll = %d, want 20", p.listPanel.HScroll())
 	}
 }
 
 func TestPlugin_WhenPanListLeft_ShouldDecrementHScroll(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.listHScroll = 20
+	p.panListRight()
+	p.panListRight()
 
 	p.panListLeft()
-	if p.listHScroll != 10 {
-		t.Errorf("panListLeft(): listHScroll = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("panListLeft(): listHScroll = %d, want 10", p.listPanel.HScroll())
 	}
 
 	p.panListLeft()
-	if p.listHScroll != 0 {
-		t.Errorf("panListLeft() x2: listHScroll = %d, want 0", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("panListLeft() x2: listHScroll = %d, want 0", p.listPanel.HScroll())
 	}
 }
 
 func TestPlugin_WhenPanListLeftAtZero_ShouldRemainZero(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.listHScroll = 0
 
 	p.panListLeft()
-	if p.listHScroll != 0 {
-		t.Errorf("panListLeft() at 0: listHScroll = %d, want 0", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("panListLeft() at 0: listHScroll = %d, want 0", p.listPanel.HScroll())
 	}
 }
 
@@ -593,39 +593,39 @@ func TestPlugin_WhenPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
 	p.detail = strings.Repeat("x", 200)
 
 	p.panDetailRight()
-	if p.detailHScroll != 10 {
-		t.Errorf("panDetailRight(): detailHScroll = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("panDetailRight(): detailHScroll = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
-func TestPlugin_WhenPanDetailRightAtMax_ShouldClampToMax(t *testing.T) {
+func TestPlugin_WhenPanDetailRightAtMax_ShouldIncrementRegardless(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.viewWidth = 100
 	p.detail = "short"
 
 	p.panDetailRight()
-	if p.detailHScroll != 0 {
-		t.Errorf("panDetailRight() short content: detailHScroll = %d, want 0", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("panDetailRight() short content: detailHScroll = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
 func TestPlugin_WhenPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.detailHScroll = 20
+	p.panDetailRight()
+	p.panDetailRight()
 
 	p.panDetailLeft()
-	if p.detailHScroll != 10 {
-		t.Errorf("panDetailLeft(): detailHScroll = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("panDetailLeft(): detailHScroll = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
 func TestPlugin_WhenPanDetailLeftAtZero_ShouldRemainZero(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.detailHScroll = 0
 
 	p.panDetailLeft()
-	if p.detailHScroll != 0 {
-		t.Errorf("panDetailLeft() at 0: detailHScroll = %d, want 0", p.detailHScroll)
+	if p.detailPanel.HScroll() != 0 {
+		t.Errorf("panDetailLeft() at 0: detailHScroll = %d, want 0", p.detailPanel.HScroll())
 	}
 }
 
@@ -1124,7 +1124,7 @@ func TestPlugin_WhenRenderResultsInTreeModeWithHScroll_ShouldApplyOffset(t *test
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
-	p.listHScroll = 5
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "module.vpc.aws_subnet.very_long_name"}, Action: sdk.ActionCreate},
@@ -1145,7 +1145,9 @@ func TestPlugin_WhenRenderResultsInTreeModeWithHScrollBeyondContent_ShouldShowEm
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
-	p.listHScroll = 500
+	for i := 0; i < 50; i++ {
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	}
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1185,7 +1187,8 @@ func TestPlugin_WhenRenderResultsInTreeModeWithPhantom_ShouldShowPhantomBadge(t 
 func TestPlugin_WhenRenderFlatListWithHScroll_ShouldTruncateFromLeft(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listHScroll = 5
+	p.treeMode = false
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.very_long_resource_name"}, Action: sdk.ActionCreate},
@@ -1195,16 +1198,17 @@ func TestPlugin_WhenRenderFlatListWithHScroll_ShouldTruncateFromLeft(t *testing.
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
-	result := p.renderFlatList(80, 20)
+	result := p.renderResults(80, 20)
 	if result == "" {
-		t.Error("renderFlatList with hscroll should not be empty")
+		t.Error("renderResults (flat) with hscroll should not be empty")
 	}
 }
 
 func TestPlugin_WhenRenderFlatListWithWrap_ShouldNotTruncate(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = true
+	p.treeMode = false
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
@@ -1214,9 +1218,9 @@ func TestPlugin_WhenRenderFlatListWithWrap_ShouldNotTruncate(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
-	result := p.renderFlatList(80, 20)
+	result := p.renderResults(80, 20)
 	if result == "" {
-		t.Error("renderFlatList with wrap should not be empty")
+		t.Error("renderResults (flat) with wrap should not be empty")
 	}
 }
 
@@ -1228,7 +1232,7 @@ func TestPlugin_WhenFormatChangeRowWithRisk_ShouldIncludeRiskBadge(t *testing.T)
 		Risk:     sdk.RiskCritical,
 	}
 
-	row := p.formatChangeRow("[ ] ", change, 100)
+	row := p.formatChangeRow("[ ] ", change)
 	if row == "" {
 		t.Error("formatChangeRow should not be empty")
 	}
@@ -1242,23 +1246,22 @@ func TestPlugin_WhenFormatChangeRowWithPhantom_ShouldIncludePhantomMarker(t *tes
 		IsPhantom: true,
 	}
 
-	row := p.formatChangeRow("[ ] ", change, 100)
+	row := p.formatChangeRow("[ ] ", change)
 	if row == "" {
 		t.Error("formatChangeRow should not be empty")
 	}
 }
 
-func TestPlugin_WhenFormatChangeRowWithHScrollBeyondContent_ShouldReturnPinOnly(t *testing.T) {
+func TestPlugin_WhenFormatChangeRow_ShouldAlwaysIncludePinMark(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.listHScroll = 500
 	change := sdk.PlanChange{
 		Resource: sdk.Resource{Address: "a"},
 		Action:   sdk.ActionCreate,
 	}
 
-	row := p.formatChangeRow("[ ] ", change, 80)
+	row := p.formatChangeRow("[ ] ", change)
 	if !strings.Contains(row, "[ ] ") {
-		t.Error("formatChangeRow with extreme hscroll should still contain pin mark")
+		t.Error("formatChangeRow should always include pin mark")
 	}
 }
 
@@ -1266,7 +1269,7 @@ func TestPlugin_WhenRenderDetailWithWrap_ShouldWrapLongLines(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = strings.Repeat("abcdefghij", 20)
 	p.detailAddr = "aws_instance.web"
-	p.detailWrap = true
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 
 	view := p.renderDetail(80, 24)
 	if view == "" {
@@ -1281,8 +1284,7 @@ func TestPlugin_WhenRenderDetailWithHScroll_ShouldOffsetContent(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = strings.Repeat("x", 200)
 	p.detailAddr = "aws_instance.web"
-	p.detailHScroll = 10
-	p.detailWrap = false
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 
 	view := p.renderDetail(80, 24)
 	if view == "" {
@@ -1599,10 +1601,10 @@ func TestPlanFilterFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
-	if !p.listWrap {
+	if !p.listPanel.WrapMode() {
 		t.Error("ctrl+w in filter frame should toggle listWrap to true")
 	}
-	if p.listHScroll != 0 {
+	if p.listPanel.HScroll() != 0 {
 		t.Error("ctrl+w should reset listHScroll to 0")
 	}
 }
@@ -1629,7 +1631,6 @@ func TestPlanFilterFrame_WhenCtrlPPressed_ShouldTogglePinnedOnly(t *testing.T) {
 func TestPlanFilterFrame_WhenRightPressed_ShouldPanListRight(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = false
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1641,16 +1642,16 @@ func TestPlanFilterFrame_WhenRightPressed_ShouldPanListRight(t *testing.T) {
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 10 {
-		t.Errorf("right in filter frame: listHScroll = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("right in filter frame: listHScroll = %d, want 10", p.listPanel.HScroll())
 	}
 }
 
 func TestPlanFilterFrame_WhenLeftPressed_ShouldPanListLeft(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = false
-	p.listHScroll = 20
+	p.panListRight()
+	p.panListRight()
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1662,15 +1663,15 @@ func TestPlanFilterFrame_WhenLeftPressed_ShouldPanListLeft(t *testing.T) {
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.listHScroll != 10 {
-		t.Errorf("left in filter frame: listHScroll = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("left in filter frame: listHScroll = %d, want 10", p.listPanel.HScroll())
 	}
 }
 
 func TestPlanFilterFrame_WhenRightPressedWithWrap_ShouldDoNothing(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = true
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1682,8 +1683,8 @@ func TestPlanFilterFrame_WhenRightPressedWithWrap_ShouldDoNothing(t *testing.T) 
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 0 {
-		t.Errorf("right with wrap in filter frame: listHScroll = %d, want 0", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("right with wrap in filter frame: listHScroll = %d, want 0", p.listPanel.HScroll())
 	}
 }
 
@@ -1792,7 +1793,7 @@ func TestListFrame_WhenEnterInTreeModeOnBranch_ShouldToggleBranch(t *testing.T) 
 func TestListFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = true
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1803,16 +1804,15 @@ func TestListFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 0 {
-		t.Errorf("right with wrap: listHScroll = %d, want 0", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("right with wrap: listHScroll = %d, want 0", p.listPanel.HScroll())
 	}
 }
 
-func TestListFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
+func TestListFrame_WhenLeftPressedWithWrapAtZero_ShouldRemainZero(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = true
-	p.listHScroll = 10
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1823,8 +1823,8 @@ func TestListFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.listHScroll != 10 {
-		t.Errorf("left with wrap: listHScroll = %d, want 10 (unchanged)", p.listHScroll)
+	if p.listPanel.HScroll() != 0 {
+		t.Errorf("left with wrap at 0: listHScroll = %d, want 0", p.listPanel.HScroll())
 	}
 }
 
@@ -1902,7 +1902,7 @@ func TestPlugin_WhenRenderResultsWithListWrapInTreeMode_ShouldNotTruncate(t *tes
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
-	p.listWrap = true
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "module.vpc.aws_subnet.a"}, Action: sdk.ActionCreate},
@@ -1936,7 +1936,7 @@ func TestDetailFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.detailHScroll == 0 {
+	if p.detailPanel.HScroll() == 0 {
 		t.Error("right in detail frame should increment detailHScroll")
 	}
 }
@@ -1955,11 +1955,12 @@ func TestDetailFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	p.detailHScroll = 20
+	p.panDetailRight()
+	p.panDetailRight()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.detailHScroll != 10 {
-		t.Errorf("left in detail frame: detailHScroll = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("left in detail frame: detailHScroll = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
@@ -1977,15 +1978,15 @@ func TestDetailFrame_WhenRightPressedWithWrap_ShouldNotPan(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	p.detailWrap = true
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.detailHScroll != 0 {
-		t.Errorf("right with detailWrap: detailHScroll = %d, want 0", p.detailHScroll)
+	if p.detailPanel.HScroll() != 0 {
+		t.Errorf("right with detailWrap: detailHScroll = %d, want 0", p.detailPanel.HScroll())
 	}
 }
 
-func TestDetailFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
+func TestDetailFrame_WhenLeftPressedWithWrapAtZero_ShouldRemainZero(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
@@ -1999,12 +2000,11 @@ func TestDetailFrame_WhenLeftPressedWithWrap_ShouldNotPan(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	p.detailWrap = true
-	p.detailHScroll = 10
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.detailHScroll != 10 {
-		t.Errorf("left with detailWrap: detailHScroll = %d, want 10 (unchanged)", p.detailHScroll)
+	if p.detailPanel.HScroll() != 0 {
+		t.Errorf("left with detailWrap at 0: detailHScroll = %d, want 0", p.detailPanel.HScroll())
 	}
 }
 
@@ -2210,34 +2210,34 @@ func TestPlugin_WhenPanDetailRightWithSmallViewWidth_ShouldUseMinContentWidth(t 
 	p.detail = strings.Repeat("x", 200)
 
 	p.panDetailRight()
-	if p.detailHScroll != 10 {
-		t.Errorf("panDetailRight with small viewWidth: detailHScroll = %d, want 10", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("panDetailRight with small viewWidth: detailHScroll = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
-func TestPlugin_WhenPanDetailRightExceedsMaxScroll_ShouldClamp(t *testing.T) {
+func TestPlugin_WhenPanDetailRightExceedsMaxScroll_ShouldStillIncrement(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.viewWidth = 100
 	contentWidth := 100 - 6
 	p.detail = strings.Repeat("x", contentWidth+15)
 
 	p.panDetailRight()
-	if p.detailHScroll > 15 {
-		t.Errorf("panDetailRight beyond max: detailHScroll = %d, should be clamped to maxScroll", p.detailHScroll)
+	if p.detailPanel.HScroll() != 10 {
+		t.Errorf("panDetailRight: detailHScroll = %d, want 10", p.detailPanel.HScroll())
 	}
 }
 
-func TestPlugin_WhenFormatChangeRowWithWrap_ShouldNotTruncate(t *testing.T) {
+func TestPlugin_WhenFormatChangeRow_ShouldIncludeFullAddress(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.listWrap = true
+	longAddr := strings.Repeat("x", 200)
 	change := sdk.PlanChange{
-		Resource: sdk.Resource{Address: strings.Repeat("x", 200)},
+		Resource: sdk.Resource{Address: longAddr},
 		Action:   sdk.ActionCreate,
 	}
 
-	row := p.formatChangeRow("[ ] ", change, 80)
-	if !strings.Contains(row, strings.Repeat("x", 100)) {
-		t.Error("formatChangeRow with wrap should not truncate content")
+	row := p.formatChangeRow("[ ] ", change)
+	if !strings.Contains(row, longAddr) {
+		t.Error("formatChangeRow should include full address without truncation")
 	}
 }
 
@@ -2263,7 +2263,6 @@ func TestPlugin_WhenOutputJsonWithCreateThenDelete_ShouldSetCorrectAction(t *tes
 func TestListFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = false
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -2274,16 +2273,16 @@ func TestListFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRight})
-	if p.listHScroll != 10 {
-		t.Errorf("right key no wrap: listHScroll = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("right key no wrap: listHScroll = %d, want 10", p.listPanel.HScroll())
 	}
 }
 
 func TestListFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
-	p.listWrap = false
-	p.listHScroll = 20
+	p.panListRight()
+	p.panListRight()
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -2294,8 +2293,8 @@ func TestListFrame_WhenLeftPressedNoWrap_ShouldPanLeft(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyLeft})
-	if p.listHScroll != 10 {
-		t.Errorf("left key no wrap: listHScroll = %d, want 10", p.listHScroll)
+	if p.listPanel.HScroll() != 10 {
+		t.Errorf("left key no wrap: listHScroll = %d, want 10", p.listPanel.HScroll())
 	}
 }
 
@@ -2321,8 +2320,7 @@ func TestPlugin_WhenRenderDetailWithMultilineHScroll_ShouldOffsetAllLines(t *tes
 	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "short\n" + strings.Repeat("x", 100) + "\nend"
 	p.detailAddr = "test"
-	p.detailHScroll = 5
-	p.detailWrap = false
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 
 	view := p.renderDetail(80, 24)
 	if view == "" {
@@ -2334,8 +2332,9 @@ func TestPlugin_WhenRenderDetailWithHScrollBeyondLine_ShouldShowEmptyLine(t *tes
 	p := newTestPlugin(&sdktest.MockService{})
 	p.detail = "hi\n" + strings.Repeat("y", 100)
 	p.detailAddr = "test"
-	p.detailHScroll = 50
-	p.detailWrap = false
+	for i := 0; i < 5; i++ {
+		p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	}
 
 	view := p.renderDetail(80, 24)
 	if view == "" {
@@ -2397,18 +2396,17 @@ func TestListFrame_WhenEnterPressedWithNoSelection_ShouldDoNothing(t *testing.T)
 	}
 }
 
-func TestPlugin_WhenFormatChangeRowLongAddressNoWrap_ShouldTruncateToAvailWidth(t *testing.T) {
+func TestPlugin_WhenFormatChangeRowLongAddress_ShouldReturnFullContent(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.listWrap = false
-	p.listHScroll = 0
+	longAddr := strings.Repeat("x", 200)
 	change := sdk.PlanChange{
-		Resource: sdk.Resource{Address: strings.Repeat("x", 200)},
+		Resource: sdk.Resource{Address: longAddr},
 		Action:   sdk.ActionCreate,
 	}
 
-	row := p.formatChangeRow("[ ] ", change, 50)
-	if len(row) == 0 {
-		t.Error("formatChangeRow should return non-empty row")
+	row := p.formatChangeRow("[ ] ", change)
+	if !strings.Contains(row, longAddr) {
+		t.Error("formatChangeRow should return full content for panel to handle")
 	}
 }
 

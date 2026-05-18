@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
@@ -73,25 +72,31 @@ type Plugin struct {
 	errMsg        string
 	lockInfo      *sdk.StateLock
 	viewWidth     int
-	listHScroll   int
-	listWrap      bool
+	listPanel     *ui.ContentPanel
 	pinnedOnly    bool
 	detail        string
 	detailAddr    string
 	detailScroll  int
-	detailHScroll int
-	detailWrap    bool
+	detailPanel   *ui.ContentPanel
 	scopedContext string
 	cancelFn      context.CancelFunc
 }
 
 // New creates a new state browser plugin.
 func New(svc sdk.Service) sdk.Plugin {
+	listPanel := ui.NewContentPanel()
+	listPanel.SelectedStyle = func(s string, w int) string {
+		return sdk.StyleSelected.Width(w).Render(s)
+	}
+	detailPanel := ui.NewContentPanel()
+
 	p := &Plugin{
-		svc:   svc,
-		log:   slog.New(slog.NewTextHandler(io.Discard, nil)),
-		tree:  tree.New(nil),
-		fuzzy: ui.NewFuzzyFilter(func(r sdk.Resource) string { return r.Address }),
+		svc:         svc,
+		log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		tree:        tree.New(nil),
+		listPanel:   listPanel,
+		detailPanel: detailPanel,
+		fuzzy:       ui.NewFuzzyFilter(func(r sdk.Resource) string { return r.Address }),
 	}
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
@@ -311,42 +316,19 @@ func (e *Plugin) navigate(dir int) {
 }
 
 func (e *Plugin) panListRight() {
-	e.listHScroll += 10
+	e.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 }
 
 func (e *Plugin) panListLeft() {
-	e.listHScroll -= 10
-	if e.listHScroll < 0 {
-		e.listHScroll = 0
-	}
+	e.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyLeft})
 }
 
 func (e *Plugin) panDetailRight() {
-	maxLine := 0
-	for _, line := range strings.Split(e.detail, "\n") {
-		if len(line) > maxLine {
-			maxLine = len(line)
-		}
-	}
-	contentWidth := e.viewWidth - 6
-	if contentWidth < 40 {
-		contentWidth = 40
-	}
-	maxScroll := maxLine - contentWidth
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
-	e.detailHScroll += 10
-	if e.detailHScroll > maxScroll {
-		e.detailHScroll = maxScroll
-	}
+	e.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 }
 
 func (e *Plugin) panDetailLeft() {
-	e.detailHScroll -= 10
-	if e.detailHScroll < 0 {
-		e.detailHScroll = 0
-	}
+	e.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyLeft})
 }
 
 // sourceResources returns the base set of resources to filter from,
@@ -555,11 +537,11 @@ func (e *Plugin) renderResources(width, height int) string {
 		maxVisible = 3
 	}
 
-	contentWidth := width - 6
+	contentWidth := e.listPanel.ContentWidth(width, maxVisible, e.tree.VisibleCount())
 
-	var treeContent string
+	var rows []string
 	if e.treeMode {
-		treeContent = e.tree.Render(tree.RenderOpts{
+		rows = e.tree.RenderRows(tree.RenderOpts{
 			Width:  contentWidth,
 			Height: maxVisible,
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
@@ -571,13 +553,6 @@ func (e *Plugin) renderResources(width, height int) string {
 				if e.filter != "" {
 					if score, ok := e.filterScores[r.Address]; ok {
 						full += fmt.Sprintf(" [%d]", score)
-					}
-				}
-				if e.listHScroll > 0 {
-					if e.listHScroll < len(full) {
-						full = full[e.listHScroll:]
-					} else {
-						full = ""
 					}
 				}
 				return full
@@ -596,87 +571,46 @@ func (e *Plugin) renderResources(width, height int) string {
 				Full:    sdk.StyleSuccess.Render("[*] "),
 				Partial: sdk.StyleUpdate.Render("[-] "),
 			},
-			SelectedStyle: func(s string, w int) string {
-				return sdk.StyleSelected.Width(w).Render(s)
-			},
-			TruncateRow: func(s string, w int) string {
-				if e.listWrap {
-					return s
-				}
-				return lipgloss.NewStyle().MaxWidth(w).Render(s)
-			},
 		})
 	} else {
-		treeContent = e.renderFlatList(contentWidth, maxVisible)
+		rows = e.buildFlatRows(maxVisible)
 	}
 
-	lines := strings.Split(treeContent, "\n")
-	lines = ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
-		ViewOffset:     e.tree.ViewOffset(maxVisible),
-		TotalItems:     e.tree.VisibleCount(),
-		ViewportHeight: maxVisible,
-		Width:          contentWidth,
+	treeContent := e.listPanel.Render(ui.RenderParams{
+		Width:      width,
+		Height:     maxVisible,
+		TotalItems: e.tree.VisibleCount(),
+		ViewOffset: e.tree.ViewOffset(maxVisible),
+		Cursor:     e.tree.Cursor(),
+		Rows:       rows,
 	})
-	treeContent = strings.Join(lines, "\n")
 
 	return filterLine + treeContent + ui.RenderActionsBar(actions, width)
 }
 
-func (e *Plugin) renderFlatList(contentWidth, maxVisible int) string {
-	var b strings.Builder
-	cursor := e.tree.Cursor()
+func (e *Plugin) buildFlatRows(maxVisible int) []string {
 	startIdx := e.tree.ViewOffset(maxVisible)
 	endIdx := startIdx + maxVisible
 	if endIdx > len(e.filtered) {
 		endIdx = len(e.filtered)
 	}
 
-	linesUsed := 0
+	rows := make([]string, 0, endIdx-startIdx)
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
 		pinMark := "[ ] "
 		if e.isPinnedAddress(r.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
-		row := e.formatResourceRow(pinMark, r, contentWidth)
-		if i == cursor {
-			if e.listWrap {
-				row = sdk.StyleSelected.Width(contentWidth).Render(row)
-			} else {
-				row = sdk.StyleSelected.MaxWidth(contentWidth).Width(contentWidth).Render(row)
-			}
-		}
-		rowLines := strings.Count(row, "\n") + 1
-		if e.listWrap && linesUsed+rowLines > maxVisible {
-			break
-		}
-		if i > startIdx {
-			b.WriteByte('\n')
-		}
-		b.WriteString(row)
-		linesUsed += rowLines
+		rows = append(rows, e.formatResourceRow(pinMark, r))
 	}
-	return b.String()
+	return rows
 }
 
-func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource, contentWidth int) string {
+func (e *Plugin) formatResourceRow(pinMark string, r sdk.Resource) string {
 	full := r.Address + "  " + r.Type
 	if r.Tainted {
 		full += " " + sdk.StyleUpdate.Render("[tainted]")
-	}
-	if e.listWrap {
-		return pinMark + full
-	}
-	if e.listHScroll > 0 {
-		if e.listHScroll < len(full) {
-			full = full[e.listHScroll:]
-		} else {
-			full = ""
-		}
-	}
-	availWidth := contentWidth - 4 // pin mark visual width
-	if len(full) > availWidth {
-		full = full[:availWidth]
 	}
 	return pinMark + full
 }
@@ -697,31 +631,12 @@ func (e *Plugin) renderDetail(width, height int) string {
 	actions := e.detailActions()
 
 	headerLines := 2
-	contentWidth := width - 6
-	if contentWidth < 40 {
-		contentWidth = 40
-	}
-
-	lines := strings.Split(e.detail, "\n")
-	if e.detailWrap {
-		lines = wrapLines(lines, contentWidth)
-	} else {
-		for i, line := range lines {
-			if e.detailHScroll < len(line) {
-				lines[i] = line[e.detailHScroll:]
-			} else {
-				lines[i] = ""
-			}
-			if len(lines[i]) > contentWidth {
-				lines[i] = lines[i][:contentWidth]
-			}
-		}
-	}
-
 	maxLines := height - headerLines - ui.ActionsBarHeight
 	if maxLines < 5 {
 		maxLines = 5
 	}
+
+	lines := strings.Split(e.detail, "\n")
 
 	maxScroll := len(lines) - maxLines
 	if maxScroll < 0 {
@@ -735,16 +650,15 @@ func (e *Plugin) renderDetail(width, height int) string {
 	if endIdx > len(lines) {
 		endIdx = len(lines)
 	}
-	visible := lines[e.detailScroll:endIdx]
 
-	visible = ui.RenderScrollGutter(visible, ui.ScrollGutterOpts{
-		ViewOffset:     e.detailScroll,
-		TotalItems:     len(lines),
-		ViewportHeight: maxLines,
-		Width:          contentWidth,
+	detail := e.detailPanel.Render(ui.RenderParams{
+		Rows:       lines[e.detailScroll:endIdx],
+		Width:      width,
+		Height:     maxLines,
+		TotalItems: len(lines),
+		ViewOffset: e.detailScroll,
+		Cursor:     -1,
 	})
-
-	detail := strings.Join(visible, "\n")
 
 	scrollInfo := ""
 	if maxScroll > 0 {
@@ -761,8 +675,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		taintIndicator = " " + sdk.StyleUpdate.Render("[tainted]")
 	}
 
-	content := address + taintIndicator + pinIndicator + scrollInfo + "\n\n" + detail + ui.RenderActionsBar(actions, width)
-	return content
+	return address + taintIndicator + pinIndicator + scrollInfo + "\n\n" + detail + ui.RenderActionsBar(actions, width)
 }
 
 func wrapLines(lines []string, width int) []string {

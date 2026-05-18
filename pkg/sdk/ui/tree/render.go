@@ -68,6 +68,34 @@ func (t *Tree) Render(opts RenderOpts) string {
 	return strings.Join(lines, "\n")
 }
 
+// RenderRows returns the visible rows of the tree as a slice without applying
+// truncation or cursor highlighting. Those concerns are owned by the caller
+// (typically a ContentPanel).
+func (t *Tree) RenderRows(opts RenderOpts) []string {
+	if len(t.flattened) == 0 {
+		return nil
+	}
+
+	height := opts.Height
+	if height <= 0 {
+		height = len(t.flattened)
+	}
+
+	t.adjustViewport(height)
+	startIdx := t.viewOffset
+	endIdx := startIdx + height
+	if endIdx > len(t.flattened) {
+		endIdx = len(t.flattened)
+	}
+
+	rows := make([]string, 0, endIdx-startIdx)
+	for i := startIdx; i < endIdx; i++ {
+		node := t.flattened[i]
+		rows = append(rows, t.renderNode(node, opts))
+	}
+	return rows
+}
+
 // adjustViewport ensures the cursor is visible within the viewport window,
 // only scrolling when the cursor reaches the viewport edge.
 func (t *Tree) adjustViewport(height int) {

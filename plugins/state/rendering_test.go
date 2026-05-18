@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -50,7 +51,7 @@ func TestRenderDetail_WhenWrapped_ShouldWrapLongLines(t *testing.T) {
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = strings.Repeat("x", 200)
-	p.detailWrap = true
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle wrap on
 
 	view := p.renderDetail(80, 20)
 	lines := strings.Split(view, "\n")
@@ -66,14 +67,14 @@ func TestRenderDetail_WhenHScrolled_ShouldShiftContent(t *testing.T) {
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-	p.detailHScroll = 5
-	p.detailWrap = false
+	// HandleKey(Right) increments hScroll by 10; we need hscroll=10 (closest to 5)
+	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 
 	view := p.renderDetail(80, 20)
 	if strings.Contains(view, "ABCDE") {
-		t.Error("expected first 5 chars to be hidden with hscroll=5")
+		t.Error("expected first chars to be hidden with hscroll")
 	}
-	if !strings.Contains(view, "FGHIJ") {
+	if !strings.Contains(view, "KLMNO") {
 		t.Error("expected shifted content to be visible")
 	}
 }
@@ -132,7 +133,7 @@ func TestRenderDetail_WhenContentWidthTooSmall_ShouldUseMinimum(t *testing.T) {
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = strings.Repeat("y", 100)
-	p.detailWrap = false
+	// default: no wrap
 
 	// Width 10 forces contentWidth = max(10-6, 40) = 40
 	view := p.renderDetail(10, 20)
@@ -141,13 +142,10 @@ func TestRenderDetail_WhenContentWidthTooSmall_ShouldUseMinimum(t *testing.T) {
 	}
 }
 
-func TestFormatResourceRow_WhenHScrollExceedsContent_ShouldReturnEmpty(t *testing.T) {
+func TestFormatResourceRow_ShouldAlwaysIncludePinMark(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.listHScroll = 1000
-	p.listWrap = false
 
-	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "short", Type: "t"}, 80)
-	// When scroll exceeds content, full becomes "" and we get just the pin mark
+	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "short", Type: "t"})
 	if !strings.Contains(row, "[ ] ") {
 		t.Errorf("expected pin mark in row, got %q", row)
 	}
@@ -185,7 +183,7 @@ func TestRenderResources_TreeMode_WithHScroll(t *testing.T) {
 	p.filtered = p.resources
 	p.rebuildTree()
 	p.tree.ExpandAll()
-	p.listHScroll = 5
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll += 10
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -204,7 +202,10 @@ func TestRenderResources_TreeMode_WithListHScrollExceedingContent(t *testing.T) 
 	p.filtered = p.resources
 	p.rebuildTree()
 	p.tree.ExpandAll()
-	p.listHScroll = 1000
+	// Scroll right many times to simulate excessive hscroll
+	for i := 0; i < 100; i++ {
+		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	}
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -217,7 +218,7 @@ func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
 	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.status = sdk.StatusDone
 	p.treeMode = true
-	p.listWrap = true
+	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle wrap on
 	p.resources = []sdk.Resource{
 		{Address: "module.a.aws_instance.web_server_with_a_very_long_name", Type: "aws_instance"},
 	}
@@ -236,8 +237,10 @@ func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = "short\nline"
-	p.detailHScroll = 100
-	p.detailWrap = false
+	// Scroll right many times to simulate excessive hscroll
+	for i := 0; i < 10; i++ {
+		p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+	}
 
 	view := p.renderDetail(80, 20)
 	if view == "" {
@@ -250,18 +253,16 @@ func TestRenderDetail_WhenLineTruncatedByContentWidth_ShouldTruncate(t *testing.
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = strings.Repeat("x", 200)
-	p.detailHScroll = 0
-	p.detailWrap = false
+	// default: no hscroll, no wrap
 
-	view := p.renderDetail(50, 20)
-	// contentWidth = max(50-6, 40) = 44
-	// The visible line should be truncated to 44 chars
+	width := 50
+	view := p.renderDetail(width, 20)
 	lines := strings.Split(view, "\n")
-	// Skip header lines (address + blank)
+	// Skip header lines (address + blank), check content is truncated to panel width
 	if len(lines) > 2 {
 		contentLine := lines[2]
-		if len(contentLine) > 44 {
-			t.Errorf("expected line truncated to contentWidth=44, got length %d", len(contentLine))
+		if len(contentLine) > width {
+			t.Errorf("expected line truncated to width=%d, got length %d", width, len(contentLine))
 		}
 	}
 }
@@ -296,24 +297,20 @@ func TestRenderDetail_WhenTainted_ShouldShowTaintedIndicator(t *testing.T) {
 
 func TestFormatResourceRow_WhenTainted_ShouldShowTaintedBadge(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.listHScroll = 0
-	p.listWrap = false
 
-	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", Tainted: true}, 120)
+	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", Tainted: true})
 	if !strings.Contains(row, "[tainted]") {
 		t.Error("expected [tainted] in formatResourceRow for tainted resource")
 	}
 }
 
-func TestFormatResourceRow_WhenWrapMode_ShouldNotTruncate(t *testing.T) {
+func TestFormatResourceRow_ShouldIncludeFullAddress(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.listHScroll = 0
-	p.listWrap = true
 
 	longAddr := strings.Repeat("x", 200)
-	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: longAddr, Type: "t"}, 80)
+	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: longAddr, Type: "t"})
 	if !strings.Contains(row, longAddr) {
-		t.Error("expected full content in wrap mode (no truncation)")
+		t.Error("expected full address in row (truncation handled by panel)")
 	}
 }
 

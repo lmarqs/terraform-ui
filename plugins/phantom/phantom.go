@@ -193,7 +193,7 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		pc := e.phantoms[i]
 		row := e.renderPhantomRow(pc, i)
 		if i == e.selected {
-			row = sdk.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')

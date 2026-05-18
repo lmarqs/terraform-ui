@@ -279,16 +279,11 @@ func (p *Plugin) renderOutputs(width, height int) string {
 		endIdx = len(p.filtered)
 	}
 
-	contentWidth := width - 6
-	if contentWidth < 40 {
-		contentWidth = 40
-	}
-
 	for i := startIdx; i < endIdx; i++ {
 		o := p.filtered[i]
 		row := p.renderOutputRow(o)
 		if i == p.selected {
-			row = sdk.StyleSelected.Width(contentWidth).Render(row)
+			row = sdk.StyleSelected.Width(width).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')

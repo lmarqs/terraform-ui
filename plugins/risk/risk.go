@@ -194,7 +194,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 		header := e.renderGroupHeader(group)
 		if itemIdx < maxVisible {
 			if itemIdx == e.selected {
-				header = sdk.StyleSelected.Width(width - 6).Render(header)
+				header = sdk.StyleSelected.Width(width).Render(header)
 			}
 			b.WriteString(header)
 			b.WriteByte('\n')
@@ -207,7 +207,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 			}
 			row := e.renderChangeRow(change)
 			if itemIdx == e.selected {
-				row = sdk.StyleSelected.Width(width - 6).Render(row)
+				row = sdk.StyleSelected.Width(width).Render(row)
 			}
 			b.WriteString(row)
 			b.WriteByte('\n')

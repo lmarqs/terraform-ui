@@ -269,7 +269,7 @@ func (p *Plugin) renderResults(width, height int) string {
 		diag := p.diagnostics[i]
 		row := p.renderDiagnosticRow(diag)
 		if i == p.selected {
-			row = sdk.StyleSelected.Width(width - 6).Render(row)
+			row = sdk.StyleSelected.Width(width).Render(row)
 		}
 		b.WriteString(row)
 		b.WriteByte('\n')

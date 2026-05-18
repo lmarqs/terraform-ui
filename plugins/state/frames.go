@@ -84,17 +84,8 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.MoveToEnd()
 	case "g":
 		f.plugin.MoveToStart()
-	case "right":
-		if !f.plugin.listWrap {
-			f.plugin.panListRight()
-		}
-	case "left":
-		if !f.plugin.listWrap {
-			f.plugin.panListLeft()
-		}
-	case "ctrl+w":
-		f.plugin.listWrap = !f.plugin.listWrap
-		f.plugin.listHScroll = 0
+	case "right", "left", "ctrl+w":
+		f.plugin.listPanel.HandleKey(keyMsg)
 	case "ctrl+p":
 		f.plugin.pinnedOnly = !f.plugin.pinnedOnly
 		f.plugin.SetFilter(f.plugin.filter)
@@ -177,7 +168,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		if f.plugin.PinnedCount() > 0 {
 			set |= sdk.HintSetClearPins
 		}
-		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap, PinnedFilter: f.plugin.pinnedOnly})
+		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listPanel.WrapMode(), PinnedFilter: f.plugin.pinnedOnly})
 	}
 }
 
@@ -200,7 +191,7 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.detail = ""
 		f.plugin.detailAddr = ""
 		f.plugin.detailScroll = 0
-		f.plugin.detailHScroll = 0
+		f.plugin.detailPanel.ResetScroll()
 		return nil, nil
 	case "down":
 		f.plugin.detailScroll++
@@ -208,18 +199,11 @@ func (f *detailFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if f.plugin.detailScroll > 0 {
 			f.plugin.detailScroll--
 		}
-	case "right":
-		if !f.plugin.detailWrap {
-			f.plugin.panDetailRight()
+	case "right", "left", "ctrl+w":
+		f.plugin.detailPanel.HandleKey(keyMsg)
+		if keyMsg.String() == "ctrl+w" {
+			f.plugin.detailScroll = 0
 		}
-	case "left":
-		if !f.plugin.detailWrap {
-			f.plugin.panDetailLeft()
-		}
-	case "ctrl+w":
-		f.plugin.detailWrap = !f.plugin.detailWrap
-		f.plugin.detailScroll = 0
-		f.plugin.detailHScroll = 0
 	case " ":
 		return f, f.plugin.togglePin(f.plugin.detailAddr)
 	case "d":
@@ -245,7 +229,7 @@ func (f *detailFrame) View(width, height int) string {
 func (f *detailFrame) Hints() []sdk.KeyHint {
 	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetBack
 	return set.Hints(sdk.HintSetOpts{
-		WrapMode: f.plugin.detailWrap,
+		WrapMode: f.plugin.detailPanel.WrapMode(),
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
 	})
 }
@@ -271,23 +255,12 @@ func (f *stateFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 				f.plugin.tree.CollapseAll()
 			}
 			return f, nil
-		case "ctrl+w":
-			f.plugin.listWrap = !f.plugin.listWrap
-			f.plugin.listHScroll = 0
+		case "ctrl+w", "right", "left":
+			f.plugin.listPanel.HandleKey(keyMsg)
 			return f, nil
 		case "ctrl+p":
 			f.plugin.pinnedOnly = !f.plugin.pinnedOnly
 			f.plugin.SetFilter(f.plugin.filter)
-			return f, nil
-		case "right":
-			if !f.plugin.listWrap {
-				f.plugin.panListRight()
-			}
-			return f, nil
-		case "left":
-			if !f.plugin.listWrap {
-				f.plugin.panListLeft()
-			}
 			return f, nil
 		}
 	}
