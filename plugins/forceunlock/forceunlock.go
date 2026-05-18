@@ -194,9 +194,11 @@ func (p *Plugin) View(_, _ int) string {
 func (p *Plugin) Hints() []sdk.KeyHint {
 	switch p.status {
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
+		return (sdk.HintSetRetry | sdk.HintSetBack | sdk.HintSetQuit).Hints()
+	case sdk.StatusDone:
+		return (sdk.HintSetBack | sdk.HintSetQuit).Hints()
 	default:
-		return (sdk.HintSetQuit).Hints()
+		return (sdk.HintSetBack | sdk.HintSetQuit).Hints()
 	}
 }
 
