@@ -33,8 +33,8 @@ func TestConfig_EmptyConfig_ShouldReturnEmptyRootConfig(t *testing.T) {
 	if cfg.Terraform.Bin != "" {
 		t.Errorf("Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
 	}
-	if len(cfg.Chdir.Members) != 0 {
-		t.Errorf("Chdir.Members = %v, want empty", cfg.Chdir.Members)
+	if len(cfg.Members) != 0 {
+		t.Errorf("Members = %v, want empty", cfg.Members)
 	}
 }
 
@@ -46,8 +46,8 @@ func TestConfig_SingleModule_ShouldParseBinary(t *testing.T) {
 	if cfg.Terraform.Bin != "terraform" {
 		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "terraform")
 	}
-	if len(cfg.Chdir.Members) != 0 {
-		t.Errorf("Chdir.Members = %v, want empty", cfg.Chdir.Members)
+	if len(cfg.Members) != 0 {
+		t.Errorf("Members = %v, want empty", cfg.Members)
 	}
 }
 
@@ -61,11 +61,11 @@ func TestConfig_Monorepo_ShouldParseFullConfig(t *testing.T) {
 	if cfg.Terraform.Bin != "terraform" {
 		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "terraform")
 	}
-	if len(cfg.Chdir.Members) != 2 {
-		t.Fatalf("Chdir.Members length = %d, want 2", len(cfg.Chdir.Members))
+	if len(cfg.Members) != 2 {
+		t.Fatalf("Members length = %d, want 2", len(cfg.Members))
 	}
-	if cfg.Chdir.Members[0] != "modules/vpc" {
-		t.Errorf("Chdir.Members[0] = %q, want %q", cfg.Chdir.Members[0], "modules/vpc")
+	if cfg.Members[0].Path != "modules/vpc" {
+		t.Errorf("Members[0].Path = %q, want %q", cfg.Members[0].Path, "modules/vpc")
 	}
 	if cfg.Cache.StalenessThreshold != "5m" {
 		t.Errorf("Cache.StalenessThreshold = %q, want %q", cfg.Cache.StalenessThreshold, "5m")
