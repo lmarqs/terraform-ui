@@ -190,6 +190,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openContextOnStartupMsg:
 		// Standalone mode: activate the target plugin directly
 		if a.standalone != nil {
+			if a.cfg.Chdir != "" {
+				a.activeChdir = a.cfg.Chdir
+			} else if a.cfg.BaseDir != "" {
+				a.activeChdir = a.cfg.BaseDir
+			}
 			if p, ok := a.registry.ByID(a.standalone.PluginID); ok {
 				a.activePlugin = p
 				var cmd tea.Cmd
@@ -211,6 +216,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					RelPath: a.cfg.Chdir,
 					AbsPath: absScope,
 				})
+			}
+			if a.cfg.BaseDir != "" {
+				a.activeChdir = a.cfg.BaseDir
 			}
 			return a, nil
 		}
@@ -987,26 +995,29 @@ func (a App) View() string {
 func (a App) viewStandalone() string {
 	headerHeight := 1
 	footerHeight := 1
-	contentHeight := a.height - headerHeight - footerHeight
+	padding := 2 // blank row after header + blank row before footer
+	contentHeight := a.height - headerHeight - footerHeight - padding
 
 	// Minimal header: context info on left, tfui on right
 	headerStyle := lipgloss.NewStyle().
-		Background(sdk.ColorBg).
-		Foreground(sdk.ColorFaint).
 		Width(a.width)
+	sep := sdk.StyleFaint.Render(" › ")
+	projectStyle := lipgloss.NewStyle().Foreground(sdk.ColorPrimary).Bold(true)
+	valueStyle := lipgloss.NewStyle().Foreground(sdk.ColorText)
+
 	var leftParts []string
-	leftParts = append(leftParts, filepath.Base(a.cfg.WorkingDir()))
+	leftParts = append(leftParts, projectStyle.Render(filepath.Base(a.cfg.WorkingDir())))
 	if a.activeChdir != "" {
-		leftParts = append(leftParts, a.activeChdir)
+		leftParts = append(leftParts, valueStyle.Render(a.activeChdir))
 	}
 	if a.activeWorkspace != "" {
-		leftParts = append(leftParts, a.activeWorkspace)
+		leftParts = append(leftParts, valueStyle.Render(a.activeWorkspace))
 	}
 	if a.lockInfo != nil {
-		leftParts = append(leftParts, "[locked]")
+		leftParts = append(leftParts, sdk.StyleError.Render("[locked]"))
 	}
-	left := " " + strings.Join(leftParts, " │ ")
-	right := "tfui "
+	left := strings.Join(leftParts, sep)
+	right := sdk.StyleFaint.Render("tfui")
 	gap := a.width - lipgloss.Width(left) - lipgloss.Width(right)
 	if gap < 1 {
 		gap = 1
@@ -1071,7 +1082,7 @@ func (a App) viewStandalone() string {
 		return overlayView + "\n" + statusBar
 	}
 
-	return header + "\n" + content + "\n" + statusBar
+	return header + "\n\n" + content + "\n\n" + statusBar
 }
 
 func activeViewID(navStack []sdk.Plugin) string {
