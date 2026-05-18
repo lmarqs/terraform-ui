@@ -13,7 +13,7 @@ Terraform mutation keys (bare alpha: `d`, `t`, `T`, `e`, `m`, `n`, `a`, `A`, `!`
 
 The split follows a single rule: **bare key = actions bar, ctrl+key or punctuation = hint bar.** The modifier is the visual signal. This removes cognitive mixing — terraform verbs that change infrastructure live in a visually distinct zone from interface controls that change what you see.
 
-The actions bar is an SDK rendering primitive owned by the plugin. It renders pinned to the bottom of the available frame space (after a blank separator line), styled as button chips (cyan background, black text). Plugins decide when and whether to show it. Plugins with no terraform actions (output, validate, version) don't render one.
+The actions bar is an SDK rendering primitive owned by the plugin. It renders pinned to the bottom of the available frame space (after a blank separator line), styled as two-tone button chips (bold white key on purple `#bd93f9`, label on muted purple `#644e84`). Plugins decide when and whether to show it. Plugins with no terraform actions (output, validate, version) don't render one.
 
 ## Considered Options
 

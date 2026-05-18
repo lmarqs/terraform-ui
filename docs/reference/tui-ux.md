@@ -137,7 +137,7 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` 
 ## 4. Visual Patterns
 
 ### Borders
-- Content: `lipgloss.RoundedBorder()` with primary blue foreground
+- Content: `lipgloss.RoundedBorder()` with primary purple foreground
 - Title embedded in top border line (manual construction): `View Name (filtered/total) [cursor/navigable]`
 - Overlays: rounded border, centered via `lipgloss.Place()`
 
@@ -159,6 +159,7 @@ Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` 
 Gutter rules:
 - Only appears when content overflows the viewport
 - Spans content rows only (not the blank separator or actions bar)
+- Lines are padded to a consistent width before appending gutter characters (prevents misalignment with styled rows)
 - `[cursor/navigable]` counter always visible in the title bar (even when content fits)
 - Counter reflects navigable items (respects tree collapse state and filter)
 
@@ -173,12 +174,12 @@ Gutter rules:
 ### Text styles
 | Style | Usage |
 |-------|-------|
-| Bold + primary color | Titles, active keys |
-| Faint (gray 241) | Secondary info (types, counts, hints) |
+| Bold + primary (`#bd93f9`) | Titles, active keys |
+| Faint (`#6272a4`) | Secondary info (types, counts, hints) |
 | Italic + faint | Placeholder text, loading messages |
-| Error (red) | Error messages |
-| Success (green) | Pin indicators, confirmations |
-| Background (236) | Selected row highlight, header/footer bg |
+| Error (`#ff5555`) | Error messages |
+| Success (`#50fa7b`) | Pin indicators, confirmations |
+| Background (`#44475a`) | Selected row highlight, header/footer bg |
 
 ## 5. State Transitions & Loading
 
@@ -408,21 +409,21 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 - Direct key activation (press letter) or j/k + Enter
 - Context plugin in the list (accessed via `C` or `:context`) — manages Project + Chdir + Workspace
 
-## 11. Color Palette
+## 11. Color Palette (Dracula)
 
 | Name | Value | Usage |
 |------|-------|-------|
-| Primary | Color 39 (blue) | Borders, keys, active elements |
-| Text | Color 252 (light) | Main content |
-| Faint | Color 241 (gray) | Secondary info |
-| Background | Color 236 (dark gray) | Header/footer bg, selected rows |
-| Success | Green | Pins, confirmations |
-| Error | Red | Error text |
-| Warning | Yellow | Risk indicators |
-| Create | Green | Plan: resources to add |
-| Update | Yellow | Plan: resources to change |
-| Delete | Red | Plan: resources to destroy |
-| Replace | Magenta | Plan: resources to replace |
+| Primary | `#bd93f9` (purple) | Borders, keys, active elements |
+| Text | `#f8f8f2` (foreground) | Main content |
+| Faint | `#6272a4` (comment) | Secondary info |
+| Background | `#44475a` (selection) | Header/footer bg, selected rows |
+| Success | `#50fa7b` (green) | Pins, confirmations |
+| Error | `#ff5555` (red) | Error text |
+| Warning | `#f1fa8c` (yellow) | Risk indicators |
+| Create | `#50fa7b` (green) | Plan: resources to add |
+| Update | `#f1fa8c` (yellow) | Plan: resources to change |
+| Delete | `#ff5555` (red) | Plan: resources to destroy |
+| Replace | `#ff79c6` (pink) | Plan: resources to replace |
 
 ## 12. Plugin View Contract
 
@@ -468,7 +469,7 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 - SDK rendering primitive — plugins own placement and visibility
 - Pinned to bottom of the available frame space
 - Blank line separator between scrollable content and actions bar
-- Styled as button chips: cyan background, black text, single space between buttons
+- Styled as two-tone button chips: bold white key on purple (`#bd93f9`), label on muted purple (`#644e84`), single space between buttons
 - Left-aligned (matches content indent)
 - Static per frame — content does NOT change based on cursor position
 - Not rendered when plugin has no terraform actions (output, validate, version, etc.)

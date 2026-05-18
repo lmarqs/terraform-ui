@@ -106,7 +106,7 @@ Pin semantics:
 
 ## Actions Bar (inside bordered frame)
 
-Terraform mutation keys live inside the plugin frame as button chips (cyan background, black text).
+Terraform mutation keys live inside the plugin frame as two-tone button chips (bold white key on purple `#bd93f9`, label on muted purple `#644e84`).
 
 - SDK rendering primitive — plugins own when/where to show it
 - Pinned to bottom of available frame space, blank line separator above
@@ -136,6 +136,7 @@ UI/navigation keys only. Always 1 line.
 - Scrollbar gutter: `▲` top cap, `┃` thumb, `│` track, `▼` bottom cap
 - Only appears when content overflows the viewport
 - Spans content rows only (not blank separator or actions bar)
+- Lines padded to consistent width before gutter chars (prevents misalignment with styled rows)
 - `[cursor/navigable]` counter always visible in title bar
 - `(filtered/total)` count also in title bar
 - Counter reflects navigable items (respects collapse state and filter)
