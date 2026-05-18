@@ -8,9 +8,9 @@ permalink: /
 
 # terraform-ui
 
-**Stop reading terraform plan diffs in raw text.**
+**Stop reading terraform output in raw text.**
 
-> k9s for Terraform. Navigate it, don't scroll it.
+> k9s for Terraform. Navigate it with ease.
 
 ![terraform-ui hero demo](assets/demo/hero.gif)
 
