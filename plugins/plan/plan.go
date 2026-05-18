@@ -551,7 +551,8 @@ func (e *Plugin) View(width, height int) string {
 
 	case sdk.StatusError:
 		if e.lockInfo != nil {
-			return sdk.FormatLockInfo(e.lockInfo)
+			actions := []ui.ActionChip{{Key: "u", Label: "force-unlock"}}
+			return sdk.FormatLockInfo(e.lockInfo) + ui.RenderActionsBar(actions, width)
 		}
 		return sdk.StyleError.Render("Error: " + e.errMsg)
 
@@ -684,6 +685,7 @@ func (e *Plugin) renderResults(width, height int) string {
 		ViewOffset:     e.tree.ViewOffset(maxVisible),
 		TotalItems:     e.tree.VisibleCount(),
 		ViewportHeight: maxVisible,
+		Width:          contentWidth,
 	})
 	treeContent = strings.Join(lines, "\n")
 
@@ -816,6 +818,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 		ViewOffset:     e.detailScroll,
 		TotalItems:     len(lines),
 		ViewportHeight: maxLines,
+		Width:          contentWidth,
 	})
 
 	detail := strings.Join(visible, "\n")
