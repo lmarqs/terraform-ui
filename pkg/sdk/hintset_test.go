@@ -31,7 +31,7 @@ func TestHintSet_WhenSingleHint_ShouldReturnCorrectKeyHint(t *testing.T) {
 		{"ShouldShowRetry", HintSetRetry, "^r", "retry"},
 		{"ShouldShowClearPins", HintSetClearPins, "^u", "unpin all"},
 		{"ShouldShowCancel", HintSetCancel, "Esc", "cancel"},
-		{"ShouldShowBack", HintSetBack, "q", "back"},
+		{"ShouldShowQuit", HintSetQuit, "q", "quit"},
 	}
 
 	for _, tt := range tests {
@@ -58,18 +58,18 @@ func TestHintSet_WhenCombined_ShouldProduceFixedOrder(t *testing.T) {
 	}{
 		{
 			"ShouldOrderInspectBeforeBack",
-			HintSetBack | HintSetInspect,
-			[]string{"inspect", "back"},
+			HintSetQuit | HintSetInspect,
+			[]string{"inspect", "quit"},
 		},
 		{
 			"ShouldOrderRegardlessOfBitCombinationOrder",
-			HintSetBack | HintSetFilter | HintSetInspect | HintSetPin,
-			[]string{"inspect", "filter", "pin", "back"},
+			HintSetQuit | HintSetFilter | HintSetInspect | HintSetPin,
+			[]string{"inspect", "filter", "pin", "quit"},
 		},
 		{
 			"ShouldMatchStateListPattern",
-			HintSetInspect | HintSetPin | HintSetFilter | HintSetTree | HintSetBack,
-			[]string{"inspect", "filter", "pin", "tree", "back"},
+			HintSetInspect | HintSetPin | HintSetFilter | HintSetTree | HintSetQuit,
+			[]string{"inspect", "filter", "pin", "tree", "quit"},
 		},
 		{
 			"ShouldMatchStateDetailPattern",
@@ -78,13 +78,13 @@ func TestHintSet_WhenCombined_ShouldProduceFixedOrder(t *testing.T) {
 		},
 		{
 			"ShouldMatchPlanDonePattern",
-			HintSetInspect | HintSetPin | HintSetRefresh | HintSetBack,
-			[]string{"inspect", "pin", "refresh", "back"},
+			HintSetInspect | HintSetPin | HintSetRefresh | HintSetQuit,
+			[]string{"inspect", "pin", "refresh", "quit"},
 		},
 		{
 			"ShouldMatchPlanErrorPattern",
-			HintSetRetry | HintSetBack,
-			[]string{"retry", "back"},
+			HintSetRetry | HintSetQuit,
+			[]string{"retry", "quit"},
 		},
 	}
 
@@ -131,7 +131,7 @@ func TestHintSet_WhenDynamicHintsWithOpts_ShouldReflectState(t *testing.T) {
 }
 
 func TestHintSet_WhenPinnedOptSet_ShouldAppendPinnedIndicator(t *testing.T) {
-	set := HintSetInspect | HintSetBack
+	set := HintSetInspect | HintSetQuit
 	hints := set.Hints(HintSetOpts{Pinned: true})
 
 	if len(hints) < 3 {
@@ -147,7 +147,7 @@ func TestHintSet_WhenPinnedOptSet_ShouldAppendPinnedIndicator(t *testing.T) {
 }
 
 func TestHintSet_WhenPinnedOptFalse_ShouldNotAppendPinnedIndicator(t *testing.T) {
-	set := HintSetInspect | HintSetBack
+	set := HintSetInspect | HintSetQuit
 	hints := set.Hints(HintSetOpts{Pinned: false})
 
 	for _, h := range hints {
@@ -185,12 +185,12 @@ func TestHintSet_Has_WhenSubsetPresent_ShouldReturnTrue(t *testing.T) {
 		other  HintSet
 		expect bool
 	}{
-		{"ShouldReturnTrueForSingleBitPresent", HintSetInspect | HintSetBack, HintSetInspect, true},
-		{"ShouldReturnTrueForMultipleBitsPresent", HintSetInspect | HintSetBack | HintSetFilter, HintSetInspect | HintSetBack, true},
-		{"ShouldReturnTrueForSameSet", HintSetInspect | HintSetBack, HintSetInspect | HintSetBack, true},
+		{"ShouldReturnTrueForSingleBitPresent", HintSetInspect | HintSetQuit, HintSetInspect, true},
+		{"ShouldReturnTrueForMultipleBitsPresent", HintSetInspect | HintSetQuit | HintSetFilter, HintSetInspect | HintSetQuit, true},
+		{"ShouldReturnTrueForSameSet", HintSetInspect | HintSetQuit, HintSetInspect | HintSetQuit, true},
 		{"ShouldReturnTrueForZeroSubset", HintSetInspect, HintSet(0), true},
-		{"ShouldReturnFalseForMissingBit", HintSetInspect | HintSetBack, HintSetFilter, false},
-		{"ShouldReturnFalseForPartialSubset", HintSetInspect | HintSetBack, HintSetInspect | HintSetFilter, false},
+		{"ShouldReturnFalseForMissingBit", HintSetInspect | HintSetQuit, HintSetFilter, false},
+		{"ShouldReturnFalseForPartialSubset", HintSetInspect | HintSetQuit, HintSetInspect | HintSetFilter, false},
 		{"ShouldReturnFalseForZeroHasNonZero", HintSet(0), HintSetInspect, false},
 	}
 
@@ -210,7 +210,7 @@ func TestHintSet_WhenAllBitsSet_ShouldProduceAllHints(t *testing.T) {
 		HintSetTree | HintSetCollapse | HintSetExpand | HintSetWrap |
 		HintSetPinnedFilter | HintSetRefresh |
 		HintSetRetry | HintSetClearPins |
-		HintSetCancel | HintSetBack
+		HintSetCancel | HintSetQuit
 
 	hints := all.Hints()
 	if len(hints) != 15 {
@@ -219,7 +219,7 @@ func TestHintSet_WhenAllBitsSet_ShouldProduceAllHints(t *testing.T) {
 }
 
 func TestHintSet_WhenDynamicOptsWithCombination_ShouldApplyToCorrectHints(t *testing.T) {
-	set := HintSetInspect | HintSetTree | HintSetWrap | HintSetBack
+	set := HintSetInspect | HintSetTree | HintSetWrap | HintSetQuit
 	opts := HintSetOpts{TreeMode: true, WrapMode: true}
 
 	hints := set.Hints(opts)
@@ -241,13 +241,13 @@ func TestHintSet_WhenDynamicOptsWithCombination_ShouldApplyToCorrectHints(t *tes
 	if !found["inspect"] {
 		t.Error("expected 'inspect' hint")
 	}
-	if !found["back"] {
-		t.Error("expected 'back' hint")
+	if !found["quit"] {
+		t.Error("expected .quit. hint")
 	}
 }
 
 func TestHintSet_WhenPinnedWithDynamicOpts_ShouldAppendAfterAll(t *testing.T) {
-	set := HintSetInspect | HintSetTree | HintSetBack
+	set := HintSetInspect | HintSetTree | HintSetQuit
 	opts := HintSetOpts{TreeMode: true, Pinned: true}
 
 	hints := set.Hints(opts)

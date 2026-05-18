@@ -10,7 +10,9 @@ type KeyHint struct {
 
 // Common hints reusable across plugins.
 var (
-	HintBack    = KeyHint{Key: "q", Description: "back"}
+	HintQuit    = KeyHint{Key: "q", Description: "quit"}
+	HintBack    = KeyHint{Key: "Esc", Description: "back"}
+	HintCancel  = KeyHint{Key: "Esc", Description: "cancel"}
 	HintRefresh = KeyHint{Key: "^r", Description: "refresh"}
 	HintRetry   = KeyHint{Key: "^r", Description: "retry"}
 	HintFilter  = KeyHint{Key: "/", Description: "filter"}
@@ -18,7 +20,6 @@ var (
 	HintInspect = KeyHint{Key: "Enter", Description: "inspect"}
 	HintSelect  = KeyHint{Key: "Enter", Description: "select"}
 	HintConfirm = KeyHint{Key: "Enter", Description: "confirm"}
-	HintCancel  = KeyHint{Key: "Esc", Description: "cancel"}
 )
 
 // Frame is a composable view layer that lives in a navigation stack.
@@ -70,7 +71,8 @@ const (
 	HintSetRetry                            // ^r retry
 	HintSetClearPins                        // ^u unpin all
 	HintSetCancel                           // Esc cancel
-	HintSetBack                             // q back
+	HintSetBack                             // Esc back
+	HintSetQuit                             // q quit
 )
 
 // HintSetOpts provides dynamic state for hints that need it.
@@ -109,7 +111,8 @@ var hintOrder = []hintDef{
 	{bit: HintSetClearPins, hint: KeyHint{Key: "^u", Description: "unpin all"}},
 	// Escape
 	{bit: HintSetCancel, hint: KeyHint{Key: "Esc", Description: "cancel"}},
-	{bit: HintSetBack, hint: KeyHint{Key: "q", Description: "back"}},
+	{bit: HintSetBack, hint: KeyHint{Key: "Esc", Description: "back"}},
+	{bit: HintSetQuit, hint: KeyHint{Key: "q", Description: "quit"}},
 }
 
 // Hints converts a HintSet to a slice of KeyHint in fixed display order.
