@@ -9,7 +9,7 @@
 [ ] │ └─aws_lambda_function.worker  aws_lambda_function
 [ ] └─▼ module.postgresql_proxy (3)
 [ ] │ ├─aws_db_proxy.this[0]  aws_db_proxy
-[ ] │ ├─aws_db_proxy_default_target_group.this[0]  aws_db_proxy_default_ta
+[ ] │ ├─aws_db_proxy_default_target_group.this[0]  aws_db_proxy_default_target_g
 [ ] │ └─aws_db_proxy_endpoint.read_only[0]  aws_db_proxy_endpoint
 [ ] aws_dynamodb_table.terraform_locks  aws_dynamodb_table
 [ ] aws_s3_bucket.terraform_state  aws_s3_bucket

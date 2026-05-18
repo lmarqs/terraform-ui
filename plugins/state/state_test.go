@@ -1731,56 +1731,6 @@ func TestPanDetailLeft_ShouldNotGoBelowZero(t *testing.T) {
 	}
 }
 
-func TestWrapLines_WhenLineFitsWidth_ShouldNotWrap(t *testing.T) {
-	lines := []string{"short", "also short"}
-	result := wrapLines(lines, 20)
-	if len(result) != 2 {
-		t.Errorf("wrapLines: got %d lines, want 2", len(result))
-	}
-	if result[0] != "short" || result[1] != "also short" {
-		t.Errorf("wrapLines: unexpected content %v", result)
-	}
-}
-
-func TestWrapLines_WhenLineExceedsWidth_ShouldSplitAtBoundary(t *testing.T) {
-	lines := []string{"abcdefghij"}
-	result := wrapLines(lines, 4)
-	if len(result) != 3 {
-		t.Errorf("wrapLines('abcdefghij', 4): got %d lines, want 3", len(result))
-	}
-	if result[0] != "abcd" {
-		t.Errorf("wrapLines[0] = %q, want %q", result[0], "abcd")
-	}
-	if result[1] != "efgh" {
-		t.Errorf("wrapLines[1] = %q, want %q", result[1], "efgh")
-	}
-	if result[2] != "ij" {
-		t.Errorf("wrapLines[2] = %q, want %q", result[2], "ij")
-	}
-}
-
-func TestWrapLines_WhenExactWidth_ShouldNotSplit(t *testing.T) {
-	lines := []string{"abcd"}
-	result := wrapLines(lines, 4)
-	if len(result) != 1 {
-		t.Errorf("wrapLines exact width: got %d lines, want 1", len(result))
-	}
-}
-
-func TestWrapLines_WhenMultipleLines_ShouldWrapEachIndependently(t *testing.T) {
-	lines := []string{"abc", "defgh", "ij"}
-	result := wrapLines(lines, 3)
-	expected := []string{"abc", "def", "gh", "ij"}
-	if len(result) != len(expected) {
-		t.Fatalf("wrapLines: got %d lines, want %d", len(result), len(expected))
-	}
-	for i, r := range result {
-		if r != expected[i] {
-			t.Errorf("wrapLines[%d] = %q, want %q", i, r, expected[i])
-		}
-	}
-}
-
 func TestTogglePin_ShouldTogglePinInTree(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.pins = sdk.NewPinService()

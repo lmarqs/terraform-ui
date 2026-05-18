@@ -1338,49 +1338,6 @@ func TestPlugin_WhenRenderDetailSmallWidth_ShouldUseMinWidth(t *testing.T) {
 	}
 }
 
-func TestWrapLines_WhenAllShort_ShouldReturnUnchanged(t *testing.T) {
-	lines := []string{"short", "also short"}
-	result := wrapLines(lines, 80)
-	if len(result) != 2 {
-		t.Errorf("wrapLines: len = %d, want 2", len(result))
-	}
-	if result[0] != "short" {
-		t.Errorf("wrapLines[0] = %q, want %q", result[0], "short")
-	}
-}
-
-func TestWrapLines_WhenLongLine_ShouldSplitAtWidth(t *testing.T) {
-	lines := []string{strings.Repeat("x", 30)}
-	result := wrapLines(lines, 10)
-	if len(result) != 3 {
-		t.Errorf("wrapLines: len = %d, want 3", len(result))
-	}
-	for _, r := range result {
-		if len(r) > 10 {
-			t.Errorf("wrapLines: segment len = %d, want <= 10", len(r))
-		}
-	}
-}
-
-func TestWrapLines_WhenExactWidth_ShouldNotSplit(t *testing.T) {
-	lines := []string{strings.Repeat("x", 10)}
-	result := wrapLines(lines, 10)
-	if len(result) != 1 {
-		t.Errorf("wrapLines: len = %d, want 1", len(result))
-	}
-}
-
-func TestWrapLines_WhenEmptyLine_ShouldPreserve(t *testing.T) {
-	lines := []string{"", "hello", ""}
-	result := wrapLines(lines, 80)
-	if len(result) != 3 {
-		t.Errorf("wrapLines: len = %d, want 3", len(result))
-	}
-	if result[0] != "" || result[2] != "" {
-		t.Error("wrapLines should preserve empty lines")
-	}
-}
-
 func TestPlugin_WhenRenderSummaryLineWithReplace_ShouldIncludeReplaceCount(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{

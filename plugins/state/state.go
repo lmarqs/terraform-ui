@@ -315,10 +315,6 @@ func (e *Plugin) navigate(dir int) {
 	}
 }
 
-func (e *Plugin) panListRight() {
-	e.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
-}
-
 func (e *Plugin) panListLeft() {
 	e.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyLeft})
 }
@@ -532,12 +528,10 @@ func (e *Plugin) renderResources(width, height int) string {
 	if e.filtering || e.filter != "" {
 		filterHeight = 2
 	}
-	maxVisible := height - filterHeight - ui.ActionsBarHeight
-	if maxVisible < 3 {
-		maxVisible = 3
-	}
+	maxVisible := ui.HeightBudget(height, filterHeight, ui.ActionsBarHeight)
 
-	contentWidth := e.listPanel.ContentWidth(width, maxVisible, e.tree.VisibleCount())
+	hasGutter := ui.NeedsGutter(e.tree.VisibleCount(), maxVisible)
+	contentWidth := ui.ContentWidth(width, hasGutter)
 
 	var rows []string
 	if e.treeMode {
@@ -576,13 +570,14 @@ func (e *Plugin) renderResources(width, height int) string {
 		rows = e.buildFlatRows(maxVisible)
 	}
 
+	viewOffset := e.tree.ViewOffset(maxVisible)
 	treeContent := e.listPanel.Render(ui.RenderParams{
-		Width:      width,
-		Height:     maxVisible,
-		TotalItems: e.tree.VisibleCount(),
-		ViewOffset: e.tree.ViewOffset(maxVisible),
-		Cursor:     e.tree.Cursor(),
-		Rows:       rows,
+		Width:        width,
+		Height:       maxVisible,
+		TotalItems:   e.tree.VisibleCount(),
+		Cursor:       e.tree.Cursor() - viewOffset,
+		ScrollOffset: viewOffset,
+		Rows:         rows,
 	})
 
 	return filterLine + treeContent + ui.RenderActionsBar(actions, width)
@@ -631,10 +626,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 	actions := e.detailActions()
 
 	headerLines := 2
-	maxLines := height - headerLines - ui.ActionsBarHeight
-	if maxLines < 5 {
-		maxLines = 5
-	}
+	maxLines := ui.HeightBudget(height, headerLines, ui.ActionsBarHeight)
 
 	lines := strings.Split(e.detail, "\n")
 
@@ -652,12 +644,12 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	detail := e.detailPanel.Render(ui.RenderParams{
-		Rows:       lines[e.detailScroll:endIdx],
-		Width:      width,
-		Height:     maxLines,
-		TotalItems: len(lines),
-		ViewOffset: e.detailScroll,
-		Cursor:     -1,
+		Rows:         lines[e.detailScroll:endIdx],
+		Width:        width,
+		Height:       maxLines,
+		TotalItems:   len(lines),
+		Cursor:       -1,
+		ScrollOffset: e.detailScroll,
 	})
 
 	scrollInfo := ""
@@ -676,24 +668,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	return address + taintIndicator + pinIndicator + scrollInfo + "\n\n" + detail + ui.RenderActionsBar(actions, width)
-}
-
-func wrapLines(lines []string, width int) []string {
-	var result []string
-	for _, line := range lines {
-		if len(line) <= width {
-			result = append(result, line)
-			continue
-		}
-		for len(line) > width {
-			result = append(result, line[:width])
-			line = line[width:]
-		}
-		if len(line) > 0 {
-			result = append(result, line)
-		}
-	}
-	return result
 }
 
 // --- Context actions ---

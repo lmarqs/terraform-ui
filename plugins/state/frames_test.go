@@ -472,7 +472,8 @@ func TestListFrame_WrapToggle(t *testing.T) {
 			p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle on
 		}
 		output := p.View(40, 10)
-		if !strings.Contains(output, "server_with_long_name") {
+		joined := strings.ReplaceAll(output, "\n", "")
+		if !strings.Contains(joined, "server_with_long_name") {
 			t.Error("expected full address visible when wrap is on")
 		}
 	})

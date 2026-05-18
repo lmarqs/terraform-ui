@@ -15,12 +15,12 @@ func TestContentPanel_RendersRowsWithGutter(t *testing.T) {
 	panel := ui.NewContentPanel()
 
 	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"alpha", "bravo", "charlie"},
-		Width:      20,
-		Height:     3,
-		TotalItems: 10,
-		ViewOffset: 0,
-		Cursor:     -1,
+		Rows:         []string{"alpha", "bravo", "charlie"},
+		Width:        20,
+		Height:       3,
+		TotalItems:   10,
+		Cursor:       -1,
+		ScrollOffset: 0,
 	})
 	lines := strings.Split(output, "\n")
 
@@ -43,7 +43,6 @@ func TestContentPanel_NoGutterWhenNoOverflow(t *testing.T) {
 		Width:      20,
 		Height:     5,
 		TotalItems: 2,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 	lines := strings.Split(output, "\n")
@@ -64,7 +63,6 @@ func TestContentPanel_TruncatesStyledContent(t *testing.T) {
 		Width:      20,
 		Height:     5,
 		TotalItems: 1,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 	lines := strings.Split(output, "\n")
@@ -84,7 +82,6 @@ func TestContentPanel_DoesNotBreakAnsiSequences(t *testing.T) {
 		Width:      15,
 		Height:     5,
 		TotalItems: 1,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 	stripped := ansi.Strip(output)
@@ -98,20 +95,13 @@ func TestContentPanel_DoesNotBreakAnsiSequences(t *testing.T) {
 
 func TestContentPanel_HorizontalScrollDropsLeadingChars(t *testing.T) {
 	panel := ui.NewContentPanel()
-	panel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll += 10
-	// We need hscroll=5, but HandleKey increments by 10. Let's reset and test via Render.
-	// Actually let's just test the rendering with a fresh panel at hscroll 5.
-	// We'll press right and check the output skips chars.
+	panel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
 
-	panel2 := ui.NewContentPanel()
-	panel2.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
-
-	output := panel2.Render(ui.RenderParams{
+	output := panel.Render(ui.RenderParams{
 		Rows:       []string{"0123456789abcdefghij"},
 		Width:      10,
 		Height:     5,
 		TotalItems: 1,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 	stripped := ansi.Strip(output)
@@ -130,7 +120,6 @@ func TestContentPanel_HorizontalScrollWithStyledContent(t *testing.T) {
 		Width:      10,
 		Height:     5,
 		TotalItems: 1,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 	stripped := ansi.Strip(output)
@@ -153,7 +142,6 @@ func TestContentPanel_CursorHighlightsRow(t *testing.T) {
 		Width:      20,
 		Height:     5,
 		TotalItems: 3,
-		ViewOffset: 0,
 		Cursor:     1,
 	})
 	lines := strings.Split(output, "\n")
@@ -172,12 +160,12 @@ func TestContentPanel_GutterAlignedWithStyledRows(t *testing.T) {
 	long := lipgloss.NewStyle().Foreground(lipgloss.Color("#00ff00")).Render("a-much-longer-content")
 
 	output := panel.Render(ui.RenderParams{
-		Rows:       []string{short, long, "mid"},
-		Width:      20,
-		Height:     3,
-		TotalItems: 10,
-		ViewOffset: 0,
-		Cursor:     -1,
+		Rows:         []string{short, long, "mid"},
+		Width:        20,
+		Height:       3,
+		TotalItems:   10,
+		Cursor:       -1,
+		ScrollOffset: 0,
 	})
 	lines := strings.Split(output, "\n")
 
@@ -202,18 +190,15 @@ func TestContentPanel_WrapModeWrapsLongContent(t *testing.T) {
 		Width:      15,
 		Height:     10,
 		TotalItems: 2,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 
-	// Content should be preserved across wrapped lines
 	stripped := ansi.Strip(output)
 	joined := strings.ReplaceAll(stripped, "\n", "")
 	if !strings.Contains(joined, "this-is-a-very-long-row-that-exceeds-width") {
 		t.Errorf("wrap mode should preserve full content across lines, got %q", stripped)
 	}
 
-	// Each line should not exceed width
 	for i, line := range strings.Split(output, "\n") {
 		if lipgloss.Width(line) > 15 {
 			t.Errorf("line %d exceeds width in wrap mode: %d > 15", i, lipgloss.Width(line))
@@ -230,27 +215,12 @@ func TestContentPanel_WrapModeRespectsHeight(t *testing.T) {
 		Width:      10,
 		Height:     3,
 		TotalItems: 1,
-		ViewOffset: 0,
 		Cursor:     -1,
 	})
 
 	lines := strings.Split(output, "\n")
 	if len(lines) > 3 {
 		t.Errorf("wrap mode should respect height budget, got %d lines", len(lines))
-	}
-}
-
-func TestContentPanel_ContentWidthWithOverflow(t *testing.T) {
-	panel := ui.NewContentPanel()
-	if got := panel.ContentWidth(80, 5, 100); got != 80-ui.GutterWidth {
-		t.Errorf("expected content width %d, got %d", 80-ui.GutterWidth, got)
-	}
-}
-
-func TestContentPanel_ContentWidthWithoutOverflow(t *testing.T) {
-	panel := ui.NewContentPanel()
-	if got := panel.ContentWidth(80, 10, 5); got != 80 {
-		t.Errorf("expected full width 80 when no overflow, got %d", got)
 	}
 }
 
@@ -265,7 +235,6 @@ func TestContentPanel_CursorWithNoOverflow(t *testing.T) {
 		Width:      20,
 		Height:     5,
 		TotalItems: 3,
-		ViewOffset: 0,
 		Cursor:     1,
 	})
 	lines := strings.Split(output, "\n")
@@ -296,12 +265,12 @@ func TestContentPanel_GutterMarginIsOneSpace(t *testing.T) {
 	panel := ui.NewContentPanel()
 
 	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"content"},
-		Width:      20,
-		Height:     1,
-		TotalItems: 10,
-		ViewOffset: 0,
-		Cursor:     -1,
+		Rows:         []string{"content"},
+		Width:        20,
+		Height:       1,
+		TotalItems:   10,
+		Cursor:       -1,
+		ScrollOffset: 0,
 	})
 	lines := strings.Split(output, "\n")
 	stripped := ansi.Strip(lines[0])
@@ -314,51 +283,6 @@ func TestContentPanel_GutterMarginIsOneSpace(t *testing.T) {
 
 	if lipgloss.Width(lines[0]) != 20 {
 		t.Errorf("expected visual width = 20, got %d", lipgloss.Width(lines[0]))
-	}
-}
-
-func TestContentPanel_BuildRowGenerator(t *testing.T) {
-	panel := ui.NewContentPanel()
-	items := []string{"zero", "one", "two", "three", "four", "five"}
-
-	output := panel.Render(ui.RenderParams{
-		Width:      20,
-		Height:     3,
-		TotalItems: len(items),
-		ViewOffset: 2,
-		Cursor:     -1,
-		BuildRow: func(index int) string {
-			return items[index]
-		},
-	})
-	lines := strings.Split(output, "\n")
-
-	if len(lines) != 3 {
-		t.Fatalf("expected 3 lines, got %d", len(lines))
-	}
-	stripped := ansi.Strip(lines[0])
-	if !strings.HasPrefix(stripped, "two") {
-		t.Errorf("first line should be item at ViewOffset=2, got %q", stripped)
-	}
-}
-
-func TestContentPanel_BuildRowStopsAtHeight(t *testing.T) {
-	panel := ui.NewContentPanel()
-	callCount := 0
-
-	panel.Render(ui.RenderParams{
-		Width:      20,
-		Height:     3,
-		TotalItems: 100,
-		ViewOffset: 0,
-		Cursor:     -1,
-		BuildRow: func(index int) string {
-			callCount++
-			return "row"
-		},
-	})
-	if callCount != 3 {
-		t.Errorf("expected BuildRow called 3 times (Height), got %d", callCount)
 	}
 }
 
@@ -403,6 +327,27 @@ func TestContentPanel_RightIgnoredInWrapMode(t *testing.T) {
 	}
 }
 
+func TestNeedsGutter(t *testing.T) {
+	if !ui.NeedsGutter(100, 20) {
+		t.Error("should need gutter when items > height")
+	}
+	if ui.NeedsGutter(5, 20) {
+		t.Error("should not need gutter when items <= height")
+	}
+	if ui.NeedsGutter(20, 20) {
+		t.Error("should not need gutter when items == height")
+	}
+}
+
+func TestContentWidth(t *testing.T) {
+	if got := ui.ContentWidth(80, true); got != 78 {
+		t.Errorf("with gutter: expected 78, got %d", got)
+	}
+	if got := ui.ContentWidth(80, false); got != 80 {
+		t.Errorf("without gutter: expected 80, got %d", got)
+	}
+}
+
 // --- Benchmarks ---
 
 func BenchmarkContentPanel_RenderFlat(b *testing.B) {
@@ -411,18 +356,18 @@ func BenchmarkContentPanel_RenderFlat(b *testing.B) {
 		return lipgloss.NewStyle().Width(w).Render(s)
 	}
 
-	rows := make([]string, 100)
+	rows := make([]string, 20)
 	for i := range rows {
 		rows[i] = fmt.Sprintf("[ ] + module.vpc.aws_route53_record.api_gateway_%d [medium]", i)
 	}
 
 	params := ui.RenderParams{
-		Rows:       rows[:20],
-		Width:      120,
-		Height:     20,
-		TotalItems: 100,
-		ViewOffset: 0,
-		Cursor:     5,
+		Rows:         rows,
+		Width:        120,
+		Height:       20,
+		TotalItems:   100,
+		Cursor:       5,
+		ScrollOffset: 0,
 	}
 
 	b.ResetTimer()
@@ -447,12 +392,12 @@ func BenchmarkContentPanel_RenderWithStyledContent(b *testing.B) {
 	}
 
 	params := ui.RenderParams{
-		Rows:       rows,
-		Width:      120,
-		Height:     20,
-		TotalItems: 100,
-		ViewOffset: 0,
-		Cursor:     10,
+		Rows:         rows,
+		Width:        120,
+		Height:       20,
+		TotalItems:   100,
+		Cursor:       10,
+		ScrollOffset: 0,
 	}
 
 	b.ResetTimer()
@@ -471,35 +416,12 @@ func BenchmarkContentPanel_RenderWithHScroll(b *testing.B) {
 	}
 
 	params := ui.RenderParams{
-		Rows:       rows,
-		Width:      80,
-		Height:     20,
-		TotalItems: 100,
-		ViewOffset: 0,
-		Cursor:     -1,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		panel.Render(params)
-	}
-}
-
-func BenchmarkContentPanel_BuildRowGenerator(b *testing.B) {
-	panel := ui.NewContentPanel()
-	panel.SelectedStyle = func(s string, w int) string {
-		return lipgloss.NewStyle().Width(w).Render(s)
-	}
-
-	params := ui.RenderParams{
-		Width:      120,
-		Height:     20,
-		TotalItems: 1000,
-		ViewOffset: 500,
-		Cursor:     510,
-		BuildRow: func(index int) string {
-			return fmt.Sprintf("[ ] + aws_instance.server_%d  aws_instance", index)
-		},
+		Rows:         rows,
+		Width:        80,
+		Height:       20,
+		TotalItems:   100,
+		Cursor:       -1,
+		ScrollOffset: 0,
 	}
 
 	b.ResetTimer()

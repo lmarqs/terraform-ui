@@ -11,6 +11,19 @@ import (
 // GutterWidth is the number of columns reserved for the scroll gutter and its margin.
 const GutterWidth = 2
 
+// NeedsGutter returns true if the total item count exceeds the viewport height.
+func NeedsGutter(totalItems, height int) bool {
+	return totalItems > height
+}
+
+// ContentWidth returns the available width for row content given whether a gutter is present.
+func ContentWidth(width int, hasGutter bool) int {
+	if hasGutter {
+		return width - GutterWidth
+	}
+	return width
+}
+
 // ContentPanel is a stateful rendering component that owns the horizontal layout
 // concerns of a scrollable content area: truncation, horizontal scroll, wrap toggle,
 // cursor highlighting, and scroll gutter alignment.
@@ -19,8 +32,7 @@ const GutterWidth = 2
 // these remain in the tree/list that understands the data structure. The panel takes
 // them as inputs for rendering.
 //
-// Plugins wire up a BuildRow generator and call Render(). The panel pulls rows on
-// demand and stops when the height budget is exhausted.
+// Plugins provide pre-windowed Rows and call Render(). The panel formats what it's given.
 type ContentPanel struct {
 	hScroll  int
 	wrapMode bool
@@ -36,29 +48,18 @@ func NewContentPanel() *ContentPanel {
 
 // RenderParams holds the per-frame inputs needed for rendering.
 type RenderParams struct {
+	// Rows is the pre-windowed visible rows to render.
+	Rows []string
 	// Width is the total available width (including gutter).
 	Width int
 	// Height is the maximum number of visual lines to render.
 	Height int
-	// TotalItems is the total number of items in the list.
+	// TotalItems is the total number of items in the full list (for gutter thumb).
 	TotalItems int
-	// ViewOffset is the index of the first visible item.
-	ViewOffset int
-	// Cursor is the absolute item index to highlight (-1 for none).
+	// Cursor is the index into Rows to highlight (-1 for none).
 	Cursor int
-	// BuildRow returns the formatted content for the item at the given absolute index.
-	BuildRow func(index int) string
-	// Rows is an alternative to BuildRow for pre-built content.
-	// If BuildRow is set, Rows is ignored.
-	Rows []string
-}
-
-// ContentWidth returns the available width for row content given the layout parameters.
-func (p *ContentPanel) ContentWidth(width, height, totalItems int) int {
-	if totalItems > height {
-		return width - GutterWidth
-	}
-	return width
+	// ScrollOffset is the position in the full list (for gutter thumb positioning).
+	ScrollOffset int
 }
 
 // HScroll returns the current horizontal scroll offset.
@@ -101,18 +102,20 @@ func (p *ContentPanel) ResetScroll() {
 
 // Render produces the final output string with all layout applied.
 func (p *ContentPanel) Render(params RenderParams) string {
-	if params.TotalItems == 0 {
+	if len(params.Rows) == 0 {
 		return ""
 	}
 
 	hasGutter := params.TotalItems > params.Height
-	contentWidth := p.computeContentWidth(params.Width, hasGutter)
+	contentWidth := ContentWidth(params.Width, hasGutter)
 
 	var lines []string
 	linesUsed := 0
 
-	for i := params.ViewOffset; i < params.TotalItems && linesUsed < params.Height; i++ {
-		row := p.getRow(params, i)
+	for i, row := range params.Rows {
+		if linesUsed >= params.Height {
+			break
+		}
 
 		if p.wrapMode {
 			wrapped := wrapStyled(row, contentWidth)
@@ -147,7 +150,7 @@ func (p *ContentPanel) Render(params RenderParams) string {
 
 	if hasGutter {
 		lines = RenderScrollGutter(lines, ScrollGutterOpts{
-			ViewOffset:     params.ViewOffset,
+			ViewOffset:     params.ScrollOffset,
 			TotalItems:     params.TotalItems,
 			ViewportHeight: params.Height,
 			Width:          params.Width - 1,
@@ -175,24 +178,6 @@ func wrapStyled(s string, width int) []string {
 		result = append(result, s)
 	}
 	return result
-}
-
-func (p *ContentPanel) getRow(params RenderParams, absIndex int) string {
-	if params.BuildRow != nil {
-		return params.BuildRow(absIndex)
-	}
-	relIndex := absIndex - params.ViewOffset
-	if relIndex >= 0 && relIndex < len(params.Rows) {
-		return params.Rows[relIndex]
-	}
-	return ""
-}
-
-func (p *ContentPanel) computeContentWidth(width int, hasGutter bool) int {
-	if hasGutter {
-		return width - GutterWidth
-	}
-	return width
 }
 
 func (p *ContentPanel) applySelected(s string, width int) string {
@@ -258,7 +243,7 @@ func truncateLeft(s string, n int) string {
 			if visibleCount >= n {
 				result.WriteByte(b)
 			}
-			if b != '[' && b != ';' && !(b >= '0' && b <= '9') {
+			if b != '[' && b != ';' && (b < '0' || b > '9') {
 				inEscape = false
 			}
 			i++

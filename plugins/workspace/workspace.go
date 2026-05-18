@@ -346,10 +346,7 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	var b strings.Builder
 
 	actions := e.workspaceActions()
-	maxVisible := height - 3 - ui.ActionsBarHeight
-	if maxVisible < 3 {
-		maxVisible = 3
-	}
+	maxVisible := ui.HeightBudget(height, 3, ui.ActionsBarHeight)
 
 	startIdx := 0
 	if e.selected >= maxVisible {
@@ -371,12 +368,12 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	}
 
 	b.WriteString(panel.Render(ui.RenderParams{
-		Rows:       rows,
-		Width:      width,
-		Height:     maxVisible,
-		TotalItems: len(e.workspaces),
-		ViewOffset: startIdx,
-		Cursor:     e.selected,
+		Rows:         rows,
+		Width:        width,
+		Height:       maxVisible,
+		TotalItems:   len(e.workspaces),
+		Cursor:       e.selected - startIdx,
+		ScrollOffset: startIdx,
 	}))
 	b.WriteByte('\n')
 

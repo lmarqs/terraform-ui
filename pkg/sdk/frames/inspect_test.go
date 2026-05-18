@@ -25,16 +25,17 @@ func TestInspectFrame_ScrollKeys(t *testing.T) {
 	f := NewInspectFrame(InspectOpts{
 		Content: content,
 	})
-	f.Viewport.SetSize(80, 3)
+
+	f.View(80, 3) // initialize scroll clamping
 
 	f.Update(keyMsg("down"))
-	if f.Viewport.ScrollY != 1 {
-		t.Fatalf("expected scroll 1, got %d", f.Viewport.ScrollY)
+	if f.ScrollY() != 1 {
+		t.Fatalf("expected scroll 1, got %d", f.ScrollY())
 	}
 
 	f.Update(keyMsg("up"))
-	if f.Viewport.ScrollY != 0 {
-		t.Fatalf("expected scroll 0, got %d", f.Viewport.ScrollY)
+	if f.ScrollY() != 0 {
+		t.Fatalf("expected scroll 0, got %d", f.ScrollY())
 	}
 }
 
