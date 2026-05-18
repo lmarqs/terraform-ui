@@ -13,4 +13,5 @@
 [ ] │ └─aws_db_proxy_endpoint.read_only[0]  aws_db_proxy_endpoint
 [ ] aws_dynamodb_table.terraform_locks  aws_dynamodb_table
 [ ] aws_s3_bucket.terraform_state  aws_s3_bucket
+
  d delete e edit t taint T untaint

@@ -2,4 +2,5 @@
 
 Plan: 1 to destroy
 Overall risk: CRITICAL
+
  e edit t taint T untaint a apply A auto-apply
