@@ -27,9 +27,7 @@ func (s StatusBar) WithBinaryName(name string) StatusBar {
 }
 
 var statusStyle = lipgloss.NewStyle().
-	Background(sdk.ColorBg).
-	Foreground(sdk.ColorText).
-	Padding(0, 1)
+	Foreground(sdk.ColorText)
 
 func (s StatusBar) Render(width int) string {
 	var bindings string
@@ -70,8 +68,7 @@ func (s StatusBar) appendBinaryName(bindings string, width int) string {
 	binaryLabel := sdk.StyleFaint.Render(s.binaryName)
 	bindingsWidth := lipgloss.Width(bindings)
 	binaryWidth := lipgloss.Width(binaryLabel)
-	// Account for statusStyle padding (1 on each side)
-	gap := width - bindingsWidth - binaryWidth - 2
+	gap := width - bindingsWidth - binaryWidth
 	if gap < 2 {
 		return bindings
 	}
