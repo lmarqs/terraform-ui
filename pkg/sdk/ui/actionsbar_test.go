@@ -50,11 +50,11 @@ func TestRenderActionsBar(t *testing.T) {
 			width: 80,
 			wantFn: func(t *testing.T, got string) {
 				lines := strings.Split(got, "\n")
-				if len(lines) != 2 {
-					t.Fatalf("expected 2 lines (blank + chips), got %d", len(lines))
+				if len(lines) != 3 {
+					t.Fatalf("expected 3 parts (join + blank + chips), got %d", len(lines))
 				}
-				if lines[0] != "" {
-					t.Errorf("first line should be empty, got %q", lines[0])
+				if lines[0] != "" || lines[1] != "" {
+					t.Errorf("first two parts should be empty, got %q and %q", lines[0], lines[1])
 				}
 			},
 		},
@@ -75,15 +75,15 @@ func TestRenderActionsBar(t *testing.T) {
 			},
 		},
 		{
-			name: "height is always 2",
+			name: "height is ActionsBarHeight plus join char",
 			actions: []ui.ActionChip{
 				{Key: "d", Label: "delete"},
 			},
 			width: 80,
 			wantFn: func(t *testing.T, got string) {
 				lines := strings.Split(got, "\n")
-				if len(lines) != ui.ActionsBarHeight {
-					t.Errorf("expected %d lines, got %d", ui.ActionsBarHeight, len(lines))
+				if len(lines) != ui.ActionsBarHeight+1 {
+					t.Errorf("expected %d parts (join + blank separator + chips), got %d", ui.ActionsBarHeight+1, len(lines))
 				}
 			},
 		},

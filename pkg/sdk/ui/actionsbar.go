@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // ActionChip describes a single terraform action shown in the actions bar.
@@ -17,9 +16,14 @@ type ActionChip struct {
 // (blank separator line + chip row).
 const ActionsBarHeight = 2
 
-var chipStyle = lipgloss.NewStyle().
-	Background(sdk.ColorPrimary).
-	Foreground(lipgloss.Color("0"))
+var chipKeyStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("#bd93f9")).
+	Foreground(lipgloss.Color("#ffffff")).
+	Bold(true)
+
+var chipLabelStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("#644e84")).
+	Foreground(lipgloss.Color("#f8f8f2"))
 
 // RenderActionsBar renders a row of styled action chips.
 // Returns empty string if actions is empty.
@@ -30,7 +34,7 @@ func RenderActionsBar(actions []ActionChip, width int) string {
 
 	var chips []string
 	for _, a := range actions {
-		chips = append(chips, chipStyle.Render(a.Key+" "+a.Label))
+		chips = append(chips, chipKeyStyle.Render(a.Key+" ")+chipLabelStyle.Render(a.Label))
 	}
 
 	row := " " + strings.Join(chips, " ")
@@ -39,5 +43,5 @@ func RenderActionsBar(actions []ActionChip, width int) string {
 		row = lipgloss.NewStyle().MaxWidth(width).Render(row)
 	}
 
-	return "\n" + row
+	return "\n\n" + row
 }
