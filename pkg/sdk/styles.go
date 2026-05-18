@@ -2,32 +2,32 @@ package sdk
 
 import "github.com/charmbracelet/lipgloss"
 
-// Color palette constants used across the theme.
+// Color palette constants — Dracula theme.
 var (
 	// ColorPrimary is the main accent color for titles and key highlights.
-	ColorPrimary = lipgloss.Color("39")
+	ColorPrimary = lipgloss.Color("#bd93f9")
 	// ColorFaint is used for de-emphasized or secondary text.
-	ColorFaint = lipgloss.Color("241")
+	ColorFaint = lipgloss.Color("#6272a4")
 	// ColorText is the default text color.
-	ColorText = lipgloss.Color("252")
+	ColorText = lipgloss.Color("#f8f8f2")
 	// ColorBg is the background color for selected/highlighted rows.
-	ColorBg = lipgloss.Color("236")
+	ColorBg = lipgloss.Color("#44475a")
 	// ColorSuccess indicates successful operations or low-risk items.
-	ColorSuccess = lipgloss.Color("40")
+	ColorSuccess = lipgloss.Color("#50fa7b")
 	// ColorWarning indicates medium-risk or cautionary items.
-	ColorWarning = lipgloss.Color("214")
+	ColorWarning = lipgloss.Color("#f1fa8c")
 	// ColorDanger indicates high-risk or error states.
-	ColorDanger = lipgloss.Color("196")
+	ColorDanger = lipgloss.Color("#ff5555")
 	// ColorCritical indicates critical-risk items requiring immediate attention.
-	ColorCritical = lipgloss.Color("201")
+	ColorCritical = lipgloss.Color("#ff79c6")
 	// ColorCreate is the color for resource creation actions.
-	ColorCreate = lipgloss.Color("40")
+	ColorCreate = lipgloss.Color("#50fa7b")
 	// ColorUpdate is the color for resource update actions.
-	ColorUpdate = lipgloss.Color("214")
+	ColorUpdate = lipgloss.Color("#f1fa8c")
 	// ColorDelete is the color for resource deletion actions.
-	ColorDelete = lipgloss.Color("196")
+	ColorDelete = lipgloss.Color("#ff5555")
 	// ColorReplace is the color for resource replace actions.
-	ColorReplace = lipgloss.Color("213")
+	ColorReplace = lipgloss.Color("#ff79c6")
 
 	// StyleTitle renders bold primary-colored section headings.
 	StyleTitle = lipgloss.NewStyle().
