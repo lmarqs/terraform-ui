@@ -711,3 +711,41 @@ func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
 		t.Error("View with header beyond maxVisible returned empty string")
 	}
 }
+
+func TestCursorPosition_WhenDoneWithGroups_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.groups = []RiskGroup{
+		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
+		{Level: sdk.RiskLow, Changes: []sdk.PlanChange{{}}},
+	}
+	p.selected = 0
+
+	pos, total := p.CursorPosition()
+	// totalItems = 2 headers + 3 changes = 5
+	if pos != 1 || total != 5 {
+		t.Errorf("CursorPosition() = (%d, %d), want (1, 5)", pos, total)
+	}
+
+	p.selected = 4
+	pos, total = p.CursorPosition()
+	if pos != 5 || total != 5 {
+		t.Errorf("CursorPosition() after move = (%d, %d), want (5, 5)", pos, total)
+	}
+}
+
+func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	pos, total := p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() idle = (%d, %d), want (0, 0)", pos, total)
+	}
+
+	p.status = sdk.StatusDone
+	p.groups = []RiskGroup{}
+	pos, total = p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}

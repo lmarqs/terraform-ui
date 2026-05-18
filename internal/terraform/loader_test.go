@@ -490,3 +490,52 @@ func TestParseShowState_WhenStateHasResources_ShouldReturnParsedResources(t *tes
 		t.Fatal("state.Values should not be nil")
 	}
 }
+
+func TestIsKeySensitive_WhenSensitiveIsNil_ShouldReturnFalse(t *testing.T) {
+	if isKeySensitive(nil, "password") {
+		t.Error("isKeySensitive(nil, ...) should return false")
+	}
+}
+
+func TestIsKeySensitive_WhenSensitiveIsBoolTrue_ShouldReturnTrue(t *testing.T) {
+	if !isKeySensitive(true, "anything") {
+		t.Error("isKeySensitive(true, ...) should return true")
+	}
+}
+
+func TestIsKeySensitive_WhenSensitiveIsBoolFalse_ShouldReturnFalse(t *testing.T) {
+	if isKeySensitive(false, "anything") {
+		t.Error("isKeySensitive(false, ...) should return false")
+	}
+}
+
+func TestIsKeySensitive_WhenSensitiveIsMapWithBoolValue_ShouldReturnValue(t *testing.T) {
+	m := map[string]interface{}{
+		"password": true,
+		"name":     false,
+	}
+	if !isKeySensitive(m, "password") {
+		t.Error("isKeySensitive(map, 'password') should return true")
+	}
+	if isKeySensitive(m, "name") {
+		t.Error("isKeySensitive(map, 'name') should return false")
+	}
+}
+
+func TestIsKeySensitive_WhenSensitiveIsMapWithKeyMissing_ShouldReturnFalse(t *testing.T) {
+	m := map[string]interface{}{
+		"password": true,
+	}
+	if isKeySensitive(m, "nonexistent") {
+		t.Error("isKeySensitive(map, 'nonexistent') should return false")
+	}
+}
+
+func TestIsKeySensitive_WhenSensitiveIsMapWithNonBoolValue_ShouldReturnFalse(t *testing.T) {
+	m := map[string]interface{}{
+		"tags": map[string]interface{}{"env": true},
+	}
+	if isKeySensitive(m, "tags") {
+		t.Error("isKeySensitive(map, key with non-bool value) should return false")
+	}
+}

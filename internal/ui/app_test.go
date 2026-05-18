@@ -467,6 +467,28 @@ func TestApp_Update_WhenOpenContextOnStartupWithPreloadedData_ShouldSkipActivati
 	}
 }
 
+func TestApp_Update_WhenOpenContextOnStartupWithPreloadedDataAndBaseDir_ShouldSetChdir(t *testing.T) {
+	cfg := config.Config{
+		Dir:           "/test/dir",
+		BaseDir:       "modules/vpc",
+		PreloadedData: true,
+		Terraform:     config.TerraformConfig{Bin: "terraform"},
+	}
+
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activeChdir != "modules/vpc" {
+		t.Errorf("activeChdir = %q, want %q", updated.activeChdir, "modules/vpc")
+	}
+}
+
 func TestApp_Update_WhenChdirChangedEvent_ShouldDeactivatePlugin(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
@@ -2798,6 +2820,32 @@ func TestApp_View_WhenCountablePlugin_ShouldShowCounts(t *testing.T) {
 	}
 }
 
+type mockPositionablePlugin struct {
+	mockPlugin
+	cursor    int
+	navigable int
+}
+
+func (m *mockPositionablePlugin) CursorPosition() (int, int) { return m.cursor, m.navigable }
+
+func TestApp_View_WhenPositionablePlugin_ShouldShowCursorPosition(t *testing.T) {
+	p := &mockPositionablePlugin{
+		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		cursor:     3,
+		navigable:  15,
+	}
+
+	app := setupTestApp()
+	app.width = 80
+	app.height = 24
+	app.activePlugin = p
+
+	output := app.View()
+	if !strings.Contains(output, "3") || !strings.Contains(output, "15") {
+		t.Error("View() with positionable plugin should display cursor/navigable counts")
+	}
+}
+
 func TestApp_View_WhenPinnablePlugin_ShouldShowPinned(t *testing.T) {
 	p := &mockPinnablePlugin{
 		mockPlugin:  mockPlugin{id: "state", name: "State", viewOutput: "state view"},
@@ -3692,6 +3740,59 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartup_ShouldActivateTargetPlugi
 	}
 	if updated.activePlugin.ID() != "state" {
 		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "state")
+	}
+}
+
+func TestApp_Update_WhenStandaloneOpenContextOnStartupWithBaseDir_ShouldSetChdir(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		BaseDir:   "modules/vpc",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockActivatablePlugin{
+			mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activeChdir != "modules/vpc" {
+		t.Errorf("activeChdir = %q, want %q", updated.activeChdir, "modules/vpc")
+	}
+}
+
+func TestApp_Update_WhenStandaloneOpenContextOnStartupWithChdir_ShouldPreferChdir(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Chdir:     "modules/ecs",
+		BaseDir:   "modules/vpc",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockActivatablePlugin{
+			mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+		}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	sc := &StandaloneConfig{PluginID: "state"}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	model, _ := app.Update(openContextOnStartupMsg{})
+	updated := model.(App)
+
+	if updated.activeChdir != "modules/ecs" {
+		t.Errorf("activeChdir = %q, want %q (Chdir takes precedence over BaseDir)", updated.activeChdir, "modules/ecs")
 	}
 }
 

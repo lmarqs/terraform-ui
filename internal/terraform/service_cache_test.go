@@ -1273,6 +1273,20 @@ func TestServiceCache_WhenSeedOutputsFromNonexistentFile_ShouldReturnError(t *te
 	}
 }
 
+func TestServiceCache_WhenSeedOutputsFromFileWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "outputs.json")
+	if err := os.WriteFile(file, []byte(`{not valid`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedOutputs(file, nil)
+	if err == nil {
+		t.Error("SeedOutputs() with invalid JSON file: want error")
+	}
+}
+
 func TestServiceCache_WhenSeedOutputsWithNoFileNoData_ShouldNotError(t *testing.T) {
 	c := NewServiceCache()
 	err := c.SeedOutputs("", nil)
@@ -1396,6 +1410,20 @@ func TestServiceCache_WhenSeedDiagnosticsFromNonexistentFile_ShouldReturnError(t
 	err := c.SeedDiagnostics("/nonexistent/path/validate.json", nil)
 	if err == nil {
 		t.Error("SeedDiagnostics() with missing file: want error")
+	}
+}
+
+func TestServiceCache_WhenSeedDiagnosticsFromFileWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "validate.json")
+	if err := os.WriteFile(file, []byte(`{not valid`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedDiagnostics(file, nil)
+	if err == nil {
+		t.Error("SeedDiagnostics() with invalid JSON file: want error")
 	}
 }
 
@@ -1525,6 +1553,20 @@ func TestServiceCache_WhenSeedWorkspacesFromNonexistentFile_ShouldReturnError(t 
 	err := c.SeedWorkspaces("/nonexistent/path/workspaces.json", nil)
 	if err == nil {
 		t.Error("SeedWorkspaces() with missing file: want error")
+	}
+}
+
+func TestServiceCache_WhenSeedWorkspacesFromFileWithInvalidJSON_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "workspaces.json")
+	if err := os.WriteFile(file, []byte(`{not valid`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	c := NewServiceCache()
+	err := c.SeedWorkspaces(file, nil)
+	if err == nil {
+		t.Error("SeedWorkspaces() with invalid JSON file: want error")
 	}
 }
 

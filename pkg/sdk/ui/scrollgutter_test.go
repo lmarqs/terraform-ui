@@ -91,3 +91,63 @@ func TestRenderScrollGutter(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderScrollGutter_WhenViewportHeightIsZero_ShouldReturnLinesUnchanged(t *testing.T) {
+	lines := []string{"a", "b"}
+	got := ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     0,
+		TotalItems:     10,
+		ViewportHeight: 0,
+	})
+	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
+		t.Errorf("expected unchanged lines, got %v", got)
+	}
+}
+
+func TestRenderScrollGutter_WhenViewOffsetIsNegative_ShouldClampThumbStartToZero(t *testing.T) {
+	lines := []string{"a", "b", "c", "d", "e"}
+	got := ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     -5,
+		TotalItems:     20,
+		ViewportHeight: 5,
+		Width:          1,
+	})
+	if !strings.HasSuffix(got[0], "▲") {
+		t.Errorf("expected top cap, got %q", got[0])
+	}
+	if !strings.HasSuffix(got[len(got)-1], "▼") {
+		t.Errorf("expected bottom cap, got %q", got[len(got)-1])
+	}
+}
+
+func TestRenderScrollGutter_WhenViewOffsetExceedsTotal_ShouldClampThumbToBottom(t *testing.T) {
+	lines := []string{"a", "b", "c", "d", "e"}
+	got := ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     100,
+		TotalItems:     20,
+		ViewportHeight: 5,
+		Width:          1,
+	})
+	if !strings.HasSuffix(got[0], "▲") {
+		t.Errorf("expected top cap, got %q", got[0])
+	}
+	if !strings.HasSuffix(got[len(got)-1], "▼") {
+		t.Errorf("expected bottom cap, got %q", got[len(got)-1])
+	}
+}
+
+func TestRenderScrollGutter_WhenLineExceedsWidth_ShouldNotPad(t *testing.T) {
+	lines := []string{"abcdefghij", "short", "abcdefghij"}
+	got := ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+		ViewOffset:     0,
+		TotalItems:     10,
+		ViewportHeight: 3,
+		Width:          5,
+	})
+	if !strings.HasSuffix(got[0], "▲") {
+		t.Errorf("first line should end with gutter cap, got %q", got[0])
+	}
+	if !strings.HasPrefix(got[0], "abcdefghij") {
+		t.Errorf("long line should not be truncated, got %q", got[0])
+	}
+}

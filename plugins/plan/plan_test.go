@@ -1721,3 +1721,51 @@ func TestPlugin_WhenPinnedResourceRendered_ShouldShowPinMark(t *testing.T) {
 		t.Error("View with pinned resource returned empty")
 	}
 }
+
+func TestCursorPosition_WhenDoneWithChanges_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "a"}},
+			{Resource: sdk.Resource{Address: "b"}},
+			{Resource: sdk.Resource{Address: "c"}},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+
+	pos, total := p.CursorPosition()
+	if pos != 1 || total != 3 {
+		t.Errorf("CursorPosition() = (%d, %d), want (1, 3)", pos, total)
+	}
+
+	p.tree.MoveDown()
+	p.tree.MoveDown()
+	pos, total = p.CursorPosition()
+	if pos != 3 || total != 3 {
+		t.Errorf("CursorPosition() after move = (%d, %d), want (3, 3)", pos, total)
+	}
+}
+
+func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	pos, total := p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() idle = (%d, %d), want (0, 0)", pos, total)
+	}
+
+	p.status = sdk.StatusDone
+	p.summary = nil
+	pos, total = p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() done+nil summary = (%d, %d), want (0, 0)", pos, total)
+	}
+
+	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
+	pos, total = p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() done+empty changes = (%d, %d), want (0, 0)", pos, total)
+	}
+}

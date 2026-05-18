@@ -546,6 +546,44 @@ func TestHints_WhenStatusIdle_ShouldReturnOnlyBack(t *testing.T) {
 	}
 }
 
+func TestCursorPosition_WhenDoneWithPhantoms_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.phantoms = []PhantomChange{
+		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "a"}}},
+		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "b"}}},
+		{Change: sdk.PlanChange{Resource: sdk.Resource{Address: "c"}}},
+	}
+	p.selected = 0
+
+	pos, total := p.CursorPosition()
+	if pos != 1 || total != 3 {
+		t.Errorf("CursorPosition() = (%d, %d), want (1, 3)", pos, total)
+	}
+
+	p.selected = 2
+	pos, total = p.CursorPosition()
+	if pos != 3 || total != 3 {
+		t.Errorf("CursorPosition() after move = (%d, %d), want (3, 3)", pos, total)
+	}
+}
+
+func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	pos, total := p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() idle = (%d, %d), want (0, 0)", pos, total)
+	}
+
+	p.status = sdk.StatusDone
+	p.phantoms = []PhantomChange{}
+	pos, total = p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}
+
 func TestTruncate_GivenString_ShouldRespectMaxLength(t *testing.T) {
 	tests := []struct {
 		input string

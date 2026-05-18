@@ -2198,3 +2198,43 @@ func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing
 		t.Errorf("JSON output should contain tainted field, got: %s", s)
 	}
 }
+
+func TestCursorPosition_WhenDoneWithResources_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{
+		{Address: "a", Type: "t1"},
+		{Address: "b", Type: "t2"},
+		{Address: "c", Type: "t3"},
+	}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	pos, total := p.CursorPosition()
+	if pos != 1 || total != 3 {
+		t.Errorf("CursorPosition() = (%d, %d), want (1, 3)", pos, total)
+	}
+
+	p.tree.MoveDown()
+	p.tree.MoveDown()
+	pos, total = p.CursorPosition()
+	if pos != 3 || total != 3 {
+		t.Errorf("CursorPosition() after move = (%d, %d), want (3, 3)", pos, total)
+	}
+}
+
+func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	pos, total := p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() idle = (%d, %d), want (0, 0)", pos, total)
+	}
+
+	p.status = sdk.StatusDone
+	p.filtered = []sdk.Resource{}
+	pos, total = p.CursorPosition()
+	if pos != 0 || total != 0 {
+		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}

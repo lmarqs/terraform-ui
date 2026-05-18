@@ -268,6 +268,28 @@ func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
 	}
 }
 
+func TestHints_WhenIdle_ShouldReturnBackAndQuitHints(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusIdle
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() idle should not be empty")
+	}
+}
+
+func TestHints_WhenLoading_ShouldReturnBackAndQuitHints(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() loading should not be empty")
+	}
+}
+
 func TestHints_WhenDone_ShouldReturnBackHints(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)

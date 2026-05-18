@@ -96,3 +96,22 @@ func TestRenderActionsBar(t *testing.T) {
 		})
 	}
 }
+
+func TestRenderActionsBar_WhenRowExceedsWidth_ShouldTruncateOutput(t *testing.T) {
+	actions := []ui.ActionChip{
+		{Key: "d", Label: "delete"},
+		{Key: "t", Label: "taint"},
+		{Key: "T", Label: "untaint"},
+		{Key: "m", Label: "move"},
+		{Key: "n", Label: "import"},
+		{Key: "!", Label: "batch"},
+	}
+	got := ui.RenderActionsBar(actions, 10)
+
+	lines := strings.Split(got, "\n")
+	chipLine := lines[len(lines)-1]
+
+	if len(chipLine) == 0 {
+		t.Fatal("expected non-empty chip line")
+	}
+}

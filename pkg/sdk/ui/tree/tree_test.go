@@ -1999,3 +1999,122 @@ func TestGetAncestorContinuations_DepthLessThanDBreak(t *testing.T) {
 		t.Fatalf("expected 3 depth levels, got %d", len(result))
 	}
 }
+
+func TestRenderRows_WhenTreeIsEmpty_ShouldReturnNil(t *testing.T) {
+	tr := New([]Item{})
+	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 5})
+	if rows != nil {
+		t.Fatalf("expected nil for empty tree, got %v", rows)
+	}
+}
+
+func TestRenderRows_WhenHeightIsZero_ShouldReturnAllRows(t *testing.T) {
+	items := []Item{
+		testItem{"aws_s3_bucket.one"},
+		testItem{"aws_s3_bucket.two"},
+		testItem{"aws_s3_bucket.three"},
+		testItem{"aws_s3_bucket.four"},
+	}
+	tr := New(items)
+
+	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 0})
+	if len(rows) != 4 {
+		t.Fatalf("expected 4 rows when height is 0 (show all), got %d", len(rows))
+	}
+	for i, row := range rows {
+		expected := fmt.Sprintf("aws_s3_bucket.%s", []string{"four", "one", "three", "two"}[i])
+		if !strings.Contains(row, expected) {
+			t.Fatalf("row %d: expected to contain %q, got %q", i, expected, row)
+		}
+	}
+}
+
+func TestRenderRows_WhenHeightIsLimited_ShouldReturnWindowedSlice(t *testing.T) {
+	items := []Item{
+		testItem{"aws_s3_bucket.a"},
+		testItem{"aws_s3_bucket.b"},
+		testItem{"aws_s3_bucket.c"},
+		testItem{"aws_s3_bucket.d"},
+		testItem{"aws_s3_bucket.e"},
+	}
+	tr := New(items)
+
+	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 3})
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 rows with limited height, got %d", len(rows))
+	}
+	if !strings.Contains(rows[0], "aws_s3_bucket.a") {
+		t.Fatalf("expected first row to contain aws_s3_bucket.a, got %q", rows[0])
+	}
+	if !strings.Contains(rows[2], "aws_s3_bucket.c") {
+		t.Fatalf("expected third row to contain aws_s3_bucket.c, got %q", rows[2])
+	}
+}
+
+func TestRenderRows_WhenCursorAtEnd_ShouldReturnScrolledWindow(t *testing.T) {
+	items := []Item{
+		testItem{"aws_s3_bucket.a"},
+		testItem{"aws_s3_bucket.b"},
+		testItem{"aws_s3_bucket.c"},
+		testItem{"aws_s3_bucket.d"},
+		testItem{"aws_s3_bucket.e"},
+	}
+	tr := New(items)
+	tr.MoveToEnd()
+
+	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 3})
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(rows))
+	}
+	if !strings.Contains(rows[2], "aws_s3_bucket.e") {
+		t.Fatalf("expected last row to contain aws_s3_bucket.e, got %q", rows[2])
+	}
+	if strings.Contains(rows[0], "aws_s3_bucket.a") {
+		t.Fatal("expected first item to be scrolled out of view")
+	}
+}
+
+func TestRenderRows_ShouldNotApplyTruncationOrSelectedStyle(t *testing.T) {
+	items := []Item{
+		testItem{"aws_s3_bucket.very_long_name_that_exceeds_width"},
+	}
+	tr := New(items)
+
+	truncateCalled := false
+	selectedCalled := false
+	rows := tr.RenderRows(RenderOpts{
+		Width:  10,
+		Height: 5,
+		TruncateRow: func(s string, width int) string {
+			truncateCalled = true
+			return s[:5]
+		},
+		SelectedStyle: func(s string, width int) string {
+			selectedCalled = true
+			return ">>>" + s
+		},
+	})
+
+	if truncateCalled {
+		t.Fatal("expected TruncateRow to NOT be called by RenderRows")
+	}
+	if selectedCalled {
+		t.Fatal("expected SelectedStyle to NOT be called by RenderRows")
+	}
+	if !strings.Contains(rows[0], "very_long_name_that_exceeds_width") {
+		t.Fatalf("expected full untruncated content, got %q", rows[0])
+	}
+}
+
+func TestRenderRows_WhenHeightExceedsItems_ShouldReturnAllRows(t *testing.T) {
+	items := []Item{
+		testItem{"aws_s3_bucket.one"},
+		testItem{"aws_s3_bucket.two"},
+	}
+	tr := New(items)
+
+	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 100})
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows when height exceeds item count, got %d", len(rows))
+	}
+}
