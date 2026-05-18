@@ -10,4 +10,4 @@ aws_instance.web
   }
 }
 
- d delete e edit t taint T untaint
+d delete e edit t taint T untaint

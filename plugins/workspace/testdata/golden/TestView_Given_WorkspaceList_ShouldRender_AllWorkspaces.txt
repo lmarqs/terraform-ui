@@ -4,4 +4,4 @@
 
 3 workspace(s)  Current: default
 
- n new
+n new

@@ -2,4 +2,4 @@ filter: s3
 
 [ ] aws_s3_bucket.data  aws_s3_bucket
 
- d delete e edit t taint T untaint
+d delete e edit t taint T untaint

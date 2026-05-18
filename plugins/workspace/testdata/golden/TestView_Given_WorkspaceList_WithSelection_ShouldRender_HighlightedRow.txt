@@ -4,4 +4,4 @@
 
 3 workspace(s)  Current: default
 
- n new d delete
+n new d delete

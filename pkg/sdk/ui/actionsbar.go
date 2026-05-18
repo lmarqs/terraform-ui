@@ -37,7 +37,7 @@ func RenderActionsBar(actions []ActionChip, width int) string {
 		chips = append(chips, chipKeyStyle.Render(a.Key+" ")+chipLabelStyle.Render(a.Label))
 	}
 
-	row := " " + strings.Join(chips, " ")
+	row := strings.Join(chips, " ")
 
 	if lipgloss.Width(row) > width {
 		row = lipgloss.NewStyle().MaxWidth(width).Render(row)
