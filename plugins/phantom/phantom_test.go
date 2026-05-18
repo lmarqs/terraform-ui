@@ -514,7 +514,7 @@ func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectAndBack(t *testing
 	if hints[0].Key != "Enter" || hints[0].Description != "inspect" {
 		t.Errorf("Hints()[0] = {%q, %q}, want {Enter, inspect}", hints[0].Key, hints[0].Description)
 	}
-	if hints[1].Key != "q" || hints[1].Description != "back" {
+	if hints[1].Key != "q" || hints[1].Description != "quit" {
 		t.Errorf("Hints()[1] = {%q, %q}, want {q, back}", hints[1].Key, hints[1].Description)
 	}
 }
@@ -528,7 +528,7 @@ func TestHints_WhenStatusDoneNoPhantoms_ShouldReturnOnlyBack(t *testing.T) {
 	if len(hints) != 1 {
 		t.Fatalf("Hints() len = %d, want 1", len(hints))
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
 		t.Errorf("Hints()[0] = {%q, %q}, want {q, back}", hints[0].Key, hints[0].Description)
 	}
 }
@@ -541,7 +541,7 @@ func TestHints_WhenStatusIdle_ShouldReturnOnlyBack(t *testing.T) {
 	if len(hints) != 1 {
 		t.Fatalf("Hints() len = %d, want 1", len(hints))
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
 		t.Errorf("Hints()[0] = {%q, %q}, want {q, back}", hints[0].Key, hints[0].Description)
 	}
 }

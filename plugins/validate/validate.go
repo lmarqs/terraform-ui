@@ -56,18 +56,18 @@ func (p *Plugin) Diagnostics() []sdk.Diagnostic {
 func (p *Plugin) Hints() []sdk.KeyHint {
 	switch p.status {
 	case sdk.StatusIdle:
-		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
+		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
 	case sdk.StatusLoading:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
 	case sdk.StatusDone:
 		if len(p.diagnostics) == 0 {
-			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+			return (sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
 		}
-		return (sdk.HintSetInspect | sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+		return (sdk.HintSetInspect | sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
 	default:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	}
 }
 

@@ -53,9 +53,9 @@ func (e *Plugin) CursorPosition() (int, int) {
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
 	if e.status == sdk.StatusDone && len(e.phantoms) > 0 {
-		return (sdk.HintSetInspect | sdk.HintSetBack).Hints()
+		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
 	}
-	return (sdk.HintSetBack).Hints()
+	return (sdk.HintSetQuit).Hints()
 }
 
 // Configure applies plugin-specific options from config.

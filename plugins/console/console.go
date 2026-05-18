@@ -74,9 +74,9 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 			{Key: "esc", Description: "back"},
 		}
 	case sdk.StatusError:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	default:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	}
 }
 

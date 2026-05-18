@@ -154,16 +154,16 @@ func (f *listFrame) View(width, height int) string {
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case sdk.StatusIdle:
-		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
+		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
 	case sdk.StatusLoading:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
 	case sdk.StatusDone:
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
-			return (sdk.HintSetRefresh | sdk.HintSetBack).Hints()
+			return (sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
 		}
-		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetBack
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetQuit
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse | sdk.HintSetExpand
 		}
@@ -172,7 +172,7 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		}
 		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listWrap, PinnedFilter: f.plugin.pinnedOnly})
 	default:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	}
 }
 
@@ -227,7 +227,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetCancel
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetBack
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
@@ -289,7 +289,7 @@ func (f *planFilterFrame) View(width, height int) string {
 }
 
 func (f *planFilterFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
+	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetBack
 	if f.plugin.treeMode {
 		set |= sdk.HintSetCollapse | sdk.HintSetExpand
 	}

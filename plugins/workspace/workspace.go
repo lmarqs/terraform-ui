@@ -374,6 +374,7 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 		ViewOffset:     startIdx,
 		TotalItems:     len(e.workspaces),
 		ViewportHeight: maxVisible,
+		Width:          width - 6,
 	})
 
 	for _, line := range lines {

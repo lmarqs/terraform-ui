@@ -64,7 +64,7 @@ func (f *resultFrame) View(width, height int) string {
 func (f *resultFrame) Hints() []sdk.KeyHint {
 	switch f.status {
 	case sdk.StatusLoading:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	case sdk.StatusError:
 		return []sdk.KeyHint{
 			{Key: "Enter", Description: "back"},

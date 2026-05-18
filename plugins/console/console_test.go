@@ -686,11 +686,11 @@ func TestHints_WhenStatusError_ShouldReturnBackHints(t *testing.T) {
 	p.status = sdk.StatusError
 
 	hints := p.Hints()
-	expected := (sdk.HintSetBack).Hints()
+	expected := (sdk.HintSetQuit).Hints()
 	if len(hints) != len(expected) {
 		t.Fatalf("Hints() returned %d hints, want %d", len(hints), len(expected))
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
 		t.Errorf("hints[0] = {%q, %q}, want {\"q\", \"back\"}", hints[0].Key, hints[0].Description)
 	}
 }
@@ -700,7 +700,7 @@ func TestHints_WhenStatusIdle_ShouldReturnBackHints(t *testing.T) {
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
-	expected := (sdk.HintSetBack).Hints()
+	expected := (sdk.HintSetQuit).Hints()
 	if len(hints) != len(expected) {
 		t.Fatalf("Hints() returned %d hints, want %d", len(hints), len(expected))
 	}

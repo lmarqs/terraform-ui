@@ -205,14 +205,14 @@ func TestView_WhenDoneWithoutProviders_ShouldShowVersionOnly(t *testing.T) {
 	}
 }
 
-func TestHints_WhenCalled_ShouldReturnQuitHint(t *testing.T) {
+func TestHints_WhenCalled_ShouldReturnBackHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	hints := p.Hints()
 	if len(hints) != 1 {
 		t.Fatalf("Hints() = %d items, want 1", len(hints))
 	}
-	if hints[0].Key != "q" {
-		t.Errorf("Hints()[0].Key = %q, want %q", hints[0].Key, "q")
+	if hints[0].Key != "Esc" {
+		t.Errorf("Hints()[0].Key = %q, want %q", hints[0].Key, "Esc")
 	}
 }
 

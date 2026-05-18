@@ -65,7 +65,7 @@ func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
 func (e *Plugin) Hints() []sdk.KeyHint {
 	switch e.status {
 	case sdk.StatusIdle:
-		return (sdk.HintSetConfirm | sdk.HintSetBack).Hints()
+		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
 	case StatusReplanning:
 		return (sdk.HintSetCancel).Hints()
 	case StatusConfirming:
@@ -80,7 +80,7 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetCancel).Hints()
 	default:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	}
 }
 

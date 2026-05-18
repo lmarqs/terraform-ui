@@ -571,8 +571,8 @@ func TestHints_WhenStatusDoneWithGroups_ShouldReturnBackHint(t *testing.T) {
 	if len(hints) == 0 {
 		t.Fatal("Hints() returned empty slice, want at least one hint")
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
-		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "back")
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "quit")
 	}
 }
 
@@ -584,8 +584,8 @@ func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
 	if len(hints) == 0 {
 		t.Fatal("Hints() returned empty slice, want at least one hint")
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
-		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "back")
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "quit")
 	}
 }
 
@@ -598,8 +598,8 @@ func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
 	if len(hints) == 0 {
 		t.Fatal("Hints() returned empty slice, want at least one hint")
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
-		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "back")
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
+		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "quit")
 	}
 }
 

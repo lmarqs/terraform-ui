@@ -166,11 +166,11 @@ func (f *listFrame) View(width, height int) string {
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case sdk.StatusLoading:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
 	default:
-		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetBack
+		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetQuit
 		if f.plugin.treeMode {
 			set |= sdk.HintSetCollapse | sdk.HintSetExpand
 		}
@@ -243,7 +243,7 @@ func (f *detailFrame) View(width, height int) string {
 }
 
 func (f *detailFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetCancel
+	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetBack
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailWrap,
 		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
@@ -305,7 +305,7 @@ func (f *stateFilterFrame) View(width, height int) string {
 }
 
 func (f *stateFilterFrame) Hints() []sdk.KeyHint {
-	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetCancel
+	set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetBack
 	if f.plugin.treeMode {
 		set |= sdk.HintSetCollapse | sdk.HintSetExpand
 	}

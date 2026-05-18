@@ -578,7 +578,7 @@ func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
 	hasBack := false
 	hasConfirm := false
 	for _, h := range hints {
-		if h.Key == "q" && h.Description == "back" {
+		if h.Key == "q" && h.Description == "quit" {
 			hasBack = true
 		}
 		if h.Key == "Enter" && h.Description == "confirm" {
@@ -677,7 +677,7 @@ func TestHints_WhenUnknownStatus_ShouldReturnBack(t *testing.T) {
 	if len(hints) == 0 {
 		t.Fatal("Hints() returned empty slice for unknown status")
 	}
-	if hints[0].Key != "q" || hints[0].Description != "back" {
+	if hints[0].Key != "q" || hints[0].Description != "quit" {
 		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
 	}
 }

@@ -741,7 +741,7 @@ func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
 	}
 	descs := hintDescs(hints)
 	assertContains(t, descs, "confirm")
-	assertContains(t, descs, "back")
+	assertContains(t, descs, "quit")
 }
 
 func TestHints_WhenLoading_ShouldReturnBackOnly(t *testing.T) {
@@ -753,7 +753,7 @@ func TestHints_WhenLoading_ShouldReturnBackOnly(t *testing.T) {
 		t.Fatal("Hints() returned empty slice for Loading status")
 	}
 	descs := hintDescs(hints)
-	assertContains(t, descs, "back")
+	assertContains(t, descs, "quit")
 }
 
 func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
@@ -766,7 +766,7 @@ func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
 	}
 	descs := hintDescs(hints)
 	assertContains(t, descs, "retry")
-	assertContains(t, descs, "back")
+	assertContains(t, descs, "quit")
 }
 
 func TestHints_WhenDoneWithDiagnostics_ShouldReturnInspectRefreshBack(t *testing.T) {
@@ -783,7 +783,7 @@ func TestHints_WhenDoneWithDiagnostics_ShouldReturnInspectRefreshBack(t *testing
 	descs := hintDescs(hints)
 	assertContains(t, descs, "inspect")
 	assertContains(t, descs, "refresh")
-	assertContains(t, descs, "back")
+	assertContains(t, descs, "quit")
 }
 
 func TestHints_WhenDoneWithoutDiagnostics_ShouldReturnRefreshAndBack(t *testing.T) {
@@ -797,7 +797,7 @@ func TestHints_WhenDoneWithoutDiagnostics_ShouldReturnRefreshAndBack(t *testing.
 	}
 	descs := hintDescs(hints)
 	assertContains(t, descs, "refresh")
-	assertContains(t, descs, "back")
+	assertContains(t, descs, "quit")
 	assertNotContains(t, descs, "inspect")
 }
 
@@ -810,7 +810,7 @@ func TestHints_WhenUnknownStatus_ShouldReturnBackOnly(t *testing.T) {
 		t.Fatal("Hints() returned empty slice for unknown status")
 	}
 	descs := hintDescs(hints)
-	assertContains(t, descs, "back")
+	assertContains(t, descs, "quit")
 }
 
 func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {

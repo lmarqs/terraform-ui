@@ -88,11 +88,11 @@ func (f *listFrame) View(width, height int) string {
 func (f *listFrame) Hints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
 	case sdk.StatusDone:
-		set := sdk.HintSetSelect | sdk.HintSetRefresh | sdk.HintSetBack
+		set := sdk.HintSetSelect | sdk.HintSetRefresh | sdk.HintSetQuit
 		return set.Hints()
 	default:
-		return (sdk.HintSetBack).Hints()
+		return (sdk.HintSetQuit).Hints()
 	}
 }
