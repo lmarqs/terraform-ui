@@ -21,7 +21,7 @@ jobs:
       - uses: ./.github/actions/prepare-env
 
       - name: Release
-        run: mise run release
+        run: mise run release:run
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
