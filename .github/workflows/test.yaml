@@ -24,8 +24,5 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-env
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.14"
-          terraform_wrapper: false
-      - run: mise run test:integration:terraform
+      - run: mise run test:integration
+
