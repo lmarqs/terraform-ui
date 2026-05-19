@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Bash(go build:*)
+allowed-tools: Read, Write, Edit, Bash(mise run:*)
 description: Add a new CLI subcommand (cobra)
 ---
 
@@ -13,7 +13,7 @@ Steps:
 3. Register it with `rootCmd.AddCommand()`
 4. Add flags specific to the subcommand
 5. Implement the run function
-6. Run `go build ./...` to verify
+6. Run `mise run check:build` to verify
 
 Key patterns:
 - Subcommands preserve the existing CLI interface

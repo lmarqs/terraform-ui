@@ -5,18 +5,22 @@ terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Sin
 ## Quick Reference
 
 ```bash
-mise run dev              # Run TUI in development mode
-mise run fmt              # Format (gofmt)
-mise run check:lint       # Lint (golangci-lint v2)
+mise run dev              # Run TUI (--project, --plan, --state)
+mise run fmt              # Format Go files (accepts file args)
+mise run setup            # Bootstrap dependencies
+mise run check:lint       # Static analysis (style, correctness, complexity)
+mise run check:build      # Compile check (no artifacts)
+mise run test:unit        # Unit tests (accepts package arg)
 mise run test:coverage    # Coverage (100% threshold)
-mise run build            # Cross-platform binaries
 mise run test:macro       # Macro tapes against binary
-mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
-mise run docs:install     # Install Jekyll gem dependencies
-mise run docs:serve       # Serve docs site locally with live reload
-mise run docs:build       # Build docs site for production
-mise run demo:generate    # Record demo GIFs from macro tapes
-mise run demo:lock        # Lock Python deps to requirements.txt
+mise run test:integration # Integration tests
+mise run build            # Cross-platform binaries (goreleaser)
+mise run docs:install     # Install Jekyll gems
+mise run docs:serve       # Serve docs locally
+mise run docs:build       # Build docs for production
+mise run demo:generate    # Record demo GIFs
+mise run demo:lock        # Lock Python deps
+mise run release:run      # Semantic-release (CI only)
 ```
 
 ## Architecture
@@ -87,7 +91,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 
 IMPORTANT: Before considering work complete, run:
 ```bash
-mise run check:lint && mise run test:unit && mise run build
+mise run check:lint && mise run test:unit && mise run check:build
 ```
 
 For UI changes, also run `mise run test:macro` to verify rendering.
@@ -141,7 +145,7 @@ CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the a
 ## Automation
 
 PostToolUse hooks run automatically (configured in `.claude/settings.json`):
-- `gofmt` on every `.go` file edit
+- `mise run fmt` on every `.go` file edit
 - Agent checks validate UI consistency, plugin boundaries, CLI contracts, and SDK changes
 - Stop hook runs build verification before session ends
 

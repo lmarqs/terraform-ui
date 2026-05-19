@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(find:*), Read, Write, Edit, Bash(go build:*), Bash(go test:*)
+allowed-tools: Bash(find:*), Read, Write, Edit, Bash(mise run:*)
 description: Add a new terraform feature (service method, parser, etc.)
 ---
 
@@ -13,7 +13,7 @@ Steps:
 3. Implement it on `TerraformService` using `tfexec`
 4. If new types are needed, add them to `internal/terraform/parser.go`
 5. Add unit tests in the corresponding `*_test.go` file
-6. Run `mise run go:test` to verify
+6. Run `mise run test:unit` to verify
 
 Key patterns:
 - Use `tfexec.Terraform` from hashicorp/terraform-exec

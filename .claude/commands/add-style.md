@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Edit, Bash(go build:*)
+allowed-tools: Read, Edit, Bash(mise run:*)
 description: Add or modify styles in the theme
 ---
 
@@ -12,7 +12,7 @@ Steps:
 1. Read `pkg/sdk/styles.go`
 2. Add new color constants or style variables following existing patterns
 3. Use descriptive names: `StyleRisk<Level>`, `StyleAction<Type>`, `Style<Purpose>`
-4. Run `go build ./...` to verify
+4. Run `mise run check:build` to verify
 
 Rules:
 - Never define inline lipgloss.NewStyle() in view Render() methods

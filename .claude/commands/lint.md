@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(mise run:*), Bash(golangci-lint:*)
+allowed-tools: Bash(mise run:*)
 description: Lint Go code (mise run check:lint)
 ---
 

@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(find:*), Read, Write, Edit, Bash(go build:*), Bash(go vet:*)
+allowed-tools: Bash(find:*), Read, Write, Edit, Bash(mise run:*)
 description: Add a new frame (sub-view) to an existing plugin
 ---
 
@@ -37,7 +37,7 @@ Create a new `Frame` within an existing plugin's frame stack. Frames are sub-vie
    - Return a different Frame to replace in-place
    - Return self for no change
 
-6. **Run `go build ./...` and `go vet ./...` to verify**
+6. **Run `mise run check:build && mise run check:lint` to verify**
 
 ### Key patterns
 

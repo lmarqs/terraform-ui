@@ -1,5 +1,5 @@
 ---
-allowed-tools: Read, Write, Edit, Bash(go build:*), Bash(go vet:*)
+allowed-tools: Read, Write, Edit, Bash(mise run:*)
 description: Add a new plugin to the application
 ---
 
@@ -117,7 +117,7 @@ Create a new plugin that implements the `Plugin` interface from `pkg/sdk/plugin.
 
 7. **Verify the build**
 
-   Run `go build ./...` and `go vet ./...` to confirm everything compiles.
+   Run `mise run check:build && mise run check:lint` to confirm everything compiles and passes analysis.
 
 ### Key patterns
 
