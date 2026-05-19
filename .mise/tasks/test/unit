@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run unit tests. Use after any code change. Accepts a package pattern to test a subset."
+#USAGE arg "[packages]" help="Package pattern to test (default: ./...)" default="./..."
+
+mkdir -p reports
+exec gotestsum --junitfile reports/junit.xml -- "$usage_packages"

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Analyze commits, bump version, tag, and publish a release. CI-only — requires GITHUB_TOKEN."
+
+exec npx semantic-release

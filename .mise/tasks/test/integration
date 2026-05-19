@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Test against real terraform/tofu/terragrunt binaries. Run when changing service layer or CLI."
+
+exec go test -tags integration -timeout 120s -run 'TestPipeline|TestPlan_|TestCLI_' ./tests/integration/...

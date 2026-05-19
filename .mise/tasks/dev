@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+#MISE description="Start the TUI locally to test changes interactively. Use after editing plugin code, views, or navigation."
+#USAGE flag "--project <project>" help="Path to project directory containing tfui.hcl"
+#USAGE flag "--plan <plan>" help="Path to a plan JSON file to pre-seed the cache"
+#USAGE flag "--state <state>" help="Path to a state JSON file to pre-seed the cache"
+
+args=()
+[[ -n "$usage_project" ]] && args+=("--project" "$usage_project")
+[[ -n "$usage_plan" ]] && args+=("--plan" "$usage_plan")
+[[ -n "$usage_state" ]] && args+=("--state" "$usage_state")
+
+exec go run ./cmd/tfui "${args[@]}" "$@"

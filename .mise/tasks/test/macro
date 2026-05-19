@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+#MISE description="Replay macro tapes against the binary to catch UI regressions. Run after view or navigation changes."
+#USAGE arg "[binary]" help="Path to tfui binary (default: auto-detect from dist/)"
+
+TFUI="${usage_binary:-dist/tfui_$(go env GOOS)_$(go env GOARCH)*/tfui}"
+TFUI=$(ls $TFUI 2>/dev/null | head -1)
+if [ -z "$TFUI" ] || [ ! -x "$TFUI" ]; then
+  echo "ERROR: no binary found at $TFUI — run 'mise run build' first"
+  exit 1
+fi
+failed=0
+for tape in tests/fixtures/tapes/*.tape; do
+  case "$(basename "$tape")" in
+    assertion_fail.tape|state_tree.tape) continue ;;
+  esac
+  echo "=== $(basename "$tape") ==="
+  if ! "$TFUI" --plan ./tests/fixtures/plan.json --state ./tests/fixtures/state.json --macro "./$tape"; then
+    failed=$((failed + 1))
+  fi
+done
+if [ $failed -gt 0 ]; then
+  echo "FAIL: $failed tape(s) failed"
+  exit 1
+fi
+echo "All tapes passed."

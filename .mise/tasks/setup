@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="First-time setup after cloning. Installs node, python, ruby, and go tool dependencies."
+
+npm ci
+pip install -r requirements.txt -q
+cd docs && bundle install --quiet
+go install gotest.tools/gotestsum@latest

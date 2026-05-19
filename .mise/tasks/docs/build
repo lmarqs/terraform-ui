@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Generate the static docs site for deployment. Used by CI/CD pipeline."
+#MISE dir="docs"
+
+exec bundle exec jekyll build

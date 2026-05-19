@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Produce release-like binaries for all platforms. Use before macro tests or to test the full binary."
+
+exec goreleaser build --snapshot --clean

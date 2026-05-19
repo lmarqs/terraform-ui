@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+#MISE description="Auto-fix formatting issues. Run before committing or when lint complains about style."
+#USAGE arg "[files]..." help="Specific files to format (default: all via golangci-lint fmt ./...)"
+
+if [ ${#usage_files[@]} -gt 0 ]; then
+  exec gofmt -w "${usage_files[@]}"
+else
+  exec golangci-lint fmt ./...
+fi

@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Write the VERSION file during release. Called automatically by semantic-release prepareCmd."
+#USAGE arg "version" help="Semantic version string (e.g. 1.2.3)"
+
+echo "$usage_version" > VERSION

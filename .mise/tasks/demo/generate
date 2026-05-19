@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Record demo tapes and render animated GIFs for the project README and docs."
+
+exec ./demo/generate.sh

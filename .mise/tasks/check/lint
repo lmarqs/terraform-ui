@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Enforce code style, complexity, and correctness rules. Must pass before merge."
+
+exec golangci-lint run ./...

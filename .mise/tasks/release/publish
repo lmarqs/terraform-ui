@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Build binaries and upload to GitHub release. Called automatically by semantic-release publishCmd."
+
+exec goreleaser release --clean --skip=validate

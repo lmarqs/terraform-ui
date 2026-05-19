@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Fast compile check without producing artifacts. Use to verify code compiles after changes."
+
+exec go build ./...

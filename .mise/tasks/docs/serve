@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Preview the docs site locally with hot reload. Use when writing or reviewing documentation."
+#MISE dir="docs"
+
+exec bundle exec jekyll serve --livereload

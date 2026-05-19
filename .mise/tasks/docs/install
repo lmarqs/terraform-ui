@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Install Jekyll gems for the docs site. Run once after clone or when Gemfile changes."
+#MISE dir="docs"
+
+exec bundle install

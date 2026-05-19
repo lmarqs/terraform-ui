@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Pin Python dependencies for reproducible demo generation. Run after adding/updating packages."
+
+exec pip freeze > requirements.txt
