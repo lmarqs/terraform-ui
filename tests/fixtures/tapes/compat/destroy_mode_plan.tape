@@ -1,10 +1,10 @@
 # Scenario: Destroy mode display
 #
-# Verifies that when --destroy flag is active, the plan view
+# Verifies that when -destroy flag is active, the plan view
 # shows only delete actions. All resources should show the
 # delete symbol (-) indicating destruction.
 #
-# Pre-condition: launched with --plan pointing to plan_destroy.json
+# Pre-condition: launched with -plan pointing to plan_destroy.json
 # which contains only "delete" actions on all resources.
 #
 # Expected:

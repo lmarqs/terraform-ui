@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// TestCompat_PlanWithTarget verifies that plan with --target flag (single-dash terraform
+// TestCompat_PlanWithTarget verifies that plan with -target flag (single-dash terraform
 // style) loads correctly and the emitted plan command includes the target.
 // This test covers CLI flag normalization: users expect -target=X to work just
 // like terraform's native flags.
@@ -19,7 +19,7 @@ func TestCompat_PlanWithTarget(t *testing.T) {
 	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "plan_with_target.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--state", stateFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-state", stateFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
@@ -34,14 +34,14 @@ func TestCompat_PlanWithTarget(t *testing.T) {
 }
 
 // TestCompat_DestroyModePlanDisplay verifies that a plan with all-delete actions
-// renders correctly in the plan view. When --destroy is used, the plan JSON will
+// renders correctly in the plan view. When -destroy is used, the plan JSON will
 // contain only "delete" actions and the summary should show "N to destroy".
 func TestCompat_DestroyModePlanDisplay(t *testing.T) {
 	projectRoot := findProjectRoot()
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "compat", "plan_destroy.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "destroy_mode_plan.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
@@ -63,7 +63,7 @@ func TestCompat_DestroyModeApplyConfirmation(t *testing.T) {
 	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "compat", "state.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "destroy_mode_apply.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--state", stateFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-state", stateFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
@@ -80,7 +80,7 @@ func TestCompat_DestroyModeApplyConfirmation(t *testing.T) {
 // TestCompat_VarFileInCommand verifies that when PlanOptions/ApplyOptions carry
 // VarFiles, the emitted commands include -var-file= flags.
 // NOTE: This test will only pass once PlanOptions/ApplyOptions are implemented
-// and the CLI --var-file flag threads through to the service layer.
+// and the CLI -var-file flag threads through to the service layer.
 // For now, it verifies the basic apply flow works and can be extended.
 func TestCompat_VarFileInCommand(t *testing.T) {
 	projectRoot := findProjectRoot()
@@ -88,7 +88,7 @@ func TestCompat_VarFileInCommand(t *testing.T) {
 	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "var_file_command.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--state", stateFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-state", stateFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
@@ -101,7 +101,7 @@ func TestCompat_VarFileInCommand(t *testing.T) {
 		t.Errorf("expected 'terraform apply' in stdout, got: %q", stdout)
 	}
 
-	// TODO: Once --var-file CLI flag is implemented, add this assertion:
+	// TODO: Once -var-file CLI flag is implemented, add this assertion:
 	// if !strings.Contains(stdout, "-var-file=prod.tfvars") {
 	//     t.Errorf("expected '-var-file=prod.tfvars' in apply command, got: %q", stdout)
 	// }
@@ -115,7 +115,7 @@ func TestCompat_TargetedApplyEmitsTargetFlag(t *testing.T) {
 	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "targeted_plan_command.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--state", stateFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-state", stateFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
@@ -144,7 +144,7 @@ func TestCompat_ExtraArgsPassthrough(t *testing.T) {
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "extra_args_passthrough.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
@@ -170,7 +170,7 @@ func TestCompat_WorkspaceDisplay(t *testing.T) {
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "workspace_display.tape")
 
-	_, stderr, err := runTfui("--plan", planFixture, "--macro", tapeFile)
+	_, stderr, err := runTfui("-plan", planFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s", ee.ExitCode(), stderr)
@@ -186,7 +186,7 @@ func TestCompat_DestroyModeRiskClassification(t *testing.T) {
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "compat", "plan_destroy.json")
 	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "destroy_mode_risk.tape")
 
-	stdout, stderr, err := runTfui("--plan", planFixture, "--macro", tapeFile)
+	stdout, stderr, err := runTfui("-plan", planFixture, "-macro", tapeFile)
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)

@@ -22,7 +22,7 @@ func TestCLI_Version(t *testing.T) {
 }
 
 func TestCLI_Help(t *testing.T) {
-	stdout, _, err := runTfui("--help")
+	stdout, _, err := runTfui("-help")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -59,7 +59,7 @@ func TestCLI_UnknownCommand(t *testing.T) {
 }
 
 func TestCLI_PlanUnknownFlag(t *testing.T) {
-	_, stderr, err := runTfui("plan", "--bogus", "--project", fixtureDir("create"))
+	_, stderr, err := runTfui("plan", "-bogus", "-project", fixtureDir("create"))
 	if err == nil {
 		t.Fatal("expected error for unknown flag, got nil")
 	}
@@ -69,7 +69,7 @@ func TestCLI_PlanUnknownFlag(t *testing.T) {
 }
 
 func TestCLI_PlanNonexistentDir(t *testing.T) {
-	_, _, err := runTfui("plan", "--project", "/nonexistent/path/does/not/exist", "--ci")
+	_, _, err := runTfui("plan", "-project", "/nonexistent/path/does/not/exist", "-ci")
 	if err == nil {
 		t.Fatal("expected error for nonexistent directory, got nil")
 	}
@@ -78,7 +78,7 @@ func TestCLI_PlanNonexistentDir(t *testing.T) {
 func TestCLI_PlanJSONValid(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "-json")
+	stdout, _, err := runTfui("plan", "-project", fixtureDir("create"), "-json")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}
@@ -100,7 +100,7 @@ func TestCLI_PlanJSONValid(t *testing.T) {
 func TestCLI_PlanCIModeOutputsTreeView(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--ci")
+	stdout, _, err := runTfui("plan", "-project", fixtureDir("create"), "-ci")
 	if err != nil {
 		t.Fatalf("expected no error, got: %v", err)
 	}

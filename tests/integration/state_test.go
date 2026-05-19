@@ -35,7 +35,7 @@ func TestState_Rm_RemovesResource(t *testing.T) {
 	}
 
 	// Remove one
-	_, stderr, err := runTfui("state", "rm", "local_file.one", "--project", dir)
+	_, stderr, err := runTfui("state", "rm", "local_file.one", "-project", dir)
 	if err != nil {
 		t.Fatalf("state rm failed: %v\nstderr: %s", err, stderr)
 	}
@@ -54,7 +54,7 @@ func TestState_Mv_RenamesResource(t *testing.T) {
 	dir := copyFixture(t, "state-ops")
 
 	// Move/rename
-	_, stderr, err := runTfui("state", "mv", "local_file.one", "local_file.renamed", "--project", dir)
+	_, stderr, err := runTfui("state", "mv", "local_file.one", "local_file.renamed", "-project", dir)
 	if err != nil {
 		t.Fatalf("state mv failed: %v\nstderr: %s", err, stderr)
 	}
@@ -79,7 +79,7 @@ func TestState_Taint_MarksForRecreation(t *testing.T) {
 	dir := copyFixture(t, "state-ops")
 
 	// Taint
-	_, stderr, err := runTfui("state", "taint", "local_file.one", "--project", dir)
+	_, stderr, err := runTfui("state", "taint", "local_file.one", "-project", dir)
 	if err != nil {
 		t.Fatalf("state taint failed: %v\nstderr: %s", err, stderr)
 	}
@@ -103,11 +103,11 @@ func TestState_Untaint_RemovesMark(t *testing.T) {
 	dir := copyFixture(t, "state-ops")
 
 	// Taint then untaint
-	_, _, err := runTfui("state", "taint", "local_file.one", "--project", dir)
+	_, _, err := runTfui("state", "taint", "local_file.one", "-project", dir)
 	if err != nil {
 		t.Fatalf("taint failed: %v", err)
 	}
-	_, stderr, err := runTfui("state", "untaint", "local_file.one", "--project", dir)
+	_, stderr, err := runTfui("state", "untaint", "local_file.one", "-project", dir)
 	if err != nil {
 		t.Fatalf("untaint failed: %v\nstderr: %s", err, stderr)
 	}
@@ -123,7 +123,7 @@ func TestState_Untaint_RemovesMark(t *testing.T) {
 func TestState_Rm_InvalidAddress_Errors(t *testing.T) {
 	dir := copyFixture(t, "state-ops")
 
-	_, _, err := runTfui("state", "rm", "nonexistent.resource", "--project", dir)
+	_, _, err := runTfui("state", "rm", "nonexistent.resource", "-project", dir)
 	if err == nil {
 		t.Error("expected error for state rm of nonexistent address, got nil")
 	}
@@ -132,9 +132,9 @@ func TestState_Rm_InvalidAddress_Errors(t *testing.T) {
 // runPlanAgentInDir runs plan in -json mode against the given directory.
 func runPlanAgentInDir(t *testing.T, dir string) agentJSON {
 	t.Helper()
-	stdout, stderr, err := runTfui("plan", "--project", dir, "--json")
+	stdout, stderr, err := runTfui("plan", "-project", dir, "-json")
 	if err != nil {
-		t.Fatalf("plan --json failed: %v\nstderr: %s", err, stderr)
+		t.Fatalf("plan -json failed: %v\nstderr: %s", err, stderr)
 	}
 
 	var result agentJSON

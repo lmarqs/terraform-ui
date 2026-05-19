@@ -4,6 +4,7 @@ package integration
 
 import (
 	"encoding/json"
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -12,9 +13,11 @@ func TestPipeline_Plan(t *testing.T) {
 	binary := testBinary()
 	dir := initFixtureWith(t, "create", binary)
 
-	stdout, stderr, err := runTfui("plan", "--project", dir, "--terraform-bin", binary, "--json")
+	stdout, stderr, err := runTfui("plan", "-project", dir, "-terraform-bin", binary, "-json")
 	if err != nil {
-		t.Fatalf("plan --json with %s failed: %v\nstderr: %s", binary, err, stderr)
+		if ee, ok := err.(*exec.ExitError); !ok || ee.ExitCode() != 2 {
+			t.Fatalf("plan -json with %s failed: %v\nstderr: %s", binary, err, stderr)
+		}
 	}
 
 	var result map[string]interface{}
@@ -34,9 +37,11 @@ func TestPipeline_PlanTreeView(t *testing.T) {
 	binary := testBinary()
 	dir := initFixtureWith(t, "create", binary)
 
-	stdout, _, err := runTfui("plan", "--project", dir, "--terraform-bin", binary, "--ci")
+	stdout, _, err := runTfui("plan", "-project", dir, "-terraform-bin", binary, "-ci")
 	if err != nil {
-		t.Fatalf("plan --ci with %s failed: %v", binary, err)
+		if ee, ok := err.(*exec.ExitError); !ok || ee.ExitCode() != 2 {
+			t.Fatalf("plan -ci with %s failed: %v", binary, err)
+		}
 	}
 
 	if !strings.Contains(stdout, "Plan:") {

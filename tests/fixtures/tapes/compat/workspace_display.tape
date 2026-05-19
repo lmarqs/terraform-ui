@@ -3,7 +3,7 @@
 # Verifies that the workspace plugin is accessible in the TUI
 # when loaded with preloaded data.
 #
-# Pre-condition: launched with --plan (preloaded data mode).
+# Pre-condition: launched with -plan (preloaded data mode).
 #
 # Expected:
 #   - Home menu loads

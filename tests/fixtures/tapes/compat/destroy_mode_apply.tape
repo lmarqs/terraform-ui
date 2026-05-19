@@ -4,8 +4,8 @@
 # communicates that resources will be destroyed. The confirmation
 # flow should warn the user about infrastructure modification.
 #
-# Pre-condition: launched with --plan pointing to plan_destroy.json
-# and --state pointing to state.json.
+# Pre-condition: launched with -plan pointing to plan_destroy.json
+# and -state pointing to state.json.
 #
 # Expected:
 #   - Navigate to plan, then trigger apply

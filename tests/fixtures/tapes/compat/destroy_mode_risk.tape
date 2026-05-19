@@ -4,7 +4,7 @@
 # risk levels. S3 bucket deletion should be CRITICAL, instance
 # deletion should be medium.
 #
-# Pre-condition: launched with --plan pointing to plan_destroy.json
+# Pre-condition: launched with -plan pointing to plan_destroy.json
 #
 # Expected:
 #   - Plan shows risk badges next to each resource

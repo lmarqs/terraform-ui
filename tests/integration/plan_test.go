@@ -34,9 +34,9 @@ func runPlanAgent(t *testing.T, fixture string) agentJSON {
 	t.Helper()
 	initFixture(t, fixture)
 
-	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--json")
+	stdout, stderr, err := runTfui("plan", "-project", fixtureDir(fixture), "-json")
 	if err != nil {
-		t.Fatalf("plan --json failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
+		t.Fatalf("plan -json failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
 	}
 
 	var result agentJSON
@@ -50,9 +50,9 @@ func runPlanSilent(t *testing.T, fixture string) string {
 	t.Helper()
 	initFixture(t, fixture)
 
-	stdout, stderr, err := runTfui("plan", "--project", fixtureDir(fixture), "--ci")
+	stdout, stderr, err := runTfui("plan", "-project", fixtureDir(fixture), "-ci")
 	if err != nil {
-		t.Fatalf("plan --ci failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
+		t.Fatalf("plan -ci failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
 	}
 	return stdout
 }
@@ -269,7 +269,7 @@ func TestPlan_MultiResourceFixture_SilentMode(t *testing.T) {
 func TestPlan_AgentMode_JSONStructure(t *testing.T) {
 	initFixture(t, "create")
 
-	stdout, _, err := runTfui("plan", "--project", fixtureDir("create"), "--json")
+	stdout, _, err := runTfui("plan", "-project", fixtureDir("create"), "-json")
 	if err != nil {
 		t.Fatalf("plan failed: %v", err)
 	}

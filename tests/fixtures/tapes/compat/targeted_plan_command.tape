@@ -3,7 +3,7 @@
 # Verifies that when targets are configured (via pinning a resource),
 # the apply command emitted to stdout includes the -target= flags.
 #
-# Pre-condition: launched with --plan and --state. User pins a
+# Pre-condition: launched with -plan and -state. User pins a
 # resource, then triggers apply.
 #
 # Expected:
