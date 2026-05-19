@@ -1,3 +1,10 @@
+## [1.5.1](https://github.com/lmarqs/terraform-ui/compare/v1.5.0...v1.5.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **ci:** update release workflow to use release:run task name ([825baec](https://github.com/lmarqs/terraform-ui/commit/825baec95738db71aee992522a2da04b278c3ee7))
+
 # [1.5.0](https://github.com/lmarqs/terraform-ui/compare/v1.4.0...v1.5.0) (2026-05-19)
 
 
