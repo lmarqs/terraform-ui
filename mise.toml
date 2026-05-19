@@ -4,10 +4,8 @@ go = "1.25"
 golangci-lint = "2.12"
 goreleaser = "2.15"
 node = "22.21"
-opentofu = "1.9"
 ruby = "3.4"
 terraform = "1.14"
-terragrunt = "0.77"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -67,23 +65,10 @@ fi
 """
 description = "Coverage enforcement (100%, excludes cmd/ and internal/terraform/exec)"
 
-[tasks."test:integration:terraform"]
+[tasks."test:integration"]
 run = "go test -tags integration -timeout 300s ./tests/integration/..."
 description = "Integration tests with terraform"
 
-[tasks."test:integration:tofu"]
-run = """
-if ! command -v tofu &>/dev/null; then echo "SKIP: tofu not found"; exit 0; fi
-TFUI_TEST_BINARY=tofu go test -tags integration -timeout 300s -run 'TestPipeline' ./tests/integration/...
-"""
-description = "Integration tests with OpenTofu"
-
-[tasks."test:integration:terragrunt"]
-run = """
-if ! command -v terragrunt &>/dev/null; then echo "SKIP: terragrunt not found"; exit 0; fi
-TFUI_TEST_BINARY=terragrunt go test -tags integration -timeout 300s -run 'TestPipeline' ./tests/integration/...
-"""
-description = "Integration tests with Terragrunt"
 
 [tasks."test:macro"]
 run = """
