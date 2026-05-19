@@ -1,5 +1,5 @@
 # Workspace: list and switch workspaces
-resize 120 35
+resize 80 20
 wait ready
 sleep 300ms
 

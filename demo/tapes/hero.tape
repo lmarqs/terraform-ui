@@ -1,5 +1,5 @@
 # Hero demo: full workflow (home → plan → pin → targeted apply)
-resize 120 35
+resize 80 20
 wait ready
 sleep 500ms
 

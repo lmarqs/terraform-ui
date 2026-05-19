@@ -16,7 +16,7 @@ PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 if [ -n "${1:-}" ]; then
   TFUI="$1"
 else
-  TFUI=$(ls "$PROJECT_DIR"/dist/tfui_"$(go env GOOS)"_"$(go env GOARCH)"*/tfui 2>/dev/null | head -1)
+  TFUI=$(ls "$PROJECT_DIR"/dist/tfui_"$(go env GOOS)"_"$(go env GOARCH)"*/tfui 2>/dev/null | head -1 || true)
 fi
 
 if [ -z "$TFUI" ] || [ ! -x "$TFUI" ]; then
