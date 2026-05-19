@@ -12,16 +12,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-env
-      - run: mise run check:lint
 
-  unit:
+  check:
     runs-on: ubuntu-latest
     permissions:
       checks: write
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-env
+      - run: mise run check:lint
       - run: mise run test:unit
+      - run: mise run test:coverage
       - uses: dorny/test-reporter@v1
         if: always()
         with:
@@ -29,12 +30,6 @@ jobs:
           path: reports/*.xml
           reporter: java-junit
 
-  coverage:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/prepare-env
-      - run: mise run test:coverage
 
   binaries:
     needs: [lint, unit, coverage]
