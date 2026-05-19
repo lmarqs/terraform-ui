@@ -177,7 +177,7 @@ Two implementations:
 - `ExecService` — wraps terraform-exec, uses ServiceCache for reads (service.go, state_ops.go, workspace_ops.go)
 - `MacroService` — records commands as sdk.Command, reads from ServiceCache, never executes (macro_service.go)
 
-`ServiceCache` (service_cache.go) is a typed, source-aware cache pre-seeded from `--plan`/`--state` flags at startup. Three source kinds: file (re-reads on invalidate), stdin (immutable), exec (cleared on invalidate).
+`ServiceCache` (service_cache.go) is a typed, source-aware cache pre-seeded from `-plan`/`-state` flags at startup. Three source kinds: file (re-reads on invalidate), stdin (immutable), exec (cleared on invalidate).
 
 Cache invalidation rules:
 - State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) auto-invalidate state cache internally
@@ -229,7 +229,7 @@ resize 120 40
 sleep 500ms
 ```
 
-Recorder (`recorder.go`): Wraps `tea.Model` to capture ANSI frames + generate tape during interactive sessions. Used by `--record` flag. In headless mode, the Runner captures frames via `CaptureView()`.
+Recorder (`recorder.go`): Wraps `tea.Model` to capture ANSI frames + generate tape during interactive sessions. Used by `-record` flag. In headless mode, the Runner captures frames via `CaptureView()`.
 
 Key files:
 - `driver.go` — synchronous model driver (no terminal needed)

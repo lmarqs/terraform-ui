@@ -9,7 +9,7 @@ Full spec: `docs/reference/cli-ux.md`
 
 ## Execution Model
 
-Every `tfui <command>` launches the plugin in a standalone TUI (on stderr). Output goes to stdout on exit. `--ci` or `CI=1` disables the TUI.
+Every `tfui <command>` launches the plugin in a standalone TUI (on stderr). Output goes to stdout on exit. `-ci` or `CI=1` disables the TUI.
 
 Two modes:
 - **Standalone TUI**: alt-screen on stderr, plugin output to stdout on exit (fzf model)
@@ -17,27 +17,27 @@ Two modes:
 
 Mode resolution:
 ```go
-if --ci OR CI=1:     → CI mode
+if -ci OR CI=1:     → CI mode
 if stderr not TTY:   → CI mode
 otherwise:           → Standalone TUI
 ```
 
 Behavior matrix:
 - `tfui plan` → TUI on stderr, tree view to stdout on quit
-- `tfui plan --ci` → no TUI, tree view to stdout immediately
+- `tfui plan -ci` → no TUI, tree view to stdout immediately
 - `tfui plan -json` → TUI on stderr, JSON to stdout on quit
 - `tfui` (no args) → full TUI on stdout (unchanged, no output)
 
-## Pre-Seeded Cache (`--plan`, `--state`)
+## Pre-Seeded Cache (`-plan`, `-state`)
 
 ```bash
-tfui --plan ./plan.json
-tfui --state ../terraform.tfstate
-terraform show -json tfplan.out | tfui --plan -
-tfui --plan ./plan.json --state ./state.json
+tfui -plan ./plan.json
+tfui -state ../terraform.tfstate
+terraform show -json tfplan.out | tfui -plan -
+tfui -plan ./plan.json -state ./state.json
 ```
 
-When `--plan` or `--state` provided:
+When `-plan` or `-state` provided:
 - `ServiceCache` is pre-seeded with parsed data; `ExecService` serves reads from cache
 - Header shows `[pre-seeded]` badge
 - Mutating hints hidden from status bar
@@ -52,18 +52,18 @@ Plugins produce output via optional SDK interfaces:
 ## Flag Conventions
 
 - `-json` → changes output FORMAT (JSON vs human-readable)
-- `--ci` → changes execution MODE (headless vs TUI)
-- Both are orthogonal: `tfui plan --ci -json` = headless + JSON
+- `-ci` → changes execution MODE (headless vs TUI)
+- Both are orthogonal: `tfui plan -ci -json` = headless + JSON
 
 Flag scoping:
-- `--plan`, `--state`, `--macro`, `--record`: available on ALL commands (persistent flags)
-- On root: `--macro` drives the full multi-plugin TUI headlessly
-- On subcommands: `--macro` drives the standalone plugin headlessly, outputs recorded commands
-- `--record <dir>`: captures ANSI frames + manifest.json (orthogonal to `--macro`)
+- `-plan`, `-state`, `-macro`, `-record`: available on ALL commands (persistent flags)
+- On root: `-macro` drives the full multi-plugin TUI headlessly
+- On subcommands: `-macro` drives the standalone plugin headlessly, outputs recorded commands
+- `-record <dir>`: captures ANSI frames + manifest.json (orthogonal to `-macro`)
 - All other flags: persistent (available everywhere)
 
 Binary resolution:
-- `--terraform-bin` > `--config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"`
+- `-terraform-bin` > `-config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"`
 
 `--` passthrough:
 - `splitPassthrough()` separates args at `--`
@@ -91,7 +91,7 @@ defaults {
 ```
 
 Two modes:
-- Standalone (no tfui.hcl): CWD = terraform dir, `--chdir` = raw passthrough
+- Standalone (no tfui.hcl): CWD = terraform dir, `-chdir` = raw passthrough
 - Project (tfui.hcl found): full resolution, chdir validated against members
 
 Resolution chain: Root defaults → Child top-level → Workspace block → CLI flags → `--` passthrough

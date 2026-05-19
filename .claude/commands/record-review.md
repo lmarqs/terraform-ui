@@ -3,7 +3,7 @@ allowed-tools: Bash(ls:*), Bash(cat:*), Read
 description: Review a recorded tfui session (frames + tape)
 ---
 
-The user will provide a recording directory path (produced by `--record`).
+The user will provide a recording directory path (produced by `-record`).
 
 Read `manifest.json` to understand timing and dimensions. Read `recording.tape` (if present) to see what the user did. Read key frames to see what was rendered.
 
