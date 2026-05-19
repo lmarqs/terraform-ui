@@ -11,7 +11,7 @@ func TestEquivalence_Apply_CLI(t *testing.T) {
 	dir := copyFixture(t, "apply-create")
 
 	_, stderr, err := runTfui("plan", "-project", dir, "-ci")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan failed: %v\nstderr: %s", err, stderr)
 	}
 
@@ -29,7 +29,7 @@ func TestEquivalence_Apply_Targeted(t *testing.T) {
 	dir := copyFixture(t, "apply-targeted")
 
 	_, stderr, err := runTfui("plan", "-project", dir, "-ci", "-target", "local_file.alpha")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("targeted plan failed: %v\nstderr: %s", err, stderr)
 	}
 
@@ -67,7 +67,7 @@ func TestEquivalence_Apply_CIvsJSON(t *testing.T) {
 	// Path A: -ci (tree output, no spinner)
 	dirA := copyFixture(t, "apply-create")
 	_, stderr, err := runTfui("plan", "-project", dirA, "-ci")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan (ci) failed: %v\nstderr: %s", err, stderr)
 	}
 	_, stderr, err = runTfui("apply", "-project", dirA, "-ci")
@@ -78,7 +78,7 @@ func TestEquivalence_Apply_CIvsJSON(t *testing.T) {
 	// Path B: -json (NDJSON, terraform-compatible)
 	dirB := copyFixture(t, "apply-create")
 	_, stderr, err = runTfui("plan", "-project", dirB, "-json")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan (json) failed: %v\nstderr: %s", err, stderr)
 	}
 	_, stderr, err = runTfui("apply", "-project", dirB, "-json")
@@ -95,7 +95,7 @@ func TestEquivalence_Apply_Targeted_CIvsJSON(t *testing.T) {
 	// Path A: -ci with target
 	dirA := copyFixture(t, "apply-targeted")
 	_, stderr, err := runTfui("plan", "-project", dirA, "-ci", "-target", "local_file.alpha")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan (ci) failed: %v\nstderr: %s", err, stderr)
 	}
 	_, stderr, err = runTfui("apply", "-project", dirA, "-ci")
@@ -106,7 +106,7 @@ func TestEquivalence_Apply_Targeted_CIvsJSON(t *testing.T) {
 	// Path B: -json with target
 	dirB := copyFixture(t, "apply-targeted")
 	_, stderr, err = runTfui("plan", "-project", dirB, "-json", "-target", "local_file.alpha")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan (json) failed: %v\nstderr: %s", err, stderr)
 	}
 	_, stderr, err = runTfui("apply", "-project", dirB, "-json")

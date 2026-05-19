@@ -133,7 +133,7 @@ func TestState_Rm_InvalidAddress_Errors(t *testing.T) {
 func runPlanAgentInDir(t *testing.T, dir string) agentJSON {
 	t.Helper()
 	stdout, stderr, err := runTfui("plan", "-project", dir, "-json")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan -json failed: %v\nstderr: %s", err, stderr)
 	}
 

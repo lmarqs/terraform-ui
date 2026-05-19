@@ -79,7 +79,7 @@ func TestCLI_PlanJSONValid(t *testing.T) {
 	initFixture(t, "create")
 
 	stdout, _, err := runTfui("plan", "-project", fixtureDir("create"), "-json")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 
@@ -101,7 +101,7 @@ func TestCLI_PlanCIModeOutputsTreeView(t *testing.T) {
 	initFixture(t, "create")
 
 	stdout, _, err := runTfui("plan", "-project", fixtureDir("create"), "-ci")
-	if err != nil {
+	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("expected no error, got: %v", err)
 	}
 

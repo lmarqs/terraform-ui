@@ -101,3 +101,10 @@ func initFixture(t *testing.T, fixtureName string) string {
 
 	return dir
 }
+
+func isExitCode(err error, code int) bool {
+	if ee, ok := err.(*exec.ExitError); ok {
+		return ee.ExitCode() == code
+	}
+	return false
+}
