@@ -15,11 +15,7 @@ jobs:
       - run: mise run check:lint
 
   unit:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     permissions:
       checks: write
     steps:
@@ -29,7 +25,7 @@ jobs:
       - uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: Tests (${{ matrix.os }})
+          name: Tests
           path: reports/*.xml
           reporter: java-junit
 
@@ -42,7 +38,11 @@ jobs:
 
   binaries:
     needs: [lint, unit, coverage]
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -51,6 +51,6 @@ jobs:
       - run: mise run build
       - uses: actions/upload-artifact@v4
         with:
-          name: binaries
+          name: binaries-${{ matrix.os }}
           path: dist/
           retention-days: 1
