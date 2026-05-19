@@ -28,5 +28,6 @@ jobs:
     needs: test
     uses: ./.github/workflows/release.yaml
     permissions:
+      actions: write
       contents: write
       packages: write
