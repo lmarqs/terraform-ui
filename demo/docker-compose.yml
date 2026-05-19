@@ -1,6 +1,6 @@
 services:
   tfui-demo:
-    image: ghcr.io/lmarqs/terraform-ui:demo
+    image: lmarqs/terraform-ui:demo
     build:
       context: ..
       dockerfile: demo/Dockerfile

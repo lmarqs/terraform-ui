@@ -98,7 +98,7 @@ Works with any existing `terraform show -json` output. Pipe it in, navigate imme
 ## Or try without installing
 
 ```bash
-docker run -it ghcr.io/lmarqs/terraform-ui:demo
+docker run -it lmarqs/terraform-ui:demo
 ```
 
 ---

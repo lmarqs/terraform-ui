@@ -51,7 +51,7 @@ Try tfui without installing:
 ```bash
 docker compose -f demo/docker-compose.yml up
 # or
-docker run -it ghcr.io/lmarqs/terraform-ui:demo
+docker run -it lmarqs/terraform-ui:demo
 ```
 
 ## File structure
