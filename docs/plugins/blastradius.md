@@ -56,7 +56,7 @@ Blast Radius is an analysis view within the TUI. It does not have a standalone C
 Plan data with module groupings is available in structured form via:
 
 ```bash
-tfui plan --project ./infra -json
+tfui plan -project ./infra -json
 ```
 
 The JSON output includes module information on each change for downstream grouping.

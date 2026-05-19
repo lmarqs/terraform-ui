@@ -58,16 +58,16 @@ Use subcommands for scripts and CI pipelines:
 
 ```bash
 # Plan with progress bar
-tfui plan --project ./infra
+tfui plan -project ./infra
 
 # Plan with JSON output (terraform-compatible NDJSON)
-tfui plan --project ./infra -json | jq .
+tfui plan -project ./infra -json | jq .
 
 # Apply (suppress spinner for CI)
-tfui apply --project ./infra --ci
+tfui apply -project ./infra -ci
 
 # Silent (no UI, just exit code)
-tfui plan --project ./infra --ci
+tfui plan -project ./infra -ci
 ```
 
 Exit code `2` means "changes detected" — useful for CI gates.

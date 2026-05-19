@@ -47,7 +47,7 @@ Phantom Changes is an analysis view within the TUI. It does not have a standalon
 Phantom detection data is available in structured form via:
 
 ```bash
-tfui plan --project ./infra -json
+tfui plan -project ./infra -json
 ```
 
 The JSON output includes a `phantom` boolean on each change and a `phantom_resources` array.
@@ -57,7 +57,7 @@ The JSON output includes a `phantom` boolean on each change and a `phantom_resou
 | Goal | CLI | TUI |
 |------|-----|-----|
 | Identify phantom changes | `tfui plan -json` (filter `phantom: true`) | Press `P` |
-| Count phantoms | `tfui plan --ci` (shows phantom count) | Phantom badge in plan header |
+| Count phantoms | `tfui plan -ci` (shows phantom count) | Phantom badge in plan header |
 | See phantom explanations | `tfui plan -json` (parse phantom reasons) | `P` → expand change |
 
 ## Configuration

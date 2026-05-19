@@ -56,14 +56,14 @@ C (from any screen) → Context (NavReplace)
 Not available as a standalone command. Context is set via flags:
 
 ```bash
-tfui plan --project ./infra --chdir modules/networking
+tfui plan -project ./infra -chdir modules/networking
 ```
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Set working directory | `--chdir <member>` flag | `C` → Chdir → select |
+| Set working directory | `-chdir <member>` flag | `C` → Chdir → select |
 | Set workspace | `tfui workspace select <name>` | `C` → Workspace → select |
 | View current context | Implicit from flags | `C` (dashboard) |
 

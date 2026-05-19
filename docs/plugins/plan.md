@@ -61,19 +61,19 @@ Home ──p──→ Plan (loading) ──→ Plan (results)
 
 ```bash
 # Default: spinner with elapsed time
-tfui plan --project ./infra
+tfui plan -project ./infra
 
 # Silent: tree-view text output (no animation)
-tfui plan --project ./infra --ci
+tfui plan -project ./infra -ci
 
 # NDJSON events (terraform-compatible)
-tfui plan --project ./infra -json
+tfui plan -project ./infra -json
 
 # Targeted: plan only specific resources
-tfui plan --project ./infra --target aws_instance.web --target aws_s3_bucket.old
+tfui plan -project ./infra -target aws_instance.web -target aws_s3_bucket.old
 
 # With chdir (monorepo)
-tfui plan --project ./infra --chdir modules/networking
+tfui plan -project ./infra -chdir modules/networking
 ```
 
 ### Output Examples
@@ -116,9 +116,9 @@ Risk: CRITICAL
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| See what will change | `tfui plan --ci` | Press `p` |
+| See what will change | `tfui plan -ci` | Press `p` |
 | Get plan as JSON | `tfui show -json tfplan.out` | N/A (TUI is visual) |
-| Plan specific resources | `tfui plan --target X` | Press `p`, pin resources |
+| Plan specific resources | `tfui plan -target X` | Press `p`, pin resources |
 | Plan then apply | `tfui plan && tfui apply` | `p` → review → `a` → `y` |
 
 ## Configuration

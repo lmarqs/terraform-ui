@@ -14,8 +14,8 @@ terraform-ui uses an optional `tfui.hcl` file for project configuration. Place i
 
 | Mode | When | Behavior |
 |------|------|----------|
-| **Standalone** | No `tfui.hcl` in CWD, no `--project` | TUI skin over terraform. CWD = working dir. |
-| **Project** | `tfui.hcl` in CWD (or `--project`) | Full config resolution, member directories, workspace overrides. |
+| **Standalone** | No `tfui.hcl` in CWD, no `-project` | TUI skin over terraform. CWD = working dir. |
+| **Project** | `tfui.hcl` in CWD (or `-project`) | Full config resolution, member directories, workspace overrides. |
 
 ## Config File
 
@@ -123,13 +123,13 @@ Rules:
 
 ```bash
 # Project mode
-tfui --project ./infra                 # explicit project root
-tfui --chdir modules/vpc               # select member (validated against member blocks)
-tfui --terraform-bin /usr/local/bin/tofu
+tfui -project ./infra                 # explicit project root
+tfui -chdir modules/vpc               # select member (validated against member blocks)
+tfui -terraform-bin /usr/local/bin/tofu
 
 # Terraform flags (single or double dash)
 tfui plan -target=aws_instance.web     # terraform-style
-tfui plan --target=aws_instance.web    # cobra-style (both work)
+tfui plan -target=aws_instance.web    # cobra-style (both work)
 tfui plan -var-file=prod.tfvars -var=env=prod
 tfui plan -destroy
 tfui plan -parallelism=5 -lock=false
@@ -140,10 +140,10 @@ tfui plan -- -no-color -compact-warnings
 
 ## Standalone Mode
 
-When no `tfui.hcl` exists and no `--project` is passed:
+When no `tfui.hcl` exists and no `-project` is passed:
 
 - tfui runs from CWD
-- `--chdir` acts like terraform's `-chdir` (raw dir change)
+- `-chdir` acts like terraform's `-chdir` (raw dir change)
 - No member validation, no child configs, no resolution chain
 - Just a TUI shell over terraform
 
@@ -152,7 +152,7 @@ When no `tfui.hcl` exists and no `--project` is passed:
 | State | What happens |
 |-------|-------------|
 | `terraform.bin = "tofu"` in config | Passed to terraform-exec |
-| `--terraform-bin terraform` flag | Flag wins over config |
+| `-terraform-bin terraform` flag | Flag wins over config |
 | Nothing configured | Empty string → terraform-exec errors → tfui appends hint |
 
 No auto-detection. Only `tfui scaffold` can detect binaries.
@@ -193,6 +193,6 @@ workspace "production" {
 
 Running:
 ```bash
-tfui --chdir modules/vpc           # selects vpc member
+tfui -chdir modules/vpc           # selects vpc member
 tfui                                # shows chdir picker
 ```

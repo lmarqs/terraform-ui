@@ -41,24 +41,24 @@ Context ──→ Chdir Picker (list)
 
 ## Command Line (CLI)
 
-Not available as a standalone command. Use `--chdir` flag:
+Not available as a standalone command. Use `-chdir` flag:
 
 ```bash
-tfui plan --project ./infra --chdir modules/networking
+tfui plan -project ./infra -chdir modules/networking
 ```
 
 ### Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | Command with `--chdir` succeeded |
+| 0 | Command with `-chdir` succeeded |
 | 1 | Invalid or non-existent member path |
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Select member directory | `--chdir <member>` flag | Context → Chdir → select |
+| Select member directory | `-chdir <member>` flag | Context → Chdir → select |
 | Filter members | Specify exact path | `/` → type filter |
 
 ## Configuration

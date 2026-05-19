@@ -128,7 +128,7 @@ Two sibling implementations of `sdk.Service` exist as a strategy pattern — sel
 - `Workspace*()` — workspace list, select, create, delete
 - `WithDir()` — returns a new ExecService scoped to a different directory (fresh cache)
 
-Reads go through a `ServiceCache` (typed, source-aware). If the cache is pre-seeded (via `--plan`/`--state` flags), reads are served from cache without shelling out.
+Reads go through a `ServiceCache` (typed, source-aware). If the cache is pre-seeded (via `-plan`/`-state` flags), reads are served from cache without shelling out.
 
 ### MacroService (recording)
 
@@ -144,7 +144,7 @@ This makes macros deterministic and safe: the UI renders real data (from cache) 
 
 `internal/terraform/service_cache.go` — both strategies share this typed cache:
 
-- Pre-seeded at startup from `--plan`/`--state` file/stdin
+- Pre-seeded at startup from `-plan`/`-state` file/stdin
 - Three source kinds: `file` (re-reads on invalidate), `stdin` (immutable), `exec` (cleared on invalidate)
 - ExecService populates it after live calls; MacroService only reads from it
 - State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) auto-invalidate state cache
@@ -199,7 +199,7 @@ Two orthogonal axes are resolved from flags:
 | TTY detection gates interactive mode | No TTY → Headless axis. No TTY without data → actionable error |
 | `splitPassthrough()` + `normalizeArgs()` | Terraform flag compatibility: `--` separates tfui flags from terraform extras; short flags normalized |
 | Version resolution chain | `ldflags` (CI) → `ReadBuildInfo` (go install) → `"0.0.0-SNAPSHOT"` (dev) |
-| Spinner on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr (suppressed with `--ci`) |
+| Spinner on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr (suppressed with `-ci`) |
 
 ## Config Resolution & Propagation
 
@@ -289,14 +289,14 @@ mise run test:macro       # Macro tapes
 | OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. Test matrix includes both. |
 | `EventBus` typed pub/sub | Plugins react to state changes (chdir, workspace, plan) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
 | ExecService + MacroService as sibling strategies | Same interface, different behavior. ExecService shells out for live ops; MacroService records commands without executing. Selected at startup, plugins are unaware. |
-| ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `--plan`/`--state` at startup, populated by ExecService after live calls. Pre-seeding means reads never shell out when data is already available. |
+| ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `-plan`/`-state` at startup, populated by ExecService after live calls. Pre-seeding means reads never shell out when data is already available. |
 
 ### UX
 
 | Decision | Rationale |
 |----------|-----------|
 | Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. Can take 10+ minutes. |
-| Pins = targets | Visual selection (space) is the TUI equivalent of `--target`. Pin then apply = apply only pinned. |
+| Pins = targets | Visual selection (space) is the TUI equivalent of `-target`. Pin then apply = apply only pinned. |
 | `a` from Plan = apply with pins | Seamless flow: review → select → execute. No address typing. |
 | ExecService executes live, user waits for real results | Spinners, elapsed time, real errors — the UX communicates "this is happening now" with progress feedback and retry on failure. |
 | MacroService returns commands, not errors | Macro playback becomes a command builder. User sees the terraform commands that would run. |
@@ -338,7 +338,7 @@ User presses 'a' → Plan emits ApplyRequestMsg
   → plan emits PlanCompletedEvent
   → App reads pins from PinService
   → Activates Apply plugin with pins as targets
-  → Re-plans with --target (only pinned)
+  → Re-plans with -target (only pinned)
   → Shows confirmation: "Apply 2 of 12 changes?"
 
 User presses 'y' → svc.Apply(ctx, targets)

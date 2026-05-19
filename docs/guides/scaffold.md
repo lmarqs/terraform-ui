@@ -14,17 +14,17 @@ The `tfui scaffold` command generates a `tfui.hcl` configuration file by detecti
 
 ```bash
 tfui scaffold              # Interactive (prompts for member selection)
-tfui scaffold --yes        # Non-interactive (use detected defaults)
-tfui scaffold --force      # Overwrite existing tfui.hcl
-tfui scaffold --yes --force
+tfui scaffold -yes        # Non-interactive (use detected defaults)
+tfui scaffold -force      # Overwrite existing tfui.hcl
+tfui scaffold -yes -force
 ```
 
-By default, `tfui scaffold` is interactive when run in a TTY -- it shows detected members and lets you toggle them on/off before writing. Use `--yes` to skip prompts and accept all detected defaults.
+By default, `tfui scaffold` is interactive when run in a TTY -- it shows detected members and lets you toggle them on/off before writing. Use `-yes` to skip prompts and accept all detected defaults.
 
 | Flag | Description |
 |------|-------------|
-| `--yes` | Skip prompts, accept all detected defaults |
-| `--force` | Overwrite existing tfui.hcl |
+| `-yes` | Skip prompts, accept all detected defaults |
+| `-force` | Overwrite existing tfui.hcl |
 
 | Code | Meaning |
 |------|---------|

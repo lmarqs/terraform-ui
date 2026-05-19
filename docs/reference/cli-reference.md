@@ -17,11 +17,11 @@ tfui [command] [flags]
 
 ## Execution Model
 
-Every `tfui <command>` launches the plugin in a standalone TUI (rendered on stderr). On exit, structured output goes to stdout. Use `--ci` or `CI=1` for headless mode.
+Every `tfui <command>` launches the plugin in a standalone TUI (rendered on stderr). On exit, structured output goes to stdout. Use `-ci` or `CI=1` for headless mode.
 
 ```
 tfui plan           → Standalone TUI on stderr, tree view to stdout on exit
-tfui plan --ci      → No TUI, tree view to stdout immediately
+tfui plan -ci      → No TUI, tree view to stdout immediately
 tfui plan -json     → Standalone TUI on stderr, JSON to stdout on exit
 tfui                → Full multi-plugin TUI (alt-screen on stdout, no output)
 ```
@@ -36,9 +36,9 @@ Launches the full interactive TUI with all plugins, home screen, and inter-plugi
 
 ```bash
 tfui                           # Full TUI in current directory
-tfui --project ./infra         # Full TUI scoped to specific directory
-tfui --plan ./tfplan.out       # Full TUI with pre-computed plan
-tfui --state ./terraform.tfstate  # Full TUI with pre-loaded state
+tfui -project ./infra         # Full TUI scoped to specific directory
+tfui -plan ./tfplan.out       # Full TUI with pre-computed plan
+tfui -state ./terraform.tfstate  # Full TUI with pre-loaded state
 ```
 
 ### `tfui plan`
@@ -48,8 +48,8 @@ Run terraform plan. Opens the plan plugin TUI for interactive review.
 ```bash
 tfui plan                           # TUI: review plan interactively, tree view on exit
 tfui plan -json                     # TUI: review plan, JSON output on exit
-tfui plan --ci                      # No TUI: tree view to stdout immediately
-tfui plan --ci -json                # No TUI: JSON to stdout immediately
+tfui plan -ci                      # No TUI: tree view to stdout immediately
+tfui plan -ci -json                # No TUI: JSON to stdout immediately
 tfui plan -target=aws_instance.web  # Targeted plan
 tfui plan -out=tfplan.out           # Save binary plan file
 ```
@@ -67,8 +67,8 @@ Run terraform apply. Opens the apply plugin TUI.
 
 ```bash
 tfui apply                          # TUI: shows confirmation, then progress
-tfui apply --auto-approve           # TUI: skips confirmation, shows progress
-tfui apply --ci                     # No TUI: apply immediately
+tfui apply -auto-approve           # TUI: skips confirmation, shows progress
+tfui apply -ci                     # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
 ```
@@ -84,7 +84,7 @@ State browser and operations. Opens the state plugin TUI.
 
 ```bash
 tfui state                          # TUI: browse resources interactively
-tfui state --ci                     # No TUI: addresses to stdout
+tfui state -ci                     # No TUI: addresses to stdout
 tfui state -json                    # TUI: JSON output on exit
 ```
 
@@ -99,8 +99,8 @@ Run terraform validate. Opens the validate plugin TUI.
 
 ```bash
 tfui validate                       # TUI: review diagnostics interactively
-tfui validate --ci                  # No TUI: diagnostics to stdout
-tfui validate --ci -json            # No TUI: JSON diagnostics to stdout
+tfui validate -ci                  # No TUI: diagnostics to stdout
+tfui validate -ci -json            # No TUI: JSON diagnostics to stdout
 ```
 
 | Mode | stdout (on exit) | stderr | Exit |
@@ -116,8 +116,8 @@ Show terraform outputs. Opens the output plugin TUI.
 
 ```bash
 tfui output                         # TUI: browse outputs interactively
-tfui output --ci                    # No TUI: key=value pairs to stdout
-tfui output --ci -json              # No TUI: JSON to stdout
+tfui output -ci                    # No TUI: key=value pairs to stdout
+tfui output -ci -json              # No TUI: JSON to stdout
 ```
 
 ### `tfui init`
@@ -126,7 +126,7 @@ Run terraform init. Opens the init plugin TUI (form + progress).
 
 ```bash
 tfui init                           # TUI: form for options, shows progress
-tfui init --ci                      # No TUI: runs init immediately
+tfui init -ci                      # No TUI: runs init immediately
 ```
 
 ### `tfui version`
@@ -135,8 +135,8 @@ Show version information. Opens the version plugin TUI.
 
 ```bash
 tfui version                        # TUI: shows version info
-tfui version --ci                   # No TUI: version text to stdout
-tfui version --ci -json             # No TUI: version JSON to stdout
+tfui version -ci                   # No TUI: version text to stdout
+tfui version -ci -json             # No TUI: version JSON to stdout
 ```
 
 ### `tfui workspace`
@@ -165,7 +165,7 @@ Remove a terraform state lock (imperative, no TUI).
 
 ```bash
 tfui force-unlock <lock-id>          # interactive confirmation
-tfui force-unlock --force <lock-id>  # skip confirmation (CI/scripts)
+tfui force-unlock -force <lock-id>  # skip confirmation (CI/scripts)
 ```
 
 ### `tfui scaffold`
@@ -174,8 +174,8 @@ Generate a `tfui.hcl` configuration file by detecting terraform project patterns
 
 ```bash
 tfui scaffold              # interactive wizard
-tfui scaffold --yes        # non-interactive (accept defaults)
-tfui scaffold --force      # overwrite existing
+tfui scaffold -yes        # non-interactive (accept defaults)
+tfui scaffold -force      # overwrite existing
 ```
 
 ## Global Flags
@@ -184,64 +184,64 @@ Available on all commands:
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--project` | `.` | Project root directory (where tfui.hcl lives) |
-| `--terraform-bin` | `terraform` | Path to terraform/tofu/terragrunt binary |
-| `--chdir` | | Select chdir member (validated in project mode) |
-| `--config` | | Override config values (repeatable, `key=value`) |
-| `--debug` | `false` | Enable debug logging to `~/.tfui/logs/` |
+| `-project` | `.` | Project root directory (where tfui.hcl lives) |
+| `-terraform-bin` | `terraform` | Path to terraform/tofu/terragrunt binary |
+| `-chdir` | | Select chdir member (validated in project mode) |
+| `-config` | | Override config values (repeatable, `key=value`) |
+| `-debug` | `false` | Enable debug logging to `~/.tfui/logs/` |
 
 ## Mode Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--ci` | `false` | Disable TUI, output directly to stdout |
+| `-ci` | `false` | Disable TUI, output directly to stdout |
 | `-json` | `false` | Output in JSON format |
 
-`--ci` is also triggered by `CI=1` environment variable or stderr not being a TTY.
+`-ci` is also triggered by `CI=1` environment variable or stderr not being a TTY.
 
 ## Data Flags (available on all commands)
 
 | Flag | Description |
 |------|-------------|
-| `--plan` | Pre-seed plan data from file or stdin |
-| `--state` | Pre-seed state data from file or stdin |
+| `-plan` | Pre-seed plan data from file or stdin |
+| `-state` | Pre-seed state data from file or stdin |
 
 These flags work on any command. When provided, the plugin reads from the pre-seeded cache instead of executing terraform:
 
 ```bash
-tfui --plan ./tfplan.out            # full TUI with pre-seeded plan
-tfui plan --plan ./tfplan.out       # standalone plan TUI, reviews existing data
-tfui state --state ./state.json     # standalone state TUI, browses pre-loaded state
-tfui plan --ci --plan ./tfplan.out  # CI mode, outputs tree from pre-seeded plan
+tfui -plan ./tfplan.out            # full TUI with pre-seeded plan
+tfui plan -plan ./tfplan.out       # standalone plan TUI, reviews existing data
+tfui state -state ./state.json     # standalone state TUI, browses pre-loaded state
+tfui plan -ci -plan ./tfplan.out  # CI mode, outputs tree from pre-seeded plan
 ```
 
 ## Macro Flag
 
 | Flag | Description |
 |------|-------------|
-| `--macro` | Run tape file (headless TUI recording) |
-| `--record` | Capture session frames to directory |
+| `-macro` | Run tape file (headless TUI recording) |
+| `-record` | Capture session frames to directory |
 
-`--macro` is available on all commands. On the root command it drives the full multi-plugin TUI headlessly; on subcommands it drives the standalone plugin headlessly and outputs recorded commands to stdout.
+`-macro` is available on all commands. On the root command it drives the full multi-plugin TUI headlessly; on subcommands it drives the standalone plugin headlessly and outputs recorded commands to stdout.
 
-`--record` is orthogonal to `--macro`. It captures ANSI frames + timing metadata to a directory. Combined with `--macro`, it enables deterministic GIF generation from tapes. Without `--macro`, it records interactive sessions and generates a replayable tape.
+`-record` is orthogonal to `-macro`. It captures ANSI frames + timing metadata to a directory. Combined with `-macro`, it enables deterministic GIF generation from tapes. Without `-macro`, it records interactive sessions and generates a replayable tape.
 
-### `--plan` behavior
+### `-plan` behavior
 
 Accepts binary plan files (output of `terraform plan -out=`):
 
 ```bash
-tfui --plan ./tfplan.out            # review AND apply
-terraform show -json tfplan.out | tfui --plan -   # stdin: view-only (can't apply)
+tfui -plan ./tfplan.out            # review AND apply
+terraform show -json tfplan.out | tfui -plan -   # stdin: view-only (can't apply)
 ```
 
-### `--state` behavior
+### `-state` behavior
 
 Accepts state files:
 
 ```bash
-tfui --state ./terraform.tfstate    # view and mutate
-terraform state pull | tfui --state -   # stdin: view-only
+tfui -state ./terraform.tfstate    # view and mutate
+terraform state pull | tfui -state -   # stdin: view-only
 ```
 
 ### URI Resolution Rules
@@ -257,15 +257,15 @@ terraform state pull | tfui --state -   # stdin: view-only
 
 Constraint: only one flag can use `-` (stdin) per invocation.
 
-## Macro Mode (`--macro`)
+## Macro Mode (`-macro`)
 
 Macros are command generators, never executors. They record what terraform would run and output commands to stdout.
 
-`--macro` works on both the root command and subcommands. On root, it drives the full TUI headlessly for multi-plugin recording. On subcommands, it drives the standalone plugin headlessly with the macro service (recording commands without execution).
+`-macro` works on both the root command and subcommands. On root, it drives the full TUI headlessly for multi-plugin recording. On subcommands, it drives the standalone plugin headlessly with the macro service (recording commands without execution).
 
 ```bash
-tfui --macro deploy.tape --plan ./tfplan.out            # inspect commands
-tfui --macro deploy.tape --plan ./tfplan.out | sh       # user opts in to execute
+tfui -macro deploy.tape -plan ./tfplan.out            # inspect commands
+tfui -macro deploy.tape -plan ./tfplan.out | sh       # user opts in to execute
 ```
 
 See [Macro Language](macro-language.md) for the DSL reference.

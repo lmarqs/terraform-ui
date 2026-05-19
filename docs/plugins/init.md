@@ -52,8 +52,8 @@ Home ──i──→ Init (form) ──Enter──→ Running (spinner + timer)
 ## Command Line (CLI)
 
 ```bash
-tfui init --project ./infra
-tfui init --project ./infra --upgrade
+tfui init -project ./infra
+tfui init -project ./infra -upgrade
 ```
 
 ### Exit Codes
@@ -68,8 +68,8 @@ tfui init --project ./infra --upgrade
 | Goal | CLI | TUI |
 |------|-----|-----|
 | Initialize terraform | `tfui init` | Press `i` → `Enter` |
-| Init with upgrade | `tfui init --upgrade` | `i` → check Upgrade → `Enter` |
-| Reconfigure backend | `tfui init --reconfigure` | `i` → check Reconfigure → `Enter` |
+| Init with upgrade | `tfui init -upgrade` | `i` → check Upgrade → `Enter` |
+| Reconfigure backend | `tfui init -reconfigure` | `i` → check Reconfigure → `Enter` |
 
 ## Configuration
 

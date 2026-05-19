@@ -46,7 +46,7 @@ Risk Analysis is an analysis view within the TUI. It does not have a standalone 
 Plan data with risk classifications is available in structured form via:
 
 ```bash
-tfui plan --project ./infra -json
+tfui plan -project ./infra -json
 ```
 
 The JSON output includes a `risk` field on each change and an overall `risk` summary.
@@ -57,7 +57,7 @@ The JSON output includes a `risk` field on each change and an overall `risk` sum
 |------|-----|-----|
 | See risk breakdown | `tfui plan -json` (parse `risk` field) | Press `R` |
 | Find critical changes | `tfui plan -json \| jq '.changes[] \| select(.risk=="critical")'` | `R` → navigate to critical group |
-| Get overall risk level | `tfui plan --ci` (shows `Risk: CRITICAL`) | Risk badge in header |
+| Get overall risk level | `tfui plan -ci` (shows `Risk: CRITICAL`) | Risk badge in header |
 
 ## Configuration
 

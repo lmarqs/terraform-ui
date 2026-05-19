@@ -19,7 +19,7 @@ The Apply screen adds:
 
 - **Context-aware confirmation** — shows resource count and whether targeting is active
 - **Elapsed time tracking** — long applies (10+ minutes) need progress feedback
-- **Pin-scoped execution** — apply only pinned resources without typing `--target` addresses
+- **Pin-scoped execution** — apply only pinned resources without typing `-target` addresses
 - **Error recovery** — retry from same session without re-running the full command
 
 ## Screenshot
@@ -63,24 +63,24 @@ When pinned resources exist, apply does NOT use the saved plan file directly (te
 
 ```bash
 # Default: plan first, then apply (with progress)
-tfui plan --project ./infra
-tfui apply --project ./infra
+tfui plan -project ./infra
+tfui apply -project ./infra
 
 # Auto-approve: skip confirmation (CI pipelines)
-tfui apply --project ./infra --auto-approve
+tfui apply -project ./infra -auto-approve
 
 # Silent: no animation
-tfui apply --project ./infra --ci
+tfui apply -project ./infra -ci
 
 # NDJSON events (terraform-compatible)
-tfui apply --project ./infra -json
+tfui apply -project ./infra -json
 
 # Targeted: apply only specific resources
-tfui plan --project ./infra --target aws_instance.web
-tfui apply --project ./infra
+tfui plan -project ./infra -target aws_instance.web
+tfui apply -project ./infra
 
 # With chdir (monorepo)
-tfui apply --project ./infra --chdir modules/networking
+tfui apply -project ./infra -chdir modules/networking
 ```
 
 ### Output Examples
@@ -106,18 +106,18 @@ Apply complete.
 
 ### Targeting
 
-**CLI:** Pass `--target` to the `plan` command. The saved plan file already contains only targeted changes. Apply then applies that plan.
+**CLI:** Pass `-target` to the `plan` command. The saved plan file already contains only targeted changes. Apply then applies that plan.
 
 **TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
 
-**Key insight:** You don't pass `--target` to `apply`. Targeting happens at plan time — apply always executes the saved plan file exactly.
+**Key insight:** You don't pass `-target` to `apply`. Targeting happens at plan time — apply always executes the saved plan file exactly.
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
 | Apply all changes | `tfui plan && tfui apply` | `p` → `a` → `y` |
-| Apply specific resources | `tfui plan --target X && tfui apply` | `p` → pin X → `a` → `y` |
+| Apply specific resources | `tfui plan -target X && tfui apply` | `p` → pin X → `a` → `y` |
 | Check apply result | Exit code + stdout | Success/error screen |
 
 ## Configuration

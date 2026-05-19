@@ -46,7 +46,7 @@ Idle → Confirming → Loading → Done/Error
 
 ```bash
 tfui force-unlock <lock-id>          # Interactive confirmation
-tfui force-unlock --force <lock-id>  # Skip confirmation (CI)
+tfui force-unlock -force <lock-id>  # Skip confirmation (CI)
 ```
 
 ### Exit Codes
@@ -61,7 +61,7 @@ tfui force-unlock --force <lock-id>  # Skip confirmation (CI)
 | Goal | CLI | TUI |
 |------|-----|-----|
 | Remove stale lock | `tfui force-unlock <lock-id>` | `u` from lock error |
-| Skip confirmation | `tfui force-unlock --force <lock-id>` | N/A (TUI always confirms) |
+| Skip confirmation | `tfui force-unlock -force <lock-id>` | N/A (TUI always confirms) |
 
 ## Configuration
 

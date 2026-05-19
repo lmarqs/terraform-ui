@@ -46,7 +46,7 @@ Home ──~──→ Console (REPL)
 ## Command Line (CLI)
 
 ```bash
-tfui console --project ./infra
+tfui console -project ./infra
 ```
 
 The CLI mode hands off to `terraform console` directly with proper terminal handling.

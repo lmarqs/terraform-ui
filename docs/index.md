@@ -38,7 +38,7 @@ Every change is classified immediately: `[CRITICAL]` `[HIGH]` `[medium]` `[low]`
 
 ## Pin & Target
 
-Pin the resources you care about. Apply only those — no `--target` flags to type, no copy-paste mistakes.
+Pin the resources you care about. Apply only those — no `-target` flags to type, no copy-paste mistakes.
 
 ![pin and target](assets/demo/pin-target.gif)
 
@@ -82,11 +82,11 @@ Stop chasing ghost diffs. Stop second-guessing whether that "update in-place" is
 brew install lmarqs/tap/tfui
 
 # Try on your own plan — no config needed
-terraform show -json tfplan.out | tfui --plan -
+terraform show -json tfplan.out | tfui -plan -
 
 # Or use a demo fixture
 curl -sL https://raw.githubusercontent.com/lmarqs/terraform-ui/main/demo/fixtures/plan-large.json -o /tmp/plan.json
-tfui --plan /tmp/plan.json
+tfui -plan /tmp/plan.json
 ```
 
 No config. No account. No cloud service. Just your terminal.

@@ -26,7 +26,7 @@ Current workaround: run `infracost breakdown` in a separate terminal.
 - Plan view shows cost delta per resource: `+ aws_instance.web  create  +$42/mo`
 - Summary line: `Plan: 1 to add (+$42/mo), 1 to change (+$8/mo), 0 to destroy`
 - Detail view shows cost breakdown by component (compute, storage, network)
-- Works with existing `--plan ./plan.json` (Infracost can analyze plan JSON)
+- Works with existing `-plan ./plan.json` (Infracost can analyze plan JSON)
 - Gracefully hides when Infracost is not installed
 
 ## Advantages

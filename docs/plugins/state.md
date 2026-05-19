@@ -86,29 +86,29 @@ Home ──s──→ State (list)
 
 ```bash
 # Remove resource from state (does NOT destroy infrastructure)
-tfui state rm aws_instance.old --project ./infra
+tfui state rm aws_instance.old -project ./infra
 
 # Move/rename resource address in state
-tfui state mv aws_instance.web aws_instance.main --project ./infra
+tfui state mv aws_instance.web aws_instance.main -project ./infra
 
 # Mark resource for recreation on next apply
-tfui state taint aws_instance.web --project ./infra
+tfui state taint aws_instance.web -project ./infra
 
 # Remove taint mark
-tfui state untaint aws_instance.web --project ./infra
+tfui state untaint aws_instance.web -project ./infra
 
 # Import existing resource into state
-tfui state import aws_instance.web i-1234567890abcdef0 --project ./infra
+tfui state import aws_instance.web i-1234567890abcdef0 -project ./infra
 ```
 
 ### Read-Only Mode
 
 ```bash
 # Load state from file (TUI in read-only mode)
-tfui --state ./terraform.tfstate
+tfui -state ./terraform.tfstate
 
 # Pipe from terraform
-terraform state pull | tfui --state -
+terraform state pull | tfui -state -
 ```
 
 ## Equivalence

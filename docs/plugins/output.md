@@ -47,9 +47,9 @@ Home ──o──→ Outputs (loading) ──→ Outputs (list)
 ## Command Line (CLI)
 
 ```bash
-tfui output --project ./infra
-tfui output --project ./infra -json
-tfui output --project ./infra --ci
+tfui output -project ./infra
+tfui output -project ./infra -json
+tfui output -project ./infra -ci
 ```
 
 ### Exit Codes
@@ -63,7 +63,7 @@ tfui output --project ./infra --ci
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| List all outputs | `tfui output --ci` | Press `o` |
+| List all outputs | `tfui output -ci` | Press `o` |
 | Get output as JSON | `tfui output -json` | N/A (TUI is visual) |
 | Inspect single output | `tfui output -json \| jq '.<name>'` | `o` → navigate → `Enter` |
 

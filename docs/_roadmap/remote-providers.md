@@ -20,29 +20,29 @@ In CI-driven workflows, plan artifacts live in S3 or artifact servers. The curre
 # Today: 3 commands, manual download
 aws s3 cp s3://ci-artifacts/plans/pr-123.json ./plan.json
 terraform state pull > ./state.json
-tfui --plan ./plan.json --state ./state.json
+tfui -plan ./plan.json -state ./state.json
 ```
 
 This is friction. Users want:
 
 ```bash
 # Desired: 1 command, direct
-tfui --plan s3://ci-artifacts/plans/pr-123.json --state s3://terraform-state/prod.tfstate
+tfui -plan s3://ci-artifacts/plans/pr-123.json -state s3://terraform-state/prod.tfstate
 ```
 
 ## Expected UX
 
 ```bash
 # S3 (uses default AWS credential chain — same as terraform)
-tfui --plan s3://my-bucket/plans/pr-123.json
-tfui --state s3://terraform-state/prod/terraform.tfstate
+tfui -plan s3://my-bucket/plans/pr-123.json
+tfui -state s3://terraform-state/prod/terraform.tfstate
 
 # HTTP (public or with auth)
-tfui --plan https://ci.example.com/artifacts/plan.json
-tfui --state https://internal.example.com/states/prod.json
+tfui -plan https://ci.example.com/artifacts/plan.json
+tfui -state https://internal.example.com/states/prod.json
 
 # Mixed (S3 plan + local state, or HTTP plan + live terraform)
-tfui --plan https://ci.example.com/plan.json --state ./local.tfstate
+tfui -plan https://ci.example.com/plan.json -state ./local.tfstate
 ```
 
 **Progress indication:**
@@ -61,7 +61,7 @@ Error: loading state from https://example.com/state.json: 401 Unauthorized
 
 ## Advantages
 
-- **One-command PR review** — reviewer runs `tfui --plan s3://...` directly from the PR link
+- **One-command PR review** — reviewer runs `tfui -plan s3://...` directly from the PR link
 - **No local file management** — no temp files to clean up, no stale downloads
 - **Credentials already configured** — reuses AWS credential chain (same as terraform backend)
 - **Composable** — mix remote + local + live sources freely

@@ -1,5 +1,5 @@
 ---
-title: --target Pre-Pins in TUI Mode
+title: -target Pre-Pins in TUI Mode
 status: planned
 priority: medium
 created: 2026-05-11
@@ -10,17 +10,17 @@ depends_on: []
 
 ## Summary
 
-When launching the TUI with `--target` flags, pre-pin those resources so the user starts with a selection already active.
+When launching the TUI with `-target` flags, pre-pin those resources so the user starts with a selection already active.
 
 ## Problem
 
-Currently `--target` only affects CLI subcommands (`tfui plan --target X`). If you launch the interactive TUI with `--target`, it's ignored. Users who know what they want to target can't carry that intent into the TUI.
+Currently `-target` only affects CLI subcommands (`tfui plan -target X`). If you launch the interactive TUI with `-target`, it's ignored. Users who know what they want to target can't carry that intent into the TUI.
 
 ## Proposal
 
 ```bash
 # Launch TUI with aws_instance.web pre-pinned
-tfui --target aws_instance.web --target aws_s3_bucket.old
+tfui -target aws_instance.web -target aws_s3_bucket.old
 ```
 
 When TUI opens:
@@ -33,7 +33,7 @@ This composes CLI precision with TUI flexibility — start with a selection, ref
 
 ## Implementation
 
-1. Parse `--target` on the root command (not just plan/apply subcommands)
+1. Parse `-target` on the root command (not just plan/apply subcommands)
 2. In TUI startup, write targets to session as initial pins:
    ```go
    pins := sdk.NewPinService(session)
@@ -46,4 +46,4 @@ This composes CLI precision with TUI flexibility — start with a selection, ref
 ## Edge Cases
 
 - Target address doesn't exist in state/plan: pin is set but not visually confirmed until data loads
-- Combining `--target` with `--plan` (read-only): pins are visual only (no apply possible)
+- Combining `-target` with `-plan` (read-only): pins are visual only (no apply possible)

@@ -10,7 +10,7 @@ description: UX design guidelines for the CLI interface
 
 ## 1. Design Principle
 
-Every `tfui <command>` launches the actual plugin in a standalone TUI. The TUI renders on stderr, output goes to stdout on exit. `--ci` or `CI=1` disables the TUI for headless use.
+Every `tfui <command>` launches the actual plugin in a standalone TUI. The TUI renders on stderr, output goes to stdout on exit. `-ci` or `CI=1` disables the TUI for headless use.
 
 This follows the fzf model: interactive UI on one fd, structured output on another.
 
@@ -19,11 +19,11 @@ This follows the fzf model: interactive UI on one fd, structured output on anoth
 | Mode | TUI | stdout | Trigger |
 |------|-----|--------|---------|
 | **Standalone** | Alt-screen on stderr | Plugin output on exit | Default (stderr is TTY) |
-| **CI** | None | Plugin output immediately | `--ci`, `CI=1`, stderr not TTY |
+| **CI** | None | Plugin output immediately | `-ci`, `CI=1`, stderr not TTY |
 
 Mode resolution:
 ```go
-if --ci OR CI=1:     → CI mode
+if -ci OR CI=1:     → CI mode
 if stderr not TTY:   → CI mode
 otherwise:           → Standalone TUI
 ```
@@ -38,22 +38,22 @@ otherwise:           → Standalone TUI
 ### Critical invariants
 
 - `-json` flag: changes output FORMAT (JSON vs human-readable), not mode
-- `--ci` flag: changes execution MODE (headless vs TUI), not format
-- Both flags are orthogonal: `tfui plan --ci -json` = headless + JSON output
+- `-ci` flag: changes execution MODE (headless vs TUI), not format
+- Both flags are orthogonal: `tfui plan -ci -json` = headless + JSON output
 - Piped stdout: TUI still renders on stderr (fzf model)
 
 ## 4. Flag Conventions
 
 ### Terraform compatibility
-- All terraform flags work with single dash (`-json`, `-target`) or double dash (`--json`, `--target`)
+- All terraform flags work with single dash (`-json`, `-target`) or double dash (`-json`, `-target`)
 - `normalizeArgs()` converts single-dash terraform flags to double-dash for cobra
 - Unknown flags are left unchanged (future terraform flags don't break)
 
 ### Novel flags (tfui-only)
-- Always double-dash: `--ci`, `--project`, `--macro`, `--plan`, `--state`, `--terraform-bin`, `--config`, `--chdir`
+- Always double-dash: `-ci`, `-project`, `-macro`, `-plan`, `-state`, `-terraform-bin`, `-config`, `-chdir`
 - Use names terraform hasn't claimed — no collision risk
-- `--plan` and `--state` are available on ALL commands (pre-seed data, skip terraform execution)
-- `--macro` is available on ALL commands (on root: drives full TUI headlessly; on subcommands: drives standalone plugin headlessly, outputs recorded commands)
+- `-plan` and `-state` are available on ALL commands (pre-seed data, skip terraform execution)
+- `-macro` is available on ALL commands (on root: drives full TUI headlessly; on subcommands: drives standalone plugin headlessly, outputs recorded commands)
 
 ### Passthrough (`--`)
 - Everything after `--` is stored as ExtraArgs
@@ -85,7 +85,7 @@ Rules:
 ## 6. Binary Resolution Priority
 
 ```
---terraform-bin flag  >  --config terraform.bin=X  >  tfui.hcl terraform { bin }  >  "terraform"
+-terraform-bin flag  >  -config terraform.bin=X  >  tfui.hcl terraform { bin }  >  "terraform"
 ```
 
 ## 7. Pipe Ergonomics
@@ -108,7 +108,7 @@ tfui state | wc -l
 ```bash
 # No TUI, immediate output:
 CI=1 tfui plan -json | jq '.summary'
-tfui validate --ci -json | jq '.valid'
+tfui validate -ci -json | jq '.valid'
 
 # Auto-detected (stderr not TTY):
 tfui plan -json > plan-output.json
@@ -118,7 +118,7 @@ tfui plan -json > plan-output.json
 
 ```bash
 tfui show -json tfplan.out | tfui risk          # plan JSON → risk report
-tfui show -json tfplan.out | tfui risk --json | jq '.high_risk[]'
+tfui show -json tfplan.out | tfui risk -json | jq '.high_risk[]'
 ```
 
 ## 8. Tree View Format
@@ -145,12 +145,12 @@ Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read
 - Wrap errors with context: `fmt.Errorf("plan failed: %w", err)`
 - Hints use `\n\nhint:` suffix for actionable guidance
 
-## 10. `--ci` Mode
+## 10. `-ci` Mode
 
 Purpose: disable TUI entirely for headless/scripted use.
 
 Detection:
-1. `--ci` flag on the command
+1. `-ci` flag on the command
 2. `CI=1` environment variable
 3. stderr is not a TTY (auto-detected)
 
@@ -165,7 +165,7 @@ Effects:
 Commands with no terraform equivalent (`risk`, `phantom`, `blast-radius`):
 - Read plan JSON from stdin (terraform-compatible input)
 - Default output: human-readable report on stdout
-- `--json` output: our schema (not terraform's) on stdout
+- `-json` output: our schema (not terraform's) on stdout
 - No TUI (pure stdin→stdout filter)
 - Exit 0 on success, 1 on error
 

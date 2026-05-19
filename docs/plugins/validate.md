@@ -46,9 +46,9 @@ Home ──v──→ Validate (loading) ──→ Validate (results)
 ## Command Line (CLI)
 
 ```bash
-tfui validate --project ./infra
-tfui validate --project ./infra --ci
-tfui validate --project ./infra -json
+tfui validate -project ./infra
+tfui validate -project ./infra -ci
+tfui validate -project ./infra -json
 ```
 
 ### Exit Codes
@@ -62,9 +62,9 @@ tfui validate --project ./infra -json
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Validate configuration | `tfui validate --ci` | Press `v` |
+| Validate configuration | `tfui validate -ci` | Press `v` |
 | Get diagnostics as JSON | `tfui validate -json` | N/A (TUI is visual) |
-| Re-validate after fix | `tfui validate --ci` | `v` → `ctrl+r` |
+| Re-validate after fix | `tfui validate -ci` | `v` → `ctrl+r` |
 
 ## Configuration
 

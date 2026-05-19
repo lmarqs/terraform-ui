@@ -41,7 +41,7 @@ Press `P` from the home screen after running a plan to see only phantom changes 
 ## In Non-Interactive Mode
 
 ```bash
-tfui show -json tfplan.out | tfui phantom --json | jq '.phantom_changes'
+tfui show -json tfplan.out | tfui phantom -json | jq '.phantom_changes'
 ```
 
 Output:

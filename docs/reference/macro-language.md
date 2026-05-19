@@ -24,36 +24,36 @@ No TTY is required — macro mode drives the BubbleTea model directly without op
 
 ```bash
 # Run tape against a plan file
-tfui --plan ./plan.json --macro ./scripts/verify-plan.tape
+tfui -plan ./plan.json -macro ./scripts/verify-plan.tape
 
 # Run tape against state
-tfui --state ./state.json --macro ./scripts/check-state.tape
+tfui -state ./state.json -macro ./scripts/check-state.tape
 
 # Both plan and state
-tfui --plan ./plan.json --state ./state.json --macro ./scripts/full-check.tape
+tfui -plan ./plan.json -state ./state.json -macro ./scripts/full-check.tape
 
 # Without pre-loaded data (for project-level flows like scaffold, chdir)
-tfui --project ./my-infra --macro ./scripts/test-scaffold.tape
+tfui -project ./my-infra -macro ./scripts/test-scaffold.tape
 
 # Tape from stdin
-echo "wait ready; key p; assert view aws_instance" | tfui --plan ./plan.json --macro -
+echo "wait ready; key p; assert view aws_instance" | tfui -plan ./plan.json -macro -
 
 # CI pipeline
-terraform show -json tfplan.out | tfui --plan - --macro ./tests/verify-plan.tape
+terraform show -json tfplan.out | tfui -plan - -macro ./tests/verify-plan.tape
 ```
 
-When `--plan`/`--state` are provided, the app renders pre-loaded data. Without them, the app starts in live mode (for testing project-level flows like scaffold wizard, chdir selection). In both cases, mutations are never executed.
+When `-plan`/`-state` are provided, the app renders pre-loaded data. Without them, the app starts in live mode (for testing project-level flows like scaffold wizard, chdir selection). In both cases, mutations are never executed.
 
-## Recording (`--record`)
+## Recording (`-record`)
 
-The `--record <dir>` flag captures rendered frames during macro playback (or interactive use). It is orthogonal to `--macro`:
+The `-record <dir>` flag captures rendered frames during macro playback (or interactive use). It is orthogonal to `-macro`:
 
 ```bash
 # Record macro playback as frames (for GIF generation)
-tfui --plan ./plan.json --macro ./demo.tape --record ./recording/
+tfui -plan ./plan.json -macro ./demo.tape -record ./recording/
 
 # Record an interactive session (generates tape + frames)
-tfui --plan ./plan.json --record ./my-session/
+tfui -plan ./plan.json -record ./my-session/
 ```
 
 Output directory structure:
@@ -66,7 +66,7 @@ recording/
 └── ...
 ```
 
-The generated `recording.tape` is directly replayable: `tfui --macro ./recording/recording.tape`.
+The generated `recording.tape` is directly replayable: `tfui -macro ./recording/recording.tape`.
 
 Frames can be stitched into GIFs using `demo/stitch.sh` (converts to asciicast, renders via `agg` or `vhs`).
 
@@ -76,13 +76,13 @@ Every terraform operation triggered during macro playback is recorded and printe
 
 ```bash
 # Generate and execute terraform commands via macro
-tfui --plan ./plan.json --state ./state.json --macro ./apply.tape | sh
+tfui -plan ./plan.json -state ./state.json -macro ./apply.tape | sh
 
 # Use tofu instead of terraform
-tfui --plan ./plan.json --state ./state.json --macro ./apply.tape --terraform-bin tofu | sh
+tfui -plan ./plan.json -state ./state.json -macro ./apply.tape -terraform-bin tofu | sh
 
 # Preview what would run
-tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
+tfui -plan ./plan.json -state ./state.json -macro ./taint.tape
 # stdout:
 # terraform workspace show
 # terraform state list
@@ -93,7 +93,7 @@ tfui --plan ./plan.json --state ./state.json --macro ./taint.tape
 
 Macro mode **never executes real terraform commands**. All mutating operations (apply, state rm, taint, import, etc.) are recorded and printed to stdout — they are never delegated to the terraform binary. The user chooses whether to execute them by piping to `sh`.
 
-Read operations (plan, state list, workspace show) delegate to the inner service to provide data for the UI to render. When `--plan`/`--state` are provided, reads use pre-loaded file data. Without them, reads may call the terraform binary (e.g., `terraform workspace show`) but never perform mutations.
+Read operations (plan, state list, workspace show) delegate to the inner service to provide data for the UI to render. When `-plan`/`-state` are provided, reads use pre-loaded file data. Without them, reads may call the terraform binary (e.g., `terraform workspace show`) but never perform mutations.
 
 ## Tape Format
 
@@ -111,7 +111,7 @@ screenshot /tmp/plan-view.txt
 Inline mode uses semicolons as separators (single line):
 
 ```bash
-tfui --macro "key p; wait ready; assert view create"
+tfui -macro "key p; wait ready; assert view create"
 ```
 
 ## Commands
@@ -222,7 +222,7 @@ key y
 
 ```bash
 # Outputs: terraform apply
-tfui --plan ./plan.json --state ./state.json --macro ./apply.tape | sh
+tfui -plan ./plan.json -state ./state.json -macro ./apply.tape | sh
 ```
 
 ### Apply targeted (pinned resource)
@@ -241,7 +241,7 @@ key y
 
 ```bash
 # Outputs: terraform apply -target=aws_instance.web
-tfui --plan ./plan.json --state ./state.json --macro ./apply-targeted.tape | sh
+tfui -plan ./plan.json -state ./state.json -macro ./apply-targeted.tape | sh
 ```
 
 ### Taint a resource
@@ -279,7 +279,7 @@ key y
 ```bash
 #!/bin/bash
 terraform show -json tfplan.out > plan.json
-tfui --plan ./plan.json --macro ./tests/macros/verify-plan.tape
+tfui -plan ./plan.json -macro ./tests/macros/verify-plan.tape
 ```
 
 ### CI apply via macro
@@ -288,7 +288,7 @@ tfui --plan ./plan.json --macro ./tests/macros/verify-plan.tape
 #!/bin/bash
 terraform show -json tfplan.out > plan.json
 terraform state pull > state.json
-tfui --plan ./plan.json --state ./state.json --macro ./deploy.tape | sh
+tfui -plan ./plan.json -state ./state.json -macro ./deploy.tape | sh
 ```
 
 ## Programmatic Driver (Go API)
