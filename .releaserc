@@ -9,7 +9,7 @@
       "publishCmd": "mise run release:publish"
     }],
     ["@semantic-release/git", {
-      "assets": ["CHANGELOG.md", "VERSION", "docs/assets/demo/*.gif"],
+      "assets": ["CHANGELOG.md", "VERSION"],
       "message": "chore(release): v${nextRelease.version} [skip ci]"
     }]
   ]

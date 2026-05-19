@@ -126,12 +126,8 @@ description = "Lock current Python venv to requirements.txt"
 # ─── Release (CI only) ─────────────────────────────────────────────────────────
 
 [tasks."release:prepare"]
-run = """
-echo ${1:?version required} > VERSION
-mise run build
-./demo/generate.sh
-"""
-description = "Write version, build snapshot, regenerate demo GIFs (called by semantic-release)"
+run = "bash -c 'echo \"$1\" > VERSION' -- {{arg(name=\"version\")}}"
+description = "Write VERSION file (called by semantic-release prepareCmd)"
 
 [tasks."release:publish"]
 run = "goreleaser release --clean --skip=validate"
