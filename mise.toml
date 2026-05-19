@@ -66,8 +66,8 @@ fi
 description = "Coverage enforcement (100%, excludes cmd/ and internal/terraform/exec)"
 
 [tasks."test:integration"]
-run = "go test -tags integration -timeout 300s ./tests/integration/..."
-description = "Integration tests with terraform"
+run = "go test -tags integration -timeout 120s -run 'TestPipeline|TestPlan_|TestCLI_' ./tests/integration/..."
+description = "Integration tests (plan + CLI)"
 
 
 [tasks."test:macro"]

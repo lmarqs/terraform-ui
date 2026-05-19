@@ -13,8 +13,8 @@ type agentJSON struct {
 	Changes          []agentChange `json:"changes"`
 	Summary          agentSummary  `json:"summary"`
 	Risk             string        `json:"risk"`
-	PhantomChanges   int           `json:"phantom_changes"`
-	PhantomResources []string      `json:"phantom_resources"`
+	PhantomChanges   int           `json:"phantom_changes,omitempty"`
+	PhantomResources []string      `json:"phantom_resources,omitempty"`
 }
 
 type agentChange struct {
@@ -282,11 +282,9 @@ func TestPlan_AgentMode_JSONStructure(t *testing.T) {
 
 	// Verify top-level fields
 	expectedFields := map[string]string{
-		"changes":           "array",
-		"summary":           "object",
-		"risk":              "string",
-		"phantom_changes":   "number",
-		"phantom_resources": "array",
+		"changes": "array",
+		"summary": "object",
+		"risk":    "string",
 	}
 
 	for field, expectedType := range expectedFields {

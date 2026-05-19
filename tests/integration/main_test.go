@@ -3,12 +3,14 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 )
 
 var binaryPath string
@@ -60,32 +62,15 @@ func fixtureDir(name string) string {
 }
 
 func runTfui(args ...string) (string, string, error) {
-	cmd := exec.Command(binaryPath, args...)
-	var stdout, stderr []byte
-	stdoutPipe, _ := cmd.StdoutPipe()
-	stderrPipe, _ := cmd.StderrPipe()
-	if err := cmd.Start(); err != nil {
-		return "", "", err
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binaryPath, args...)
+	out, err := cmd.Output()
+	var stderr []byte
+	if ee, ok := err.(*exec.ExitError); ok {
+		stderr = ee.Stderr
 	}
-	stdout, _ = readAll(stdoutPipe)
-	stderr, _ = readAll(stderrPipe)
-	err := cmd.Wait()
-	return string(stdout), string(stderr), err
-}
-
-func readAll(r interface{ Read([]byte) (int, error) }) ([]byte, error) {
-	var result []byte
-	buf := make([]byte, 4096)
-	for {
-		n, err := r.Read(buf)
-		if n > 0 {
-			result = append(result, buf[:n]...)
-		}
-		if err != nil {
-			break
-		}
-	}
-	return result, nil
+	return string(out), string(stderr), err
 }
 
 func initFixture(t *testing.T, fixtureName string) string {

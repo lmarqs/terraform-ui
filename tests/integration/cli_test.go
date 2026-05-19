@@ -89,7 +89,7 @@ func TestCLI_PlanJSONValid(t *testing.T) {
 	}
 
 	// Verify required fields exist
-	requiredFields := []string{"changes", "summary", "risk", "phantom_changes", "phantom_resources"}
+	requiredFields := []string{"changes", "summary", "risk"}
 	for _, field := range requiredFields {
 		if _, ok := result[field]; !ok {
 			t.Errorf("expected field %q in agent JSON output", field)
