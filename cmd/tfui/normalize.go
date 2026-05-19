@@ -66,6 +66,11 @@ func normalizeArgs(args []string) []string {
 			continue
 		}
 
+		if len(name) > 1 {
+			out = append(out, "-"+arg)
+			continue
+		}
+
 		out = append(out, arg)
 	}
 

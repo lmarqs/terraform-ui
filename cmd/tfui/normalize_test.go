@@ -318,21 +318,21 @@ func TestNormalizeArgs_WhenStdinIndicator_ShouldNotTouch(t *testing.T) {
 	}
 }
 
-func TestNormalizeArgs_WhenUnknownFlag_ShouldLeaveUnchanged(t *testing.T) {
+func TestNormalizeArgs_WhenUnknownFlag_ShouldNormalizeMultiChar(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []string
 		want  []string
 	}{
 		{
-			"ShouldNotTouchUnknownSingleDashFlag",
+			"ShouldNormalizeUnknownMultiCharFlag",
 			[]string{"tfui", "plan", "-unknown-flag"},
-			[]string{"tfui", "plan", "-unknown-flag"},
+			[]string{"tfui", "plan", "--unknown-flag"},
 		},
 		{
-			"ShouldNotTouchUnknownSingleDashFlagWithValue",
+			"ShouldNormalizeUnknownMultiCharFlagWithValue",
 			[]string{"tfui", "plan", "-unknown=value"},
-			[]string{"tfui", "plan", "-unknown=value"},
+			[]string{"tfui", "plan", "--unknown=value"},
 		},
 		{
 			"ShouldNotTouchShortFlag",
@@ -340,9 +340,9 @@ func TestNormalizeArgs_WhenUnknownFlag_ShouldLeaveUnchanged(t *testing.T) {
 			[]string{"tfui", "-v"},
 		},
 		{
-			"ShouldNotTouchMultipleUnknownFlags",
+			"ShouldNormalizeMultipleUnknownMultiCharFlags",
 			[]string{"tfui", "plan", "-foo", "-bar=baz"},
-			[]string{"tfui", "plan", "-foo", "-bar=baz"},
+			[]string{"tfui", "plan", "--foo", "--bar=baz"},
 		},
 	}
 
@@ -389,7 +389,7 @@ func TestNormalizeArgs_WhenRepeatedFlags_ShouldNormalizeAll(t *testing.T) {
 	}
 }
 
-func TestNormalizeArgs_WhenMixedFlags_ShouldNormalizeOnlyKnown(t *testing.T) {
+func TestNormalizeArgs_WhenMixedFlags_ShouldNormalizeAll(t *testing.T) {
 	tests := []struct {
 		name  string
 		input []string
@@ -398,7 +398,7 @@ func TestNormalizeArgs_WhenMixedFlags_ShouldNormalizeOnlyKnown(t *testing.T) {
 		{
 			"ShouldMixKnownAndUnknown",
 			[]string{"tfui", "plan", "-target=aws_instance.web", "-unknown", "--debug"},
-			[]string{"tfui", "plan", "--target=aws_instance.web", "-unknown", "--debug"},
+			[]string{"tfui", "plan", "--target=aws_instance.web", "--unknown", "--debug"},
 		},
 		{
 			"ShouldMixSingleAndDoubleDash",
