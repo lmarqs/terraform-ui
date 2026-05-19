@@ -56,6 +56,7 @@ jobs:
 
       - name: Trigger pages deploy
         if: steps.version.outputs.released == 'true'
+        continue-on-error: true
         run: gh workflow run pages.yaml --ref main
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.PAT_TOKEN || secrets.GITHUB_TOKEN }}
