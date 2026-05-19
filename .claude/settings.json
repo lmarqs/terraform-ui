@@ -7,9 +7,9 @@
           {
             "type": "command",
             "if": "Edit(**/*.go)|Write(**/*.go)",
-            "command": "gofmt -w $CLAUDE_FILE_PATH",
+            "command": "mise run fmt $CLAUDE_FILE_PATH",
             "timeout": 5,
-            "statusMessage": "gofmt..."
+            "statusMessage": "fmt..."
           },
           {
             "type": "agent",
@@ -35,7 +35,7 @@
           {
             "type": "agent",
             "if": "Edit(pkg/sdk/**)|Write(pkg/sdk/**)",
-            "prompt": "An SDK file was just edited. Check: (1) If service.go was changed, do ExecService and MacroService still satisfy the interface? Run `go vet ./...` to verify. (2) If a new event type was added, is there a matching handler interface? (3) If a new optional plugin interface was added, is it documented in CLAUDE.md? Only report ISSUES. If all good, say nothing.",
+            "prompt": "An SDK file was just edited. Check: (1) If service.go was changed, do ExecService and MacroService still satisfy the interface? Run `mise run check:lint` to verify. (2) If a new event type was added, is there a matching handler interface? (3) If a new optional plugin interface was added, is it documented in CLAUDE.md? Only report ISSUES. If all good, say nothing.",
             "timeout": 15,
             "statusMessage": "SDK quick-check..."
           }
