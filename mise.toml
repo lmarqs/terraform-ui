@@ -127,9 +127,9 @@ description = "Lock current Python venv to requirements.txt"
 
 [tasks."release:prepare"]
 run = """
-echo ${1} > VERSION
+echo ${1:?version required} > VERSION
 mise run build
-mise run demo:generate
+./demo/generate.sh
 """
 description = "Write version, build snapshot, regenerate demo GIFs (called by semantic-release)"
 
