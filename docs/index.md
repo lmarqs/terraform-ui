@@ -1,12 +1,15 @@
 ---
 layout: default
-title: Home
+title: tfui — Terraform UI for the Terminal
 nav_order: 1
-description: Interactive terminal UI for Terraform operations
+description: >-
+  Interactive terminal UI for Terraform plan review, risk analysis, state
+  browsing, and targeted apply. A k9s-style TUI that works with Terraform,
+  OpenTofu, and Terragrunt.
 permalink: /
 ---
 
-# terraform-ui
+# tfui — Interactive Terminal UI for Terraform
 
 **Stop reading terraform output in raw text.**
 
@@ -16,7 +19,7 @@ permalink: /
 
 ---
 
-## You know the feeling.
+## The problem with terraform plan output
 
 200 lines of `terraform plan` output. Somewhere in there, a database is about to be destroyed. You're scanning for the word "destroy" like it's 2005 and you're grepping production logs by hand.
 
@@ -26,7 +29,7 @@ You find it — on line 847, between two tag updates.
 
 ---
 
-## Plan Review
+## Terraform Plan Viewer
 
 Navigate changes as a tree. Expand attribute diffs inline. Risk badges surface the critical delete hiding between tag updates.
 
@@ -36,7 +39,7 @@ Every change is classified immediately: `[CRITICAL]` `[HIGH]` `[medium]` `[low]`
 
 ---
 
-## Pin & Target
+## Pin Resources, Apply Targeted
 
 Pin the resources you care about. Apply only those — no `-target` flags to type, no copy-paste mistakes.
 
@@ -46,7 +49,7 @@ One key (`space`) to pin. One key (`a`) to apply. The tool handles the rest: rep
 
 ---
 
-## Risk Analysis
+## Terraform Risk Analysis
 
 Every change classified: critical, high, medium, low. The RDS destroy doesn't hide between tag updates anymore.
 
@@ -56,7 +59,7 @@ Resource-specific rules: deleting a database is critical. Updating a security gr
 
 ---
 
-## State Browser
+## Terraform State Browser
 
 Browse, search, inspect. Delete and move with confirmation — not with typos.
 
@@ -66,7 +69,7 @@ Fuzzy search across hundreds of resources. Inspect full attribute JSON. Taint, u
 
 ---
 
-## Phantom Changes
+## Phantom Change Detection
 
 Terraform says "1 to change" but nothing actually changes. tfui detects cosmetic diffs — null vs absent, array reorder, provider normalization — and marks them.
 
@@ -103,7 +106,7 @@ docker run -it lmarqs/terraform-ui:demo
 
 ---
 
-## Built for infrastructure engineers who value precision.
+## Built for infrastructure engineers
 
 - **Single binary.** Zero runtime dependencies. Download and run.
 - **Keyboard-driven.** No mouse required. Vim-style navigation.
@@ -113,7 +116,7 @@ docker run -it lmarqs/terraform-ui:demo
 
 ---
 
-## What you get
+## Terraform UI vs raw CLI
 
 | Without tfui | With tfui |
 |---|---|
