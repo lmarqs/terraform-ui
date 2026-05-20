@@ -27,11 +27,13 @@ type Plugin struct {
 	stack *sdk.Stack
 
 	// Form state (preserved across runs for re-fill)
-	upgrade     bool
-	reconfigure bool
-	backend     bool
-	extraArgs   string
-	cancelFn    context.CancelFunc
+	upgrade        bool
+	reconfigure    bool
+	backend        bool
+	backendConfigs []string
+	extraArgs      string
+	interactive    bool
+	cancelFn       context.CancelFunc
 }
 
 // New creates a new init plugin.
@@ -75,6 +77,45 @@ func (p *Plugin) Activate() tea.Cmd {
 	p.stack.Reset()
 	p.stack.Push(p.buildForm())
 	return nil
+}
+
+func (p *Plugin) ActivateWithArgs(args []string) tea.Cmd {
+	p.resetState()
+	p.parseArgs(args)
+	p.stack.Reset()
+	p.stack.Push(p.buildForm())
+	if p.interactive {
+		return nil
+	}
+	return func() tea.Msg { return initSubmitMsg{} }
+}
+
+func (p *Plugin) resetState() {
+	p.upgrade = false
+	p.reconfigure = false
+	p.backend = true
+	p.backendConfigs = nil
+	p.extraArgs = ""
+	p.interactive = false
+}
+
+func (p *Plugin) parseArgs(args []string) {
+	for _, arg := range args {
+		switch {
+		case arg == "--upgrade":
+			p.upgrade = true
+		case arg == "--reconfigure":
+			p.reconfigure = true
+		case arg == "--backend=false":
+			p.backend = false
+		case arg == "--backend=true", arg == "--backend":
+			p.backend = true
+		case strings.HasPrefix(arg, "--backend-config="):
+			p.backendConfigs = append(p.backendConfigs, strings.TrimPrefix(arg, "--backend-config="))
+		case arg == "--interactive":
+			p.interactive = true
+		}
+	}
 }
 
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
@@ -166,8 +207,9 @@ func (p *Plugin) submit() tea.Cmd {
 	p.cancelFn = cancel
 	svc := p.svc
 	opts := sdk.InitOptions{
-		Upgrade:     p.upgrade,
-		Reconfigure: p.reconfigure,
+		Upgrade:       p.upgrade,
+		Reconfigure:   p.reconfigure,
+		BackendConfig: p.backendConfigs,
 	}
 	if !p.backend {
 		f := false

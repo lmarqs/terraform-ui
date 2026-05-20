@@ -681,3 +681,149 @@ func TestPlugin_WhenUpdateWithUnhandledMsgAndStackHasFrame_ShouldReturnNil(t *te
 		t.Error("unhandled msg with result frame on stack should return nil cmd")
 	}
 }
+
+func TestActivateWithArgs_WhenUpgradeFlag_ShouldAutoSubmitWithUpgrade(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{"--upgrade"})
+	if cmd == nil {
+		t.Fatal("ActivateWithArgs should return auto-submit cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(initSubmitMsg); !ok {
+		t.Errorf("cmd() = %T, want initSubmitMsg", msg)
+	}
+	if !p.upgrade {
+		t.Error("upgrade should be true")
+	}
+}
+
+func TestActivateWithArgs_WhenReconfigureFlag_ShouldAutoSubmitWithReconfigure(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{"--reconfigure"})
+	if cmd == nil {
+		t.Fatal("ActivateWithArgs should return auto-submit cmd")
+	}
+	if !p.reconfigure {
+		t.Error("reconfigure should be true")
+	}
+}
+
+func TestActivateWithArgs_WhenBackendFalse_ShouldSetBackendFalse(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{"--backend=false"})
+	if cmd == nil {
+		t.Fatal("ActivateWithArgs should return auto-submit cmd")
+	}
+	if p.backend {
+		t.Error("backend should be false")
+	}
+}
+
+func TestActivateWithArgs_WhenBackendTrue_ShouldLeaveBackendTrue(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.backend = false // start with false to verify it gets set
+	p.ActivateWithArgs([]string{"--backend=true"})
+	if !p.backend {
+		t.Error("backend should be true")
+	}
+}
+
+func TestActivateWithArgs_WhenBackendConfig_ShouldPassToService(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.ActivateWithArgs([]string{"--backend-config=path/to/config.hcl", "--backend-config=key=value"})
+
+	// Trigger the submit
+	_, cmd := p.Update(initSubmitMsg{})
+	if cmd != nil {
+		msgs := executeBatch(cmd)
+		for _, msg := range msgs {
+			p.Update(msg)
+		}
+	}
+
+	if len(svc.InitCalls) == 0 {
+		t.Fatal("Init should have been called")
+	}
+	if len(svc.InitCalls[0].BackendConfig) != 2 {
+		t.Fatalf("BackendConfig len = %d, want 2", len(svc.InitCalls[0].BackendConfig))
+	}
+	if svc.InitCalls[0].BackendConfig[0] != "path/to/config.hcl" {
+		t.Errorf("BackendConfig[0] = %q, want %q", svc.InitCalls[0].BackendConfig[0], "path/to/config.hcl")
+	}
+	if svc.InitCalls[0].BackendConfig[1] != "key=value" {
+		t.Errorf("BackendConfig[1] = %q, want %q", svc.InitCalls[0].BackendConfig[1], "key=value")
+	}
+}
+
+func TestActivateWithArgs_WhenMultipleFlags_ShouldSetAll(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.ActivateWithArgs([]string{"--upgrade", "--reconfigure", "--backend=false"})
+	if !p.upgrade {
+		t.Error("upgrade should be true")
+	}
+	if !p.reconfigure {
+		t.Error("reconfigure should be true")
+	}
+	if p.backend {
+		t.Error("backend should be false")
+	}
+}
+
+func TestActivateWithArgs_WhenInteractiveFlag_ShouldShowFormWithoutAutoSubmit(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{"--interactive", "--upgrade"})
+	if cmd != nil {
+		t.Error("--interactive should NOT auto-submit (return nil cmd)")
+	}
+	if !p.upgrade {
+		t.Error("upgrade should still be pre-filled")
+	}
+	if p.stack.Peek() == nil || p.stack.Peek().ID() != "form" {
+		t.Error("form should be on stack")
+	}
+}
+
+func TestActivateWithArgs_WhenEmptyArgs_ShouldAutoSubmitWithDefaults(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{})
+	if cmd == nil {
+		t.Fatal("empty args should still auto-submit (terraform default behavior)")
+	}
+}
+
+func TestActivateWithArgs_ShouldResetPreviousState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	// Set some previous state
+	p.upgrade = true
+	p.reconfigure = true
+	p.backend = false
+	p.backendConfigs = []string{"old"}
+	p.extraArgs = "old args"
+
+	p.ActivateWithArgs([]string{"--upgrade"})
+
+	if !p.upgrade {
+		t.Error("upgrade should be true (from args)")
+	}
+	if p.reconfigure {
+		t.Error("reconfigure should be reset to false")
+	}
+	if !p.backend {
+		t.Error("backend should be reset to true (default)")
+	}
+	if len(p.backendConfigs) != 0 {
+		t.Errorf("backendConfigs should be reset, got %v", p.backendConfigs)
+	}
+	if p.extraArgs != "" {
+		t.Errorf("extraArgs should be reset, got %q", p.extraArgs)
+	}
+}

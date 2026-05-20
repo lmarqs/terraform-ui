@@ -189,13 +189,16 @@ func main() {
 	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
 	versionCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
+	var initUpgrade, initReconfigure, initInteractive bool
+	var initBackendConfig []string
+
 	initCmd := &cobra.Command{
 		Use:   "init",
 		Short: "Run terraform init",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return NewSession(cfg, rootCfg).
 				ForPlugin("init").
-				WithArgs(args).
+				WithArgs(buildInitArgs(cmd)).
 				WithSeeds(planURI, stateURI).
 				WithExtraSeeds(outputsURI, validateResultURI, workspacesURI).
 				WithMacro(macroURI).
@@ -204,6 +207,11 @@ func main() {
 				Run()
 		},
 	}
+	initCmd.Flags().BoolVar(&initUpgrade, "upgrade", false, "Upgrade modules and plugins")
+	initCmd.Flags().BoolVar(&initReconfigure, "reconfigure", false, "Reconfigure backend")
+	initCmd.Flags().Bool("backend", true, "Configure backend (--backend=false to skip)")
+	initCmd.Flags().StringArrayVar(&initBackendConfig, "backend-config", nil, "Backend configuration values")
+	initCmd.Flags().BoolVar(&initInteractive, "interactive", false, "Show interactive form before running")
 	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
 	validateCmd := &cobra.Command{
@@ -281,6 +289,34 @@ func main() {
 		}
 		os.Exit(1)
 	}
+}
+
+func buildInitArgs(cmd *cobra.Command) []string {
+	var args []string
+	if cmd.Flags().Changed("interactive") {
+		args = append(args, "--interactive")
+	}
+	if cmd.Flags().Changed("upgrade") {
+		args = append(args, "--upgrade")
+	}
+	if cmd.Flags().Changed("reconfigure") {
+		args = append(args, "--reconfigure")
+	}
+	if cmd.Flags().Changed("backend") {
+		val, _ := cmd.Flags().GetBool("backend")
+		if val {
+			args = append(args, "--backend=true")
+		} else {
+			args = append(args, "--backend=false")
+		}
+	}
+	if cmd.Flags().Changed("backend-config") {
+		vals, _ := cmd.Flags().GetStringArray("backend-config")
+		for _, v := range vals {
+			args = append(args, "--backend-config="+v)
+		}
+	}
+	return args
 }
 
 func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
