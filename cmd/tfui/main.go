@@ -56,7 +56,6 @@ func init() {
 func main() {
 	var cfg config.Config
 	var rootCfg *config.RootConfig
-	var debug bool
 	var configOverrides []string
 	var planURI, stateURI, outputsURI, validateResultURI, workspacesURI, macroURI, recordDir string
 	var extraArgs []string
@@ -88,7 +87,7 @@ func main() {
 			}
 
 			binary := cfg.TerraformBinary()
-			logging.Init(debug, version, cfg.Dir, binary, cfg.LogDir())
+			logging.Init(recordDir != "", version, cfg.Dir, binary, recordDir)
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -101,7 +100,6 @@ func main() {
 		},
 	}
 
-	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Enable debug logging")
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.hcl lives)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary")
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
