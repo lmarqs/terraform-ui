@@ -120,6 +120,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "ctrl+p":
 		f.plugin.pinnedOnly = !f.plugin.pinnedOnly
 		f.plugin.SetFilter(f.plugin.filter)
+	case "!":
+		if f.plugin.PinnedCount() > 0 {
+			f.plugin.stack.Push(f.plugin.buildActionFrame(true))
+		}
 	case "ctrl+u":
 		f.plugin.clearAllPins()
 	case "]":
