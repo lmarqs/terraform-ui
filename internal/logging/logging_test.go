@@ -8,7 +8,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -72,13 +71,13 @@ func TestInit_WhenDebugTrue_ShouldWriteToLogDir(t *testing.T) {
 
 	found := false
 	for _, e := range entries {
-		if strings.HasPrefix(e.Name(), "debug-") && strings.HasSuffix(e.Name(), ".log") {
+		if e.Name() == "session.log" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("no debug-*.log file found in %q", logDir)
+		t.Errorf("no session.log file found in %q", logDir)
 	}
 }
 

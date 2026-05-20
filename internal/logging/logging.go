@@ -1,13 +1,11 @@
 package logging
 
 import (
-	"fmt"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
-	"time"
 )
 
 var logger *slog.Logger
@@ -35,7 +33,7 @@ func Init(debug bool, version, dir, binary, logDir string) {
 		return
 	}
 
-	logPath := filepath.Join(logDir, fmt.Sprintf("debug-%s.log", time.Now().Format("20060102-150405")))
+	logPath := filepath.Join(logDir, "session.log")
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
 	if err != nil {
 		logger = InitWithWriter(io.Discard, false, version, dir, binary)

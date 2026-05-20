@@ -61,7 +61,7 @@ Output directory structure:
 recording/
 ├── manifest.json       # Frame timing + terminal dimensions
 ├── recording.tape      # Reconstructed tape (interactive mode only)
-├── debug-*.log         # Debug log (JSON lines)
+├── session.log         # Debug log (JSON lines)
 ├── frame_0001.txt      # ANSI frame after each command
 ├── frame_0002.txt
 └── ...
