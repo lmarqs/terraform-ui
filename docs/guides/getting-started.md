@@ -31,7 +31,10 @@ git clone https://github.com/lmarqs/terraform-ui.git
 cd terraform-ui
 mise install
 mise run build
-./dist/tfui version
+./dist/tfui_darwin_amd64_v1/tfui version
+./dist/tfui_darwin_arm64_v8.0/tfui version
+./dist/tfui_linux_amd64_v1/tfui version
+./dist/tfui_linux_arm64_v8.0/tfui version
 ```
 
 ## First Run
