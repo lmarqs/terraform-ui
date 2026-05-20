@@ -60,6 +60,7 @@ Flag scoping:
 - On root: `-macro` drives the full multi-plugin TUI headlessly
 - On subcommands: `-macro` drives the standalone plugin headlessly, outputs recorded commands
 - `-record <dir>`: captures ANSI frames + manifest.json (orthogonal to `-macro`)
+- `-interactive`: standard per-subcommand flag for form-capable plugins (shows guided form instead of auto-running)
 - All other flags: persistent (available everywhere)
 
 Binary resolution:
