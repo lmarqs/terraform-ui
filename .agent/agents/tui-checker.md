@@ -22,7 +22,7 @@ You audit terraform-ui plugin views for UX consistency per `docs/reference/tui-u
 
 ### Filter bar position (top, not bottom)
 
-The filter bar (`/ query█` or `filter: query`) must render **above** the list content in every plugin. Check that filter output is concatenated before the item list, never after:
+The filter bar (`/ query█` or `ᗊ: query`) must render **above** the list content in every plugin. Check that filter output is concatenated before the item list, never after:
 
 ```bash
 # BAD: filter appended to footer (renders at bottom)

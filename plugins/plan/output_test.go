@@ -1076,8 +1076,8 @@ func TestPlugin_WhenViewDoneWithInactiveFilterText_ShouldShowFilterLabel(t *test
 	p.filter = "aws"
 
 	view := p.View(80, 24)
-	if !strings.Contains(view, "filter:") {
-		t.Error("View with inactive filter should show 'filter:' label")
+	if !strings.Contains(view, "ᗊ:") {
+		t.Error("View with inactive filter should show 'ᗊ:' label")
 	}
 }
 
@@ -2406,8 +2406,8 @@ func TestPlugin_WhenRenderResultsWithFilterButNoFilteringAndPinnedOnly_ShouldSho
 	if !strings.Contains(view, "[pinned]") {
 		t.Error("View with pinnedOnly should contain [pinned]")
 	}
-	if !strings.Contains(view, "filter:") {
-		t.Error("View with inactive filter should contain 'filter:'")
+	if !strings.Contains(view, "ᗊ:") {
+		t.Error("View with inactive filter should contain 'ᗊ:'")
 	}
 }
 

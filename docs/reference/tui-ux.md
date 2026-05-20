@@ -272,7 +272,7 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 - Brackets, special chars pass through to action handlers
 - `Esc` exits filter mode
 - `Enter` inspects (leaf) or expands (branch)
-- Backspace on empty filter: stays in filter mode (doesn't exit)
+- Backspace on empty ᗊ: stays in filter mode (doesn't exit)
 - Filter bar renders at the **top** of the list (above items, below any header)
 
 ## 7. Tree Navigation

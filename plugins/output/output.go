@@ -255,7 +255,7 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	if p.filtering {
 		filterLine = sdk.StyleKey.Render("/ ") + p.filter + "█\n\n"
 	} else if p.filter != "" {
-		filterLine = sdk.StyleKey.Render("filter: ") + p.filter + "\n\n"
+		filterLine = sdk.StyleKey.Render("ᗊ: ") + p.filter + "\n\n"
 	}
 
 	if len(p.filtered) == 0 {

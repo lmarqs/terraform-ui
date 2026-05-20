@@ -18,7 +18,7 @@ Terraform state encodes relationships by opaque ID (e.g. `member_id: "84a834b8-.
 
 ## Design
 
-In inspect view, a key (e.g. `y`) yanks the value under cursor into the filter:
+In inspect view, a key (e.g. `y`) yanks the value under cursor into the ᗊ:
 
 ```
 Inspect: aws_identitystore_user.this["ronaldo.brisa"]

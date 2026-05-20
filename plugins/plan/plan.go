@@ -582,7 +582,7 @@ func (e *Plugin) renderResults(width, height int) string {
 	} else if e.filter != "" || e.pinnedOnly {
 		parts := []string{}
 		if e.filter != "" {
-			parts = append(parts, sdk.StyleKey.Render("filter: ")+e.filter)
+			parts = append(parts, sdk.StyleKey.Render("ᗊ: ")+e.filter)
 		}
 		if e.pinnedOnly {
 			parts = append(parts, sdk.StyleSuccess.Render("[pinned]"))
