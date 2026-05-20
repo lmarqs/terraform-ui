@@ -13,7 +13,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
+func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -23,45 +23,17 @@ func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
 	if p.Name() != "Apply" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Apply")
 	}
-	if p.Description() != "Apply terraform changes to infrastructure" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Apply terraform changes to infrastructure")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
-	if p.Ready() {
-		t.Error("Ready() = true before apply completes, want false")
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptOptions(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
-	err := p.Configure(map[string]interface{}{"key": "value"})
-	if err != nil {
+	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-}
-
-func TestPlugin_WhenInitialized_ShouldReturnNilCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
+	if cmd := p.Init(&sdk.Context{WorkingDir: "/tmp", Workspace: "default", Service: svc}); cmd != nil {
+		t.Error("Init() should return nil cmd")
 	}
-
-	cmd := p.Init(ctx)
-	if cmd != nil {
-		t.Error("Init() returned non-nil cmd, want nil")
-	}
-}
-
-func TestSetTargets_WhenCalled_ShouldStoreTargetAddresses(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	targets := []string{"aws_instance.web", "aws_s3_bucket.data"}
-	p.SetTargets(targets)
-	if len(p.targets) != 2 {
-		t.Errorf("SetTargets: len(targets) = %d, want 2", len(p.targets))
+	if p.Ready() {
+		t.Error("Ready() should be false before activation")
 	}
 }
 

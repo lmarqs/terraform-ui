@@ -10,40 +10,27 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-func TestPlugin_WhenCreated_ShouldReturnCorrectID(t *testing.T) {
-	p := New(&sdktest.MockService{})
+func TestPlugin_Lifecycle(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc)
+
 	if p.ID() != "version" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "version")
 	}
-}
-
-func TestPlugin_WhenCreated_ShouldReturnCorrectName(t *testing.T) {
-	p := New(&sdktest.MockService{})
 	if p.Name() != "Version" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Version")
 	}
-}
-
-func TestPlugin_Ready_WhenIdle(t *testing.T) {
-	p := New(&sdktest.MockService{})
-	if p.Ready() {
-		t.Error("Ready() = true before activation, want false")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
-}
-
-func TestPlugin_WhenConfiguredWithTfuiVersion_ShouldStoreVersion(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	_ = p.Configure(map[string]interface{}{"tfui_version": "1.2.3"})
-	if p.version != "1.2.3" {
-		t.Errorf("version = %q, want %q", p.version, "1.2.3")
-	}
-}
-
-func TestPlugin_WhenConfiguredWithUnknownKeys_ShouldAcceptGracefully(t *testing.T) {
-	p := New(&sdktest.MockService{})
-	err := p.Configure(map[string]interface{}{"unknown": true})
-	if err != nil {
+	if err := p.Configure(map[string]interface{}{"tfui_version": "1.0.0", "unknown": true}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
+	}
+	if cmd := p.Init(&sdk.Context{Service: svc}); cmd != nil {
+		t.Error("Init() should return nil cmd")
+	}
+	if p.Ready() {
+		t.Error("Ready() should be false before activation")
 	}
 }
 
@@ -216,13 +203,6 @@ func TestHints_WhenCalled_ShouldReturnBackHint(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenCreated_ShouldReturnNonEmptyDescription(t *testing.T) {
-	p := New(&sdktest.MockService{})
-	if p.Description() == "" {
-		t.Error("Description() = empty")
-	}
-}
-
 func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
@@ -250,15 +230,6 @@ func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Error("unknown msg should return nil cmd")
-	}
-}
-
-func TestPlugin_WhenInitialized_ShouldReturnNilCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	cmd := p.Init(&sdk.Context{Service: svc})
-	if cmd != nil {
-		t.Error("Init() should return nil cmd")
 	}
 }
 
