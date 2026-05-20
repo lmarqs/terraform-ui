@@ -1,10 +1,10 @@
 ---
 layout: default
-parent: Plugins
-title: Plan Review
+parent: Plugin Catalog — All Terraform UI Features
+title: Terraform Plan Viewer — Tree Navigation
 id: plan
 key: p
-description: Review terraform plan changes with risk classification and expandable attribute diffs
+description: Navigate terraform plan changes as an expandable tree with inline risk badges, attribute diffs, and targeted apply.
 category: operations
 default_enabled: true
 ---

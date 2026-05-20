@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Plugins
+title: Plugin Catalog — All Terraform UI Features
 nav_order: 4
 has_children: true
 permalink: /plugins/
-description: Modular plugin catalog for terraform-ui with keybindings and categories
+description: Complete catalog of terraform-ui plugins — plan review, state browser, workspaces, apply, validate, console, and more.
 ---
 
 # Plugins

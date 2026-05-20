@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Phantom Changes
-parent: Features
+title: Terraform Phantom Change Detection
+parent: Features — Terraform Plan Analysis Tools
 nav_order: 2
-description: Detect and filter false-positive terraform plan changes
+description: Detect false-positive terraform plan changes — null vs absent, array reorder, provider normalization. Stop chasing ghost diffs.
 ---
 
 ## Overview

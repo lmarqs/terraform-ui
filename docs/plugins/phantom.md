@@ -1,6 +1,6 @@
 ---
 layout: default
-parent: Plugins
+parent: Plugin Catalog — All Terraform UI Features
 title: Phantom Changes
 id: phantom
 key: P

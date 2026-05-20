@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Features
+title: Features — Terraform Plan Analysis Tools
 nav_order: 3
 has_children: true
-description: Risk analysis, phantom change detection, and blast radius visualization for terraform
+description: Risk classification, phantom change detection, and blast radius visualization for terraform plans. Automatic analysis with zero configuration.
 ---
 
 # Features

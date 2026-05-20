@@ -1,9 +1,9 @@
 ---
 layout: default
-title: Quick Start
-parent: Getting Started
+title: Install tfui — Terraform TUI Quick Start
+parent: Guides — Getting Started with Terraform UI
 nav_order: 1
-description: Quick tutorial to get up and running with terraform-ui
+description: Install terraform-ui via Homebrew, go install, or binary download. Review your first terraform plan in under 60 seconds.
 ---
 
 # Getting Started
