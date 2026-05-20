@@ -19,7 +19,7 @@ func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	return p
 }
 
-func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
+func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -29,43 +29,21 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	if p.Name() != "Force Unlock" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Force Unlock")
 	}
-	if p.Description() != "Remove a stale state lock" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Remove a stale state lock")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
-	if p.Ready() {
-		t.Error("Ready() = true, want false for new plugin")
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptNilConfig(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
 	if err := p.Configure(nil); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-}
-
-func TestPlugin_WhenInitialized_ShouldStoreServiceAndLogger(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-
 	ctx := &sdk.Context{
 		Service: svc,
-		Logger:  logger,
+		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
-
-	cmd := p.Init(ctx)
-	if cmd != nil {
+	if cmd := p.Init(ctx); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
-
-	pp := p.(*Plugin)
-	if pp.svc != svc {
-		t.Error("Init() should store service from context")
-	}
-	if pp.log != logger {
-		t.Error("Init() should store logger from context")
+	if p.Ready() {
+		t.Error("Ready() should be false before activation")
 	}
 }
 

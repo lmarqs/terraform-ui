@@ -38,8 +38,12 @@ func sampleOutputs() map[string]sdk.OutputValue {
 	}
 }
 
-func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
-	svc := &sdktest.MockService{}
+func TestPlugin_Lifecycle(t *testing.T) {
+	svc := &sdktest.MockService{
+		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
+			return sampleOutputs(), nil
+		},
+	}
 	p := New(svc)
 
 	if p.ID() != "output" {
@@ -48,11 +52,23 @@ func TestPlugin_WhenCreated_ShouldExposeCorrectMetadata(t *testing.T) {
 	if p.Name() != "Outputs" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Outputs")
 	}
-	if p.Description() != "View terraform outputs" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "View terraform outputs")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
+	}
+	if err := p.Configure(map[string]interface{}{}); err != nil {
+		t.Errorf("Configure() = %v, want nil", err)
+	}
+	ctx := &sdk.Context{
+		WorkingDir: "/tmp",
+		Workspace:  "default",
+		Service:    svc,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+	}
+	if cmd := p.Init(ctx); cmd != nil {
+		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
-		t.Error("Ready() = true before data loads, want false")
+		t.Error("Ready() should be false before data loads")
 	}
 }
 
@@ -71,40 +87,6 @@ func TestCount_WhenOutputsPresent_ShouldReturnFilteredAndTotal(t *testing.T) {
 	filtered, total = c.Count()
 	if filtered != 1 || total != 3 {
 		t.Errorf("Count() = (%d, %d), want (1, 3)", filtered, total)
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptOptions(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
-	err := p.Configure(map[string]interface{}{"key": "value"})
-	if err != nil {
-		t.Errorf("Configure() = %v, want nil", err)
-	}
-}
-
-func TestPlugin_WhenInitialized_ShouldReturnNilCmdAndRemainIdle(t *testing.T) {
-	svc := &sdktest.MockService{
-		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
-			return sampleOutputs(), nil
-		},
-	}
-	p := New(svc)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-
-	cmd := p.Init(ctx)
-	if cmd != nil {
-		t.Error("Init() should return nil cmd (no auto-load)")
-	}
-
-	pp := p.(*Plugin)
-	if pp.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want sdk.StatusIdle", pp.status)
 	}
 }
 

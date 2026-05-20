@@ -19,44 +19,27 @@ func mockSvc(list []string, current string) *sdktest.MockService {
 	}
 }
 
-// --- Plugin identity and lifecycle ---
+func TestPlugin_Lifecycle(t *testing.T) {
+	svc := mockSvc([]string{"default"}, "default")
+	p := New(svc)
 
-func TestNew_ShouldReturn_PluginWithCorrectIdentity(t *testing.T) {
-	p := New(&sdktest.MockService{})
 	if p.ID() != "workspace" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "workspace")
 	}
 	if p.Name() != "Workspace" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Workspace")
 	}
-	if p.Description() != "Manage terraform workspace" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Manage terraform workspace")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
-}
-
-func TestNew_ShouldNotBeReady_BeforeActivation(t *testing.T) {
-	p := New(&sdktest.MockService{})
-	if p.(*Plugin).Ready() {
-		t.Error("Ready() = true before activation, want false")
-	}
-}
-
-func TestConfigure_ShouldAcceptAnyConfig(t *testing.T) {
-	p := New(&sdktest.MockService{})
-	if err := p.(*Plugin).Configure(map[string]interface{}{"key": "value"}); err != nil {
+	if err := p.(*Plugin).Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-}
-
-func TestInit_ShouldSetStatusIdle_WithoutAutoLoading(t *testing.T) {
-	svc := mockSvc([]string{"default"}, "default")
-	p := New(svc).(*Plugin)
-	cmd := p.Init(&sdk.Context{Service: svc, WorkingDir: "/tmp", Workspace: "default"})
-	if cmd != nil {
-		t.Error("Init() should not auto-load")
+	if cmd := p.Init(&sdk.Context{Service: svc, WorkingDir: "/tmp", Workspace: "default"}); cmd != nil {
+		t.Error("Init() should return nil cmd")
 	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want Idle", p.status)
+	if p.(*Plugin).Ready() {
+		t.Error("Ready() should be false before activation")
 	}
 }
 

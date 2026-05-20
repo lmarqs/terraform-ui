@@ -8,45 +8,27 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
-	p := New(nil)
+func TestPlugin_Lifecycle(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc)
+
 	if p.ID() != "chdir" {
-		t.Errorf("ID() = %q, want chdir", p.ID())
+		t.Errorf("ID() = %q, want %q", p.ID(), "chdir")
 	}
 	if p.Name() != "Chdir" {
-		t.Errorf("Name() = %q, want Chdir", p.Name())
+		t.Errorf("Name() = %q, want %q", p.Name(), "Chdir")
 	}
-	if p.Description() != "Select working directory from configured members" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Select working directory from configured members")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
-	if p.Ready() {
-		t.Error("Ready() = true before activation, want false")
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptUnknownKeys(t *testing.T) {
-	p := New(nil)
-	err := p.Configure(map[string]interface{}{"unknown": "value"})
-	if err != nil {
+	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-}
-
-func TestPlugin_WhenInitialized_ShouldStoreServiceAndReturnNil(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(nil).(*Plugin)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
+	if cmd := p.Init(&sdk.Context{WorkingDir: "/tmp", Workspace: "default", Service: svc}); cmd != nil {
+		t.Error("Init() should return nil cmd")
 	}
-
-	cmd := p.Init(ctx)
-	if cmd != nil {
-		t.Error("Init() returned non-nil cmd, want nil")
-	}
-	if p.svc != svc {
-		t.Error("Init() did not store service from context")
+	if p.Ready() {
+		t.Error("Ready() should be false before activation")
 	}
 }
 

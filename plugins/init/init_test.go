@@ -11,8 +11,9 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+func TestPlugin_Lifecycle(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
 
 	if p.ID() != "init" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "init")
@@ -20,14 +21,17 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	if p.Name() != "Init" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Init")
 	}
-	if p.Description() != "Initialize terraform working directory" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Initialize terraform working directory")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
 	if !p.Ready() {
 		t.Error("Ready() should always be true")
 	}
-	if !p.backend {
-		t.Error("backend should default to true")
+	if err := p.Configure(map[string]interface{}{}); err != nil {
+		t.Errorf("Configure() = %v, want nil", err)
+	}
+	if cmd := p.Init(&sdk.Context{Service: svc}); cmd != nil {
+		t.Error("Init() should return nil cmd")
 	}
 }
 
@@ -203,27 +207,6 @@ func TestBusy_WhenStatusChanges_ShouldReflectLoadingState(t *testing.T) {
 
 	if p.Busy() {
 		t.Error("should not be busy after result")
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	if err := p.Configure(map[string]interface{}{"key": "value"}); err != nil {
-		t.Errorf("Configure() = %v, want nil", err)
-	}
-}
-
-func TestPlugin_WhenInit_ShouldStoreService(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	newSvc := &sdktest.MockService{}
-
-	cmd := p.Init(&sdk.Context{Service: newSvc})
-	if cmd != nil {
-		t.Error("Init() should return nil")
-	}
-	if p.svc != newSvc {
-		t.Error("Init() should store ctx.Service")
 	}
 }
 

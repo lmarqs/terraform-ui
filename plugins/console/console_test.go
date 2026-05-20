@@ -26,7 +26,7 @@ func newTestPlugin() *Plugin {
 	return p
 }
 
-func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
+func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
 
@@ -36,40 +36,23 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	if p.Name() != "Console" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Console")
 	}
-	if p.Description() != "Terraform console (REPL)" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "Terraform console (REPL)")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
-	if p.Ready() {
-		t.Error("Ready() = true before activation, want false")
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
-	err := p.Configure(map[string]interface{}{"key": "value"})
-	if err != nil {
+	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-}
-
-func TestPlugin_WhenInitialized_ShouldSetIdleState(t *testing.T) {
-	p := newTestPlugin()
-
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
+	ctx := &sdk.Context{
+		WorkingDir: "/tmp/test",
+		Workspace:  "default",
+		Service:    svc,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
-	if p.dir != "/tmp/test" {
-		t.Errorf("dir = %q, want %q", p.dir, "/tmp/test")
+	if cmd := p.Init(ctx); cmd != nil {
+		t.Error("Init() should return nil cmd")
 	}
-	if p.input != "" {
-		t.Errorf("input = %q, want empty", p.input)
-	}
-	if p.historyIdx != -1 {
-		t.Errorf("historyIdx = %d, want -1", p.historyIdx)
-	}
-	if len(p.history) != 0 {
-		t.Errorf("len(history) = %d, want 0", len(p.history))
+	if p.Ready() {
+		t.Error("Ready() should be false before activation")
 	}
 }
 

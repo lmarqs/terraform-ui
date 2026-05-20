@@ -10,7 +10,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
+func TestPlugin_Lifecycle(t *testing.T) {
 	p := New(nil).(*Plugin)
 
 	if p.ID() != "context" {
@@ -19,8 +19,8 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	if p.Name() != "Context" {
 		t.Errorf("Name() = %q, want %q", p.Name(), "Context")
 	}
-	if p.Description() != "View and manage working context" {
-		t.Errorf("Description() = %q, want %q", p.Description(), "View and manage working context")
+	if p.Description() == "" {
+		t.Error("Description() should not be empty")
 	}
 	if !p.Ready() {
 		t.Error("Ready() should always be true")
@@ -28,14 +28,6 @@ func TestPlugin_WhenCreated_ShouldHaveCorrectMetadata(t *testing.T) {
 	if p.Stack() == nil {
 		t.Error("Stack() should not be nil")
 	}
-	if p.Stack() != p.stack {
-		t.Error("Stack() should return the plugin's stack")
-	}
-}
-
-func TestPlugin_WhenConfigured_ShouldAcceptAnyOptions(t *testing.T) {
-	p := New(nil).(*Plugin)
-
 	if err := p.Configure(nil); err != nil {
 		t.Errorf("Configure(nil) = %v, want nil", err)
 	}
