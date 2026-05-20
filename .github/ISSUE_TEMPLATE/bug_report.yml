@@ -1,0 +1,88 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+labels: [bug, needs-triage]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened? What did you expect instead?
+      placeholder: |
+        When I press `enter` on a resource in the state list, the inspect view shows...
+        I expected it to show...
+    validations:
+      required: true
+
+  - type: textarea
+    id: recording
+    attributes:
+      label: Session recording
+      description: |
+        A recorded session is the fastest way for us to reproduce and fix your bug.
+
+        Run tfui with `--record`:
+        ```
+        tfui --record ./bug-session/ <your-normal-flags>
+        ```
+        Reproduce the bug, quit, then zip and attach the output directory.
+        We can replay it exactly with `tfui --macro ./bug-session/recording.tape`.
+      placeholder: Drag and drop the zipped recording directory here
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: If you cannot attach a recording, describe the steps to reproduce manually.
+      placeholder: |
+        1. Run `tfui -plan ./my-plan.json`
+        2. Press `s` to switch to state view
+        3. Press `enter` on any resource
+        4. Observe...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: tfui version
+      description: Output of `tfui version`
+      placeholder: "1.5.1"
+    validations:
+      required: true
+
+  - type: input
+    id: terraform-version
+    attributes:
+      label: Terraform version
+      description: Output of `terraform version`
+      placeholder: "1.9.0"
+    validations:
+      required: false
+
+  - type: input
+    id: os
+    attributes:
+      label: OS and terminal
+      description: Operating system and terminal emulator
+      placeholder: "macOS 15 / Alacritty 0.15"
+    validations:
+      required: true
+
+  - type: textarea
+    id: terraform-files
+    attributes:
+      label: Terraform context
+      description: Sanitized plan/state JSON snippets if relevant (remove secrets).
+      render: json
+    validations:
+      required: false
+
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Screenshots or terminal output if helpful.
+    validations:
+      required: false
