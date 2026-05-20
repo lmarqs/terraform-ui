@@ -520,7 +520,7 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 func (e *Plugin) View(width, height int) string {
 	e.viewWidth = width
 
-	if top := e.stack.Peek(); top != nil && top.ID() != "list" {
+	if top := e.stack.Peek(); top != nil && top.ID() != "list" && top.ID() != "filter" {
 		return top.View(width, height)
 	}
 

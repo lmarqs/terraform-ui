@@ -1769,3 +1769,66 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 		t.Errorf("CursorPosition() done+empty changes = (%d, %d), want (0, 0)", pos, total)
 	}
 }
+
+func TestListFrame_WhenBangPressedWithPins_ShouldPushActionFrame(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_instance.a"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "aws_instance.b"}, Action: sdk.ActionUpdate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.pins.Toggle("aws_instance.a")
+	p.pins.Toggle("aws_instance.b")
+	p.syncPinnedToTree()
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
+
+	if p.stack.Peek().ID() != "actions" {
+		t.Errorf("after !: top frame ID = %q, want %q", p.stack.Peek().ID(), "actions")
+	}
+}
+
+func TestListFrame_WhenBangPressedWithNoPins_ShouldDoNothing(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_instance.a"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
+
+	if p.stack.Peek().ID() != "list" {
+		t.Errorf("after ! with no pins: top frame ID = %q, want %q", p.stack.Peek().ID(), "list")
+	}
+	if cmd != nil {
+		t.Error("after ! with no pins: cmd != nil, want nil")
+	}
+}
+
+func TestView_WhenFilterActive_ShouldShowListContent(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+		},
+		ToCreate: 1,
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+	p.filtering = true
+	p.stack.Push(&planFilterFrame{plugin: p, inner: nil})
+
+	view := p.View(80, 20)
+	if !strings.Contains(view, "aws_instance.web") {
+		t.Errorf("filter view should contain resource address, got %q", view)
+	}
+}
