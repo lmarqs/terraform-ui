@@ -1,3 +1,17 @@
+# [1.6.0](https://github.com/lmarqs/terraform-ui/compare/v1.5.1...v1.6.0) (2026-05-20)
+
+
+### Bug Fixes
+
+* output filter test asserts wrong string literal ([b94bca9](https://github.com/lmarqs/terraform-ui/commit/b94bca975e698ebd268987c0a4bb7760eeda5345))
+* plan filter should show list content during filtering ([b840e3a](https://github.com/lmarqs/terraform-ui/commit/b840e3ac057416552a839f8a56461b32a5ca417c))
+
+
+### Features
+
+* add batch action palette to plan plugin ([c8f5e47](https://github.com/lmarqs/terraform-ui/commit/c8f5e4742b6298b2a4d137189ee5bd1be25ac577))
+* use filter symbol ([27a6f1c](https://github.com/lmarqs/terraform-ui/commit/27a6f1c63dd51c22ff0e6cae68db2a3c25a3c071))
+
 ## [1.5.1](https://github.com/lmarqs/terraform-ui/compare/v1.5.0...v1.5.1) (2026-05-19)
 
 
