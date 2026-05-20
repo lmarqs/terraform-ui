@@ -37,11 +37,14 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `j` / `k` / `↑` / `↓` | Navigate up/down | List |
 | `g` / `G` | Jump to first/last change | List |
 | `Enter` / `i` | Expand/collapse attribute diffs | List |
+| `/` | Filter (fuzzy search) | List |
 | `Space` | Pin/unpin selected resource | List |
 | `a` | Apply (replans if targets pinned, then confirms) | List |
 | `A` | Auto-approve (apply immediately, no confirmation) | List |
 | `t` | Taint -- navigates to taint plugin | List |
 | `T` | Untaint -- navigates to untaint plugin | List |
+| `!` | Batch action palette (apply, taint, untaint) | List (when pins > 0) |
+| `ctrl+t` | Toggle tree/flat view | List |
 | `ctrl+r` | Re-run plan (refresh) | Always |
 | `u` | Force-unlock | Locked error |
 | `Esc` / `q` | Back to home | Always |
