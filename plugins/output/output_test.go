@@ -797,8 +797,8 @@ func TestView_WhenDoneWithFilter_ShouldShowFilteredOutputs(t *testing.T) {
 	if !strings.Contains(view, "vpc_id") {
 		t.Errorf("view should contain filtered output name 'vpc_id', got %q", view)
 	}
-	if !strings.Contains(view, "filter") {
-		t.Errorf("view should show filter indicator, got %q", view)
+	if !strings.Contains(view, "ᗊ") {
+		t.Errorf("view should show filter indicator (ᗊ), got %q", view)
 	}
 }
 
