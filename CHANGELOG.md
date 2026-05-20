@@ -1,3 +1,15 @@
+# [1.7.0](https://github.com/lmarqs/terraform-ui/compare/v1.6.0...v1.7.0) (2026-05-20)
+
+
+### Bug Fixes
+
+* move backend to bool flags in normalizer ([2ea39bb](https://github.com/lmarqs/terraform-ui/commit/2ea39bbdc8af63af5292f74f97ca97d0ff9a6feb))
+
+
+### Features
+
+* init plugin accepts CLI flags and implements ActivateWithArgs ([0b6015d](https://github.com/lmarqs/terraform-ui/commit/0b6015dbccd5bb9b0dda380f9583cb69fbcc580b))
+
 # [1.6.0](https://github.com/lmarqs/terraform-ui/compare/v1.5.1...v1.6.0) (2026-05-20)
 
 
