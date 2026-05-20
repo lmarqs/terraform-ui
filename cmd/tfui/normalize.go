@@ -14,7 +14,6 @@ var knownValueFlags = map[string]bool{
 	"chdir":          true,
 	"workspace":      true,
 	"input":          true,
-	"backend":        true,
 	"backend-config": true,
 	"plugin-dir":     true,
 	"get":            true,
@@ -28,6 +27,7 @@ var knownBoolFlags = map[string]bool{
 	"upgrade":          true,
 	"reconfigure":      true,
 	"force-copy":       true,
+	"backend":          true,
 }
 
 func normalizeArgs(args []string) []string {

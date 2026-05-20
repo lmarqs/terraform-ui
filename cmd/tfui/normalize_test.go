@@ -202,6 +202,16 @@ func TestNormalizeArgs_WhenBooleanFlag_ShouldNotConsumeNextArg(t *testing.T) {
 			[]string{"tfui", "plan", "-target=aws_instance.web", "-destroy"},
 			[]string{"tfui", "plan", "--target=aws_instance.web", "--destroy"},
 		},
+		{
+			"ShouldNotConsumeArgAfterBackend",
+			[]string{"tfui", "init", "-backend", "-upgrade"},
+			[]string{"tfui", "init", "--backend", "--upgrade"},
+		},
+		{
+			"ShouldPreserveBackendWithEqualsFalse",
+			[]string{"tfui", "init", "-backend=false"},
+			[]string{"tfui", "init", "--backend=false"},
+		},
 	}
 
 	for _, tt := range tests {
