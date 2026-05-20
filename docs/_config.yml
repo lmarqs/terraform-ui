@@ -1,5 +1,8 @@
-title: terraform-ui
-description: Interactive terminal UI for Terraform operations
+title: tfui
+description: >-
+  A k9s-style TUI for Terraform. Review plans as a tree, analyze risk,
+  browse state, and apply — all from the terminal. Works with Terraform,
+  OpenTofu, and Terragrunt.
 url: https://lmarqs.github.io/terraform-ui
 baseurl: /terraform-ui
 
