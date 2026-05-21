@@ -24,6 +24,7 @@ type ExecService struct {
 	binaryPath string
 	statePath  string
 	cache      *terraform.ServiceCache
+	dirLock    *DirLock
 }
 
 // NewExecService creates an ExecService with the given cache.
@@ -35,6 +36,7 @@ func NewExecService(workingDir, binaryPath string, cache *terraform.ServiceCache
 		workingDir: workingDir,
 		binaryPath: binaryPath,
 		cache:      cache,
+		dirLock:    NewDirLock(),
 	}
 }
 
@@ -45,6 +47,7 @@ func (s *ExecService) WithDir(dir string) sdk.Service {
 		binaryPath: s.binaryPath,
 		statePath:  s.statePath,
 		cache:      terraform.NewServiceCache(),
+		dirLock:    s.dirLock,
 	}
 }
 
@@ -52,6 +55,8 @@ func (s *ExecService) loadState(ctx context.Context) (*tfjson.State, error) {
 	if state, ok := s.cache.GetState(); ok {
 		return state, nil
 	}
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return nil, err
@@ -78,6 +83,8 @@ func (s *ExecService) newTerraform() (*tfexec.Terraform, error) {
 
 // Plan runs terraform plan and returns the parsed changes.
 func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir)
 	start := time.Now()
 
@@ -151,6 +158,8 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 // with -target flags (skipping the saved plan file, since terraform does not
 // support -target with a plan file). When no targets, applies the saved plan.
 func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir, "targets", len(opts.Targets))
 	start := time.Now()
 
@@ -190,6 +199,8 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 
 // Validate runs terraform validate.
 func (s *ExecService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "validate", "dir", s.workingDir)
 	start := time.Now()
 
@@ -226,6 +237,8 @@ func (s *ExecService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
 
 // Output returns all terraform outputs.
 func (s *ExecService) Output(ctx context.Context) (map[string]sdk.OutputValue, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "output", "dir", s.workingDir)
 	start := time.Now()
 
@@ -260,6 +273,8 @@ func (s *ExecService) Output(ctx context.Context) (map[string]sdk.OutputValue, e
 
 // Refresh refreshes terraform state.
 func (s *ExecService) Refresh(ctx context.Context) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "refresh", "dir", s.workingDir)
 	start := time.Now()
 
@@ -280,6 +295,8 @@ func (s *ExecService) Refresh(ctx context.Context) error {
 
 // Init runs terraform init.
 func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "init", "dir", s.workingDir)
 	start := time.Now()
 
@@ -314,6 +331,8 @@ func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 
 // Version returns the terraform binary version and provider selections.
 func (s *ExecService) Version(ctx context.Context) (*sdk.VersionInfo, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return nil, fmt.Errorf("getting version: %w", err)
@@ -338,6 +357,8 @@ func (s *ExecService) Version(ctx context.Context) (*sdk.VersionInfo, error) {
 
 // ForceUnlock removes a state lock by ID.
 func (s *ExecService) ForceUnlock(ctx context.Context, lockID string) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "force-unlock", "dir", s.workingDir, "lockID", lockID)
 	start := time.Now()
 

@@ -10,6 +10,8 @@ import (
 
 // Workspace returns the current workspace name.
 func (s *ExecService) Workspace(ctx context.Context) (string, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return "", fmt.Errorf("getting workspace: %w", err)
@@ -25,6 +27,8 @@ func (s *ExecService) Workspace(ctx context.Context) (string, error) {
 
 // WorkspaceList returns all workspace names.
 func (s *ExecService) WorkspaceList(ctx context.Context) ([]string, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return nil, fmt.Errorf("listing workspaces: %w", err)
@@ -52,6 +56,8 @@ func (s *ExecService) WorkspaceList(ctx context.Context) ([]string, error) {
 
 // WorkspaceSelect switches to the specified workspace.
 func (s *ExecService) WorkspaceSelect(ctx context.Context, name string) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("selecting workspace: %w", err)
@@ -66,6 +72,8 @@ func (s *ExecService) WorkspaceSelect(ctx context.Context, name string) error {
 
 // WorkspaceNew creates a new workspace and switches to it.
 func (s *ExecService) WorkspaceNew(ctx context.Context, name string, opts sdk.WorkspaceNewOptions) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("creating workspace: %w", err)
@@ -87,6 +95,8 @@ func (s *ExecService) WorkspaceNew(ctx context.Context, name string, opts sdk.Wo
 
 // WorkspaceDelete deletes the specified workspace.
 func (s *ExecService) WorkspaceDelete(ctx context.Context, name string, opts sdk.WorkspaceDeleteOptions) error {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("deleting workspace: %w", err)
