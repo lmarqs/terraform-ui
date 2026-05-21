@@ -4,7 +4,9 @@ package integration
 
 import (
 	"encoding/json"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -29,6 +31,30 @@ func TestPipeline_Plan(t *testing.T) {
 	}
 	if _, ok := result["summary"]; !ok {
 		t.Errorf("expected 'summary' field in JSON output")
+	}
+}
+
+func TestPipeline_Init_WhenStandalone_ShouldShowFormWithoutDeadlock(t *testing.T) {
+	src := fixtureDir("create")
+	dir := t.TempDir()
+
+	data, err := os.ReadFile(filepath.Join(src, "main.tf"))
+	if err != nil {
+		t.Fatalf("read fixture: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), data, 0644); err != nil {
+		t.Fatalf("write main.tf: %v", err)
+	}
+
+	tapeFile := filepath.Join(t.TempDir(), "init.tape")
+	tape := "wait ready\nassert view terraform init"
+	if err := os.WriteFile(tapeFile, []byte(tape), 0644); err != nil {
+		t.Fatalf("write tape: %v", err)
+	}
+
+	stdout, stderr, err := runTfui("init", "-macro", tapeFile, "-project", dir)
+	if err != nil {
+		t.Fatalf("init macro failed: %v\nstdout: %s\nstderr: %s", err, stdout, stderr)
 	}
 }
 
