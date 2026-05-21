@@ -174,7 +174,7 @@ This ensures the user always reviews exactly what will be applied — the target
 All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `ForceUnlock`, `Version`, `WithDir`.
 
 Two implementations:
-- `ExecService` — wraps terraform-exec, uses ServiceCache for reads (service.go, state_ops.go, workspace_ops.go)
+- `ExecService` — wraps terraform-exec, uses ServiceCache for reads. All terraform CLI calls are serialized per working directory via DirLock (see ADR-0016). (service.go, state_ops.go, workspace_ops.go, dir_lock.go)
 - `MacroService` — records commands as sdk.Command, reads from ServiceCache, never executes (macro_service.go)
 
 `ServiceCache` (service_cache.go) is a typed, source-aware cache pre-seeded from `-plan`/`-state` flags at startup. Three source kinds: file (re-reads on invalidate), stdin (immutable), exec (cleared on invalidate).
