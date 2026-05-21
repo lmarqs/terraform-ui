@@ -1,3 +1,10 @@
+## [1.7.2](https://github.com/lmarqs/terraform-ui/compare/v1.7.1...v1.7.2) (2026-05-21)
+
+
+### Bug Fixes
+
+* log reason for headless/interactive mode detection ([6c79196](https://github.com/lmarqs/terraform-ui/commit/6c791967399c07c1de5e8a44cdafbf633f42e0ab))
+
 ## [1.7.1](https://github.com/lmarqs/terraform-ui/compare/v1.7.0...v1.7.1) (2026-05-21)
 
 
