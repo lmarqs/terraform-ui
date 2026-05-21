@@ -201,26 +201,31 @@ The user sees every step. There is no shortcut.
 
 #### Visual Treatment
 
-| Duration | What the user sees |
-|----------|-------------------|
-| Immediate | Faint italic text: `"Loading workspaces..."`, `"Running terraform plan..."` |
-| After 2s | Append elapsed time: `"Running terraform plan... 4s"` |
+| Operation | What the user sees |
+|-----------|-------------------|
+| Streaming terraform command | `StreamFrame` — real-time log output with auto-scroll, scrollbar gutter |
+| Non-streaming async (workspace list, etc.) | Faint italic text with elapsed time: `"Loading workspaces... 4s"` |
 
-Rendered with `sdk.StyleFaintItalic` — visually distinct from content, clearly transient.
+`StreamFrame` (`pkg/sdk/frames/`) is the standard treatment for `plan`, `apply`, and `init`. It:
+- Auto-scrolls to the bottom as lines arrive; pauses if the user scrolls up manually
+- `G` jumps back to the bottom and resumes auto-scroll
+- Stays on screen after the command finishes (success or error)
+- On success: the plugin auto-navigates to its result view (plan tree, apply done state, init deactivates); the log remains accessible via `l`
+- On error: plugin shows its error view; the log remains accessible via `l`
 
-#### Hint Bar & Actions Bar During Loading
+Non-streaming operations (e.g., workspace list fetch) continue using `sdk.StyleFaintItalic` with elapsed time.
 
-Only show keys that work during loading:
+#### Cancellation in StreamFrame
 
-- **Hint bar**: only `q back`
-- **Actions bar**: not rendered (no content to act on)
+- `^c` (first press): sends SIGINT (terraform graceful shutdown); hint changes to `^c force cancel`
+- `^c` (second press): opens `ConfirmFrame` overlay — "Force cancel? Infrastructure may be left in a partial state. (y/n)"
+  - `y` → sends SIGINT again (brutal shutdown)
+  - `n` → dismisses overlay, returns to log
 
-```go
-// Loading state — only back is available
-[]sdk.KeyHint{
-    sdk.HintBack,
-}
-```
+#### Hint Bar & Actions Bar During Streaming
+
+- **Hint bar**: `^c cancel` while running; `^c force cancel` after first SIGINT; `Esc back` when done
+- **Actions bar**: not rendered (no content to act on during execution)
 
 Never show content-dependent hints during loading — there's nothing to navigate or act on. Showing unavailable keys is lying to the user.
 

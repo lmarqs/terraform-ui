@@ -2,14 +2,24 @@ package init
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	sdkframes "github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
+
+// newTestResultFrame creates a resultFrame backed by a no-op StreamFrame for unit tests.
+func newTestResultFrame(timer *ui.Timer) *resultFrame {
+	lw, ch := sdkframes.NewLineWriter()
+	lw.Close()
+	sf := sdkframes.NewStreamFrame("test", ch, nil)
+	return newResultFrame(timer, sf)
+}
 
 func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
@@ -166,14 +176,14 @@ func TestView_WhenFormActive_ShouldDelegateToStack(t *testing.T) {
 	}
 }
 
-func TestView_WhenResultFrameLoading_ShouldReturnNonEmpty(t *testing.T) {
+func TestView_GivenLoadingWithNoStreamOutput_ShouldShowProgressMessage(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate()
 	p.Update(initSubmitMsg{})
 
 	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View in Loading state should not be empty")
+	if !strings.Contains(view, "Running terraform init") {
+		t.Errorf("View in Loading state should show progress message, got %q", view)
 	}
 }
 
@@ -358,7 +368,7 @@ func TestPlugin_WhenOutput_ShouldReturnSuccessMessage(t *testing.T) {
 
 func TestResultFrame_WhenViewInDone_ShouldShowSuccess(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusDone
 	view := rf.View(80, 24)
 	if view == "" {
@@ -368,7 +378,7 @@ func TestResultFrame_WhenViewInDone_ShouldShowSuccess(t *testing.T) {
 
 func TestResultFrame_WhenHintsInLoading_ShouldReturnBack(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	hints := rf.Hints()
 	if len(hints) == 0 {
 		t.Fatal("Hints in Loading returned empty")
@@ -377,7 +387,7 @@ func TestResultFrame_WhenHintsInLoading_ShouldReturnBack(t *testing.T) {
 
 func TestResultFrame_WhenHintsInError_ShouldReturnEnterAndBack(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusError
 	hints := rf.Hints()
 	if len(hints) != 2 {
@@ -390,7 +400,7 @@ func TestResultFrame_WhenHintsInError_ShouldReturnEnterAndBack(t *testing.T) {
 
 func TestResultFrame_WhenHintsInDone_ShouldReturnNil(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusDone
 	if hints := rf.Hints(); hints != nil {
 		t.Errorf("Hints in Done = %v, want nil", hints)
@@ -399,7 +409,7 @@ func TestResultFrame_WhenHintsInDone_ShouldReturnNil(t *testing.T) {
 
 func TestResultFrame_WhenSuccess_ShouldReturnCmd(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	_, cmd := rf.Update(InitResultMsg{Err: nil, Duration: time.Second})
 	if cmd == nil {
 		t.Fatal("success should return cmd")
@@ -436,7 +446,7 @@ func TestResultFrame_WhenSuccess_ShouldReturnCmd(t *testing.T) {
 
 func TestResultFrame_WhenError_ShouldSetErrorStatus(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	_, cmd := rf.Update(InitResultMsg{Err: errors.New("fail"), Duration: time.Second})
 	if cmd != nil {
 		t.Error("error should return nil cmd")
@@ -451,7 +461,7 @@ func TestResultFrame_WhenError_ShouldSetErrorStatus(t *testing.T) {
 
 func TestResultFrame_WhenEnterInError_ShouldPop(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusError
 	frame, _ := rf.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if frame != nil {
@@ -461,7 +471,7 @@ func TestResultFrame_WhenEnterInError_ShouldPop(t *testing.T) {
 
 func TestResultFrame_WhenEnterInLoading_ShouldNotPop(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	frame, _ := rf.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if frame == nil {
 		t.Error("Enter in loading should not pop")
@@ -625,7 +635,7 @@ func TestPlugin_WhenEditExtraArgsCallback_ShouldStoreValue(t *testing.T) {
 func TestResultFrame_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
 	var timer ui.Timer
 	timer.Start()
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 
 	_, cmd := rf.Update(ui.TimerTickMsg{})
 	if cmd == nil {
@@ -635,7 +645,7 @@ func TestResultFrame_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
 
 func TestResultFrame_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 
 	_, cmd := rf.Update(ui.TimerTickMsg{})
 	if cmd != nil {
@@ -645,7 +655,7 @@ func TestResultFrame_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T)
 
 func TestResultFrame_WhenUnhandledKeyInLoading_ShouldReturnSelf(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 
 	frame, cmd := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if frame != rf {
@@ -658,7 +668,7 @@ func TestResultFrame_WhenUnhandledKeyInLoading_ShouldReturnSelf(t *testing.T) {
 
 func TestResultFrame_WhenNonEnterKeyInError_ShouldReturnSelf(t *testing.T) {
 	var timer ui.Timer
-	rf := newResultFrame(&timer)
+	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusError
 
 	frame, cmd := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})

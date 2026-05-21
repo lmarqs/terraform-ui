@@ -11,6 +11,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
@@ -137,7 +138,7 @@ func TestActivateWhileLoadingRestartsTick(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
+func TestActivate_GivenPlanSucceeds_ShouldReturnSummaryInCmd(t *testing.T) {
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{
@@ -188,7 +189,7 @@ func TestActivateCmdReturnsPlanResultMsg(t *testing.T) {
 	}
 }
 
-func TestActivateCmdReturnsError(t *testing.T) {
+func TestActivate_GivenPlanFails_ShouldReturnErrorInCmd(t *testing.T) {
 	svc := &sdktest.MockService{
 		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 			return nil, errors.New("plan failed")
@@ -415,34 +416,33 @@ func TestUpdateKeyMsgInspect(t *testing.T) {
 	}
 }
 
-func TestUpdateKeyMsgRefresh(t *testing.T) {
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return &sdk.PlanSummary{}, nil
-		},
-	}
-	p := New(svc)
-	pp := p.(*Plugin)
-	pp.status = sdk.StatusDone
+func TestCtrlR_GivenStatusDone_ShouldTriggerRefresh(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
 
-	// ctrl+r triggers refresh when status is Done
-	cmd := pp.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
-		t.Error("after ctrl+r in sdk.StatusDone: cmd = nil, want non-nil (refresh)")
+		t.Error("ctrl+r when Done should trigger refresh")
 	}
+}
 
-	// ctrl+r triggers refresh when status is Error
-	pp.status = sdk.StatusError
-	cmd = pp.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+func TestCtrlR_GivenStatusError_ShouldTriggerRefresh(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusError
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd == nil {
-		t.Error("after ctrl+r in sdk.StatusError: cmd = nil, want non-nil (refresh)")
+		t.Error("ctrl+r when Error should trigger refresh")
 	}
+}
 
-	// ctrl+r does nothing when Loading
-	pp.status = sdk.StatusLoading
-	cmd = pp.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+func TestCtrlR_GivenStatusLoading_ShouldBeIgnored(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusLoading
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd != nil {
-		t.Error("after ctrl+r in sdk.StatusLoading: cmd != nil, want nil")
+		t.Error("ctrl+r during Loading should be ignored")
 	}
 }
 
@@ -1830,5 +1830,53 @@ func TestView_WhenFilterActive_ShouldShowListContent(t *testing.T) {
 	view := p.View(80, 20)
 	if !strings.Contains(view, "aws_instance.web") {
 		t.Errorf("filter view should contain resource address, got %q", view)
+	}
+}
+
+func TestLKey_GivenStreamPresent_ShouldPushStreamFrameOnStack(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("terraform plan", ch, nil)
+	depthBefore := p.stack.Depth()
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore+1 {
+		t.Errorf("after l: stack depth = %d, want %d", p.stack.Depth(), depthBefore+1)
+	}
+	if p.stack.Peek().ID() != "stream" {
+		t.Errorf("after l: top frame ID = %q, want %q", p.stack.Peek().ID(), "stream")
+	}
+}
+
+func TestUpdate_GivenPlanError_ShouldRestoreListFrameAsTopFrame(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.stack.Push(frames.NewStreamFrame("terraform plan", ch, nil))
+
+	p.Update(PlanResultMsg{Err: errors.New("plan failed")})
+
+	if p.stack.Peek().ID() != "list" {
+		t.Errorf("after PlanResultMsg error: top frame ID = %q, want %q", p.stack.Peek().ID(), "list")
+	}
+}
+
+func TestUpdate_GivenPlanError_ShouldPreserveLastStreamForLKey(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	sf := frames.NewStreamFrame("terraform plan", ch, nil)
+	p.lastStream = sf
+	p.stack.Push(sf)
+
+	p.Update(PlanResultMsg{Err: errors.New("plan failed")})
+
+	if p.lastStream == nil {
+		t.Error("lastStream should be preserved after plan error for l key access")
 	}
 }

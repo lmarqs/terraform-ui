@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
@@ -51,6 +52,8 @@ type Plugin struct {
 	listPanel     *ui.ContentPanel
 	pinnedOnly    bool
 	cancelFn      context.CancelFunc
+	lastStream    *frames.StreamFrame // retained for L key re-display after success
+	streamCh      <-chan string       // stored so callers can batch WaitForLine separately
 	// detail view state
 	detail       string
 	detailAddr   string
@@ -167,12 +170,15 @@ func (e *Plugin) reset() {
 	e.filterScores = nil
 	e.errMsg = ""
 	e.lockInfo = nil
+	e.lastStream = nil
+	e.streamCh = nil
 	e.listPanel.ResetScroll()
 	e.detail = ""
 	e.detailAddr = ""
 	e.detailScroll = 0
 	e.detailPanel.ResetScroll()
 	e.fuzzy.SetItems(nil)
+	e.stack.Clear()
 }
 
 // Activate triggers the plan when the user enters the plugin view.
@@ -181,7 +187,8 @@ func (e *Plugin) Activate() tea.Cmd {
 		e.stale = false
 		e.status = sdk.StatusLoading
 		e.log.Debug("plan.start", "targets", e.targets)
-		return tea.Batch(e.runPlan(), e.timer.Start())
+		planCmd := e.runPlan()
+		return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 	}
 	if e.status == sdk.StatusLoading && e.timer.Running() {
 		return e.timer.Tick()
@@ -204,10 +211,8 @@ func (e *Plugin) Refresh() tea.Cmd {
 	e.detail = ""
 	e.detailAddr = ""
 	e.fuzzy.SetItems(nil)
-	if e.stack != nil {
-		e.stack.Clear()
-	}
-	return tea.Batch(e.runPlan(), e.timer.Start())
+	planCmd := e.runPlan()
+	return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 }
 
 // Cancel aborts any in-flight terraform operation.
@@ -222,16 +227,32 @@ func (e *Plugin) runPlan() tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
+
+	lw, ch := frames.NewLineWriter()
+	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
+	e.lastStream = sf
+	e.streamCh = ch
+	e.stack.Clear()
+	e.stack.Push(sf)
+
 	svc := e.svc
 	opts := sdk.BuildPlanOptions(e.options, e.targets)
+	opts.Writer = lw
 	return func() tea.Msg {
 		summary, err := svc.Plan(ctx, opts)
+		lw.Close()
 		return PlanResultMsg{Summary: summary, Err: err}
 	}
 }
 
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
+	switch msg.(type) {
+	case frames.StreamLineMsg, frames.StreamDoneMsg:
+		cmd := e.stack.Update(msg)
+		return e, cmd
+	}
+
 	switch msg := msg.(type) {
 	case ui.TimerTickMsg:
 		return e, e.timer.Tick()
@@ -243,9 +264,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.log.Debug("plan.error", "error", msg.Err.Error())
+			e.stack.Clear()
+			e.stack.Push(&listFrame{plugin: e})
 			if e.lockInfo != nil {
 				return e, func() tea.Msg { return sdk.LockDetectedEvent{Lock: e.lockInfo} }
 			}
+			return e, nil
 		} else {
 			e.status = sdk.StatusDone
 			e.summary = msg.Summary
@@ -255,6 +279,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				e.pruneStale(msg.Summary.Changes)
 				e.rebuildTree()
 			}
+			// Pop the StreamFrame and restore the list frame so the tree is shown.
+			e.stack.Clear()
+			e.stack.Push(&listFrame{plugin: e})
+
 			changes := 0
 			if msg.Summary != nil {
 				changes = len(msg.Summary.Changes)
@@ -273,7 +301,6 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			}
 			return e, func() tea.Msg { return sdk.StateRefreshedEvent{} }
 		}
-		return e, nil
 	}
 	return e, nil
 }

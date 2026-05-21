@@ -7,7 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
+	sdkframes "github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
@@ -25,6 +25,8 @@ type Plugin struct {
 	svc   sdk.Service
 	timer ui.Timer
 	stack *sdk.Stack
+	lw    *sdkframes.LineWriter
+	ch    <-chan string
 
 	// Form state (preserved across runs for re-fill)
 	upgrade        bool
@@ -123,9 +125,27 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case initSubmitMsg:
 		p.stack.Reset()
 		p.stack.Push(p.buildForm())
-		rf := newResultFrame(&p.timer)
+		lw, ch := sdkframes.NewLineWriter()
+		p.lw = lw
+		p.ch = ch
+		sf := sdkframes.NewStreamFrame("terraform init", ch, p.Cancel)
+		rf := newResultFrame(&p.timer, sf)
 		p.stack.Push(rf)
-		return p, p.submit()
+		return p, p.submit(lw)
+
+	case sdkframes.StreamLineMsg:
+		if top := p.stack.Peek(); top != nil {
+			_, cmd := top.Update(msg)
+			return p, cmd
+		}
+		// No frame on stack — schedule next read to drain the channel.
+		return p, sdkframes.WaitForLine(p.ch)
+
+	case sdkframes.StreamDoneMsg:
+		if top := p.stack.Peek(); top != nil {
+			_, cmd := top.Update(msg)
+			return p, cmd
+		}
 
 	case InitResultMsg, ui.TimerTickMsg:
 		if top := p.stack.Peek(); top != nil {
@@ -140,9 +160,9 @@ func (p *Plugin) View(width, height int) string {
 	return p.stack.View(width, height)
 }
 
-func (p *Plugin) buildForm() *frames.FormFrame {
-	return frames.NewFormFrame(frames.FormOpts{
-		Fields: []frames.FormField{
+func (p *Plugin) buildForm() *sdkframes.FormFrame {
+	return sdkframes.NewFormFrame(sdkframes.FormOpts{
+		Fields: []sdkframes.FormField{
 			{
 				Label:      "upgrade",
 				Value:      func() string { return checkbox(p.upgrade) },
@@ -201,7 +221,7 @@ func (p *Plugin) Cancel() {
 	}
 }
 
-func (p *Plugin) submit() tea.Cmd {
+func (p *Plugin) submit(lw *sdkframes.LineWriter) tea.Cmd {
 	p.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
@@ -210,6 +230,7 @@ func (p *Plugin) submit() tea.Cmd {
 		Upgrade:       p.upgrade,
 		Reconfigure:   p.reconfigure,
 		BackendConfig: p.backendConfigs,
+		Writer:        lw,
 	}
 	if !p.backend {
 		f := false
@@ -219,11 +240,17 @@ func (p *Plugin) submit() tea.Cmd {
 		opts.ExtraArgs = strings.Fields(p.extraArgs)
 	}
 
+	ch := p.ch
 	start := time.Now()
-	return tea.Batch(func() tea.Msg {
-		err := svc.Init(ctx, opts)
-		return InitResultMsg{Err: err, Duration: time.Since(start)}
-	}, p.timer.Start())
+	return tea.Batch(
+		func() tea.Msg {
+			err := svc.Init(ctx, opts)
+			lw.Close()
+			return InitResultMsg{Err: err, Duration: time.Since(start)}
+		},
+		p.timer.Start(),
+		sdkframes.WaitForLine(ch),
+	)
 }
 
 func (p *Plugin) extraArgsDisplay() string {

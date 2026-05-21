@@ -99,6 +99,10 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 	planOpts := []tfexec.PlanOption{
 		tfexec.Out(planFilePath),
 	}
+	if opts.Writer != nil {
+		tf.SetStdout(opts.Writer)
+		tf.SetStderr(opts.Writer)
+	}
 	for _, t := range opts.Targets {
 		planOpts = append(planOpts, tfexec.Target(t))
 	}
@@ -170,6 +174,11 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 	}
 
 	planFilePath := filepath.Join(s.workingDir, planFileName)
+
+	if opts.Writer != nil {
+		tf.SetStdout(opts.Writer)
+		tf.SetStderr(opts.Writer)
+	}
 
 	var applyOpts []tfexec.ApplyOption
 	if len(opts.Targets) > 0 {
@@ -303,6 +312,11 @@ func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 	tf, err := s.newTerraform()
 	if err != nil {
 		return fmt.Errorf("initializing: %w", err)
+	}
+
+	if opts.Writer != nil {
+		tf.SetStdout(opts.Writer)
+		tf.SetStderr(opts.Writer)
 	}
 
 	var initOpts []tfexec.InitOption

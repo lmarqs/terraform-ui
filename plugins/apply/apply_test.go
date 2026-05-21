@@ -400,12 +400,19 @@ func TestRunApply_WhenServiceSucceeds_ShouldReturnSuccessMsg(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
-	cmd := p.runApply()
-	msg := cmd()
-
-	result, ok := msg.(ApplyResultMsg)
-	if !ok {
-		t.Fatalf("runApply cmd returned %T, want ApplyResultMsg", msg)
+	// runApply returns a tea.Batch; extract and run the service cmd.
+	batch := p.runApply()().(tea.BatchMsg)
+	var result ApplyResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ApplyResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runApply batch did not produce ApplyResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("ApplyResultMsg.Err = %v, want nil", result.Err)
@@ -421,12 +428,18 @@ func TestRunApply_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
-	cmd := p.runApply()
-	msg := cmd()
-
-	result, ok := msg.(ApplyResultMsg)
-	if !ok {
-		t.Fatalf("runApply cmd returned %T, want ApplyResultMsg", msg)
+	batch := p.runApply()().(tea.BatchMsg)
+	var result ApplyResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ApplyResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runApply batch did not produce ApplyResultMsg")
 	}
 	if result.Err == nil {
 		t.Error("ApplyResultMsg.Err = nil, want error")
@@ -1061,11 +1074,18 @@ func TestPlugin_WhenRunReplan_ShouldReturnReplanResultMsg(t *testing.T) {
 	p.options = &sdk.ResolvedOptions{}
 	p.targets = []string{"aws_instance.web"}
 
-	cmd := p.runReplan()
-	msg := cmd()
-	result, ok := msg.(ReplanResultMsg)
-	if !ok {
-		t.Fatalf("runReplan cmd returned %T, want ReplanResultMsg", msg)
+	batch := p.runReplan()().(tea.BatchMsg)
+	var result ReplanResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ReplanResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runReplan batch did not produce ReplanResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("ReplanResultMsg.Err = %v, want nil", result.Err)
@@ -1086,9 +1106,19 @@ func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
 	p.options = &sdk.ResolvedOptions{}
 	p.targets = []string{"aws_instance.web"}
 
-	cmd := p.runReplan()
-	msg := cmd()
-	result := msg.(ReplanResultMsg)
+	batch := p.runReplan()().(tea.BatchMsg)
+	var result ReplanResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ReplanResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runReplan batch did not produce ReplanResultMsg")
+	}
 	if result.Err == nil {
 		t.Error("ReplanResultMsg.Err = nil, want error")
 	}
