@@ -1,3 +1,10 @@
+## [1.7.3](https://github.com/lmarqs/terraform-ui/compare/v1.7.2...v1.7.3) (2026-05-21)
+
+
+### Bug Fixes
+
+* **ci:** pass secrets to release workflow ([063e123](https://github.com/lmarqs/terraform-ui/commit/063e12318429c26348a8d7b4b1043b30c5ff84ca))
+
 ## [1.7.2](https://github.com/lmarqs/terraform-ui/compare/v1.7.1...v1.7.2) (2026-05-21)
 
 
