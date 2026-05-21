@@ -1,3 +1,10 @@
+## [1.7.1](https://github.com/lmarqs/terraform-ui/compare/v1.7.0...v1.7.1) (2026-05-21)
+
+
+### Bug Fixes
+
+* serialize terraform CLI calls per directory via DirLock ([e19ccb4](https://github.com/lmarqs/terraform-ui/commit/e19ccb4921e9a25bca46859533a813de2618532d))
+
 # [1.7.0](https://github.com/lmarqs/terraform-ui/compare/v1.6.0...v1.7.0) (2026-05-20)
 
 
