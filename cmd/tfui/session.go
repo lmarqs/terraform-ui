@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/macro"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/source"
@@ -135,14 +136,26 @@ func (s *Session) validate() error {
 
 func (s *Session) resolveAxes() axes {
 	if s.macroURI != "" {
+		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "recording", "reason", "macro")
 		return axes{Headless, Recording}
 	}
 	if s.pluginID == "" {
+		logging.Logger().Debug("session.axes", "presentation", "interactive", "backend", "exec", "reason", "root")
 		return axes{Interactive, Exec}
 	}
-	if s.ciMode || os.Getenv("CI") == "1" || !isStderrTTY() {
+	if s.ciMode {
+		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "exec", "reason", "ci-flag")
 		return axes{Headless, Exec}
 	}
+	if os.Getenv("CI") == "1" {
+		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "exec", "reason", "ci-env")
+		return axes{Headless, Exec}
+	}
+	if !isStderrTTY() {
+		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "exec", "reason", "no-tty")
+		return axes{Headless, Exec}
+	}
+	logging.Logger().Debug("session.axes", "presentation", "interactive", "backend", "exec", "reason", "tty")
 	return axes{Interactive, Exec}
 }
 
