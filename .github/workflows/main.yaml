@@ -30,3 +30,4 @@ jobs:
     permissions:
       actions: write
       contents: write
+    secrets: inherit
