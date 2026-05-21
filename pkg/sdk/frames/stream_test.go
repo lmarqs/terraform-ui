@@ -317,6 +317,103 @@ func TestStreamFrame_LinesMutationDoesNotAffectInternal(t *testing.T) {
 	}
 }
 
+func TestLineWriter_CloseIsIdempotent(t *testing.T) {
+	lw, ch := NewLineWriter()
+	lw.Close()
+	lw.Close() // second close must not panic or re-close the channel
+
+	var lines []string
+	for line := range ch {
+		lines = append(lines, line)
+	}
+	if len(lines) != 0 {
+		t.Errorf("got lines %v after double-close, want []", lines)
+	}
+}
+
+func TestLineWriter_DropsSilentlyWhenChannelFull(t *testing.T) {
+	lw, _ := NewLineWriter() // intentionally do not drain
+	// 256 fills the buffer; the 257th hits the default: branch
+	for i := 0; i < 257; i++ {
+		lw.Write([]byte("line\n")) //nolint
+	}
+	lw.Close()
+}
+
+func TestLineWriter_CloseDropsPartialLineWhenChannelFull(t *testing.T) {
+	lw, _ := NewLineWriter() // intentionally do not drain
+	// Fill all 256 channel slots with complete lines
+	for i := 0; i < 256; i++ {
+		lw.Write([]byte("line\n")) //nolint
+	}
+	lw.Write([]byte("partial")) // no newline → sits in buf
+	lw.Close()                  // tries to flush "partial" into full channel → default:
+}
+
+func TestStreamFrame_DoneNonEscKeyCallsHandleScroll(t *testing.T) {
+	_, ch := NewLineWriter()
+	sf := NewStreamFrame("test", ch, nil)
+	sf.done = true
+	sf.lines = []string{"a", "b", "c", "d", "e"}
+	sf.scrollY = 4
+	sf.autoScroll = false
+
+	// "g" (lowercase) when done: hits lines 143-144 AND the g branch of handleScroll
+	next, cmd := sf.Update(keyMsg("g"))
+	if next == nil {
+		t.Fatal("non-esc key when done should not pop frame")
+	}
+	if cmd != nil {
+		t.Errorf("non-esc key when done should return nil cmd, got %T", cmd)
+	}
+	if sf.scrollY != 0 {
+		t.Errorf("scrollY = %d, want 0 after g", sf.scrollY)
+	}
+	if sf.autoScroll {
+		t.Fatal("g key should not enable autoScroll")
+	}
+}
+
+func TestStreamFrame_DownKeyScrollsDown(t *testing.T) {
+	_, ch := NewLineWriter()
+	sf := NewStreamFrame("test", ch, nil)
+	sf.lines = []string{"a", "b", "c"}
+	sf.scrollY = 0
+	sf.autoScroll = false
+
+	sf.Update(keyMsg("down"))
+	if sf.scrollY != 1 {
+		t.Errorf("scrollY = %d, want 1 after down", sf.scrollY)
+	}
+	if sf.autoScroll {
+		t.Fatal("down key should disable autoScroll")
+	}
+}
+
+func TestStreamFrame_ViewWithZeroHeightFallsBackTo20(t *testing.T) {
+	sf := makeStream([]string{"line1"})
+	sf.done = true
+	sf.autoScroll = false
+
+	// height=0 triggers the height<=0 fallback; should render without panic
+	view := sf.View(80, 0)
+	if !strings.Contains(view, "line1") {
+		t.Errorf("view with height=0 should fallback to height=20 and render lines, got %q", view)
+	}
+}
+
+func TestStreamFrame_ViewNegativeScrollYClampsToZero(t *testing.T) {
+	sf := makeStream([]string{"line1"})
+	sf.done = true
+	sf.autoScroll = false
+	sf.scrollY = -1
+
+	sf.View(80, 24)
+	if sf.scrollY != 0 {
+		t.Errorf("scrollY after View = %d, want 0 (clamped from -1)", sf.scrollY)
+	}
+}
+
 func TestStreamFrame_ViewDelegatesToConfirmWhenActive(t *testing.T) {
 	_, ch := NewLineWriter()
 	sf := NewStreamFrame("test", ch, func() {})

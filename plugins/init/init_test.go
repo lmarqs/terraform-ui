@@ -809,6 +809,59 @@ func TestActivateWithArgs_WhenEmptyArgs_ShouldAutoSubmitWithDefaults(t *testing.
 	}
 }
 
+func TestUpdate_WhenStreamLineMsgWithResultFrame_ShouldRouteToTopFrame(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Activate()
+	p.Update(initSubmitMsg{})
+	// result frame is now on top of stack
+
+	_, cmd := p.Update(sdkframes.StreamLineMsg{Line: "output"})
+	if cmd == nil {
+		t.Fatal("StreamLineMsg with result frame on stack should return non-nil cmd (WaitForLine)")
+	}
+}
+
+func TestUpdate_WhenStreamLineMsgWithEmptyStack_ShouldReturnWaitForLineCmd(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	// stack is empty immediately after New (before Activate)
+	lw, ch := sdkframes.NewLineWriter()
+	p.ch = ch
+
+	_, cmd := p.Update(sdkframes.StreamLineMsg{Line: "orphan line"})
+	if cmd == nil {
+		t.Fatal("StreamLineMsg with empty stack should return WaitForLine cmd")
+	}
+	lw.Close()
+}
+
+func TestResultFrame_WhenKeyMsgInDone_ShouldDelegateToStream(t *testing.T) {
+	var timer ui.Timer
+	rf := newTestResultFrame(&timer)
+	rf.status = sdk.StatusDone
+
+	// Any key in Done state delegates to the stream frame
+	frame, _ := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if frame != rf {
+		t.Error("key in Done should return self (not pop)")
+	}
+}
+
+func TestResultFrame_WhenViewInLoadingWithStreamOutput_ShouldReturnStreamView(t *testing.T) {
+	var timer ui.Timer
+	lw, ch := sdkframes.NewLineWriter()
+	sf := sdkframes.NewStreamFrame("test", ch, nil)
+	rf := newResultFrame(&timer, sf)
+
+	// Seed a line through the result frame so stream.View() returns non-empty
+	rf.Update(sdkframes.StreamLineMsg{Line: "terraform output"})
+
+	view := rf.View(80, 24)
+	if view == "" {
+		t.Error("View in Loading with stream output should return non-empty string")
+	}
+	lw.Close()
+}
+
 func TestActivateWithArgs_ShouldResetPreviousState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)

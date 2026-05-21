@@ -1880,3 +1880,59 @@ func TestUpdate_GivenPlanError_ShouldPreserveLastStreamForLKey(t *testing.T) {
 		t.Error("lastStream should be preserved after plan error for l key access")
 	}
 }
+
+func TestUpdate_WhenStreamLineMsgArrives_ShouldRouteToStack(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	lw, ch := frames.NewLineWriter()
+	p.stack.Push(frames.NewStreamFrame("terraform plan", ch, nil))
+
+	_, cmd := p.Update(frames.StreamLineMsg{Line: "output line"})
+	if cmd == nil {
+		t.Fatal("Update(StreamLineMsg) with StreamFrame on stack should return WaitForLine cmd")
+	}
+	lw.Close()
+}
+
+func TestListFrame_WhenHintsDoneNoChangesWithLastStream_ShouldIncludeLHint(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("terraform plan", ch, nil)
+
+	hints := p.stack.Hints()
+	hasL := false
+	for _, h := range hints {
+		if h.Key == "l" {
+			hasL = true
+		}
+	}
+	if !hasL {
+		t.Error("Hints(Done, no changes, lastStream set): missing 'l' log hint")
+	}
+}
+
+func TestListFrame_WhenHintsDoneWithChangesAndLastStream_ShouldIncludeLHint(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
+		},
+	}
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("terraform plan", ch, nil)
+
+	hints := p.stack.Hints()
+	hasL := false
+	for _, h := range hints {
+		if h.Key == "l" {
+			hasL = true
+		}
+	}
+	if !hasL {
+		t.Error("Hints(Done, with changes, lastStream set): missing 'l' log hint")
+	}
+}
