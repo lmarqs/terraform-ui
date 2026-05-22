@@ -18,8 +18,6 @@ key p
 wait view aws_instance.web
 key space
 key a
-wait view Apply
+wait view Apply targeted plan
 key y
-wait view Are you sure
-assert view Targeting 1 resource(s).
-key y
+wait view Apply complete

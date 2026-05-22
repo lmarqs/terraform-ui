@@ -12,4 +12,4 @@
 
 wait ready
 key w
-wait view Workspaces
+wait view Workspace

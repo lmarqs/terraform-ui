@@ -22,7 +22,5 @@ wait ready
 key p
 wait view aws_instance.web
 key a
-wait view Apply plan
-key y
 wait view Are you sure
 key y
