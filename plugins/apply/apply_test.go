@@ -1383,3 +1383,42 @@ func TestView_WhenStackHasFrame_ShouldDelegateToTopFrame(t *testing.T) {
 	// The important thing is the delegation path is exercised (line 353-355)
 	_ = p.View(80, 24)
 }
+
+func TestActivateWithArgs_WhenAutoApprove_ShouldCallAutoApply(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{"--auto-approve"})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd from AutoApply")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("expected StatusLoading, got %v", p.status)
+	}
+}
+
+func TestActivateWithArgs_WhenNoAutoApprove_ShouldCallRequestApply(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs(nil)
+	if cmd != nil {
+		t.Fatal("expected nil cmd from RequestApply with no targets")
+	}
+	if p.status != StatusConfirming {
+		t.Errorf("expected StatusConfirming, got %v", p.status)
+	}
+}
+
+func TestActivateWithArgs_WhenTargets_ShouldSetTargetsAndReplan(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.ActivateWithArgs([]string{"--auto-approve", "--target=aws_instance.web"})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd")
+	}
+	if len(p.targets) != 1 || p.targets[0] != "aws_instance.web" {
+		t.Errorf("expected targets [aws_instance.web], got %v", p.targets)
+	}
+	if p.status != StatusReplanning {
+		t.Errorf("expected StatusReplanning, got %v", p.status)
+	}
+}
