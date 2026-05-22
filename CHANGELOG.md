@@ -1,3 +1,10 @@
+## [1.9.1](https://github.com/lmarqs/terraform-ui/compare/v1.9.0...v1.9.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **test:** update compat tapes for single-step apply confirmation ([be3947b](https://github.com/lmarqs/terraform-ui/commit/be3947b95cc7a5c7e0ee20f05b60f935f1e62379))
+
 # [1.9.0](https://github.com/lmarqs/terraform-ui/compare/v1.8.0...v1.9.0) (2026-05-22)
 
 
