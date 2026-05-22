@@ -1,3 +1,10 @@
+# [1.9.0](https://github.com/lmarqs/terraform-ui/compare/v1.8.0...v1.9.0) (2026-05-22)
+
+
+### Features
+
+* **cli:** wire --auto-approve and --target to apply plugin ([cee48e1](https://github.com/lmarqs/terraform-ui/commit/cee48e15e29c4278a6371c92574177d99966758a))
+
 # [1.8.0](https://github.com/lmarqs/terraform-ui/compare/v1.7.3...v1.8.0) (2026-05-22)
 
 
