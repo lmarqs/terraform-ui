@@ -27,24 +27,30 @@ Plugins depend exclusively on `pkg/sdk/`. Internal packages implement the interf
 
 ```
 cmd/tfui/main.go           — CLI entry point, plugin registration (thin glue)
-pkg/sdk/                   — Public SDK (the only dependency for plugins)
-  plugin.go                — Plugin interface
+pkg/sdk/                   — Public SDK (the only dependency for plugins; key files below)
+  plugin.go                — Plugin interface + optional interfaces
   context.go               — Shared context (service, dir, workspace)
   types.go                 — Domain types (Action, RiskLevel, Resource, PlanChange)
   service.go               — Service interface (terraform operations)
   bus.go                   — EventBus typed dispatch
   events.go                — Event types and handler interfaces
   options.go               — ResolvedOptions + BuildPlanOptions/BuildApplyOptions
+  frame.go, stack.go       — Frame stack navigation primitives
+  overlay.go, input.go     — Modal overlays and input system
+  action.go                — PluginAction system (CLI/REPL-callable operations)
+  app_context.go           — Root application state container
   styles.go                — Style constants for consistent rendering
 internal/
   config/config.go         — HCL config loading, project discovery
   plugin/registry.go       — Plugin registry (host-side only)
   terraform/
-    service.go             — ExecService (implements sdk.Service via terraform-exec)
+    exec/
+      service.go           — ExecService (implements sdk.Service via terraform-exec)
+      state_ops.go         — State operations (rm, mv, import, taint, untaint)
+      workspace_ops.go     — Workspace operations
+      dir_lock.go          — Non-reentrant per-directory lock (ADR-0016)
     macro_service.go       — MacroService (records commands, reads from cache)
     service_cache.go       — ServiceCache (typed, source-aware data cache)
-    state_ops.go           — State operations (rm, mv, import, taint, untaint)
-    workspace_ops.go       — Workspace operations
     plan_parser.go         — Plan JSON parsing
   source/                  — Universal source abstraction (URI resolution, providers)
   macro/                   — Macro engine (Driver, tape DSL parser)
@@ -156,12 +162,15 @@ OpenTofu is supported via explicit `terraform.bin = "tofu"` in HCL config, or by
 
 ## Entry Point (`cmd/tfui/`)
 
-The CLI layer is split across two files:
+The CLI layer is split across several files:
 
 ```
 cmd/tfui/
-├── main.go        — Cobra command tree, flag bindings, buildRegistry()
-└── session.go     — Session builder: orthogonal dispatch pipeline
+├── main.go            — Cobra command tree, flag bindings, buildRegistry()
+├── session.go         — Session builder: orthogonal dispatch pipeline
+├── cli.go             — Imperative subcommands (workspace, force-unlock)
+├── normalize.go       — Flag normalization (terraform flag compatibility)
+└── scaffold_wizard.go — Interactive project scaffolding wizard
 ```
 
 Every subcommand's `RunE` is a single fluent chain:
@@ -250,7 +259,7 @@ Runtime (chdir switch):
 
 | Layer | Approach | Coverage Target |
 |-------|----------|-----------------|
-| `pkg/sdk` | Type definitions, no logic | N/A |
+| `pkg/sdk` | Unit tests (bus, actions, stack, pins, options) | 100% |
 | `internal/terraform` (parsers) | Unit tests, mock data | 100% |
 | `internal/terraform` (service calls) | Integration tests (need terraform binary) | Excluded from unit coverage |
 | `internal/plugin` | Unit tests, mock plugins | 100% |

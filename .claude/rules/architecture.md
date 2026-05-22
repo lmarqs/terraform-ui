@@ -61,7 +61,7 @@ type Plugin interface {
 }
 ```
 
-Optional interfaces: `Activatable`, `Busy`, `Cancellable`, `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Stackable`, `Outputter`, `ExitCoder`, `ActivateWithArgs`.
+Optional interfaces: `Activatable`, `Busy`, `Cancellable`, `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Positionable`, `Stackable`, `Outputter`, `ExitCoder`, `ActivateWithArgs`.
 
 ## Plugin Routing (`internal/plugin/registry.go`)
 
@@ -171,7 +171,7 @@ This ensures the user always reviews exactly what will be applied — the target
 
 ## Service Interface (`pkg/sdk/service.go`)
 
-All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `Workspace*`, `ForceUnlock`, `Version`, `WithDir`.
+All terraform operations: `Plan`, `Apply`, `StateList`, `Show`, `StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`, `Validate`, `Output`, `Refresh`, `Init`, `WorkspaceList`, `WorkspaceSelect`, `WorkspaceNew`, `WorkspaceDelete`, `ForceUnlock`, `Version`, `WithDir`.
 
 Two implementations:
 - `ExecService` — wraps terraform-exec, uses ServiceCache for reads. All terraform CLI calls are serialized per working directory via DirLock (see ADR-0016). (service.go, state_ops.go, workspace_ops.go, dir_lock.go)
@@ -319,3 +319,4 @@ Beyond `FilterFrame`, `InspectFrame`, `ConfirmFrame`:
 
 - `ActionFrame` — displays running operation progress with cancel support
 - `FormFrame` — multi-field form with validation and submit/cancel
+- `StreamFrame` — real-time streaming output for long operations (plan, apply, init)
