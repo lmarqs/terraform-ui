@@ -10,19 +10,19 @@ jobs:
   check:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      checks: write
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/prepare-env
       - run: mise run check:lint
       - run: mise run test:unit
       - run: mise run test:coverage
-      - uses: actions/upload-artifact@v4
+      - uses: dorny/test-reporter@v1
         if: always()
         with:
-          name: test-reports
-          path: reports/
-          retention-days: 1
+          name: Tests
+          path: reports/*.xml
+          reporter: java-junit
 
 
   binaries:
