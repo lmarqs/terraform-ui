@@ -663,18 +663,21 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.activePlugin != nil {
 		// For stackable plugins, route keys through the navigation stack
 		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
-			cmd := stackable.Stack().Update(msg)
-			if stackable.Stack().IsEmpty() {
-				if len(a.navStack) > 0 {
-					a.navigateBack()
-					return a, tea.Batch(cmd, a.activate(a.activePlugin))
+			wasEmpty := stackable.Stack().IsEmpty()
+			if !wasEmpty {
+				cmd := stackable.Stack().Update(msg)
+				if stackable.Stack().IsEmpty() {
+					if len(a.navStack) > 0 {
+						a.navigateBack()
+						return a, tea.Batch(cmd, a.activate(a.activePlugin))
+					}
+					prev := a.activePlugin.ID()
+					a.activePlugin = nil
+					a.navStack = nil
+					logging.Logger().Debug("view.transition", "from", prev, "to", "home")
 				}
-				prev := a.activePlugin.ID()
-				a.activePlugin = nil
-				a.navStack = nil
-				logging.Logger().Debug("view.transition", "from", prev, "to", "home")
+				return a, cmd
 			}
-			return a, cmd
 		}
 		updated, cmd := a.activePlugin.Update(msg)
 		a.activePlugin = updated
