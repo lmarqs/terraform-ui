@@ -34,7 +34,6 @@ type Plugin struct {
 	backend        bool
 	backendConfigs []string
 	extraArgs      string
-	interactive    bool
 	cancelFn       context.CancelFunc
 }
 
@@ -86,9 +85,6 @@ func (p *Plugin) ActivateWithArgs(args []string) tea.Cmd {
 	p.parseArgs(args)
 	p.stack.Reset()
 	p.stack.Push(p.buildForm())
-	if p.interactive {
-		return nil
-	}
 	return func() tea.Msg { return initSubmitMsg{} }
 }
 
@@ -98,7 +94,6 @@ func (p *Plugin) resetState() {
 	p.backend = true
 	p.backendConfigs = nil
 	p.extraArgs = ""
-	p.interactive = false
 }
 
 func (p *Plugin) parseArgs(args []string) {
@@ -114,8 +109,6 @@ func (p *Plugin) parseArgs(args []string) {
 			p.backend = true
 		case strings.HasPrefix(arg, "--backend-config="):
 			p.backendConfigs = append(p.backendConfigs, strings.TrimPrefix(arg, "--backend-config="))
-		case arg == "--interactive":
-			p.interactive = true
 		}
 	}
 }

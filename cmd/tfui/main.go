@@ -189,7 +189,7 @@ func main() {
 	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
 	versionCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
-	var initUpgrade, initReconfigure, initInteractive bool
+	var initUpgrade, initReconfigure bool
 	var initBackendConfig []string
 
 	initCmd := &cobra.Command{
@@ -211,7 +211,6 @@ func main() {
 	initCmd.Flags().BoolVar(&initReconfigure, "reconfigure", false, "Reconfigure backend")
 	initCmd.Flags().Bool("backend", true, "Configure backend (--backend=false to skip)")
 	initCmd.Flags().StringArrayVar(&initBackendConfig, "backend-config", nil, "Backend configuration values")
-	initCmd.Flags().BoolVar(&initInteractive, "interactive", false, "Show interactive form before running")
 	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
 	validateCmd := &cobra.Command{
@@ -293,9 +292,6 @@ func main() {
 
 func buildInitArgs(cmd *cobra.Command) []string {
 	var args []string
-	if cmd.Flags().Changed("interactive") {
-		args = append(args, "--interactive")
-	}
 	if cmd.Flags().Changed("upgrade") {
 		args = append(args, "--upgrade")
 	}

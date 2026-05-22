@@ -785,21 +785,6 @@ func TestActivateWithArgs_WhenMultipleFlags_ShouldSetAll(t *testing.T) {
 	}
 }
 
-func TestActivateWithArgs_WhenInteractiveFlag_ShouldShowFormWithoutAutoSubmit(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	cmd := p.ActivateWithArgs([]string{"--interactive", "--upgrade"})
-	if cmd != nil {
-		t.Error("--interactive should NOT auto-submit (return nil cmd)")
-	}
-	if !p.upgrade {
-		t.Error("upgrade should still be pre-filled")
-	}
-	if p.stack.Peek() == nil || p.stack.Peek().ID() != "form" {
-		t.Error("form should be on stack")
-	}
-}
-
 func TestActivateWithArgs_WhenEmptyArgs_ShouldAutoSubmitWithDefaults(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
