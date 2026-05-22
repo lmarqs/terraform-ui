@@ -50,20 +50,11 @@ otherwise:           → Standalone TUI
 - Unknown flags are left unchanged (future terraform flags don't break)
 
 ### Novel flags (tfui-only)
-- Always double-dash: `-ci`, `-project`, `-macro`, `-plan`, `-state`, `-terraform-bin`, `-config`, `-chdir`, `-interactive`
+- Always double-dash: `-ci`, `-project`, `-macro`, `-plan`, `-state`, `-terraform-bin`, `-config`, `-chdir`
 - Use names terraform hasn't claimed — no collision risk
 - `-plan` and `-state` are available on ALL commands (pre-seed data, skip terraform execution)
 - `-macro` is available on ALL commands (on root: drives full TUI headlessly; on subcommands: drives standalone plugin headlessly, outputs recorded commands)
-- `-interactive` is the standard flag for guided form mode (see below)
-
-### Interactive mode (`-interactive`)
-
-Standard flag for subcommands that have interactive forms (init, import, etc.).
-
-- **Without `-interactive`**: CLI subcommands preserve terraform's native workflow — immediate execution with flags. No prompts, no wizard.
-- **With `-interactive`**: The TUI form is shown with any CLI flags pre-filled. User reviews and confirms before execution.
-- **Orthogonal to `-ci`**: `-ci` controls rendering (headless vs TUI). `-interactive` controls UX (auto-run vs guided form).
-- **Convention**: Every subcommand that supports a form/wizard SHOULD accept `-interactive` with consistent behavior. Init is the reference implementation.
+- Every novel flag must combine validly with every other flag (see ADR-0017)
 
 ### Passthrough (`--`)
 - Everything after `--` is stored as ExtraArgs

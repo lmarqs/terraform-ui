@@ -60,8 +60,8 @@ Flag scoping:
 - On root: `-macro` drives the full multi-plugin TUI headlessly
 - On subcommands: `-macro` drives the standalone plugin headlessly, outputs recorded commands
 - `-record <dir>`: captures ANSI frames + manifest.json (orthogonal to `-macro`)
-- `-interactive`: standard per-subcommand flag for form-capable plugins (shows guided form instead of auto-running)
 - All other flags: persistent (available everywhere)
+- Every novel flag must combine validly with every other flag — no conditional validity (see ADR-0017)
 
 Binary resolution:
 - `-terraform-bin` > `-config terraform.bin=X` > `tfui.hcl terraform { bin = "..." }` > `"terraform"`

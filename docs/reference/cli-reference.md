@@ -129,8 +129,6 @@ tfui init                           # Run immediately with defaults
 tfui init -upgrade                  # Run with -upgrade
 tfui init -upgrade -backend=false   # Run with -upgrade -backend=false
 tfui init -backend-config=path.hcl  # Run with -backend-config=path.hcl
-tfui init -interactive              # Show form for guided configuration
-tfui init -interactive -upgrade     # Show form pre-filled with upgrade=true
 tfui init -ci                       # Headless execution (no TUI)
 ```
 
@@ -142,7 +140,6 @@ tfui init -ci                       # Headless execution (no TUI)
 | `-reconfigure` | `false` | Reconfigure backend |
 | `-backend` | `true` | Configure backend (`-backend=false` to skip) |
 | `-backend-config` | — | Backend configuration values (repeatable) |
-| `-interactive` | `false` | Show interactive form before running (standard flag) |
 | `-ci` | `false` | Suppress TUI (CI-friendly output) |
 
 ### `tfui version`
