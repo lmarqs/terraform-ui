@@ -16,9 +16,10 @@ We broadcast all non-event, non-tick messages to every plugin. Each plugin's `Up
 ## Consequences
 
 - **Event handlers must not start async operations.** Handler return values produce commands whose results broadcast to all plugins. This is safe but wasteful -- and the handler runs while the plugin may not be active, so the operation's context (cursor position, filter state) may be stale. Handlers should only mutate local state (reset, mark stale). Async work belongs in `Activate()` or `Refresh()`.
-- **Timer ticks route only to the active plugin.** `TimerTickMsg` carries no plugin identity. Inactive plugins resume their tick chain via `Activate()` when re-entered.
+- **Plugin-local messages route only to the active plugin.** Messages that originate from an async channel or timer owned by a single plugin have no meaning to other plugins. Broadcasting them risks invoking handlers on plugins whose channels are nil (unactivated), which deadlocks the macro driver's synchronous event loop. Current instances: `TimerTickMsg`, `StreamLineMsg`, `StreamDoneMsg`.
 - **Plugins must tolerate receiving messages they didn't request.** The default `Update()` switch must fall through cleanly for unrecognized types (already true by convention, now load-bearing).
 - **Stale flag pattern for invalidation.** When a plugin has visible results (`StatusDone`) and receives an invalidation event, it preserves results and sets a `stale` flag. `Activate()` re-runs the operation on next entry; `ctrl+r` works for immediate refresh.
+- **Macro driver constraint.** The macro driver processes batch commands sequentially (each `Cmd` blocks until it returns a `Msg`). A blocking `Cmd` that reads from a nil or unwritten channel will deadlock the entire event loop. This diverges from the real BubbleTea runtime, which launches all batch commands as concurrent goroutines. The plugin-local routing rule above is the architectural guard against this class of bug.
 
 ## Considered Options
 
