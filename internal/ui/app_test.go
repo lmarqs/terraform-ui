@@ -13,6 +13,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
@@ -4192,6 +4193,40 @@ func TestApp_Update_WhenTimerTickMsgWithNoActivePlugin_ShouldReturnNil(t *testin
 	_, cmd := app.Update(sdkui.TimerTickMsg{})
 	if cmd != nil {
 		t.Error("TimerTickMsg with no active plugin should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenStreamLineMsgWithActivePlugin_ShouldRouteToPlugin(t *testing.T) {
+	app := setupTestApp()
+	app.activePlugin = &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+
+	model, _ := app.Update(frames.StreamLineMsg{Line: "hello"})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Error("StreamLineMsg should keep active plugin")
+	}
+}
+
+func TestApp_Update_WhenStreamDoneMsgWithActivePlugin_ShouldRouteToPlugin(t *testing.T) {
+	app := setupTestApp()
+	app.activePlugin = &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+
+	model, _ := app.Update(frames.StreamDoneMsg{})
+	updated := model.(App)
+
+	if updated.activePlugin == nil {
+		t.Error("StreamDoneMsg should keep active plugin")
+	}
+}
+
+func TestApp_Update_WhenStreamLineMsgWithNoActivePlugin_ShouldReturnNil(t *testing.T) {
+	app := setupTestApp()
+	app.activePlugin = nil
+
+	_, cmd := app.Update(frames.StreamLineMsg{Line: "hello"})
+	if cmd != nil {
+		t.Error("StreamLineMsg with no active plugin should return nil cmd")
 	}
 }
 
