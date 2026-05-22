@@ -108,6 +108,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if f.plugin.status == sdk.StatusError && f.plugin.lockInfo != nil {
 			return f, func() tea.Msg { return sdk.NavigateMsg{PluginID: "forceunlock"} }
 		}
+	case "l":
+		if f.plugin.lastStream != nil {
+			f.plugin.stack.Push(f.plugin.lastStream)
+		}
 	case "ctrl+r":
 		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
 			return f, f.plugin.Refresh()
@@ -156,7 +160,11 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
 	case sdk.StatusDone:
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
-			return (sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
+			hints := (sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
+			if f.plugin.lastStream != nil {
+				hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
+			}
+			return hints
 		}
 		set := sdk.HintSetInspect | sdk.HintSetPin | sdk.HintSetFilter | sdk.HintSetTree | sdk.HintSetRefresh | sdk.HintSetQuit
 		if f.plugin.treeMode {
@@ -165,7 +173,11 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 		if f.plugin.PinnedCount() > 0 {
 			set |= sdk.HintSetClearPins
 		}
-		return set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listPanel.WrapMode(), PinnedFilter: f.plugin.pinnedOnly})
+		hints := set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listPanel.WrapMode(), PinnedFilter: f.plugin.pinnedOnly})
+		if f.plugin.lastStream != nil {
+			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
+		}
+		return hints
 	default:
 		return (sdk.HintSetQuit).Hints()
 	}

@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
@@ -41,14 +42,19 @@ type Plugin struct {
 	replanSummary  *sdk.PlanSummary
 	scopedContext  string
 	cancelFn       context.CancelFunc
+	stack          *sdk.Stack
+	lastStream     *frames.StreamFrame // retained for L key re-display after success
 }
 
 // New creates a new apply plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	return &Plugin{
-		svc: svc,
+		svc:   svc,
+		stack: sdk.NewStack(),
 	}
 }
+
+func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
 func (e *Plugin) ID() string          { return "apply" }
 func (e *Plugin) Name() string        { return "Apply" }
@@ -63,22 +69,34 @@ func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
+	if top := e.stack.Peek(); top != nil {
+		return top.Hints()
+	}
+
 	switch e.status {
 	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
 	case StatusReplanning:
+		return (sdk.HintSetCancel).Hints()
+	case sdk.StatusLoading:
 		return (sdk.HintSetCancel).Hints()
 	case StatusConfirming:
 		return []sdk.KeyHint{
 			{Key: "y/n", Description: "confirm"},
 			sdk.HintCancel,
 		}
-	case sdk.StatusLoading:
-		return (sdk.HintSetCancel).Hints()
 	case sdk.StatusDone:
-		return (sdk.HintSetRefresh | sdk.HintSetCancel).Hints()
+		hints := (sdk.HintSetRefresh | sdk.HintSetCancel).Hints()
+		if e.lastStream != nil {
+			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
+		}
+		return hints
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetCancel).Hints()
+		hints := (sdk.HintSetRetry | sdk.HintSetCancel).Hints()
+		if e.lastStream != nil {
+			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
+		}
+		return hints
 	default:
 		return (sdk.HintSetQuit).Hints()
 	}
@@ -161,12 +179,24 @@ func (e *Plugin) runReplan() tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
+
+	lw, ch := frames.NewLineWriter()
+	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
+	e.lastStream = sf
+	e.stack.Clear()
+	e.stack.Push(sf)
+
 	svc := e.svc
 	opts := sdk.BuildPlanOptions(e.options, e.targets)
-	return func() tea.Msg {
-		summary, err := svc.Plan(ctx, opts)
-		return ReplanResultMsg{Summary: summary, Err: err}
-	}
+	opts.Writer = lw
+	return tea.Batch(
+		func() tea.Msg {
+			summary, err := svc.Plan(ctx, opts)
+			lw.Close()
+			return ReplanResultMsg{Summary: summary, Err: err}
+		},
+		frames.WaitForLine(ch),
+	)
 }
 
 // AutoApply skips confirmation and begins apply immediately.
@@ -200,26 +230,46 @@ func (e *Plugin) runApply() tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
+
+	lw, ch := frames.NewLineWriter()
+	sf := frames.NewStreamFrame("terraform apply", ch, cancel)
+	e.lastStream = sf
+	e.stack.Clear()
+	e.stack.Push(sf)
+
 	svc := e.svc
 	opts := sdk.BuildApplyOptions(e.options, e.targets)
+	opts.Writer = lw
 	start := time.Now()
-	return func() tea.Msg {
-		err := svc.Apply(ctx, opts)
-		return ApplyResultMsg{Err: err, Duration: time.Since(start)}
-	}
+	return tea.Batch(
+		func() tea.Msg {
+			err := svc.Apply(ctx, opts)
+			lw.Close()
+			return ApplyResultMsg{Err: err, Duration: time.Since(start)}
+		},
+		frames.WaitForLine(ch),
+	)
 }
 
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
+	switch msg.(type) {
+	case frames.StreamLineMsg, frames.StreamDoneMsg:
+		cmd := e.stack.Update(msg)
+		return e, cmd
+	}
+
 	switch msg := msg.(type) {
 	case ReplanResultMsg:
 		e.timer.Stop()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
+			e.stack.Reset()
 			return e, nil
 		}
 		e.replanSummary = msg.Summary
+		e.stack.Reset()
 		if e.confirmed {
 			e.status = sdk.StatusLoading
 			return e, tea.Batch(e.runApply(), e.timer.Start())
@@ -229,6 +279,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 
 	case ApplyResultMsg:
 		e.timer.Stop()
+		e.stack.Reset()
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -241,6 +292,10 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, e.timer.Tick()
 
 	case tea.KeyMsg:
+		if top := e.stack.Peek(); top != nil {
+			cmd := e.stack.Update(msg)
+			return e, cmd
+		}
 		cmd := e.handleKey(msg)
 		return e, cmd
 	}
@@ -273,6 +328,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return func() tea.Msg { return sdk.NavigateMsg{PluginID: "plan"} }
 		case "esc":
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
+		case "l":
+			if e.lastStream != nil {
+				e.stack.Push(e.lastStream)
+			}
 		}
 	case sdk.StatusError:
 		switch msg.String() {
@@ -280,6 +339,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 			return e.Confirm()
 		case "esc":
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
+		case "l":
+			if e.lastStream != nil {
+				e.stack.Push(e.lastStream)
+			}
 		}
 	}
 	return nil
@@ -287,6 +350,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 
 // View renders the apply plugin.
 func (e *Plugin) View(width, height int) string {
+	if top := e.stack.Peek(); top != nil {
+		return top.View(width, height)
+	}
+
 	switch e.status {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.")

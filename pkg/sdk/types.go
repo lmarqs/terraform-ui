@@ -3,7 +3,10 @@
 // the Plugin interface, and shared styles.
 package sdk
 
-import "time"
+import (
+	"io"
+	"time"
+)
 
 // RiskLevel classifies the risk severity of a planned infrastructure change,
 // ranging from RiskNone (no risk) to RiskCritical (potentially destructive).
@@ -158,6 +161,7 @@ type PlanOptions struct {
 	Lock        *bool
 	LockTimeout string
 	ExtraArgs   []string
+	Writer      io.Writer // receives streaming output; nil = discard
 }
 
 // ApplyOptions holds all options for a terraform apply operation.
@@ -170,6 +174,7 @@ type ApplyOptions struct {
 	LockTimeout string
 	AutoApprove bool
 	ExtraArgs   []string
+	Writer      io.Writer // receives streaming output; nil = discard
 }
 
 // InitOptions holds all options for a terraform init operation.
@@ -179,6 +184,7 @@ type InitOptions struct {
 	Backend       *bool // nil = default (true); explicit false disables
 	BackendConfig []string
 	ExtraArgs     []string
+	Writer        io.Writer // receives streaming output; nil = discard
 }
 
 // WorkspaceNewOptions holds options for terraform workspace new.

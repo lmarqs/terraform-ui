@@ -14,11 +14,28 @@ jobs:
   build:
     uses: ./.github/workflows/build.yaml
     permissions:
-      checks: write
       contents: read
 
-  test:
+  report:
+    if: always()
     needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: test-reports
+          path: reports/
+      - uses: dorny/test-reporter@v1
+        with:
+          name: Tests
+          path: reports/*.xml
+          reporter: java-junit
+
+  test:
+    needs: [build, report]
     uses: ./.github/workflows/test.yaml
     permissions:
       contents: read

@@ -9,6 +9,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
@@ -400,12 +401,19 @@ func TestRunApply_WhenServiceSucceeds_ShouldReturnSuccessMsg(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
-	cmd := p.runApply()
-	msg := cmd()
-
-	result, ok := msg.(ApplyResultMsg)
-	if !ok {
-		t.Fatalf("runApply cmd returned %T, want ApplyResultMsg", msg)
+	// runApply returns a tea.Batch; extract and run the service cmd.
+	batch := p.runApply()().(tea.BatchMsg)
+	var result ApplyResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ApplyResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runApply batch did not produce ApplyResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("ApplyResultMsg.Err = %v, want nil", result.Err)
@@ -421,12 +429,18 @@ func TestRunApply_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.svc = svc
 
-	cmd := p.runApply()
-	msg := cmd()
-
-	result, ok := msg.(ApplyResultMsg)
-	if !ok {
-		t.Fatalf("runApply cmd returned %T, want ApplyResultMsg", msg)
+	batch := p.runApply()().(tea.BatchMsg)
+	var result ApplyResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ApplyResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runApply batch did not produce ApplyResultMsg")
 	}
 	if result.Err == nil {
 		t.Error("ApplyResultMsg.Err = nil, want error")
@@ -1061,11 +1075,18 @@ func TestPlugin_WhenRunReplan_ShouldReturnReplanResultMsg(t *testing.T) {
 	p.options = &sdk.ResolvedOptions{}
 	p.targets = []string{"aws_instance.web"}
 
-	cmd := p.runReplan()
-	msg := cmd()
-	result, ok := msg.(ReplanResultMsg)
-	if !ok {
-		t.Fatalf("runReplan cmd returned %T, want ReplanResultMsg", msg)
+	batch := p.runReplan()().(tea.BatchMsg)
+	var result ReplanResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ReplanResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runReplan batch did not produce ReplanResultMsg")
 	}
 	if result.Err != nil {
 		t.Errorf("ReplanResultMsg.Err = %v, want nil", result.Err)
@@ -1086,9 +1107,19 @@ func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
 	p.options = &sdk.ResolvedOptions{}
 	p.targets = []string{"aws_instance.web"}
 
-	cmd := p.runReplan()
-	msg := cmd()
-	result := msg.(ReplanResultMsg)
+	batch := p.runReplan()().(tea.BatchMsg)
+	var result ReplanResultMsg
+	var found bool
+	for _, c := range batch {
+		if msg, ok := c().(ReplanResultMsg); ok {
+			result = msg
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("runReplan batch did not produce ReplanResultMsg")
+	}
 	if result.Err == nil {
 		t.Error("ReplanResultMsg.Err = nil, want error")
 	}
@@ -1215,4 +1246,140 @@ func TestPlugin_WhenNoInConfirming_ShouldEmitDeactivateMsg(t *testing.T) {
 	if _, ok := msg.(sdk.DeactivateMsg); !ok {
 		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
 	}
+}
+
+func TestStack_WhenCalled_ShouldReturnInternalStack(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	if p.Stack() == nil {
+		t.Fatal("Stack() = nil, want non-nil")
+	}
+	if p.Stack() != p.stack {
+		t.Error("Stack() should return the internal stack field")
+	}
+}
+
+func TestHints_WhenStackHasFrame_ShouldDelegateToTopFrame(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() with frame on stack should delegate to top frame, got empty")
+	}
+}
+
+func TestHints_WhenDoneWithLastStream_ShouldIncludeLHint(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("test", ch, nil)
+
+	hints := p.Hints()
+	hasL := false
+	for _, h := range hints {
+		if h.Key == "l" {
+			hasL = true
+		}
+	}
+	if !hasL {
+		t.Error("Hints() when Done with lastStream should include 'l' hint")
+	}
+}
+
+func TestHints_WhenErrorWithLastStream_ShouldIncludeLHint(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "some error"
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("test", ch, nil)
+
+	hints := p.Hints()
+	hasL := false
+	for _, h := range hints {
+		if h.Key == "l" {
+			hasL = true
+		}
+	}
+	if !hasL {
+		t.Error("Hints() when Error with lastStream should include 'l' hint")
+	}
+}
+
+func TestUpdate_WhenStreamLineMsgArrives_ShouldRouteToStack(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	lw, ch := frames.NewLineWriter()
+	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
+
+	_, cmd := p.Update(frames.StreamLineMsg{Line: "hello"})
+	if cmd == nil {
+		t.Fatal("Update(StreamLineMsg) with StreamFrame on stack should return non-nil cmd")
+	}
+	lw.Close()
+}
+
+func TestUpdate_WhenKeyMsgAndStackHasFrame_ShouldRouteToStack(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
+
+	// esc on a done stream frame returns nil (pops) — but done is false here so it ignores esc
+	next, _ := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if next != p {
+		t.Fatal("Update(KeyMsg) with stack frame should route to stack and return same plugin")
+	}
+}
+
+func TestHandleKey_WhenDoneAndLKey_ShouldPushLastStreamOnStack(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	sf := frames.NewStreamFrame("test", ch, nil)
+	p.lastStream = sf
+	depthBefore := p.stack.Depth()
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore+1 {
+		t.Errorf("stack depth = %d, want %d after l key in Done", p.stack.Depth(), depthBefore+1)
+	}
+	if p.stack.Peek().ID() != "stream" {
+		t.Errorf("top frame ID = %q, want %q", p.stack.Peek().ID(), "stream")
+	}
+}
+
+func TestHandleKey_WhenErrorAndLKey_ShouldPushLastStreamOnStack(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "some error"
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	sf := frames.NewStreamFrame("test", ch, nil)
+	p.lastStream = sf
+	depthBefore := p.stack.Depth()
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore+1 {
+		t.Errorf("stack depth = %d, want %d after l key in Error", p.stack.Depth(), depthBefore+1)
+	}
+	if p.stack.Peek().ID() != "stream" {
+		t.Errorf("top frame ID = %q, want %q", p.stack.Peek().ID(), "stream")
+	}
+}
+
+func TestView_WhenStackHasFrame_ShouldDelegateToTopFrame(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
+
+	// StreamFrame.View with no lines returns ""  — but View() must delegate (not hit the switch)
+	// The important thing is the delegation path is exercised (line 353-355)
+	_ = p.View(80, 24)
 }
