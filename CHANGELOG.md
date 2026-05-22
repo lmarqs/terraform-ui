@@ -1,3 +1,22 @@
+# [1.8.0](https://github.com/lmarqs/terraform-ui/compare/v1.7.3...v1.8.0) (2026-05-22)
+
+
+### Bug Fixes
+
+* add write permission to pull-requests ([f281061](https://github.com/lmarqs/terraform-ui/commit/f281061c2bdf19d0e1d7793a6e032706524f786f))
+* **ci:** add top-level report job with proper permissions and checkout ([edd4e62](https://github.com/lmarqs/terraform-ui/commit/edd4e6294173fd468e126637c8fc290d2312a8f5))
+* **ci:** export test reports as artifact instead of inline reporter ([9652ac3](https://github.com/lmarqs/terraform-ui/commit/9652ac3844df90a0b12d7db5165cb325d0360a33))
+* **ci:** move test reporter to top-level workflow to fix check run permissions ([d81a6b3](https://github.com/lmarqs/terraform-ui/commit/d81a6b356a379b2707c189000d90c15df722218c))
+* **ci:** pass pull-requests:write to build workflow caller ([eee9cfe](https://github.com/lmarqs/terraform-ui/commit/eee9cfe1fd5962ffb439f21eaae0bb9de14c688a))
+* route stream messages only to active plugin ([ba080f0](https://github.com/lmarqs/terraform-ui/commit/ba080f0a34e806e618a51055e76d8467035a8eae))
+* skip stack-based key routing when stack is empty ([2e8fafd](https://github.com/lmarqs/terraform-ui/commit/2e8fafdb97691af93db9cd7a79ce564610eb0c06))
+
+
+### Features
+
+* add StreamFrame for real-time terraform output ([739994f](https://github.com/lmarqs/terraform-ui/commit/739994f20c5540abd1a684a639031d4be3ffe015))
+* add StreamFrame for real-time terraform output ([#12](https://github.com/lmarqs/terraform-ui/issues/12)) ([0a8592c](https://github.com/lmarqs/terraform-ui/commit/0a8592ce51742d4fea80320a949d5c8558af6701)), closes [#ci](https://github.com/lmarqs/terraform-ui/issues/ci)
+
 ## [1.7.3](https://github.com/lmarqs/terraform-ui/compare/v1.7.2...v1.7.3) (2026-05-21)
 
 
