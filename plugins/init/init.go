@@ -131,8 +131,10 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			_, cmd := top.Update(msg)
 			return p, cmd
 		}
-		// No frame on stack — schedule next read to drain the channel.
-		return p, sdkframes.WaitForLine(p.ch)
+		if p.ch != nil {
+			return p, sdkframes.WaitForLine(p.ch)
+		}
+		return p, nil
 
 	case sdkframes.StreamDoneMsg:
 		if top := p.stack.Peek(); top != nil {

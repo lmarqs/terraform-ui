@@ -15,6 +15,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
@@ -454,6 +455,19 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// broadcasting would cause exponential growth when multiple timers run).
 	// Inactive timers resume via Activate() on re-entry.
 	if _, ok := msg.(sdkui.TimerTickMsg); ok {
+		if a.activePlugin != nil {
+			updated, cmd := a.activePlugin.Update(msg)
+			a.activePlugin = updated
+			return a, cmd
+		}
+		return a, nil
+	}
+
+	// Stream messages route only to the active plugin (they originate from
+	// the active plugin's own channel — broadcasting leaks them to plugins
+	// with nil channels, causing a deadlock in headless mode).
+	switch msg.(type) {
+	case frames.StreamLineMsg, frames.StreamDoneMsg:
 		if a.activePlugin != nil {
 			updated, cmd := a.activePlugin.Update(msg)
 			a.activePlugin = updated
