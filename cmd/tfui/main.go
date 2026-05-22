@@ -140,6 +140,12 @@ func main() {
 		Use:   "apply",
 		Short: "Run terraform apply",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if autoApprove {
+				args = append(args, "--auto-approve")
+			}
+			for _, t := range cfg.Targets {
+				args = append(args, "--target="+t)
+			}
 			return NewSession(cfg, rootCfg).
 				ForPlugin("apply").
 				WithArgs(args).

@@ -149,6 +149,23 @@ func (e *Plugin) Activate() tea.Cmd {
 	return nil
 }
 
+// ActivateWithArgs handles standalone activation with CLI flags.
+func (e *Plugin) ActivateWithArgs(args []string) tea.Cmd {
+	autoApprove := false
+	for _, arg := range args {
+		switch {
+		case arg == "--auto-approve":
+			autoApprove = true
+		case strings.HasPrefix(arg, "--target="):
+			e.targets = append(e.targets, strings.TrimPrefix(arg, "--target="))
+		}
+	}
+	if autoApprove {
+		return e.AutoApply()
+	}
+	return e.RequestApply()
+}
+
 // TotalResources returns the total resource count from the last completed plan.
 func (e *Plugin) TotalResources() int {
 	return e.totalResources

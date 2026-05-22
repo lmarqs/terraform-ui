@@ -85,7 +85,7 @@ func TestApply_CreateFixture_SilentMode(t *testing.T) {
 		t.Fatalf("plan failed: %v\nstderr: %s", err, stderr)
 	}
 
-	stdout, stderr, err := runTfui("apply", "-project", dir, "-ci")
+	stdout, stderr, err := runTfui("apply", "-project", dir, "-ci", "-auto-approve")
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
 	}
@@ -104,7 +104,7 @@ func TestApply_CreateFixture_AgentMode(t *testing.T) {
 		t.Fatalf("plan failed: %v", err)
 	}
 
-	stdout, stderr, err := runTfui("apply", "-project", dir, "-json")
+	stdout, stderr, err := runTfui("apply", "-project", dir, "-json", "-auto-approve")
 	if err != nil {
 		t.Fatalf("apply -json failed: %v\nstderr: %s", err, stderr)
 	}
@@ -122,7 +122,7 @@ func TestApply_Targeted_OnlyAppliesTarget(t *testing.T) {
 		t.Fatalf("targeted plan failed: %v\nstderr: %s", err, stderr)
 	}
 
-	_, stderr, err = runTfui("apply", "-project", dir, "-ci")
+	_, stderr, err = runTfui("apply", "-project", dir, "-ci", "-auto-approve", "-target", "local_file.alpha")
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s", err, stderr)
 	}
@@ -152,7 +152,7 @@ func TestApply_NoChanges_Succeeds(t *testing.T) {
 		t.Fatalf("expected no changes in plan, got: %q", stdout)
 	}
 
-	_, stderr, err := runTfui("apply", "-project", dir, "-ci")
+	_, stderr, err := runTfui("apply", "-project", dir, "-ci", "-auto-approve")
 	if err != nil {
 		if !strings.Contains(stderr, "no plan") && !strings.Contains(stderr, "plan file") {
 			t.Fatalf("unexpected apply error: %v\nstderr: %s", err, stderr)
