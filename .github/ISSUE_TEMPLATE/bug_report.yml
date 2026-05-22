@@ -48,7 +48,7 @@ body:
     attributes:
       label: tfui version
       description: Output of `tfui version`
-      placeholder: "1.5.1"
+      placeholder: "<version>"
     validations:
       required: true
 

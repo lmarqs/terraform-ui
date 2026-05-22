@@ -42,7 +42,7 @@ go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 # Or via mise
 ```toml
 [tools]
-"github:lmarqs/terraform-ui" = { version = "1.5.1", exe = "tfui" }
+"github:lmarqs/terraform-ui" = { version = "<version>", exe = "tfui" }
 ```
 
 # Launch interactive TUI
