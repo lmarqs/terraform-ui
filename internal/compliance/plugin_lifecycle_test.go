@@ -78,12 +78,13 @@ func allPlugins() []sdk.Plugin {
 }
 
 func initPlugin(p sdk.Plugin) {
-	p.Init(&sdk.Context{
-		WorkingDir: "/tmp",
-		Service:    nopSvc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:       sdk.NewPinService(),
-		Options:    &sdk.ResolvedOptions{},
+	bootCtx := &sdk.Context{Service: nopSvc}
+	p.Init(&sdk.PluginDeps{
+		Service:   nopSvc,
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Context:   func() *sdk.Context { return bootCtx },
+		Pin:       func(_ string) tea.Cmd { return nil },
+		ClearPins: func() tea.Cmd { return nil },
 	})
 }
 
@@ -94,17 +95,10 @@ func TestAllPlugins_WhenEventHandlerCalled_ShouldReturnNilCmd(t *testing.T) {
 		initPlugin(p)
 		id := p.ID()
 
-		if h, ok := p.(sdk.ChdirHandler); ok {
-			t.Run(id+"/HandleChdirChanged", func(t *testing.T) {
-				cmd := h.HandleChdirChanged(sdk.ChdirChangedEvent{RelPath: "mod", AbsPath: "/tmp/mod"})
-				if cmd != nil {
-					t.Errorf("returned non-nil cmd — event handlers must not start async operations (ADR-0012)")
-				}
-			})
-		}
-		if h, ok := p.(sdk.WorkspaceHandler); ok {
-			t.Run(id+"/HandleWorkspaceChanged", func(t *testing.T) {
-				cmd := h.HandleWorkspaceChanged(sdk.WorkspaceChangedEvent{Name: "dev"})
+		if h, ok := p.(sdk.ContextChangedHandler); ok {
+			t.Run(id+"/HandleContextChanged", func(t *testing.T) {
+				next := &sdk.Context{Workspace: "default"}
+				cmd := h.HandleContextChanged(sdk.ContextChangedEvent{Next: next})
 				if cmd != nil {
 					t.Errorf("returned non-nil cmd — event handlers must not start async operations (ADR-0012)")
 				}
@@ -113,14 +107,6 @@ func TestAllPlugins_WhenEventHandlerCalled_ShouldReturnNilCmd(t *testing.T) {
 		if h, ok := p.(sdk.PlanCompletedHandler); ok {
 			t.Run(id+"/HandlePlanCompleted", func(t *testing.T) {
 				cmd := h.HandlePlanCompleted(sdk.PlanCompletedEvent{ResourceCount: 5})
-				if cmd != nil {
-					t.Errorf("returned non-nil cmd — event handlers must not start async operations (ADR-0012)")
-				}
-			})
-		}
-		if h, ok := p.(sdk.PinsHandler); ok {
-			t.Run(id+"/HandlePinsChanged", func(t *testing.T) {
-				cmd := h.HandlePinsChanged(sdk.PinsChangedEvent{Addresses: []string{"a"}})
 				if cmd != nil {
 					t.Errorf("returned non-nil cmd — event handlers must not start async operations (ADR-0012)")
 				}

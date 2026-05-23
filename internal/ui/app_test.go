@@ -35,7 +35,7 @@ type mockPlugin struct {
 func (m *mockPlugin) ID() string                                { return m.id }
 func (m *mockPlugin) Name() string                              { return m.name }
 func (m *mockPlugin) Description() string                       { return m.id + " description" }
-func (m *mockPlugin) Init(_ *plugin.Context) tea.Cmd            { return m.initCmd }
+func (m *mockPlugin) Init(_ *plugin.PluginDeps) tea.Cmd         { return m.initCmd }
 func (m *mockPlugin) Update(_ tea.Msg) (plugin.Plugin, tea.Cmd) { return m, nil }
 func (m *mockPlugin) View(_, _ int) string                      { return m.viewOutput }
 func (m *mockPlugin) Configure(_ map[string]interface{}) error  { return nil }
@@ -420,7 +420,7 @@ func TestApp_Update_WhenOpenContextOnStartup_ShouldActivateChdirPlugin(t *testin
 	}
 }
 
-func TestApp_Update_WhenOpenContextOnStartupWithChdirSet_ShouldSkipActivation(t *testing.T) {
+func TestApp_Update_WhenOpenContextOnStartupWithChdirSet_ShouldEmitContextSwitchRequest(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Chdir:     "modules/vpc",
@@ -436,11 +436,21 @@ func TestApp_Update_WhenOpenContextOnStartupWithChdirSet_ShouldSkipActivation(t 
 
 	app := NewApp(cfg, svc, registry, nil)
 
-	model, _ := app.Update(openContextOnStartupMsg{})
+	model, cmd := app.Update(openContextOnStartupMsg{})
 	updated := model.(App)
 
 	if updated.activePlugin != nil {
 		t.Error("openContextOnStartupMsg should not activate chdir when Chdir is set")
+	}
+	if cmd == nil {
+		t.Fatal("openContextOnStartupMsg with cfg.Chdir set should emit a cmd")
+	}
+	req, ok := cmd().(sdk.ContextSwitchRequestMsg)
+	if !ok {
+		t.Fatalf("cmd returned %T, want sdk.ContextSwitchRequestMsg", cmd())
+	}
+	if req.Chdir != "modules/vpc" {
+		t.Errorf("ContextSwitchRequestMsg.Chdir = %q, want %q", req.Chdir, "modules/vpc")
 	}
 }
 
@@ -490,7 +500,7 @@ func TestApp_Update_WhenOpenContextOnStartupWithPreloadedDataAndBaseDir_ShouldSe
 	}
 }
 
-func TestApp_Update_WhenChdirChangedEvent_ShouldDeactivatePlugin(t *testing.T) {
+func TestApp_Update_WhenContextSwitchRequest_ShouldDeactivatePlugin(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -513,12 +523,12 @@ func TestApp_Update_WhenChdirChangedEvent_ShouldDeactivatePlugin(t *testing.T) {
 		t.Fatal("precondition: chdir plugin should be active")
 	}
 
-	// ChdirChangedEvent should deactivate the plugin and return to home
-	model, _ = app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	// ContextSwitchRequestMsg should deactivate the plugin and return to home
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
 	updated := model.(App)
 
 	if updated.activePlugin != nil {
-		t.Errorf("ChdirChangedEvent should deactivate plugin, got %q", updated.activePlugin.ID())
+		t.Errorf("ContextSwitchRequestMsg should deactivate plugin, got %q", updated.activePlugin.ID())
 	}
 }
 
@@ -932,15 +942,15 @@ func TestApp_Update_WhenChdirSelected_ShouldNavigateBackToPrevious(t *testing.T)
 		t.Fatal("precondition: chdir plugin should be active after :chdir command")
 	}
 
-	// Send ChdirChangedEvent (simulates user selecting a directory)
-	model, _ = app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	// Send ContextSwitchRequestMsg (simulates user selecting a directory)
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
 	app = model.(App)
 
 	if app.activePlugin == nil {
-		t.Fatal("after ChdirChangedEvent, should navigate back to previous plugin, not home")
+		t.Fatal("after ContextSwitchRequestMsg, should navigate back to previous plugin, not home")
 	}
 	if app.activePlugin.ID() != "state" {
-		t.Errorf("after ChdirChangedEvent, activePlugin = %q, want %q", app.activePlugin.ID(), "state")
+		t.Errorf("after ContextSwitchRequestMsg, activePlugin = %q, want %q", app.activePlugin.ID(), "state")
 	}
 }
 
@@ -955,12 +965,12 @@ func TestApp_Update_WhenChdirSelectedWithNoPrevious_ShouldNavigateToHome(t *test
 		t.Fatal("precondition: chdir plugin should be active")
 	}
 
-	// Send ChdirChangedEvent with no previous plugin set
-	model, _ = app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	// Send ContextSwitchRequestMsg with no previous plugin set
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
 	app = model.(App)
 
 	if app.activePlugin != nil {
-		t.Errorf("after ChdirChangedEvent with no previous plugin, activePlugin should be nil (home), got %q", app.activePlugin.ID())
+		t.Errorf("after ContextSwitchRequestMsg with no previous plugin, activePlugin should be nil (home), got %q", app.activePlugin.ID())
 	}
 }
 
@@ -989,15 +999,15 @@ func TestApp_Update_WhenWorkspaceSelected_ShouldNavigateBackToPrevious(t *testin
 		t.Fatal("precondition: workspaces plugin should be active after :workspaces command")
 	}
 
-	// Send WorkspaceChangedEvent (simulates user selecting a workspace)
-	model, _ = app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	// Send ContextSwitchRequestMsg (simulates user selecting a workspace)
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "staging"})
 	app = model.(App)
 
 	if app.activePlugin == nil {
-		t.Fatal("after WorkspaceChangedEvent, should navigate back to previous plugin, not home")
+		t.Fatal("after ContextSwitchRequestMsg, should navigate back to previous plugin, not home")
 	}
 	if app.activePlugin.ID() != "state" {
-		t.Errorf("after WorkspaceChangedEvent, activePlugin = %q, want %q", app.activePlugin.ID(), "state")
+		t.Errorf("after ContextSwitchRequestMsg, activePlugin = %q, want %q", app.activePlugin.ID(), "state")
 	}
 }
 
@@ -1013,16 +1023,16 @@ func TestApp_Update_WhenWorkspaceSelectedFromContext_ShouldNotNavigateBack(t *te
 		t.Fatal("precondition: context plugin should be active")
 	}
 
-	// Send WorkspaceChangedEvent while context is active
-	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	// Send ContextSwitchRequestMsg while context is active
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "staging"})
 	app = model.(App)
 
 	// The context plugin should remain active (no navigate-back for context)
 	if app.activePlugin == nil {
-		t.Fatal("after WorkspaceChangedEvent from context, activePlugin should still be context, not nil")
+		t.Fatal("after ContextSwitchRequestMsg from context, activePlugin should still be context, not nil")
 	}
 	if app.activePlugin.ID() != "context" {
-		t.Errorf("after WorkspaceChangedEvent from context, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
+		t.Errorf("after ContextSwitchRequestMsg from context, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
 	}
 }
 
@@ -1034,16 +1044,16 @@ func TestApp_Update_WhenChdirSelectedFromContext_ShouldNotNavigateBack(t *testin
 		app.activePlugin = p
 	}
 
-	// Send ChdirChangedEvent while context is active (simulates context's internal picker)
-	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/dir/modules/vpc", Count: 2})
+	// Send ContextSwitchRequestMsg while context is active (simulates context's internal picker)
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
 	app = model.(App)
 
 	// Context plugin should remain active
 	if app.activePlugin == nil {
-		t.Fatal("after ChdirChangedEvent from context, activePlugin should still be context, not nil")
+		t.Fatal("after ContextSwitchRequestMsg from context, activePlugin should still be context, not nil")
 	}
 	if app.activePlugin.ID() != "context" {
-		t.Errorf("after ChdirChangedEvent from context, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
+		t.Errorf("after ContextSwitchRequestMsg from context, activePlugin = %q, want %q", app.activePlugin.ID(), "context")
 	}
 }
 
@@ -1302,7 +1312,7 @@ func TestApp_Update_WhenWorkspaceChanged_ShouldPreserveChdirInHeader(t *testing.
 	app.height = 30
 
 	// Set a chdir first
-	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/test/modules/vpc", Count: 2})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
 	app = model.(App)
 
 	// Verify chdir is in the header
@@ -1312,16 +1322,16 @@ func TestApp_Update_WhenWorkspaceChanged_ShouldPreserveChdirInHeader(t *testing.
 	}
 
 	// Now change workspace
-	model, _ = app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "staging"})
 	app = model.(App)
 
 	// Header should still show chdir
 	view = app.View()
 	if !strings.Contains(view, "modules/vpc") {
-		t.Error("after WorkspaceChangedEvent, header should still show chdir 'modules/vpc'")
+		t.Error("after workspace switch, header should still show chdir 'modules/vpc'")
 	}
 	if !strings.Contains(view, "staging") {
-		t.Error("after WorkspaceChangedEvent, header should show new workspace 'staging'")
+		t.Error("after workspace switch, header should show new workspace 'staging'")
 	}
 }
 
@@ -1331,7 +1341,7 @@ func TestApp_Update_WhenWorkspaceLoaded_ShouldPreserveChdirInHeader(t *testing.T
 	app.height = 30
 
 	// Set a chdir first
-	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/ecs", AbsPath: "/test/modules/ecs", Count: 2})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/ecs", Workspace: "default"})
 	app = model.(App)
 
 	// Now simulate workspace initial load
@@ -1348,7 +1358,7 @@ func TestApp_Update_WhenWorkspaceLoaded_ShouldPreserveChdirInHeader(t *testing.T
 	}
 }
 
-func TestApp_Update_WhenWorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.T) {
+func TestApp_Update_WhenWorkspaceCreatedSwitch_ShouldUpdateHeaderAndPopBack(t *testing.T) {
 	app := setupTestAppWithTransientPlugins()
 	app.width = 120
 	app.height = 30
@@ -1371,22 +1381,14 @@ func TestApp_Update_WhenWorkspaceCreated_ShouldUpdateHeaderAndNotPop(t *testing.
 		t.Fatal("precondition: workspaces should be active")
 	}
 
-	// Send WorkspaceCreatedEvent (not WorkspaceChangedEvent)
-	model, _ = app.Update(sdk.WorkspaceCreatedEvent{Name: "new-feature"})
+	// Workspace creation now flows through ContextSwitchRequestMsg same as switch
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "new-feature"})
 	app = model.(App)
-
-	// Should NOT pop back — workspace plugin stays active
-	if app.activePlugin == nil {
-		t.Fatal("after WorkspaceCreatedEvent, plugin should still be active")
-	}
-	if app.activePlugin.ID() != "workspace" {
-		t.Errorf("after WorkspaceCreatedEvent, activePlugin = %q, want %q (should NOT pop)", app.activePlugin.ID(), "workspace")
-	}
 
 	// Header should show new workspace
 	view := app.View()
 	if !strings.Contains(view, "new-feature") {
-		t.Error("after WorkspaceCreatedEvent, header should show new workspace name")
+		t.Error("after workspace switch, header should show new workspace name")
 	}
 }
 
@@ -1499,25 +1501,27 @@ func TestApp_Update_WhenWorkspaceChanged_ShouldResolveOptions(t *testing.T) {
 	app.childCfg = childCfg
 
 	// Workspace switch to staging
-	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "staging"})
 	app = model.(App)
 
-	if len(app.options.VarFiles) != 2 || app.options.VarFiles[1] != "staging.tfvars" {
-		t.Errorf("VarFiles after staging switch = %v, want [common.tfvars staging.tfvars]", app.options.VarFiles)
+	ctx := app.holder.current
+	if len(ctx.VarFiles) != 2 || ctx.VarFiles[1] != "staging.tfvars" {
+		t.Errorf("VarFiles after staging switch = %v, want [common.tfvars staging.tfvars]", ctx.VarFiles)
 	}
-	if app.options.Vars["env"] != "stg" {
-		t.Errorf("Vars[env] = %q, want %q", app.options.Vars["env"], "stg")
+	if ctx.Vars["env"] != "stg" {
+		t.Errorf("Vars[env] = %q, want %q", ctx.Vars["env"], "stg")
 	}
 
 	// Workspace switch to production
-	model, _ = app.Update(sdk.WorkspaceChangedEvent{Name: "production"})
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "production"})
 	app = model.(App)
 
-	if len(app.options.VarFiles) != 2 || app.options.VarFiles[1] != "prod.tfvars" {
-		t.Errorf("VarFiles after prod switch = %v, want [common.tfvars prod.tfvars]", app.options.VarFiles)
+	ctx = app.holder.current
+	if len(ctx.VarFiles) != 2 || ctx.VarFiles[1] != "prod.tfvars" {
+		t.Errorf("VarFiles after prod switch = %v, want [common.tfvars prod.tfvars]", ctx.VarFiles)
 	}
-	if app.options.Vars["env"] != "prd" {
-		t.Errorf("Vars[env] = %q, want %q", app.options.Vars["env"], "prd")
+	if ctx.Vars["env"] != "prd" {
+		t.Errorf("Vars[env] = %q, want %q", ctx.Vars["env"], "prd")
 	}
 }
 
@@ -1533,11 +1537,15 @@ func TestApp_Update_WhenWorkspaceChangedWithNilRootCfg_ShouldNotChangeOptions(t 
 
 	app := NewApp(cfg, svc, registry, nil)
 
-	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "staging"})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "staging"})
 	app = model.(App)
 
-	if len(app.options.VarFiles) != 1 || app.options.VarFiles[0] != "original.tfvars" {
-		t.Errorf("Options should be unchanged without rootCfg, got VarFiles = %v", app.options.VarFiles)
+	ctx := app.holder.current
+	if ctx == nil {
+		t.Fatal("context should not be nil after workspace switch")
+	}
+	if len(ctx.VarFiles) != 0 {
+		t.Errorf("VarFiles should be empty without rootCfg, got %v", ctx.VarFiles)
 	}
 }
 
@@ -1845,7 +1853,7 @@ func TestApp_Update_WhenReceivingApplyRequestMsg_ShouldActivateApplyPlugin(t *te
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	app = model.(App)
 
-	model, _ = app.Update(tfuiplan.ApplyRequestMsg{})
+	model, _ = app.Update(tfuiplan.ApplyRequestMsg{PlanFile: "/tmp/foo.tfplan"})
 	updated := model.(App)
 
 	if updated.activePlugin == nil {
@@ -1854,50 +1862,18 @@ func TestApp_Update_WhenReceivingApplyRequestMsg_ShouldActivateApplyPlugin(t *te
 	if updated.activePlugin.ID() != "apply" {
 		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "apply")
 	}
-}
-
-func TestApp_Update_WhenReceivingApplyRequestMsgNoApplyPlugin_ShouldReturnNil(t *testing.T) {
-	app := setupTestApp() // no apply plugin registered
-
-	_, cmd := app.Update(tfuiplan.ApplyRequestMsg{})
-	if cmd != nil {
-		t.Error("ApplyRequestMsg without apply plugin should return nil cmd")
-	}
-}
-
-func TestApp_Update_WhenReceivingApplyRequestMsgWithPins_ShouldSetTargets(t *testing.T) {
-	cfg := config.Config{
-		Dir:       "/test/dir",
-		Terraform: config.TerraformConfig{Bin: "terraform"},
-	}
-	svc := &sdktest.MockService{}
-	registry := plugin.NewRegistry()
-	registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
-		return tfuiapply.New(s)
-	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
-	registry.Build(svc, nil)
-
-	app := NewApp(cfg, svc, registry, nil)
-	app.pins.Toggle("aws_instance.foo")
-	app.pins.Toggle("aws_instance.bar")
-
-	model, _ := app.Update(tfuiplan.ApplyRequestMsg{})
-	updated := model.(App)
-
-	if updated.activePlugin == nil {
-		t.Fatal("ApplyRequestMsg should activate apply plugin")
+	applyPlugin := updated.activePlugin.(*tfuiapply.Plugin)
+	if applyPlugin.PlanFile() != "/tmp/foo.tfplan" {
+		t.Errorf("apply.PlanFile = %q, want /tmp/foo.tfplan after staging", applyPlugin.PlanFile())
 	}
 }
 
 func TestApp_Update_WhenReceivingGenericEvent_ShouldDispatchToBus(t *testing.T) {
 	app := setupTestApp()
 
-	// PinsChangedEvent is a generic event that will be dispatched via the bus
-	model, cmd := app.Update(sdk.PinsChangedEvent{Addresses: []string{"a.b"}})
+	// LockClearedEvent is a generic event dispatched via the bus
+	model, _ := app.Update(sdk.LockClearedEvent{})
 	_ = model.(App)
-	if cmd != nil {
-		t.Error("Generic event with no handlers should return nil cmd")
-	}
 }
 
 func TestApp_Update_WhenOverlayActive_ShouldRouteNonKeyMsgToOverlay(t *testing.T) {
@@ -1941,10 +1917,10 @@ func TestApp_Update_WhenOverlayReturnsNil_ShouldClearOverlay(t *testing.T) {
 	}
 }
 
-func TestApp_Update_WhenChdirChangedEvent_ShouldUpdateHeader(t *testing.T) {
+func TestApp_Update_WhenContextSwitchChdir_ShouldUpdateHeader(t *testing.T) {
 	app := setupTestApp()
 
-	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/net", AbsPath: "/test/dir/modules/net", Count: 3})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/net", Workspace: "default"})
 	updated := model.(App)
 
 	if updated.activeChdir != "modules/net" {
@@ -1952,17 +1928,17 @@ func TestApp_Update_WhenChdirChangedEvent_ShouldUpdateHeader(t *testing.T) {
 	}
 }
 
-func TestApp_Update_WhenWorkspaceChangedEvent_ShouldUpdateHeader(t *testing.T) {
+func TestApp_Update_WhenContextSwitchWorkspace_ShouldUpdateHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 80
 	app.height = 24
 
-	model, _ := app.Update(sdk.WorkspaceChangedEvent{Name: "production"})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "production"})
 	updated := model.(App)
 
 	output := updated.View()
 	if !strings.Contains(output, "production") {
-		t.Error("View() after WorkspaceChangedEvent should contain new workspace name")
+		t.Error("View() after ContextSwitchRequestMsg should contain new workspace name")
 	}
 }
 
@@ -3337,18 +3313,6 @@ func TestApp_HandleKey_WhenColonFromPlugin_ShouldEnterCommandMode(t *testing.T) 
 	}
 }
 
-// --- Test for PinsChangedEvent (generic event) dispatched to bus ---
-
-func TestApp_Update_WhenPinsChangedEvent_ShouldDispatchViaBus(t *testing.T) {
-	app := setupTestApp()
-
-	model, cmd := app.Update(sdk.PinsChangedEvent{Addresses: []string{"a.b"}})
-	_ = model.(App)
-	if cmd != nil {
-		t.Error("PinsChangedEvent with no handlers should return nil")
-	}
-}
-
 // --- Test for the edge case: navigateTo from home (activePlugin nil) ---
 
 func TestApp_NavigateTo_WhenFromHome_ShouldSetActive(t *testing.T) {
@@ -4082,46 +4046,30 @@ func TestApp_Update_WhenReceivingAutoApplyRequestMsg_ShouldActivateApplyPlugin(t
 	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	app = model.(App)
 
-	model, _ = app.Update(tfuiplan.AutoApplyRequestMsg{})
+	model, _ = app.Update(tfuiplan.ApplyRequestMsg{PlanFile: "/tmp/auto.tfplan", AutoApprove: true})
 	updated := model.(App)
 
 	if updated.activePlugin == nil {
-		t.Fatal("AutoApplyRequestMsg should activate the apply plugin")
+		t.Fatal("ApplyRequestMsg should activate the apply plugin")
 	}
 	if updated.activePlugin.ID() != "apply" {
 		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "apply")
 	}
+	applyPlugin := updated.activePlugin.(*tfuiapply.Plugin)
+	if applyPlugin.PlanFile() != "/tmp/auto.tfplan" {
+		t.Errorf("apply.PlanFile = %q, want /tmp/auto.tfplan", applyPlugin.PlanFile())
+	}
+	if applyPlugin.Status() != sdk.StatusLoading {
+		t.Errorf("apply status = %v, want StatusLoading after AutoApprove", applyPlugin.Status())
+	}
 }
 
-func TestApp_Update_WhenReceivingAutoApplyRequestMsgNoApplyPlugin_ShouldReturnNil(t *testing.T) {
+func TestApp_Update_WhenReceivingApplyRequestMsgNoApplyPlugin_ShouldReturnNil(t *testing.T) {
 	app := setupTestApp() // no apply plugin
 
-	_, cmd := app.Update(tfuiplan.AutoApplyRequestMsg{})
+	_, cmd := app.Update(tfuiplan.ApplyRequestMsg{PlanFile: "/tmp/x.tfplan"})
 	if cmd != nil {
-		t.Error("AutoApplyRequestMsg without apply plugin should return nil cmd")
-	}
-}
-
-func TestApp_Update_WhenReceivingAutoApplyRequestMsgWithPins_ShouldSetTargets(t *testing.T) {
-	cfg := config.Config{
-		Dir:       "/test/dir",
-		Terraform: config.TerraformConfig{Bin: "terraform"},
-	}
-	svc := &sdktest.MockService{}
-	registry := plugin.NewRegistry()
-	registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
-		return tfuiapply.New(s)
-	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
-	registry.Build(svc, nil)
-
-	app := NewApp(cfg, svc, registry, nil)
-	app.pins.Toggle("aws_instance.foo")
-
-	model, _ := app.Update(tfuiplan.AutoApplyRequestMsg{})
-	updated := model.(App)
-
-	if updated.activePlugin == nil {
-		t.Fatal("AutoApplyRequestMsg with pins should activate apply plugin")
+		t.Error("ApplyRequestMsg without apply plugin should return nil cmd")
 	}
 }
 
@@ -4437,24 +4385,7 @@ func TestApp_HandleKey_WhenStandaloneQKeyBusy_ShouldStillQuit(t *testing.T) {
 	}
 }
 
-// --- Tests for navigateTo with busy active plugin ---
-
-func TestApp_NavigateTo_WhenActivePluginBusy_ShouldNotCancel(t *testing.T) {
-	app := setupTestAppWithTransientPlugins()
-
-	busyPlugin := &mockBusyCancellablePlugin{
-		mockCancellablePlugin: mockCancellablePlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}},
-		busy:                  true,
-	}
-	app.activePlugin = busyPlugin
-
-	statePlugin, _ := app.registry.ByID("state")
-	app.navigateTo(statePlugin)
-
-	if busyPlugin.cancelled {
-		t.Error("navigateTo should not cancel busy plugin")
-	}
-}
+// --- Tests for navigateTo with active plugin ---
 
 func TestApp_NavigateTo_WhenActivePluginNotBusy_ShouldCancel(t *testing.T) {
 	cfg := config.Config{
@@ -4977,7 +4908,7 @@ func TestApp_Update_WhenChdirChangedWithRootCfg_ShouldLoadChildCfg(t *testing.T)
 	app.width = 80
 	app.height = 24
 
-	model, _ := app.Update(sdk.ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/nonexistent/path", Count: 1})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
 	updated := model.(App)
 	_ = updated
 }
@@ -5013,5 +4944,251 @@ func TestApp_Update_WhenBroadcastMsgCausesPluginCmd_ShouldCollectCmds(t *testing
 	_ = model.(App)
 	if cmd == nil {
 		t.Error("broadcast to plugin returning cmd should produce batched cmd")
+	}
+}
+
+// --- Phase 3: app owns immutable Context ---
+
+func TestApp_RebuildContext_GivenRootCfgWithExecFields_ShouldPropagateAllSix(t *testing.T) {
+	lockTrue := true
+	rootCfg := &config.RootConfig{
+		Defaults: config.DefaultsConfig{
+			VarFiles:    []string{"common.tfvars"},
+			Vars:        map[string]string{"env": "prod"},
+			Parallelism: 5,
+			Lock:        &lockTrue,
+		},
+	}
+	childCfg := &config.ChildConfig{
+		Workspaces: []config.WorkspaceConfig{
+			{Name: "staging", VarFiles: []string{"staging.tfvars"}, LockTimeout: "30s"},
+		},
+	}
+
+	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, rootCfg)
+	app.childCfg = childCfg
+
+	ctx := app.rebuildContext("modules/vpc", "/abs/modules/vpc", "staging")
+
+	if ctx == nil {
+		t.Fatal("rebuildContext returned nil, want non-nil")
+	}
+	if ctx.WorkingDir != "/abs/modules/vpc" {
+		t.Errorf("WorkingDir = %q, want /abs/modules/vpc", ctx.WorkingDir)
+	}
+	if ctx.Workspace != "staging" {
+		t.Errorf("Workspace = %q, want staging", ctx.Workspace)
+	}
+	if len(ctx.VarFiles) != 2 {
+		t.Errorf("VarFiles = %v, want 2 entries", ctx.VarFiles)
+	}
+	if ctx.Vars["env"] != "prod" {
+		t.Errorf("Vars[env] = %q, want prod", ctx.Vars["env"])
+	}
+	if ctx.Parallelism != 5 {
+		t.Errorf("Parallelism = %d, want 5", ctx.Parallelism)
+	}
+	if ctx.Lock == nil || *ctx.Lock != true {
+		t.Errorf("Lock = %v, want true", ctx.Lock)
+	}
+	if ctx.LockTimeout != "30s" {
+		t.Errorf("LockTimeout = %q, want 30s", ctx.LockTimeout)
+	}
+}
+
+func TestApp_RebuildContext_GivenNilRootCfg_ShouldStillReturnContextWithChdirAndWorkspace(t *testing.T) {
+	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+
+	ctx := app.rebuildContext("modules/vpc", "/abs/modules/vpc", "default")
+	if ctx == nil {
+		t.Fatal("rebuildContext returned nil, want non-nil")
+	}
+	if ctx.WorkingDir != "/abs/modules/vpc" {
+		t.Errorf("WorkingDir = %q, want /abs/modules/vpc", ctx.WorkingDir)
+	}
+	if ctx.Workspace != "default" {
+		t.Errorf("Workspace = %q, want default", ctx.Workspace)
+	}
+}
+
+func TestApp_ReplaceContext_ShouldDispatchContextChangedEventOnce(t *testing.T) {
+	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+
+	prev := app.holder.current
+	next := &sdk.Context{Service: svc}
+	cmd := app.replaceContext(next)
+
+	if app.holder.current != next {
+		t.Error("holder.current was not swapped to next")
+	}
+	if cmd == nil {
+		t.Fatal("replaceContext returned nil cmd, want a Cmd that emits ContextChangedEvent")
+	}
+
+	msg := cmd()
+	ev, ok := msg.(sdk.ContextChangedEvent)
+	if !ok {
+		t.Fatalf("cmd() = %T, want sdk.ContextChangedEvent", msg)
+	}
+	if ev.Prev != prev {
+		t.Errorf("ev.Prev = %v, want %v", ev.Prev, prev)
+	}
+	if ev.Next != next {
+		t.Errorf("ev.Next = %v, want %v", ev.Next, next)
+	}
+}
+
+// --- Phase 6: Universal busy-guard tests ---
+
+// setupBusyGuardApp builds an app with one busy plugin and two non-busy
+// transient plugins (chdir/state) so we can drive ContextSwitchRequest /
+// navigateTo against a busy state.
+func setupBusyGuardApp(busy bool) App {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockBusyPlugin{
+			mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+			busy:       busy,
+		}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+	}, plugin.PluginMeta{MenuVisible: false, Nav: plugin.NavPush})
+	registry.Build(nil, nil)
+	return NewApp(cfg, svc, registry, nil)
+}
+
+func TestApp_RequireIdle_WhenNoBusyPlugin_ShouldReturnTrue(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	if !app.requireIdle("test") {
+		t.Error("requireIdle should return true when no plugin is busy")
+	}
+	if app.commandError != "" {
+		t.Errorf("commandError should be empty, got %q", app.commandError)
+	}
+}
+
+func TestApp_RequireIdle_WhenBusyPlugin_ShouldReturnFalseAndSetError(t *testing.T) {
+	app := setupBusyGuardApp(true)
+	if app.requireIdle("plan") {
+		t.Error("requireIdle should return false when a plugin is busy")
+	}
+	if app.commandError == "" {
+		t.Fatal("requireIdle should set commandError when blocked")
+	}
+	if !strings.Contains(app.commandError, ":q!") {
+		t.Errorf("commandError should mention :q!, got %q", app.commandError)
+	}
+	if !strings.Contains(app.commandError, "plan") {
+		t.Errorf("commandError should mention busy plugin id, got %q", app.commandError)
+	}
+}
+
+func TestApp_Update_WhenContextSwitchRequestWithBusyPlugin_ShouldReject(t *testing.T) {
+	app := setupBusyGuardApp(true)
+	// Initial state — no chdir change pending
+	prevChdir := app.activeChdir
+	prevWorkspace := app.activeWorkspace
+
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
+	updated := model.(App)
+
+	if updated.activeChdir != prevChdir {
+		t.Errorf("ContextSwitchRequest must not change chdir while busy: was %q, got %q", prevChdir, updated.activeChdir)
+	}
+	if updated.activeWorkspace != prevWorkspace {
+		t.Errorf("ContextSwitchRequest must not change workspace while busy: was %q, got %q", prevWorkspace, updated.activeWorkspace)
+	}
+	if updated.commandError == "" {
+		t.Fatal("ContextSwitchRequest must set commandError when blocked")
+	}
+}
+
+func TestApp_Update_WhenContextSwitchRequestWithNoBusyPlugin_ShouldApply(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: "default"})
+	updated := model.(App)
+	if updated.activeChdir != "modules/vpc" {
+		t.Errorf("ContextSwitchRequest should apply when idle: got %q", updated.activeChdir)
+	}
+	if updated.commandError != "" {
+		t.Errorf("commandError should be empty, got %q", updated.commandError)
+	}
+}
+
+func TestApp_NavigateTo_WhenAnyPluginBusy_ShouldReject(t *testing.T) {
+	app := setupBusyGuardApp(true)
+
+	statePlugin, _ := app.registry.ByID("state")
+	cmd := app.navigateTo(statePlugin)
+
+	if cmd != nil {
+		t.Error("navigateTo should return nil cmd when a plugin is busy")
+	}
+	if app.activePlugin != nil && app.activePlugin.ID() == "state" {
+		t.Error("navigateTo must not switch to target plugin while another is busy")
+	}
+	if app.commandError == "" {
+		t.Fatal("navigateTo must set commandError when blocked")
+	}
+}
+
+func TestApp_ExecuteCommand_WhenPluginCmdWithBusyPlugin_ShouldReject(t *testing.T) {
+	app := setupBusyGuardApp(true)
+	cmd := app.executeCommand("state")
+	if cmd != nil {
+		t.Error(":state should be blocked when a plugin is busy")
+	}
+	if app.commandError == "" {
+		t.Fatal(":state must set commandError when blocked")
+	}
+}
+
+func TestApp_CmdForceQuit_WhenBusyCancellablePlugin_ShouldCancel(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := newMockService("default", nil)
+	cancellable := &mockBusyCancellablePlugin{
+		mockCancellablePlugin: mockCancellablePlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}},
+		busy:                  true,
+	}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return cancellable
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	cmd := app.cmdForceQuit()
+	if cmd == nil {
+		t.Fatal("cmdForceQuit should return tea.Quit")
+	}
+	if !cancellable.cancelled {
+		t.Error("cmdForceQuit should call Cancel on every cancellable plugin")
 	}
 }

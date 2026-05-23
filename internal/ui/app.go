@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"strings"
 
@@ -33,12 +34,20 @@ type StandaloneConfig struct {
 	JSONMode bool     // user passed -json
 }
 
+// contextHolder is a heap-allocated indirection so that plugin closures
+// captured at Init() see the App's *current* Context after every atomic
+// replacement. App is passed by value through bubbletea's Update loop, so a
+// closure that captures &App's current field would observe a stale copy;
+// shared indirection through a holder makes the live read trivially correct.
+type contextHolder struct {
+	current *sdk.Context
+}
+
 type App struct {
 	cfg         config.Config
 	svc         sdk.Service
 	registry    *plugin.Registry
-	pins        *sdk.PinService
-	options     *sdk.ResolvedOptions
+	holder      *contextHolder
 	bus         *sdk.EventBus
 	sourceIndex *terraform.SourceIndex
 	rootCfg     *config.RootConfig
@@ -81,13 +90,6 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		header = header.WithChdir(cfg.BaseDir)
 	}
 
-	pins := sdk.NewPinService()
-	opts := &sdk.ResolvedOptions{
-		VarFiles:  cfg.VarFiles,
-		Vars:      cfg.Vars,
-		ExtraArgs: cfg.ExtraArgs,
-	}
-
 	bus := sdk.NewEventBus(registry.All())
 
 	var childCfg *config.ChildConfig
@@ -104,8 +106,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		cfg:           cfg,
 		svc:           svc,
 		registry:      registry,
-		pins:          pins,
-		options:       opts,
+		holder:        &contextHolder{},
 		bus:           bus,
 		sourceIndex:   sourceIndex,
 		rootCfg:       rootCfg,
@@ -132,24 +133,38 @@ func (a App) IsStandalone() bool {
 func (a App) Init() tea.Cmd {
 	cmds := []tea.Cmd{a.loadWorkspace}
 
-	// Initialize all plugins
-	ctx := &plugin.Context{
-		WorkingDir: a.cfg.WorkingDir(),
+	// Seed holder with a bootstrap Context so plugins that read deps.Context()
+	// during Init never see a nil pointer. The first ContextChangedEvent
+	// (dispatched once the user picks a chdir / workspace) replaces it.
+	bootSvc := a.svc
+	bootDir := a.cfg.WorkingDir()
+	if a.cfg.Chdir != "" {
+		bootDir = filepath.Join(a.cfg.Dir, a.cfg.Chdir)
+		bootSvc = a.svc.WithDir(bootDir)
+	}
+	a.holder.current = &sdk.Context{
+		WorkingDir: bootDir,
 		Workspace:  "default",
-		Service:    a.svc,
-		Logger:     logging.Logger(),
-		Pins:       a.pins,
-		Options:    a.options,
+		Service:    bootSvc,
+		Pins:       a.cfg.Targets,
+		ExtraArgs:  a.cfg.ExtraArgs,
 	}
 
-	// If scope was pre-configured, scope the service for plugins
-	if a.cfg.Chdir != "" {
-		absScope := filepath.Join(a.cfg.Dir, a.cfg.Chdir)
-		ctx.Service = a.svc.WithDir(absScope)
+	holder := a.holder
+	deps := &plugin.PluginDeps{
+		Logger:  logging.Logger(),
+		Service: bootSvc,
+		Context: func() *sdk.Context { return holder.current },
+		Pin: func(address string) tea.Cmd {
+			return func() tea.Msg { return sdk.PinToggleRequestMsg{Address: address} }
+		},
+		ClearPins: func() tea.Cmd {
+			return func() tea.Msg { return sdk.PinClearRequestMsg{} }
+		},
 	}
 
 	for _, p := range a.registry.All() {
-		if cmd := p.Init(ctx); cmd != nil {
+		if cmd := p.Init(deps); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -184,7 +199,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
 		a.activeWorkspace = msg.workspace
-		a.resolveOptions(msg.workspace)
 		a.header = a.header.WithWorkspace(msg.workspace)
 		return a, nil
 
@@ -211,12 +225,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Skip chdir picker if scope is pre-set or data is loaded externally
 		if a.cfg.Chdir != "" || a.cfg.PreloadedData {
 			if a.cfg.Chdir != "" {
-				absScope := filepath.Join(a.cfg.Dir, a.cfg.Chdir)
-				a.activeChdir = a.cfg.Chdir
-				return a, a.bus.Dispatch(sdk.ChdirChangedEvent{
-					RelPath: a.cfg.Chdir,
-					AbsPath: absScope,
-				})
+				return a, func() tea.Msg {
+					return sdk.ContextSwitchRequestMsg{Chdir: a.cfg.Chdir, Workspace: "default"}
+				}
 			}
 			if a.cfg.BaseDir != "" {
 				a.activeChdir = a.cfg.BaseDir
@@ -229,37 +240,62 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
-	case sdk.ChdirChangedEvent:
-		a.activeChdir = msg.RelPath
+	case sdk.PinToggleRequestMsg:
+		if !a.requireIdle("pin") {
+			return a, nil
+		}
+		current := a.holder.current
+		if current == nil {
+			return a, nil
+		}
+		next := current.TogglePin(msg.Address)
+		return a, a.bus.Dispatch(a.replaceContext(next)())
+
+	case sdk.PinClearRequestMsg:
+		if !a.requireIdle("pin") {
+			return a, nil
+		}
+		current := a.holder.current
+		if current == nil {
+			return a, nil
+		}
+		next := current.WithPins(nil)
+		return a, a.bus.Dispatch(a.replaceContext(next)())
+
+	case sdk.ContextSwitchRequestMsg:
+		// Single chokepoint: chdir/workspace plugins emit this when the user
+		// picks a member or workspace. The App rebuilds Context (atomic
+		// replacement, ADR-0018) and dispatches ContextChangedEvent on the
+		// bus for plugins to react to. The App owns path resolution: relative
+		// chdir → absolute via filepath.Join with the project root.
+		//
+		// Busy-guard: ADR-0016 forbids reentrant terraform calls; switching
+		// chdir/workspace while a plugin holds DirLock would either deadlock
+		// (ExecService rejects) or strand the running command pointing at the
+		// old context. Reject upfront with a uniform message.
+		if !a.requireIdle("context-switch") {
+			return a, nil
+		}
+		chdir := msg.Chdir
+		workspace := msg.Workspace
+		absChdir := filepath.Join(a.cfg.Dir, chdir)
+		a.activeChdir = chdir
+		a.activeWorkspace = workspace
 		a.lockInfo = nil
 		a.staleState = false
-		if a.rootCfg != nil {
-			childCfg, err := config.LoadChild(msg.AbsPath)
+		if a.rootCfg != nil && chdir != "" {
+			childCfg, err := config.LoadChild(absChdir)
 			if err != nil {
-				logging.Logger().Debug("config.load_child", "dir", msg.AbsPath, "err", err)
+				logging.Logger().Debug("config.load_child", "dir", absChdir, "err", err)
 			}
 			a.childCfg = childCfg
 		}
-		a.resolveOptions(a.activeWorkspace)
-		a.header = a.header.WithChdir(msg.RelPath).WithLockInfo(nil).WithStale(false)
-		return a, a.popIfPushed(a.bus.Dispatch(msg))
+		a.header = a.header.WithChdir(chdir).WithWorkspace(workspace).WithLockInfo(nil).WithStale(false)
+		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace))
+		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
-
-	case sdk.WorkspaceCreatedEvent:
-		a.activeWorkspace = msg.Name
-		a.resolveOptions(msg.Name)
-		a.header = a.header.WithWorkspace(msg.Name)
-		return a, a.bus.Dispatch(sdk.WorkspaceChangedEvent(msg))
-
-	case sdk.WorkspaceChangedEvent:
-		a.activeWorkspace = msg.Name
-		a.lockInfo = nil
-		a.staleState = false
-		a.resolveOptions(msg.Name)
-		a.header = a.header.WithWorkspace(msg.Name).WithLockInfo(nil).WithStale(false)
-		return a, a.popIfPushed(a.bus.Dispatch(msg))
 
 	case sdk.PlanInvalidatedEvent:
 		a.staleState = true
@@ -400,27 +436,17 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tfuiplan.ApplyRequestMsg:
 		if p, ok := a.registry.ByID("apply"); ok {
 			applyPlugin := p.(*tfuiapply.Plugin)
-			if pinned := a.pins.All(); len(pinned) > 0 {
-				applyPlugin.SetTargets(pinned)
-			}
+			applyPlugin.SetPlanFile(msg.PlanFile)
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
-			cmd := applyPlugin.RequestApply()
-			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "targets", len(applyPlugin.Targets()))
-			return a, cmd
-		}
-		return a, nil
-
-	case tfuiplan.AutoApplyRequestMsg:
-		if p, ok := a.registry.ByID("apply"); ok {
-			applyPlugin := p.(*tfuiapply.Plugin)
-			if pinned := a.pins.All(); len(pinned) > 0 {
-				applyPlugin.SetTargets(pinned)
+			var cmd tea.Cmd
+			if msg.AutoApprove {
+				cmd = applyPlugin.AutoApply()
+			} else {
+				cmd = applyPlugin.RequestApply()
 			}
-			a.navStack = append(a.navStack, a.activePlugin)
-			a.activePlugin = p
-			cmd := applyPlugin.AutoApply()
-			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply", "auto_approve", true, "targets", len(applyPlugin.Targets()))
+			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply",
+				"plan", msg.PlanFile, "auto_approve", msg.AutoApprove)
 			return a, cmd
 		}
 		return a, nil
@@ -432,12 +458,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.width = msg.Width
 		a.height = msg.Height
 		return a, nil
-	}
-
-	// Fan-out: broadcast events to all subscribing plugins
-	if _, ok := msg.(sdk.Event); ok {
-		busCmd := a.bus.Dispatch(msg)
-		return a, busCmd
 	}
 
 	// If an overlay is active, route messages to it
@@ -724,13 +744,18 @@ func (a App) updateHome(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
+	// Busy-guard: a plugin switch may run terraform on Activate (plan, state,
+	// apply via the menu, etc). While ANY plugin is Busy() the dir lock is
+	// held; a fresh terraform call from a newly-activated plugin would
+	// deadlock at ExecService. Reject the switch instead.
+	if !a.requireIdle("navigate:" + p.ID()) {
+		return nil
+	}
 	nav := a.registry.NavBehaviorFor(p.ID())
 	from := "home"
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
-		if busy, ok := a.activePlugin.(sdk.Busy); ok && busy.Busy() {
-			// Don't cancel plugins holding a terraform lock
-		} else if c, ok := a.activePlugin.(sdk.Cancellable); ok {
+		if c, ok := a.activePlugin.(sdk.Cancellable); ok {
 			c.Cancel()
 		}
 	}
@@ -766,16 +791,84 @@ func (a *App) navigateBack() {
 	logging.Logger().Debug("view.transition", "from", from, "to", to)
 }
 
-// resolveOptions re-runs config resolution and updates the shared ResolvedOptions pointer.
-// ExtraArgs is intentionally preserved — CLI passthrough (--) takes precedence over config.
-func (a *App) resolveOptions(workspace string) {
-	if a.rootCfg == nil {
-		return
+// rebuildContext constructs a fresh, immutable Context snapshot from the
+// app's config + the supplied chdir/workspace. It populates ALL six
+// terraform-affecting exec fields (var-files, vars, parallelism, lock,
+// lock-timeout, extra-args) from config.Resolve — NOT just var-files/vars.
+// Pinned targets are preserved across rebuilds within the same chdir; on
+// chdir change callers should pass nil targets to clear them.
+func (a *App) rebuildContext(chdir, absChdir, workspace string) *sdk.Context {
+	scopedSvc := a.svc
+	if absChdir != "" {
+		scopedSvc = a.svc.WithDir(absChdir)
 	}
-	resolved := config.Resolve(a.rootCfg, a.childCfg, workspace)
-	a.options.VarFiles = resolved.VarFiles()
-	a.options.Vars = resolved.Vars()
-	logging.Logger().Debug("options.resolved", "workspace", workspace, "var_files", len(a.options.VarFiles), "vars", len(a.options.Vars))
+	next := &sdk.Context{
+		Chdir:      chdir,
+		WorkingDir: absChdir,
+		Workspace:  workspace,
+		Service:    scopedSvc,
+		ExtraArgs:  a.cfg.ExtraArgs,
+	}
+	if a.rootCfg != nil {
+		resolved := config.Resolve(a.rootCfg, a.childCfg, workspace)
+		next.VarFiles = resolved.VarFiles()
+		next.Vars = resolved.Vars()
+		next.Parallelism = resolved.Parallelism()
+		next.Lock = resolved.Lock()
+		next.LockTimeout = resolved.LockTimeout()
+	}
+	logging.Logger().Debug("context.rebuilt",
+		"chdir", chdir,
+		"workspace", workspace,
+		"var_files", len(next.VarFiles),
+		"parallelism", next.Parallelism,
+	)
+	return next
+}
+
+// replaceContext atomically swaps the active Context and returns a Cmd that
+// dispatches a single ContextChangedEvent carrying both the previous and
+// next snapshots. Callers must build `next` via rebuildContext (or
+// WithPins on an existing Context) — never mutate `current` in place.
+//
+// Every replacement is logged so every transition is observable in the debug
+// log: prev/next chdir, workspace, and target counts.
+func (a *App) replaceContext(next *sdk.Context) tea.Cmd {
+	prev := a.holder.current
+	a.holder.current = next
+	logging.Logger().Debug("context.replaced",
+		"prev_chdir", contextChdir(prev),
+		"next_chdir", contextChdir(next),
+		"prev_workspace", contextWorkspace(prev),
+		"next_workspace", contextWorkspace(next),
+		"prev_targets", contextTargetCount(prev),
+		"next_targets", contextTargetCount(next),
+	)
+	return func() tea.Msg {
+		return sdk.ContextChangedEvent{Prev: prev, Next: next}
+	}
+}
+
+
+func contextChdir(c *sdk.Context) string {
+	if c == nil {
+		return ""
+	}
+	return c.WorkingDir
+}
+
+func contextWorkspace(c *sdk.Context) string {
+	if c == nil {
+		return ""
+	}
+	return c.Workspace
+}
+
+func contextTargetCount(c *sdk.Context) int {
+	if c == nil {
+		return 0
+	}
+	return len(c.Pins)
 }
 
 func (a *App) popIfPushed(busCmd tea.Cmd) tea.Cmd {
@@ -806,17 +899,40 @@ var builtinCommands = []builtinCommand{
 	{"q!", (*App).cmdForceQuit},
 }
 
-func (a *App) cmdQuit() tea.Cmd {
+// requireIdle is the universal busy-guard chokepoint. Every action that
+// would mutate terraform inputs, replace the active Context, or start a
+// new terraform call routes through this. While ANY registered plugin is
+// holding a terraform operation (DirLock per ADR-0016), the action is
+// rejected and `commandError` is set to a uniform message instructing the
+// user to escape via `:q!`. UI-only actions (scrolling, filtering, esc)
+// bypass this on purpose — see `.claude/rules/architecture.md`.
+//
+// reason is a short label used in the rejection message ("plan", "chdir",
+// "quit", …) so the user knows which action was refused.
+func (a *App) requireIdle(reason string) bool {
 	for _, p := range a.registry.All() {
 		if busy, ok := p.(sdk.Busy); ok && busy.Busy() {
-			a.commandError = "Operation in progress (use :q! to force)"
-			return nil
+			a.commandError = fmt.Sprintf("%s is running — press :q! to force-quit (blocked: %s)", p.ID(), reason)
+			logging.Logger().Debug("busy.guard.reject", "reason", reason, "busy_plugin", p.ID())
+			return false
 		}
+	}
+	return true
+}
+
+func (a *App) cmdQuit() tea.Cmd {
+	if !a.requireIdle("quit") {
+		return nil
 	}
 	return tea.Quit
 }
 
 func (a *App) cmdForceQuit() tea.Cmd {
+	for _, p := range a.registry.All() {
+		if c, ok := p.(sdk.Cancellable); ok {
+			c.Cancel()
+		}
+	}
 	return tea.Quit
 }
 

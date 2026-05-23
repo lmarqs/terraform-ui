@@ -61,12 +61,13 @@ func asyncPlugins(svc sdk.Service) []sdk.Plugin {
 }
 
 func initP(p sdk.Plugin, svc sdk.Service) {
-	p.Init(&sdk.Context{
-		WorkingDir: "/tmp",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:       sdk.NewPinService(),
-		Options:    &sdk.ResolvedOptions{},
+	bootCtx := &sdk.Context{Service: svc}
+	p.Init(&sdk.PluginDeps{
+		Service:   svc,
+		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Context:   func() *sdk.Context { return bootCtx },
+		Pin:       func(_ string) tea.Cmd { return nil },
+		ClearPins: func() tea.Cmd { return nil },
 	})
 }
 
