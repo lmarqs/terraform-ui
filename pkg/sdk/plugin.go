@@ -15,8 +15,11 @@ type Plugin interface {
 	// Description returns a one-line summary of the plugin's purpose.
 	Description() string
 
-	// Init initializes the plugin with shared context and returns an optional startup command.
-	Init(ctx *Context) tea.Cmd
+	// Init initializes the plugin with shared dependencies and returns an
+	// optional startup command. PluginDeps is invariant for the process
+	// lifetime; live terraform state lives on the immutable Context, which
+	// plugins receive via ContextChangedEvent.
+	Init(deps *PluginDeps) tea.Cmd
 
 	// Update processes a bubbletea message and returns the updated plugin and an optional command.
 	Update(msg tea.Msg) (Plugin, tea.Cmd)

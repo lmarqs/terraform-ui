@@ -7,25 +7,67 @@ type Event interface {
 	event()
 }
 
-type ChdirChangedEvent struct {
-	RelPath string
-	AbsPath string
-	Count   int
+// ContextSwitchRequestMsg is emitted by the chdir / workspace plugins to
+// request the App rebuild and replace the immutable Context. The App owns
+// path resolution: callers pass the relative chdir (a member path) and the
+// App joins it to the project root to produce the absolute path used by
+// terraform.
+//
+// Setting Chdir alone switches chdir (workspace preserved). Setting
+// Workspace alone switches workspace (chdir preserved). Setting both means
+// a fresh full Context.
+//
+// Plugins do NOT subscribe to this message — it is a request to the App.
+// Subscribe to ContextChangedEvent for notifications about Context updates.
+type ContextSwitchRequestMsg struct {
+	Chdir     string // relative member path; empty = preserve current chdir
+	Workspace string // workspace name; empty = preserve current workspace
 }
 
-func (ChdirChangedEvent) event() {}
-
-type WorkspaceChangedEvent struct {
-	Name string
+// PinToggleRequestMsg asks the App to toggle a single pinned address on the
+// active Context (added if absent, removed if present). Plugins emit this via
+// PluginDeps.Pin; the App responds by rebuilding Context.WithPins and
+// dispatching a ContextChangedEvent.
+type PinToggleRequestMsg struct {
+	Address string
 }
 
-func (WorkspaceChangedEvent) event() {}
+// PinClearRequestMsg asks the App to remove every pin from the active Context.
+// Plugins emit this via PluginDeps.ClearPins.
+type PinClearRequestMsg struct{}
 
-type WorkspaceCreatedEvent struct {
-	Name string
+// ContextChangedEvent is dispatched by the app whenever the immutable Context
+// is replaced (chdir change, workspace change, pin toggle). Plugins should
+// implement ContextChangedHandler and perform a full reset of any state
+// derived from the previous Context.
+type ContextChangedEvent struct {
+	Prev *Context
+	Next *Context
 }
 
-func (WorkspaceCreatedEvent) event() {}
+func (ContextChangedEvent) event() {}
+
+// OnlyPinsChanged reports whether the only difference between Prev and
+// Next is the Pins slice. Plugins can use this to skip full UI resets on
+// pure pin toggles. Returns false when Prev is nil (initial Context build).
+func (e ContextChangedEvent) OnlyPinsChanged() bool {
+	if e.Prev == nil || e.Next == nil {
+		return false
+	}
+	if e.Prev.WorkingDir != e.Next.WorkingDir {
+		return false
+	}
+	if e.Prev.Workspace != e.Next.Workspace {
+		return false
+	}
+	return true
+}
+
+// ContextChangedHandler is implemented by plugins that need to react to the
+// app replacing its immutable Context.
+type ContextChangedHandler interface {
+	HandleContextChanged(ContextChangedEvent) tea.Cmd
+}
 
 type PlanCompletedEvent struct {
 	Summary       *PlanSummary
@@ -34,12 +76,6 @@ type PlanCompletedEvent struct {
 }
 
 func (PlanCompletedEvent) event() {}
-
-type PinsChangedEvent struct {
-	Addresses []string
-}
-
-func (PinsChangedEvent) event() {}
 
 type PlanInvalidatedEvent struct{}
 
@@ -59,20 +95,8 @@ type StateRefreshedEvent struct{}
 
 func (StateRefreshedEvent) event() {}
 
-type ChdirHandler interface {
-	HandleChdirChanged(ChdirChangedEvent) tea.Cmd
-}
-
-type WorkspaceHandler interface {
-	HandleWorkspaceChanged(WorkspaceChangedEvent) tea.Cmd
-}
-
 type PlanCompletedHandler interface {
 	HandlePlanCompleted(PlanCompletedEvent) tea.Cmd
-}
-
-type PinsHandler interface {
-	HandlePinsChanged(PinsChangedEvent) tea.Cmd
 }
 
 type PlanInvalidatedHandler interface {

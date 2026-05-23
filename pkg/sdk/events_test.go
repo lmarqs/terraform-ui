@@ -4,12 +4,9 @@ import "testing"
 
 func TestEvents_ShouldSatisfyEventInterface(t *testing.T) {
 	events := []Event{
-		ChdirChangedEvent{RelPath: "modules/vpc", AbsPath: "/abs", Count: 3},
-		WorkspaceChangedEvent{Name: "prod"},
+		ContextChangedEvent{},
 		PlanCompletedEvent{ResourceCount: 5, PlanFile: "/tmp/plan"},
-		PinsChangedEvent{Addresses: []string{"aws_instance.web"}},
 		PlanInvalidatedEvent{},
-		WorkspaceCreatedEvent{Name: "staging"},
 		LockDetectedEvent{Lock: &StateLock{ID: "abc"}},
 		LockClearedEvent{},
 		StateRefreshedEvent{},

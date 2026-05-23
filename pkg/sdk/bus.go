@@ -3,10 +3,8 @@ package sdk
 import tea "github.com/charmbracelet/bubbletea"
 
 type EventBus struct {
-	chdirHandlers           []ChdirHandler
-	workspaceHandlers       []WorkspaceHandler
+	contextHandlers         []ContextChangedHandler
 	planCompletedHandlers   []PlanCompletedHandler
-	pinsHandlers            []PinsHandler
 	planInvalidatedHandlers []PlanInvalidatedHandler
 	lockDetectedHandlers    []LockDetectedHandler
 	lockClearedHandlers     []LockClearedHandler
@@ -16,17 +14,11 @@ type EventBus struct {
 func NewEventBus(plugins []Plugin) *EventBus {
 	b := &EventBus{}
 	for _, p := range plugins {
-		if h, ok := p.(ChdirHandler); ok {
-			b.chdirHandlers = append(b.chdirHandlers, h)
-		}
-		if h, ok := p.(WorkspaceHandler); ok {
-			b.workspaceHandlers = append(b.workspaceHandlers, h)
+		if h, ok := p.(ContextChangedHandler); ok {
+			b.contextHandlers = append(b.contextHandlers, h)
 		}
 		if h, ok := p.(PlanCompletedHandler); ok {
 			b.planCompletedHandlers = append(b.planCompletedHandlers, h)
-		}
-		if h, ok := p.(PinsHandler); ok {
-			b.pinsHandlers = append(b.pinsHandlers, h)
 		}
 		if h, ok := p.(PlanInvalidatedHandler); ok {
 			b.planInvalidatedHandlers = append(b.planInvalidatedHandlers, h)
@@ -48,58 +40,35 @@ func (b *EventBus) Dispatch(msg tea.Msg) tea.Cmd {
 	var cmds []tea.Cmd
 
 	switch e := msg.(type) {
-	case ChdirChangedEvent:
-		for _, h := range b.chdirHandlers {
-			if cmd := h.HandleChdirChanged(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
-		}
-	case WorkspaceChangedEvent:
-		for _, h := range b.workspaceHandlers {
-			if cmd := h.HandleWorkspaceChanged(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
+	case ContextChangedEvent:
+		for _, h := range b.contextHandlers {
+			cmds = append(cmds, h.HandleContextChanged(e))
 		}
 	case PlanCompletedEvent:
 		for _, h := range b.planCompletedHandlers {
-			if cmd := h.HandlePlanCompleted(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
-		}
-	case PinsChangedEvent:
-		for _, h := range b.pinsHandlers {
-			if cmd := h.HandlePinsChanged(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
+			cmds = append(cmds, h.HandlePlanCompleted(e))
 		}
 	case PlanInvalidatedEvent:
 		for _, h := range b.planInvalidatedHandlers {
-			if cmd := h.HandlePlanInvalidated(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
+			cmds = append(cmds, h.HandlePlanInvalidated(e))
 		}
 	case LockDetectedEvent:
 		for _, h := range b.lockDetectedHandlers {
-			if cmd := h.HandleLockDetected(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
+			cmds = append(cmds, h.HandleLockDetected(e))
 		}
 	case LockClearedEvent:
 		for _, h := range b.lockClearedHandlers {
-			if cmd := h.HandleLockCleared(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
+			cmds = append(cmds, h.HandleLockCleared(e))
 		}
 	case StateRefreshedEvent:
 		for _, h := range b.stateRefreshedHandlers {
-			if cmd := h.HandleStateRefreshed(e); cmd != nil {
-				cmds = append(cmds, cmd)
-			}
+			cmds = append(cmds, h.HandleStateRefreshed(e))
 		}
 	default:
 		return nil
 	}
 
+	// tea.Batch tolerates nil entries; filter empty/single cases for clarity.
 	if len(cmds) == 0 {
 		return nil
 	}

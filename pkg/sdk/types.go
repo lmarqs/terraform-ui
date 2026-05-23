@@ -161,12 +161,23 @@ type PlanOptions struct {
 	Lock        *bool
 	LockTimeout string
 	ExtraArgs   []string
+	PlanFile    string    // path to write the plan artifact (-out=<path>); empty = service default
 	Writer      io.Writer // receives streaming output; nil = discard
 }
 
 // ApplyOptions holds all options for a terraform apply operation.
+//
+// Two mutually exclusive modes:
+//   - Plan-file mode (TUI flow): PlanFile set, Targets empty. Apply consumes
+//     a saved plan artifact. ADR-0019 governs this path.
+//   - Auto-plan mode (CLI standalone): Targets set, PlanFile empty. Terraform
+//     plans and applies in one shot with -target flags.
+//
+// Setting both PlanFile and Targets is a programming error — terraform rejects
+// -target together with a plan file.
 type ApplyOptions struct {
-	Targets     []string
+	PlanFile    string   // plan-file mode: path produced by a prior Plan call
+	Targets     []string // auto-plan mode: resource targets for one-shot apply
 	VarFiles    []string
 	Vars        map[string]string
 	Parallelism int

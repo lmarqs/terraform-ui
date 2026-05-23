@@ -35,9 +35,9 @@
 //
 // # Shared Services
 //
-//   - EventBus: typed pub/sub for inter-plugin communication (ChdirHandler, WorkspaceHandler, etc.)
-//   - PinService: thread-safe pinning backed by Session, shared across plugins
-//   - StalenessGuard: TTL-based cache freshness validation for destructive ops
+//   - EventBus: typed pub/sub (ContextChangedHandler, PlanCompletedHandler, etc.)
+//   - Context: immutable per-chdir/workspace snapshot (Pins, VarFiles, Service, …)
+//     replaced atomically by the app on chdir/workspace/pin changes (ADR-0018)
 //
 // # Status Lifecycle
 //
