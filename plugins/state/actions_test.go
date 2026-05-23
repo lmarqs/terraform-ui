@@ -3,8 +3,6 @@ package state
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,20 +10,32 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-func newTrackingPlugin(svc *sdktest.MockService, resources []sdk.Resource) *Plugin {
+func newTestPluginWithHarness(resources []sdk.Resource) (*Plugin, *sdktest.PluginDepsHarness) {
+	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
-	p.pins = sdk.NewPinService()
 	p.rebuildTree()
-	return p
+	return p, h
+}
+
+func newTrackingPlugin(svc *sdktest.MockService, resources []sdk.Resource) (*Plugin, *sdktest.PluginDepsHarness) {
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
+	p.status = sdk.StatusDone
+	p.resources = resources
+	p.filtered = resources
+	p.rebuildTree()
+	return p, h
 }
 
 func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, nil)
+	p, _ := newTrackingPlugin(svc, nil)
 
 	t.Run("ShouldReturnRequestInputMsg", func(t *testing.T) {
 		cmd := p.requestMove("aws_instance.web")
@@ -85,7 +95,7 @@ func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *
 
 	t.Run("ShouldExecuteMoveOnConfirmation", func(t *testing.T) {
 		svc2 := &sdktest.MockService{}
-		p2 := newTrackingPlugin(svc2, nil)
+		p2, _ := newTrackingPlugin(svc2, nil)
 		cmd := p2.requestMove("aws_instance.web")
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -114,7 +124,7 @@ func TestRequestMove_WhenCalledWithAddress_ShouldProduceTextInputThenConfirm(t *
 
 	t.Run("ShouldReturnErrorOnMoveFailure", func(t *testing.T) {
 		svc2 := &sdktest.MockService{StateMoveFn: func(_ context.Context, _, _ string) error { return errors.New("move failed") }}
-		p2 := newTrackingPlugin(svc2, nil)
+		p2, _ := newTrackingPlugin(svc2, nil)
 		cmd := p2.requestMove("aws_instance.web")
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -151,7 +161,7 @@ func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(
 
 	t.Run("ShouldDeleteAllOnConfirmation", func(t *testing.T) {
 		svc := &sdktest.MockService{}
-		p := newTrackingPlugin(svc, nil)
+		p, _ := newTrackingPlugin(svc, nil)
 		cmd := p.batchDelete(addresses)
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -171,7 +181,7 @@ func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(
 
 	t.Run("ShouldStopOnFirstError", func(t *testing.T) {
 		svc := &sdktest.MockService{StateRmFn: func(_ context.Context, _ string) error { return errors.New("rm failed") }}
-		p := newTrackingPlugin(svc, nil)
+		p, _ := newTrackingPlugin(svc, nil)
 		cmd := p.batchDelete(addresses)
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -188,7 +198,7 @@ func TestBatchDelete_WhenCalledWithMultipleAddresses_ShouldConfirmThenDeleteAll(
 
 	t.Run("ShouldReturnNilOnDecline", func(t *testing.T) {
 		svc := &sdktest.MockService{}
-		p := newTrackingPlugin(svc, nil)
+		p, _ := newTrackingPlugin(svc, nil)
 		cmd := p.batchDelete(addresses)
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -206,7 +216,7 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 		{Address: "aws_instance.c", Type: "aws_instance"},
 	}
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, resources)
+	p, h := newTrackingPlugin(svc, resources)
 
 	t.Run("ShouldReturnCursorWhenNoPins", func(t *testing.T) {
 		targets := p.actionTargets()
@@ -216,8 +226,7 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 	})
 
 	t.Run("ShouldReturnPinnedWhenPinsExist", func(t *testing.T) {
-		p.pins.Toggle("aws_instance.b")
-		p.pins.Toggle("aws_instance.c")
+		h.Ctx.Pins = []string{"aws_instance.b", "aws_instance.c"}
 		targets := p.actionTargets()
 		if len(targets) != 2 {
 			t.Errorf("expected 2 pinned targets, got %d", len(targets))
@@ -226,7 +235,7 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 
 	t.Run("ShouldReturnNilWhenNoSelectionAndNoPins", func(t *testing.T) {
 		svc2 := &sdktest.MockService{}
-		p2 := newTrackingPlugin(svc2, []sdk.Resource{})
+		p2, _ := newTrackingPlugin(svc2, []sdk.Resource{})
 		targets := p2.actionTargets()
 		if targets != nil {
 			t.Errorf("expected nil targets for empty list, got %v", targets)
@@ -239,7 +248,7 @@ func TestBuildActionFrame_WhenSingleTarget_ShouldHaveAllActionsEnabled(t *testin
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, resources)
+	p, _ := newTrackingPlugin(svc, resources)
 
 	t.Run("ShouldUseAddressAsTitle", func(t *testing.T) {
 		frame := p.buildActionFrame("aws_instance.web", false)
@@ -351,9 +360,8 @@ func TestBuildActionFrame_WhenMultiplePinned_ShouldDisableMoveAndImport(t *testi
 		{Address: "aws_instance.b", Type: "aws_instance"},
 	}
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, resources)
-	p.pins.Toggle("aws_instance.a")
-	p.pins.Toggle("aws_instance.b")
+	p, h := newTrackingPlugin(svc, resources)
+	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
 	p.syncPinnedToTree()
 
 	t.Run("ShouldUsePinnedCountInTitle", func(t *testing.T) {
@@ -459,9 +467,8 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
-	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
-	p.rebuildTree()
+	p, h := newTestPluginWithHarness(resources)
+	_ = h
 
 	t.Run("ShouldPushActionFrameOnBang", func(t *testing.T) {
 		f := &listFrame{plugin: p}
@@ -518,12 +525,11 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 			{Address: "module.a.aws_instance.one", Type: "aws_instance"},
 			{Address: "module.a.aws_instance.two", Type: "aws_instance"},
 		}
-		tp := newTestPlugin(treeResources)
-		tp.pins = sdk.NewPinService()
+		tp, th := newTestPluginWithHarness(treeResources)
 		tp.treeMode = true
 		tp.rebuildTree()
 		// Pin a resource
-		tp.pins.Toggle("module.a.aws_instance.one")
+		th.Ctx.Pins = []string{"module.a.aws_instance.one"}
 		tp.syncPinnedToTree()
 		// Cursor is on branch node "module.a" — SelectedResource() returns empty
 		f := &listFrame{plugin: tp}
@@ -539,8 +545,7 @@ func TestDetailFrame_WhenActionKeyPressed_ShouldTriggerAction(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
-	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
+	p, _ := newTestPluginWithHarness(resources)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "i-123"}`
@@ -583,7 +588,7 @@ func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
-	p := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	_, cmd := p.Update(StateMovedMsg{Source: "a", Dest: "b"})
 	if cmd == nil {
@@ -596,7 +601,7 @@ func TestUpdate_WhenStateMovedMsg_ShouldTriggerRefresh(t *testing.T) {
 
 func TestRequestEditMultiple_ShouldProduceStateEditMsgWithAddresses(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, nil)
+	p, _ := newTrackingPlugin(svc, nil)
 
 	addresses := []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
 	cmd := p.requestEditMultiple(addresses)
@@ -622,9 +627,8 @@ func TestBuildActionFrame_EditHandler_MultiTarget(t *testing.T) {
 		{Address: "aws_instance.b", Type: "aws_instance"},
 	}
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, resources)
-	p.pins.Toggle("aws_instance.a")
-	p.pins.Toggle("aws_instance.b")
+	p, h := newTrackingPlugin(svc, resources)
+	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
 	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("aws_instance.a", true)
@@ -646,14 +650,10 @@ func TestBuildActionFrame_EditHandler_MultiTarget(t *testing.T) {
 }
 
 func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	svc := &sdktest.MockService{}
+	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
+	h.Ctx.Pins = []string{"a", "b"}
+	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	if frame == nil {
@@ -662,12 +662,8 @@ func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.
 }
 
 func TestBuildActionFrame_WhenSingleTarget_ShouldEnableAllActions(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	frame := p.buildActionFrame("a", false)
 	if frame == nil {
@@ -676,14 +672,10 @@ func TestBuildActionFrame_WhenSingleTarget_ShouldEnableAllActions(t *testing.T) 
 }
 
 func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	svc := &sdktest.MockService{}
+	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
+	h.Ctx.Pins = []string{"a", "b"}
+	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	if frame == nil {
@@ -699,14 +691,10 @@ func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testi
 }
 
 func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	svc := &sdktest.MockService{}
+	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
+	h.Ctx.Pins = []string{"a", "b"}
+	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	p.stack.Push(frame)
@@ -717,12 +705,8 @@ func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *test
 }
 
 func TestBuildActionFrame_WhenSingleTargetTaintHandler_ShouldEmitTaintRequest(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	frame := p.buildActionFrame("a", false)
 	p.stack.Push(frame)
@@ -733,12 +717,8 @@ func TestBuildActionFrame_WhenSingleTargetTaintHandler_ShouldEmitTaintRequest(t 
 }
 
 func TestBuildActionFrame_WhenSingleTargetUntaintHandler_ShouldEmitUntaintRequest(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	frame := p.buildActionFrame("a", false)
 	p.stack.Push(frame)
@@ -749,12 +729,8 @@ func TestBuildActionFrame_WhenSingleTargetUntaintHandler_ShouldEmitUntaintReques
 }
 
 func TestBuildActionFrame_WhenSingleTargetImportHandler_ShouldEmitImportRequest(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	frame := p.buildActionFrame("a", false)
 	p.stack.Push(frame)
@@ -765,12 +741,8 @@ func TestBuildActionFrame_WhenSingleTargetImportHandler_ShouldEmitImportRequest(
 }
 
 func TestBuildActionFrame_WhenSingleTargetMoveHandler_ShouldEmitMoveRequest(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}})
 
 	frame := p.buildActionFrame("a", false)
 	p.stack.Push(frame)
@@ -781,12 +753,8 @@ func TestBuildActionFrame_WhenSingleTargetMoveHandler_ShouldEmitMoveRequest(t *t
 }
 
 func TestBuildActionFrame_WhenSingleTargetTaintHandlerExecuted_ShouldProduceTaintMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
 
 	frame := p.buildActionFrame("aws_instance.web", false)
 	p.stack.Push(frame)
@@ -801,12 +769,8 @@ func TestBuildActionFrame_WhenSingleTargetTaintHandlerExecuted_ShouldProduceTain
 }
 
 func TestBuildActionFrame_WhenSingleTargetUntaintHandlerExecuted_ShouldProduceUntaintMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
 
 	frame := p.buildActionFrame("aws_instance.web", false)
 	p.stack.Push(frame)
@@ -821,12 +785,8 @@ func TestBuildActionFrame_WhenSingleTargetUntaintHandlerExecuted_ShouldProduceUn
 }
 
 func TestBuildActionFrame_WhenSingleTargetImportHandlerExecuted_ShouldProduceImportMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
-	p.filtered = p.resources
-	p.rebuildTree()
+	svc := &sdktest.MockService{}
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
 
 	frame := p.buildActionFrame("aws_instance.web", false)
 	p.stack.Push(frame)
@@ -841,14 +801,10 @@ func TestBuildActionFrame_WhenSingleTargetImportHandlerExecuted_ShouldProduceImp
 }
 
 func TestBuildActionFrame_WhenMultiTargetTaintHandlerExecuted_ShouldProduceTaintMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	svc := &sdktest.MockService{}
+	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
+	h.Ctx.Pins = []string{"a", "b"}
+	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	p.stack.Push(frame)
@@ -863,14 +819,10 @@ func TestBuildActionFrame_WhenMultiTargetTaintHandlerExecuted_ShouldProduceTaint
 }
 
 func TestBuildActionFrame_WhenMultiTargetUntaintHandlerExecuted_ShouldProduceUntaintMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.pins = sdk.NewPinService()
-	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	svc := &sdktest.MockService{}
+	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
+	h.Ctx.Pins = []string{"a", "b"}
+	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	p.stack.Push(frame)

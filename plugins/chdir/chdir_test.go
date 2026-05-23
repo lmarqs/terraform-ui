@@ -24,7 +24,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.Context{WorkingDir: "/tmp", Workspace: "default", Service: svc}); cmd != nil {
+	if cmd := p.Init(&sdk.PluginDeps{Service: svc}); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -53,16 +53,16 @@ func TestPlugin_WhenNoMembers_ShouldBeReadyImmediately(t *testing.T) {
 
 func TestPlugin_WhenMembers_ShouldNotBeReadyUntilSelection(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 	if p.Ready() {
 		t.Error("Ready() = true before selection, want false")
 	}
 }
 
-func TestPlugin_WhenEnterPressed_ShouldPublishChdirChangedEvent(t *testing.T) {
+func TestPlugin_WhenEnterPressed_ShouldEmitContextSwitchRequest(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -71,49 +71,46 @@ func TestPlugin_WhenEnterPressed_ShouldPublishChdirChangedEvent(t *testing.T) {
 		t.Error("Ready() = false after enter, want true")
 	}
 	if cmd == nil {
-		t.Fatal("expected ChdirChangedEvent cmd")
+		t.Fatal("expected ContextSwitchRequestMsg cmd")
 	}
 
 	msg := cmd()
-	evt, ok := msg.(sdk.ChdirChangedEvent)
+	req, ok := msg.(sdk.ContextSwitchRequestMsg)
 	if !ok {
-		t.Fatalf("cmd() returned %T, want sdk.ChdirChangedEvent", msg)
+		t.Fatalf("cmd() returned %T, want sdk.ContextSwitchRequestMsg", msg)
 	}
-	if evt.RelPath != "modules/vpc" {
-		t.Errorf("event.RelPath = %q, want modules/vpc", evt.RelPath)
+	if req.Chdir != "modules/vpc" {
+		t.Errorf("req.Chdir = %q, want modules/vpc", req.Chdir)
 	}
-	if evt.AbsPath != "/project/modules/vpc" {
-		t.Errorf("event.AbsPath = %q, want /project/modules/vpc", evt.AbsPath)
-	}
-	if evt.Count != 2 {
-		t.Errorf("event.Count = %d, want 2", evt.Count)
+	if req.Workspace != "default" {
+		t.Errorf("req.Workspace = %q, want default", req.Workspace)
 	}
 }
 
 func TestPlugin_WhenNavigateDown_ShouldSelectSecondMember(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 
 	if cmd == nil {
-		t.Fatal("expected ChdirChangedEvent cmd")
+		t.Fatal("expected ContextSwitchRequestMsg cmd")
 	}
 	msg := cmd()
-	evt, ok := msg.(sdk.ChdirChangedEvent)
+	req, ok := msg.(sdk.ContextSwitchRequestMsg)
 	if !ok {
-		t.Fatalf("cmd() returned %T, want sdk.ChdirChangedEvent", msg)
+		t.Fatalf("cmd() returned %T, want sdk.ContextSwitchRequestMsg", msg)
 	}
-	if evt.RelPath != "modules/ecs" {
-		t.Errorf("event.RelPath = %q, want modules/ecs", evt.RelPath)
+	if req.Chdir != "modules/ecs" {
+		t.Errorf("req.Chdir = %q, want modules/ecs", req.Chdir)
 	}
 }
 
 func TestPlugin_WhenNavigateWithJK_ShouldMoveCursor(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs", "modules/rds"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs", "modules/rds"})
 	p.Activate()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
@@ -134,7 +131,7 @@ func TestPlugin_WhenNavigateWithJK_ShouldMoveCursor(t *testing.T) {
 
 func TestPlugin_WhenNavigateWithUpKey_ShouldMoveCursorUp(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -146,7 +143,7 @@ func TestPlugin_WhenNavigateWithUpKey_ShouldMoveCursorUp(t *testing.T) {
 
 func TestPlugin_EscPopsFrame(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"}, "/project")
+	p.SetMembers([]string{"modules/vpc"})
 	p.Activate()
 
 	if p.stack.Depth() != 1 {
@@ -162,7 +159,7 @@ func TestPlugin_EscPopsFrame(t *testing.T) {
 
 func TestPlugin_WhenNonKeyMsg_ShouldReturnFrameUnchanged(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"}, "/project")
+	p.SetMembers([]string{"modules/vpc"})
 	p.Activate()
 
 	type customMsg struct{}
@@ -186,7 +183,7 @@ func TestPlugin_View_WhenNoMembers_ShouldShowMessage(t *testing.T) {
 
 func TestPlugin_View_WhenMembers_ShouldRenderList(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc", "modules/ecs"}, "/project")
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 	view := p.View(80, 24)
 	if view == "" {
@@ -196,7 +193,7 @@ func TestPlugin_View_WhenMembers_ShouldRenderList(t *testing.T) {
 
 func TestPlugin_View_WhenMembersEmpty_ShouldRenderEmptyMessage(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{}, "/project")
+	p.SetMembers([]string{})
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
 	view := p.View(80, 24)
@@ -207,7 +204,7 @@ func TestPlugin_View_WhenMembersEmpty_ShouldRenderEmptyMessage(t *testing.T) {
 
 func TestPlugin_Hints_ShouldIncludeEnterAndBack(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"}, "/project")
+	p.SetMembers([]string{"modules/vpc"})
 	p.Activate()
 
 	hints := p.stack.Hints()
@@ -239,7 +236,7 @@ func TestListFrame_WhenCreated_ShouldHaveCorrectID(t *testing.T) {
 
 func TestSelectMember_WhenCursorBeyondMembers_ShouldReturnNil(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"}, "/project")
+	p.SetMembers([]string{"modules/vpc"})
 	p.cursor.SetCount(1)
 	// Manually force cursor beyond bounds by setting count to a higher value then back
 	p.cursor.SetCount(5)
@@ -266,15 +263,29 @@ func TestSelectMember_WhenNoMembers_ShouldReturnNil(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenHandleChdirChanged_ShouldMarkSelected(t *testing.T) {
+func TestPlugin_WhenHandleContextChanged_ShouldMarkSelectedWhenWorkingDirSet(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.selected = false
 
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{RelPath: "mod/a", AbsPath: "/x"})
+	next := &sdk.Context{WorkingDir: "/projects/vpc", Workspace: "default"}
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: next})
 	if cmd != nil {
-		t.Error("HandleChdirChanged() should return nil")
+		t.Error("HandleContextChanged() should return nil")
 	}
 	if !p.selected {
-		t.Error("selected should be true after HandleChdirChanged")
+		t.Error("selected should be true after HandleContextChanged with non-empty WorkingDir")
+	}
+}
+
+func TestPlugin_WhenHandleContextChanged_ShouldNotMarkSelectedWhenNextNil(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.selected = false
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged() should return nil")
+	}
+	if p.selected {
+		t.Error("selected should remain false when Next is nil")
 	}
 }

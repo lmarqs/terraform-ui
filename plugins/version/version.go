@@ -45,9 +45,9 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin with shared context.
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.svc = ctx.Service
+// Init wires the plugin to its shared dependencies.
+func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	p.svc = deps.Service
 	return nil
 }
 

@@ -39,7 +39,6 @@ type Plugin struct {
 	dir           string
 	binaryPath    string
 	errMsg        string
-	scopedContext string
 	pastInputs    []string // previous expressions for up/down recall
 	savedInput    string   // saved current input when browsing history
 }
@@ -85,21 +84,31 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin with shared context.
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.svc = ctx.Service
-	p.log = ctx.Logger
-	p.dir = ctx.WorkingDir
+// Init wires the plugin to its shared dependencies. The boot-time WorkingDir
+// is read from deps.Context(); subsequent chdir changes arrive via
+// ContextChangedEvent.
+func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	p.svc = deps.Service
+	p.log = deps.Logger
+	if deps.Context != nil {
+		if ctx := deps.Context(); ctx != nil {
+			p.dir = ctx.WorkingDir
+		}
+	}
 	p.status = sdk.StatusIdle
 	p.reset()
 	return nil
 }
 
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	p.svc = p.svc.WithDir(evt.AbsPath)
-	p.scopedContext = evt.AbsPath
-	p.dir = evt.AbsPath
+// HandleContextChanged implements sdk.ContextChangedHandler.
+func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.Next.Service != nil {
+		p.svc = ev.Next.Service
+	}
+	p.dir = ev.Next.WorkingDir
 	p.reset()
 	return nil
 }

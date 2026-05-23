@@ -49,9 +49,9 @@ func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
 
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.svc = ctx.Service
-	p.log = ctx.Logger
+func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	p.svc = deps.Service
+	p.log = deps.Logger
 	return nil
 }
 
@@ -214,9 +214,14 @@ func (p *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 	return nil
 }
 
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	p.svc = p.svc.WithDir(evt.AbsPath)
+// HandleContextChanged implements sdk.ContextChangedHandler.
+func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.Next.Service != nil {
+		p.svc = ev.Next.Service
+	}
 	p.status = sdk.StatusIdle
 	p.lockInfo = nil
 	p.lockID = ""

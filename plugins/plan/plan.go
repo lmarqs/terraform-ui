@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -31,9 +34,10 @@ func (c changeItem) Address() string { return c.change.Resource.Address }
 type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
-	options       *sdk.ResolvedOptions
+	getCtx        func() *sdk.Context
+	pinFn         func(string) tea.Cmd
+	clearPinsFn   func() tea.Cmd
 	stack         *sdk.Stack
-	pins          *sdk.PinService
 	fuzzy         *ui.FuzzyFilter[sdk.PlanChange]
 	timer         ui.Timer
 	status        sdk.Status
@@ -45,15 +49,14 @@ type Plugin struct {
 	filter        string
 	filtering     bool
 	errMsg        string
-	lockInfo      *sdk.StateLock
-	targets       []string
-	stale         bool
-	scopedContext string
+	lockInfo *sdk.StateLock
+	stale    bool
 	listPanel     *ui.ContentPanel
 	pinnedOnly    bool
 	cancelFn      context.CancelFunc
 	lastStream    *frames.StreamFrame // retained for L key re-display after success
 	streamCh      <-chan string       // stored so callers can batch WaitForLine separately
+	planFile       string              // path to the plan artifact produced by the most recent run
 	// detail view state
 	detail       string
 	detailAddr   string
@@ -90,9 +93,8 @@ func (e *Plugin) Name() string        { return "Plan" }
 func (e *Plugin) Description() string { return "Review terraform plan changes" }
 func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Busy() bool          { return e.status == sdk.StatusLoading }
-func (e *Plugin) Targets() []string   { return e.targets }
-func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
+func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
+func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
 }
@@ -105,10 +107,11 @@ func (e *Plugin) Count() (int, int) {
 }
 
 func (e *Plugin) PinnedCount() int {
-	if e.pins != nil {
-		return e.pins.Count()
-	}
-	return 0
+	return len(e.pinnedAddresses())
+}
+
+func (e *Plugin) pinnedAddresses() []string {
+	return sdk.PinnedAddresses(e.getCtx)
 }
 
 // Configure applies plugin-specific options from config.
@@ -116,18 +119,14 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// SetTargets configures resource targets for the plan.
-func (e *Plugin) SetTargets(targets []string) {
-	e.targets = targets
-}
-
-// Init initializes the plugin with shared context. Does not auto-run plan —
+// Init wires the plugin to its shared dependencies. Does not auto-run plan —
 // the user must explicitly activate the plugin to trigger a plan.
-func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	e.svc = ctx.Service
-	e.log = ctx.Logger
-	e.options = ctx.Options
-	e.pins = ctx.Pins
+func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	e.svc = deps.Service
+	e.log = deps.Logger
+	e.getCtx = deps.Context
+	e.pinFn = deps.Pin
+	e.clearPinsFn = deps.ClearPins
 	e.reset()
 	return nil
 }
@@ -139,10 +138,21 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 	return nil
 }
 
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	e.svc = e.svc.WithDir(evt.AbsPath)
-	e.scopedContext = evt.AbsPath
+// HandleContextChanged implements sdk.ContextChangedHandler. When only the
+// pinned targets changed (same chdir + workspace), the cached plan summary
+// becomes stale but other UI state is preserved; on chdir or workspace
+// changes the plugin fully resets.
+func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.OnlyPinsChanged() {
+		e.stale = true
+		return nil
+	}
+	if ev.Next.Service != nil {
+		e.svc = ev.Next.Service
+	}
 	e.reset()
 	return nil
 }
@@ -158,8 +168,13 @@ func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 	return nil
 }
 
-// reset clears all plugin state to initial values.
+// reset clears all plugin state to initial values. Removes any stale plan
+// artifact from disk so subsequent runs start clean.
 func (e *Plugin) reset() {
+	if e.planFile != "" {
+		_ = os.Remove(e.planFile)
+		e.planFile = ""
+	}
 	e.status = sdk.StatusIdle
 	e.stale = false
 	e.summary = nil
@@ -186,7 +201,7 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError || e.stale {
 		e.stale = false
 		e.status = sdk.StatusLoading
-		e.log.Debug("plan.start", "targets", e.targets)
+		e.log.Debug("plan.start")
 		planCmd := e.runPlan()
 		return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 	}
@@ -236,13 +251,25 @@ func (e *Plugin) runPlan() tea.Cmd {
 	e.stack.Push(sf)
 
 	svc := e.svc
-	opts := sdk.BuildPlanOptions(e.options, e.targets)
+	var opts sdk.PlanOptions
+	if e.getCtx != nil {
+		opts = e.getCtx().PlanOptions()
+	}
+	opts.PlanFile = e.allocPlanFile()
 	opts.Writer = lw
 	return func() tea.Msg {
 		summary, err := svc.Plan(ctx, opts)
 		lw.Close()
 		return PlanResultMsg{Summary: summary, Err: err}
 	}
+}
+
+// allocPlanFile reserves a unique path for the plan artifact and stores it on
+// the plugin so PlanCompletedEvent can hand it off to apply.
+func (e *Plugin) allocPlanFile() string {
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("tfui-%d-%d.tfplan", os.Getpid(), time.Now().UnixNano()))
+	e.planFile = path
+	return path
 }
 
 // Update processes messages and returns the updated plugin.
@@ -273,10 +300,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		} else {
 			e.status = sdk.StatusDone
 			e.summary = msg.Summary
+			var pruneCmd tea.Cmd
 			if msg.Summary != nil {
 				e.filtered = msg.Summary.Changes
 				e.fuzzy.SetItems(msg.Summary.Changes)
-				e.pruneStale(msg.Summary.Changes)
+				pruneCmd = e.pruneStalePins(msg.Summary.Changes)
 				e.rebuildTree()
 			}
 			// Pop the StreamFrame and restore the list frame so the tree is shown.
@@ -288,18 +316,24 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				changes = len(msg.Summary.Changes)
 			}
 			e.log.Debug("plan.complete", "changes", changes)
+			cmds := []tea.Cmd{}
+			if pruneCmd != nil {
+				cmds = append(cmds, pruneCmd)
+			}
 			if msg.Summary != nil {
-				return e, tea.Batch(
+				planFile := e.planFile
+				cmds = append(cmds,
 					func() tea.Msg {
 						return sdk.PlanCompletedEvent{
 							Summary:       msg.Summary,
 							ResourceCount: changes,
+							PlanFile:      planFile,
 						}
 					},
-					func() tea.Msg { return sdk.StateRefreshedEvent{} },
 				)
 			}
-			return e, func() tea.Msg { return sdk.StateRefreshedEvent{} }
+			cmds = append(cmds, func() tea.Msg { return sdk.StateRefreshedEvent{} })
+			return e, tea.Batch(cmds...)
 		}
 	}
 	return e, nil
@@ -415,9 +449,7 @@ func (e *Plugin) rebuildTree() {
 }
 
 func (e *Plugin) syncPinnedToTree() {
-	if e.pins != nil {
-		e.tree.SetPinned(e.pins.All())
-	}
+	e.tree.SetPinned(e.pinnedAddresses())
 }
 
 // --- Selection ---
@@ -436,53 +468,65 @@ func (e *Plugin) CursorNode() *tree.Node {
 }
 
 // --- Pins ---
+//
+// Pins are owned by the immutable Context. The plugin emits a request to the
+// App and the next ContextChangedEvent (with OnlyPinsChanged=true) brings
+// back the new pinned set. We do NOT mutate any local pin state in place —
+// that's exactly the bug class ADR-0018 closes.
 
 func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.tree.TogglePin()
-	if e.pins != nil {
-		e.pins.Set(e.tree.PinnedPaths())
-		e.log.Debug("plan.pin.toggle", "address", address, "pinned_count", e.pins.Count())
-	}
-	return nil
+	e.log.Debug("plan.pin.toggle.request", "address", address)
+	return e.pinFn(address)
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
-	if e.pins != nil {
-		return e.pins.IsPinned(address)
+	for _, a := range e.pinnedAddresses() {
+		if a == address {
+			return true
+		}
 	}
 	return false
 }
 
-func (e *Plugin) pruneStale(changes []sdk.PlanChange) {
-	if e.pins == nil || e.pins.Count() == 0 {
-		return
+// pruneStalePins drops pinned addresses no longer present in the latest plan
+// summary. Returns a Cmd that asks the App to clear-then-restore the
+// surviving subset (a single ContextChangedEvent), or nil if nothing to do.
+func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
+	pinned := e.pinnedAddresses()
+	if len(pinned) == 0 {
+		return nil
 	}
 	valid := make(map[string]bool, len(changes))
 	for _, c := range changes {
 		valid[c.Resource.Address] = true
 	}
-	var retained []string
-	for _, addr := range e.pins.All() {
-		if valid[addr] {
-			retained = append(retained, addr)
+	var stale []string
+	for _, addr := range pinned {
+		if !valid[addr] {
+			stale = append(stale, addr)
 		}
 	}
-	if len(retained) != e.pins.Count() {
-		e.pins.Set(retained)
-		e.log.Debug("plan.pin.prune", "before", e.pins.Count()+len(retained), "after", len(retained))
+	if len(stale) == 0 {
+		return nil
 	}
+	e.log.Debug("plan.pin.prune", "stale", len(stale), "remaining", len(pinned)-len(stale))
+	cmds := make([]tea.Cmd, 0, len(stale))
+	for _, addr := range stale {
+		if e.pinFn != nil {
+			cmds = append(cmds, e.pinFn(addr))
+		}
+	}
+	return tea.Batch(cmds...)
 }
 
-func (e *Plugin) clearAllPins() {
-	if e.pins != nil {
-		e.pins.Set(nil)
-	}
+func (e *Plugin) clearAllPins() tea.Cmd {
 	e.tree.SetPinned(nil)
 	if e.pinnedOnly {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)
 	}
-	e.log.Debug("plan.pin.clear-all")
+	e.log.Debug("plan.pin.clear-all.request")
+	return e.clearPinsFn()
 }
 
 // --- Detail ---
@@ -825,11 +869,13 @@ type PlanEditMsg struct {
 	Address string
 }
 
-// ApplyRequestMsg signals the app to start applying the plan.
-type ApplyRequestMsg struct{}
-
-// AutoApplyRequestMsg signals the app to apply without confirmation.
-type AutoApplyRequestMsg struct{}
+// ApplyRequestMsg signals the app to apply the plan artifact produced by the
+// most recent plan run. PlanFile is the path to the saved plan; AutoApprove
+// short-circuits the confirmation prompt when true.
+type ApplyRequestMsg struct {
+	PlanFile    string
+	AutoApprove bool
+}
 
 // Output produces stdout content for standalone/CI mode.
 func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
@@ -910,9 +956,11 @@ func plainActionSymbol(action sdk.Action) string {
 }
 
 func (e *Plugin) requestApply() tea.Cmd {
-	return func() tea.Msg { return ApplyRequestMsg{} }
+	planFile := e.planFile
+	return func() tea.Msg { return ApplyRequestMsg{PlanFile: planFile} }
 }
 
 func (e *Plugin) requestAutoApply() tea.Cmd {
-	return func() tea.Msg { return AutoApplyRequestMsg{} }
+	planFile := e.planFile
+	return func() tea.Msg { return ApplyRequestMsg{PlanFile: planFile, AutoApprove: true} }
 }

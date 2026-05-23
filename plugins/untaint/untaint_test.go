@@ -36,7 +36,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
+	ctx := &sdk.PluginDeps{
 		Service: svc,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -333,14 +333,14 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
+func TestPlugin_WhenHandleContextChanged_ShouldReset(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.addresses = []string{"aws_instance.web"}
 	p.errMsg = "old error"
 
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/path"})
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
 
 	if p.status != sdk.StatusIdle {
 		t.Errorf("status = %v, want StatusIdle", p.status)
@@ -352,7 +352,7 @@ func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
 		t.Error("errMsg should be cleared")
 	}
 	if cmd != nil {
-		t.Error("HandleChdirChanged should return nil cmd")
+		t.Error("HandleContextChanged should return nil cmd")
 	}
 }
 
@@ -510,5 +510,33 @@ func TestPlugin_WhenViewInLoadingWithMultipleAddresses_ShouldShowResourceCount(t
 	}
 	if !strings.Contains(view, "3 resources") {
 		t.Errorf("View() should show '3 resources', got %q", view)
+	}
+}
+
+func TestHandleContextChanged_ShouldClearAddressesAndReset(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.addresses = []string{"a", "b"}
+	p.errMsg = "boom"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle || len(p.addresses) != 0 || p.errMsg != "" {
+		t.Errorf("state not reset: status=%v addrs=%v errMsg=%q", p.status, p.addresses, p.errMsg)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.addresses = []string{"keep"}
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if len(p.addresses) != 1 {
+		t.Errorf("addresses mutated, got %v", p.addresses)
 	}
 }

@@ -129,7 +129,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			f.plugin.stack.Push(f.plugin.buildActionFrame(true))
 		}
 	case "ctrl+u":
-		f.plugin.clearAllPins()
+		return f, f.plugin.clearAllPins()
 	case "]":
 		if f.plugin.treeMode {
 			f.plugin.tree.ExpandAll()

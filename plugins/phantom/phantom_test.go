@@ -25,7 +25,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.Context{WorkingDir: "/tmp", Workspace: "default", Service: svc}); cmd != nil {
+	if cmd := p.Init(&sdk.PluginDeps{Service: svc}); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {

@@ -2,8 +2,6 @@ package state
 
 import (
 	"context"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 
@@ -16,10 +14,11 @@ import (
 func newTestPlugin(resources []sdk.Resource) *Plugin {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	p.rebuildTree()
 	return p
 }
@@ -377,7 +376,7 @@ func TestFlatMode_PinTargetsSelectedResource(t *testing.T) {
 	}
 	p := newTestPlugin(resources)
 	p.treeMode = false
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 
 	p.MoveDown()
@@ -506,12 +505,12 @@ func TestListFrame_PinnedFilter(t *testing.T) {
 		{Address: "aws_instance.c", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 
 	// Pin one resource
-	p.pins.Toggle("aws_instance.b")
+	p.getCtx().Pins = []string{"aws_instance.b"}
 	p.syncPinnedToTree()
 
 	t.Run("ShouldFilterToPinnedOnly", func(t *testing.T) {
@@ -543,13 +542,10 @@ func TestListFrame_ClearAllPins(t *testing.T) {
 		{Address: "aws_instance.a", Type: "aws_instance"},
 		{Address: "aws_instance.b", Type: "aws_instance"},
 	}
-	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
-	p.rebuildTree()
+	p, _ := newTestPluginWithHarness(resources)
 	f := &listFrame{plugin: p}
 
-	p.pins.Toggle("aws_instance.a")
-	p.pins.Toggle("aws_instance.b")
+	p.getCtx().Pins = []string{"aws_instance.a", "aws_instance.b"}
 	p.syncPinnedToTree()
 
 	if p.PinnedCount() != 2 {
@@ -558,8 +554,10 @@ func TestListFrame_ClearAllPins(t *testing.T) {
 
 	f.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
 
-	if p.PinnedCount() != 0 {
-		t.Errorf("expected 0 pinned after ctrl+u, got %d", p.PinnedCount())
+	// clearAllPins clears the tree's internal pinned state immediately
+	// (getCtx().Pins is cleared asynchronously by the App via the returned cmd)
+	if len(p.tree.PinnedPaths()) != 0 {
+		t.Errorf("expected tree pinned paths=0 after ctrl+u, got %d", len(p.tree.PinnedPaths()))
 	}
 }
 
@@ -568,11 +566,11 @@ func TestListFrame_ClearAllPins_ExitsPinnedFilter(t *testing.T) {
 		{Address: "aws_instance.a", Type: "aws_instance"},
 	}
 	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 
-	p.pins.Toggle("aws_instance.a")
+	p.getCtx().Pins = []string{"aws_instance.a"}
 	p.syncPinnedToTree()
 	p.pinnedOnly = true
 	p.SetFilter("")
@@ -830,7 +828,7 @@ func TestDetailFrame_Update_WhenSpace_ShouldTogglePin(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	f := &detailFrame{plugin: p}
 
@@ -842,7 +840,7 @@ func TestDetailFrame_Update_WhenDelete_ShouldRequestDelete(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
-	p.pins = sdk.NewPinService()
+
 	f := &detailFrame{plugin: p}
 
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
@@ -927,7 +925,7 @@ func TestDetailFrame_Hints_ShouldIncludeWrapAndPin(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
-	p.pins = sdk.NewPinService()
+
 	f := &detailFrame{plugin: p}
 
 	hints := f.Hints()
@@ -949,8 +947,8 @@ func TestDetailFrame_Hints_WhenPinned_ShouldReflectPinnedState(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("aws_instance.web")
+
+	p.getCtx().Pins = []string{"aws_instance.web"}
 	f := &detailFrame{plugin: p}
 
 	hints := f.Hints()
@@ -994,8 +992,8 @@ func TestStateFilterFrame_Update_WhenEscFromInner_ShouldClearFiltering(t *testin
 
 func TestStateFilterFrame_Update_WhenPinnedFilter_ShouldToggle(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}, {Address: "b"}})
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("a")
+
+	p.getCtx().Pins = []string{"a"}
 	p.rebuildTree()
 
 	// Enter filter mode
@@ -1075,8 +1073,8 @@ func TestListFrame_Hints_WhenLoading_ShouldShowBackOnly(t *testing.T) {
 
 func TestListFrame_Hints_WhenDoneWithPins_ShouldIncludeClearPins(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("a")
+
+	p.getCtx().Pins = []string{"a"}
 	f := &listFrame{plugin: p}
 
 	hints := f.Hints()
@@ -1095,8 +1093,8 @@ func TestListFrame_Hints_WhenDoneWithPins_ShouldIncludeClearPins(t *testing.T) {
 func TestListFrame_Update_WhenU_InErrorWithLock_ShouldNavigateToForceUnlock(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.svc = svc
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "abc-123"}
 	f := &listFrame{plugin: p}
@@ -1201,7 +1199,8 @@ func TestListFrame_Update_WhenIKey_ShouldInspect(t *testing.T) {
 	}
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
@@ -1220,7 +1219,8 @@ func TestListFrame_Update_WhenFilterSelectOnLeaf_ShouldInspect(t *testing.T) {
 	}
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
@@ -1266,17 +1266,18 @@ func TestListFrame_Update_WhenFilterPin_ShouldTogglePin(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.a", Type: "aws_instance"},
 	}
-	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
-	p.rebuildTree()
+	p, h := newTestPluginWithHarness(resources)
 
 	// Enter filter mode
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 
 	// Space to toggle pin
-	p.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if p.pins.Count() != 1 {
-		t.Errorf("expected 1 pin after space in filter, got %d", p.pins.Count())
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		cmd()
+	}
+	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.a" {
+		t.Errorf("expected pin request for aws_instance.a, got %v", h.PinRequests)
 	}
 }
 
@@ -1315,7 +1316,8 @@ func TestListFrame_Update_WhenFilterSelectOnBranch_ShouldToggle(t *testing.T) {
 	}
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
@@ -1338,16 +1340,18 @@ func TestListFrame_Update_WhenFilterSelectOnBranch_ShouldToggle(t *testing.T) {
 }
 
 func TestListFrame_Update_WhenFilterPinOnEmptyList_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin([]sdk.Resource{})
-	p.pins = sdk.NewPinService()
+	p, h := newTestPluginWithHarness([]sdk.Resource{})
 
 	// Enter filter mode
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 
 	// Space on empty list
-	p.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if p.pins.Count() != 0 {
-		t.Errorf("expected 0 pins after space on empty list, got %d", p.pins.Count())
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		cmd()
+	}
+	if len(h.PinRequests) != 0 {
+		t.Errorf("expected 0 pin requests after space on empty list, got %v", h.PinRequests)
 	}
 }
 
@@ -1371,7 +1375,7 @@ func TestListFrame_Update_WhenIKeyOnBranch_ShouldToggle(t *testing.T) {
 
 func TestListFrame_Update_WhenDKeyNoResource_ShouldDoNothing(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{})
-	p.pins = sdk.NewPinService()
+
 	f := &listFrame{plugin: p}
 
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'d'}})
@@ -1412,7 +1416,7 @@ func TestListFrame_Update_WhenNKeyNoResource_ShouldDoNothing(t *testing.T) {
 
 func TestListFrame_Update_WhenBangNoTargets_ShouldDoNothing(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{})
-	p.pins = sdk.NewPinService()
+
 	f := &listFrame{plugin: p}
 
 	depthBefore := p.stack.Depth()
@@ -1424,7 +1428,7 @@ func TestListFrame_Update_WhenBangNoTargets_ShouldDoNothing(t *testing.T) {
 
 func TestListFrame_Update_WhenSpaceOnNilNode_ShouldDoNothing(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{})
-	p.pins = sdk.NewPinService()
+
 	f := &listFrame{plugin: p}
 
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeySpace})
@@ -1494,7 +1498,8 @@ func TestListFrame_Update_WhenIKeyOnLeafInTreeMode_ShouldInspect(t *testing.T) {
 	}
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
@@ -1515,7 +1520,8 @@ func TestListFrame_Update_WhenFilterSelectOnLeafInTreeMode_ShouldInspect(t *test
 	}
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources
@@ -1555,24 +1561,22 @@ func TestListFrame_Update_WhenEsc_ShouldReturnDeactivateCmd(t *testing.T) {
 
 func TestListFrame_Update_WhenSpaceWithResource_ShouldTogglePin(t *testing.T) {
 	resources := []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}
-	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
-	p.rebuildTree()
+	p, h := newTestPluginWithHarness(resources)
 	f := &listFrame{plugin: p}
 
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if cmd != nil {
-		t.Error("togglePin returns nil cmd, so expected nil")
+		cmd()
 	}
-	if p.pins.Count() != 1 {
-		t.Errorf("expected 1 pin after space, got %d", p.pins.Count())
+	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.web" {
+		t.Errorf("expected pin request for aws_instance.web, got %v", h.PinRequests)
 	}
 }
 
 func TestListFrame_Update_WhenDKeyWithResource_ShouldRequestDelete(t *testing.T) {
 	resources := []sdk.Resource{{Address: "aws_instance.web", Type: "aws_instance"}}
 	p := newTestPlugin(resources)
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 
@@ -1621,7 +1625,8 @@ func TestListFrame_Update_WhenEnterInTreeModeOnLeaf_ShouldInspect(t *testing.T) 
 	}
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources

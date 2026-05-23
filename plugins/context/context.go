@@ -49,24 +49,30 @@ func (p *Plugin) SetMembers(members []string) {
 	p.members = members
 }
 
-// Init initializes the plugin with shared context.
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	if ctx.Logger != nil {
-		p.log = ctx.Logger
+// Init wires the plugin to its shared dependencies. The boot-time workspace
+// is read from deps.Context(); subsequent changes arrive via
+// ContextChangedEvent.
+func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	if deps.Logger != nil {
+		p.log = deps.Logger
 	}
-	p.workspace = ctx.Workspace
+	if deps.Context != nil {
+		if ctx := deps.Context(); ctx != nil {
+			p.workspace = ctx.Workspace
+		}
+	}
 	return nil
 }
 
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	p.chdir = evt.RelPath
-	return nil
-}
-
-// HandleWorkspaceChanged implements sdk.WorkspaceHandler.
-func (p *Plugin) HandleWorkspaceChanged(evt sdk.WorkspaceChangedEvent) tea.Cmd {
-	p.workspace = evt.Name
+// HandleContextChanged implements sdk.ContextChangedHandler. The context
+// plugin mirrors the active chdir + workspace so its form reflects the
+// current state.
+func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	p.chdir = ev.Next.WorkingDir
+	p.workspace = ev.Next.Workspace
 	return nil
 }
 

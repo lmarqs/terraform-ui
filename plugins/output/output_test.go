@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 
@@ -58,13 +56,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	if cmd := p.Init(ctx); cmd != nil {
+	if cmd := p.Init(sdktest.NewDeps(svc).Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -98,7 +90,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnOutputResultMsg(t *testing.T) 
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 
 	p.Init(ctx)
 	cmd := p.(*Plugin).Activate()
@@ -139,7 +131,7 @@ func TestActivate_WhenServiceFails_ShouldReturnOutputResultMsgWithError(t *testi
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()
@@ -930,28 +922,24 @@ func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged_WhenCalled_ShouldResetToIdleWithNewContext(t *testing.T) {
+func TestHandleContextChanged_WhenCalled_ShouldResetToIdleWithNewContext(t *testing.T) {
 	svc := &sdktest.MockService{
 		OutputFn: func(_ context.Context) (map[string]sdk.OutputValue, error) {
 			return sampleOutputs(), nil
 		},
 	}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	p.Init(ctx)
+	deps := sdktest.NewDeps(svc).Deps
+	p.Init(deps)
 	p.status = sdk.StatusDone
-	p.scopedContext = "/old/ctx"
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
-	if p.scopedContext != "/new/ctx" {
-		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new/ctx")
-	}
+	p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{WorkingDir: "/new/ctx", Service: svc}})
 	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want sdk.StatusIdle after HandleChdirChanged", p.status)
+		t.Errorf("status = %v, want sdk.StatusIdle after HandleContextChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Error("Activate() after HandleChdirChanged: want non-nil cmd")
+		t.Error("Activate() after HandleContextChanged: want non-nil cmd")
 	}
 }
 
@@ -962,10 +950,9 @@ func TestActivate_WhenSameContextAlreadyDone_ShouldReturnNilCmd(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	p.status = sdk.StatusDone
-	p.scopedContext = "/same"
 	cmd := p.Activate()
 	if cmd != nil {
 		t.Error("Activate() same context done: want nil")
@@ -975,7 +962,7 @@ func TestActivate_WhenSameContextAlreadyDone_ShouldReturnNilCmd(t *testing.T) {
 func TestActivate_WhenNoContextSelected_ShouldProceedWithLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	cmd := p.Activate()
 	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
@@ -994,7 +981,7 @@ func TestActivate_WhenScopeDirSet_ShouldReturnLoadCmd(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	cmd := p.Activate()
 	if cmd == nil {
@@ -1009,7 +996,7 @@ func TestActivate_WhenNoSession_ShouldReturnLoadCmd(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	cmd := p.Activate()
 	if cmd == nil {
@@ -1421,5 +1408,28 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 	pos, total = p.CursorPosition()
 	if pos != 0 || total != 0 {
 		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}
+
+func TestHandleContextChanged_ShouldResetState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "boom"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{WorkingDir: "/x", Service: svc}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle || p.errMsg != "" {
+		t.Errorf("state not reset: status=%v errMsg=%q", p.status, p.errMsg)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }

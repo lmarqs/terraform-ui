@@ -38,6 +38,7 @@ type WorkspaceCreateMsg struct {
 // Plugin implements the workspace management feature.
 type Plugin struct {
 	svc           sdk.Service
+	getCtx        func() *sdk.Context
 	stack         *sdk.Stack
 	timer         ui.Timer
 	status        sdk.Status
@@ -46,7 +47,6 @@ type Plugin struct {
 	selected      int
 	errMsg        string
 	loadingMsg    string
-	scopedContext string
 	cancelFn      context.CancelFunc
 }
 
@@ -77,17 +77,24 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin with shared context. Does not auto-load.
-func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	e.svc = ctx.Service
+// Init wires the plugin to its shared dependencies. Does not auto-load.
+func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	e.svc = deps.Service
+	e.getCtx = deps.Context
 	e.reset()
 	return nil
 }
 
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	e.svc = e.svc.WithDir(evt.AbsPath)
-	e.scopedContext = evt.AbsPath
+// HandleContextChanged implements sdk.ContextChangedHandler. Replaces the
+// scoped service from the new Context's Service handle (already chdir-scoped
+// by the app) and clears any in-memory workspace list.
+func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.Next.Service != nil {
+		e.svc = ev.Next.Service
+	}
 	e.reset()
 	return nil
 }
@@ -181,11 +188,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.PopBack {
 			e.status = sdk.StatusIdle
 			return e, func() tea.Msg {
-				return sdk.WorkspaceChangedEvent{Name: msg.Name}
+				return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: msg.Name}
 			}
 		}
 		return e, tea.Batch(e.Refresh(), func() tea.Msg {
-			return sdk.WorkspaceCreatedEvent{Name: msg.Name}
+			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: msg.Name}
 		})
 
 	case WorkspaceCreateMsg:
@@ -197,7 +204,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		e.current = msg.Name
 		return e, tea.Batch(e.Refresh(), func() tea.Msg {
-			return sdk.WorkspaceCreatedEvent{Name: msg.Name}
+			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: msg.Name}
 		})
 
 	case WorkspaceDeleteMsg:

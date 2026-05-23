@@ -79,8 +79,8 @@ func (e *Plugin) batchDelete(addresses []string) tea.Cmd {
 
 // actionTargets returns the addresses to act on: pinned if any, otherwise cursor.
 func (e *Plugin) actionTargets() []string {
-	if e.pins != nil && e.pins.Count() > 0 {
-		return e.pins.All()
+	if pinned := e.pinnedAddresses(); len(pinned) > 0 {
+		return pinned
 	}
 	r := e.SelectedResource()
 	if r.Address != "" {
@@ -91,10 +91,7 @@ func (e *Plugin) actionTargets() []string {
 
 // buildActionFrame creates the action palette for the given address context.
 func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFrame {
-	pinCount := 0
-	if e.pins != nil {
-		pinCount = e.pins.Count()
-	}
+	pinCount := len(e.pinnedAddresses())
 	multiTarget := batch && pinCount > 1
 
 	title := address

@@ -2,19 +2,18 @@ package state
 
 import (
 	"fmt"
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-func newGoldenPlugin() *Plugin {
+func newGoldenPlugin() (*Plugin, *sdktest.PluginDepsHarness) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	return p
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
+	return p, h
 }
 
 func testResources() []sdk.Resource {
@@ -28,26 +27,26 @@ func testResources() []sdk.Resource {
 }
 
 func TestView_Given_Idle_ShouldRender_LoadingPlaceholder(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusIdle
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Loading_ShouldRender_LoadingMessage(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusLoading
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_Error_ShouldRender_ErrorMessage(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusError
 	p.errMsg = "Failed to read state: no state file found"
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_ErrorWithLock_ShouldRender_LockPanel(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{
 		ID:        "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
@@ -58,7 +57,7 @@ func TestView_Given_ErrorWithLock_ShouldRender_LockPanel(t *testing.T) {
 }
 
 func TestView_Given_ResourceList_ShouldRender_AllResources(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
@@ -67,7 +66,7 @@ func TestView_Given_ResourceList_ShouldRender_AllResources(t *testing.T) {
 }
 
 func TestView_Given_ResourceList_WithSelection_ShouldRender_HighlightedRow(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
@@ -78,7 +77,7 @@ func TestView_Given_ResourceList_WithSelection_ShouldRender_HighlightedRow(t *te
 }
 
 func TestView_Given_FilterActive_ShouldRender_FilterInput(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = []sdk.Resource{
@@ -91,7 +90,7 @@ func TestView_Given_FilterActive_ShouldRender_FilterInput(t *testing.T) {
 }
 
 func TestView_Given_FilterInactive_ShouldRender_FilterLabel(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = []sdk.Resource{
@@ -104,7 +103,7 @@ func TestView_Given_FilterInactive_ShouldRender_FilterLabel(t *testing.T) {
 }
 
 func TestView_Given_EmptyResourceList_ShouldRender_NoResourcesMessage(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
@@ -113,19 +112,17 @@ func TestView_Given_EmptyResourceList_ShouldRender_NoResourcesMessage(t *testing
 }
 
 func TestView_Given_PinnedResources_ShouldRender_PinMarkers(t *testing.T) {
-	p := newGoldenPlugin()
+	p, h := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = testResources()
 	p.filtered = testResources()
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("aws_instance.web")
-	p.pins.Toggle("aws_s3_bucket.data")
+	h.Ctx.Pins = []string{"aws_instance.web", "aws_s3_bucket.data"}
 	p.rebuildTree()
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_DetailView_ShouldRender_ExpandedAttributes(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{
@@ -141,12 +138,11 @@ func TestView_Given_DetailView_ShouldRender_ExpandedAttributes(t *testing.T) {
 }
 
 func TestView_Given_DetailView_WithPinned_ShouldRender_PinnedIndicator(t *testing.T) {
-	p := newGoldenPlugin()
+	p, h := newGoldenPlugin()
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "i-0abc123def456"}`
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
@@ -167,7 +163,7 @@ func realisticResources() []sdk.Resource {
 }
 
 func TestView_Given_Tree_AllCollapsed_ShouldRender_ModuleGroups(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
@@ -177,7 +173,7 @@ func TestView_Given_Tree_AllCollapsed_ShouldRender_ModuleGroups(t *testing.T) {
 }
 
 func TestView_Given_Tree_OneModuleExpanded_ShouldRender_Children(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
@@ -189,7 +185,7 @@ func TestView_Given_Tree_OneModuleExpanded_ShouldRender_Children(t *testing.T) {
 }
 
 func TestView_Given_Tree_NestedExpanded_ShouldRender_FullHierarchy(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
@@ -201,35 +197,35 @@ func TestView_Given_Tree_NestedExpanded_ShouldRender_FullHierarchy(t *testing.T)
 }
 
 func TestView_Given_Tree_PinnedModule_ShouldRender_PinOnGroup(t *testing.T) {
-	p := newGoldenPlugin()
+	p, h := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high")
-	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high")
-	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_dashboard.main")
+	h.Ctx.Pins = []string{
+		"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
+		"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high",
+		"module.cloudwatch.aws_cloudwatch_dashboard.main",
+	}
 	p.rebuildTree()
 	p.tree.ExpandAll()
 	sdktest.AssertGolden(t, p.View(80, 24))
 }
 
 func TestView_Given_Tree_PartiallyPinnedModule_ShouldRender_PartialIndicator(t *testing.T) {
-	p := newGoldenPlugin()
+	p, h := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
 	p.treeMode = true
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high")
+	h.Ctx.Pins = []string{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"}
 	p.rebuildTree()
 	p.tree.ExpandAll()
 	sdktest.AssertGolden(t, p.View(80, 24))
 }
 
 func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
@@ -242,7 +238,7 @@ func TestView_Given_Tree_PartialExpand_ShouldRender_MixedState(t *testing.T) {
 }
 
 func TestView_Given_Tree_DeepExpand_ShouldRender_TreeConnectors(t *testing.T) {
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = realisticResources()
 	p.filtered = realisticResources()
@@ -265,7 +261,7 @@ func TestView_Given_ManyResources_ShouldRender_ScrolledWindow(t *testing.T) {
 			Name:    fmt.Sprintf("server_%02d", i),
 		}
 	}
-	p := newGoldenPlugin()
+	p, _ := newGoldenPlugin()
 	p.status = sdk.StatusDone
 	p.resources = resources
 	p.filtered = resources

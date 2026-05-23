@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func TestPlugin_Lifecycle(t *testing.T) {
@@ -58,38 +59,28 @@ func TestPlugin_WhenSetMembers_ShouldStoreMembers(t *testing.T) {
 func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
 	tests := []struct {
 		name      string
-		ctx       *sdk.Context
-		wantWS    string
-		wantNilFn bool
+		workspace string
+		nilLogger bool
 	}{
-		{
-			name: "ShouldStoreWorkspaceAndLogger",
-			ctx: &sdk.Context{
-				Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
-				Workspace: "staging",
-			},
-			wantWS: "staging",
-		},
-		{
-			name: "ShouldKeepDefaultLoggerWhenNilLogger",
-			ctx: &sdk.Context{
-				Logger:    nil,
-				Workspace: "production",
-			},
-			wantWS: "production",
-		},
+		{name: "ShouldStoreWorkspaceAndLogger", workspace: "staging"},
+		{name: "ShouldKeepDefaultLoggerWhenNilLogger", workspace: "production", nilLogger: true},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			p := New(nil).(*Plugin)
-			cmd := p.Init(tt.ctx)
+			h := sdktest.NewDeps(nil)
+			h.Ctx.Workspace = tt.workspace
+			if tt.nilLogger {
+				h.Deps.Logger = nil
+			}
+			cmd := p.Init(h.Deps)
 
 			if cmd != nil {
 				t.Error("Init() should return nil cmd")
 			}
-			if p.workspace != tt.wantWS {
-				t.Errorf("workspace = %q, want %q", p.workspace, tt.wantWS)
+			if p.workspace != tt.workspace {
+				t.Errorf("workspace = %q, want %q", p.workspace, tt.workspace)
 			}
 			if p.log == nil {
 				t.Error("log should not be nil after Init")
@@ -101,8 +92,10 @@ func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
 func TestPlugin_WhenInitializedWithLogger_ShouldUseProvidedLogger(t *testing.T) {
 	p := New(nil).(*Plugin)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(nil)
+	h.Deps.Logger = logger
 
-	p.Init(&sdk.Context{Logger: logger, Workspace: "dev"})
+	p.Init(h.Deps)
 
 	if p.log != logger {
 		t.Error("should use provided logger")
@@ -112,35 +105,13 @@ func TestPlugin_WhenInitializedWithLogger_ShouldUseProvidedLogger(t *testing.T) 
 func TestPlugin_WhenInitializedWithNilLogger_ShouldKeepDefaultLogger(t *testing.T) {
 	p := New(nil).(*Plugin)
 	defaultLog := p.log
+	h := sdktest.NewDeps(nil)
+	h.Deps.Logger = nil
 
-	p.Init(&sdk.Context{Logger: nil, Workspace: "dev"})
+	p.Init(h.Deps)
 
 	if p.log != defaultLog {
 		t.Error("should keep default logger when ctx.Logger is nil")
-	}
-}
-
-func TestPlugin_WhenChdirChanged_ShouldUpdateChdir(t *testing.T) {
-	p := New(nil).(*Plugin)
-
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{RelPath: "modules/vpc"})
-	if cmd != nil {
-		t.Error("HandleChdirChanged should return nil cmd")
-	}
-	if p.chdir != "modules/vpc" {
-		t.Errorf("chdir = %q, want %q", p.chdir, "modules/vpc")
-	}
-}
-
-func TestPlugin_WhenWorkspaceChanged_ShouldUpdateWorkspace(t *testing.T) {
-	p := New(nil).(*Plugin)
-
-	cmd := p.HandleWorkspaceChanged(sdk.WorkspaceChangedEvent{Name: "staging"})
-	if cmd != nil {
-		t.Error("HandleWorkspaceChanged should return nil cmd")
-	}
-	if p.workspace != "staging" {
-		t.Errorf("workspace = %q, want %q", p.workspace, "staging")
 	}
 }
 
@@ -394,5 +365,29 @@ func TestPlugin_WhenChdirNotSelectable_ShouldSkipToWorkspace(t *testing.T) {
 	}
 	if nav.PluginID != "workspace" {
 		t.Errorf("PluginID = %q, want %q", nav.PluginID, "workspace")
+	}
+}
+
+func TestHandleContextChanged_ShouldUpdateWorkspace(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.workspace = "old"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Workspace: "new"}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.workspace != "new" {
+		t.Errorf("workspace = %q, want new", p.workspace)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.workspace = "keep"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if p.workspace != "keep" {
+		t.Errorf("workspace mutated, got %q", p.workspace)
 	}
 }

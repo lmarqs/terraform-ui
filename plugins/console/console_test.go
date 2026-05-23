@@ -2,8 +2,6 @@ package console
 
 import (
 	"errors"
-	"io"
-	"log/slog"
 	"os"
 	"strings"
 	"testing"
@@ -16,13 +14,9 @@ import (
 func newTestPlugin() *Plugin {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp/test",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	h.Ctx.WorkingDir = "/tmp/test"
+	p.Init(h.Deps)
 	return p
 }
 
@@ -42,13 +36,9 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp/test",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	if cmd := p.Init(ctx); cmd != nil {
+	h := sdktest.NewDeps(svc)
+	h.Ctx.WorkingDir = "/tmp/test"
+	if cmd := p.Init(h.Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -72,16 +62,7 @@ func TestPlugin_WhenActivated_ShouldSetDoneStatusAndBinaryPath(t *testing.T) {
 }
 
 func TestPlugin_WhenActivatedWithoutChdirGuard_ShouldProceedToDone(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp/test",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	p.Init(ctx)
-
+	p := newTestPlugin()
 	p.Activate()
 
 	// Without ChdirGuard, Activate proceeds to sdk.StatusDone (no scope gating)
@@ -90,16 +71,12 @@ func TestPlugin_WhenActivatedWithoutChdirGuard_ShouldProceedToDone(t *testing.T)
 	}
 }
 
-func TestPlugin_WhenActivatedWithScopeDir_ShouldUseProjectDir(t *testing.T) {
+func TestPlugin_WhenInitWithProjectDir_ShouldUseProjectDir(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		WorkingDir: "/my/project",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	h.Ctx.WorkingDir = "/my/project"
+	p.Init(h.Deps)
 
 	p.Activate()
 
@@ -597,26 +574,22 @@ func TestSetBinaryPath_WhenCalled_ShouldUpdatePath(t *testing.T) {
 	}
 }
 
-func TestHandleChdirChanged_WhenCalled_ShouldResetStateAndUpdateDir(t *testing.T) {
+func TestHandleContextChanged_WhenCalled_ShouldResetStateAndUpdateDir(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		WorkingDir: "/old/ctx",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	p.Init(ctx)
-
-	// First activation sets the scope
-	p.Activate()
+	h := sdktest.NewDeps(svc)
+	h.Ctx.WorkingDir = "/old/ctx"
+	p.Init(h.Deps)
 
 	// Simulate state accumulation
 	p.history = []replEntry{{Expr: "old", Result: "stale"}}
 	p.pastInputs = []string{"old"}
 
-	// HandleChdirChanged resets state
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
+	// HandleContextChanged updates the working dir and resets history.
+	p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{
+		WorkingDir: "/new/ctx",
+		Service:    svc,
+	}})
 
 	if p.dir != "/new/ctx" {
 		t.Errorf("dir = %q, want %q", p.dir, "/new/ctx")
@@ -925,5 +898,18 @@ func TestPlugin_WhenQKeyWithEmptyInputNotEvaluating_ShouldDeactivate(t *testing.
 	msg := cmd()
 	if _, ok := msg.(sdk.DeactivateMsg); !ok {
 		t.Errorf("q cmd returned %T, want DeactivateMsg", msg)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.dir = "/keep"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if p.dir != "/keep" {
+		t.Errorf("dir mutated on nil Next, got %q", p.dir)
 	}
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -17,7 +17,7 @@ import (
 
 func TestNew(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
+	p := newTestPlugin(svc)
 
 	if p.ID() != "plan" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "plan")
@@ -35,7 +35,7 @@ func TestNew(t *testing.T) {
 
 func TestCountable(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 
 	var c sdk.Countable = p
 	filtered, total := c.Count()
@@ -55,7 +55,7 @@ func TestCountable(t *testing.T) {
 
 func TestConfigure(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
+	p := newTestPlugin(svc)
 	err := p.Configure(map[string]interface{}{"key": "value"})
 	if err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
@@ -69,15 +69,9 @@ func TestInit(t *testing.T) {
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:       sdk.NewPinService(),
-	}
+	h := sdktest.NewDeps(svc)
 
-	cmd := p.Init(ctx)
+	cmd := p.Init(h.Deps)
 	if cmd != nil {
 		t.Error("Init() should return nil cmd (no auto-plan)")
 	}
@@ -95,13 +89,8 @@ func TestActivate(t *testing.T) {
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:       sdk.NewPinService(),
-	}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 
 	pp := p.(*Plugin)
 	cmd := pp.Activate()
@@ -120,13 +109,8 @@ func TestActivateWhileLoadingRestartsTick(t *testing.T) {
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:       sdk.NewPinService(),
-	}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 
 	pp := p.(*Plugin)
 	pp.Activate()
@@ -155,8 +139,8 @@ func TestActivate_GivenPlanSucceeds_ShouldReturnSummaryInCmd(t *testing.T) {
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
@@ -196,8 +180,8 @@ func TestActivate_GivenPlanFails_ShouldReturnErrorInCmd(t *testing.T) {
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
@@ -226,9 +210,8 @@ func TestActivate_GivenPlanFails_ShouldReturnErrorInCmd(t *testing.T) {
 
 func TestUpdatePlanResultSuccess(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
-	pp := p.(*Plugin)
-	pp.status = sdk.StatusLoading
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
 
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -288,9 +271,8 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 
 func TestUpdatePlanResultError(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
-	pp := p.(*Plugin)
-	pp.status = sdk.StatusLoading
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(PlanResultMsg{Summary: nil, Err: errors.New("terraform error")})
 	if cmd != nil {
@@ -308,111 +290,107 @@ func TestUpdatePlanResultError(t *testing.T) {
 
 func TestUpdateKeyMsgNavigation(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
-	pp := p.(*Plugin)
-	pp.status = sdk.StatusDone
-	pp.summary = &sdk.PlanSummary{
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
 			{Resource: sdk.Resource{Address: "b"}},
 			{Resource: sdk.Resource{Address: "c"}},
 		},
 	}
-	pp.filtered = pp.summary.Changes
-	pp.rebuildTree()
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	// Move down
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if pp.tree.Cursor() != 1 {
-		t.Errorf("after j: cursor = %d, want 1", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if p.tree.Cursor() != 1 {
+		t.Errorf("after j: cursor = %d, want 1", p.tree.Cursor())
 	}
 
 	// Move down again
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if pp.tree.Cursor() != 2 {
-		t.Errorf("after j,j: cursor = %d, want 2", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if p.tree.Cursor() != 2 {
+		t.Errorf("after j,j: cursor = %d, want 2", p.tree.Cursor())
 	}
 
 	// Move down at boundary (should not go past last)
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
-	if pp.tree.Cursor() != 2 {
-		t.Errorf("after j,j,j: cursor = %d, want 2 (boundary)", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	if p.tree.Cursor() != 2 {
+		t.Errorf("after j,j,j: cursor = %d, want 2 (boundary)", p.tree.Cursor())
 	}
 
 	// Move up
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if pp.tree.Cursor() != 1 {
-		t.Errorf("after k: cursor = %d, want 1", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	if p.tree.Cursor() != 1 {
+		t.Errorf("after k: cursor = %d, want 1", p.tree.Cursor())
 	}
 
 	// Move up to start
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if pp.tree.Cursor() != 0 {
-		t.Errorf("after k,k: cursor = %d, want 0", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	if p.tree.Cursor() != 0 {
+		t.Errorf("after k,k: cursor = %d, want 0", p.tree.Cursor())
 	}
 
 	// Move up at boundary
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
-	if pp.tree.Cursor() != 0 {
-		t.Errorf("after k,k,k: cursor = %d, want 0 (boundary)", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+	if p.tree.Cursor() != 0 {
+		t.Errorf("after k,k,k: cursor = %d, want 0 (boundary)", p.tree.Cursor())
 	}
 }
 
 func TestUpdateKeyMsgMoveToEndAndStart(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
-	pp := p.(*Plugin)
-	pp.status = sdk.StatusDone
-	pp.summary = &sdk.PlanSummary{
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
 			{Resource: sdk.Resource{Address: "b"}},
 			{Resource: sdk.Resource{Address: "c"}},
 		},
 	}
-	pp.filtered = pp.summary.Changes
-	pp.rebuildTree()
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	// G moves to end
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
-	if pp.tree.Cursor() != 2 {
-		t.Errorf("after G: cursor = %d, want 2", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}})
+	if p.tree.Cursor() != 2 {
+		t.Errorf("after G: cursor = %d, want 2", p.tree.Cursor())
 	}
 
 	// g moves to start
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
-	if pp.tree.Cursor() != 0 {
-		t.Errorf("after g: cursor = %d, want 0", pp.tree.Cursor())
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}})
+	if p.tree.Cursor() != 0 {
+		t.Errorf("after g: cursor = %d, want 0", p.tree.Cursor())
 	}
 }
 
 func TestUpdateKeyMsgInspect(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
-	pp := p.(*Plugin)
-	pp.pins = sdk.NewPinService()
-	pp.status = sdk.StatusDone
-	pp.summary = &sdk.PlanSummary{
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, AttributeDiffs: []sdk.AttributeDiff{{Key: "name"}}},
 		},
 	}
-	pp.filtered = pp.summary.Changes
-	pp.rebuildTree()
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
 
 	// Enter opens inspect frame
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if pp.stack.Peek().ID() != "inspect" {
-		t.Errorf("after enter: top frame = %q, want %q", pp.stack.Peek().ID(), "inspect")
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if p.stack.Peek().ID() != "inspect" {
+		t.Errorf("after enter: top frame = %q, want %q", p.stack.Peek().ID(), "inspect")
 	}
-	if pp.detailAddr != "a" {
-		t.Errorf("detailAddr = %q, want %q", pp.detailAddr, "a")
+	if p.detailAddr != "a" {
+		t.Errorf("detailAddr = %q, want %q", p.detailAddr, "a")
 	}
 
 	// Esc closes inspect
-	pp.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if pp.stack.Peek().ID() != "list" {
-		t.Errorf("after esc: top frame = %q, want %q", pp.stack.Peek().ID(), "list")
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if p.stack.Peek().ID() != "list" {
+		t.Errorf("after esc: top frame = %q, want %q", p.stack.Peek().ID(), "list")
 	}
 }
 
@@ -448,21 +426,21 @@ func TestCtrlR_GivenStatusLoading_ShouldBeIgnored(t *testing.T) {
 
 func TestUpdateUnknownMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc)
+	p := newTestPlugin(svc)
 
 	type unknownMsg struct{}
 	result, cmd := p.Update(unknownMsg{})
 	if cmd != nil {
 		t.Errorf("Update(unknownMsg) cmd = %v, want nil", cmd)
 	}
-	if result != p {
+	if result.(*Plugin) != p {
 		t.Error("Update(unknownMsg) returned different plugin reference")
 	}
 }
 
 func TestMoveUpDown(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -492,7 +470,7 @@ func TestMoveUpDown(t *testing.T) {
 
 func TestMoveDownNilSummary(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = nil
 	p.MoveDown()
 	if p.tree.Cursor() != 0 {
@@ -502,7 +480,7 @@ func TestMoveDownNilSummary(t *testing.T) {
 
 func TestMoveToStartEnd(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -525,7 +503,7 @@ func TestMoveToStartEnd(t *testing.T) {
 
 func TestMoveToEndNilSummary(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = nil
 	p.MoveToEnd()
 	if p.tree.Cursor() != 0 {
@@ -535,7 +513,7 @@ func TestMoveToEndNilSummary(t *testing.T) {
 
 func TestMoveToEndEmptyChanges(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 	p.MoveToEnd()
 	if p.tree.Cursor() != 0 {
@@ -545,7 +523,7 @@ func TestMoveToEndEmptyChanges(t *testing.T) {
 
 func TestSelectedChange(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 
 	// empty tree
 	if p.SelectedChange() != nil {
@@ -571,23 +549,13 @@ func TestSelectedChange(t *testing.T) {
 	}
 }
 
-func TestSetTargets(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	targets := []string{"aws_instance.web", "aws_s3_bucket.data"}
-	p.SetTargets(targets)
-	if len(p.targets) != 2 {
-		t.Errorf("SetTargets: len(targets) = %d, want 2", len(p.targets))
-	}
-}
-
 func TestRefresh(t *testing.T) {
 	svc := &sdktest.MockService{
 		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
 			return &sdk.PlanSummary{}, nil
 		},
 	}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
 	cmd := p.Refresh()
@@ -604,7 +572,7 @@ func TestRefresh(t *testing.T) {
 
 func TestViewIdle(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
@@ -615,7 +583,7 @@ func TestViewIdle(t *testing.T) {
 
 func TestViewLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
@@ -626,7 +594,7 @@ func TestViewLoading(t *testing.T) {
 
 func TestViewError(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 	p.errMsg = "some error"
 
@@ -638,7 +606,7 @@ func TestViewError(t *testing.T) {
 
 func TestViewDoneNoChanges(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{}}
 
@@ -650,7 +618,7 @@ func TestViewDoneNoChanges(t *testing.T) {
 
 func TestViewDoneNilSummary(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = nil
 
@@ -662,7 +630,7 @@ func TestViewDoneNilSummary(t *testing.T) {
 
 func TestViewDoneWithChanges(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -713,8 +681,7 @@ func TestViewDoneWithChanges(t *testing.T) {
 
 func TestViewDoneWithInspectDetail(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.pins = sdk.NewPinService()
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -745,7 +712,7 @@ func TestViewDoneWithInspectDetail(t *testing.T) {
 
 func TestViewDoneScrolling(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
 	// Create many changes to trigger scrolling
@@ -772,7 +739,7 @@ func TestViewDoneScrolling(t *testing.T) {
 
 func TestViewDefaultStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.Status(99) // invalid status
 
 	view := p.View(80, 24)
@@ -783,7 +750,7 @@ func TestViewDefaultStatus(t *testing.T) {
 
 func TestRenderSummaryLineAllZero(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{}
 
 	result := p.renderSummaryLine()
@@ -794,7 +761,7 @@ func TestRenderSummaryLineAllZero(t *testing.T) {
 
 func TestRenderOverallRisk(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 
 	// nil summary
 	p.summary = nil
@@ -917,7 +884,7 @@ func TestRiskBadge(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
@@ -926,7 +893,7 @@ func TestStatus(t *testing.T) {
 
 func TestTreeCursor(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -942,20 +909,9 @@ func TestTreeCursor(t *testing.T) {
 	}
 }
 
-func TestTargets(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.targets = []string{"a", "b"}
-
-	targets := p.Targets()
-	if len(targets) != 2 {
-		t.Errorf("Targets() len = %d, want 2", len(targets))
-	}
-}
-
 func TestSummary(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	if p.Summary() != nil {
 		t.Error("Summary() = non-nil before plan, want nil")
 	}
@@ -968,7 +924,7 @@ func TestSummary(t *testing.T) {
 
 func TestViewSmallHeight(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -986,7 +942,7 @@ func TestViewSmallHeight(t *testing.T) {
 
 func TestRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := newTestPlugin(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1003,19 +959,20 @@ func TestRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 	}
 }
 
-func newTestPlugin(svc sdk.Service) *Plugin {
+func newTestPluginWithHarness(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Pins:    sdk.NewPinService(),
-	}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
+	return p, h
+}
+
+func newTestPlugin(svc sdk.Service) *Plugin {
+	p, _ := newTestPluginWithHarness(svc)
 	return p
 }
 
 func TestPlugin_WhenCreated_ShouldExposeStack(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 	if p.Stack() == nil {
 		t.Error("Stack() = nil, want non-nil")
 	}
@@ -1025,14 +982,14 @@ func TestPlugin_WhenCreated_ShouldExposeStack(t *testing.T) {
 }
 
 func TestPlugin_WhenCreated_ShouldReportNotBusy(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 	if p.Busy() {
 		t.Error("Busy() = true, want false when status is Idle")
 	}
 }
 
 func TestPlugin_WhenLoading_ShouldReportBusy(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 	if !p.Busy() {
 		t.Error("Busy() = false, want true when status is Loading")
@@ -1040,7 +997,7 @@ func TestPlugin_WhenLoading_ShouldReportBusy(t *testing.T) {
 }
 
 func TestPlugin_WhenDone_ShouldReportNotBusy(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	if p.Busy() {
 		t.Error("Busy() = true, want false when status is Done")
@@ -1056,13 +1013,12 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 	p.rebuildTree()
 	p.errMsg = "old error"
 
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{
-		RelPath: "modules/vpc",
-		AbsPath: "/projects/infra/modules/vpc",
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
+		Next: &sdk.Context{Service: svc, WorkingDir: "/projects/infra/modules/vpc"},
 	})
 
 	if cmd != nil {
-		t.Error("HandleChdirChanged() cmd != nil, want nil")
+		t.Error("HandleContextChanged() cmd != nil, want nil")
 	}
 	if p.status != sdk.StatusIdle {
 		t.Errorf("status = %v, want Idle", p.status)
@@ -1075,9 +1031,6 @@ func TestPlugin_WhenChdirChanged_ShouldResetState(t *testing.T) {
 	}
 	if p.errMsg != "" {
 		t.Errorf("errMsg = %q, want empty", p.errMsg)
-	}
-	if p.scopedContext != "/projects/infra/modules/vpc" {
-		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/projects/infra/modules/vpc")
 	}
 }
 
@@ -1186,6 +1139,103 @@ func TestPlugin_WhenActivatedWhileError_ShouldRetriggerPlan(t *testing.T) {
 	}
 }
 
+func TestActivate_GivenPlanRuns_ShouldPassPlanFileToService(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	cmd := p.Activate()
+	// Drain the batch so the underlying Plan call executes.
+	if cmd == nil {
+		t.Fatal("Activate() returned nil cmd")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			if sub != nil {
+				_ = sub()
+			}
+		}
+	}
+
+	if len(svc.PlanCalls) == 0 {
+		t.Fatal("expected at least one Plan call")
+	}
+	got := svc.PlanCalls[0]
+	if got.PlanFile == "" {
+		t.Error("PlanOptions.PlanFile = empty, want non-empty plan-file path")
+	}
+	if !strings.Contains(got.PlanFile, "tfui") || !strings.HasSuffix(got.PlanFile, ".tfplan") {
+		t.Errorf("PlanOptions.PlanFile = %q, want path containing 'tfui' and ending in '.tfplan'", got.PlanFile)
+	}
+}
+
+func TestReset_GivenStalePlanFile_ShouldRemoveItFromDisk(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+
+	planPath := filepath.Join(t.TempDir(), "stale.tfplan")
+	if err := os.WriteFile(planPath, []byte("plan-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p.planFile = planPath
+
+	p.reset()
+
+	if p.planFile != "" {
+		t.Errorf("after reset planFile = %q, want empty", p.planFile)
+	}
+	if _, err := os.Stat(planPath); !os.IsNotExist(err) {
+		t.Errorf("plan file still exists at %q after reset; err=%v", planPath, err)
+	}
+}
+
+func TestUpdatePlanResultSuccess_ShouldPopulatePlanFileInEvent(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
+	// Simulate that runPlan recorded a path before dispatching the result.
+	planPath := "/tmp/tfui-test.tfplan"
+	p.planFile = planPath
+
+	summary := &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_s3_bucket.test"}, Action: sdk.ActionCreate},
+		},
+		ToCreate: 1,
+	}
+
+	_, cmd := p.Update(PlanResultMsg{Summary: summary, Err: nil})
+	if cmd == nil {
+		t.Fatal("Update(PlanResultMsg) cmd = nil, want batched cmd")
+	}
+	batch, ok := cmd().(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd() = %T, want tea.BatchMsg", cmd())
+	}
+
+	var planFile string
+	found := false
+	for _, sub := range batch {
+		if sub == nil {
+			continue
+		}
+		if evt, ok := sub().(sdk.PlanCompletedEvent); ok {
+			found = true
+			planFile = evt.PlanFile
+		}
+	}
+	if !found {
+		t.Fatal("PlanCompletedEvent not found in batch")
+	}
+	if planFile != planPath {
+		t.Errorf("PlanCompletedEvent.PlanFile = %q, want %q", planFile, planPath)
+	}
+}
+
 func TestPlugin_WhenPlanResultNilSummary_ShouldNotEmitPlanCompletedEvent(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
@@ -1226,9 +1276,9 @@ func TestPlugin_WhenViewErrorWithLockInfo_ShouldShowLockDetails(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenTogglePin_ShouldPinAndUnpin(t *testing.T) {
+func TestPlugin_WhenTogglePin_ShouldRequestPinToggle(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, h := newTestPluginWithHarness(svc)
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
@@ -1237,25 +1287,13 @@ func TestPlugin_WhenTogglePin_ShouldPinAndUnpin(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
-	p.togglePin("aws_instance.web")
-	if !p.pins.IsPinned("aws_instance.web") {
-		t.Error("after togglePin: resource should be pinned")
+	cmd := p.togglePin("aws_instance.web")
+	if cmd == nil {
+		t.Fatal("togglePin should return a cmd")
 	}
-
-	p.togglePin("aws_instance.web")
-	if p.pins.IsPinned("aws_instance.web") {
-		t.Error("after second togglePin: resource should be unpinned")
-	}
-}
-
-func TestPlugin_WhenTogglePinWithNilPins_ShouldNotPanic(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.pins = nil
-
-	p.togglePin("aws_instance.web")
-	if p.isPinnedAddress("aws_instance.web") {
-		t.Error("isPinnedAddress with nil pins should return false")
+	cmd()
+	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.web" {
+		t.Errorf("togglePin should request pin for 'aws_instance.web', got %v", h.PinRequests)
 	}
 }
 
@@ -1282,7 +1320,7 @@ func TestPlugin_WhenRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 // --- Frame tests ---
 
 func TestListFrame_WhenCreated_ShouldHaveCorrectID(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 	frame := p.stack.Peek()
 
 	lf, ok := frame.(*listFrame)
@@ -1321,7 +1359,7 @@ func TestListFrame_WhenEscPressed_ShouldEmitDeactivateMsg(t *testing.T) {
 
 func TestListFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, h := newTestPluginWithHarness(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1331,16 +1369,22 @@ func TestListFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
-	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
-
-	if !p.pins.IsPinned("aws_instance.web") {
-		t.Error("after space: resource should be pinned")
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		cmd()
 	}
 
-	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.web" {
+		t.Errorf("after space: should request pin for 'aws_instance.web', got %v", h.PinRequests)
+	}
 
-	if p.pins.IsPinned("aws_instance.web") {
-		t.Error("after second space: resource should be unpinned")
+	cmd = p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		cmd()
+	}
+
+	if len(h.PinRequests) != 2 || h.PinRequests[1] != "aws_instance.web" {
+		t.Errorf("after second space: should request toggle for 'aws_instance.web', got %v", h.PinRequests)
 	}
 }
 
@@ -1706,7 +1750,7 @@ func TestPlugin_WhenViewLoadingState_ShouldShowRunningMessage(t *testing.T) {
 
 func TestPlugin_WhenPinnedResourceRendered_ShouldShowPinMark(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, h := newTestPluginWithHarness(svc)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1714,7 +1758,7 @@ func TestPlugin_WhenPinnedResourceRendered_ShouldShowPinMark(t *testing.T) {
 		},
 		ToCreate: 1,
 	}
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -1723,7 +1767,7 @@ func TestPlugin_WhenPinnedResourceRendered_ShouldShowPinMark(t *testing.T) {
 }
 
 func TestCursorPosition_WhenDoneWithChanges_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1749,7 +1793,7 @@ func TestCursorPosition_WhenDoneWithChanges_ShouldReturnOneBasedPositionAndTotal
 }
 
 func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p := newTestPlugin(&sdktest.MockService{})
 
 	pos, total := p.CursorPosition()
 	if pos != 0 || total != 0 {
@@ -1771,7 +1815,7 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 }
 
 func TestListFrame_WhenBangPressedWithPins_ShouldPushActionFrame(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -1781,8 +1825,7 @@ func TestListFrame_WhenBangPressedWithPins_ShouldPushActionFrame(t *testing.T) {
 	}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
-	p.pins.Toggle("aws_instance.a")
-	p.pins.Toggle("aws_instance.b")
+	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
 	p.syncPinnedToTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
@@ -1934,5 +1977,61 @@ func TestListFrame_WhenHintsDoneWithChangesAndLastStream_ShouldIncludeLHint(t *t
 	}
 	if !hasL {
 		t.Error("Hints(Done, with changes, lastStream set): missing 'l' log hint")
+	}
+}
+
+func TestHandleContextChanged_WhenChdirChanges_ShouldFullReset(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.summary = &sdk.PlanSummary{}
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
+		Prev: &sdk.Context{WorkingDir: "/old"},
+		Next: &sdk.Context{Service: svc},
+	})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle (full reset)", p.status)
+	}
+	if p.summary != nil {
+		t.Error("summary should be nil after chdir change")
+	}
+}
+
+func TestHandleContextChanged_WhenOnlyPinsChange_ShouldMarkStaleAndPreserveUI(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	summary := &sdk.PlanSummary{}
+	p.summary = summary
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
+		Prev: &sdk.Context{Pins: []string{"a"}},
+		Next: &sdk.Context{Pins: []string{"a", "b"}},
+	})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if !p.stale {
+		t.Error("stale should be true after pin-only change")
+	}
+	if p.summary != summary {
+		t.Error("summary should be preserved on pin-only change (UI state intact)")
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if p.status != sdk.StatusDone {
+		t.Error("status mutated on nil Next")
 	}
 }

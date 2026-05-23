@@ -35,7 +35,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
+	ctx := &sdk.PluginDeps{
 		Service: svc,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -448,33 +448,6 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenHandleChdirChanged_ShouldReset(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-	p.address = "aws_instance.web"
-	p.id = "i-123"
-	p.errMsg = "old error"
-
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/path"})
-
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", p.status)
-	}
-	if p.address != "" {
-		t.Error("address should be cleared")
-	}
-	if p.id != "" {
-		t.Error("id should be cleared")
-	}
-	if p.errMsg != "" {
-		t.Error("errMsg should be cleared")
-	}
-	if cmd != nil {
-		t.Error("HandleChdirChanged should return nil cmd")
-	}
-}
-
 func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
@@ -580,5 +553,34 @@ func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
 	hints := p.Hints()
 	if len(hints) == 0 {
 		t.Fatal("Hints() in Idle returned empty")
+	}
+}
+
+func TestHandleContextChanged_ShouldResetState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.address = "old.addr"
+	p.id = "old-id"
+	p.errMsg = "boom"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle || p.address != "" || p.id != "" || p.errMsg != "" {
+		t.Errorf("state not reset: status=%v addr=%q id=%q errMsg=%q", p.status, p.address, p.id, p.errMsg)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.address = "keep"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if p.address != "keep" {
+		t.Errorf("address mutated, got %q", p.address)
 	}
 }

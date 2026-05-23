@@ -10,8 +10,8 @@ import (
 )
 
 func (e *Plugin) actionTargets() []string {
-	if e.pins != nil && e.pins.Count() > 0 {
-		return e.pins.All()
+	if pinned := e.pinnedAddresses(); len(pinned) > 0 {
+		return pinned
 	}
 	change := e.SelectedChange()
 	if change != nil {
@@ -21,10 +21,7 @@ func (e *Plugin) actionTargets() []string {
 }
 
 func (e *Plugin) buildActionFrame(batch bool) *frames.ActionFrame {
-	pinCount := 0
-	if e.pins != nil {
-		pinCount = e.pins.Count()
-	}
+	pinCount := len(e.pinnedAddresses())
 	multiTarget := batch && pinCount > 1
 
 	title := ""

@@ -40,7 +40,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.Context{Service: svc}); cmd != nil {
+	if cmd := p.Init(&sdk.PluginDeps{Service: svc}); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 }
@@ -143,17 +143,6 @@ func TestResultFrame_WhenEnterPressedInError_ShouldReturnToForm(t *testing.T) {
 	}
 	if top.ID() != "form" {
 		t.Errorf("top frame ID = %q, want %q (form should be back)", top.ID(), "form")
-	}
-}
-
-func TestHandleChdirChanged_WhenCalled_ShouldResetStack(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
-
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/dir"})
-
-	if !p.stack.IsEmpty() {
-		t.Error("chdir should reset the stack")
 	}
 }
 
@@ -873,5 +862,27 @@ func TestActivateWithArgs_ShouldResetPreviousState(t *testing.T) {
 	}
 	if p.extraArgs != "" {
 		t.Errorf("extraArgs should be reset, got %q", p.extraArgs)
+	}
+}
+
+func TestHandleContextChanged_ShouldResetStack(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Activate() // pushes form
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.stack.Depth() != 0 {
+		t.Errorf("stack not reset, depth = %d", p.stack.Depth())
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }

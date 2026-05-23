@@ -32,13 +32,8 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	if cmd := p.Init(ctx); cmd != nil {
+	h := sdktest.NewDeps(svc)
+	if cmd := p.Init(h.Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -49,6 +44,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 func TestCount_WhenResourcesFiltered_ShouldReturnFilteredAndTotal(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	var c sdk.Countable = p
 	filtered, total := c.Count()
@@ -71,9 +67,9 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnStateListMsg(t *testing.T) {
 	}
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) { return resources, nil }}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	h := sdktest.NewDeps(svc)
 
-	p.Init(ctx)
+	p.Init(h.Deps)
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
 
@@ -108,8 +104,8 @@ func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 		return nil, errors.New("state error")
 	}}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 
 	cmd := p.(*Plugin).Activate()
 	msg := cmd()
@@ -140,6 +136,7 @@ func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 func TestUpdate_WhenStateListSuccess_ShouldSetDoneWithResources(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
 
@@ -174,6 +171,7 @@ func TestUpdate_WhenStateListSuccess_ShouldSetDoneWithResources(t *testing.T) {
 func TestUpdate_WhenStateListError_ShouldSetErrorStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusLoading
 
@@ -194,6 +192,7 @@ func TestUpdate_WhenStateListError_ShouldSetErrorStatus(t *testing.T) {
 func TestUpdate_WhenResourceDetailSuccess_ShouldShowDetail(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
 
@@ -220,6 +219,7 @@ func TestUpdate_WhenResourceDetailSuccess_ShouldShowDetail(t *testing.T) {
 func TestUpdate_WhenResourceDetailError_ShouldStayInDone(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	pp := p.(*Plugin)
 	pp.status = sdk.StatusDone
 
@@ -240,6 +240,7 @@ func TestUpdate_WhenResourceDetailError_ShouldStayInDone(t *testing.T) {
 func TestUpdate_WhenArrowKeys_ShouldMoveSelection(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a", Type: "t1"},
@@ -277,6 +278,7 @@ func TestUpdate_WhenArrowKeys_ShouldMoveSelection(t *testing.T) {
 func TestUpdate_WhenGAndGKeys_ShouldMoveToEndAndStart(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a"},
@@ -302,6 +304,7 @@ func TestUpdate_WhenGAndGKeys_ShouldMoveToEndAndStart(t *testing.T) {
 func TestUpdate_WhenEnterKey_ShouldInspectSelected(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -318,6 +321,7 @@ func TestUpdate_WhenEnterKey_ShouldInspectSelected(t *testing.T) {
 func TestUpdate_WhenEnterKeyWithEmptyList_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
@@ -334,6 +338,7 @@ func TestUpdate_WhenCtrlRPressed_ShouldRefreshInDoneOrError(t *testing.T) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 
 	// ctrl+r triggers refresh in normal mode
@@ -360,6 +365,7 @@ func TestUpdate_WhenCtrlRPressed_ShouldRefreshInDoneOrError(t *testing.T) {
 func TestUpdate_WhenBackspaceInFilter_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -383,6 +389,7 @@ func TestUpdate_WhenBackspaceInFilter_ShouldRemoveLastChar(t *testing.T) {
 func TestUpdate_WhenTypingInFilter_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -405,6 +412,7 @@ func TestUpdate_WhenTypingInFilter_ShouldAppendToFilter(t *testing.T) {
 func TestUpdate_WhenFilterMode_ShouldBlockHotkeys(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -429,6 +437,7 @@ func TestUpdate_WhenFilterMode_ShouldBlockHotkeys(t *testing.T) {
 func TestUpdate_WhenEscInDetailView_ShouldReturnToList(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
@@ -447,6 +456,7 @@ func TestUpdate_WhenEscInDetailView_ShouldReturnToList(t *testing.T) {
 func TestUpdate_WhenQInDetailView_ShouldNotExitDetail(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
@@ -461,6 +471,7 @@ func TestUpdate_WhenQInDetailView_ShouldNotExitDetail(t *testing.T) {
 func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	type unknownMsg struct{}
 	result, cmd := p.Update(unknownMsg{})
@@ -475,6 +486,7 @@ func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
 func TestNavigation_WhenMoving_ShouldRespectBounds(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.rebuildTree()
 
@@ -499,6 +511,7 @@ func TestNavigation_WhenMoving_ShouldRespectBounds(t *testing.T) {
 func TestMoveToStartEnd_WhenCalled_ShouldMoveToExtremes(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
 	p.rebuildTree()
 
@@ -515,6 +528,7 @@ func TestMoveToStartEnd_WhenCalled_ShouldMoveToExtremes(t *testing.T) {
 func TestMoveToEnd_WhenEmptyList_ShouldStayAtZero(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{}
 	p.rebuildTree()
 	p.MoveToEnd()
@@ -526,6 +540,7 @@ func TestMoveToEnd_WhenEmptyList_ShouldStayAtZero(t *testing.T) {
 func TestSetFilter_WhenCalled_ShouldFilterResources(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Name: "web", Module: ""},
 		{Address: "module.storage.aws_s3_bucket.data", Type: "aws_s3_bucket", Name: "data", Module: "module.storage"},
@@ -574,6 +589,7 @@ func TestSetFilter_WhenCalled_ShouldFilterResources(t *testing.T) {
 func TestSetFilter_WhenFuzzyMatching_ShouldRankBestMatchFirst(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster.this[0]", Type: "aws_rds_cluster", Name: "this", Module: "module.postgresql_aurora"},
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_rds_cluster_instance.this[\"1\"]", Type: "aws_rds_cluster_instance", Name: "this", Module: "module.postgresql_aurora"},
@@ -664,6 +680,7 @@ func TestSetFilter_WhenFuzzyMatching_ShouldRankBestMatchFirst(t *testing.T) {
 func TestSetFilter_WhenLengthening_ShouldDecreaseOrMaintainResults(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.treeMode = true
 	p.resources = []sdk.Resource{
 		{Address: "module.medprev_online_prd.module.postgresql_aurora.aws_db_proxy.read_only", Type: "aws_db_proxy", Name: "read_only", Module: "module.postgresql_aurora"},
@@ -718,6 +735,7 @@ func TestSetFilter_WhenLengthening_ShouldDecreaseOrMaintainResults(t *testing.T)
 func TestSetFilter_WhenLargeSet_ShouldMaintainMonotonicity(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.treeMode = true
 	p.resources = []sdk.Resource{
 		{Address: "module.medprev_online_prd.module.external_dns.module.pod_identity.aws_iam_role_policy_attachment.this[\"external-dns\"]", Type: "aws_iam_role_policy_attachment", Name: "this", Module: "module.pod_identity"},
@@ -779,6 +797,7 @@ func TestSetFilter_WhenLargeSet_ShouldMaintainMonotonicity(t *testing.T) {
 func TestAppendFilter_WhenCalled_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
@@ -798,6 +817,7 @@ func TestAppendFilter_WhenCalled_ShouldAppendToFilter(t *testing.T) {
 func TestBackspaceFilter_WhenCalled_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
 	}
@@ -821,6 +841,7 @@ func TestBackspaceFilter_WhenCalled_ShouldRemoveLastChar(t *testing.T) {
 func TestSelectedResource_WhenCalled_ShouldReturnCursorItem(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	// Empty filtered
 	p.filtered = []sdk.Resource{}
@@ -846,6 +867,7 @@ func TestSelectedResource_WhenCalled_ShouldReturnCursorItem(t *testing.T) {
 func TestInspectSelected_WhenServiceSucceeds_ShouldReturnDetailMsg(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "i-123"}`, nil }}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{
 		{Address: "aws_instance.web"},
 	}
@@ -883,6 +905,7 @@ func TestInspectSelected_WhenServiceSucceeds_ShouldReturnDetailMsg(t *testing.T)
 func TestInspectSelected_WhenEmptyAddress_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{{Address: ""}}
 
 	cmd := p.InspectSelected()
@@ -896,6 +919,7 @@ func TestRefresh_WhenCalled_ShouldResetAndStartLoading(t *testing.T) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	// Set up some items and move cursor to simulate non-zero selection
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}, {Address: "d"}, {Address: "e"}, {Address: "f"}}
@@ -924,6 +948,7 @@ func TestRefresh_WhenCalled_ShouldResetAndStartLoading(t *testing.T) {
 func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
@@ -935,6 +960,7 @@ func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 
 	view := p.View(80, 24)
@@ -946,6 +972,7 @@ func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusError
 	p.errMsg = "some error"
 
@@ -958,6 +985,7 @@ func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenShowingDetail_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "i-123", "name": "web-server"}`
@@ -971,6 +999,7 @@ func TestView_WhenShowingDetail_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenShowingLongDetail_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 
@@ -990,6 +1019,7 @@ func TestView_WhenShowingLongDetail_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenDoneNoResources_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{}
 	p.filtered = []sdk.Resource{}
@@ -1004,6 +1034,7 @@ func TestView_WhenDoneNoResources_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenDoneWithResources_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Module: ""},
@@ -1021,6 +1052,7 @@ func TestView_WhenDoneWithResources_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenDoneWithFilter_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -1038,6 +1070,7 @@ func TestView_WhenDoneWithFilter_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenFilteredDiffersFromTotal_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a"},
@@ -1056,6 +1089,7 @@ func TestView_WhenFilteredDiffersFromTotal_ShouldReturnNonEmpty(t *testing.T) {
 func TestView_WhenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
@@ -1067,6 +1101,7 @@ func TestView_WhenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 func TestView_WhenScrolling_ShouldReturnNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 
 	resources := make([]sdk.Resource, 50)
@@ -1089,6 +1124,7 @@ func TestView_WhenScrolling_ShouldReturnNonEmpty(t *testing.T) {
 func TestResourceCount_WhenFiltered_ShouldReturnFilteredCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{{}, {}, {}}
 	if p.ResourceCount() != 3 {
 		t.Errorf("ResourceCount() = %d, want 3", p.ResourceCount())
@@ -1098,6 +1134,7 @@ func TestResourceCount_WhenFiltered_ShouldReturnFilteredCount(t *testing.T) {
 func TestTotalCount_WhenCalled_ShouldReturnAllResourcesCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{{}, {}, {}, {}}
 	if p.TotalCount() != 4 {
 		t.Errorf("TotalCount() = %d, want 4", p.TotalCount())
@@ -1107,6 +1144,7 @@ func TestTotalCount_WhenCalled_ShouldReturnAllResourcesCount(t *testing.T) {
 func TestFilter_WhenSet_ShouldReturnCurrentValue(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filter = "test"
 	if p.Filter() != "test" {
 		t.Errorf("Filter() = %q, want %q", p.Filter(), "test")
@@ -1116,6 +1154,7 @@ func TestFilter_WhenSet_ShouldReturnCurrentValue(t *testing.T) {
 func TestUpdate_WhenDeleteKeyInFilter_ShouldRemoveLastChar(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
@@ -1135,6 +1174,7 @@ func TestUpdate_WhenDeleteKeyInFilter_ShouldRemoveLastChar(t *testing.T) {
 func TestUpdate_WhenSlashKey_ShouldEnterFilterMode(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
@@ -1150,6 +1190,7 @@ func TestUpdate_WhenSlashKey_ShouldEnterFilterMode(t *testing.T) {
 func TestUpdate_WhenDownAndUpKeys_ShouldMoveSelection(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.filtered = p.resources
@@ -1169,6 +1210,7 @@ func TestUpdate_WhenDownAndUpKeys_ShouldMoveSelection(t *testing.T) {
 func TestInspectSelected_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return "", errors.New("show failed") }}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.filtered = []sdk.Resource{
 		{Address: "aws_instance.web"},
 	}
@@ -1205,6 +1247,7 @@ func TestInspectSelected_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 func TestUpdate_WhenCtrlHKey_ShouldActAsBackspace(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
@@ -1220,6 +1263,7 @@ func TestUpdate_WhenCtrlHKey_ShouldActAsBackspace(t *testing.T) {
 func TestUpdate_WhenPrintableCharInFilter_ShouldAppendToFilter(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance"},
@@ -1245,6 +1289,7 @@ func TestUpdate_WhenPrintableCharInFilter_ShouldAppendToFilter(t *testing.T) {
 func TestUpdate_WhenNonEscKeyInDetail_ShouldNotChangeState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detail = "data"
 	p.detailAddr = "addr"
@@ -1259,6 +1304,7 @@ func TestUpdate_WhenNonEscKeyInDetail_ShouldNotChangeState(t *testing.T) {
 func TestUpdate_WhenKeyInLoading_ShouldBeIgnored(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 
 	// In loading state, 'r' should not trigger refresh (only works in Done/Error)
@@ -1269,64 +1315,68 @@ func TestUpdate_WhenKeyInLoading_ShouldBeIgnored(t *testing.T) {
 }
 
 func TestStatus_WhenNew_ShouldReturnIdle(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
 func TestFiltering_WhenNew_ShouldReturnFalse(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	if p.Filtering() {
 		t.Error("Filtering() = true, want false")
 	}
 }
 
-func TestHandleChdirChanged_WhenCalled_ShouldResetAndUpdateContext(t *testing.T) {
+func TestHandleContextChanged_WhenCalled_ShouldResetAndUpdateContext(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{{Address: "a"}}, nil
 	}}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
-	p.scopedContext = "/old/ctx"
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
-	if p.scopedContext != "/new/ctx" {
-		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new/ctx")
-	}
+	p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc, WorkingDir: "/new/ctx"}})
 	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want sdk.StatusIdle after HandleChdirChanged", p.status)
+		t.Errorf("status = %v, want sdk.StatusIdle after HandleContextChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Error("Activate() after HandleChdirChanged: want non-nil cmd")
+		t.Error("Activate() after HandleContextChanged: want non-nil cmd")
 	}
 }
 
-func TestHandleChdirChanged_WhenPinsExist_ShouldClearPins(t *testing.T) {
+func TestHandleContextChanged_WhenPinsExist_ShouldResetState(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{{Address: "a"}, {Address: "b"}}, nil
 	}}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.filtered = p.resources
+	h.Ctx.Pins = []string{"a"}
 	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.syncPinnedToTree()
+	p.pinnedOnly = true
 
-	if p.pins.Count() != 1 {
-		t.Fatalf("precondition: pins.Count() = %d, want 1", p.pins.Count())
+	if p.PinnedCount() != 1 {
+		t.Fatalf("precondition: PinnedCount() = %d, want 1", p.PinnedCount())
 	}
 
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/ctx"})
+	p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
 
-	if p.pins.Count() != 0 {
-		t.Errorf("pins.Count() = %d after chdir change, want 0", p.pins.Count())
+	// HandleContextChanged resets the plugin state; pinnedOnly should be cleared
+	if p.pinnedOnly {
+		t.Error("expected pinnedOnly=false after context change")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want sdk.StatusIdle after HandleContextChanged", p.status)
 	}
 }
 
@@ -1335,10 +1385,9 @@ func TestActivate_WhenSameContextDone_ShouldReturnNil(t *testing.T) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
-	p.scopedContext = "/same"
 	cmd := p.Activate()
 	if cmd != nil {
 		t.Error("Activate() same context done: want nil")
@@ -1348,8 +1397,8 @@ func TestActivate_WhenSameContextDone_ShouldReturnNil(t *testing.T) {
 func TestActivate_WhenNoSelectionWithoutChdirGuard_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	cmd := p.Activate()
 	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
 	if cmd == nil {
@@ -1365,30 +1414,31 @@ func TestActivate_WhenScopeDir_ShouldStartLoading(t *testing.T) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)), Pins: sdk.NewPinService()}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	cmd := p.Activate()
 	if cmd == nil {
 		t.Error("Activate() with context dir: want non-nil cmd")
 	}
 }
 
-func TestActivate_WhenNoPinService_ShouldStartLoading(t *testing.T) {
+func TestActivate_WhenNoPinFn_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	p.Init(ctx)
+	deps := &sdk.PluginDeps{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p.Init(deps)
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Error("Activate() no pins: want non-nil cmd")
+		t.Error("Activate() no pinFn: want non-nil cmd")
 	}
 }
 
 func TestUpdate_WhenSlashActivatesFilter_ShouldSetFilteringTrue(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_s3_bucket.b"}}
 	p.filtered = p.resources
@@ -1404,7 +1454,7 @@ func TestUpdate_WhenSlashActivatesFilter_ShouldSetFilteringTrue(t *testing.T) {
 func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Init(sdktest.NewDeps(svc).Deps)
 	resources := make([]sdk.Resource, 50)
 	for i := range resources {
 		resources[i] = sdk.Resource{
@@ -1447,7 +1497,7 @@ func TestRenderFlatList_ShouldFillViewport(t *testing.T) {
 func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "module.very_long_name.aws_instance.server", Type: "aws_instance"},
@@ -1488,7 +1538,7 @@ func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 func TestRenderFlatList_WrapMode_ShouldNotOverflow(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Init(sdktest.NewDeps(svc).Deps)
 	resources := make([]sdk.Resource, 20)
 	for i := range resources {
 		resources[i] = sdk.Resource{
@@ -1513,7 +1563,7 @@ func TestRenderFlatList_WrapMode_ShouldNotOverflow(t *testing.T) {
 func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Init(sdktest.NewDeps(svc).Deps)
 	resources := make([]sdk.Resource, 50)
 	for i := range resources {
 		resources[i] = sdk.Resource{
@@ -1537,6 +1587,7 @@ func TestRenderFlatList_LongAddresses_ShouldNotExceedLineCount(t *testing.T) {
 func TestSetFilter_WhenTreeMode_ShouldApplyScoreThreshold(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.treeMode = true
 	p.resources = []sdk.Resource{
 		{Address: "module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]", Type: "aws_db_proxy"},
@@ -1591,8 +1642,8 @@ func TestSetFilter_WhenTreeMode_ShouldApplyScoreThreshold(t *testing.T) {
 func TestView_WhenRenderingDetail_ShouldUseFullHeight(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
-	p.Init(ctx)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 
 	var lines []string
 	for i := range 30 {
@@ -1616,7 +1667,9 @@ func TestView_WhenRenderingDetail_ShouldUseFullHeight(t *testing.T) {
 }
 
 func TestBusy_WhenMutating_ShouldReturnTrue(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	if p.Busy() {
 		t.Error("Busy() = true before mutation, want false")
 	}
@@ -1627,7 +1680,9 @@ func TestBusy_WhenMutating_ShouldReturnTrue(t *testing.T) {
 }
 
 func TestStack_ShouldReturnStackReference(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	s := p.Stack()
 	if s == nil {
 		t.Fatal("Stack() = nil, want non-nil")
@@ -1638,7 +1693,9 @@ func TestStack_ShouldReturnStackReference(t *testing.T) {
 }
 
 func TestNavigate_WhenDirectionPositive_ShouldMoveDown(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1654,7 +1711,9 @@ func TestNavigate_WhenDirectionPositive_ShouldMoveDown(t *testing.T) {
 }
 
 func TestPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.viewWidth = 80
 	p.detail = strings.Repeat("x", 200)
 
@@ -1665,7 +1724,9 @@ func TestPanDetailRight_ShouldIncrementHScroll(t *testing.T) {
 }
 
 func TestPanDetailRight_ShouldNotExceedMaxScroll(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.viewWidth = 80
 	p.detail = "short line"
 
@@ -1678,7 +1739,9 @@ func TestPanDetailRight_ShouldNotExceedMaxScroll(t *testing.T) {
 }
 
 func TestPanDetailRight_ShouldClampToMaxScroll(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.viewWidth = 80
 	p.detail = strings.Repeat("x", 80-6+20)
 	// Scroll right once to get hscroll=10
@@ -1692,7 +1755,9 @@ func TestPanDetailRight_ShouldClampToMaxScroll(t *testing.T) {
 }
 
 func TestPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	// Scroll right twice to get hscroll=20
 	p.panDetailRight()
 	p.panDetailRight()
@@ -1704,7 +1769,9 @@ func TestPanDetailLeft_ShouldDecrementHScroll(t *testing.T) {
 }
 
 func TestPanDetailLeft_ShouldNotGoBelowZero(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	// Start at hscroll=0, panLeft should keep it at 0
 	p.panDetailLeft()
 	if p.detailPanel.HScroll() != 0 {
@@ -1712,46 +1779,37 @@ func TestPanDetailLeft_ShouldNotGoBelowZero(t *testing.T) {
 	}
 }
 
-func TestTogglePin_ShouldTogglePinInTree(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.pins = sdk.NewPinService()
+func TestTogglePin_ShouldRequestPinToggle(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.resources = []sdk.Resource{{Address: "aws_instance.web"}, {Address: "aws_s3_bucket.data"}}
 	p.filtered = p.resources
 	p.rebuildTree()
 
 	cmd := p.togglePin("aws_instance.web")
-	if cmd != nil {
-		t.Error("togglePin returned non-nil cmd, want nil")
+	if cmd == nil {
+		t.Fatal("togglePin returned nil cmd, want non-nil")
 	}
-	if p.pins.Count() != 1 {
-		t.Errorf("pins.Count() = %d after toggle, want 1", p.pins.Count())
-	}
-	if !p.pins.IsPinned("aws_instance.web") {
-		t.Error("expected aws_instance.web to be pinned")
+	cmd()
+	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.web" {
+		t.Errorf("PinRequests = %v, want [aws_instance.web]", h.PinRequests)
 	}
 
-	p.togglePin("aws_instance.web")
-	if p.pins.Count() != 0 {
-		t.Errorf("pins.Count() = %d after second toggle, want 0", p.pins.Count())
+	cmd = p.togglePin("aws_s3_bucket.data")
+	if cmd == nil {
+		t.Fatal("second togglePin returned nil cmd")
 	}
-}
-
-func TestTogglePin_WhenNoPinService_ShouldNotPanic(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.pins = nil
-	p.resources = []sdk.Resource{{Address: "a"}}
-	p.filtered = p.resources
-	p.rebuildTree()
-
-	cmd := p.togglePin("a")
-	if cmd != nil {
-		t.Error("togglePin without pin service returned non-nil cmd")
+	cmd()
+	if len(h.PinRequests) != 2 || h.PinRequests[1] != "aws_s3_bucket.data" {
+		t.Errorf("PinRequests = %v, want [aws_instance.web, aws_s3_bucket.data]", h.PinRequests)
 	}
 }
 
 func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
+	p, _ := newTrackingPlugin(svc, []sdk.Resource{{Address: "aws_instance.web"}})
 
 	t.Run("ShouldReturnConfirmRequest", func(t *testing.T) {
 		cmd := p.requestDelete("aws_instance.web")
@@ -1767,7 +1825,7 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 
 	t.Run("ShouldDeleteOnConfirmation", func(t *testing.T) {
 		svc2 := &sdktest.MockService{}
-		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
+		p2, _ := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
 		cmd := p2.requestDelete("aws_instance.web")
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -1790,7 +1848,7 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 
 	t.Run("ShouldReturnErrorOnDeleteFailure", func(t *testing.T) {
 		svc2 := &sdktest.MockService{StateRmFn: func(_ context.Context, _ string) error { return errors.New("rm failed") }}
-		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
+		p2, _ := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
 		cmd := p2.requestDelete("aws_instance.web")
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -1817,7 +1875,7 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 
 	t.Run("ShouldSetMutatingTrue", func(t *testing.T) {
 		svc2 := &sdktest.MockService{}
-		p2 := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
+		p2, _ := newTrackingPlugin(svc2, []sdk.Resource{{Address: "aws_instance.web"}})
 		cmd := p2.requestDelete("aws_instance.web")
 		msg := cmd()
 		reqMsg := msg.(sdk.RequestInputMsg)
@@ -1830,7 +1888,9 @@ func TestRequestDelete_ShouldConfirmThenDelete(t *testing.T) {
 }
 
 func TestRequestEdit_ShouldProduceStateEditMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	cmd := p.requestEdit("aws_instance.web")
 	if cmd == nil {
@@ -1851,8 +1911,7 @@ func TestUpdate_WhenStateDeletedMsg_ShouldRefresh(t *testing.T) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.svc = svc
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.mutating = true
 
@@ -1866,7 +1925,9 @@ func TestUpdate_WhenStateDeletedMsg_ShouldRefresh(t *testing.T) {
 }
 
 func TestInspectSelected_WhenLoading_ShouldReturnNil(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
@@ -1881,7 +1942,7 @@ func TestInspectSelected_WhenLoading_ShouldReturnNil(t *testing.T) {
 func TestInspectSelected_WhenFilterFrameActive_ShouldPopIt(t *testing.T) {
 	svc := &sdktest.MockService{ShowFn: func(_ context.Context, _ string) (string, error) { return `{"id": "123"}`, nil }}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{{Address: "aws_instance.web"}}
 	p.filtered = p.resources
 	p.rebuildTree()
@@ -1907,7 +1968,9 @@ func TestInspectSelected_WhenFilterFrameActive_ShouldPopIt(t *testing.T) {
 }
 
 func TestView_WhenLoadingWithErrMsg_ShouldShowCustomMessage(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 	p.errMsg = "Loading aws_instance.web..."
 
@@ -1918,7 +1981,9 @@ func TestView_WhenLoadingWithErrMsg_ShouldShowCustomMessage(t *testing.T) {
 }
 
 func TestPanDetailRight_WhenViewWidthSmall_ShouldUseMinContentWidth(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.viewWidth = 20
 	p.detail = strings.Repeat("x", 200)
 
@@ -1929,8 +1994,9 @@ func TestPanDetailRight_WhenViewWidthSmall_ShouldUseMinContentWidth(t *testing.T
 }
 
 func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
 
@@ -1941,8 +2007,9 @@ func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
 }
 
 func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 
 	cmd := p.Activate()
@@ -1956,8 +2023,7 @@ func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
 		return []sdk.Resource{}, nil
 	}}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	p.svc = svc
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.mutating = true
 
@@ -1971,7 +2037,9 @@ func TestUpdate_WhenStateMovedMsg_ShouldRefreshAndClearMutating(t *testing.T) {
 }
 
 func TestIsTaintedAddress_WhenResourceTainted_ShouldReturnTrue(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket", Tainted: false},
@@ -1989,7 +2057,9 @@ func TestIsTaintedAddress_WhenResourceTainted_ShouldReturnTrue(t *testing.T) {
 }
 
 func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = nil
 
 	data, err := p.Output(true)
@@ -2002,7 +2072,9 @@ func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
 }
 
 func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = nil
 
 	data, err := p.Output(false)
@@ -2015,8 +2087,9 @@ func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
 }
 
 func TestUpdate_WhenStateListMsgSuccess_ShouldClearMutating(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.mutating = true
 	p.status = sdk.StatusLoading
 
@@ -2027,8 +2100,9 @@ func TestUpdate_WhenStateListMsgSuccess_ShouldClearMutating(t *testing.T) {
 }
 
 func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 
 	lockErr := `Error acquiring the state lock
@@ -2046,8 +2120,9 @@ func TestUpdate_WhenStateListMsgWithLockError_ShouldParseLockInfo(t *testing.T) 
 }
 
 func TestUpdate_WhenStateListMsgWithLockError_ShouldEmitLockDetectedEvent(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 
 	lockErr := `Error acquiring the state lock
@@ -2066,8 +2141,9 @@ func TestUpdate_WhenStateListMsgWithLockError_ShouldEmitLockDetectedEvent(t *tes
 }
 
 func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 
@@ -2084,8 +2160,9 @@ func TestPlugin_WhenHandlePlanInvalidated_ShouldReset(t *testing.T) {
 }
 
 func TestPlugin_WhenHandleLockCleared_ShouldClearLockAndReset(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "abc"}
 
@@ -2102,7 +2179,9 @@ func TestPlugin_WhenHandleLockCleared_ShouldClearLockAndReset(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
@@ -2122,7 +2201,9 @@ func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web"},
 		{Address: "aws_s3_bucket.data"},
@@ -2142,8 +2223,9 @@ func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
 
@@ -2154,8 +2236,9 @@ func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickMsgTimerStopped_ShouldReturnNil(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
@@ -2165,7 +2248,9 @@ func TestUpdate_WhenTimerTickMsgTimerStopped_ShouldReturnNil(t *testing.T) {
 }
 
 func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = []sdk.Resource{
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 	}
@@ -2181,7 +2266,9 @@ func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing
 }
 
 func TestCursorPosition_WhenDoneWithResources_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{
 		{Address: "a", Type: "t1"},
@@ -2205,7 +2292,9 @@ func TestCursorPosition_WhenDoneWithResources_ShouldReturnOneBasedPositionAndTot
 }
 
 func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	pos, total := p.CursorPosition()
 	if pos != 0 || total != 0 {
@@ -2217,5 +2306,31 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 	pos, total = p.CursorPosition()
 	if pos != 0 || total != 0 {
 		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}
+
+func TestHandleContextChanged_WhenChdirChanges_ShouldResetState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	h.Ctx.Pins = []string{"aws_instance.from_old_chdir"}
+	p.Init(h.Deps)
+
+	p.HandleContextChanged(sdk.ContextChangedEvent{
+		Prev: &sdk.Context{WorkingDir: "/old"},
+		Next: &sdk.Context{Service: svc, WorkingDir: "/new"},
+	})
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want Idle", p.status)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }

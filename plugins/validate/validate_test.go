@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 
@@ -31,12 +29,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Workspace:  "default",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	ctx := sdktest.NewDeps(svc).Deps
 	if cmd := p.Init(ctx); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
@@ -48,11 +41,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 func TestActivate_WhenIdle_ShouldStartLoading(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
-	ctx := &sdk.Context{
-		WorkingDir: "/tmp",
-		Service:    svc,
-		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
 	pp := p.(*Plugin)
@@ -75,7 +64,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnValidateResultMsg(t *testing.T
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()
@@ -113,7 +102,7 @@ func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 		},
 	}
 	p := New(svc)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
 	cmd := p.(*Plugin).Activate()
@@ -795,7 +784,7 @@ func TestHints_WhenUnknownStatus_ShouldReturnBackOnly(t *testing.T) {
 	assertContains(t, descs, "quit")
 }
 
-func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {
+func TestHandleContextChanged_ShouldResetStateAndUpdateService(t *testing.T) {
 	svc := &sdktest.MockService{
 		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
 			return []sdk.Diagnostic{{Severity: "error", Summary: "old error"}}, nil
@@ -808,13 +797,12 @@ func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {
 	p.selected = 3
 	p.expander.Toggle(0)
 
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{
-		RelPath: "modules/vpc",
-		AbsPath: "/project/modules/vpc",
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
+		Next: &sdk.Context{WorkingDir: "/project/modules/vpc", Service: svc},
 	})
 
 	if cmd != nil {
-		t.Error("HandleChdirChanged() should return nil cmd")
+		t.Error("HandleContextChanged() should return nil cmd")
 	}
 	if p.status != sdk.StatusIdle {
 		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
@@ -831,37 +819,27 @@ func TestHandleChdirChanged_ShouldResetStateAndUpdateService(t *testing.T) {
 	if p.IsExpanded(0) {
 		t.Error("expanded[0] = true, want false after reset")
 	}
-	if p.scopedContext != "/project/modules/vpc" {
-		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/project/modules/vpc")
-	}
 }
 
-func TestHandleChdirChanged_ShouldCallWithDir(t *testing.T) {
+func TestHandleContextChanged_ShouldCallWithDir(t *testing.T) {
 	originalSvc := &sdktest.MockService{}
 	p := New(originalSvc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: originalSvc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	p.Init(ctx)
+	deps := sdktest.NewDeps(originalSvc).Deps
+	p.Init(deps)
 
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{
-		RelPath: "modules/vpc",
-		AbsPath: "/project/modules/vpc",
+	p.HandleContextChanged(sdk.ContextChangedEvent{
+		Next: &sdk.Context{Service: originalSvc},
 	})
 
 	if p.svc == nil {
-		t.Fatal("svc should not be nil after HandleChdirChanged")
+		t.Fatal("svc should not be nil after HandleContextChanged")
 	}
 }
 
 func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	p.status = sdk.StatusLoading
 
@@ -874,10 +852,7 @@ func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
 func TestActivate_WhenDone_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	p.status = sdk.StatusDone
 
@@ -890,10 +865,7 @@ func TestActivate_WhenDone_ShouldReturnNil(t *testing.T) {
 func TestActivate_WhenError_ShouldRetriggerValidation(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	p.status = sdk.StatusError
 
@@ -1076,7 +1048,7 @@ func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
 func TestOutput_WhenTextWithFileNoLine_ShouldFormatCorrectly(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	ctx := &sdk.Context{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{
@@ -1114,5 +1086,28 @@ func TestUpdate_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
 	_, cmd := p.Update(ui.TimerTickMsg{})
 	if cmd != nil {
 		t.Error("TimerTickMsg while timer stopped: cmd != nil, want nil")
+	}
+}
+
+func TestHandleContextChanged_ShouldResetState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "boom"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{WorkingDir: "/x", Service: svc}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle || p.errMsg != "" {
+		t.Errorf("state not reset: status=%v errMsg=%q", p.status, p.errMsg)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }

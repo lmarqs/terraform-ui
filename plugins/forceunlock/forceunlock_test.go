@@ -35,7 +35,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(nil); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.Context{
+	ctx := &sdk.PluginDeps{
 		Service: svc,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}
@@ -320,33 +320,6 @@ func TestHandleLockCleared_WhenCalled_ShouldClearLockInfo(t *testing.T) {
 	}
 	if cmd != nil {
 		t.Error("HandleLockCleared should return nil cmd")
-	}
-}
-
-func TestHandleChdirChanged_WhenCalled_ShouldResetAllState(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-	p.lockInfo = &sdk.StateLock{ID: "old"}
-	p.lockID = "old"
-	p.errMsg = "something"
-
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new/path"})
-
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle after chdir change", p.status)
-	}
-	if p.lockInfo != nil {
-		t.Error("lockInfo should be cleared on chdir change")
-	}
-	if p.lockID != "" {
-		t.Error("lockID should be cleared on chdir change")
-	}
-	if p.errMsg != "" {
-		t.Error("errMsg should be cleared on chdir change")
-	}
-	if cmd != nil {
-		t.Error("HandleChdirChanged should return nil cmd")
 	}
 }
 
@@ -721,5 +694,33 @@ func TestUpdate_WhenForceUnlockResultErrorWithRunningTimer_ShouldStopTimer(t *te
 
 	if pp.timer.Running() {
 		t.Error("timer should be stopped after error result")
+	}
+}
+
+func TestHandleContextChanged_ShouldResetState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.lockID = "abc"
+	p.errMsg = "boom"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle || p.lockID != "" || p.errMsg != "" {
+		t.Errorf("state not reset: status=%v lockID=%q errMsg=%q", p.status, p.lockID, p.errMsg)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.lockID = "keep"
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if p.lockID != "keep" {
+		t.Errorf("lockID mutated, got %q", p.lockID)
 	}
 }

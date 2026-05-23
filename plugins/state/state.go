@@ -57,7 +57,9 @@ type Plugin struct {
 	svc           sdk.Service
 	log           *slog.Logger
 	stack         *sdk.Stack
-	pins          *sdk.PinService
+	getCtx        func() *sdk.Context
+	pinFn         func(string) tea.Cmd
+	clearPinsFn   func() tea.Cmd
 	fuzzy         *ui.FuzzyFilter[sdk.Resource]
 	timer         ui.Timer
 	status        sdk.Status
@@ -78,7 +80,6 @@ type Plugin struct {
 	detailAddr    string
 	detailScroll  int
 	detailPanel   *ui.ContentPanel
-	scopedContext string
 	cancelFn      context.CancelFunc
 }
 
@@ -117,11 +118,10 @@ func (e *Plugin) TotalCount() int     { return len(e.resources) }
 func (e *Plugin) Count() (int, int)   { return len(e.filtered), len(e.resources) }
 func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 
-func (e *Plugin) PinnedCount() int {
-	if e.pins != nil {
-		return e.pins.Count()
-	}
-	return 0
+func (e *Plugin) PinnedCount() int { return len(e.pinnedAddresses()) }
+
+func (e *Plugin) pinnedAddresses() []string {
+	return sdk.PinnedAddresses(e.getCtx)
 }
 
 // Configure applies plugin-specific options from config.
@@ -129,11 +129,13 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-// Init initializes the plugin with shared context. Does not auto-load state.
-func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	e.svc = ctx.Service
-	e.log = ctx.Logger
-	e.pins = ctx.Pins
+// Init wires the plugin to its shared dependencies. Does not auto-load state.
+func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	e.svc = deps.Service
+	e.log = deps.Logger
+	e.getCtx = deps.Context
+	e.pinFn = deps.Pin
+	e.clearPinsFn = deps.ClearPins
 	e.stack.Clear()
 	e.reset()
 	return nil
@@ -152,10 +154,16 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 	return nil
 }
 
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	e.svc = e.svc.WithDir(evt.AbsPath)
-	e.scopedContext = evt.AbsPath
+// HandleContextChanged implements sdk.ContextChangedHandler. Pins are scoped
+// to the active Context — they die on context switch (the very bug this
+// overhaul exists to fix).
+func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.Next.Service != nil {
+		e.svc = ev.Next.Service
+	}
 	e.clearAllPins()
 	e.reset()
 	return nil
@@ -392,11 +400,9 @@ func (e *Plugin) rebuildTree() {
 	}
 }
 
-// syncPinnedToTree updates the tree's pinned set from the PinService.
+// syncPinnedToTree updates the tree's pinned set from the active Context.
 func (e *Plugin) syncPinnedToTree() {
-	if e.pins != nil {
-		e.tree.SetPinned(e.pins.All())
-	}
+	e.tree.SetPinned(e.pinnedAddresses())
 }
 
 // AppendFilter adds a character to the filter.
@@ -671,31 +677,31 @@ func (e *Plugin) renderDetail(width, height int) string {
 }
 
 // --- Context actions ---
+//
+// Pins live on the immutable Context. Mutations route through deps.Pin /
+// deps.ClearPins; the next ContextChangedEvent (OnlyPinsChanged=true)
+// brings back the new set.
 
-func (e *Plugin) clearAllPins() {
-	if e.pins != nil {
-		e.pins.Set(nil)
-	}
+func (e *Plugin) clearAllPins() tea.Cmd {
 	e.tree.SetPinned(nil)
 	if e.pinnedOnly {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)
 	}
-	e.log.Debug("state.pin.clear-all")
+	e.log.Debug("state.pin.clear-all.request")
+	return e.clearPinsFn()
 }
 
 func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.tree.TogglePin()
-	if e.pins != nil {
-		e.pins.Set(e.tree.PinnedPaths())
-		e.log.Debug("state.pin.toggle", "address", address, "pinned_count", e.pins.Count())
-	}
-	return nil
+	e.log.Debug("state.pin.toggle.request", "address", address)
+	return e.pinFn(address)
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
-	if e.pins != nil {
-		return e.pins.IsPinned(address)
+	for _, a := range e.pinnedAddresses() {
+		if a == address {
+			return true
+		}
 	}
 	return false
 }

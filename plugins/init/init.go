@@ -63,13 +63,19 @@ func (p *Plugin) Busy() bool {
 	return false
 }
 
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.svc = ctx.Service
+func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	p.svc = deps.Service
 	return nil
 }
 
-func (p *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	p.svc = p.svc.WithDir(evt.AbsPath)
+// HandleContextChanged implements sdk.ContextChangedHandler.
+func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.Next.Service != nil {
+		p.svc = ev.Next.Service
+	}
 	p.stack.Reset()
 	return nil
 }
@@ -134,7 +140,6 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if p.ch != nil {
 			return p, sdkframes.WaitForLine(p.ch)
 		}
-		return p, nil
 
 	case sdkframes.StreamDoneMsg:
 		if top := p.stack.Peek(); top != nil {

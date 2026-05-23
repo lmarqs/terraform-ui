@@ -1,8 +1,6 @@
 package state
 
 import (
-	"io"
-	"log/slog"
 	"strings"
 	"testing"
 
@@ -12,12 +10,13 @@ import (
 )
 
 func TestRenderResources_WhenFilteringWithPinnedOnly_ShouldShowBothIndicators(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}}
 	p.filtered = p.resources
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	p.filtering = true
 	p.filter = "test"
@@ -30,12 +29,13 @@ func TestRenderResources_WhenFilteringWithPinnedOnly_ShouldShowBothIndicators(t 
 }
 
 func TestRenderResources_WhenFilterInactiveWithPinnedOnly_ShouldShowPinnedLabel(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}}
 	p.filtered = p.resources
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	p.filtering = false
 	p.pinnedOnly = true
@@ -47,7 +47,9 @@ func TestRenderResources_WhenFilterInactiveWithPinnedOnly_ShouldShowPinnedLabel(
 }
 
 func TestRenderDetail_WhenWrapped_ShouldWrapLongLines(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = strings.Repeat("x", 200)
@@ -63,7 +65,9 @@ func TestRenderDetail_WhenWrapped_ShouldWrapLongLines(t *testing.T) {
 }
 
 func TestRenderDetail_WhenHScrolled_ShouldShiftContent(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -80,7 +84,9 @@ func TestRenderDetail_WhenHScrolled_ShouldShiftContent(t *testing.T) {
 }
 
 func TestRenderDetail_WhenScrolled_ShouldShowScrollIndicator(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	lines := make([]string, 50)
@@ -97,12 +103,14 @@ func TestRenderDetail_WhenScrolled_ShouldShowScrollIndicator(t *testing.T) {
 }
 
 func TestRenderDetail_WhenPinned_ShouldShowPinnedIndicator(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "123"}`
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 
 	view := p.renderDetail(80, 20)
 	if !strings.Contains(view, "[pinned]") {
@@ -111,7 +119,9 @@ func TestRenderDetail_WhenPinned_ShouldShowPinnedIndicator(t *testing.T) {
 }
 
 func TestRenderDetail_WhenSmallHeight_ShouldClampMinLines(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	lines := make([]string, 20)
@@ -129,7 +139,9 @@ func TestRenderDetail_WhenSmallHeight_ShouldClampMinLines(t *testing.T) {
 }
 
 func TestRenderDetail_WhenContentWidthTooSmall_ShouldUseMinimum(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = strings.Repeat("y", 100)
@@ -143,7 +155,9 @@ func TestRenderDetail_WhenContentWidthTooSmall_ShouldUseMinimum(t *testing.T) {
 }
 
 func TestFormatResourceRow_ShouldAlwaysIncludePinMark(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "short", Type: "t"})
 	if !strings.Contains(row, "[ ] ") {
@@ -152,8 +166,9 @@ func TestFormatResourceRow_ShouldAlwaysIncludePinMark(t *testing.T) {
 }
 
 func TestRenderResources_TreeMode_WithFilterScores(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.resources = []sdk.Resource{
@@ -173,8 +188,9 @@ func TestRenderResources_TreeMode_WithFilterScores(t *testing.T) {
 }
 
 func TestRenderResources_TreeMode_WithHScroll(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.resources = []sdk.Resource{
@@ -192,8 +208,9 @@ func TestRenderResources_TreeMode_WithHScroll(t *testing.T) {
 }
 
 func TestRenderResources_TreeMode_WithListHScrollExceedingContent(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.resources = []sdk.Resource{
@@ -214,8 +231,9 @@ func TestRenderResources_TreeMode_WithListHScrollExceedingContent(t *testing.T) 
 }
 
 func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // toggle wrap on
@@ -233,7 +251,9 @@ func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
 }
 
 func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = "short\nline"
@@ -249,7 +269,9 @@ func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T)
 }
 
 func TestRenderDetail_WhenLineTruncatedByContentWidth_ShouldTruncate(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	p.detail = strings.Repeat("x", 200)
@@ -268,8 +290,9 @@ func TestRenderDetail_WhenLineTruncatedByContentWidth_ShouldTruncate(t *testing.
 }
 
 func TestRenderResources_WhenHeightVerySmall_ShouldClampMinVisible(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
 	p.filtered = p.resources
@@ -283,7 +306,9 @@ func TestRenderResources_WhenHeightVerySmall_ShouldClampMinVisible(t *testing.T)
 }
 
 func TestRenderDetail_WhenTainted_ShouldShowTaintedIndicator(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 	p.detail = `{"id": "123"}`
@@ -296,7 +321,9 @@ func TestRenderDetail_WhenTainted_ShouldShowTaintedIndicator(t *testing.T) {
 }
 
 func TestFormatResourceRow_WhenTainted_ShouldShowTaintedBadge(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: "aws_instance.web", Type: "aws_instance", Tainted: true})
 	if !strings.Contains(row, "[tainted]") {
@@ -305,7 +332,9 @@ func TestFormatResourceRow_WhenTainted_ShouldShowTaintedBadge(t *testing.T) {
 }
 
 func TestFormatResourceRow_ShouldIncludeFullAddress(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	longAddr := strings.Repeat("x", 200)
 	row := p.formatResourceRow("[ ] ", sdk.Resource{Address: longAddr, Type: "t"})
@@ -315,7 +344,9 @@ func TestFormatResourceRow_ShouldIncludeFullAddress(t *testing.T) {
 }
 
 func TestRenderDetail_WhenScrollExceedsMax_ShouldClamp(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusShowingDetail
 	p.detailAddr = "a"
 	lines := make([]string, 5)
@@ -332,12 +363,13 @@ func TestRenderDetail_WhenScrollExceedsMax_ShouldClamp(t *testing.T) {
 }
 
 func TestRenderResources_WhenPinnedOnlyWithoutFilter_ShouldNotAddFilterHeight(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.resources = []sdk.Resource{{Address: "a"}, {Address: "b"}, {Address: "c"}}
 	p.filtered = p.resources
-	p.pins = sdk.NewPinService()
+
 	p.rebuildTree()
 	p.filtering = false
 	p.filter = ""
@@ -350,8 +382,9 @@ func TestRenderResources_WhenPinnedOnlyWithoutFilter_ShouldNotAddFilterHeight(t 
 }
 
 func TestRenderResources_TreeMode_WithTaintedResource_ShouldShowBadge(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.resources = []sdk.Resource{

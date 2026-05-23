@@ -148,37 +148,36 @@ func TestPlugin_WhenHandleLockCleared_ShouldClearLockInfo(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenPinnedCountWithNilPins_ShouldReturnZero(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.pins = nil
-	if c := p.PinnedCount(); c != 0 {
-		t.Errorf("PinnedCount() = %d, want 0", c)
-	}
-}
-
 func TestPlugin_WhenPinnedCountWithPins_ShouldReturnCount(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
+	h.Ctx.Pins = []string{"a", "b"}
 	if c := p.PinnedCount(); c != 2 {
 		t.Errorf("PinnedCount() = %d, want 2", c)
 	}
 }
 
-func TestPlugin_WhenRequestAutoApply_ShouldEmitAutoApplyRequestMsg(t *testing.T) {
+func TestPlugin_WhenRequestAutoApply_ShouldEmitApplyRequestMsgWithAutoApprove(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
+	p.planFile = "/tmp/auto.tfplan"
 	cmd := p.requestAutoApply()
 	if cmd == nil {
 		t.Fatal("requestAutoApply() = nil")
 	}
 	msg := cmd()
-	if _, ok := msg.(AutoApplyRequestMsg); !ok {
-		t.Errorf("cmd() = %T, want AutoApplyRequestMsg", msg)
+	req, ok := msg.(ApplyRequestMsg)
+	if !ok {
+		t.Errorf("cmd() = %T, want ApplyRequestMsg", msg)
+	}
+	if !req.AutoApprove {
+		t.Error("AutoApprove = false, want true")
+	}
+	if req.PlanFile != "/tmp/auto.tfplan" {
+		t.Errorf("PlanFile = %q, want /tmp/auto.tfplan", req.PlanFile)
 	}
 }
 
-func TestPlugin_WhenClearAllPins_ShouldUnpinAll(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+func TestPlugin_WhenClearAllPins_ShouldRequestClear(t *testing.T) {
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -187,12 +186,14 @@ func TestPlugin_WhenClearAllPins_ShouldUnpinAll(t *testing.T) {
 	}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+	h.Ctx.Pins = []string{"a", "b"}
 
-	p.clearAllPins()
-	if p.PinnedCount() != 0 {
-		t.Errorf("PinnedCount() = %d, want 0 after clearAllPins", p.PinnedCount())
+	cmd := p.clearAllPins()
+	if cmd != nil {
+		cmd()
+	}
+	if h.ClearPinsCount != 1 {
+		t.Errorf("ClearPinsCount = %d, want 1 after clearAllPins", h.ClearPinsCount)
 	}
 }
 
@@ -276,7 +277,7 @@ func TestDetailFrame_WhenCtrlWPressed_ShouldToggleWrap(t *testing.T) {
 }
 
 func TestDetailFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -287,9 +288,12 @@ func TestDetailFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if !p.pins.IsPinned("a") {
-		t.Error("space in detail should pin the address")
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		cmd()
+	}
+	if len(h.PinRequests) == 0 || h.PinRequests[0] != "a" {
+		t.Error("space in detail should request pin for address 'a'")
 	}
 }
 
@@ -409,7 +413,7 @@ func TestListFrame_WhenCtrlPPressed_ShouldTogglePinnedOnly(t *testing.T) {
 }
 
 func TestListFrame_WhenCtrlUPressed_ShouldClearPins(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -418,11 +422,14 @@ func TestListFrame_WhenCtrlUPressed_ShouldClearPins(t *testing.T) {
 	}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
-	p.pins.Toggle("a")
+	h.Ctx.Pins = []string{"a"}
 
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
-	if p.PinnedCount() != 0 {
-		t.Errorf("after ctrl+u: PinnedCount = %d, want 0", p.PinnedCount())
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	if cmd != nil {
+		cmd()
+	}
+	if h.ClearPinsCount != 1 {
+		t.Errorf("after ctrl+u: ClearPinsCount = %d, want 1", h.ClearPinsCount)
 	}
 }
 
@@ -483,8 +490,11 @@ func TestListFrame_WhenBigAPressed_ShouldRequestAutoApply(t *testing.T) {
 		t.Fatal("A key with changes should return cmd")
 	}
 	msg := cmd()
-	if _, ok := msg.(AutoApplyRequestMsg); !ok {
-		t.Errorf("cmd() = %T, want AutoApplyRequestMsg", msg)
+	req, ok := msg.(ApplyRequestMsg)
+	if !ok {
+		t.Errorf("cmd() = %T, want ApplyRequestMsg", msg)
+	} else if !req.AutoApprove {
+		t.Error("AutoApprove = false, want true on big-A path")
 	}
 }
 
@@ -656,7 +666,7 @@ func TestPlugin_WhenSourceChangesNotPinnedOnly_ShouldReturnAllChanges(t *testing
 }
 
 func TestPlugin_WhenSourceChangesPinnedOnly_ShouldReturnOnlyPinned(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}},
@@ -664,8 +674,7 @@ func TestPlugin_WhenSourceChangesPinnedOnly_ShouldReturnOnlyPinned(t *testing.T)
 			{Resource: sdk.Resource{Address: "c"}},
 		},
 	}
-	p.pins.Toggle("a")
-	p.pins.Toggle("c")
+	h.Ctx.Pins = []string{"a", "c"}
 	p.pinnedOnly = true
 
 	result := p.sourceChanges()
@@ -745,7 +754,7 @@ func TestPlugin_WhenSetFilterInTreeMode_ShouldUseOriginalOrder(t *testing.T) {
 }
 
 func TestPlugin_WhenSetFilterPinnedOnly_ShouldFilterFromPinnedSubset(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}},
@@ -753,7 +762,7 @@ func TestPlugin_WhenSetFilterPinnedOnly_ShouldFilterFromPinnedSubset(t *testing.
 			{Resource: sdk.Resource{Address: "google_compute_instance.vm"}},
 		},
 	}
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 	p.pinnedOnly = true
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
@@ -800,61 +809,56 @@ func TestPlugin_WhenRebuildTreeInTreeModeWithFilter_ShouldExpandAll(t *testing.T
 	}
 }
 
-func TestPlugin_WhenPruneStaleWithNilPins_ShouldNotPanic(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.pins = nil
-	p.pruneStale([]sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "a"}},
-	})
-}
 
-func TestPlugin_WhenPruneStaleWithNoPins_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.pruneStale([]sdk.PlanChange{
+func TestPlugin_WhenPruneStalePinsWithNoPins_ShouldDoNothing(t *testing.T) {
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
+	cmd := p.pruneStalePins([]sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "a"}},
 	})
-	if p.pins.Count() != 0 {
-		t.Error("pruneStale with no pins should not add pins")
+	if cmd != nil {
+		t.Error("pruneStalePins with no pins should return nil cmd")
+	}
+	if len(h.PinRequests) != 0 {
+		t.Error("pruneStalePins with no pins should not request any toggles")
 	}
 }
 
-func TestPlugin_WhenPruneStaleWithValidPins_ShouldRetainAll(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.pins.Toggle("a")
-	p.pins.Toggle("b")
+func TestPlugin_WhenPruneStalePinsWithValidPins_ShouldRetainAll(t *testing.T) {
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
+	h.Ctx.Pins = []string{"a", "b"}
 
-	p.pruneStale([]sdk.PlanChange{
+	cmd := p.pruneStalePins([]sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "a"}},
 		{Resource: sdk.Resource{Address: "b"}},
 		{Resource: sdk.Resource{Address: "c"}},
 	})
-	if p.pins.Count() != 2 {
-		t.Errorf("pruneStale: pins count = %d, want 2", p.pins.Count())
+	if cmd != nil {
+		t.Error("pruneStalePins with all valid pins should return nil cmd")
 	}
 }
 
-func TestPlugin_WhenPruneStaleWithStalePins_ShouldRemoveStale(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.pins.Toggle("a")
-	p.pins.Toggle("removed_resource")
+func TestPlugin_WhenPruneStalePinsWithStalePins_ShouldRequestRemoval(t *testing.T) {
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
+	h.Ctx.Pins = []string{"a", "removed_resource"}
 
-	p.pruneStale([]sdk.PlanChange{
+	cmd := p.pruneStalePins([]sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "a"}},
 		{Resource: sdk.Resource{Address: "b"}},
 	})
-	if p.pins.Count() != 1 {
-		t.Errorf("pruneStale: pins count = %d, want 1", p.pins.Count())
+	if cmd == nil {
+		t.Fatal("pruneStalePins with stale pins should return a cmd")
 	}
-	if !p.pins.IsPinned("a") {
-		t.Error("pruneStale should retain valid pin 'a'")
+	cmd()
+	if len(h.PinRequests) != 1 {
+		t.Fatalf("pruneStalePins: pin requests = %d, want 1", len(h.PinRequests))
 	}
-	if p.pins.IsPinned("removed_resource") {
-		t.Error("pruneStale should remove stale pin 'removed_resource'")
+	if h.PinRequests[0] != "removed_resource" {
+		t.Errorf("pruneStalePins: pin request = %q, want %q", h.PinRequests[0], "removed_resource")
 	}
 }
 
 func TestPlugin_WhenClearAllPinsWithPinnedOnly_ShouldResetPinnedOnlyAndRefilter(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -863,7 +867,7 @@ func TestPlugin_WhenClearAllPinsWithPinnedOnly_ShouldResetPinnedOnlyAndRefilter(
 	}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
-	p.pins.Toggle("a")
+	h.Ctx.Pins = []string{"a"}
 	p.pinnedOnly = true
 	p.SetFilter("")
 
@@ -1293,10 +1297,10 @@ func TestPlugin_WhenRenderDetailWithHScroll_ShouldOffsetContent(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderDetailWithPinnedAddress_ShouldShowPinIndicator(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.detail = "some detail"
 	p.detailAddr = "aws_instance.web"
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 
 	view := p.renderDetail(80, 24)
 	if !strings.Contains(view, "[pinned]") {
@@ -1838,7 +1842,7 @@ func TestListFrame_WhenBracketNotTreeMode_ShouldDoNothing(t *testing.T) {
 }
 
 func TestListFrame_WhenHintsDoneInTreeModeWithPins_ShouldIncludeTreeAndClearPins(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -1847,7 +1851,7 @@ func TestListFrame_WhenHintsDoneInTreeModeWithPins_ShouldIncludeTreeAndClearPins
 		},
 		ToCreate: 1,
 	}
-	p.pins.Toggle("a")
+	h.Ctx.Pins = []string{"a"}
 
 	hints := p.stack.Hints()
 	if len(hints) == 0 {
@@ -2014,7 +2018,7 @@ func TestPlanFilterFrame_WhenNonKeyMsgDelegated_ShouldReturnSelf(t *testing.T) {
 }
 
 func TestPlugin_WhenRenderResultsWithPinnedOnlyIndicator_ShouldShowInView(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.pinnedOnly = true
 	p.summary = &sdk.PlanSummary{
@@ -2023,7 +2027,7 @@ func TestPlugin_WhenRenderResultsWithPinnedOnlyIndicator_ShouldShowInView(t *tes
 		},
 		ToCreate: 1,
 	}
-	p.pins.Toggle("a")
+	h.Ctx.Pins = []string{"a"}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
@@ -2387,7 +2391,7 @@ func TestPlugin_WhenOutputTextWithCreateThenDelete_ShouldUseCorrectSymbol(t *tes
 }
 
 func TestPlugin_WhenRenderResultsWithFilterButNoFilteringAndPinnedOnly_ShouldShowBothParts(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.filtering = false
 	p.filter = "aws"
@@ -2398,7 +2402,7 @@ func TestPlugin_WhenRenderResultsWithFilterButNoFilteringAndPinnedOnly_ShouldSho
 		},
 		ToCreate: 1,
 	}
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
@@ -2412,7 +2416,7 @@ func TestPlugin_WhenRenderResultsWithFilterButNoFilteringAndPinnedOnly_ShouldSho
 }
 
 func TestPlugin_WhenRenderResultsOnlyPinnedOnly_ShouldShowPinnedIndicator(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.filtering = false
 	p.filter = ""
@@ -2423,7 +2427,7 @@ func TestPlugin_WhenRenderResultsOnlyPinnedOnly_ShouldShowPinnedIndicator(t *tes
 		},
 		ToCreate: 1,
 	}
-	p.pins.Toggle("a")
+	h.Ctx.Pins = []string{"a"}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 
@@ -2552,7 +2556,7 @@ func TestPlugin_WhenRenderResultsTreeModeWithSelectedStyle_ShouldHighlight(t *te
 }
 
 func TestPlugin_WhenRenderResultsTreeModeWithPins_ShouldShowPinIndicators(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.treeMode = true
 	p.summary = &sdk.PlanSummary{
@@ -2564,7 +2568,7 @@ func TestPlugin_WhenRenderResultsTreeModeWithPins_ShouldShowPinIndicators(t *tes
 	}
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
-	p.pins.Toggle("module.vpc.aws_subnet.a")
+	h.Ctx.Pins = []string{"module.vpc.aws_subnet.a"}
 	p.syncPinnedToTree()
 
 	view := p.renderResults(80, 24)
@@ -2622,7 +2626,7 @@ func TestPlanFilterFrame_WhenEnterPressedOnLeaf_ShouldInspect(t *testing.T) {
 }
 
 func TestPlanFilterFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -2634,9 +2638,12 @@ func TestPlanFilterFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 	p.rebuildTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if !p.pins.IsPinned("aws_instance.web") {
-		t.Error("space in filter frame should pin the resource")
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd != nil {
+		cmd()
+	}
+	if len(h.PinRequests) == 0 || h.PinRequests[0] != "aws_instance.web" {
+		t.Error("space in filter frame should request pin for the resource")
 	}
 }
 

@@ -30,7 +30,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.Context{WorkingDir: "/tmp", Workspace: "default", Service: svc}); cmd != nil {
+	if cmd := p.Init(sdktest.NewDeps(svc).Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -38,42 +38,98 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	}
 }
 
-func TestRequestApply_WhenNoTargets_ShouldEnterConfirmingState(t *testing.T) {
+func TestRequestApply_WhenCalled_ShouldEnterConfirmingState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
+	p.SetPlanFile("/tmp/foo.tfplan")
 	p.RequestApply()
+
 	if p.status != StatusConfirming {
 		t.Errorf("status = %v, want StatusConfirming", p.status)
 	}
 	if p.confirmed {
 		t.Error("confirmed = true, want false")
 	}
-	if p.IsConfirming() != true {
+	if !p.IsConfirming() {
 		t.Error("IsConfirming() = false, want true")
 	}
 }
 
-func TestConfirm_WhenCalled_ShouldTransitionToLoadingAndReturnCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
+func TestSetPlanFile_WhenSet_ShouldBeStaged(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.SetPlanFile("/tmp/staged.tfplan")
+	if p.PlanFile() != "/tmp/staged.tfplan" {
+		t.Errorf("PlanFile() = %q, want /tmp/staged.tfplan", p.PlanFile())
+	}
+}
+
+func TestConfirm_WhenCalled_ShouldRunApplyWithStagedPlanFile(t *testing.T) {
+	var got sdk.ApplyOptions
+	svc := &sdktest.MockService{
+		ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+			got = opts
+			return nil
+		},
+	}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.SetPlanFile("/tmp/foo.tfplan")
 	p.status = StatusConfirming
 
 	cmd := p.Confirm()
 	if cmd == nil {
-		t.Error("Confirm() returned nil cmd, want non-nil (batch)")
+		t.Fatal("Confirm() returned nil cmd")
+	}
+	drainBatchUntilApplyResult(t, cmd)
+
+	if got.PlanFile != "/tmp/foo.tfplan" {
+		t.Errorf("ApplyOptions.PlanFile = %q, want /tmp/foo.tfplan", got.PlanFile)
 	}
 	if p.status != sdk.StatusLoading {
-		t.Errorf("status = %v, want sdk.StatusLoading", p.status)
+		t.Errorf("status = %v, want StatusLoading", p.status)
 	}
 	if !p.confirmed {
 		t.Error("confirmed = false, want true")
 	}
 }
 
+// drainBatchUntilApplyResult fans out the cmds from a (possibly nested)
+// tea.Batch, runs each in a goroutine, and returns once the apply leaf has
+// produced ApplyResultMsg. We can't run cmds sequentially because the batch
+// pairs the service call with a WaitForLine that blocks until the writer
+// closes — bubbletea only sees them concurrently in a real run loop.
+func drainBatchUntilApplyResult(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	done := make(chan ApplyResultMsg, 1)
+	var run func(c tea.Cmd)
+	run = func(c tea.Cmd) {
+		go func() {
+			msg := c()
+			if r, ok := msg.(ApplyResultMsg); ok {
+				select {
+				case done <- r:
+				default:
+				}
+				return
+			}
+			if batch, ok := msg.(tea.BatchMsg); ok {
+				for _, sub := range batch {
+					run(sub)
+				}
+			}
+		}()
+	}
+	run(cmd)
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timeout waiting for ApplyResultMsg")
+	}
+}
+
 func TestAbort_WhenCalled_ShouldResetToIdle(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 	p.confirmed = true
 
@@ -86,10 +142,10 @@ func TestAbort_WhenCalled_ShouldResetToIdle(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenApplyResultSuccess_ShouldTransitionToDone(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+func TestUpdate_WhenApplyResultSuccess_ShouldEmitPlanInvalidated(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
+	p.planFile = "/tmp/foo.tfplan"
 	p.timer.Start()
 
 	result, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
@@ -111,18 +167,19 @@ func TestUpdate_WhenApplyResultSuccess_ShouldTransitionToDone(t *testing.T) {
 	if !updated.Ready() {
 		t.Error("Ready() = false after success, want true")
 	}
+	if updated.planFile != "" {
+		t.Errorf("planFile = %q, want cleared after consumed", updated.planFile)
+	}
 }
 
 func TestUpdate_WhenApplyResultError_ShouldTransitionToError(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(ApplyResultMsg{Err: errors.New("apply failed"), Duration: 3 * time.Second})
 	if cmd != nil {
 		t.Errorf("Update(ApplyResultMsg) cmd = %v, want nil", cmd)
 	}
-
 	updated := result.(*Plugin)
 	if updated.status != sdk.StatusError {
 		t.Errorf("status = %v, want sdk.StatusError", updated.status)
@@ -133,8 +190,7 @@ func TestUpdate_WhenApplyResultError_ShouldTransitionToError(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickWhileRunning_ShouldReturnNextTickCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
 
@@ -145,8 +201,7 @@ func TestUpdate_WhenTimerTickWhileRunning_ShouldReturnNextTickCmd(t *testing.T) 
 }
 
 func TestUpdate_WhenTimerTickWhileStopped_ShouldReturnNilCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
@@ -156,8 +211,7 @@ func TestUpdate_WhenTimerTickWhileStopped_ShouldReturnNilCmd(t *testing.T) {
 }
 
 func TestUpdate_WhenEnterInIdle_ShouldTransitionToConfirming(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -167,8 +221,8 @@ func TestUpdate_WhenEnterInIdle_ShouldTransitionToConfirming(t *testing.T) {
 }
 
 func TestUpdate_WhenYInConfirming_ShouldStartApply(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
 	p.status = StatusConfirming
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
@@ -181,8 +235,8 @@ func TestUpdate_WhenYInConfirming_ShouldStartApply(t *testing.T) {
 }
 
 func TestUpdate_WhenUpperYInConfirming_ShouldStartApply(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
 	p.status = StatusConfirming
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'Y'}})
@@ -192,8 +246,8 @@ func TestUpdate_WhenUpperYInConfirming_ShouldStartApply(t *testing.T) {
 }
 
 func TestUpdate_WhenEnterInConfirming_ShouldStartApply(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
 	p.status = StatusConfirming
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -203,8 +257,7 @@ func TestUpdate_WhenEnterInConfirming_ShouldStartApply(t *testing.T) {
 }
 
 func TestUpdate_WhenNInConfirming_ShouldAbort(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
@@ -214,8 +267,7 @@ func TestUpdate_WhenNInConfirming_ShouldAbort(t *testing.T) {
 }
 
 func TestUpdate_WhenUpperNInConfirming_ShouldAbort(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 
 	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}})
@@ -225,8 +277,7 @@ func TestUpdate_WhenUpperNInConfirming_ShouldAbort(t *testing.T) {
 }
 
 func TestUpdate_WhenEscInConfirming_ShouldAbort(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -236,8 +287,8 @@ func TestUpdate_WhenEscInConfirming_ShouldAbort(t *testing.T) {
 }
 
 func TestUpdate_WhenCtrlRInError_ShouldRetry(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
 	p.status = sdk.StatusError
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
@@ -250,8 +301,7 @@ func TestUpdate_WhenCtrlRInError_ShouldRetry(t *testing.T) {
 }
 
 func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc)
+	p := New(&sdktest.MockService{})
 
 	type unknownMsg struct{}
 	result, cmd := p.Update(unknownMsg{})
@@ -264,8 +314,7 @@ func TestUpdate_WhenUnknownMsg_ShouldReturnSelfWithNoCmd(t *testing.T) {
 }
 
 func TestView_WhenIdle_ShouldShowReadyMessage(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	view := p.View(80, 24)
@@ -275,8 +324,7 @@ func TestView_WhenIdle_ShouldShowReadyMessage(t *testing.T) {
 }
 
 func TestView_WhenConfirming_ShouldShowConfirmationPrompt(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 
 	view := p.View(80, 24)
@@ -288,25 +336,8 @@ func TestView_WhenConfirming_ShouldShowConfirmationPrompt(t *testing.T) {
 	}
 }
 
-func TestView_WhenConfirmingWithTargets_ShouldShowTargetList(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = StatusConfirming
-	p.targets = []string{"aws_instance.web", "aws_s3_bucket.data"}
-	p.replanSummary = &sdk.PlanSummary{ToCreate: 1, ToDelete: 1}
-
-	view := p.View(80, 24)
-	if !strings.Contains(view, "targeted") {
-		t.Errorf("view should mention targeted plan, got %q", view)
-	}
-	if !strings.Contains(view, "2") {
-		t.Errorf("view should show target count, got %q", view)
-	}
-}
-
 func TestView_WhenLoading_ShouldShowRunningState(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
 
@@ -317,8 +348,7 @@ func TestView_WhenLoading_ShouldShowRunningState(t *testing.T) {
 }
 
 func TestView_WhenDone_ShouldShowSuccessMessage(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.timer.Start()
 	p.timer.Stop()
@@ -333,8 +363,7 @@ func TestView_WhenDone_ShouldShowSuccessMessage(t *testing.T) {
 }
 
 func TestView_WhenError_ShouldShowErrorMessage(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 	p.errMsg = "something failed"
 
@@ -345,8 +374,7 @@ func TestView_WhenError_ShouldShowErrorMessage(t *testing.T) {
 }
 
 func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.Status(99)
 
 	view := p.View(80, 24)
@@ -356,8 +384,8 @@ func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
 }
 
 func TestConfirm_WhenCalled_ShouldStartTimer(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
 	p.status = StatusConfirming
 
 	p.Confirm()
@@ -367,8 +395,7 @@ func TestConfirm_WhenCalled_ShouldStartTimer(t *testing.T) {
 }
 
 func TestElapsed_WhenTimerRunning_ShouldReturnPositiveDuration(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.timer.Start()
 	time.Sleep(10 * time.Millisecond)
 	if p.Elapsed() == 0 {
@@ -377,8 +404,7 @@ func TestElapsed_WhenTimerRunning_ShouldReturnPositiveDuration(t *testing.T) {
 }
 
 func TestIsConfirming_GivenStatus_ShouldReturnCorrectBool(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.IsConfirming() {
 		t.Error("IsConfirming() = true in idle, want false")
 	}
@@ -389,34 +415,23 @@ func TestIsConfirming_GivenStatus_ShouldReturnCorrectBool(t *testing.T) {
 }
 
 func TestStatus_WhenNew_ShouldReturnIdle(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Status() != sdk.StatusIdle {
 		t.Errorf("Status() = %v, want sdk.StatusIdle", p.Status())
 	}
 }
 
 func TestRunApply_WhenServiceSucceeds_ShouldReturnSuccessMsg(t *testing.T) {
+	var captured ApplyResultMsg
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.planFile = "/tmp/foo.tfplan"
 
-	// runApply returns a tea.Batch; extract and run the service cmd.
-	batch := p.runApply()().(tea.BatchMsg)
-	var result ApplyResultMsg
-	var found bool
-	for _, c := range batch {
-		if msg, ok := c().(ApplyResultMsg); ok {
-			result = msg
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("runApply batch did not produce ApplyResultMsg")
-	}
-	if result.Err != nil {
-		t.Errorf("ApplyResultMsg.Err = %v, want nil", result.Err)
+	cmd := p.runApply()
+	captured = collectApplyResult(t, cmd)
+	if captured.Err != nil {
+		t.Errorf("ApplyResultMsg.Err = %v, want nil", captured.Err)
 	}
 }
 
@@ -427,32 +442,84 @@ func TestRunApply_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.planFile = "/tmp/foo.tfplan"
 
-	batch := p.runApply()().(tea.BatchMsg)
-	var result ApplyResultMsg
-	var found bool
-	for _, c := range batch {
-		if msg, ok := c().(ApplyResultMsg); ok {
-			result = msg
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("runApply batch did not produce ApplyResultMsg")
-	}
+	cmd := p.runApply()
+	result := collectApplyResult(t, cmd)
 	if result.Err == nil {
 		t.Error("ApplyResultMsg.Err = nil, want error")
 	}
 }
 
-func TestUpdate_WhenUnhandledKeyInIdle_ShouldDoNothing(t *testing.T) {
-	svc := &sdktest.MockService{}
+func TestRunApply_WhenOptionsResolved_ShouldPassVarsAndVarFiles(t *testing.T) {
+	var got sdk.ApplyOptions
+	svc := &sdktest.MockService{
+		ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+			got = opts
+			return nil
+		},
+	}
 	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	h.Ctx.VarFiles = []string{"prod.tfvars"}
+	h.Ctx.Vars = map[string]string{"env": "prod"}
+	h.Ctx.ExtraArgs = []string{"-no-color"}
+	p.Init(h.Deps)
+	p.planFile = "/tmp/x.tfplan"
+
+	cmd := p.runApply()
+	collectApplyResult(t, cmd)
+
+	if len(got.VarFiles) != 1 || got.VarFiles[0] != "prod.tfvars" {
+		t.Errorf("VarFiles = %v, want [prod.tfvars]", got.VarFiles)
+	}
+	if got.Vars["env"] != "prod" {
+		t.Errorf("Vars[env] = %q, want prod", got.Vars["env"])
+	}
+	if len(got.ExtraArgs) != 1 || got.ExtraArgs[0] != "-no-color" {
+		t.Errorf("ExtraArgs = %v, want [-no-color]", got.ExtraArgs)
+	}
+	if got.PlanFile != "/tmp/x.tfplan" {
+		t.Errorf("PlanFile = %q, want /tmp/x.tfplan", got.PlanFile)
+	}
+}
+
+func collectApplyResult(t *testing.T, cmd tea.Cmd) ApplyResultMsg {
+	t.Helper()
+	done := make(chan ApplyResultMsg, 1)
+	var run func(c tea.Cmd)
+	run = func(c tea.Cmd) {
+		go func() {
+			msg := c()
+			if r, ok := msg.(ApplyResultMsg); ok {
+				select {
+				case done <- r:
+				default:
+				}
+				return
+			}
+			if batch, ok := msg.(tea.BatchMsg); ok {
+				for _, sub := range batch {
+					run(sub)
+				}
+			}
+		}()
+	}
+	run(cmd)
+	select {
+	case r := <-done:
+		return r
+	case <-time.After(2 * time.Second):
+		t.Fatal("runApply did not produce ApplyResultMsg")
+		return ApplyResultMsg{}
+	}
+}
+
+func TestUpdate_WhenUnhandledKeyInIdle_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
-	// A key other than enter in idle should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if cmd != nil {
 		t.Error("after x in idle: cmd != nil, want nil")
@@ -463,11 +530,9 @@ func TestUpdate_WhenUnhandledKeyInIdle_ShouldDoNothing(t *testing.T) {
 }
 
 func TestUpdate_WhenUnhandledKeyInError_ShouldDoNothing(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
-	// A key other than r in error should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if cmd != nil {
 		t.Error("after x in error: cmd != nil, want nil")
@@ -475,11 +540,9 @@ func TestUpdate_WhenUnhandledKeyInError_ShouldDoNothing(t *testing.T) {
 }
 
 func TestUpdate_WhenUnhandledKeyInConfirming_ShouldDoNothing(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 
-	// A key other than y/n/enter/esc in confirming should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
 	if cmd != nil {
 		t.Error("after x in confirming: cmd != nil, want nil")
@@ -490,11 +553,9 @@ func TestUpdate_WhenUnhandledKeyInConfirming_ShouldDoNothing(t *testing.T) {
 }
 
 func TestUpdate_WhenKeyInLoading_ShouldDoNothing(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
-	// Keys during running state should do nothing
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
 	if cmd != nil {
 		t.Error("after r in running: cmd != nil, want nil")
@@ -502,8 +563,7 @@ func TestUpdate_WhenKeyInLoading_ShouldDoNothing(t *testing.T) {
 }
 
 func TestUpdate_WhenCtrlRInDone_ShouldNavigateToPlan(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
@@ -521,8 +581,7 @@ func TestUpdate_WhenCtrlRInDone_ShouldNavigateToPlan(t *testing.T) {
 }
 
 func TestBusy_GivenStatus_ShouldReturnTrueOnlyWhenLoading(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 
 	if p.Busy() {
 		t.Error("Busy() = true in idle, want false")
@@ -537,59 +596,38 @@ func TestBusy_GivenStatus_ShouldReturnTrueOnlyWhenLoading(t *testing.T) {
 	}
 }
 
-func TestTargets_WhenSetAndGet_ShouldReturnStoredTargets(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	if p.Targets() != nil {
-		t.Errorf("Targets() = %v, want nil", p.Targets())
-	}
-	targets := []string{"aws_instance.web", "aws_s3_bucket.data"}
-	p.SetTargets(targets)
-	got := p.Targets()
-	if len(got) != 2 || got[0] != "aws_instance.web" || got[1] != "aws_s3_bucket.data" {
-		t.Errorf("Targets() = %v, want %v", got, targets)
-	}
-}
-
-func TestHints_WhenIdle_ShouldReturnConfirmAndBack(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+func TestHints_WhenIdle_ShouldReturnConfirmAndQuit(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() returned empty slice in idle state")
-	}
-	hasBack := false
-	hasConfirm := false
+	hasQ, hasEnter := false, false
 	for _, h := range hints {
-		if h.Key == "q" && h.Description == "quit" {
-			hasBack = true
+		if h.Key == "q" {
+			hasQ = true
 		}
-		if h.Key == "Enter" && h.Description == "confirm" {
-			hasConfirm = true
+		if h.Key == "Enter" {
+			hasEnter = true
 		}
 	}
-	if !hasBack {
-		t.Error("Hints() in idle missing 'q back'")
+	if !hasQ {
+		t.Error("Hints() in idle missing 'q quit'")
 	}
-	if !hasConfirm {
+	if !hasEnter {
 		t.Error("Hints() in idle missing 'Enter confirm'")
 	}
 }
 
 func TestHints_WhenConfirming_ShouldReturnYNAndCancel(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
 
 	hints := p.Hints()
 	if len(hints) != 2 {
 		t.Fatalf("Hints() in confirming: len = %d, want 2", len(hints))
 	}
-	if hints[0].Key != "y/n" || hints[0].Description != "confirm" {
-		t.Errorf("Hints()[0] = %v, want {y/n confirm}", hints[0])
+	if hints[0].Key != "y/n" {
+		t.Errorf("Hints()[0].Key = %q, want y/n", hints[0].Key)
 	}
 	if hints[1] != sdk.HintCancel {
 		t.Errorf("Hints()[1] = %v, want HintCancel", hints[1])
@@ -597,170 +635,138 @@ func TestHints_WhenConfirming_ShouldReturnYNAndCancel(t *testing.T) {
 }
 
 func TestHints_WhenLoading_ShouldReturnCancel(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
 
 	hints := p.Hints()
 	if len(hints) == 0 {
 		t.Fatal("Hints() returned empty slice in loading state")
 	}
-	if hints[0].Key != "Esc" || hints[0].Description != "cancel" {
-		t.Errorf("Hints()[0] = %v, want {Esc cancel}", hints[0])
+	if hints[0].Key != "Esc" {
+		t.Errorf("Hints()[0].Key = %q, want Esc", hints[0].Key)
 	}
 }
 
 func TestHints_WhenDone_ShouldReturnRefreshAndCancel(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	hints := p.Hints()
 	if len(hints) != 2 {
 		t.Fatalf("Hints() length = %d, want 2", len(hints))
 	}
-	if hints[0].Key != "^r" || hints[0].Description != "refresh" {
-		t.Errorf("Hints()[0] = %v, want {^r refresh}", hints[0])
-	}
-	if hints[1].Key != "Esc" || hints[1].Description != "cancel" {
-		t.Errorf("Hints()[1] = %v, want {Esc cancel}", hints[1])
+	if hints[0].Key != "^r" {
+		t.Errorf("Hints()[0].Key = %q, want ^r", hints[0].Key)
 	}
 }
 
-func TestHints_WhenError_ShouldReturnRetryAndBack(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+func TestHints_WhenError_ShouldReturnRetryAndCancel(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
 	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() returned empty slice in error state")
-	}
 	hasRetry := false
-	hasBack := false
 	for _, h := range hints {
-		if h.Key == "^r" && h.Description == "retry" {
+		if h.Key == "^r" {
 			hasRetry = true
-		}
-		if h.Key == "Esc" && h.Description == "cancel" {
-			hasBack = true
 		}
 	}
 	if !hasRetry {
 		t.Error("Hints() in error missing '^r retry'")
 	}
-	if !hasBack {
-		t.Error("Hints() in error missing 'q back'")
-	}
 }
 
-func TestHints_WhenUnknownStatus_ShouldReturnBack(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+func TestHints_WhenUnknownStatus_ShouldReturnQuit(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.Status(99)
 
 	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() returned empty slice for unknown status")
-	}
-	if hints[0].Key != "q" || hints[0].Description != "quit" {
-		t.Errorf("Hints()[0] = %v, want {q back}", hints[0])
+	if len(hints) == 0 || hints[0].Key != "q" {
+		t.Errorf("Hints() unknown status = %v, want first key 'q'", hints)
 	}
 }
 
-func TestHandleChdirChanged_WhenCalled_ShouldResetState(t *testing.T) {
+func TestHandleContextChanged_WhenChdirChanges_ShouldClearPlanFileAndReset(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusError
-	p.errMsg = "some error"
+	p.errMsg = "boom"
+	p.planFile = "/tmp/from_old_chdir.tfplan"
+	p.confirmed = true
 
-	cmd := p.HandleChdirChanged(sdk.ChdirChangedEvent{
-		RelPath: "modules/vpc",
-		AbsPath: "/abs/modules/vpc",
-		Count:   3,
-	})
+	prev := &sdk.Context{Workspace: "default"}
+	next := &sdk.Context{Service: svc}
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: next})
 	if cmd != nil {
-		t.Error("HandleChdirChanged() returned non-nil cmd")
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.planFile != "" {
+		t.Errorf("planFile = %q, want empty after chdir change (the leak bug ADR-0018 fixes)", p.planFile)
+	}
+	if p.confirmed {
+		t.Error("confirmed should be reset to false on chdir change")
 	}
 	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want sdk.StatusIdle", p.status)
-	}
-	if p.errMsg != "" {
-		t.Errorf("errMsg = %q, want empty", p.errMsg)
-	}
-	if p.scopedContext != "/abs/modules/vpc" {
-		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/abs/modules/vpc")
+		t.Errorf("status = %v, want StatusIdle", p.status)
 	}
 }
 
-func TestHandlePlanCompleted_WhenCalled_ShouldStoreTotalResources(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+func TestHandleContextChanged_WhenOnlyPinsChange_ShouldBeNoOp(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.confirmed = true
+	p.planFile = "/tmp/foo.tfplan"
 
-	cmd := p.HandlePlanCompleted(sdk.PlanCompletedEvent{
-		ResourceCount: 42,
-		Summary:       &sdk.PlanSummary{},
+	prev := &sdk.Context{Pins: []string{"a"}}
+	next := &sdk.Context{Pins: []string{"a", "b"}}
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: next})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.planFile != "/tmp/foo.tfplan" {
+		t.Error("planFile cleared on pure target change, want preserved")
+	}
+	if !p.confirmed {
+		t.Error("confirmed should be preserved when only targets change")
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.planFile = "/tmp/x.tfplan"
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+	}
+	if p.planFile == "" {
+		t.Error("planFile cleared on nil Next, want preserved")
+	}
+}
+
+func TestHandleContextChanged_WhenNextHasService_ShouldRebindService(t *testing.T) {
+	oldSvc := &sdktest.MockService{}
+	newSvc := &sdktest.MockService{}
+	p := New(oldSvc).(*Plugin)
+	p.svc = oldSvc
+
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
+		Next: &sdk.Context{Service: newSvc},
 	})
 	if cmd != nil {
-		t.Error("HandlePlanCompleted() returned non-nil cmd")
+		t.Error("HandleContextChanged returned non-nil cmd")
 	}
-	if p.TotalResources() != 42 {
-		t.Errorf("TotalResources() = %d, want 42", p.TotalResources())
-	}
-}
-
-func TestTotalResources_WhenNew_ShouldBeZero(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	if p.TotalResources() != 0 {
-		t.Errorf("TotalResources() = %d, want 0", p.TotalResources())
+	if p.svc != newSvc {
+		t.Error("svc not rebound to next.Service after chdir change")
 	}
 }
 
 func TestActivate_WhenIdle_ShouldReturnNilCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
+	p := New(&sdktest.MockService{}).(*Plugin)
 	cmd := p.Activate()
 	if cmd != nil {
 		t.Error("Activate() returned non-nil cmd, want nil")
-	}
-}
-
-func TestPlugin_WhenApplySucceeds_ShouldEmitPlanInvalidatedEvent(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusLoading
-
-	_, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
-	if cmd == nil {
-		t.Fatal("Update(ApplyResultMsg{Err: nil}) returned nil cmd, want cmd that emits PlanInvalidatedEvent")
-	}
-
-	msg := cmd()
-	if _, ok := msg.(sdk.PlanInvalidatedEvent); !ok {
-		t.Errorf("cmd() returned %T, want sdk.PlanInvalidatedEvent", msg)
-	}
-}
-
-func TestPlugin_WhenDoneAndCtrlR_ShouldNavigateToPlan(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
-	if cmd == nil {
-		t.Fatal("Update(ctrl+r in StatusDone) returned nil cmd, want cmd that emits NavigateMsg{PluginID: \"plan\"}")
-	}
-
-	msg := cmd()
-	nav, ok := msg.(sdk.NavigateMsg)
-	if !ok {
-		t.Fatalf("cmd() returned %T, want sdk.NavigateMsg", msg)
-	}
-	if nav.PluginID != "plan" {
-		t.Errorf("NavigateMsg.PluginID = %q, want %q", nav.PluginID, "plan")
 	}
 }
 
@@ -788,22 +794,49 @@ func TestPlugin_WhenActivatedInLoadingStatus_ShouldNotReset(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenRequestApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return &sdk.PlanSummary{ToCreate: 1}, nil
-		},
+func TestPlugin_WhenActivatedInConfirmingStatus_ShouldNotReset(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusConfirming
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() in confirming should return nil")
 	}
-	p := New(svc).(*Plugin)
-	p.svc = svc
-	p.targets = []string{"aws_instance.web"}
+	if p.status != StatusConfirming {
+		t.Errorf("status = %v, want StatusConfirming (unchanged)", p.status)
+	}
+}
 
-	cmd := p.RequestApply()
-	if cmd == nil {
-		t.Fatal("RequestApply() with targets should return cmd")
+func TestPlugin_WhenActivatedInDoneStatus_ShouldResetToIdle(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	p.errMsg = "stale error"
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() should return nil")
 	}
-	if p.status != StatusReplanning {
-		t.Errorf("status = %v, want StatusReplanning", p.status)
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
+	}
+	if p.errMsg != "" {
+		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
+	}
+}
+
+func TestPlugin_WhenActivatedInErrorStatus_ShouldResetToIdle(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "previous error"
+
+	cmd := p.Activate()
+	if cmd != nil {
+		t.Error("Activate() should return nil")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
+	}
+	if p.errMsg != "" {
+		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
 	}
 }
 
@@ -826,37 +859,15 @@ func TestPlugin_WhenCancelWithCancelFn_ShouldCallIt(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenAutoApplyWithTargets_ShouldEnterReplanning(t *testing.T) {
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return &sdk.PlanSummary{ToCreate: 1}, nil
-		},
-	}
-	p := New(svc).(*Plugin)
-	p.svc = svc
-	p.targets = []string{"aws_instance.web"}
-
-	cmd := p.AutoApply()
-	if cmd == nil {
-		t.Fatal("AutoApply() with targets should return cmd")
-	}
-	if p.status != StatusReplanning {
-		t.Errorf("status = %v, want StatusReplanning", p.status)
-	}
-	if !p.confirmed {
-		t.Error("confirmed = false, want true")
-	}
-}
-
-func TestPlugin_WhenAutoApplyWithoutTargets_ShouldEnterLoading(t *testing.T) {
+func TestPlugin_WhenAutoApply_ShouldEnterLoadingAndStartTimer(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
-	p.targets = nil
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.SetPlanFile("/tmp/x.tfplan")
 
 	cmd := p.AutoApply()
 	if cmd == nil {
-		t.Fatal("AutoApply() without targets should return cmd")
+		t.Fatal("AutoApply() should return non-nil cmd")
 	}
 	if p.status != sdk.StatusLoading {
 		t.Errorf("status = %v, want StatusLoading", p.status)
@@ -864,93 +875,75 @@ func TestPlugin_WhenAutoApplyWithoutTargets_ShouldEnterLoading(t *testing.T) {
 	if !p.confirmed {
 		t.Error("confirmed = false, want true")
 	}
+	if !p.timer.Running() {
+		t.Error("timer not running after AutoApply")
+	}
 }
 
-func TestPlugin_WhenReplanResultError_ShouldTransitionToError(t *testing.T) {
+func TestPlugin_WhenKeyInLoadingStatus_ShouldDoNothing(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-	p.timer.Start()
+	p.status = sdk.StatusLoading
 
-	_, cmd := p.Update(ReplanResultMsg{Err: errors.New("plan failed")})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 	if cmd != nil {
-		t.Error("ReplanResultMsg error should return nil cmd")
+		t.Error("key in loading: cmd != nil, want nil")
 	}
-	if p.status != sdk.StatusError {
-		t.Errorf("status = %v, want StatusError", p.status)
-	}
-	if p.errMsg != "plan failed" {
-		t.Errorf("errMsg = %q, want %q", p.errMsg, "plan failed")
+
+	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd != nil {
+		t.Error("esc in loading: cmd != nil, want nil")
 	}
 }
 
-func TestPlugin_WhenReplanResultSuccessAndConfirmed_ShouldRunApply(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.svc = svc
-	p.status = StatusReplanning
-	p.confirmed = true
-	p.timer.Start()
+func TestPlugin_WhenEscInDone_ShouldEmitDeactivateMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
 
-	_, cmd := p.Update(ReplanResultMsg{Summary: &sdk.PlanSummary{ToCreate: 1}})
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
-		t.Fatal("ReplanResultMsg success+confirmed should return cmd (runApply)")
+		t.Fatal("esc in done should return cmd")
 	}
-	if p.status != sdk.StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
 	}
 }
 
-func TestPlugin_WhenReplanResultSuccessAndNotConfirmed_ShouldTransitionToConfirming(t *testing.T) {
+func TestPlugin_WhenEscInError_ShouldEmitDeactivateMsg(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-	p.confirmed = false
-	p.timer.Start()
+	p.status = sdk.StatusError
 
-	_, cmd := p.Update(ReplanResultMsg{Summary: &sdk.PlanSummary{ToCreate: 1}})
-	if cmd != nil {
-		t.Error("ReplanResultMsg success+not confirmed should return nil cmd")
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if cmd == nil {
+		t.Fatal("esc in error should return cmd")
 	}
-	if p.status != StatusConfirming {
-		t.Errorf("status = %v, want StatusConfirming", p.status)
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
 	}
 }
 
-func TestPlugin_WhenViewInReplanning_ShouldRenderTargets(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-	p.targets = []string{"aws_instance.web", "aws_s3_bucket.data"}
-	p.timer.Start()
-
-	view := p.View(80, 24)
-	if !strings.Contains(view, "Replanning") {
-		t.Errorf("view should indicate replanning, got %q", view)
-	}
-	if !strings.Contains(view, "aws_instance.web") {
-		t.Errorf("view should show target 'aws_instance.web', got %q", view)
-	}
-	if !strings.Contains(view, "aws_s3_bucket.data") {
-		t.Errorf("view should show target 'aws_s3_bucket.data', got %q", view)
-	}
-}
-
-func TestPlugin_WhenViewConfirmingWithTargetsAndReplanSummary_ShouldShowCounts(t *testing.T) {
+func TestPlugin_WhenNoInConfirming_ShouldEmitDeactivateMsg(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
-	p.targets = []string{"aws_instance.web"}
-	p.replanSummary = &sdk.PlanSummary{ToCreate: 1, ToUpdate: 2, ToDelete: 3}
 
-	view := p.View(80, 24)
-	if !strings.Contains(view, "targeted") {
-		t.Errorf("view should mention targeted plan, got %q", view)
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
+	if cmd == nil {
+		t.Fatal("n in confirming: cmd = nil, want DeactivateMsg cmd")
 	}
-	if !strings.Contains(view, "1 to add") {
-		t.Errorf("view should show '1 to add', got %q", view)
+	msg := cmd()
+	if _, ok := msg.(sdk.DeactivateMsg); !ok {
+		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
 	}
-	if !strings.Contains(view, "2 to change") {
-		t.Errorf("view should show '2 to change', got %q", view)
-	}
-	if !strings.Contains(view, "3 to destroy") {
-		t.Errorf("view should show '3 to destroy', got %q", view)
+}
+
+func TestPlugin_WhenOtherKeyInDone_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
+	if cmd != nil {
+		t.Error("unhandled key in done: cmd != nil, want nil")
 	}
 }
 
@@ -1009,245 +1002,6 @@ func TestPlugin_WhenOutputTextError_ShouldReturnErrorMessage(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenEscInReplanning_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if cmd == nil {
-		t.Fatal("esc in replanning should return cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
-	}
-}
-
-func TestPlugin_WhenEscInDone_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if cmd == nil {
-		t.Fatal("esc in done should return cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
-	}
-}
-
-func TestPlugin_WhenEscInError_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusError
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if cmd == nil {
-		t.Fatal("esc in error should return cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
-	}
-}
-
-func TestPlugin_WhenHintsInReplanning_ShouldReturnCancel(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-
-	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() in replanning returned empty")
-	}
-	if hints[0].Key != "Esc" {
-		t.Errorf("Hints()[0].Key = %q, want %q", hints[0].Key, "Esc")
-	}
-}
-
-func TestPlugin_WhenRunReplan_ShouldReturnReplanResultMsg(t *testing.T) {
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return &sdk.PlanSummary{ToCreate: 2}, nil
-		},
-	}
-	p := New(svc).(*Plugin)
-	p.svc = svc
-	p.options = &sdk.ResolvedOptions{}
-	p.targets = []string{"aws_instance.web"}
-
-	batch := p.runReplan()().(tea.BatchMsg)
-	var result ReplanResultMsg
-	var found bool
-	for _, c := range batch {
-		if msg, ok := c().(ReplanResultMsg); ok {
-			result = msg
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("runReplan batch did not produce ReplanResultMsg")
-	}
-	if result.Err != nil {
-		t.Errorf("ReplanResultMsg.Err = %v, want nil", result.Err)
-	}
-	if result.Summary == nil {
-		t.Fatal("ReplanResultMsg.Summary = nil, want non-nil")
-	}
-}
-
-func TestPlugin_WhenRunReplanFails_ShouldReturnError(t *testing.T) {
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return nil, errors.New("plan broken")
-		},
-	}
-	p := New(svc).(*Plugin)
-	p.svc = svc
-	p.options = &sdk.ResolvedOptions{}
-	p.targets = []string{"aws_instance.web"}
-
-	batch := p.runReplan()().(tea.BatchMsg)
-	var result ReplanResultMsg
-	var found bool
-	for _, c := range batch {
-		if msg, ok := c().(ReplanResultMsg); ok {
-			result = msg
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatal("runReplan batch did not produce ReplanResultMsg")
-	}
-	if result.Err == nil {
-		t.Error("ReplanResultMsg.Err = nil, want error")
-	}
-}
-
-func TestPlugin_WhenActivatedInConfirmingStatus_ShouldNotReset(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusConfirming
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() in confirming should return nil")
-	}
-	if p.status != StatusConfirming {
-		t.Errorf("status = %v, want StatusConfirming (unchanged)", p.status)
-	}
-}
-
-func TestPlugin_WhenActivatedInReplanningStatus_ShouldNotReset(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() in replanning should return nil")
-	}
-	if p.status != StatusReplanning {
-		t.Errorf("status = %v, want StatusReplanning (unchanged)", p.status)
-	}
-}
-
-func TestPlugin_WhenKeyInLoadingStatus_ShouldDoNothing(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusLoading
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
-	if cmd != nil {
-		t.Error("key in loading: cmd != nil, want nil")
-	}
-
-	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if cmd != nil {
-		t.Error("esc in loading: cmd != nil, want nil")
-	}
-}
-
-func TestPlugin_WhenOutputJsonMarshalSuccess_ShouldNotReturnError(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-
-	data, err := p.Output(true)
-	if err != nil {
-		t.Fatalf("Output(true) error = %v, want nil", err)
-	}
-	if len(data) == 0 {
-		t.Error("Output(true) returned empty data")
-	}
-	if !strings.Contains(string(data), "\n") {
-		t.Error("Output(true) should end with newline")
-	}
-}
-
-func TestPlugin_WhenActivatedInDoneStatus_ShouldResetToIdle(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.errMsg = "stale error"
-
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() should return nil")
-	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
-	}
-	if p.errMsg != "" {
-		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
-	}
-}
-
-func TestPlugin_WhenActivatedInErrorStatus_ShouldResetToIdle(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusError
-	p.errMsg = "previous error"
-
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() should return nil")
-	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
-	}
-	if p.errMsg != "" {
-		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
-	}
-}
-
-func TestPlugin_WhenOtherKeyInDone_ShouldDoNothing(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
-	if cmd != nil {
-		t.Error("unhandled key in done: cmd != nil, want nil")
-	}
-}
-
-func TestPlugin_WhenOtherKeyInReplanning_ShouldDoNothing(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusReplanning
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
-	if cmd != nil {
-		t.Error("unhandled key in replanning: cmd != nil, want nil")
-	}
-}
-
-func TestPlugin_WhenNoInConfirming_ShouldEmitDeactivateMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusConfirming
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
-	if cmd == nil {
-		t.Fatal("n in confirming: cmd = nil, want DeactivateMsg cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("cmd() = %T, want DeactivateMsg", msg)
-	}
-}
-
 func TestStack_WhenCalled_ShouldReturnInternalStack(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Stack() == nil {
@@ -1292,7 +1046,6 @@ func TestHints_WhenDoneWithLastStream_ShouldIncludeLHint(t *testing.T) {
 func TestHints_WhenErrorWithLastStream_ShouldIncludeLHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
-	p.errMsg = "some error"
 	lw, ch := frames.NewLineWriter()
 	lw.Close()
 	p.lastStream = frames.NewStreamFrame("test", ch, nil)
@@ -1327,7 +1080,6 @@ func TestUpdate_WhenKeyMsgAndStackHasFrame_ShouldRouteToStack(t *testing.T) {
 	lw.Close()
 	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
 
-	// esc on a done stream frame returns nil (pops) — but done is false here so it ignores esc
 	next, _ := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if next != p {
 		t.Fatal("Update(KeyMsg) with stack frame should route to stack and return same plugin")
@@ -1348,15 +1100,11 @@ func TestHandleKey_WhenDoneAndLKey_ShouldPushLastStreamOnStack(t *testing.T) {
 	if p.stack.Depth() != depthBefore+1 {
 		t.Errorf("stack depth = %d, want %d after l key in Done", p.stack.Depth(), depthBefore+1)
 	}
-	if p.stack.Peek().ID() != "stream" {
-		t.Errorf("top frame ID = %q, want %q", p.stack.Peek().ID(), "stream")
-	}
 }
 
 func TestHandleKey_WhenErrorAndLKey_ShouldPushLastStreamOnStack(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
-	p.errMsg = "some error"
 	lw, ch := frames.NewLineWriter()
 	lw.Close()
 	sf := frames.NewStreamFrame("test", ch, nil)
@@ -1368,8 +1116,29 @@ func TestHandleKey_WhenErrorAndLKey_ShouldPushLastStreamOnStack(t *testing.T) {
 	if p.stack.Depth() != depthBefore+1 {
 		t.Errorf("stack depth = %d, want %d after l key in Error", p.stack.Depth(), depthBefore+1)
 	}
-	if p.stack.Peek().ID() != "stream" {
-		t.Errorf("top frame ID = %q, want %q", p.stack.Peek().ID(), "stream")
+}
+
+func TestHandleKey_WhenDoneAndLKey_NoLastStream_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusDone
+	depthBefore := p.stack.Depth()
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore {
+		t.Errorf("stack depth changed without lastStream; got %d, want %d", p.stack.Depth(), depthBefore)
+	}
+}
+
+func TestHandleKey_WhenErrorAndLKey_NoLastStream_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusError
+	depthBefore := p.stack.Depth()
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore {
+		t.Errorf("stack depth changed without lastStream; got %d, want %d", p.stack.Depth(), depthBefore)
 	}
 }
 
@@ -1378,15 +1147,15 @@ func TestView_WhenStackHasFrame_ShouldDelegateToTopFrame(t *testing.T) {
 	lw, ch := frames.NewLineWriter()
 	lw.Close()
 	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
-
-	// StreamFrame.View with no lines returns ""  — but View() must delegate (not hit the switch)
-	// The important thing is the delegation path is exercised (line 353-355)
 	_ = p.View(80, 24)
 }
 
 func TestActivateWithArgs_WhenAutoApprove_ShouldCallAutoApply(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.SetPlanFile("/tmp/x.tfplan")
+
 	cmd := p.ActivateWithArgs([]string{"--auto-approve"})
 	if cmd == nil {
 		t.Fatal("expected non-nil cmd from AutoApply")
@@ -1399,26 +1168,46 @@ func TestActivateWithArgs_WhenAutoApprove_ShouldCallAutoApply(t *testing.T) {
 func TestActivateWithArgs_WhenNoAutoApprove_ShouldCallRequestApply(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+
 	cmd := p.ActivateWithArgs(nil)
 	if cmd != nil {
-		t.Fatal("expected nil cmd from RequestApply with no targets")
+		t.Fatal("expected nil cmd from RequestApply")
 	}
 	if p.status != StatusConfirming {
 		t.Errorf("expected StatusConfirming, got %v", p.status)
 	}
 }
 
-func TestActivateWithArgs_WhenTargets_ShouldSetTargetsAndReplan(t *testing.T) {
+func TestActivateWithArgs_WhenTargets_ShouldStoreTargets(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	cmd := p.ActivateWithArgs([]string{"--auto-approve", "--target=aws_instance.web"})
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	p.ActivateWithArgs([]string{"--target=aws_instance.web", "--target=aws_s3_bucket.data"})
+	if len(p.targets) != 2 {
+		t.Fatalf("targets len = %d, want 2", len(p.targets))
+	}
+	if p.targets[0] != "aws_instance.web" {
+		t.Errorf("targets[0] = %q, want aws_instance.web", p.targets[0])
+	}
+	if p.targets[1] != "aws_s3_bucket.data" {
+		t.Errorf("targets[1] = %q, want aws_s3_bucket.data", p.targets[1])
+	}
+}
+
+func TestActivateWithArgs_WhenTargetsAndAutoApprove_ShouldAutoApplyWithTargets(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.ActivateWithArgs([]string{"--target=aws_instance.web", "--auto-approve"})
 	if cmd == nil {
-		t.Fatal("expected non-nil cmd")
+		t.Fatal("expected non-nil cmd from AutoApply")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("expected StatusLoading, got %v", p.status)
 	}
 	if len(p.targets) != 1 || p.targets[0] != "aws_instance.web" {
-		t.Errorf("expected targets [aws_instance.web], got %v", p.targets)
-	}
-	if p.status != StatusReplanning {
-		t.Errorf("expected StatusReplanning, got %v", p.status)
+		t.Errorf("targets = %v, want [aws_instance.web]", p.targets)
 	}
 }

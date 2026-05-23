@@ -1,18 +1,22 @@
 package plan
 
 import (
-	"io"
-	"log/slog"
 	"testing"
 
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-func newGoldenPlugin() *Plugin {
+func newGoldenPluginWithHarness() (*Plugin, *sdktest.PluginDepsHarness) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
+	return p, h
+}
+
+func newGoldenPlugin() *Plugin {
+	p, _ := newGoldenPluginWithHarness()
 	return p
 }
 
@@ -87,7 +91,6 @@ func TestView_Given_Changes_WithSelection_ShouldRender_HighlightedRow(t *testing
 
 func TestView_Given_InspectView_ShouldRender_AttributeDiffs(t *testing.T) {
 	p := newGoldenPlugin()
-	p.pins = sdk.NewPinService()
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
@@ -144,10 +147,9 @@ func TestView_Given_CriticalRisk_ShouldRender_RiskWarning(t *testing.T) {
 }
 
 func TestView_Given_PinnedChange_ShouldRender_PinMarker(t *testing.T) {
-	p := newGoldenPlugin()
+	p, h := newGoldenPluginWithHarness()
 	p.status = sdk.StatusDone
-	p.pins = sdk.NewPinService()
-	p.pins.Toggle("aws_instance.web")
+	h.Ctx.Pins = []string{"aws_instance.web"}
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},

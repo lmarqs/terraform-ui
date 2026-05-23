@@ -10,16 +10,16 @@ import (
 	"github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
-func newPlanPluginWithChanges(changes []sdk.PlanChange) *Plugin {
+func newPlanPluginWithChanges(changes []sdk.PlanChange) (*Plugin, *sdktest.PluginDepsHarness) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
 	p.status = sdk.StatusDone
 	p.summary = &sdk.PlanSummary{Changes: changes}
 	p.filtered = changes
-	p.pins = sdk.NewPinService()
 	p.rebuildTree()
-	return p
+	return p, h
 }
 
 func TestActionTargets_WhenNoPins_ShouldReturnCursorAddress(t *testing.T) {
@@ -27,7 +27,7 @@ func TestActionTargets_WhenNoPins_ShouldReturnCursorAddress(t *testing.T) {
 		{Resource: sdk.Resource{Address: "aws_instance.a"}},
 		{Resource: sdk.Resource{Address: "aws_instance.b"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	targets := p.actionTargets()
 	if len(targets) != 1 || targets[0] != "aws_instance.a" {
@@ -41,9 +41,8 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 		{Resource: sdk.Resource{Address: "aws_instance.b"}},
 		{Resource: sdk.Resource{Address: "aws_instance.c"}},
 	}
-	p := newPlanPluginWithChanges(changes)
-	p.pins.Toggle("aws_instance.b")
-	p.pins.Toggle("aws_instance.c")
+	p, h := newPlanPluginWithChanges(changes)
+	h.Ctx.Pins = []string{"aws_instance.b", "aws_instance.c"}
 
 	targets := p.actionTargets()
 	if len(targets) != 2 {
@@ -52,7 +51,7 @@ func TestActionTargets_WhenPinsExist_ShouldReturnPinnedAddresses(t *testing.T) {
 }
 
 func TestActionTargets_WhenEmptyList_ShouldReturnNil(t *testing.T) {
-	p := newPlanPluginWithChanges(nil)
+	p, _ := newPlanPluginWithChanges(nil)
 
 	targets := p.actionTargets()
 	if targets != nil {
@@ -64,7 +63,7 @@ func TestBuildActionFrame_WhenSingleTarget_ShouldUseAddressAsTitle(t *testing.T)
 	changes := []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	frame := p.buildActionFrame(false)
 	if frame.ID() != "actions" {
@@ -77,9 +76,8 @@ func TestBuildActionFrame_WhenMultiplePins_ShouldShowPinnedCount(t *testing.T) {
 		{Resource: sdk.Resource{Address: "aws_instance.a"}},
 		{Resource: sdk.Resource{Address: "aws_instance.b"}},
 	}
-	p := newPlanPluginWithChanges(changes)
-	p.pins.Toggle("aws_instance.a")
-	p.pins.Toggle("aws_instance.b")
+	p, h := newPlanPluginWithChanges(changes)
+	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
 
 	frame := p.buildActionFrame(true)
 	view := frame.View(80, 20)
@@ -92,7 +90,7 @@ func TestBuildActionFrame_ShouldHaveApplyAction(t *testing.T) {
 	changes := []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	frame := p.buildActionFrame(false)
 	result, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
@@ -112,7 +110,7 @@ func TestBuildActionFrame_ShouldHaveAutoApplyAction(t *testing.T) {
 	changes := []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	frame := p.buildActionFrame(false)
 	result, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}})
@@ -123,8 +121,11 @@ func TestBuildActionFrame_ShouldHaveAutoApplyAction(t *testing.T) {
 		t.Fatal("expected non-nil cmd from auto-apply handler")
 	}
 	msg := cmd()
-	if _, ok := msg.(AutoApplyRequestMsg); !ok {
-		t.Errorf("expected AutoApplyRequestMsg, got %T", msg)
+	req, ok := msg.(ApplyRequestMsg)
+	if !ok {
+		t.Errorf("expected ApplyRequestMsg, got %T", msg)
+	} else if !req.AutoApprove {
+		t.Errorf("expected AutoApprove=true on auto-apply emission")
 	}
 }
 
@@ -132,7 +133,7 @@ func TestBuildActionFrame_ShouldHaveTaintAction(t *testing.T) {
 	changes := []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	frame := p.buildActionFrame(false)
 	result, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
@@ -154,7 +155,7 @@ func TestBuildActionFrame_ShouldHaveUntaintAction(t *testing.T) {
 	changes := []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	frame := p.buildActionFrame(false)
 	result, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
@@ -176,7 +177,7 @@ func TestBuildActionFrame_WhenEsc_ShouldPopFrame(t *testing.T) {
 	changes := []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web"}},
 	}
-	p := newPlanPluginWithChanges(changes)
+	p, _ := newPlanPluginWithChanges(changes)
 
 	frame := p.buildActionFrame(false)
 	result, _ := frame.Update(tea.KeyMsg{Type: tea.KeyEsc})
@@ -190,9 +191,8 @@ func TestBuildActionFrame_WhenBatchWithPins_ShouldTargetAllPinned(t *testing.T) 
 		{Resource: sdk.Resource{Address: "aws_instance.a"}},
 		{Resource: sdk.Resource{Address: "aws_instance.b"}},
 	}
-	p := newPlanPluginWithChanges(changes)
-	p.pins.Toggle("aws_instance.a")
-	p.pins.Toggle("aws_instance.b")
+	p, h := newPlanPluginWithChanges(changes)
+	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
 	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame(true)

@@ -35,7 +35,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.(*Plugin).Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.Context{Service: svc, WorkingDir: "/tmp", Workspace: "default"}); cmd != nil {
+	if cmd := p.Init(&sdk.PluginDeps{Service: svc}); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.(*Plugin).Ready() {
@@ -58,7 +58,7 @@ func TestStack_ShouldReturn_NonNilStack(t *testing.T) {
 func TestActivate_GivenIdle_ShouldStartLoading(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 
 	cmd := p.Activate()
 	if cmd == nil {
@@ -72,7 +72,7 @@ func TestActivate_GivenIdle_ShouldStartLoading(t *testing.T) {
 func TestActivate_GivenError_ShouldRetryLoading(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 	p.status = sdk.StatusError
 
 	cmd := p.Activate()
@@ -87,7 +87,7 @@ func TestActivate_GivenError_ShouldRetryLoading(t *testing.T) {
 func TestActivate_GivenDone_ShouldNotReload(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 	p.status = sdk.StatusDone
 
 	cmd := p.Activate()
@@ -99,7 +99,7 @@ func TestActivate_GivenDone_ShouldNotReload(t *testing.T) {
 func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
 	svc := mockSvc([]string{"default", "staging"}, "staging")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 
 	cmd := p.Activate()
 	msg := cmd()
@@ -136,7 +136,7 @@ func TestActivate_GivenListError_ShouldReturnErrorMsg(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 
 	cmd := p.Activate()
 	msg := cmd()
@@ -164,7 +164,7 @@ func TestActivate_GivenWorkspaceError_ShouldReturnErrorMsg(t *testing.T) {
 		WorkspaceFn:     func(_ context.Context) (string, error) { return "", errors.New("fail") },
 	}
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 
 	cmd := p.Activate()
 	msg := cmd()
@@ -280,23 +280,30 @@ func TestSwitchToSelected_GivenEmptyList_ShouldReturnNil(t *testing.T) {
 	}
 }
 
-func TestUpdate_GivenSwitchSuccess_WithPopBack_ShouldEmitWorkspaceChangedEvent(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+func TestUpdate_GivenSwitchSuccess_WithPopBack_ShouldEmitContextSwitchRequest(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	h.Ctx.Chdir = "modules/vpc"
+	p.Init(h.Deps)
 	p.status = sdk.StatusLoading
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
 
 	_, cmd := p.Update(WorkspaceSwitchMsg{Name: "staging", PopBack: true})
 	if cmd == nil {
-		t.Fatal("successful switch should emit event command")
+		t.Fatal("successful switch should emit context switch request")
 	}
 	msg := cmd()
-	evt, ok := msg.(sdk.WorkspaceChangedEvent)
+	req, ok := msg.(sdk.ContextSwitchRequestMsg)
 	if !ok {
-		t.Fatalf("cmd returned %T, want WorkspaceChangedEvent", msg)
+		t.Fatalf("cmd returned %T, want ContextSwitchRequestMsg", msg)
 	}
-	if evt.Name != "staging" {
-		t.Errorf("event Name = %q, want %q", evt.Name, "staging")
+	if req.Chdir != "modules/vpc" {
+		t.Errorf("request Chdir = %q, want %q", req.Chdir, "modules/vpc")
+	}
+	if req.Workspace != "staging" {
+		t.Errorf("request Workspace = %q, want %q", req.Workspace, "staging")
 	}
 }
 
@@ -549,10 +556,12 @@ func TestSelectCurrent_GivenEmptyList_ShouldReturnNil(t *testing.T) {
 	}
 }
 
-func TestUpdate_GivenSelectSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T) {
+func TestUpdate_GivenSelectSuccess_ShouldRefreshAndEmitContextSwitchRequest(t *testing.T) {
 	svc := mockSvc([]string{"default", "staging"}, "staging")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	h := sdktest.NewDeps(svc)
+	h.Ctx.Chdir = "modules/vpc"
+	p.Init(h.Deps)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceSwitchMsg{Name: "staging", PopBack: false})
@@ -565,30 +574,30 @@ func TestUpdate_GivenSelectSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T
 		t.Errorf("status = %v, want Loading (refreshing)", updated.status)
 	}
 	if cmd == nil {
-		t.Fatal("should return batch command (refresh + event)")
+		t.Fatal("should return batch command (refresh + request)")
 	}
 
-	// Execute batch to verify event is emitted
+	// Execute batch to verify context switch request is emitted
 	msg := cmd()
 	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
 		t.Fatalf("expected tea.BatchMsg, got %T", msg)
 	}
-	foundEvent := false
+	foundReq := false
 	for _, subCmd := range batchMsg {
 		if subCmd == nil {
 			continue
 		}
 		subMsg := subCmd()
-		if evt, ok := subMsg.(sdk.WorkspaceCreatedEvent); ok {
-			foundEvent = true
-			if evt.Name != "staging" {
-				t.Errorf("event Name = %q, want %q", evt.Name, "staging")
+		if req, ok := subMsg.(sdk.ContextSwitchRequestMsg); ok {
+			foundReq = true
+			if req.Workspace != "staging" {
+				t.Errorf("request Workspace = %q, want %q", req.Workspace, "staging")
 			}
 		}
 	}
-	if !foundEvent {
-		t.Error("batch should contain WorkspaceCreatedEvent")
+	if !foundReq {
+		t.Error("batch should contain ContextSwitchRequestMsg")
 	}
 }
 
@@ -1124,20 +1133,15 @@ func TestView_GivenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 	}
 }
 
-// --- ChdirChanged handler ---
+// --- ContextChanged handler ---
 
-func TestHandleChdirChanged_ShouldResetAndUpdateService(t *testing.T) {
+func TestHandleContextChanged_ShouldResetAndUpdateService(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.Context{Service: svc})
+	p.Init(&sdk.PluginDeps{Service: svc})
 	p.status = sdk.StatusDone
-	p.scopedContext = "/old"
+	p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc, WorkingDir: "/new"}})
 
-	p.HandleChdirChanged(sdk.ChdirChangedEvent{AbsPath: "/new", RelPath: "modules/new"})
-
-	if p.scopedContext != "/new" {
-		t.Errorf("scopedContext = %q, want %q", p.scopedContext, "/new")
-	}
 	if p.status != sdk.StatusIdle {
 		t.Errorf("status = %v, want Idle (reset)", p.status)
 	}
@@ -1311,7 +1315,9 @@ func TestDeleteWorkspaceCmd_ShouldCallServiceAndReturnMsg(t *testing.T) {
 func TestUpdate_GivenCreateSuccess_BatchContainsCreatedEvent(t *testing.T) {
 	svc := mockSvc([]string{"default", "new-ws"}, "new-ws")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	h := sdktest.NewDeps(svc)
+	h.Ctx.Chdir = "modules/vpc"
+	p.Init(h.Deps)
 	p.status = sdk.StatusLoading
 
 	_, cmd := p.Update(WorkspaceCreateMsg{Name: "new-ws", Err: nil})
@@ -1326,22 +1332,22 @@ func TestUpdate_GivenCreateSuccess_BatchContainsCreatedEvent(t *testing.T) {
 		t.Fatalf("expected tea.BatchMsg, got %T", msg)
 	}
 
-	// Execute each sub-command to find the WorkspaceCreatedEvent
-	foundEvent := false
+	// Execute each sub-command to find the ContextSwitchRequestMsg
+	foundReq := false
 	for _, subCmd := range batchMsg {
 		if subCmd == nil {
 			continue
 		}
 		subMsg := subCmd()
-		if evt, ok := subMsg.(sdk.WorkspaceCreatedEvent); ok {
-			foundEvent = true
-			if evt.Name != "new-ws" {
-				t.Errorf("event Name = %q, want %q", evt.Name, "new-ws")
+		if req, ok := subMsg.(sdk.ContextSwitchRequestMsg); ok {
+			foundReq = true
+			if req.Workspace != "new-ws" {
+				t.Errorf("request Workspace = %q, want %q", req.Workspace, "new-ws")
 			}
 		}
 	}
-	if !foundEvent {
-		t.Error("batch should contain WorkspaceCreatedEvent")
+	if !foundReq {
+		t.Error("batch should contain ContextSwitchRequestMsg")
 	}
 }
 
@@ -1472,5 +1478,28 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 	pos, total = p.CursorPosition()
 	if pos != 0 || total != 0 {
 		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}
+
+func TestHandleContextChanged_ShouldResetState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.workspaces = []string{"old"}
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc, WorkingDir: "/x"}})
+	if cmd != nil {
+		t.Error("HandleContextChanged returned non-nil cmd")
+	}
+	if p.status != sdk.StatusIdle || len(p.workspaces) != 0 {
+		t.Errorf("state not reset: status=%v workspaces=%v", p.status, p.workspaces)
+	}
+}
+
+func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
+	if cmd != nil {
+		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }

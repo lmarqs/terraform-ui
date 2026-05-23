@@ -1,3 +1,6 @@
+// Package apply runs terraform apply in two modes:
+//   - Plan-file mode (TUI flow): consumes a plan artifact from the plan plugin (ADR-0019).
+//   - Auto-plan mode (CLI standalone): targets provided directly, terraform plans+applies in one shot.
 package apply
 
 import (
@@ -12,16 +15,9 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-const (
-	StatusConfirming = sdk.Status(10)
-	StatusReplanning = sdk.Status(11)
-)
-
-// ReplanResultMsg is sent when the targeted replan completes.
-type ReplanResultMsg struct {
-	Summary *sdk.PlanSummary
-	Err     error
-}
+// StatusConfirming is the apply-specific state where the user is asked y/n
+// before the plan file is applied.
+const StatusConfirming = sdk.Status(10)
 
 // ApplyResultMsg is sent when apply completes.
 type ApplyResultMsg struct {
@@ -31,41 +27,41 @@ type ApplyResultMsg struct {
 
 // Plugin implements the terraform apply feature.
 type Plugin struct {
-	svc            sdk.Service
-	options        *sdk.ResolvedOptions
-	status         sdk.Status
-	errMsg         string
-	targets        []string
-	timer          ui.Timer
-	confirmed      bool
-	totalResources int
-	replanSummary  *sdk.PlanSummary
-	scopedContext  string
-	cancelFn       context.CancelFunc
-	stack          *sdk.Stack
-	lastStream     *frames.StreamFrame // retained for L key re-display after success
+	svc        sdk.Service
+	getCtx     func() *sdk.Context
+	status     sdk.Status
+	errMsg     string
+	timer      ui.Timer
+	confirmed  bool
+	planFile   string
+	targets    []string // CLI standalone: auto-plan mode targets
+	cancelFn   context.CancelFunc
+	stack      *sdk.Stack
+	lastStream *frames.StreamFrame // retained for L key re-display after success
 }
 
 // New creates a new apply plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc:   svc,
-		stack: sdk.NewStack(),
-	}
+	return &Plugin{svc: svc, stack: sdk.NewStack()}
 }
 
 func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
-func (e *Plugin) ID() string          { return "apply" }
-func (e *Plugin) Name() string        { return "Apply" }
-func (e *Plugin) Description() string { return "Apply terraform changes to infrastructure" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Elapsed() time.Duration {
-	return e.timer.Elapsed()
-}
-func (e *Plugin) IsConfirming() bool { return e.status == StatusConfirming }
-func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
+func (e *Plugin) ID() string             { return "apply" }
+func (e *Plugin) Name() string           { return "Apply" }
+func (e *Plugin) Description() string    { return "Apply terraform changes to infrastructure" }
+func (e *Plugin) Ready() bool            { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status     { return e.status }
+func (e *Plugin) Elapsed() time.Duration { return e.timer.Elapsed() }
+func (e *Plugin) IsConfirming() bool     { return e.status == StatusConfirming }
+func (e *Plugin) Busy() bool             { return e.status == sdk.StatusLoading }
+
+// SetPlanFile stages the plan artifact that the next RequestApply / AutoApply
+// will consume. Called by the app when routing ApplyRequestMsg from plan.
+func (e *Plugin) SetPlanFile(path string) { e.planFile = path }
+
+// PlanFile returns the staged plan artifact path (used by app for logging).
+func (e *Plugin) PlanFile() string { return e.planFile }
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
@@ -76,10 +72,8 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	switch e.status {
 	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
-	case StatusReplanning:
-		return (sdk.HintSetCancel).Hints()
 	case sdk.StatusLoading:
-		return (sdk.HintSetCancel).Hints()
+		return sdk.HintSetCancel.Hints()
 	case StatusConfirming:
 		return []sdk.KeyHint{
 			{Key: "y/n", Description: "confirm"},
@@ -98,45 +92,41 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 		}
 		return hints
 	default:
-		return (sdk.HintSetQuit).Hints()
+		return sdk.HintSetQuit.Hints()
 	}
 }
 
 // Configure applies plugin-specific options from config.
-func (e *Plugin) Configure(cfg map[string]interface{}) error {
+func (e *Plugin) Configure(_ map[string]interface{}) error { return nil }
+
+// Init wires the plugin to its shared dependencies. Apply rebinds its
+// Service via HandleContextChanged on every chdir/workspace switch and
+// reads var-files / vars / parallelism / lock fresh from deps.Context()
+// at every apply.
+func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	e.svc = deps.Service
+	e.getCtx = deps.Context
 	return nil
 }
 
-// SetTargets configures resource targets for apply.
-func (e *Plugin) SetTargets(targets []string) {
-	e.targets = targets
-}
-
-// Targets returns the currently configured targets.
-func (e *Plugin) Targets() []string {
-	return e.targets
-}
-
-// Init initializes the plugin with shared context.
-func (e *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	e.svc = ctx.Service
-	e.options = ctx.Options
-	return nil
-}
-
-// HandleChdirChanged implements sdk.ChdirHandler.
-func (e *Plugin) HandleChdirChanged(evt sdk.ChdirChangedEvent) tea.Cmd {
-	e.svc = e.svc.WithDir(evt.AbsPath)
-	e.scopedContext = evt.AbsPath
-	// Apply intentionally preserves targets/confirmed/totalResources across scope changes
+// HandleContextChanged implements sdk.ContextChangedHandler. A chdir or
+// workspace switch invalidates any staged plan file, since it referenced the
+// previous context's resources (the safety bug ADR-0018 fixes). Pure pin
+// toggles are no-ops — apply has no targets to refresh.
+func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.OnlyPinsChanged() {
+		return nil
+	}
+	if ev.Next.Service != nil {
+		e.svc = ev.Next.Service
+	}
+	e.planFile = ""
+	e.confirmed = false
 	e.status = sdk.StatusIdle
 	e.errMsg = ""
-	return nil
-}
-
-// HandlePlanCompleted implements sdk.PlanCompletedHandler.
-func (e *Plugin) HandlePlanCompleted(evt sdk.PlanCompletedEvent) tea.Cmd {
-	e.totalResources = evt.ResourceCount
 	return nil
 }
 
@@ -152,36 +142,36 @@ func (e *Plugin) Activate() tea.Cmd {
 // ActivateWithArgs handles standalone activation with CLI flags.
 func (e *Plugin) ActivateWithArgs(args []string) tea.Cmd {
 	autoApprove := false
+	var targets []string
 	for _, arg := range args {
-		switch {
-		case arg == "--auto-approve":
+		if arg == "--auto-approve" {
 			autoApprove = true
-		case strings.HasPrefix(arg, "--target="):
-			e.targets = append(e.targets, strings.TrimPrefix(arg, "--target="))
+		} else if strings.HasPrefix(arg, "--target=") {
+			targets = append(targets, strings.TrimPrefix(arg, "--target="))
 		}
 	}
+	e.targets = targets
 	if autoApprove {
 		return e.AutoApply()
 	}
 	return e.RequestApply()
 }
 
-// TotalResources returns the total resource count from the last completed plan.
-func (e *Plugin) TotalResources() int {
-	return e.totalResources
-}
-
-// RequestApply transitions to replan (if targets) or confirmation (if no targets).
+// RequestApply transitions to confirmation. The plan file must be staged via
+// SetPlanFile before this is called.
 func (e *Plugin) RequestApply() tea.Cmd {
 	e.confirmed = false
 	e.errMsg = ""
-	e.replanSummary = nil
-	if len(e.targets) > 0 {
-		e.status = StatusReplanning
-		return tea.Batch(e.runReplan(), e.timer.Start())
-	}
 	e.status = StatusConfirming
 	return nil
+}
+
+// AutoApply skips confirmation and begins apply immediately.
+func (e *Plugin) AutoApply() tea.Cmd {
+	e.confirmed = true
+	e.errMsg = ""
+	e.status = sdk.StatusLoading
+	return tea.Batch(e.runApply(), e.timer.Start())
 }
 
 // Cancel aborts any in-flight terraform operation.
@@ -190,43 +180,6 @@ func (e *Plugin) Cancel() {
 		e.cancelFn()
 		e.cancelFn = nil
 	}
-}
-
-func (e *Plugin) runReplan() tea.Cmd {
-	e.Cancel()
-	ctx, cancel := context.WithCancel(context.Background())
-	e.cancelFn = cancel
-
-	lw, ch := frames.NewLineWriter()
-	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
-	e.lastStream = sf
-	e.stack.Clear()
-	e.stack.Push(sf)
-
-	svc := e.svc
-	opts := sdk.BuildPlanOptions(e.options, e.targets)
-	opts.Writer = lw
-	return tea.Batch(
-		func() tea.Msg {
-			summary, err := svc.Plan(ctx, opts)
-			lw.Close()
-			return ReplanResultMsg{Summary: summary, Err: err}
-		},
-		frames.WaitForLine(ch),
-	)
-}
-
-// AutoApply skips confirmation and begins apply immediately.
-func (e *Plugin) AutoApply() tea.Cmd {
-	e.confirmed = true
-	e.errMsg = ""
-	e.replanSummary = nil
-	if len(e.targets) > 0 {
-		e.status = StatusReplanning
-		return tea.Batch(e.runReplan(), e.timer.Start())
-	}
-	e.status = sdk.StatusLoading
-	return tea.Batch(e.runApply(), e.timer.Start())
 }
 
 // Confirm executes the apply after user confirmation.
@@ -255,7 +208,15 @@ func (e *Plugin) runApply() tea.Cmd {
 	e.stack.Push(sf)
 
 	svc := e.svc
-	opts := sdk.BuildApplyOptions(e.options, e.targets)
+	var opts sdk.ApplyOptions
+	if e.getCtx != nil {
+		opts = e.getCtx().ApplyOptions()
+	}
+	if e.planFile != "" {
+		opts.PlanFile = e.planFile
+	} else {
+		opts.Targets = e.targets
+	}
 	opts.Writer = lw
 	start := time.Now()
 	return tea.Batch(
@@ -277,26 +238,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case ReplanResultMsg:
-		e.timer.Stop()
-		if msg.Err != nil {
-			e.status = sdk.StatusError
-			e.errMsg = msg.Err.Error()
-			e.stack.Reset()
-			return e, nil
-		}
-		e.replanSummary = msg.Summary
-		e.stack.Reset()
-		if e.confirmed {
-			e.status = sdk.StatusLoading
-			return e, tea.Batch(e.runApply(), e.timer.Start())
-		}
-		e.status = StatusConfirming
-		return e, nil
-
 	case ApplyResultMsg:
 		e.timer.Stop()
 		e.stack.Reset()
+		// The plan file was consumed (terraform-exec removes it on success);
+		// drop our reference so a stale path can't accidentally be reused.
+		e.planFile = ""
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
@@ -322,14 +269,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch e.status {
 	case sdk.StatusIdle:
-		switch msg.String() {
-		case "enter":
+		if msg.String() == "enter" {
 			return e.RequestApply()
-		}
-	case StatusReplanning:
-		switch msg.String() {
-		case "esc":
-			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
 	case StatusConfirming:
 		switch msg.String() {
@@ -375,9 +316,6 @@ func (e *Plugin) View(width, height int) string {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.")
 
-	case StatusReplanning:
-		return e.renderReplanning()
-
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
 
@@ -397,43 +335,10 @@ func (e *Plugin) View(width, height int) string {
 	}
 }
 
-func (e *Plugin) renderReplanning() string {
-	header := sdk.StyleFaintItalic.Render(fmt.Sprintf("Replanning with %d targets... %s", len(e.targets), e.timer.FormatElapsed()))
-	var targets []string
-	for _, t := range e.targets {
-		targets = append(targets, "  -target="+t)
-	}
-	return header + "\n\n" + strings.Join(targets, "\n")
-}
-
-func (e *Plugin) renderConfirmation(width, height int) string {
-	var header, detail string
-
-	if len(e.targets) > 0 && e.replanSummary != nil {
-		header = sdk.StyleRiskHigh.Render("Apply targeted plan?")
-		detail = sdk.StyleFaint.Render(fmt.Sprintf("  %d resources targeted", len(e.targets)))
-		if e.replanSummary != nil {
-			parts := []string{}
-			if e.replanSummary.ToCreate > 0 {
-				parts = append(parts, fmt.Sprintf("%d to add", e.replanSummary.ToCreate))
-			}
-			if e.replanSummary.ToUpdate > 0 {
-				parts = append(parts, fmt.Sprintf("%d to change", e.replanSummary.ToUpdate))
-			}
-			if e.replanSummary.ToDelete > 0 {
-				parts = append(parts, fmt.Sprintf("%d to destroy", e.replanSummary.ToDelete))
-			}
-			if len(parts) > 0 {
-				detail += "\n" + sdk.StyleFaint.Render("  "+strings.Join(parts, ", "))
-			}
-		}
-	} else {
-		header = sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
-		detail = sdk.StyleFaint.Render("This will modify your infrastructure.")
-	}
-
+func (e *Plugin) renderConfirmation(_, _ int) string {
+	header := sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
+	detail := sdk.StyleFaint.Render("This will modify your infrastructure.")
 	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
-
 	return header + "\n" + detail + "\n\n" + prompt
 }
 

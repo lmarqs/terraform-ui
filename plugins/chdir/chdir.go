@@ -1,20 +1,17 @@
 package chdir
 
 import (
-	"path/filepath"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 type Plugin struct {
-	svc        sdk.Service
-	members    []string
-	projectDir string
-	cursor     *ui.Cursor
-	stack      *sdk.Stack
-	selected   bool
+	svc      sdk.Service
+	members  []string
+	cursor   *ui.Cursor
+	stack    *sdk.Stack
+	selected bool
 }
 
 func New(svc sdk.Service) sdk.Plugin {
@@ -36,14 +33,15 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
 }
 
-func (p *Plugin) SetMembers(members []string, projectDir string) {
+// SetMembers configures the list of chdir candidates. Path resolution is the
+// App's responsibility — the plugin only emits relative paths.
+func (p *Plugin) SetMembers(members []string) {
 	p.members = members
-	p.projectDir = projectDir
 	p.cursor.SetCount(len(members))
 }
 
-func (p *Plugin) Init(ctx *sdk.Context) tea.Cmd {
-	p.svc = ctx.Service
+func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
+	p.svc = deps.Service
 	return nil
 }
 
@@ -57,8 +55,12 @@ func (p *Plugin) Activate() tea.Cmd {
 	return nil
 }
 
-func (p *Plugin) HandleChdirChanged(_ sdk.ChdirChangedEvent) tea.Cmd {
-	p.selected = true
+// HandleContextChanged implements sdk.ContextChangedHandler. Once the app's
+// immutable Context has a WorkingDir, the chdir picker has done its job.
+func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
+	if ev.Next != nil && ev.Next.WorkingDir != "" {
+		p.selected = true
+	}
 	return nil
 }
 
@@ -76,16 +78,10 @@ func (p *Plugin) selectMember() tea.Cmd {
 	}
 
 	member := p.members[idx]
-	absPath := filepath.Join(p.projectDir, member)
-	count := len(p.members)
 
 	p.selected = true
 	return func() tea.Msg {
-		return sdk.ChdirChangedEvent{
-			RelPath: member,
-			AbsPath: absPath,
-			Count:   count,
-		}
+		return sdk.ContextSwitchRequestMsg{Chdir: member, Workspace: "default"}
 	}
 }
 
