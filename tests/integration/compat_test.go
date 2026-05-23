@@ -107,9 +107,11 @@ func TestCompat_VarFileInCommand(t *testing.T) {
 	// }
 }
 
-// TestCompat_TargetedApplyEmitsTargetFlag verifies that pinning a resource
-// and triggering apply produces a command with -target= flag.
-func TestCompat_TargetedApplyEmitsTargetFlag(t *testing.T) {
+// TestCompat_TargetedPlanEmitsTargetFlag verifies the TUI flow: pinning a
+// resource and triggering plan produces a plan command with -target= flag,
+// and the subsequent apply consumes only the saved plan file (no -target=
+// flag on apply — ADR-0019 governs this pipeline path).
+func TestCompat_TargetedPlanEmitsTargetFlag(t *testing.T) {
 	projectRoot := findProjectRoot()
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
 	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
@@ -123,15 +125,58 @@ func TestCompat_TargetedApplyEmitsTargetFlag(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should emit apply command with target
+	if !strings.Contains(stdout, "terraform plan") {
+		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "-target=aws_instance.web") {
+		t.Errorf("expected '-target=aws_instance.web' on plan command, got: %q", stdout)
+	}
 	if !strings.Contains(stdout, "terraform apply") {
 		t.Errorf("expected 'terraform apply' in stdout, got: %q", stdout)
 	}
-	if !strings.Contains(stdout, "-target=") {
-		t.Errorf("expected '-target=' in apply command, got: %q", stdout)
+	// ADR-0019 (TUI flow): apply consumes only the plan file, no -target.
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, "terraform apply") && strings.Contains(line, "-target=") {
+			t.Errorf("TUI flow: apply must not contain -target= (ADR-0019); got: %q", line)
+		}
 	}
-	if !strings.Contains(stdout, "aws_instance.web") {
-		t.Errorf("expected 'aws_instance.web' in target, got: %q", stdout)
+}
+
+// TestCompat_StandaloneApplyWithTarget verifies the standalone CLI path:
+// `tfui apply --target=X` emits `terraform apply -target=X` (auto-plan mode).
+// This is independent from the TUI pipeline flow governed by ADR-0019.
+func TestCompat_StandaloneApplyWithTarget(t *testing.T) {
+	projectRoot := findProjectRoot()
+	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
+	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "standalone_apply_target.tape")
+
+	stdout, stderr, err := runTfui("apply", "--target=aws_instance.web", "--auto-approve", "-state", stateFixture, "-macro", tapeFile)
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			t.Fatalf("macro failed with exit %d\nstderr: %s\nstdout: %s", ee.ExitCode(), stderr, stdout)
+		}
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Find the apply line and verify all flags appear together
+	var applyLine string
+	for _, line := range strings.Split(stdout, "\n") {
+		if strings.Contains(line, "terraform apply") {
+			applyLine = line
+			break
+		}
+	}
+	if applyLine == "" {
+		t.Fatalf("expected 'terraform apply' in stdout, got: %q", stdout)
+	}
+	if !strings.Contains(applyLine, "-target=aws_instance.web") {
+		t.Errorf("expected '-target=aws_instance.web' on apply line, got: %q", applyLine)
+	}
+	if !strings.Contains(applyLine, "-auto-approve") {
+		t.Errorf("expected '-auto-approve' on apply line, got: %q", applyLine)
+	}
+	if strings.Contains(applyLine, ".tfplan") {
+		t.Errorf("standalone apply with targets must not reference a plan file; got: %q", applyLine)
 	}
 }
 

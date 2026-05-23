@@ -1,7 +1,9 @@
-# Scenario: Target flag recorded in plan command
+# Scenario: Target flag recorded in plan command (ADR-0019)
 #
 # Verifies that when targets are configured (via pinning a resource),
-# the apply command emitted to stdout includes the -target= flags.
+# the **plan** command emitted to stdout includes the -target= flag,
+# and the subsequent apply consumes only the saved plan file (no
+# -target= on apply, since terraform forbids it with a plan file).
 #
 # Pre-condition: launched with -plan and -state. User pins a
 # resource, then triggers apply.
@@ -9,15 +11,15 @@
 # Expected:
 #   - Pin aws_instance.web (first resource in list)
 #   - Press 'a' to initiate apply
-#   - First confirmation: "Apply 1 targeted resource(s)?"
-#   - Second confirmation: "Are you sure" with "Targeting 1 resource(s)."
-#   - stdout includes "terraform apply -target=aws_instance.web"
+#   - Single confirmation: "Are you sure"
+#   - stdout includes "terraform plan -target=aws_instance.web"
+#   - stdout includes "terraform apply <planfile>" (no -target=)
 
 wait ready
 key p
 wait view aws_instance.web
 key space
 key a
-wait view Apply targeted plan
+wait view Are you sure
 key y
 wait view Apply complete

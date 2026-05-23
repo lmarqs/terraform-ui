@@ -96,18 +96,21 @@ func TestMacro(t *testing.T) {
 			wantStdout: "terraform apply\n",
 		},
 		{
-			name:       "targeted apply outputs command with targets",
-			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view targeted resource\nkey y\nwait view Are you sure\nkey y",
+			// ADR-0019: targets belong on plan, never on apply. Scoping a
+			// targeted apply means generating a targeted plan file first; the
+			// apply command itself only references the resulting plan file.
+			name:       "targeted plan records plan command with targets",
+			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view Are you sure\nkey y",
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
-			wantStdout: "terraform apply -target=",
+			wantStdout: "terraform plan -out=",
 		},
 		{
 			name:       "plan records plan command",
 			tape:       "wait ready\nkey p\nwait view aws_instance",
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
-			wantStdout: "terraform plan\n",
+			wantStdout: "terraform plan -out=",
 		},
 		{
 			name:     "state list is a data fetch not recorded",
