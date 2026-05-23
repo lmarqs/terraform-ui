@@ -8,20 +8,17 @@ type Event interface {
 }
 
 // ContextSwitchRequestMsg is emitted by the chdir / workspace plugins to
-// request the App rebuild and replace the immutable Context. The App owns
-// path resolution: callers pass the relative chdir (a member path) and the
-// App joins it to the project root to produce the absolute path used by
-// terraform.
+// request the App rebuild and replace the immutable Context. Both fields are
+// required — emitters read the current Context to populate the unchanged field.
 //
-// Setting Chdir alone switches chdir (workspace preserved). Setting
-// Workspace alone switches workspace (chdir preserved). Setting both means
-// a fresh full Context.
+// The App owns path resolution: Chdir is the relative member path, joined with
+// the project root to produce the absolute path for terraform.
 //
 // Plugins do NOT subscribe to this message — it is a request to the App.
 // Subscribe to ContextChangedEvent for notifications about Context updates.
 type ContextSwitchRequestMsg struct {
-	Chdir     string // relative member path; empty = preserve current chdir
-	Workspace string // workspace name; empty = preserve current workspace
+	Chdir     string // relative member path (required)
+	Workspace string // workspace name (required)
 }
 
 // PinToggleRequestMsg asks the App to toggle a single pinned address on the

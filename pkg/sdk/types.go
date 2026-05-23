@@ -166,15 +166,7 @@ type PlanOptions struct {
 }
 
 // ApplyOptions holds all options for a terraform apply operation.
-//
-// Two mutually exclusive modes:
-//   - Plan-file mode (TUI flow): PlanFile set, Targets empty. Apply consumes
-//     a saved plan artifact. ADR-0019 governs this path.
-//   - Auto-plan mode (CLI standalone): Targets set, PlanFile empty. Terraform
-//     plans and applies in one shot with -target flags.
-//
-// Setting both PlanFile and Targets is a programming error — terraform rejects
-// -target together with a plan file.
+// All fields are passed through to terraform as-is.
 type ApplyOptions struct {
 	PlanFile    string   // plan-file mode: path produced by a prior Plan call
 	Targets     []string // auto-plan mode: resource targets for one-shot apply

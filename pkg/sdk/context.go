@@ -13,6 +13,8 @@ package sdk
 // See ADR-0018 (atomic context replacement) and ADR-0019 (unidirectional data
 // flow) for rationale.
 type Context struct {
+	// Chdir is the relative member path (e.g., "modules/vpc").
+	Chdir string
 	// WorkingDir is the absolute path of the active chdir.
 	WorkingDir string
 	// Workspace is the active terraform workspace.
