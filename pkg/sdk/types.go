@@ -168,8 +168,8 @@ type PlanOptions struct {
 // ApplyOptions holds all options for a terraform apply operation.
 // All fields are passed through to terraform as-is.
 type ApplyOptions struct {
-	PlanFile    string   // plan-file mode: path produced by a prior Plan call
-	Targets     []string // auto-plan mode: resource targets for one-shot apply
+	PlanFile    string
+	Targets     []string
 	VarFiles    []string
 	Vars        map[string]string
 	Parallelism int
@@ -177,7 +177,7 @@ type ApplyOptions struct {
 	LockTimeout string
 	AutoApprove bool
 	ExtraArgs   []string
-	Writer      io.Writer // receives streaming output; nil = discard
+	Writer      io.Writer
 }
 
 // InitOptions holds all options for a terraform init operation.

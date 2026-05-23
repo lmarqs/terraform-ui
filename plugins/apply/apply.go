@@ -27,17 +27,18 @@ type ApplyResultMsg struct {
 
 // Plugin implements the terraform apply feature.
 type Plugin struct {
-	svc        sdk.Service
-	getCtx     func() *sdk.Context
-	status     sdk.Status
-	errMsg     string
-	timer      ui.Timer
-	confirmed  bool
-	planFile   string
-	targets    []string // CLI standalone: auto-plan mode targets
-	cancelFn   context.CancelFunc
-	stack      *sdk.Stack
-	lastStream *frames.StreamFrame // retained for L key re-display after success
+	svc         sdk.Service
+	getCtx      func() *sdk.Context
+	status      sdk.Status
+	errMsg      string
+	timer       ui.Timer
+	confirmed   bool
+	autoApprove bool
+	planFile    string
+	targets     []string
+	cancelFn    context.CancelFunc
+	stack       *sdk.Stack
+	lastStream  *frames.StreamFrame
 }
 
 // New creates a new apply plugin.
@@ -141,17 +142,14 @@ func (e *Plugin) Activate() tea.Cmd {
 
 // ActivateWithArgs handles standalone activation with CLI flags.
 func (e *Plugin) ActivateWithArgs(args []string) tea.Cmd {
-	autoApprove := false
-	var targets []string
 	for _, arg := range args {
 		if arg == "--auto-approve" {
-			autoApprove = true
+			e.autoApprove = true
 		} else if strings.HasPrefix(arg, "--target=") {
-			targets = append(targets, strings.TrimPrefix(arg, "--target="))
+			e.targets = append(e.targets, strings.TrimPrefix(arg, "--target="))
 		}
 	}
-	e.targets = targets
-	if autoApprove {
+	if e.autoApprove {
 		return e.AutoApply()
 	}
 	return e.RequestApply()
@@ -217,6 +215,7 @@ func (e *Plugin) runApply() tea.Cmd {
 	} else {
 		opts.Targets = e.targets
 	}
+	opts.AutoApprove = e.autoApprove
 	opts.Writer = lw
 	start := time.Now()
 	return tea.Batch(

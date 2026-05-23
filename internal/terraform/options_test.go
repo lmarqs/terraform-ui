@@ -479,6 +479,23 @@ func TestApplyOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
 	}
 }
 
+func TestApplyOptions_WhenAutoApprove_ShouldEmitFlag(t *testing.T) {
+	svc := newRecorder()
+	opts := sdk.ApplyOptions{
+		Targets:     []string{"aws_instance.web"},
+		AutoApprove: true,
+	}
+	_ = svc.Apply(context.Background(), opts)
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	expected := "terraform apply -target=aws_instance.web -auto-approve"
+	if cmds[0].String() != expected {
+		t.Errorf("got %q, want %q", cmds[0].String(), expected)
+	}
+}
+
 func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) {
 	svc := newRecorder()
 	lockFalse := false

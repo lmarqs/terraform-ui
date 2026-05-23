@@ -293,6 +293,9 @@ func buildApplyFlags(opts sdk.ApplyOptions) []string {
 	for _, t := range opts.Targets {
 		flags = append(flags, "-target="+t)
 	}
+	if opts.AutoApprove {
+		flags = append(flags, "-auto-approve")
+	}
 	for _, f := range opts.VarFiles {
 		flags = append(flags, "-var-file="+f)
 	}
