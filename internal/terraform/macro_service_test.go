@@ -369,7 +369,7 @@ func TestMacroService_ApplyFlagsRecorded(t *testing.T) {
 	ctx := context.Background()
 
 	opts := sdk.ApplyOptions{
-		Targets:  []string{"aws_instance.web"},
+		PlanFile: "/tmp/foo.tfplan",
 		VarFiles: []string{"prod.tfvars"},
 	}
 	svc.Apply(ctx, opts)
@@ -378,7 +378,29 @@ func TestMacroService_ApplyFlagsRecorded(t *testing.T) {
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1, got %d", len(cmds))
 	}
-	expected := "terraform apply -target=aws_instance.web -var-file=prod.tfvars"
+	expected := "terraform apply /tmp/foo.tfplan -var-file=prod.tfvars"
+	if cmds[0].String() != expected {
+		t.Errorf("got %q, want %q", cmds[0].String(), expected)
+	}
+}
+
+func TestMacroService_ApplyWithTargets_ShouldEmitTargetFlags(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	ctx := context.Background()
+
+	opts := sdk.ApplyOptions{
+		Targets: []string{"aws_instance.web", "aws_s3_bucket.data"},
+	}
+	err := svc.Apply(ctx, opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1, got %d", len(cmds))
+	}
+	expected := "terraform apply -target=aws_instance.web -target=aws_s3_bucket.data"
 	if cmds[0].String() != expected {
 		t.Errorf("got %q, want %q", cmds[0].String(), expected)
 	}

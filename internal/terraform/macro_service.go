@@ -248,6 +248,9 @@ func showFromState(state *tfjson.State, address string) (string, error) {
 
 func buildPlanFlags(opts sdk.PlanOptions) []string {
 	var flags []string
+	if opts.PlanFile != "" {
+		flags = append(flags, "-out="+opts.PlanFile)
+	}
 	for _, t := range opts.Targets {
 		flags = append(flags, "-target="+t)
 	}
@@ -284,6 +287,9 @@ func buildPlanFlags(opts sdk.PlanOptions) []string {
 
 func buildApplyFlags(opts sdk.ApplyOptions) []string {
 	var flags []string
+	if opts.PlanFile != "" {
+		flags = append(flags, opts.PlanFile)
+	}
 	for _, t := range opts.Targets {
 		flags = append(flags, "-target="+t)
 	}

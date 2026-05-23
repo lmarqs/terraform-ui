@@ -2,6 +2,7 @@ package terraform
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -369,36 +370,15 @@ func TestApplyOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
 	}
 }
 
-func TestApplyOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
-	tests := []struct {
-		name     string
-		opts     sdk.ApplyOptions
-		expected string
-	}{
-		{
-			"ShouldEmitSingleTarget",
-			sdk.ApplyOptions{Targets: []string{"aws_instance.web"}},
-			"terraform apply -target=aws_instance.web",
-		},
-		{
-			"ShouldEmitMultipleTargets",
-			sdk.ApplyOptions{Targets: []string{"aws_instance.web", "aws_s3_bucket.data"}},
-			"terraform apply -target=aws_instance.web -target=aws_s3_bucket.data",
-		},
+func TestApplyOptions_WhenPlanFileProvided_ShouldEmitPlanFilePositional(t *testing.T) {
+	svc := newRecorder()
+	_ = svc.Apply(context.Background(), sdk.ApplyOptions{PlanFile: "/tmp/foo.tfplan"})
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := newRecorder()
-			_ = svc.Apply(context.Background(), tt.opts)
-			cmds := svc.Commands()
-			if len(cmds) != 1 {
-				t.Fatalf("expected 1 command, got %d", len(cmds))
-			}
-			if cmds[0].String() != tt.expected {
-				t.Errorf("got %q, want %q", cmds[0].String(), tt.expected)
-			}
-		})
+	if cmds[0].String() != "terraform apply /tmp/foo.tfplan" {
+		t.Errorf("got %q, want %q", cmds[0].String(), "terraform apply /tmp/foo.tfplan")
 	}
 }
 
@@ -485,11 +465,25 @@ func TestApplyOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
 	}
 }
 
+func TestApplyOptions_WhenTargetsProvided_ShouldEmitTargetFlags(t *testing.T) {
+	svc := newRecorder()
+	opts := sdk.ApplyOptions{Targets: []string{"aws_instance.web", "aws_s3_bucket.data"}}
+	_ = svc.Apply(context.Background(), opts)
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	expected := "terraform apply -target=aws_instance.web -target=aws_s3_bucket.data"
+	if cmds[0].String() != expected {
+		t.Errorf("got %q, want %q", cmds[0].String(), expected)
+	}
+}
+
 func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) {
 	svc := newRecorder()
 	lockFalse := false
 	opts := sdk.ApplyOptions{
-		Targets:     []string{"aws_instance.web"},
+		PlanFile:    "/tmp/foo.tfplan",
 		VarFiles:    []string{"prod.tfvars"},
 		Vars:        map[string]string{"env": "prod"},
 		Parallelism: 3,
@@ -505,7 +499,7 @@ func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T)
 	cmdStr := cmds[0].String()
 
 	requiredParts := []string{
-		"-target=aws_instance.web",
+		"/tmp/foo.tfplan",
 		"-var-file=prod.tfvars",
 		"-var",
 		"env=prod",
@@ -526,7 +520,7 @@ func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T)
 
 func TestApplyOptions_ShouldRecordCommand(t *testing.T) {
 	svc := newRecorder()
-	err := svc.Apply(context.Background(), sdk.ApplyOptions{Targets: []string{"aws_instance.web"}})
+	err := svc.Apply(context.Background(), sdk.ApplyOptions{PlanFile: "/tmp/foo.tfplan"})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -592,6 +586,34 @@ func TestPlanOptions_WhenPreLoadedPlan_ShouldReturnPlanData(t *testing.T) {
 	}
 	if len(got.Changes) != 1 {
 		t.Fatalf("len(Changes) = %d, want 1", len(got.Changes))
+	}
+}
+
+func TestPlanOptions_WhenPlanFileProvided_ShouldEmitOutFlag(t *testing.T) {
+	planPath := filepath.Join(t.TempDir(), "tfui.tfplan")
+	svc := newRecorder()
+	_, _ = svc.Plan(context.Background(), sdk.PlanOptions{PlanFile: planPath})
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	want := "terraform plan -out=" + planPath
+	if cmds[0].String() != want {
+		t.Errorf("got %q, want %q", cmds[0].String(), want)
+	}
+}
+
+func TestPlanOptions_WhenPlanFileEmpty_ShouldOmitOutFlag(t *testing.T) {
+	svc := newRecorder()
+	_, _ = svc.Plan(context.Background(), sdk.PlanOptions{})
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	if strings.Contains(cmds[0].String(), "-out=") {
+		t.Errorf("got %q, want no -out= flag when PlanFile is empty", cmds[0].String())
 	}
 }
 

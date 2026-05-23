@@ -24,7 +24,7 @@ func TestTerraformService_WhenNewTerraformFails_ShouldWrapErrorWithOperationCont
 		},
 		{
 			"ShouldWrapApplyError",
-			func() error { return svc.Apply(ctx, sdk.ApplyOptions{}) },
+			func() error { return svc.Apply(ctx, sdk.ApplyOptions{PlanFile: "/dev/null/missing.tfplan"}) },
 			"applying",
 		},
 		{
