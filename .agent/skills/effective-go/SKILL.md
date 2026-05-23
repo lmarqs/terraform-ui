@@ -1,6 +1,7 @@
 ---
-name: Effective Go
-description: "Apply Go best practices, idioms, and conventions from golang.org/doc/effective_go. Use when writing, reviewing, or refactoring Go code to ensure idiomatic, clean, and efficient implementations."
+name: effective-go
+description: Apply Go best practices, idioms, and conventions from golang.org/doc/effective_go. Use when writing, reviewing, or refactoring Go code to ensure idiomatic, clean, and efficient implementations.
+source: https://github.com/openshift/hypershift/tree/main/.claude/skills/effective-go
 ---
 
 # Effective Go
