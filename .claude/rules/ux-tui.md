@@ -61,7 +61,7 @@ Frame lifecycle:
 
 ```
 :state → :workspaces (NavPush, returnTo=state)
-  ├── User selects → WorkspaceChangedEvent → popIfPushed → back to state
+  ├── User selects → ContextChangedEvent → popIfPushed → back to state
   ├── User presses esc → DeactivateMsg → returnTo exists → back to state
   └── User presses q → global handler → home (returnTo cleared)
 ```

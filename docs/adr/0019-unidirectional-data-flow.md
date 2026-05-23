@@ -13,6 +13,12 @@ Data flows downstream through strict parent→child chains. Each node receives i
 
 This applies universally: any layered relationship in the system follows these rules. The primary instance today is Context → Plan → Apply, where Context is the app-owned terraform environment, Plan derives a plan file from it, and Apply consumes only Plan's output.
 
+## Scope
+
+This ADR governs the **TUI pipeline** where plugins form a strict parent→child chain: Context → Plan → Apply. In this flow, targets are baked into the plan file at plan time; apply consumes only the plan artifact and never passes `-target` to terraform.
+
+The **standalone CLI path** (`tfui apply --target=X`) is not subject to this constraint. It invokes terraform's native plan-and-apply-in-one-shot mode — no intermediate plan artifact exists, no parent-child violation occurs. Independent paths for achieving the same result have independent constraints.
+
 We chose strict layering over flat shared state because shared mutable state between siblings is structurally unsound. When any node can independently read from a grandparent or a shared pool, it creates parallel data paths with no consistency enforcement. Strict layering makes inconsistency impossible by construction.
 
 ## Considered Options

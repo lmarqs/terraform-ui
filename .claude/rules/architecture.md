@@ -5,46 +5,59 @@ globs: ["pkg/sdk/**", "internal/**"]
 
 # Architecture Details
 
-## Plugin Context (`pkg/sdk/context.go`)
+## Plugin Dependencies (`pkg/sdk/plugin_deps.go`) and Context (`pkg/sdk/context.go`)
 
-Passed to `Init()` — gives each plugin its dependencies:
+Two distinct types live side by side:
+
+`PluginDeps` — DI container handed to `Init()`:
+
+```go
+type PluginDeps struct {
+    Logger    *slog.Logger
+    Service   Service              // unscoped; use Context().Service for chdir-scoped
+    Context   func() *Context      // live getter; returns current immutable snapshot
+    Pin       func(string) tea.Cmd // toggle pin → triggers Context replacement
+    ClearPins func() tea.Cmd       // remove all pins
+}
+```
+
+`Context` — immutable per-chdir/workspace snapshot, replaced atomically by the app on any chdir/workspace/pin change (ADR-0018):
 
 ```go
 type Context struct {
-    WorkingDir string
-    Workspace  string
-    Service    Service
-    Logger     *slog.Logger
-    Pins       *PinService
-    Options    *ResolvedOptions
+    Chdir                 string         // relative member path within project
+    WorkingDir, Workspace string
+    Service               Service        // chdir-scoped via WithDir
+    Pins                  []string       // pinned addresses (UI concept)
+    VarFiles              []string
+    Vars                  map[string]string
+    ExtraArgs             []string
+    Parallelism           int
+    Lock                  *bool
+    LockTimeout           string
 }
+
+func (c *Context) PlanOptions() PlanOptions      // Pins become PlanOptions.Targets
+func (c *Context) ApplyOptions() ApplyOptions    // never includes Targets (ADR-0019)
+func (c *Context) WithPins([]string) *Context    // returns a fresh Context
+func (c *Context) TogglePin(string) *Context     // add if absent, remove if present
 ```
+
+Naming: Pins = UI selection (user picks resources). Targets = terraform `-target=` flags. The boundary is `PlanOptions()` where `opts.Targets = ctx.Pins`.
+
+Rule: anything that affects terraform commands lives on Context. Plugins must NEVER mutate it — they react via `ContextChangedHandler`.
 
 ## Event Bus (`pkg/sdk/bus.go`, `pkg/sdk/events.go`)
 
 Typed pub/sub. Plugins subscribe by implementing handler interfaces.
 
-Events: `ChdirChangedEvent`, `WorkspaceChangedEvent`, `WorkspaceCreatedEvent`, `PlanCompletedEvent`, `PinsChangedEvent`, `PlanInvalidatedEvent`, `LockDetectedEvent`, `LockClearedEvent`, `StateRefreshedEvent`
+Events: `ContextChangedEvent`, `PlanCompletedEvent`, `PlanInvalidatedEvent`, `LockDetectedEvent`, `LockClearedEvent`, `StateRefreshedEvent`
 
-Handler interfaces: `ChdirHandler`, `WorkspaceHandler`, `PlanCompletedHandler`, `PinsHandler`, `PlanInvalidatedHandler`, `LockDetectedHandler`, `LockClearedHandler`, `StateRefreshedHandler`
+Handler interfaces: `ContextChangedHandler`, `PlanCompletedHandler`, `PlanInvalidatedHandler`, `LockDetectedHandler`, `LockClearedHandler`, `StateRefreshedHandler`
 
-Note: `WorkspaceCreatedEvent` has no handler interface — the app converts it to `WorkspaceChangedEvent` internally.
+`ContextChangedEvent.OnlyPinsChanged()` lets plan distinguish a pin toggle (preserve UI state, mark stale) from a chdir/workspace switch (full reset).
 
 Flow: App dispatches events to all plugins implementing the matching handler interface.
-
-## ResolvedOptions (`pkg/sdk/options.go`)
-
-```go
-type ResolvedOptions struct {
-    VarFiles  []string
-    Vars      map[string]string
-    ExtraArgs []string
-}
-```
-
-Shared via `Context.Options` as a pointer — plugins store the pointer at `Init()` and read fields at call time. The app mutates `VarFiles` and `Vars` in-place on workspace/chdir changes (via `resolveOptions`). `ExtraArgs` is immutable after boot (CLI `--` passthrough).
-
-Used by `BuildPlanOptions` / `BuildApplyOptions`.
 
 ## Plugin Interface (`pkg/sdk/plugin.go`)
 
@@ -53,7 +66,7 @@ type Plugin interface {
     ID() string
     Name() string
     Description() string
-    Init(ctx *Context) tea.Cmd
+    Init(deps *PluginDeps) tea.Cmd
     Update(msg tea.Msg) (Plugin, tea.Cmd)
     View(width, height int) string
     Configure(cfg map[string]interface{}) error
@@ -93,20 +106,24 @@ registry.RegisterFactory("workspaces", tfuiworkspaces.New, plugin.PluginMeta{
 
 ## App Navigation (`internal/ui/app.go`)
 
-Central routing with four private methods:
+Central routing methods:
 
 ```go
-navigateTo(p)           // checks NavBehaviorFor(p.ID()), saves returnTo if NavPush
+navigateTo(p)           // requireIdle gate; NavBehaviorFor(p.ID()); saves returnTo if NavPush
 navigateBack()          // restores returnTo as activePlugin, logs transition
 popIfPushed(cmd)        // called by event handlers; pops NavPush plugin if active
-resolveOptions(ws)      // re-runs config.Resolve and mutates shared *ResolvedOptions
+rebuildContext(...)     // builds a fresh sdk.Context snapshot from rootCfg+childCfg
+replaceContext(next)    // atomically swaps a.current; returns Cmd that emits ContextChangedEvent
+requireIdle(reason)     // universal busy-guard: rejects with commandError if any plugin is Busy()
 ```
 
 `returnTo sdk.Plugin` — single-level return address. Set by `NavPush` transitions AND workflow transitions (e.g., plan→apply). Consumed by:
-- Event handlers (`ChdirChangedEvent`, `WorkspaceChangedEvent`) via `popIfPushed`
+- Event handler for `ContextChangedEvent` via `popIfPushed`
 - `DeactivateMsg` handler (esc cancel path)
 
-Config propagation: App stores `rootCfg` and `childCfg`. On `WorkspaceChangedEvent`/`WorkspaceCreatedEvent`: calls `resolveOptions(name)`. On `ChdirChangedEvent`: reloads `childCfg` from new dir, then calls `resolveOptions(activeWorkspace)`. This keeps `*ResolvedOptions` in sync without new event types — plugins read fresh values on their next terraform call.
+Context propagation: App stores `rootCfg` and `childCfg`. On `ContextSwitchRequestMsg` (emitted by chdir/workspace plugins): reloads `childCfg`, calls `rebuildContext(chdir, workspace)` to produce a fresh immutable `sdk.Context`, then `replaceContext(next)` swaps `a.current` and dispatches a single `ContextChangedEvent{Prev, Next}`. Plugins react via `ContextChangedHandler` — same shape for chdir, workspace, AND pin changes (pins live on `Context.Pins`, replaced by `Context.WithPins` or `Context.TogglePin`).
+
+Universal busy-guard: every action that may mutate terraform inputs or start a new terraform call routes through `requireIdle(reason)`. While any registered plugin is `Busy()` (holds DirLock per ADR-0016), the action is rejected with a uniform message instructing the user to escape via `:q!`. Chokepoints: `ContextSwitchRequestMsg`, `navigateTo`, `cmdQuit`. `:q!` (`cmdForceQuit`) bypasses the guard and calls `Cancel()` on every cancellable plugin.
 
 Workflow transitions (plan→apply): The app sets `returnTo` manually when a plugin triggers a workflow to another plugin. This is distinct from `NavPush` metadata — it's a runtime decision. Example: `ApplyRequestMsg` handler sets `returnTo = plan` before activating apply.
 
@@ -147,27 +164,28 @@ Events emitted on success:
 
 State plugin auto-refreshes on `PlanInvalidatedEvent` (implements `PlanInvalidatedHandler`).
 
-## Apply Plugin Navigation Model
+## Apply Plugin Navigation Model (ADR-0019)
 
 Apply is NOT on the home menu (`MenuVisible: false`). It's reachable through plan's `a` key (confirm) or `A` key (auto-approve).
 
-Flow (no targets): Plan → `ApplyRequestMsg` → app pushes navStack, activates apply with `RequestApply()` → apply shows confirmation → user confirms → apply runs → `PlanInvalidatedEvent` emitted on success.
+Plan owns plan-file generation; apply consumes the file. Apply has no awareness of targets, var-files, or any other plan-time inputs — those are baked into the saved plan file by terraform.
 
-Flow (with targets): Plan → `ApplyRequestMsg` → apply enters `StatusReplanning` → runs `terraform plan -target=X` → shows targeted plan summary → user confirms → apply runs saved plan → `PlanInvalidatedEvent`.
-
-Auto-approve: Plan → `AutoApplyRequestMsg` → apply calls `AutoApply()` → skips confirmation (replans if targets present, then applies immediately).
+Flow: Plan → `ApplyRequestMsg{PlanFile, AutoApprove}` → app pushes navStack, activates apply with `RequestApply()` (or `AutoApply()`) → apply shows confirmation (skipped on AutoApprove) → user confirms → apply runs `terraform apply <PlanFile>` → `PlanInvalidatedEvent` emitted on success.
 
 All `esc`/cancel paths in apply emit `DeactivateMsg`, which the app handles by checking navStack and navigating back to plan.
 
 Apply resets to idle on `Activate()` if in a terminal state (error/done), preventing stale state when re-entered.
 
-## Targeted Apply (terraform constraint)
+## Targeted Apply (terraform constraint, ADR-0019)
 
-Terraform does NOT support `-target` with a saved plan file. Apply handles this via replan:
-- When targets are present: apply plugin enters `StatusReplanning`, runs `terraform plan -target=X -target=Y` to produce a new targeted plan file, then applies that plan file
-- When no targets: applies the saved plan file via `terraform apply tfplan.out`
+In the TUI pipeline, targets belong on **plan**, never on apply (ADR-0019):
+- Plan includes `-target=X` flags when pinned addresses are present, producing a plan file scoped to those resources
+- Apply reads only the plan file: `terraform apply <planfile>`
+- Terraform does NOT support `-target` with a saved plan file
 
-This ensures the user always reviews exactly what will be applied — the targeted plan may differ from the full plan due to dependency resolution.
+The standalone CLI path (`tfui apply --target=X`) is independent — it passes targets directly to terraform's one-shot plan-and-apply mode. No plan file is involved.
+
+Pin toggles are routed through `replaceContext` so they reach the plan plugin via the next `ContextChangedEvent`.
 
 ## Service Interface (`pkg/sdk/service.go`)
 
@@ -243,8 +261,8 @@ Key files:
 | Utility | Location | Purpose |
 |---------|----------|---------|
 | `EventBus` | `pkg/sdk/bus.go` | Typed event dispatch |
-| `PinService` | `pkg/sdk/pin_service.go` | Shared via `Context.Pins` |
-| `ResolvedOptions` | `pkg/sdk/options.go` | Var-files, vars, extra-args |
+| `Context` | `pkg/sdk/context.go` | Immutable per-chdir snapshot (Pins, VarFiles, …) |
+| `PluginDeps` | `pkg/sdk/plugin_deps.go` | DI container handed to `Init()` |
 | `Status` | `pkg/sdk/status.go` | Idle/Loading/Done/Error enum |
 | `Cursor` | `pkg/sdk/ui/cursor.go` | Index selection + viewport windowing |
 | `ExpandSet` | `pkg/sdk/ui/expand.go` | Track expanded indices |
@@ -253,29 +271,42 @@ Key files:
 | `Tree` | `pkg/sdk/ui/tree/` | Hierarchical rendering with expand/collapse |
 
 Rules:
-- Implement `ChdirHandler` to react to chdir changes
+- Implement `ContextChangedHandler` to react to chdir/workspace/pin changes
 - Use `Cursor.VisibleWindow(h)` instead of manual calculation
 - Use `FuzzyFilter[T]` instead of importing fzf directly
 - Use `Timer` for elapsed time display during long operations
 - Reference implementation: `plugins/state/` (list/filter/tree), `plugins/plan/` (tree + inspect frame)
 
-## AppContext (`pkg/sdk/app_context.go`)
+## Plugin Test Harness (`pkg/sdk/sdktest/testdeps.go`)
 
-Root application state container, partitioned by domain:
+`PluginDepsHarness` is the canonical test DI container. Every plugin test MUST use it — never construct `PluginDeps` manually or call `New(svc)` without `Init`.
 
 ```go
-type AppContext struct {
-    Project   ProjectContext    // immutable project info (Dir, Members, Chdir, ChdirAbs)
-    Config    *ConfigContext    // dot-notation config access
-    Terraform *TerraformContext // workspace, pinned targets, cached state/plan, service
-    UI        *UIContext        // dimensions, active plugin, input mode
-    Cache     *CacheContext     // generic TTL cache
-    AI        AIProvider        // nil if disabled
-    Logger    *slog.Logger
+h := sdktest.NewDeps(svc)
+p := plan.New(svc)
+p.Init(h.Deps)
+```
+
+The harness provides:
+- `h.Ctx` — mutable `*sdk.Context` (the live snapshot returned by `deps.Context()`)
+- `h.PinRequests` — captures every address passed to `deps.Pin()`
+- `h.ClearPinsCount` — counts `deps.ClearPins()` invocations
+
+Convention: plugin test helpers follow `newTestPlugin(svc) → (*Plugin, *PluginDepsHarness)`:
+```go
+func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
+    h := sdktest.NewDeps(svc)
+    p := New(svc)
+    p.Init(h.Deps)
+    return p, h
 }
 ```
 
-`TerraformContext` provides thread-safe pin management (`Pin`, `Unpin`, `IsPinned`, `PinnedTargets`) and cached `TerraformState`/`TerraformPlan` with loading/error metadata.
+Testing patterns:
+- Set `h.Ctx.Pins` to simulate pre-existing pins
+- Check `h.PinRequests` to verify a pin toggle was requested
+- Execute returned `tea.Cmd` (lazy) before asserting side effects
+- The harness does NOT replay pin requests onto `Ctx` — tests that need the next snapshot to reflect a pin must mutate `h.Ctx.Pins` explicitly
 
 ## Overlay + Input System (`pkg/sdk/overlay.go`, `pkg/sdk/input.go`)
 
@@ -296,22 +327,6 @@ Input request/response protocol for plugins needing user input:
 - `RequestInputMsg` — wraps request as `tea.Msg` for dispatch
 - `InputResponseMsg` — delivers answer back to plugin
 - Helpers: `InputConfirm(prompt, onYes)`, `InputText(prompt, default, onSubmit)`, `InputSelect(prompt, options, onSelect)`
-
-## PluginAction System (`pkg/sdk/action.go`)
-
-CLI/REPL-callable operations exposed by plugins (e.g., `tfui state mv`, `:state mv`):
-
-```go
-type PluginAction struct {
-    Name        string
-    Description string
-    Args        []ArgDef   // positional arguments
-    Flags       []FlagDef  // flag parameters
-    Run         func(ctx *AppContext, args ActionArgs) error
-}
-```
-
-`ActionArgs` provides `GetArg(index)`, `GetFlag(name, default)`, `HasFlag(name)`.
 
 ## Additional Frames (`pkg/sdk/frames/`)
 

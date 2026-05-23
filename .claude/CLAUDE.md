@@ -43,7 +43,7 @@ demo/         — Demo pipeline: fixtures, macro tapes, GIF generation scripts
 | **Workspace** | Terraform workspace within a chdir |
 | **Context** | Umbrella concept: Project + Chdir + Workspace combined |
 
-IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ChdirChangedEvent`.
+IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ContextChangedEvent` (single event covers chdir + workspace + pin changes — see ADR-0018).
 
 Full domain glossary with relationships and avoid-lists: see `CONTEXT.md`
 
@@ -65,7 +65,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 
 - Plugin IDs: lowercase single word (`"state"`, `"plan"`)
 - Messages: `{Subject}{Verb}Msg` (e.g., `StateListMsg`)
-- Events: `{Subject}{Verb}Event` (e.g., `ChdirChangedEvent`)
+- Events: `{Subject}{Verb}Event` (e.g., `ContextChangedEvent`)
 - Plugin imports use `tfui` prefix: `tfuistate`, `tfuiplan`, `tfuiapply`
 - BubbleTea aliased as `tea`
 
@@ -75,6 +75,7 @@ Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `ch
 - 100% coverage gate on all packages excluding `cmd/` and `internal/terraform/exec` (I/O boundary)
 - Table-driven tests preferred
 - Use `sdktest.MockService` from `pkg/sdk/sdktest/` — never duplicate mock boilerplate per package
+- Use `sdktest.NewDeps(svc)` harness for plugin tests — never construct `PluginDeps` manually or skip `Init()`
 - Integration tests in `tests/integration/`
 
 ### Roadmap
@@ -149,10 +150,28 @@ PostToolUse hooks run automatically (configured in `.claude/settings.json`):
 - Agent checks validate UI consistency, plugin boundaries, CLI contracts, and SDK changes
 - Stop hook runs build verification before session ends
 
+## No Speculative Code
+
+CRITICAL: tfui is a UI layer, not a terraform validator. **Never invent behavior that doesn't exist yet.** Every line must serve a real, current use case — not a hypothetical future one.
+
+**What speculative code looks like (DO NOT DO):**
+
+- Validating flag combinations terraform handles itself (e.g., rejecting `--plan` + `--target` — terraform silently ignores targets with a plan file, so should we)
+- Defensive nil guards/returns for states that can't happen in production (e.g., `if pinFn == nil` when Init always sets it, or `PinnedAddresses` returning nil instead of empty slice)
+- Adding flags nobody asked for "just in case" (e.g., `--outputs`, `--validate-result`, `--workspaces` — speculative cache seeds with no user scenario)
+- Mutual exclusivity enforcement at our layer when terraform is the authority (e.g., `if planFile != "" && targets != nil { error }`)
+- Building abstractions for hypothetical future requirements (e.g., wrapping a single implementation in an interface "for testability" when the test already works)
+- Adding "compat shims" or dead fields to ease a migration that already happened
+- Creating error paths for invalid states that the type system or call graph makes unreachable
+
+**The rule:** pass through to terraform, warn when helpful (stderr), never block. If terraform rejects it, the user sees terraform's error — that's fine. Don't duplicate terraform's validation.
+
+**Test corollary:** tests must exercise real behavior through the harness, not bypass Init to test impossible states.
+
 ## Learnings
 
 When encountering undocumented patterns or decisions that caused rework, suggest additions to this section.
 
-- 2025-05: Terraform does NOT support `-target` with a saved plan file. Apply handles this via replan (see `.claude/rules/architecture.md`).
+- 2025-05: Terraform does NOT support `-target` with a saved plan file. In the TUI pipeline, apply consumes only a plan file (ADR-0019). The standalone CLI path passes `-target` directly.
 - 2025-05: Apply plugin is NOT on the home menu — only reachable via plan's `a` key. Confirmation is owned by apply (single confirm), not plan.
 - 2025-05: `returnTo` is set both by `NavPush` metadata AND workflow transitions (plan→apply). All esc/cancel paths in sub-state plugins must emit `DeactivateMsg`.
