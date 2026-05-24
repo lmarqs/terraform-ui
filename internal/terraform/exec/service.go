@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
@@ -206,9 +205,6 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 		return fmt.Errorf("running terraform apply: %w", err)
 	}
 
-	if opts.PlanFile != "" {
-		_ = os.Remove(opts.PlanFile)
-	}
 	logging.Logger().Debug("terraform.result", "cmd", "apply", "duration", time.Since(start).String())
 	return nil
 }
