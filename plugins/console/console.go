@@ -2,8 +2,6 @@ package console
 
 import (
 	"fmt"
-	"io"
-	"log/slog"
 	"os/exec"
 	"strings"
 
@@ -29,8 +27,7 @@ type ReplResultMsg struct {
 
 // Plugin implements the terraform console REPL feature.
 type Plugin struct {
-	svc        sdk.Service
-	log        *slog.Logger
+	sdk.PluginBase
 	status     sdk.Status
 	history    []replEntry
 	input      string
@@ -45,17 +42,15 @@ type Plugin struct {
 
 // New creates a new REPL plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc:        svc,
-		log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
+	p := &Plugin{
+		PluginBase: sdk.NewPluginBase("console", "Console", "Terraform console (REPL)"),
 		historyIdx: -1,
 	}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "console" }
-func (p *Plugin) Name() string        { return "Console" }
-func (p *Plugin) Description() string { return "Terraform console (REPL)" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
+func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
 
 // CapturesKeys implements sdk.KeyCapturer.
 func (p *Plugin) CapturesKeys() bool {
@@ -88,8 +83,7 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 // is read from deps.Context(); subsequent chdir changes arrive via
 // ContextChangedEvent.
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
-	p.log = deps.Logger
+	p.InitBase(deps)
 	if deps.Context != nil {
 		if ctx := deps.Context(); ctx != nil {
 			p.dir = ctx.WorkingDir
@@ -102,11 +96,8 @@ func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.dir = ev.Next.WorkingDir
 	p.reset()
