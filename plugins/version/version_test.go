@@ -257,7 +257,7 @@ func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing
 	p.version = "1.0.0"
 	p.info = nil
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -288,7 +288,7 @@ func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
 		},
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -360,22 +360,22 @@ func TestPlugin_WhenOutputWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
 	p.info = nil
 
 	tests := []struct {
-		name       string
-		jsonOutput bool
-		want       string
+		name          string
+		jsonStdoutput bool
+		want          string
 	}{
 		{"ShouldShowUnknownInJSON", true, "unknown"},
 		{"ShouldShowUnknownInText", false, "tfui vunknown"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p.SetJSONOutput(tt.jsonOutput)
+			p.SetJSONStdout(tt.jsonStdoutput)
 			data, err := p.Stdout()
 			if err != nil {
-				t.Fatalf("Stdout(%v) error = %v", tt.jsonOutput, err)
+				t.Fatalf("Stdout(%v) error = %v", tt.jsonStdoutput, err)
 			}
 			if !contains(string(data), tt.want) {
-				t.Errorf("Stdout(%v) = %s, want to contain %q", tt.jsonOutput, string(data), tt.want)
+				t.Errorf("Stdout(%v) = %s, want to contain %q", tt.jsonStdoutput, string(data), tt.want)
 			}
 		})
 	}
@@ -417,7 +417,7 @@ func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
 	p.version = "1.2.3"
 	p.info = nil
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -437,7 +437,7 @@ func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *te
 	p.version = "1.2.3"
 	p.info = &sdk.VersionInfo{TerraformVersion: ""}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -448,7 +448,7 @@ func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *te
 		t.Errorf("should not include terraform_version when it's empty, got %q", s)
 	}
 
-	p.SetJSONOutput(false)
+	p.SetJSONStdout(false)
 	data, err = p.Stdout()
 	if err != nil {
 		t.Fatalf("Stdout(false) error = %v", err)

@@ -2062,7 +2062,7 @@ func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = nil
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2189,7 +2189,7 @@ func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2259,7 +2259,7 @@ func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {

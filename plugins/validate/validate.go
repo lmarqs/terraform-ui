@@ -25,7 +25,7 @@ type Plugin struct {
 	diagnostics []sdk.Diagnostic
 	errMsg      string
 	selected    int
-	jsonOut     bool
+	jsonStdout  bool
 	cancelFn    context.CancelFunc
 }
 
@@ -323,14 +323,14 @@ func (p *Plugin) renderSummaryLine() string {
 	return strings.Join(parts, ", ")
 }
 
-// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// SetJSONStdout is a temporary cmd-side setter used by the legacy
 // Session.WithJSON path. Phase 2 migrates this plugin to a typed Input flow
 // at which point this setter is removed.
-func (p *Plugin) SetJSONOutput(on bool) { p.jsonOut = on }
+func (p *Plugin) SetJSONStdout(on bool) { p.jsonStdout = on }
 
 // Stdout produces stdout content for standalone/CI mode.
 func (p *Plugin) Stdout() ([]byte, error) {
-	if p.jsonOut {
+	if p.jsonStdout {
 		errorCount, warningCount := 0, 0
 		for _, d := range p.diagnostics {
 			if d.Severity.IsError() {

@@ -75,7 +75,7 @@ type Plugin struct {
 	detailScroll int
 	detailPanel  *ui.ContentPanel
 	cancelFn     context.CancelFunc
-	jsonOut      bool // toggled via legacy Session.WithJSON; Phase 3 migrates to typed Input
+	jsonStdout   bool // toggled via legacy Session.WithJSON; Phase 3 migrates to typed Input
 }
 
 // New creates a new state browser plugin.
@@ -685,14 +685,14 @@ func (e *Plugin) isTaintedAddress(address string) bool {
 	return false
 }
 
-// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// SetJSONStdout is a temporary cmd-side setter used by the legacy
 // Session.WithJSON path. Phase 3 migrates state to a typed Input flow at
 // which point this setter is removed.
-func (e *Plugin) SetJSONOutput(on bool) { e.jsonOut = on }
+func (e *Plugin) SetJSONStdout(on bool) { e.jsonStdout = on }
 
 // Stdout produces stdout content for standalone/CI mode.
 func (e *Plugin) Stdout() ([]byte, error) {
-	if e.jsonOut {
+	if e.jsonStdout {
 		type resourceJSON struct {
 			Address string `json:"address"`
 			Type    string `json:"type"`

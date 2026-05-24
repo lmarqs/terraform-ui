@@ -29,9 +29,9 @@ import (
 // StandaloneConfig configures the app to run a single plugin without
 // home screen or inter-plugin navigation (the fzf model).
 type StandaloneConfig struct {
-	PluginID string   // which plugin is the app
-	Args     []string // positional args (e.g., "mv", "src", "dst")
-	JSONMode bool     // user passed -json
+	PluginID   string   // which plugin is the app
+	Args       []string // positional args (e.g., "mv", "src", "dst")
+	JSONStdout bool     // user passed --json (root persistent)
 	// Activate, when set, replaces the default Activatable/ActivateWithArgs
 	// dispatch. cmd/tfui supplies a closure that calls the plugin's typed
 	// Activate(input) method — keeps the App ignorant of plugin-specific

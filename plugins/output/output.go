@@ -20,18 +20,18 @@ type OutputResultMsg struct {
 // Plugin implements the terraform outputs viewer.
 type Plugin struct {
 	sdk.PluginBase
-	stack     *sdk.Stack
-	fuzzy     *ui.FuzzyFilter[sdk.OutputValue]
-	timer     ui.Timer
-	status    sdk.Status
-	outputs   []sdk.OutputValue
-	filtered  []sdk.OutputValue
-	filter    string
-	filtering bool
-	errMsg    string
-	selected  int
-	jsonOut   bool
-	cancelFn  context.CancelFunc
+	stack      *sdk.Stack
+	fuzzy      *ui.FuzzyFilter[sdk.OutputValue]
+	timer      ui.Timer
+	status     sdk.Status
+	outputs    []sdk.OutputValue
+	filtered   []sdk.OutputValue
+	filter     string
+	filtering  bool
+	errMsg     string
+	selected   int
+	jsonStdout bool
+	cancelFn   context.CancelFunc
 }
 
 // New creates a new output plugin.
@@ -291,14 +291,14 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	return filterLine + b.String() + "\n" + count
 }
 
-// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// SetJSONStdout is a temporary cmd-side setter used by the legacy
 // Session.WithJSON path. Phase 2 migrates this plugin to a typed Input flow
 // at which point this setter is removed.
-func (p *Plugin) SetJSONOutput(on bool) { p.jsonOut = on }
+func (p *Plugin) SetJSONStdout(on bool) { p.jsonStdout = on }
 
 // Stdout produces stdout content for standalone/CI mode.
 func (p *Plugin) Stdout() ([]byte, error) {
-	if p.jsonOut {
+	if p.jsonStdout {
 		outputMap := make(map[string]interface{}, len(p.outputs))
 		for _, o := range p.outputs {
 			entry := map[string]interface{}{

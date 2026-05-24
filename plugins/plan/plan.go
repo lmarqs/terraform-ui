@@ -62,7 +62,7 @@ type Plugin struct {
 	detailScroll int
 	detailPanel  *ui.ContentPanel
 	viewWidth    int
-	jsonOut      bool // toggled via legacy Session.WithJSON; Phase 3 migrates to typed Input
+	jsonStdout   bool // toggled via legacy Session.WithJSON; Phase 3 migrates to typed Input
 }
 
 // New creates a new plan plugin.
@@ -864,10 +864,10 @@ type ApplyRequestMsg struct {
 	AutoApprove bool
 }
 
-// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// SetJSONStdout is a temporary cmd-side setter used by the legacy
 // Session.WithJSON path. Phase 3 migrates plan to a typed Input flow at which
 // point this setter is removed.
-func (e *Plugin) SetJSONOutput(on bool) { e.jsonOut = on }
+func (e *Plugin) SetJSONStdout(on bool) { e.jsonStdout = on }
 
 // Stdout produces stdout content for standalone/CI mode.
 func (e *Plugin) Stdout() ([]byte, error) {
@@ -875,7 +875,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		return nil, nil
 	}
 
-	if e.jsonOut {
+	if e.jsonStdout {
 		type changeJSON struct {
 			Address string `json:"address"`
 			Action  string `json:"action"`

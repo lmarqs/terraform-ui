@@ -15,7 +15,7 @@ func TestPlugin_WhenOutputJsonWithNilSummary_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = nil
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -37,7 +37,7 @@ func TestPlugin_WhenOutputJsonWithChanges_ShouldReturnValidJSON(t *testing.T) {
 		ToDelete: 1,
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -1389,7 +1389,7 @@ func TestPlugin_WhenOutputJsonWithPhantom_ShouldSetPhantomFlag(t *testing.T) {
 		ToUpdate: 1,
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2217,7 +2217,7 @@ func TestPlugin_WhenOutputJsonWithCreateThenDelete_ShouldSetCorrectAction(t *tes
 		ToReplace: 1,
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2489,7 +2489,7 @@ func TestPlugin_WhenOutputJsonWithEmptyChanges_ShouldReturnEmptyArray(t *testing
 		Changes: []sdk.PlanChange{},
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2803,7 +2803,7 @@ func TestPlugin_WhenOutputJsonWithNoRisk_ShouldIncludeNoneRisk(t *testing.T) {
 		ToCreate: 1,
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {

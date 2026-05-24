@@ -20,12 +20,12 @@ type VersionResultMsg struct {
 // Plugin implements the version info viewer.
 type Plugin struct {
 	sdk.PluginBase
-	status   sdk.Status
-	info     *sdk.VersionInfo
-	errMsg   string
-	version  string
-	jsonOut  bool
-	cancelFn context.CancelFunc
+	status     sdk.Status
+	info       *sdk.VersionInfo
+	errMsg     string
+	version    string
+	jsonStdout bool
+	cancelFn   context.CancelFunc
 }
 
 // New creates a new version plugin.
@@ -111,10 +111,10 @@ func (p *Plugin) View(width, height int) string {
 	}
 }
 
-// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// SetJSONStdout is a temporary cmd-side setter used by the legacy
 // Session.WithJSON path. Phase 2 migrates this plugin to a typed Input flow
 // at which point this setter is removed.
-func (p *Plugin) SetJSONOutput(on bool) { p.jsonOut = on }
+func (p *Plugin) SetJSONStdout(on bool) { p.jsonStdout = on }
 
 // Stdout produces stdout content for standalone/CI mode.
 func (p *Plugin) Stdout() ([]byte, error) {
@@ -124,7 +124,7 @@ func (p *Plugin) Stdout() ([]byte, error) {
 		ver = "unknown"
 	}
 
-	if p.jsonOut {
+	if p.jsonStdout {
 		out := struct {
 			TfuiVersion       string            `json:"tfui_version"`
 			Platform          string            `json:"platform"`

@@ -60,7 +60,7 @@ func main() {
 	var planURI, stateURI, macroURI, recordDir string
 	var extraArgs []string
 	var ciMode bool
-	var jsonMode bool
+	var jsonStdout bool
 
 	session := &Session{cfg: cfg, rootCfg: rootCfg}
 
@@ -100,7 +100,7 @@ func main() {
 			session.macroURI = macroURI
 			session.recordDir = recordDir
 			session.ciMode = ciMode
-			session.jsonMode = jsonMode
+			session.jsonStdout = jsonStdout
 			session.silentStderr = session.resolveSilentStderr()
 			return nil
 		},
@@ -118,7 +118,7 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&recordDir, "record", "", "Record session frames and tape to directory")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	rootCmd.PersistentFlags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
+	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",

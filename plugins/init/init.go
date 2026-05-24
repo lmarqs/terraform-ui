@@ -262,11 +262,11 @@ func checkbox(v bool) string {
 	return "[ ]"
 }
 
-// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// SetJSONStdout is a temporary cmd-side setter used by the legacy
 // Session.WithJSON path. Init does not vary its stdout content by JSON intent
 // today, but accepts the setter for symmetry until Phase 3 migrates init to a
 // typed Input.
-func (p *Plugin) SetJSONOutput(_ bool) {}
+func (p *Plugin) SetJSONStdout(_ bool) {}
 
 // Stdout produces stdout content for standalone/CI mode.
 func (p *Plugin) Stdout() ([]byte, error) {

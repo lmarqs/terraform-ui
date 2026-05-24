@@ -46,7 +46,7 @@ func TestBuildApplyCommand_WhenAutoApproveAndTarget_ShouldBindIntoTypedInput(t *
 // the root-persistent --json value flows through Session.JSONStdout into
 // Input.JSON at RunE time.
 func TestBuildApplyCommand_WhenSessionJSONStdout_ShouldPropagateIntoInput(t *testing.T) {
-	session := &Session{cfg: config.Config{}, jsonMode: true}
+	session := &Session{cfg: config.Config{}, jsonStdout: true}
 	var captured apply.Input
 	c := buildApplyCommand(session)
 	c.RunE = func(_ *cobra.Command, _ []string) error {
@@ -63,7 +63,7 @@ func TestBuildApplyCommand_WhenSessionJSONStdout_ShouldPropagateIntoInput(t *tes
 		t.Fatalf("Execute() error = %v", err)
 	}
 	if !captured.JSON {
-		t.Errorf("Input.JSON = false, want true (session.jsonMode propagated)")
+		t.Errorf("Input.JSON = false, want true (session.jsonStdout propagated)")
 	}
 }
 

@@ -42,7 +42,7 @@ type Session struct {
 	rootCfg      *config.RootConfig
 	pluginID     string
 	args         []string
-	jsonMode     bool
+	jsonStdout   bool
 	planURI      string
 	stateURI     string
 	macroURI     string
@@ -66,7 +66,7 @@ func (s *Session) WithArgs(args []string) *Session {
 }
 
 func (s *Session) WithJSON(on bool) *Session {
-	s.jsonMode = on
+	s.jsonStdout = on
 	return s
 }
 
@@ -111,13 +111,13 @@ func (s *Session) Run() error {
 	registry := buildRegistry(svc, s.cfg)
 	// Bridge the legacy WithJSON path into the new plugin-state contract:
 	// every plugin still on the old Output(bool) shape now exposes a
-	// SetJSONOutput setter. Apply it before the model runs so Stdout() reads
+	// setJSONStdout setter. Apply it before the model runs so Stdout() reads
 	// the right intent. Phases 2/3 retire this bridge per plugin as each
 	// migrates to its typed Input.
-	if s.jsonMode && s.pluginID != "" {
+	if s.jsonStdout && s.pluginID != "" {
 		if p, ok := registry.ByID(s.pluginID); ok {
-			if setter, ok := p.(interface{ SetJSONOutput(bool) }); ok {
-				setter.SetJSONOutput(true)
+			if setter, ok := p.(interface{ SetJSONStdout(bool) }); ok {
+				setter.SetJSONStdout(true)
 			}
 		}
 	}
@@ -215,9 +215,9 @@ func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
 		return ui.NewApp(s.cfg, svc, registry, s.rootCfg)
 	}
 	standalone := &ui.StandaloneConfig{
-		PluginID: s.pluginID,
-		Args:     s.args,
-		JSONMode: s.jsonMode,
+		PluginID:   s.pluginID,
+		Args:       s.args,
+		JSONStdout: s.jsonStdout,
 	}
 	return ui.NewApp(s.cfg, svc, registry, s.rootCfg, standalone)
 }
@@ -322,7 +322,7 @@ func (s *Session) SilentStderr() bool {
 // JSONStdout reports whether the caller asked for JSON-shaped stdout. cmd-side
 // per-plugin command builders copy this into each plugin's Input.JSON.
 func (s *Session) JSONStdout() bool {
-	return s.jsonMode
+	return s.jsonStdout
 }
 
 // resolveSilentStderr derives the stderr-silence boolean from --ci, CI=1, and
@@ -432,7 +432,7 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 
 	// Pump output port.
 	if recorder != nil {
-		writeRecordedCommands(recorder.Commands(), s.jsonMode)
+		writeRecordedCommands(recorder.Commands(), s.jsonStdout)
 		return nil
 	}
 	p, ok := registry.ByID(pluginID)
@@ -484,8 +484,8 @@ func terminalStatus(p sdk.Plugin) bool {
 // writeRecordedCommands prints MacroService's recorded `terraform …` calls in
 // the requested format: human-readable (one-per-line) when --json is unset,
 // JSON array of strings when --json is set.
-func writeRecordedCommands(cmds []sdk.Command, jsonMode bool) {
-	if jsonMode {
+func writeRecordedCommands(cmds []sdk.Command, jsonStdout bool) {
+	if jsonStdout {
 		strs := make([]string, len(cmds))
 		for i, c := range cmds {
 			strs[i] = c.String()

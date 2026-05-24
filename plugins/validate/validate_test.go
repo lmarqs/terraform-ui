@@ -914,7 +914,7 @@ func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
 		{Severity: "warning", Summary: "Deprecated"},
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -940,7 +940,7 @@ func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {

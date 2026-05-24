@@ -1251,7 +1251,7 @@ func TestOutput_WhenJsonTrue_ShouldReturnJSONMap(t *testing.T) {
 		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
 	}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -1270,7 +1270,7 @@ func TestOutput_WhenJsonTrueEmpty_ShouldReturnEmptyObject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = []sdk.OutputValue{}
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -1318,7 +1318,7 @@ func TestOutput_WhenJsonTrueNilOutputs_ShouldReturnEmptyObject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = nil
 
-	p.SetJSONOutput(true)
+	p.SetJSONStdout(true)
 
 	data, err := p.Stdout()
 	if err != nil {
