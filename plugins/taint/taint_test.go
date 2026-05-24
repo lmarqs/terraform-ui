@@ -16,7 +16,7 @@ import (
 
 func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return p
 }
 
@@ -368,7 +368,7 @@ func TestPlugin_WhenTaintPartiallyFails_ShouldReportTaintedAndError(t *testing.T
 		},
 	}
 	p := newTestPlugin(svc)
-	p.svc = svc
+	p.Svc = svc
 	p.addresses = []string{"aws_instance.a", "aws_instance.b", "aws_instance.c"}
 
 	cmd := p.executeTaint()
