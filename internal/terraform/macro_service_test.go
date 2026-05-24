@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 
@@ -363,6 +364,67 @@ func TestMacroService_PlanFlagsRecorded(t *testing.T) {
 	}
 }
 
+func TestMacroService_PlanFlagsAllBranches(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	ctx := context.Background()
+
+	opts := sdk.PlanOptions{
+		PlanFile:    "/tmp/plan.out",
+		Targets:     []string{"aws_instance.web"},
+		VarFiles:    []string{"prod.tfvars"},
+		Vars:        map[string]string{"region": "us-east-1"},
+		Replace:     []string{"aws_instance.old"},
+		Destroy:     true,
+		Refresh:     sdk.RefreshEnabled,
+		Parallelism: 5,
+		Lock:        sdk.LockEnabled,
+		LockTimeout: sdk.LockTimeout("10s"),
+		ExtraArgs:   []string{"-input=false"},
+	}
+	svc.Plan(ctx, opts)
+
+	cmds := svc.Commands()
+	cmd := cmds[0].String()
+	for _, want := range []string{
+		"-out=/tmp/plan.out",
+		"-target=aws_instance.web",
+		"-var-file=prod.tfvars",
+		"-var", "region=us-east-1",
+		"-replace=aws_instance.old",
+		"-destroy",
+		"-refresh=true",
+		"-parallelism=5",
+		"-lock=true",
+		"-lock-timeout=10s",
+		"-input=false",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("plan flags missing %q in %q", want, cmd)
+		}
+	}
+}
+
+func TestMacroService_PlanFlagsRefreshModes(t *testing.T) {
+	tests := []struct {
+		name    string
+		refresh sdk.RefreshMode
+		want    string
+	}{
+		{"RefreshOnly", sdk.RefreshOnly, "-refresh-only"},
+		{"RefreshDisabled", sdk.RefreshDisabled, "-refresh=false"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := NewMacroService("terraform", nil)
+			svc.Plan(context.Background(), sdk.PlanOptions{Refresh: tt.refresh})
+			cmd := svc.Commands()[0].String()
+			if !strings.Contains(cmd, tt.want) {
+				t.Errorf("plan flags missing %q in %q", tt.want, cmd)
+			}
+		})
+	}
+}
+
 func TestMacroService_ApplyFlagsRecorded(t *testing.T) {
 	svc := NewMacroService("terraform", nil)
 	ctx := context.Background()
@@ -380,6 +442,39 @@ func TestMacroService_ApplyFlagsRecorded(t *testing.T) {
 	expected := "terraform apply /tmp/foo.tfplan -var-file=prod.tfvars"
 	if cmds[0].String() != expected {
 		t.Errorf("got %q, want %q", cmds[0].String(), expected)
+	}
+}
+
+func TestMacroService_ApplyFlagsAllBranches(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	ctx := context.Background()
+
+	opts := sdk.ApplyOptions{
+		Targets:     []string{"aws_instance.web"},
+		AutoApprove: true,
+		VarFiles:    []string{"prod.tfvars"},
+		Vars:        map[string]string{"env": "prod"},
+		Parallelism: 8,
+		Lock:        sdk.LockEnabled,
+		LockTimeout: sdk.LockTimeout("30s"),
+		ExtraArgs:   []string{"-input=false"},
+	}
+	svc.Apply(ctx, opts)
+
+	cmd := svc.Commands()[0].String()
+	for _, want := range []string{
+		"-target=aws_instance.web",
+		"-auto-approve",
+		"-var-file=prod.tfvars",
+		"-var", "env=prod",
+		"-parallelism=8",
+		"-lock=true",
+		"-lock-timeout=30s",
+		"-input=false",
+	} {
+		if !strings.Contains(cmd, want) {
+			t.Errorf("apply flags missing %q in %q", want, cmd)
+		}
 	}
 }
 

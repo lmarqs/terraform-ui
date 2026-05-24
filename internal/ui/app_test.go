@@ -41,6 +41,14 @@ func (m *mockPlugin) View(_, _ int) string                      { return m.viewO
 func (m *mockPlugin) Configure(_ map[string]interface{}) error  { return nil }
 func (m *mockPlugin) Ready() bool                               { return true }
 
+// mockPluginWithInit allows customizing Init behavior.
+type mockPluginWithInit struct {
+	mockPlugin
+	initFn func(deps *plugin.PluginDeps) tea.Cmd
+}
+
+func (m *mockPluginWithInit) Init(deps *plugin.PluginDeps) tea.Cmd { return m.initFn(deps) }
+
 // mockBusyPlugin implements plugin.Plugin and sdk.Busy for testing quit guards.
 type mockBusyPlugin struct {
 	mockPlugin
@@ -5190,5 +5198,132 @@ func TestApp_CmdForceQuit_WhenBusyCancellablePlugin_ShouldCancel(t *testing.T) {
 	}
 	if !cancellable.cancelled {
 		t.Error("cmdForceQuit should call Cancel on every cancellable plugin")
+	}
+}
+
+func TestApp_Init_WhenPluginExercisesDeps_ShouldProvideFunctionalClosures(t *testing.T) {
+	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+
+	var capturedCtx *sdk.Context
+	var capturedPinMsg tea.Msg
+	var capturedClearMsg tea.Msg
+
+	registry.RegisterFactory("probe", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{
+			id:      "probe",
+			name:    "Probe",
+			initCmd: nil,
+		}
+	}, plugin.PluginMeta{})
+
+	// Override: use a plugin that exercises deps
+	registry.RegisterFactory("exerciser", func(_ terraform.Service) plugin.Plugin {
+		return &mockPluginWithInit{
+			mockPlugin: mockPlugin{id: "exerciser", name: "Exerciser"},
+			initFn: func(deps *plugin.PluginDeps) tea.Cmd {
+				capturedCtx = deps.Context()
+				pinCmd := deps.Pin("aws_instance.web")
+				capturedPinMsg = pinCmd()
+				clearCmd := deps.ClearPins()
+				capturedClearMsg = clearCmd()
+				return nil
+			},
+		}
+	}, plugin.PluginMeta{})
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+	app.Init()
+
+	if capturedCtx == nil {
+		t.Fatal("Context() closure should return non-nil")
+	}
+	if _, ok := capturedPinMsg.(sdk.PinToggleRequestMsg); !ok {
+		t.Fatalf("Pin closure should produce PinToggleRequestMsg, got %T", capturedPinMsg)
+	}
+	if _, ok := capturedClearMsg.(sdk.PinClearRequestMsg); !ok {
+		t.Fatalf("ClearPins closure should produce PinClearRequestMsg, got %T", capturedClearMsg)
+	}
+}
+
+func TestApp_Update_WhenPinToggleRequest_ShouldTogglePinOnContext(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	app.Init()
+	app.holder.current = &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+	}
+
+	app.Update(sdk.PinToggleRequestMsg{Address: "aws_instance.web"})
+	if len(app.holder.current.Pins) != 1 || app.holder.current.Pins[0] != "aws_instance.web" {
+		t.Errorf("Pins = %v, want [aws_instance.web]", app.holder.current.Pins)
+	}
+}
+
+func TestApp_Update_WhenPinClearRequest_ShouldClearAllPins(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	app.Init()
+	app.holder.current = &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+		Pins:       []string{"aws_instance.web", "aws_s3_bucket.data"},
+	}
+
+	app.Update(sdk.PinClearRequestMsg{})
+	if len(app.holder.current.Pins) != 0 {
+		t.Errorf("Pins = %v, want empty", app.holder.current.Pins)
+	}
+}
+
+func TestApp_Update_WhenPinToggleWithBusyPlugin_ShouldReject(t *testing.T) {
+	app := setupBusyGuardApp(true)
+	app.Init()
+	app.holder.current = &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+	}
+
+	app.Update(sdk.PinToggleRequestMsg{Address: "aws_instance.web"})
+	if len(app.holder.current.Pins) != 0 {
+		t.Errorf("Pins should remain unchanged when busy, got %v", app.holder.current.Pins)
+	}
+}
+
+func TestApp_Update_WhenPinToggleWithNilContext_ShouldNoOp(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	app.Init()
+	app.holder.current = nil
+
+	_, cmd := app.Update(sdk.PinToggleRequestMsg{Address: "aws_instance.web"})
+	if cmd != nil {
+		t.Error("PinToggleRequestMsg with nil context should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenPinClearWithNilContext_ShouldNoOp(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	app.Init()
+	app.holder.current = nil
+
+	_, cmd := app.Update(sdk.PinClearRequestMsg{})
+	if cmd != nil {
+		t.Error("PinClearRequestMsg with nil context should return nil cmd")
+	}
+}
+
+func TestApp_Update_WhenPinClearWithBusyPlugin_ShouldReject(t *testing.T) {
+	app := setupBusyGuardApp(true)
+	app.Init()
+	app.holder.current = &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+		Pins:       []string{"aws_instance.web"},
+	}
+
+	app.Update(sdk.PinClearRequestMsg{})
+	if len(app.holder.current.Pins) != 1 {
+		t.Errorf("Pins should remain unchanged when busy, got %v", app.holder.current.Pins)
 	}
 }
