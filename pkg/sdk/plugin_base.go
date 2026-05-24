@@ -95,7 +95,17 @@ func (b *PluginBase) HandleContextChangedDefault(ev ContextChangedEvent) bool {
 }
 
 // PinnedAddresses returns the addresses pinned in the current Context.
-// Convenience wrapper around the package-level PinnedAddresses function.
+// Returns nil when GetCtx is unset (e.g., before Init), so it is always safe
+// to call.
 func (b *PluginBase) PinnedAddresses() []string {
+	if b.GetCtx == nil {
+		return nil
+	}
 	return PinnedAddresses(b.GetCtx)
+}
+
+// PinnedCount satisfies sdk.Pinnable. Returns 0 when GetCtx is unset
+// (e.g., before Init).
+func (b *PluginBase) PinnedCount() int {
+	return len(b.PinnedAddresses())
 }

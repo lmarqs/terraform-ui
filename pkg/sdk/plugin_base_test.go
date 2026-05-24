@@ -130,4 +130,18 @@ func TestPluginBase_PinnedAddresses_ReturnsContextPins(t *testing.T) {
 	if len(got) != 2 || got[0] != "a" || got[1] != "b" {
 		t.Errorf("PinnedAddresses() = %v, want [a b]", got)
 	}
+	if c := b.PinnedCount(); c != 2 {
+		t.Errorf("PinnedCount() = %d, want 2", c)
+	}
+}
+
+func TestPluginBase_PinnedAddresses_BeforeInit_IsNilSafe(t *testing.T) {
+	b := sdk.NewPluginBase("p", "P", "")
+
+	if got := b.PinnedAddresses(); got != nil {
+		t.Errorf("PinnedAddresses() before Init = %v, want nil", got)
+	}
+	if got := b.PinnedCount(); got != 0 {
+		t.Errorf("PinnedCount() before Init = %d, want 0", got)
+	}
 }
