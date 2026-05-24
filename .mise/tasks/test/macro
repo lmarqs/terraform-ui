@@ -9,7 +9,7 @@ if [ -z "$TFUI" ] || [ ! -x "$TFUI" ]; then
   exit 1
 fi
 failed=0
-for tape in tests/fixtures/tapes/*.tape; do
+for tape in tests/fixtures/tapes/smoke/*.tape; do
   case "$(basename "$tape")" in
     assertion_fail.tape|state_tree.tape) continue ;;
   esac

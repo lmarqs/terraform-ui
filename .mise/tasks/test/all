@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+#MISE description="Run every test layer (unit + integration). Run before opening a PR."
+set -euo pipefail
+
+mise run test:unit
+mise run test:integration

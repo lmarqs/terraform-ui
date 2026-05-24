@@ -3,7 +3,6 @@
 package integration
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,54 +13,59 @@ import (
 func TestMacro(t *testing.T) {
 	projectRoot := findProjectRoot()
 	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
-
 	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
+	tapeDir := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "macro")
+
+	tape := func(name string) string { return filepath.Join(tapeDir, name) }
 
 	tests := []struct {
 		name       string
-		tape       string
+		tapeFile   string
 		args       []string
-		setup      func(t *testing.T) []string // returns extra args
+		setup      func(t *testing.T) []string
+		cwdFunc    func(t *testing.T) string
+		assertFile string // when set, asserts the file exists relative to cwd after run
 		wantExit   int
 		wantStderr string
 		wantStdout string
 	}{
 		{
 			name:     "home menu visible after init",
-			tape:     "wait ready\nassert view Plan\nassert view State Browser",
+			tapeFile: tape("home_menu.tape"),
 			args:     []string{"-plan", planFixture},
 			wantExit: 0,
 		},
 		{
 			name:       "assert failure exits 1",
-			tape:       "wait ready\nassert view nonexistent_resource",
+			tapeFile:   tape("assert_failure.tape"),
 			args:       []string{"-plan", planFixture},
 			wantExit:   1,
 			wantStderr: "assertion failed",
 		},
 		{
 			name:       "syntax error exits 2",
-			tape:       "badcmd foo",
+			tapeFile:   tape("syntax_error.tape"),
 			args:       []string{"-plan", planFixture},
 			wantExit:   2,
 			wantStderr: "unknown command",
 		},
 		{
 			name:     "navigate to plan and verify resources",
-			tape:     "wait ready\nkey p\nassert view aws_instance.web\nassert view aws_s3_bucket.data",
+			tapeFile: tape("plan_resources.tape"),
 			args:     []string{"-plan", planFixture},
 			wantExit: 0,
 		},
 		{
-			name:     "screenshot writes file",
-			tape:     "wait ready\nscreenshot %s",
-			args:     []string{"-plan", planFixture},
-			wantExit: 0,
+			name:       "screenshot writes file",
+			tapeFile:   tape("screenshot.tape"),
+			args:       []string{"-plan", planFixture},
+			cwdFunc:    func(t *testing.T) string { return t.TempDir() },
+			assertFile: "screenshot.txt",
+			wantExit:   0,
 		},
 		{
-			name: "macro without plan or state navigates to init",
-			tape: "wait ready\nkey i\nwait view Init",
-			args: nil,
+			name:     "macro without plan or state navigates to init",
+			tapeFile: tape("init_navigate.tape"),
 			setup: func(t *testing.T) []string {
 				t.Helper()
 				dir := t.TempDir()
@@ -72,35 +76,38 @@ func TestMacro(t *testing.T) {
 				if err := os.WriteFile(filepath.Join(vpcDir, "main.tf"), []byte("resource \"aws_vpc\" \"main\" {}\n"), 0644); err != nil {
 					t.Fatalf("write main.tf: %v", err)
 				}
+				if err := os.WriteFile(filepath.Join(dir, "tfui.hcl"), []byte("member \"modules/vpc\" {}\n"), 0644); err != nil {
+					t.Fatalf("write tfui.hcl: %v", err)
+				}
 				return []string{"-project", dir}
 			},
 			wantExit: 0,
 		},
 		{
 			name:     "empty tape succeeds",
-			tape:     "# just a comment",
+			tapeFile: tape("empty.tape"),
 			args:     []string{"-plan", planFixture},
 			wantExit: 0,
 		},
 		{
 			name:     "resize command",
-			tape:     "wait ready\nresize 120 40",
+			tapeFile: tape("resize.tape"),
 			args:     []string{"-plan", planFixture},
 			wantExit: 0,
 		},
 		{
 			name:       "apply outputs command to stdout",
-			tape:       "wait ready\nkey p\nwait view aws_instance\nkey a\nwait view Apply plan\nkey y\nwait view Are you sure\nkey y",
+			tapeFile:   tape("apply_record.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
-			wantStdout: "terraform apply\n",
+			wantStdout: "terraform apply ",
 		},
 		{
 			// ADR-0019: targets belong on plan, never on apply. Scoping a
 			// targeted apply means generating a targeted plan file first; the
 			// apply command itself only references the resulting plan file.
 			name:       "targeted plan records plan command with targets",
-			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view Are you sure\nkey y",
+			tapeFile:   tape("apply_targeted.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform plan -out=",
@@ -111,55 +118,55 @@ func TestMacro(t *testing.T) {
 			// the deferred-apply path; without it the user would apply the
 			// stale (un-targeted) plan file.
 			name:       "pin after plan records targeted replan before apply",
-			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view Are you sure\nkey y",
+			tapeFile:   tape("apply_after_pin_replans.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "-target=aws_instance.web",
 		},
 		{
 			name:       "plan records plan command",
-			tape:       "wait ready\nkey p\nwait view aws_instance",
+			tapeFile:   tape("plan_record.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform plan -out=",
 		},
 		{
 			name:     "state list is a data fetch not recorded",
-			tape:     "wait ready\nkey s\nwait view aws_instance.web",
+			tapeFile: tape("state_browse.tape"),
 			args:     []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit: 0,
 		},
 		{
 			name:       "state delete outputs state rm command",
-			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey d\nwait view Remove\nkey y",
+			tapeFile:   tape("state_delete.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform state rm aws_instance.web",
 		},
 		{
 			name:       "state taint outputs taint command",
-			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey t\nwait view Taint\nkey y",
+			tapeFile:   tape("state_taint.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform taint aws_instance.web",
 		},
 		{
 			name:       "state untaint outputs untaint command",
-			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey T\nwait view Untaint\nkey y",
+			tapeFile:   tape("state_untaint.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform untaint aws_instance.web",
 		},
 		{
 			name:       "state import outputs import command",
-			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey n\nwait view Resource ID\nkey i\nkey -\nkey 1\nkey 2\nkey 3\nkey enter\nwait view Import\nkey y",
+			tapeFile:   tape("state_import.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform import aws_instance.web i-123",
 		},
 		{
 			name:       "state move outputs state mv command",
-			tape:       "wait ready\nkey s\nwait view aws_instance.web\nkey m\nwait view Move to\nkey backspace\nkey backspace\nkey backspace\nkey n\nkey e\nkey w\nkey enter\nwait view Move\nkey y",
+			tapeFile:   tape("state_move.tape"),
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
 			wantExit:   0,
 			wantStdout: "terraform state mv aws_instance.web aws_instance.new",
@@ -168,23 +175,17 @@ func TestMacro(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tape := tt.tape
-			var screenshotPath string
-			if strings.Contains(tape, "%s") {
-				screenshotPath = filepath.Join(t.TempDir(), "screenshot.txt")
-				tape = fmt.Sprintf(tape, screenshotPath)
-			}
-
-			tapeFile := filepath.Join(t.TempDir(), "test.tape")
-			if err := os.WriteFile(tapeFile, []byte(tape), 0644); err != nil {
-				t.Fatalf("write tape: %v", err)
-			}
-
-			args := append([]string{"-macro", tapeFile}, tt.args...)
+			args := append([]string{"-macro", tt.tapeFile}, tt.args...)
 			if tt.setup != nil {
 				args = append(args, tt.setup(t)...)
 			}
-			stdout, stderr, err := runTfui(args...)
+
+			cwd := ""
+			if tt.cwdFunc != nil {
+				cwd = tt.cwdFunc(t)
+			}
+
+			stdout, stderr, err := runTfuiIn(cwd, args...)
 
 			exitCode := 0
 			if err != nil {
@@ -207,9 +208,9 @@ func TestMacro(t *testing.T) {
 				t.Errorf("stdout = %q, want to contain %q", stdout, tt.wantStdout)
 			}
 
-			if screenshotPath != "" {
-				if _, err := os.Stat(screenshotPath); err != nil {
-					t.Errorf("screenshot file not created: %v", err)
+			if tt.assertFile != "" {
+				if _, err := os.Stat(filepath.Join(cwd, tt.assertFile)); err != nil {
+					t.Errorf("expected file %q in cwd not created: %v", tt.assertFile, err)
 				}
 			}
 		})

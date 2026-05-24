@@ -172,38 +172,92 @@ Golden test names map to file paths: `TestView_Given_Loading_ShouldRender_Loadin
 
 These tests verify the contract between the app shell and plugins — things no single plugin test can catch.
 
-### Macro Tests (`tests/macro/`)
+### Macro Tests (`tests/fixtures/tapes/`)
 
-**What they test:** End-to-end TUI flows against the real compiled binary. Tape DSL drives keystrokes and asserts on rendered output.
+Tape-driven TUI tests come in **three layers** with different runtime
+backends. The backend dictates what a tape can wait for and what a
+test can assert. Pick the right layer first; getting this wrong leads
+to tapes that pass against one backend and silently fail against
+another.
 
-**When to write:** After modifying `View()`, layout, navigation flow, or any visual behavior.
-
-```tape
-# Verify workspace list renders after activation
-wait ready
-key w
-wait view default
-assert view staging
-assert view production
+```
+tests/fixtures/tapes/
+├── compat/   CLI compatibility scenarios (flag normalization)
+├── macro/    MacroService recording (no terraform execution)
+└── smoke/    Real terraform via the built binary
 ```
 
-**Adding a macro test:**
+#### Layer comparison
 
-1. Create tape file in `tests/fixtures/tapes/`
-2. Add test case in `tests/integration/macro_test.go`
-3. Run with `mise run test:macro`
+| Layer | Backend | What tapes can wait for | What tests assert | Runner |
+|---|---|---|---|---|
+| `macro/` | `MacroService` records commands; never executes | Plugin-rendered text only — terraform output never appears | Recorded command stream via `wantStdout` substring | `TestMacro` in `tests/integration/macro_test.go` (runs in `mise run test:integration`) |
+| `smoke/` | Real terraform via the compiled binary | Real terraform output (`Apply complete`, `Initialized`, `Plan: N to add`) and plugin views | Tape's own `assert view` lines (no Go-level assertions) | `mise run test:macro` (requires a built binary in `dist/`) |
+| `compat/` | Real terraform plus flag-normalization checks | Real terraform output | Recorded command stream via `Contains` checks in dedicated `TestCompat_*` cases | `tests/integration/compat_test.go` (runs in `mise run test:integration`) |
 
-**Tape commands:**
+#### Decision
 
-| Command | Description |
-|---------|-------------|
-| `key <key>` | Send keypress |
-| `wait ready` | Wait for initialization complete |
-| `wait view <text>` | Wait for text to appear in current view |
-| `assert view <text>` | Fail if text not in current view |
-| `screenshot <path>` | Write current view to file |
-| `resize <w> <h>` | Change terminal dimensions |
-| `sleep <duration>` | Pause execution |
+```
+Need to test…                                  Use tapes in…
+────────────────────────────────────────────────────────────
+"key X records command Y"                      macro/
+"key X causes plugin Y to render Z"            macro/
+"the full backend pipeline renders correctly"  smoke/
+"flag X reaches terraform with shape Y"        compat/
+```
+
+If you're not sure: prefer `macro/`. It runs in CI on every PR,
+needs no compiled binary, and gives the strongest signal for
+key-press → command-recording behavior.
+
+#### Adding a `macro/` test (the common case)
+
+1. Author the tape file in `tests/fixtures/tapes/macro/<slug>.tape`.
+2. Add a case in `tests/integration/macro_test.go` whose `tapeFile`
+   points at the file. **Never inline the tape body in Go**; the
+   table struct has no `tape` field on purpose.
+3. Run `mise run test:integration`.
+
+#### Adding a `smoke/` test
+
+1. Author the tape in `tests/fixtures/tapes/smoke/<slug>.tape`.
+2. The smoke runner discovers it via glob — no Go test to write.
+3. Run `mise run build && mise run test:macro`.
+4. Use `assert view <text>` lines inside the tape itself for
+   pass/fail — there is no `wantStdout`-style assertion.
+
+#### Adding a `compat/` test
+
+1. Author the tape in `tests/fixtures/tapes/compat/<slug>.tape`.
+2. Add a `TestCompat_<Behavior>` function in
+   `tests/integration/compat_test.go` that loads the tape and
+   asserts on the recorded command stream.
+3. Run `mise run test:integration`.
+
+#### Tape DSL
+
+```tape
+wait ready                       # wait until plugin reports Ready()
+wait view <substring>            # wait until rendered view contains substring
+assert view <substring>          # fail-now if rendered view lacks substring
+key <key>                        # send a single keypress (e.g. p, enter, ctrl+t)
+sleep <duration>                 # pause (e.g. 100ms, 1s)
+resize <w> <h>                   # send a WindowSizeMsg
+screenshot <path>                # dump current view to a file
+```
+
+Full DSL reference: `docs/reference/macro-language.md`.
+
+#### Common authoring mistakes
+
+- **Waiting for terraform output in a `macro/` tape.** MacroService
+  never executes terraform; tapes must wait for plugin views only.
+- **Writing a screenshot to an absolute path in a Go-driven test.**
+  Use a relative filename and set `cwdFunc` on the test case so the
+  binary runs from `t.TempDir()`.
+- **Asserting `wantStdout: "terraform apply\n"` (trailing newline)
+  for the apply case.** Apply records `terraform apply <planfile>`;
+  use a substring like `"terraform apply "` instead.
 
 ### Integration Tests (`tests/integration/`)
 

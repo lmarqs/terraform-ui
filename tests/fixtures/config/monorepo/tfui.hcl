@@ -2,12 +2,8 @@ terraform {
   bin = "terraform"
 }
 
-chdir {
-  members = [
-    "modules/vpc",
-    "modules/ecs",
-  ]
-}
+member "modules/vpc" {}
+member "modules/ecs" {}
 
 cache {
   staleness_threshold = "5m"

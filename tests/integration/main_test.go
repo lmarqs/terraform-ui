@@ -62,9 +62,18 @@ func fixtureDir(name string) string {
 }
 
 func runTfui(args ...string) (string, string, error) {
+	return runTfuiIn("", args...)
+}
+
+// runTfuiIn runs the tfui binary with the given working directory.
+// An empty dir leaves cmd.Dir unset (process inherits the test process cwd).
+func runTfuiIn(dir string, args ...string) (string, string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, binaryPath, args...)
+	if dir != "" {
+		cmd.Dir = dir
+	}
 	out, err := cmd.Output()
 	var stderr []byte
 	if ee, ok := err.(*exec.ExitError); ok {

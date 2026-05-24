@@ -173,8 +173,8 @@ func (s *Session) loadTape() ([]macro.Command, error) {
 	if err != nil {
 		return nil, &macro.RunError{Code: macro.ExitSyntaxError, Message: err.Error()}
 	}
-	if len(commands) == 0 {
-		return nil, nil
+	if commands == nil {
+		commands = []macro.Command{}
 	}
 	return commands, nil
 }
