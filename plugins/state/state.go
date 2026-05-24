@@ -54,33 +54,33 @@ func (r resourceItem) Address() string { return r.resource.Address }
 
 // Plugin implements the state browser feature.
 type Plugin struct {
-	svc           sdk.Service
-	log           *slog.Logger
-	stack         *sdk.Stack
-	getCtx        func() *sdk.Context
-	pinFn         func(string) tea.Cmd
-	clearPinsFn   func() tea.Cmd
-	fuzzy         *ui.FuzzyFilter[sdk.Resource]
-	timer         ui.Timer
-	status        sdk.Status
-	resources     []sdk.Resource
-	filtered      []sdk.Resource
-	tree          *tree.Tree
-	treeMode      bool
-	filterScores  map[string]int
-	filter        string
-	filtering     bool
-	mutating      bool
-	errMsg        string
-	lockInfo      *sdk.StateLock
-	viewWidth     int
-	listPanel     *ui.ContentPanel
-	pinnedOnly    bool
-	detail        string
-	detailAddr    string
-	detailScroll  int
-	detailPanel   *ui.ContentPanel
-	cancelFn      context.CancelFunc
+	svc          sdk.Service
+	log          *slog.Logger
+	stack        *sdk.Stack
+	getCtx       func() *sdk.Context
+	pinFn        func(string) tea.Cmd
+	clearPinsFn  func() tea.Cmd
+	fuzzy        *ui.FuzzyFilter[sdk.Resource]
+	timer        ui.Timer
+	status       sdk.Status
+	resources    []sdk.Resource
+	filtered     []sdk.Resource
+	tree         *tree.Tree
+	treeMode     bool
+	filterScores map[string]int
+	filter       string
+	filtering    bool
+	mutating     bool
+	errMsg       string
+	lockInfo     *sdk.StateLock
+	viewWidth    int
+	listPanel    *ui.ContentPanel
+	pinnedOnly   bool
+	detail       string
+	detailAddr   string
+	detailScroll int
+	detailPanel  *ui.ContentPanel
+	cancelFn     context.CancelFunc
 }
 
 // New creates a new state browser plugin.

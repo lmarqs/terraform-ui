@@ -4993,8 +4993,8 @@ func TestApp_RebuildContext_GivenRootCfgWithExecFields_ShouldPropagateAllSix(t *
 	if ctx.Parallelism != 5 {
 		t.Errorf("Parallelism = %d, want 5", ctx.Parallelism)
 	}
-	if ctx.Lock == nil || *ctx.Lock != true {
-		t.Errorf("Lock = %v, want true", ctx.Lock)
+	if ctx.Lock != sdk.LockEnabled {
+		t.Errorf("Lock = %v, want LockEnabled", ctx.Lock)
 	}
 	if ctx.LockTimeout != "30s" {
 		t.Errorf("LockTimeout = %q, want 30s", ctx.LockTimeout)

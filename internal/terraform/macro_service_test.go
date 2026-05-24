@@ -344,13 +344,12 @@ func TestMacroService_PlanFlagsRecorded(t *testing.T) {
 	svc := NewMacroService("terraform", nil)
 	ctx := context.Background()
 
-	lockFalse := false
 	opts := sdk.PlanOptions{
 		Targets:     []string{"aws_instance.web"},
 		VarFiles:    []string{"prod.tfvars"},
 		Destroy:     true,
 		Parallelism: 5,
-		Lock:        &lockFalse,
+		Lock:        sdk.LockDisabled,
 	}
 	svc.Plan(ctx, opts)
 

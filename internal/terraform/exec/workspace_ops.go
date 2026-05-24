@@ -80,11 +80,15 @@ func (s *ExecService) WorkspaceNew(ctx context.Context, name string, opts sdk.Wo
 	}
 
 	var tfOpts []tfexec.WorkspaceNewCmdOption
-	if opts.Lock != nil {
-		tfOpts = append(tfOpts, tfexec.Lock(*opts.Lock))
+	switch opts.Lock {
+	case sdk.LockEnabled:
+		tfOpts = append(tfOpts, tfexec.Lock(true))
+	case sdk.LockDisabled:
+		tfOpts = append(tfOpts, tfexec.Lock(false))
+	case sdk.LockDefault:
 	}
 	if opts.LockTimeout != "" {
-		tfOpts = append(tfOpts, tfexec.LockTimeout(opts.LockTimeout))
+		tfOpts = append(tfOpts, tfexec.LockTimeout(string(opts.LockTimeout)))
 	}
 
 	if err := tf.WorkspaceNew(ctx, name, tfOpts...); err != nil {
@@ -106,11 +110,15 @@ func (s *ExecService) WorkspaceDelete(ctx context.Context, name string, opts sdk
 	if opts.Force {
 		tfOpts = append(tfOpts, tfexec.Force(true))
 	}
-	if opts.Lock != nil {
-		tfOpts = append(tfOpts, tfexec.Lock(*opts.Lock))
+	switch opts.Lock {
+	case sdk.LockEnabled:
+		tfOpts = append(tfOpts, tfexec.Lock(true))
+	case sdk.LockDisabled:
+		tfOpts = append(tfOpts, tfexec.Lock(false))
+	case sdk.LockDefault:
 	}
 	if opts.LockTimeout != "" {
-		tfOpts = append(tfOpts, tfexec.LockTimeout(opts.LockTimeout))
+		tfOpts = append(tfOpts, tfexec.LockTimeout(string(opts.LockTimeout)))
 	}
 
 	if err := tf.WorkspaceDelete(ctx, name, tfOpts...); err != nil {

@@ -169,9 +169,9 @@ func TestPlanOptions_WhenDestroyFalse_ShouldNotEmitDestroyFlag(t *testing.T) {
 	}
 }
 
-func TestPlanOptions_WhenRefreshOnlyTrue_ShouldEmitRefreshOnlyFlag(t *testing.T) {
+func TestPlanOptions_WhenRefreshOnly_ShouldEmitRefreshOnlyFlag(t *testing.T) {
 	svc := newRecorder()
-	opts := sdk.PlanOptions{RefreshOnly: true}
+	opts := sdk.PlanOptions{Refresh: sdk.RefreshOnly}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
@@ -182,10 +182,9 @@ func TestPlanOptions_WhenRefreshOnlyTrue_ShouldEmitRefreshOnlyFlag(t *testing.T)
 	}
 }
 
-func TestPlanOptions_WhenRefreshSetToFalse_ShouldEmitRefreshFalseFlag(t *testing.T) {
+func TestPlanOptions_WhenRefreshDisabled_ShouldEmitRefreshFalseFlag(t *testing.T) {
 	svc := newRecorder()
-	refreshFalse := false
-	opts := sdk.PlanOptions{Refresh: &refreshFalse}
+	opts := sdk.PlanOptions{Refresh: sdk.RefreshDisabled}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
@@ -196,9 +195,9 @@ func TestPlanOptions_WhenRefreshSetToFalse_ShouldEmitRefreshFalseFlag(t *testing
 	}
 }
 
-func TestPlanOptions_WhenRefreshNil_ShouldNotEmitRefreshFlag(t *testing.T) {
+func TestPlanOptions_WhenRefreshDefault_ShouldNotEmitRefreshFlag(t *testing.T) {
 	svc := newRecorder()
-	opts := sdk.PlanOptions{Refresh: nil}
+	opts := sdk.PlanOptions{Refresh: sdk.RefreshDefault}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
@@ -209,17 +208,16 @@ func TestPlanOptions_WhenRefreshNil_ShouldNotEmitRefreshFlag(t *testing.T) {
 	}
 }
 
-func TestPlanOptions_WhenRefreshSetToTrue_ShouldNotEmitRefreshFlag(t *testing.T) {
+func TestPlanOptions_WhenRefreshEnabled_ShouldEmitRefreshTrueFlag(t *testing.T) {
 	svc := newRecorder()
-	refreshTrue := true
-	opts := sdk.PlanOptions{Refresh: &refreshTrue}
+	opts := sdk.PlanOptions{Refresh: sdk.RefreshEnabled}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
-	if strings.Contains(cmds[0].String(), "-refresh") {
-		t.Errorf("refresh=true is the default, should not emit flag; got %q", cmds[0].String())
+	if cmds[0].String() != "terraform plan -refresh=true" {
+		t.Errorf("got %q, want %q", cmds[0].String(), "terraform plan -refresh=true")
 	}
 }
 
@@ -249,10 +247,9 @@ func TestPlanOptions_WhenParallelismZero_ShouldNotEmitParallelismFlag(t *testing
 	}
 }
 
-func TestPlanOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
+func TestPlanOptions_WhenLockDisabled_ShouldEmitLockFalseFlag(t *testing.T) {
 	svc := newRecorder()
-	lockFalse := false
-	opts := sdk.PlanOptions{Lock: &lockFalse}
+	opts := sdk.PlanOptions{Lock: sdk.LockDisabled}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
@@ -263,16 +260,16 @@ func TestPlanOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
 	}
 }
 
-func TestPlanOptions_WhenLockNil_ShouldNotEmitLockFlag(t *testing.T) {
+func TestPlanOptions_WhenLockDefault_ShouldNotEmitLockFlag(t *testing.T) {
 	svc := newRecorder()
-	opts := sdk.PlanOptions{Lock: nil}
+	opts := sdk.PlanOptions{Lock: sdk.LockDefault}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
 	if strings.Contains(cmds[0].String(), "-lock") {
-		t.Errorf("should not contain -lock for nil, got %q", cmds[0].String())
+		t.Errorf("should not contain -lock for default, got %q", cmds[0].String())
 	}
 }
 
@@ -317,7 +314,6 @@ func TestPlanOptions_WhenExtraArgsProvided_ShouldAppendRaw(t *testing.T) {
 
 func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) {
 	svc := newRecorder()
-	lockFalse := false
 	opts := sdk.PlanOptions{
 		Targets:     []string{"aws_instance.web"},
 		VarFiles:    []string{"prod.tfvars"},
@@ -325,7 +321,7 @@ func TestPlanOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) 
 		Replace:     []string{"aws_instance.old"},
 		Destroy:     true,
 		Parallelism: 2,
-		Lock:        &lockFalse,
+		Lock:        sdk.LockDisabled,
 		LockTimeout: "10s",
 		ExtraArgs:   []string{"-no-color"},
 	}
@@ -425,10 +421,9 @@ func TestApplyOptions_WhenParallelismSet_ShouldEmitParallelismFlag(t *testing.T)
 	}
 }
 
-func TestApplyOptions_WhenLockFalse_ShouldEmitLockFalseFlag(t *testing.T) {
+func TestApplyOptions_WhenLockDisabled_ShouldEmitLockFalseFlag(t *testing.T) {
 	svc := newRecorder()
-	lockFalse := false
-	opts := sdk.ApplyOptions{Lock: &lockFalse}
+	opts := sdk.ApplyOptions{Lock: sdk.LockDisabled}
 	_ = svc.Apply(context.Background(), opts)
 	cmds := svc.Commands()
 	if len(cmds) != 1 {
@@ -498,13 +493,12 @@ func TestApplyOptions_WhenAutoApprove_ShouldEmitFlag(t *testing.T) {
 
 func TestApplyOptions_WhenAllFieldsCombined_ShouldEmitCorrectOrder(t *testing.T) {
 	svc := newRecorder()
-	lockFalse := false
 	opts := sdk.ApplyOptions{
 		PlanFile:    "/tmp/foo.tfplan",
 		VarFiles:    []string{"prod.tfvars"},
 		Vars:        map[string]string{"env": "prod"},
 		Parallelism: 3,
-		Lock:        &lockFalse,
+		Lock:        sdk.LockDisabled,
 		LockTimeout: "5s",
 		ExtraArgs:   []string{"-no-color"},
 	}

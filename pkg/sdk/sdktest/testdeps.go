@@ -18,10 +18,10 @@ import (
 // requests onto Ctx — that is the App's job. Tests that need the next
 // snapshot to reflect a pin should mutate Ctx.Pins explicitly.
 type PluginDepsHarness struct {
-	Ctx             *sdk.Context
-	Deps            *sdk.PluginDeps
-	PinRequests     []string
-	ClearPinsCount  int
+	Ctx            *sdk.Context
+	Deps           *sdk.PluginDeps
+	PinRequests    []string
+	ClearPinsCount int
 }
 
 // NewDeps returns a harness whose Context is seeded from the supplied

@@ -29,18 +29,18 @@ type ReplResultMsg struct {
 
 // Plugin implements the terraform console REPL feature.
 type Plugin struct {
-	svc           sdk.Service
-	log           *slog.Logger
-	status        sdk.Status
-	history       []replEntry
-	input         string
-	historyIdx    int // -1 means current input, 0+ means recalling from history
-	scrollY       int
-	dir           string
-	binaryPath    string
-	errMsg        string
-	pastInputs    []string // previous expressions for up/down recall
-	savedInput    string   // saved current input when browsing history
+	svc        sdk.Service
+	log        *slog.Logger
+	status     sdk.Status
+	history    []replEntry
+	input      string
+	historyIdx int // -1 means current input, 0+ means recalling from history
+	scrollY    int
+	dir        string
+	binaryPath string
+	errMsg     string
+	pastInputs []string // previous expressions for up/down recall
+	savedInput string   // saved current input when browsing history
 }
 
 // New creates a new REPL plugin.

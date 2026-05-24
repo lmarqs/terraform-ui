@@ -70,7 +70,7 @@ func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			p := New(nil).(*Plugin)
 			h := sdktest.NewDeps(nil)
-			h.Ctx.Workspace = tt.workspace
+			h.Ctx.Workspace = sdk.NewWorkspace(tt.workspace)
 			if tt.nilLogger {
 				h.Deps.Logger = nil
 			}
@@ -79,7 +79,7 @@ func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
 			if cmd != nil {
 				t.Error("Init() should return nil cmd")
 			}
-			if p.workspace != tt.workspace {
+			if p.workspace != sdk.NewWorkspace(tt.workspace) {
 				t.Errorf("workspace = %q, want %q", p.workspace, tt.workspace)
 			}
 			if p.log == nil {

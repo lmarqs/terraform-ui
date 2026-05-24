@@ -90,9 +90,9 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
-			opts := sdk.WorkspaceNewOptions{LockTimeout: newLockTimeout}
+			opts := sdk.WorkspaceNewOptions{LockTimeout: sdk.LockTimeout(newLockTimeout)}
 			if cmd.Flags().Changed("lock") {
-				opts.Lock = newLock
+				opts.Lock = sdk.LockModeFromPtr(newLock)
 			}
 			if err := svc.WorkspaceNew(context.Background(), args[0], opts); err != nil {
 				return fmt.Errorf("workspace new failed: %w", err)
@@ -115,10 +115,10 @@ func buildWorkspaceCommands(cfg *config.Config) *cobra.Command {
 			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
 			opts := sdk.WorkspaceDeleteOptions{
 				Force:       deleteForce,
-				LockTimeout: deleteLockTimeout,
+				LockTimeout: sdk.LockTimeout(deleteLockTimeout),
 			}
 			if cmd.Flags().Changed("lock") {
-				opts.Lock = deleteLock
+				opts.Lock = sdk.LockModeFromPtr(deleteLock)
 			}
 			if err := svc.WorkspaceDelete(context.Background(), args[0], opts); err != nil {
 				return fmt.Errorf("workspace delete failed: %w", err)

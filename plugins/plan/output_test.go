@@ -809,7 +809,6 @@ func TestPlugin_WhenRebuildTreeInTreeModeWithFilter_ShouldExpandAll(t *testing.T
 	}
 }
 
-
 func TestPlugin_WhenPruneStalePinsWithNoPins_ShouldDoNothing(t *testing.T) {
 	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	cmd := p.pruneStalePins([]sdk.PlanChange{

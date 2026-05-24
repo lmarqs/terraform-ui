@@ -21,19 +21,19 @@ type OutputResultMsg struct {
 
 // Plugin implements the terraform outputs viewer.
 type Plugin struct {
-	svc           sdk.Service
-	log           *slog.Logger
-	stack         *sdk.Stack
-	fuzzy         *ui.FuzzyFilter[sdk.OutputValue]
-	timer         ui.Timer
-	status        sdk.Status
-	outputs       []sdk.OutputValue
-	filtered      []sdk.OutputValue
-	filter        string
-	filtering     bool
-	errMsg        string
-	selected      int
-	cancelFn      context.CancelFunc
+	svc       sdk.Service
+	log       *slog.Logger
+	stack     *sdk.Stack
+	fuzzy     *ui.FuzzyFilter[sdk.OutputValue]
+	timer     ui.Timer
+	status    sdk.Status
+	outputs   []sdk.OutputValue
+	filtered  []sdk.OutputValue
+	filter    string
+	filtering bool
+	errMsg    string
+	selected  int
+	cancelFn  context.CancelFunc
 }
 
 // New creates a new output plugin.

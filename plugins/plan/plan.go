@@ -32,31 +32,31 @@ func (c changeItem) Address() string { return c.change.Resource.Address }
 
 // Plugin implements the plan review feature.
 type Plugin struct {
-	svc           sdk.Service
-	log           *slog.Logger
-	getCtx        func() *sdk.Context
-	pinFn         func(string) tea.Cmd
-	clearPinsFn   func() tea.Cmd
-	stack         *sdk.Stack
-	fuzzy         *ui.FuzzyFilter[sdk.PlanChange]
-	timer         ui.Timer
-	status        sdk.Status
-	summary       *sdk.PlanSummary
-	filtered      []sdk.PlanChange
-	tree          *tree.Tree
-	treeMode      bool
-	filterScores  map[string]int
-	filter        string
-	filtering     bool
-	errMsg        string
-	lockInfo *sdk.StateLock
-	stale    bool
-	listPanel     *ui.ContentPanel
-	pinnedOnly    bool
-	cancelFn      context.CancelFunc
-	lastStream    *frames.StreamFrame // retained for L key re-display after success
-	streamCh      <-chan string       // stored so callers can batch WaitForLine separately
-	planFile       string              // path to the plan artifact produced by the most recent run
+	svc          sdk.Service
+	log          *slog.Logger
+	getCtx       func() *sdk.Context
+	pinFn        func(string) tea.Cmd
+	clearPinsFn  func() tea.Cmd
+	stack        *sdk.Stack
+	fuzzy        *ui.FuzzyFilter[sdk.PlanChange]
+	timer        ui.Timer
+	status       sdk.Status
+	summary      *sdk.PlanSummary
+	filtered     []sdk.PlanChange
+	tree         *tree.Tree
+	treeMode     bool
+	filterScores map[string]int
+	filter       string
+	filtering    bool
+	errMsg       string
+	lockInfo     *sdk.StateLock
+	stale        bool
+	listPanel    *ui.ContentPanel
+	pinnedOnly   bool
+	cancelFn     context.CancelFunc
+	lastStream   *frames.StreamFrame // retained for L key re-display after success
+	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
+	planFile     string              // path to the plan artifact produced by the most recent run
 	// detail view state
 	detail       string
 	detailAddr   string
@@ -93,8 +93,8 @@ func (e *Plugin) Name() string        { return "Plan" }
 func (e *Plugin) Description() string { return "Review terraform plan changes" }
 func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
-func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
+func (e *Plugin) Busy() bool          { return e.status == sdk.StatusLoading }
+func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
 }

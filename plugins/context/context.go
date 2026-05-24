@@ -15,7 +15,7 @@ type Plugin struct {
 	log        *slog.Logger
 	stack      *sdk.Stack
 	chdir      string
-	workspace  string
+	workspace  sdk.Workspace
 	members    []string
 }
 
@@ -122,10 +122,10 @@ func (p *Plugin) chdirValue() string {
 }
 
 func (p *Plugin) workspaceValue() string {
-	if p.workspace != "" {
-		return p.workspace
+	if p.workspace.IsZero() {
+		return sdk.WorkspaceDefault.String()
 	}
-	return "default"
+	return p.workspace.String()
 }
 
 func (p *Plugin) openChdirPicker() tea.Cmd {

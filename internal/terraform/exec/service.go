@@ -121,20 +121,27 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 	if opts.Destroy {
 		planOpts = append(planOpts, tfexec.Destroy(true))
 	}
-	if opts.RefreshOnly {
+	switch opts.Refresh {
+	case sdk.RefreshOnly:
 		planOpts = append(planOpts, tfexec.RefreshOnly(true))
-	}
-	if opts.Refresh != nil {
-		planOpts = append(planOpts, tfexec.Refresh(*opts.Refresh))
+	case sdk.RefreshEnabled:
+		planOpts = append(planOpts, tfexec.Refresh(true))
+	case sdk.RefreshDisabled:
+		planOpts = append(planOpts, tfexec.Refresh(false))
+	case sdk.RefreshDefault:
 	}
 	if opts.Parallelism > 0 {
 		planOpts = append(planOpts, tfexec.Parallelism(opts.Parallelism))
 	}
-	if opts.Lock != nil {
-		planOpts = append(planOpts, tfexec.Lock(*opts.Lock))
+	switch opts.Lock {
+	case sdk.LockEnabled:
+		planOpts = append(planOpts, tfexec.Lock(true))
+	case sdk.LockDisabled:
+		planOpts = append(planOpts, tfexec.Lock(false))
+	case sdk.LockDefault:
 	}
 	if opts.LockTimeout != "" {
-		planOpts = append(planOpts, tfexec.LockTimeout(opts.LockTimeout))
+		planOpts = append(planOpts, tfexec.LockTimeout(string(opts.LockTimeout)))
 	}
 
 	_, err = tf.Plan(ctx, planOpts...)
@@ -228,7 +235,7 @@ func (s *ExecService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
 	if validateOutput != nil {
 		for _, d := range validateOutput.Diagnostics {
 			diag := sdk.Diagnostic{
-				Severity: string(d.Severity),
+				Severity: sdk.DiagnosticSeverity(d.Severity),
 				Summary:  d.Summary,
 				Detail:   d.Detail,
 			}

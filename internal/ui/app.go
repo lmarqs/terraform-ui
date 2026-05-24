@@ -65,8 +65,8 @@ type App struct {
 	activePlugin    sdk.Plugin   // nil = home screen
 	navStack        []sdk.Plugin // LIFO stack of return destinations; empty = no history
 	activeOverlay   sdk.Overlay
-	activeChdir     string // tracks last known active chdir for header updates
-	activeWorkspace string // tracks current workspace for config re-resolution
+	activeChdir     string        // tracks last known active chdir for header updates
+	activeWorkspace sdk.Workspace // tracks current workspace for config re-resolution
 	lockInfo        *sdk.StateLock
 	staleState      bool
 	commandMode     bool
@@ -83,7 +83,7 @@ type App struct {
 func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootCfg *config.RootConfig, standalone ...*StandaloneConfig) App {
 	workDir := cfg.WorkingDir()
 	sourceIndex, _ := terraform.NewSourceIndex(workDir)
-	header := components.NewHeader(workDir, "default")
+	header := components.NewHeader(workDir, sdk.WorkspaceDefault.String())
 	if cfg.Chdir != "" {
 		header = header.WithChdir(cfg.Chdir)
 	} else if cfg.BaseDir != "" {
@@ -144,7 +144,7 @@ func (a App) Init() tea.Cmd {
 	}
 	a.holder.current = &sdk.Context{
 		WorkingDir: bootDir,
-		Workspace:  "default",
+		Workspace:  sdk.WorkspaceDefault,
 		Service:    bootSvc,
 		Pins:       a.cfg.Targets,
 		ExtraArgs:  a.cfg.ExtraArgs,
@@ -178,7 +178,7 @@ func (a App) Init() tea.Cmd {
 // --- Messages ---
 
 type workspaceLoadedMsg struct {
-	workspace string
+	workspace sdk.Workspace
 }
 
 type openContextOnStartupMsg struct{}
@@ -188,9 +188,9 @@ type openContextOnStartupMsg struct{}
 func (a App) loadWorkspace() tea.Msg {
 	ws, err := a.svc.Workspace(context.Background())
 	if err != nil {
-		return workspaceLoadedMsg{workspace: "default"}
+		return workspaceLoadedMsg{workspace: sdk.WorkspaceDefault}
 	}
-	return workspaceLoadedMsg{workspace: ws}
+	return workspaceLoadedMsg{workspace: sdk.NewWorkspace(ws)}
 }
 
 // --- Update ---
@@ -199,7 +199,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case workspaceLoadedMsg:
 		a.activeWorkspace = msg.workspace
-		a.header = a.header.WithWorkspace(msg.workspace)
+		a.header = a.header.WithWorkspace(msg.workspace.String())
 		return a, nil
 
 	case openContextOnStartupMsg:
@@ -226,7 +226,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.cfg.Chdir != "" || a.cfg.PreloadedData {
 			if a.cfg.Chdir != "" {
 				return a, func() tea.Msg {
-					return sdk.ContextSwitchRequestMsg{Chdir: a.cfg.Chdir, Workspace: "default"}
+					return sdk.ContextSwitchRequestMsg{Chdir: a.cfg.Chdir, Workspace: sdk.WorkspaceDefault}
 				}
 			}
 			if a.cfg.BaseDir != "" {
@@ -290,7 +290,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.childCfg = childCfg
 		}
-		a.header = a.header.WithChdir(chdir).WithWorkspace(workspace).WithLockInfo(nil).WithStale(false)
+		a.header = a.header.WithChdir(chdir).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
 		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace))
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
@@ -797,7 +797,7 @@ func (a *App) navigateBack() {
 // lock-timeout, extra-args) from config.Resolve — NOT just var-files/vars.
 // Pinned targets are preserved across rebuilds within the same chdir; on
 // chdir change callers should pass nil targets to clear them.
-func (a *App) rebuildContext(chdir, absChdir, workspace string) *sdk.Context {
+func (a *App) rebuildContext(chdir, absChdir string, workspace sdk.Workspace) *sdk.Context {
 	scopedSvc := a.svc
 	if absChdir != "" {
 		scopedSvc = a.svc.WithDir(absChdir)
@@ -810,12 +810,12 @@ func (a *App) rebuildContext(chdir, absChdir, workspace string) *sdk.Context {
 		ExtraArgs:  a.cfg.ExtraArgs,
 	}
 	if a.rootCfg != nil {
-		resolved := config.Resolve(a.rootCfg, a.childCfg, workspace)
+		resolved := config.Resolve(a.rootCfg, a.childCfg, workspace.String())
 		next.VarFiles = resolved.VarFiles()
 		next.Vars = resolved.Vars()
 		next.Parallelism = resolved.Parallelism()
-		next.Lock = resolved.Lock()
-		next.LockTimeout = resolved.LockTimeout()
+		next.Lock = sdk.LockModeFromPtr(resolved.Lock())
+		next.LockTimeout = sdk.LockTimeout(resolved.LockTimeout())
 	}
 	logging.Logger().Debug("context.rebuilt",
 		"chdir", chdir,
@@ -849,7 +849,6 @@ func (a *App) replaceContext(next *sdk.Context) tea.Cmd {
 	}
 }
 
-
 func contextChdir(c *sdk.Context) string {
 	if c == nil {
 		return ""
@@ -861,7 +860,7 @@ func contextWorkspace(c *sdk.Context) string {
 	if c == nil {
 		return ""
 	}
-	return c.Workspace
+	return c.Workspace.String()
 }
 
 func contextTargetCount(c *sdk.Context) int {
@@ -1143,8 +1142,8 @@ func (a App) viewStandalone() string {
 	if a.activeChdir != "" {
 		leftParts = append(leftParts, valueStyle.Render(a.activeChdir))
 	}
-	if a.activeWorkspace != "" {
-		leftParts = append(leftParts, valueStyle.Render(a.activeWorkspace))
+	if !a.activeWorkspace.IsZero() {
+		leftParts = append(leftParts, valueStyle.Render(a.activeWorkspace.String()))
 	}
 	if a.lockInfo != nil {
 		leftParts = append(leftParts, sdk.StyleError.Render("[locked]"))

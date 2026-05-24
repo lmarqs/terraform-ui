@@ -37,17 +37,17 @@ type WorkspaceCreateMsg struct {
 
 // Plugin implements the workspace management feature.
 type Plugin struct {
-	svc           sdk.Service
-	getCtx        func() *sdk.Context
-	stack         *sdk.Stack
-	timer         ui.Timer
-	status        sdk.Status
-	workspaces    []string
-	current       string
-	selected      int
-	errMsg        string
-	loadingMsg    string
-	cancelFn      context.CancelFunc
+	svc        sdk.Service
+	getCtx     func() *sdk.Context
+	stack      *sdk.Stack
+	timer      ui.Timer
+	status     sdk.Status
+	workspaces []string
+	current    string
+	selected   int
+	errMsg     string
+	loadingMsg string
+	cancelFn   context.CancelFunc
 }
 
 // New creates a new workspaces plugin.
@@ -188,11 +188,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.PopBack {
 			e.status = sdk.StatusIdle
 			return e, func() tea.Msg {
-				return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: msg.Name}
+				return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
 			}
 		}
 		return e, tea.Batch(e.Refresh(), func() tea.Msg {
-			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: msg.Name}
+			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
 		})
 
 	case WorkspaceCreateMsg:
@@ -204,7 +204,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		e.current = msg.Name
 		return e, tea.Batch(e.Refresh(), func() tea.Msg {
-			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: msg.Name}
+			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
 		})
 
 	case WorkspaceDeleteMsg:
@@ -343,7 +343,7 @@ func (e *Plugin) workspaceActions() []ui.ActionChip {
 		{Key: "n", Label: "new"},
 	}
 	ws := e.SelectedWorkspace()
-	if ws != "" && ws != e.current && ws != "default" {
+	if ws != "" && ws != e.current && ws != string(sdk.WorkspaceDefault) {
 		chips = append(chips, ui.ActionChip{Key: "d", Label: "delete"})
 	}
 	return chips
@@ -416,7 +416,7 @@ func (e *Plugin) renderWorkspaceRow(ws string, idx int) string {
 	row := fmt.Sprintf("%s%s", indicator, name)
 
 	// Show badge for default workspace
-	if ws == "default" {
+	if ws == string(sdk.WorkspaceDefault) {
 		row += " " + sdk.StyleFaint.Render("(default)")
 	}
 

@@ -81,7 +81,7 @@ func (p *Plugin) selectMember() tea.Cmd {
 
 	p.selected = true
 	return func() tea.Msg {
-		return sdk.ContextSwitchRequestMsg{Chdir: member, Workspace: "default"}
+		return sdk.ContextSwitchRequestMsg{Chdir: member, Workspace: sdk.WorkspaceDefault}
 	}
 }
 

@@ -266,20 +266,27 @@ func buildPlanFlags(opts sdk.PlanOptions) []string {
 	if opts.Destroy {
 		flags = append(flags, "-destroy")
 	}
-	if opts.RefreshOnly {
+	switch opts.Refresh {
+	case sdk.RefreshOnly:
 		flags = append(flags, "-refresh-only")
-	}
-	if opts.Refresh != nil && !*opts.Refresh {
+	case sdk.RefreshDisabled:
 		flags = append(flags, "-refresh=false")
+	case sdk.RefreshEnabled:
+		flags = append(flags, "-refresh=true")
+	case sdk.RefreshDefault:
 	}
 	if opts.Parallelism > 0 {
 		flags = append(flags, fmt.Sprintf("-parallelism=%d", opts.Parallelism))
 	}
-	if opts.Lock != nil && !*opts.Lock {
+	switch opts.Lock {
+	case sdk.LockDisabled:
 		flags = append(flags, "-lock=false")
+	case sdk.LockEnabled:
+		flags = append(flags, "-lock=true")
+	case sdk.LockDefault:
 	}
 	if opts.LockTimeout != "" {
-		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
+		flags = append(flags, "-lock-timeout="+string(opts.LockTimeout))
 	}
 	flags = append(flags, opts.ExtraArgs...)
 	return flags
@@ -305,11 +312,15 @@ func buildApplyFlags(opts sdk.ApplyOptions) []string {
 	if opts.Parallelism > 0 {
 		flags = append(flags, fmt.Sprintf("-parallelism=%d", opts.Parallelism))
 	}
-	if opts.Lock != nil && !*opts.Lock {
+	switch opts.Lock {
+	case sdk.LockDisabled:
 		flags = append(flags, "-lock=false")
+	case sdk.LockEnabled:
+		flags = append(flags, "-lock=true")
+	case sdk.LockDefault:
 	}
 	if opts.LockTimeout != "" {
-		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
+		flags = append(flags, "-lock-timeout="+string(opts.LockTimeout))
 	}
 	flags = append(flags, opts.ExtraArgs...)
 	return flags

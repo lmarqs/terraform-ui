@@ -20,15 +20,15 @@ type ValidateResultMsg struct {
 
 // Plugin implements the terraform validate feature.
 type Plugin struct {
-	svc           sdk.Service
-	log           *slog.Logger
-	expander      *ui.ExpandSet
-	timer         ui.Timer
-	status        sdk.Status
-	diagnostics   []sdk.Diagnostic
-	errMsg        string
-	selected      int
-	cancelFn      context.CancelFunc
+	svc         sdk.Service
+	log         *slog.Logger
+	expander    *ui.ExpandSet
+	timer       ui.Timer
+	status      sdk.Status
+	diagnostics []sdk.Diagnostic
+	errMsg      string
+	selected    int
+	cancelFn    context.CancelFunc
 }
 
 // New creates a new validate plugin.
@@ -292,7 +292,7 @@ func (p *Plugin) renderResults(width, height int) string {
 
 func (p *Plugin) renderDiagnosticRow(diag sdk.Diagnostic) string {
 	var icon string
-	if diag.Severity == "error" {
+	if diag.Severity.IsError() {
 		icon = sdk.StyleError.Render("✗")
 	} else {
 		icon = sdk.StyleUpdate.Render("⚠")
@@ -314,7 +314,7 @@ func (p *Plugin) renderSummaryLine() string {
 	errors := 0
 	warnings := 0
 	for _, d := range p.diagnostics {
-		if d.Severity == "error" {
+		if d.Severity.IsError() {
 			errors++
 		} else {
 			warnings++
@@ -337,7 +337,7 @@ func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
 	if jsonOutput {
 		errorCount, warningCount := 0, 0
 		for _, d := range p.diagnostics {
-			if d.Severity == "error" {
+			if d.Severity.IsError() {
 				errorCount++
 			} else {
 				warningCount++
@@ -363,7 +363,7 @@ func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
 		}
 		for _, d := range p.diagnostics {
 			out.Diagnostics = append(out.Diagnostics, diagJSON{
-				Severity: d.Severity,
+				Severity: string(d.Severity),
 				Summary:  d.Summary,
 				Detail:   d.Detail,
 				File:     d.File,
@@ -379,7 +379,7 @@ func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
 	var b strings.Builder
 	for _, d := range p.diagnostics {
 		icon := "✗"
-		if d.Severity == "warning" {
+		if d.Severity.IsWarning() {
 			icon = "⚠"
 		}
 		fmt.Fprintf(&b, "%s %s", icon, d.Summary)
@@ -401,7 +401,7 @@ func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
 // ExitCode returns 1 if validation has errors, 0 otherwise.
 func (p *Plugin) ExitCode() int {
 	for _, d := range p.diagnostics {
-		if d.Severity == "error" {
+		if d.Severity.IsError() {
 			return 1
 		}
 	}
@@ -414,7 +414,7 @@ func sortDiagnostics(diags []sdk.Diagnostic) []sdk.Diagnostic {
 	}
 	sorted := make([]sdk.Diagnostic, 0, len(diags))
 	for _, d := range diags {
-		if d.Severity == "error" {
+		if d.Severity.IsError() {
 			sorted = append(sorted, d)
 		}
 	}
