@@ -1,3 +1,19 @@
+# [1.10.0](https://github.com/lmarqs/terraform-ui/compare/v1.9.1...v1.10.0) (2026-05-24)
+
+
+### Bug Fixes
+
+* **apply:** wire AutoApprove through to macro output for CLI compat ([a0658cf](https://github.com/lmarqs/terraform-ui/commit/a0658cf4979b1dcfba11b6b81db4bc27e0d94a16))
+* remove plan file deletion from exec service Apply() ([4ece192](https://github.com/lmarqs/terraform-ui/commit/4ece192711c10ac6bc6fbaa2214eed5fbd832fa3))
+
+
+### Features
+
+* **sdk:** add BackendMode type replacing *bool on InitOptions ([72b0b14](https://github.com/lmarqs/terraform-ui/commit/72b0b1474fb02c26f6623852d1ec7ab6d84ae30c))
+* **sdk:** add Chdir type for relative member path ([ea8020d](https://github.com/lmarqs/terraform-ui/commit/ea8020da00e7062d9e2e1fa96a8f485e10da8c12))
+* **sdk:** add PlanFile type with lifecycle-aware cleanup ([be8fd9e](https://github.com/lmarqs/terraform-ui/commit/be8fd9e604989797d84a2fdefaed065a6b2a5882))
+* **sdk:** add rich domain types for Workspace, Address, LockMode, RefreshMode, DiagnosticSeverity ([6f3d4a7](https://github.com/lmarqs/terraform-ui/commit/6f3d4a7833d1ab0318fd0f55656948ce941d5b0c))
+
 ## [1.9.1](https://github.com/lmarqs/terraform-ui/compare/v1.9.0...v1.9.1) (2026-05-22)
 
 
