@@ -32,6 +32,11 @@ type StandaloneConfig struct {
 	PluginID string   // which plugin is the app
 	Args     []string // positional args (e.g., "mv", "src", "dst")
 	JSONMode bool     // user passed -json
+	// Activate, when set, replaces the default Activatable/ActivateWithArgs
+	// dispatch. cmd/tfui supplies a closure that calls the plugin's typed
+	// Activate(input) method — keeps the App ignorant of plugin-specific
+	// Input types.
+	Activate func(sdk.Plugin) tea.Cmd
 }
 
 // contextHolder is a heap-allocated indirection so that plugin closures
@@ -213,7 +218,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if p, ok := a.registry.ByID(a.standalone.PluginID); ok {
 				a.activePlugin = p
 				var cmd tea.Cmd
-				if activator, ok := p.(sdk.ActivateWithArgs); ok && len(a.standalone.Args) > 0 {
+				if a.standalone.Activate != nil {
+					cmd = a.standalone.Activate(p)
+				} else if activator, ok := p.(sdk.ActivateWithArgs); ok && len(a.standalone.Args) > 0 {
 					cmd = activator.ActivateWithArgs(a.standalone.Args)
 				} else if activatable, ok := p.(sdk.Activatable); ok {
 					cmd = activatable.Activate()

@@ -343,7 +343,7 @@ func TestPlugin_WhenExtraArgsDisplaySet_ShouldReturnValue(t *testing.T) {
 
 func TestPlugin_WhenOutput_ShouldReturnSuccessMessage(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output() error = %v", err)
 	}

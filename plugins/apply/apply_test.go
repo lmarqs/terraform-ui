@@ -762,81 +762,60 @@ func TestHandleContextChanged_WhenNextHasService_ShouldRebindService(t *testing.
 	}
 }
 
-func TestActivate_WhenIdle_ShouldReturnNilCmd(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() returned non-nil cmd, want nil")
-	}
-}
+func TestActivate_WhenAutoApprove_ShouldStartApplyImmediately(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
-func TestPlugin_WhenActivatedInIdleStatus_ShouldNotReset(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusIdle
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() in idle should return nil")
-	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle", p.status)
-	}
-}
-
-func TestPlugin_WhenActivatedInLoadingStatus_ShouldNotReset(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusLoading
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() in loading should return nil")
+	cmd := p.Activate(Input{AutoApprove: true})
+	if cmd == nil {
+		t.Fatal("Activate(AutoApprove:true) cmd = nil, want non-nil")
 	}
 	if p.status != sdk.StatusLoading {
 		t.Errorf("status = %v, want StatusLoading", p.status)
 	}
+	if !p.confirmed {
+		t.Error("confirmed = false, want true after AutoApprove")
+	}
 }
 
-func TestPlugin_WhenActivatedInConfirmingStatus_ShouldNotReset(t *testing.T) {
+func TestActivate_WhenNoAutoApprove_ShouldEnterConfirming(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusConfirming
-	cmd := p.Activate()
+
+	cmd := p.Activate(Input{})
 	if cmd != nil {
-		t.Error("Activate() in confirming should return nil")
+		t.Errorf("Activate(empty) cmd = %v, want nil", cmd)
 	}
 	if p.status != StatusConfirming {
-		t.Errorf("status = %v, want StatusConfirming (unchanged)", p.status)
+		t.Errorf("status = %v, want StatusConfirming", p.status)
 	}
 }
 
-func TestPlugin_WhenActivatedInDoneStatus_ShouldResetToIdle(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.errMsg = "stale error"
+func TestActivate_WhenTargetsProvided_ShouldPassThroughToApply(t *testing.T) {
+	var got sdk.ApplyOptions
+	svc := &sdktest.MockService{
+		ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+			got = opts
+			return nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() should return nil")
-	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
-	}
-	if p.errMsg != "" {
-		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
+	cmd := p.Activate(Input{AutoApprove: true, Targets: []string{"aws_instance.web"}})
+	collectApplyResult(t, cmd)
+
+	if len(got.Targets) != 1 || got.Targets[0] != "aws_instance.web" {
+		t.Errorf("ApplyOptions.Targets = %v, want [aws_instance.web]", got.Targets)
 	}
 }
 
-func TestPlugin_WhenActivatedInErrorStatus_ShouldResetToIdle(t *testing.T) {
+func TestActivate_WhenInputJSONSet_ShouldStoreOnPlugin(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusError
-	p.errMsg = "previous error"
 
-	cmd := p.Activate()
-	if cmd != nil {
-		t.Error("Activate() should return nil")
-	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("status = %v, want StatusIdle (reset)", p.status)
-	}
-	if p.errMsg != "" {
-		t.Errorf("errMsg = %q, want empty (cleared)", p.errMsg)
+	p.Activate(Input{JSON: true})
+	if !p.input.JSON {
+		t.Error("input.JSON = false, want true after Activate(Input{JSON: true})")
 	}
 }
 
@@ -947,58 +926,21 @@ func TestPlugin_WhenOtherKeyInDone_ShouldDoNothing(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenOutputJsonSuccess_ShouldReturnCompleteStatus(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-
-	data, err := p.Output(true)
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !strings.Contains(s, `"status": "complete"`) {
-		t.Errorf("Output(true) success missing 'complete', got: %s", s)
-	}
-}
-
-func TestPlugin_WhenOutputJsonError_ShouldReturnErrorStatus(t *testing.T) {
+func TestExitCode_WhenStatusError_ShouldReturn1(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusError
 
-	data, err := p.Output(true)
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !strings.Contains(s, `"status": "error"`) {
-		t.Errorf("Output(true) error missing 'error', got: %s", s)
+	if got := p.ExitCode(); got != 1 {
+		t.Errorf("ExitCode() = %d, want 1", got)
 	}
 }
 
-func TestPlugin_WhenOutputTextSuccess_ShouldReturnCompleteLine(t *testing.T) {
+func TestExitCode_WhenStatusDone_ShouldReturn0(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
-	data, err := p.Output(false)
-	if err != nil {
-		t.Fatalf("Output(false) error = %v", err)
-	}
-	if string(data) != "Apply complete.\n" {
-		t.Errorf("Output(false) = %q, want %q", string(data), "Apply complete.\n")
-	}
-}
-
-func TestPlugin_WhenOutputTextError_ShouldReturnErrorMessage(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusError
-	p.errMsg = "something broke"
-
-	data, err := p.Output(false)
-	if err != nil {
-		t.Fatalf("Output(false) error = %v", err)
-	}
-	if !strings.Contains(string(data), "something broke") {
-		t.Errorf("Output(false) missing error msg, got: %s", string(data))
+	if got := p.ExitCode(); got != 0 {
+		t.Errorf("ExitCode() = %d, want 0", got)
 	}
 }
 
@@ -1148,66 +1090,4 @@ func TestView_WhenStackHasFrame_ShouldDelegateToTopFrame(t *testing.T) {
 	lw.Close()
 	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
 	_ = p.View(80, 24)
-}
-
-func TestActivateWithArgs_WhenAutoApprove_ShouldCallAutoApply(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-	p.SetPlanFile("/tmp/x.tfplan")
-
-	cmd := p.ActivateWithArgs([]string{"--auto-approve"})
-	if cmd == nil {
-		t.Fatal("expected non-nil cmd from AutoApply")
-	}
-	if p.status != sdk.StatusLoading {
-		t.Errorf("expected StatusLoading, got %v", p.status)
-	}
-}
-
-func TestActivateWithArgs_WhenNoAutoApprove_ShouldCallRequestApply(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	cmd := p.ActivateWithArgs(nil)
-	if cmd != nil {
-		t.Fatal("expected nil cmd from RequestApply")
-	}
-	if p.status != StatusConfirming {
-		t.Errorf("expected StatusConfirming, got %v", p.status)
-	}
-}
-
-func TestActivateWithArgs_WhenTargets_ShouldStoreTargets(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-
-	p.ActivateWithArgs([]string{"--target=aws_instance.web", "--target=aws_s3_bucket.data"})
-	if len(p.targets) != 2 {
-		t.Fatalf("targets len = %d, want 2", len(p.targets))
-	}
-	if p.targets[0] != "aws_instance.web" {
-		t.Errorf("targets[0] = %q, want aws_instance.web", p.targets[0])
-	}
-	if p.targets[1] != "aws_s3_bucket.data" {
-		t.Errorf("targets[1] = %q, want aws_s3_bucket.data", p.targets[1])
-	}
-}
-
-func TestActivateWithArgs_WhenTargetsAndAutoApprove_ShouldAutoApplyWithTargets(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-
-	cmd := p.ActivateWithArgs([]string{"--target=aws_instance.web", "--auto-approve"})
-	if cmd == nil {
-		t.Fatal("expected non-nil cmd from AutoApply")
-	}
-	if p.status != sdk.StatusLoading {
-		t.Errorf("expected StatusLoading, got %v", p.status)
-	}
-	if len(p.targets) != 1 || p.targets[0] != "aws_instance.web" {
-		t.Errorf("targets = %v, want [aws_instance.web]", p.targets)
-	}
 }

@@ -104,13 +104,17 @@ func TestApply_CreateFixture_AgentMode(t *testing.T) {
 		t.Fatalf("plan failed: %v", err)
 	}
 
-	stdout, stderr, err := runTfui("apply", "-project", dir, "-json", "-auto-approve")
+	// Per ADR-0022 hexagonal contract: apply does not implement StdoutEmitter.
+	// The signal that apply succeeded is exit code 0 (carried by ExitCoder).
+	// `--json` is handed to the plugin via Input.JSON; apply ignores it today.
+	_, stderr, err := runTfui("apply", "-project", dir, "-json", "-auto-approve")
 	if err != nil {
 		t.Fatalf("apply -json failed: %v\nstderr: %s", err, stderr)
 	}
 
-	if !strings.Contains(stdout, "complete") {
-		t.Errorf("expected agent output to contain 'complete', got: %q", stdout)
+	resultPath := filepath.Join(dir, "out", "result.txt")
+	if _, err := os.Stat(resultPath); err != nil {
+		t.Errorf("expected %s to exist after apply (success signal is exit 0 + state mutation), got error: %v", resultPath, err)
 	}
 }
 

@@ -3802,6 +3802,39 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartupWithArgs_ShouldActivateWit
 	}
 }
 
+func TestApp_Update_WhenStandaloneActivateClosureSet_ShouldUseClosure(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	svc := &sdktest.MockService{}
+	registry := plugin.NewRegistry()
+
+	tracker := &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+		return tracker
+	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+	registry.Build(nil, nil)
+
+	called := 0
+	sc := &StandaloneConfig{
+		PluginID: "state",
+		Activate: func(p sdk.Plugin) tea.Cmd {
+			called++
+			return func() tea.Msg { return struct{}{} }
+		},
+	}
+	app := NewApp(cfg, svc, registry, nil, sc)
+
+	_, cmd := app.Update(openContextOnStartupMsg{})
+	if called != 1 {
+		t.Errorf("Activate closure called %d times, want 1", called)
+	}
+	if cmd == nil {
+		t.Error("standalone with Activate closure should return its cmd")
+	}
+}
+
 func TestApp_Update_WhenStandaloneOpenContextOnStartupUnknownPlugin_ShouldReturnNil(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",

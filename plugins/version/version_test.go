@@ -257,7 +257,9 @@ func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing
 	p.version = "1.0.0"
 	p.info = nil
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -286,7 +288,9 @@ func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
 		},
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -307,7 +311,7 @@ func TestPlugin_WhenOutputText_ShouldReturnTfuiLineOnly(t *testing.T) {
 	p.version = "1.0.0"
 	p.info = nil
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -331,7 +335,7 @@ func TestPlugin_WhenOutputText_ShouldReturnFullTextWithProviders(t *testing.T) {
 		},
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -365,12 +369,13 @@ func TestPlugin_WhenOutputWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			data, err := p.Output(tt.jsonOutput)
+			p.SetJSONOutput(tt.jsonOutput)
+			data, err := p.Stdout()
 			if err != nil {
-				t.Fatalf("Output(%v) error = %v", tt.jsonOutput, err)
+				t.Fatalf("Stdout(%v) error = %v", tt.jsonOutput, err)
 			}
 			if !contains(string(data), tt.want) {
-				t.Errorf("Output(%v) = %s, want to contain %q", tt.jsonOutput, string(data), tt.want)
+				t.Errorf("Stdout(%v) = %s, want to contain %q", tt.jsonOutput, string(data), tt.want)
 			}
 		})
 	}
@@ -394,7 +399,7 @@ func TestOutput_WhenTextWithNilInfo_ShouldShowOnlyTfuiVersion(t *testing.T) {
 	p.version = "1.2.3"
 	p.info = nil
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -412,7 +417,9 @@ func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
 	p.version = "1.2.3"
 	p.info = nil
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -430,7 +437,9 @@ func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *te
 	p.version = "1.2.3"
 	p.info = &sdk.VersionInfo{TerraformVersion: ""}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -439,9 +448,10 @@ func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *te
 		t.Errorf("should not include terraform_version when it's empty, got %q", s)
 	}
 
-	data, err = p.Output(false)
+	p.SetJSONOutput(false)
+	data, err = p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(false) error = %v", err)
+		t.Fatalf("Stdout(false) error = %v", err)
 	}
 	s = string(data)
 	if contains(s, "terraform v") {

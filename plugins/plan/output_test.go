@@ -15,7 +15,9 @@ func TestPlugin_WhenOutputJsonWithNilSummary_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = nil
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -35,7 +37,9 @@ func TestPlugin_WhenOutputJsonWithChanges_ShouldReturnValidJSON(t *testing.T) {
 		ToDelete: 1,
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -66,7 +70,7 @@ func TestPlugin_WhenOutputTextWithChanges_ShouldReturnPlainText(t *testing.T) {
 		ToUpdate: 1,
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -99,7 +103,7 @@ func TestPlugin_WhenOutputTextWithNoAction_ShouldUseSpaceSymbol(t *testing.T) {
 		},
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -1366,7 +1370,7 @@ func TestPlugin_WhenOutputTextWithPhantom_ShouldIncludeInList(t *testing.T) {
 		ToUpdate: 1,
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -1385,7 +1389,9 @@ func TestPlugin_WhenOutputJsonWithPhantom_ShouldSetPhantomFlag(t *testing.T) {
 		ToUpdate: 1,
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -1404,7 +1410,7 @@ func TestPlugin_WhenOutputTextWithRisk_ShouldIncludeRiskLine(t *testing.T) {
 		ToDelete: 1,
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -1423,7 +1429,7 @@ func TestPlugin_WhenOutputTextWithNoRisk_ShouldOmitRiskLine(t *testing.T) {
 		ToCreate: 1,
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -2211,7 +2217,9 @@ func TestPlugin_WhenOutputJsonWithCreateThenDelete_ShouldSetCorrectAction(t *tes
 		ToReplace: 1,
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -2380,7 +2388,7 @@ func TestPlugin_WhenOutputTextWithCreateThenDelete_ShouldUseCorrectSymbol(t *tes
 		ToReplace: 1,
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -2481,7 +2489,9 @@ func TestPlugin_WhenOutputJsonWithEmptyChanges_ShouldReturnEmptyArray(t *testing
 		Changes: []sdk.PlanChange{},
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -2793,7 +2803,9 @@ func TestPlugin_WhenOutputJsonWithNoRisk_ShouldIncludeNoneRisk(t *testing.T) {
 		ToCreate: 1,
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}

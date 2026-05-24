@@ -262,7 +262,13 @@ func checkbox(v bool) string {
 	return "[ ]"
 }
 
-// Output produces stdout content for standalone/CI mode.
-func (p *Plugin) Output(_ bool) ([]byte, error) {
+// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// Session.WithJSON path. Init does not vary its stdout content by JSON intent
+// today, but accepts the setter for symmetry until Phase 3 migrates init to a
+// typed Input.
+func (p *Plugin) SetJSONOutput(_ bool) {}
+
+// Stdout produces stdout content for standalone/CI mode.
+func (p *Plugin) Stdout() ([]byte, error) {
 	return []byte("Initialized successfully.\n"), nil
 }

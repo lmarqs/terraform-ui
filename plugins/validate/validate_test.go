@@ -914,7 +914,9 @@ func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
 		{Severity: "warning", Summary: "Deprecated"},
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -938,7 +940,9 @@ func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -956,7 +960,7 @@ func TestOutput_WhenJsonFalseWithDiagnostics_ShouldReturnText(t *testing.T) {
 		{Severity: "warning", Summary: "Deprecated", File: "vars.tf"},
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -980,7 +984,7 @@ func TestOutput_WhenJsonFalseNoDiagnostics_ShouldReturnValid(t *testing.T) {
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -1055,7 +1059,7 @@ func TestOutput_WhenTextWithFileNoLine_ShouldFormatCorrectly(t *testing.T) {
 		{Severity: "warning", Summary: "deprecated", File: "main.tf", Line: 0},
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}

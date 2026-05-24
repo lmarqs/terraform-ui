@@ -30,6 +30,7 @@ type Plugin struct {
 	filtering bool
 	errMsg    string
 	selected  int
+	jsonOut   bool
 	cancelFn  context.CancelFunc
 }
 
@@ -290,9 +291,14 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	return filterLine + b.String() + "\n" + count
 }
 
-// Output produces stdout content for standalone/CI mode.
-func (p *Plugin) Output(jsonOutput bool) ([]byte, error) {
-	if jsonOutput {
+// SetJSONOutput is a temporary cmd-side setter used by the legacy
+// Session.WithJSON path. Phase 2 migrates this plugin to a typed Input flow
+// at which point this setter is removed.
+func (p *Plugin) SetJSONOutput(on bool) { p.jsonOut = on }
+
+// Stdout produces stdout content for standalone/CI mode.
+func (p *Plugin) Stdout() ([]byte, error) {
+	if p.jsonOut {
 		outputMap := make(map[string]interface{}, len(p.outputs))
 		for _, o := range p.outputs {
 			entry := map[string]interface{}{

@@ -1251,7 +1251,9 @@ func TestOutput_WhenJsonTrue_ShouldReturnJSONMap(t *testing.T) {
 		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -1268,7 +1270,9 @@ func TestOutput_WhenJsonTrueEmpty_ShouldReturnEmptyObject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = []sdk.OutputValue{}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -1284,7 +1288,7 @@ func TestOutput_WhenJsonFalse_ShouldReturnKeyValueText(t *testing.T) {
 		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -1301,7 +1305,7 @@ func TestOutput_WhenJsonFalseEmpty_ShouldReturnEmpty(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = []sdk.OutputValue{}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -1314,7 +1318,9 @@ func TestOutput_WhenJsonTrueNilOutputs_ShouldReturnEmptyObject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = nil
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -1327,7 +1333,7 @@ func TestOutput_WhenJsonFalseNilOutputs_ShouldReturnEmpty(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = nil
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}

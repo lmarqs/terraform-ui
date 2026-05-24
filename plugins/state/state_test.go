@@ -2062,7 +2062,9 @@ func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = nil
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -2077,7 +2079,7 @@ func TestOutput_WhenTextWithNilResources_ShouldReturnEmpty(t *testing.T) {
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = nil
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -2187,7 +2189,9 @@ func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}
@@ -2209,7 +2213,7 @@ func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
 		{Address: "aws_s3_bucket.data"},
 	}
 
-	data, err := p.Output(false)
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(false) error = %v", err)
 	}
@@ -2255,7 +2259,9 @@ func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 	}
 
-	data, err := p.Output(true)
+	p.SetJSONOutput(true)
+
+	data, err := p.Stdout()
 	if err != nil {
 		t.Fatalf("Output(true) error = %v", err)
 	}

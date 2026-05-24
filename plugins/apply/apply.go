@@ -5,8 +5,6 @@ package apply
 
 import (
 	"context"
-	"fmt"
-	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,16 +26,15 @@ type ApplyResultMsg struct {
 // Plugin implements the terraform apply feature.
 type Plugin struct {
 	sdk.PluginBase
-	status      sdk.Status
-	errMsg      string
-	timer       ui.Timer
-	confirmed   bool
-	autoApprove bool
-	planFile    string
-	targets     []string
-	cancelFn    context.CancelFunc
-	stack       *sdk.Stack
-	lastStream  *frames.StreamFrame
+	status     sdk.Status
+	errMsg     string
+	timer      ui.Timer
+	confirmed  bool
+	input      Input
+	planFile   string
+	cancelFn   context.CancelFunc
+	stack      *sdk.Stack
+	lastStream *frames.StreamFrame
 }
 
 // New creates a new apply plugin.
@@ -129,25 +126,12 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return nil
 }
 
-// Activate resets terminal states when re-entered via navigation.
-func (e *Plugin) Activate() tea.Cmd {
-	if e.status == sdk.StatusError || e.status == sdk.StatusDone {
-		e.status = sdk.StatusIdle
-		e.errMsg = ""
-	}
-	return nil
-}
-
-// ActivateWithArgs handles standalone activation with CLI flags.
-func (e *Plugin) ActivateWithArgs(args []string) tea.Cmd {
-	for _, arg := range args {
-		if arg == "--auto-approve" {
-			e.autoApprove = true
-		} else if strings.HasPrefix(arg, "--target=") {
-			e.targets = append(e.targets, strings.TrimPrefix(arg, "--target="))
-		}
-	}
-	if e.autoApprove {
+// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
+// the typed value to the plugin. The plugin stores the input on its state and
+// returns the initial command that drives its lifecycle.
+func (e *Plugin) Activate(input Input) tea.Cmd {
+	e.input = input
+	if input.AutoApprove {
 		return e.AutoApply()
 	}
 	return e.RequestApply()
@@ -211,9 +195,9 @@ func (e *Plugin) runApply() tea.Cmd {
 	if e.planFile != "" {
 		opts.PlanFile = e.planFile
 	} else {
-		opts.Targets = e.targets
+		opts.Targets = e.input.Targets
 	}
-	opts.AutoApprove = e.autoApprove
+	opts.AutoApprove = e.input.AutoApprove
 	opts.Writer = lw
 	start := time.Now()
 	return tea.Batch(
@@ -338,20 +322,10 @@ func (e *Plugin) renderConfirmation(_, _ int) string {
 	return header + "\n" + detail + "\n\n" + prompt
 }
 
-// Output produces stdout content for standalone/CI mode.
-func (e *Plugin) Output(jsonOutput bool) ([]byte, error) {
-	if jsonOutput {
-		out := struct {
-			Status string `json:"status"`
-		}{Status: "complete"}
-		if e.status == sdk.StatusError {
-			out.Status = "error"
-		}
-		return sdk.MarshalJSON(out), nil
-	}
-
+// ExitCode returns the process exit code: 1 if the apply failed, 0 otherwise.
+func (e *Plugin) ExitCode() int {
 	if e.status == sdk.StatusError {
-		return []byte(fmt.Sprintf("Apply failed: %s\n", e.errMsg)), nil
+		return 1
 	}
-	return []byte("Apply complete.\n"), nil
+	return 0
 }

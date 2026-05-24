@@ -96,10 +96,18 @@ type KeyCapturer interface {
 	CapturesKeys() bool
 }
 
-// Outputter is an optional interface plugins implement to produce structured
-// output on stdout when running in standalone mode. Called after the TUI exits.
-type Outputter interface {
-	Output(json bool) ([]byte, error)
+// StdoutEmitter is an optional interface plugins implement to produce content
+// on stdout after the model exits. The plugin owns the bytes — the framework
+// just pumps them to os.Stdout. JSON intent is plugin state (set via the
+// plugin's typed Input at Activate time); the SDK does not interpret it.
+type StdoutEmitter interface {
+	Stdout() ([]byte, error)
+}
+
+// StderrEmitter is an optional interface plugins implement to produce post-quit
+// stderr content (warnings, summaries) independent of TUI rendering.
+type StderrEmitter interface {
+	Stderr() []byte
 }
 
 // ExitCoder is an optional interface plugins implement to control the process

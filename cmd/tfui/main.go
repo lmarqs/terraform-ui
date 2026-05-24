@@ -59,6 +59,10 @@ func main() {
 	var configOverrides []string
 	var planURI, stateURI, macroURI, recordDir string
 	var extraArgs []string
+	var ciMode bool
+	var jsonMode bool
+
+	session := &Session{cfg: cfg, rootCfg: rootCfg}
 
 	rootCmd := &cobra.Command{
 		Use:          "tfui",
@@ -88,15 +92,20 @@ func main() {
 
 			binary := cfg.TerraformBinary()
 			logging.Init(recordDir != "", version, cfg.Dir, binary, recordDir)
+
+			session.cfg = cfg
+			session.rootCfg = rootCfg
+			session.planURI = planURI
+			session.stateURI = stateURI
+			session.macroURI = macroURI
+			session.recordDir = recordDir
+			session.ciMode = ciMode
+			session.jsonMode = jsonMode
+			session.silentStderr = session.resolveSilentStderr()
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				Run()
+			return session.Run()
 		},
 	}
 
@@ -108,61 +117,19 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
 	rootCmd.PersistentFlags().StringVar(&recordDir, "record", "", "Record session frames and tape to directory")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
-
-	var ciMode bool
-	var jsonMode bool
+	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
+	rootCmd.PersistentFlags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 
 	planCmd := &cobra.Command{
 		Use:   "plan",
 		Short: "Run terraform plan",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				ForPlugin("plan").
+			return session.ForPlugin("plan").
 				WithArgs(args).
-				WithJSON(jsonMode).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
 				Run()
 		},
 	}
-	planCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	planCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
 	planCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for plan")
-
-	var autoApprove bool
-	var applyTargets []string
-	applyCmd := &cobra.Command{
-		Use:   "apply",
-		Short: "Run terraform apply (with plan file or directly with targets)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if planURI != "" && len(applyTargets) > 0 {
-				fmt.Fprintf(os.Stderr, "warning: --target is ignored by terraform when a plan file is provided\n")
-			}
-			if autoApprove {
-				args = append(args, "--auto-approve")
-			}
-			for _, t := range applyTargets {
-				args = append(args, "--target="+t)
-			}
-			return NewSession(cfg, rootCfg).
-				ForPlugin("apply").
-				WithArgs(args).
-				WithJSON(jsonMode).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
-				Run()
-		},
-	}
-	applyCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	applyCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON (terraform-compatible)")
-	applyCmd.Flags().BoolVar(&autoApprove, "auto-approve", false, "Skip confirmation prompt")
-	applyCmd.Flags().StringSliceVar(&applyTargets, "target", nil, "Resource targets (plans+applies in one shot)")
 
 	var scaffoldForce, scaffoldYes bool
 	scaffoldCmd := &cobra.Command{
@@ -176,25 +143,15 @@ func main() {
 	scaffoldCmd.Flags().BoolVar(&scaffoldForce, "force", false, "Overwrite existing tfui.hcl")
 	scaffoldCmd.Flags().BoolVar(&scaffoldYes, "yes", false, "Skip prompts, use detected defaults")
 
-	var versionJSON bool
 	versionCmd := &cobra.Command{
 		Use:   "version",
 		Short: "Print version",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				ForPlugin("version").
+			return session.ForPlugin("version").
 				WithArgs(args).
-				WithJSON(versionJSON).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
 				Run()
 		},
 	}
-	versionCmd.Flags().BoolVar(&versionJSON, "json", false, "Output JSON")
-	versionCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
 	var initUpgrade, initReconfigure bool
 	var initBackendConfig []string
@@ -203,14 +160,8 @@ func main() {
 		Use:   "init",
 		Short: "Run terraform init",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				ForPlugin("init").
+			return session.ForPlugin("init").
 				WithArgs(buildInitArgs(cmd)).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
 				Run()
 		},
 	}
@@ -218,66 +169,38 @@ func main() {
 	initCmd.Flags().BoolVar(&initReconfigure, "reconfigure", false, "Reconfigure backend")
 	initCmd.Flags().Bool("backend", true, "Configure backend (--backend=false to skip)")
 	initCmd.Flags().StringArrayVar(&initBackendConfig, "backend-config", nil, "Backend configuration values")
-	initCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 
 	validateCmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Run terraform validate",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				ForPlugin("validate").
+			return session.ForPlugin("validate").
 				WithArgs(args).
-				WithJSON(jsonMode).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
 				Run()
 		},
 	}
-	validateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	validateCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON")
 
 	outputCmd := &cobra.Command{
 		Use:   "output",
 		Short: "Show terraform outputs",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				ForPlugin("output").
+			return session.ForPlugin("output").
 				WithArgs(args).
-				WithJSON(jsonMode).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
 				Run()
 		},
 	}
-	outputCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	outputCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON")
 
 	stateCmd := &cobra.Command{
 		Use:   "state",
 		Short: "Terraform state operations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return NewSession(cfg, rootCfg).
-				ForPlugin("state").
+			return session.ForPlugin("state").
 				WithArgs(args).
-				WithJSON(jsonMode).
-				WithPlan(planURI).
-				WithState(stateURI).
-				WithMacro(macroURI).
-				WithRecord(recordDir).
-				WithCI(ciMode).
 				Run()
 		},
 	}
-	stateCmd.Flags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	stateCmd.Flags().BoolVar(&jsonMode, "json", false, "Output JSON")
 
-	rootCmd.AddCommand(planCmd, applyCmd, initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, versionCmd)
+	rootCmd.AddCommand(planCmd, buildApplyCommand(session), initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, versionCmd)
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {
