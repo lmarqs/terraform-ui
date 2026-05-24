@@ -22,7 +22,7 @@ type InitResultMsg struct {
 
 // Plugin implements the terraform init feature.
 type Plugin struct {
-	svc   sdk.Service
+	sdk.PluginBase
 	timer ui.Timer
 	stack *sdk.Stack
 	lw    *sdkframes.LineWriter
@@ -39,18 +39,17 @@ type Plugin struct {
 
 // New creates a new init plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc:     svc,
-		stack:   sdk.NewStack(),
-		backend: true,
+	p := &Plugin{
+		PluginBase: sdk.NewPluginBase("init", "Init", "Initialize terraform working directory"),
+		stack:      sdk.NewStack(),
+		backend:    true,
 	}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "init" }
-func (p *Plugin) Name() string        { return "Init" }
-func (p *Plugin) Description() string { return "Initialize terraform working directory" }
-func (p *Plugin) Ready() bool         { return true }
-func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
+func (p *Plugin) Ready() bool       { return true }
+func (p *Plugin) Stack() *sdk.Stack { return p.stack }
 
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
@@ -64,17 +63,14 @@ func (p *Plugin) Busy() bool {
 }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
+	p.InitBase(deps)
 	return nil
 }
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.stack.Reset()
 	return nil
@@ -225,7 +221,7 @@ func (p *Plugin) submit(lw *sdkframes.LineWriter) tea.Cmd {
 	p.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
-	svc := p.svc
+	svc := p.Svc
 	opts := sdk.InitOptions{
 		Upgrade:       p.upgrade,
 		Reconfigure:   p.reconfigure,
