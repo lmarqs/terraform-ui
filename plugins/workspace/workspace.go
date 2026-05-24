@@ -37,8 +37,7 @@ type WorkspaceCreateMsg struct {
 
 // Plugin implements the workspace management feature.
 type Plugin struct {
-	svc        sdk.Service
-	getCtx     func() *sdk.Context
+	sdk.PluginBase
 	stack      *sdk.Stack
 	timer      ui.Timer
 	status     sdk.Status
@@ -52,21 +51,17 @@ type Plugin struct {
 
 // New creates a new workspaces plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	p := &Plugin{
-		svc: svc,
-	}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("workspace", "Workspace", "Manage terraform workspace")}
+	p.Svc = svc
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
 	return p
 }
 
-func (e *Plugin) ID() string          { return "workspace" }
-func (e *Plugin) Name() string        { return "Workspace" }
-func (e *Plugin) Description() string { return "Manage terraform workspace" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Selected() int       { return e.selected }
-func (e *Plugin) Current() string     { return e.current }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status { return e.status }
+func (e *Plugin) Selected() int      { return e.selected }
+func (e *Plugin) Current() string    { return e.current }
 func (e *Plugin) Workspaces() []string {
 	return e.workspaces
 }
@@ -79,8 +74,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies. Does not auto-load.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
-	e.getCtx = deps.Context
+	e.InitBase(deps)
 	e.reset()
 	return nil
 }
@@ -89,11 +83,8 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 // scoped service from the new Context's Service handle (already chdir-scoped
 // by the app) and clears any in-memory workspace list.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !e.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		e.svc = ev.Next.Service
 	}
 	e.reset()
 	return nil
@@ -138,7 +129,7 @@ func (e *Plugin) loadWorkspaces() tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
-	svc := e.svc
+	svc := e.Svc
 	return func() tea.Msg {
 		workspaces, err := svc.WorkspaceList(ctx)
 		if err != nil {
@@ -188,11 +179,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.PopBack {
 			e.status = sdk.StatusIdle
 			return e, func() tea.Msg {
-				return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
+				return sdk.ContextSwitchRequestMsg{Chdir: e.GetCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
 			}
 		}
 		return e, tea.Batch(e.Refresh(), func() tea.Msg {
-			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
+			return sdk.ContextSwitchRequestMsg{Chdir: e.GetCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
 		})
 
 	case WorkspaceCreateMsg:
@@ -204,7 +195,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		}
 		e.current = msg.Name
 		return e, tea.Batch(e.Refresh(), func() tea.Msg {
-			return sdk.ContextSwitchRequestMsg{Chdir: e.getCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
+			return sdk.ContextSwitchRequestMsg{Chdir: e.GetCtx().Chdir, Workspace: sdk.NewWorkspace(msg.Name)}
 		})
 
 	case WorkspaceDeleteMsg:
@@ -271,7 +262,7 @@ func (e *Plugin) selectWorkspace(name string, popBack bool) tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
-	svc := e.svc
+	svc := e.Svc
 	return func() tea.Msg {
 		err := svc.WorkspaceSelect(ctx, name)
 		return WorkspaceSwitchMsg{Name: name, Err: err, PopBack: popBack}
@@ -282,7 +273,7 @@ func (e *Plugin) createWorkspace(name string) tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
-	svc := e.svc
+	svc := e.Svc
 	return func() tea.Msg {
 		err := svc.WorkspaceNew(ctx, name, sdk.WorkspaceNewOptions{})
 		return WorkspaceCreateMsg{Name: name, Err: err}
@@ -296,7 +287,7 @@ func (e *Plugin) deleteWorkspace(name string) tea.Cmd {
 	e.cancelFn = cancel
 	e.status = sdk.StatusLoading
 	e.loadingMsg = fmt.Sprintf("Deleting %s...", name)
-	svc := e.svc
+	svc := e.Svc
 	return tea.Batch(func() tea.Msg {
 		err := svc.WorkspaceDelete(ctx, name, sdk.WorkspaceDeleteOptions{})
 		return WorkspaceDeleteMsg{Err: err}

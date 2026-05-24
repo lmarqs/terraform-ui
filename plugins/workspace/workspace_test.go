@@ -235,7 +235,7 @@ func TestUpdate_GivenListError_ShouldSetErrorStatus(t *testing.T) {
 
 func TestSwitchToSelected_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -324,7 +324,7 @@ func TestUpdate_GivenSwitchError_ShouldSetErrorStatus(t *testing.T) {
 func TestSelectWorkspaceCmd_PopBack_ShouldCallService(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 
 	cmd := p.selectWorkspace("staging", true)
 	msg := cmd()
@@ -340,7 +340,7 @@ func TestSelectWorkspaceCmd_PopBack_ShouldCallService(t *testing.T) {
 func TestSelectWorkspaceCmd_NoPopBack_ShouldCallService(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 
 	cmd := p.selectWorkspace("staging", false)
 	msg := cmd()
@@ -358,7 +358,7 @@ func TestSelectWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
 		WorkspaceSelectFn: func(_ context.Context, _ string) error { return errors.New("fail") },
 	}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 
 	cmd := p.selectWorkspace("x", true)
 	msg := cmd()
@@ -373,7 +373,7 @@ func TestSelectWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
 func TestStartCreate_ShouldSetLoadingAndDispatch(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 
 	cmd := p.startCreate("feature-x")
@@ -391,7 +391,7 @@ func TestStartCreate_ShouldSetLoadingAndDispatch(t *testing.T) {
 func TestCreateWorkspaceCmd_ShouldReturnCreateMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 
 	cmd := p.createWorkspace("new-ws")
 	msg := cmd()
@@ -409,7 +409,7 @@ func TestCreateWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
 		WorkspaceNewFn: func(_ context.Context, _ string, _ sdk.WorkspaceNewOptions) error { return errors.New("exists") },
 	}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 
 	cmd := p.createWorkspace("x")
 	msg := cmd()
@@ -422,7 +422,7 @@ func TestCreateWorkspaceCmd_GivenServiceError_ShouldReturnError(t *testing.T) {
 func TestUpdate_GivenCreateSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T) {
 	svc := mockSvc([]string{"default", "feature-x"}, "feature-x")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(WorkspaceCreateMsg{Name: "feature-x", Err: nil})
@@ -461,7 +461,7 @@ func TestUpdate_GivenCreateError_ShouldSetErrorStatus(t *testing.T) {
 func TestDeleteWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -481,7 +481,7 @@ func TestDeleteWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
 func TestDeleteWorkspace_GivenServiceSuccess_ShouldRefresh(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusLoading
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -515,7 +515,7 @@ func TestDeleteWorkspace_GivenServiceError_ShouldSetErrorStatus(t *testing.T) {
 func TestSelectCurrent_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -604,7 +604,7 @@ func TestUpdate_GivenSelectSuccess_ShouldRefreshAndEmitContextSwitchRequest(t *t
 func TestFrame_SKey_GivenDifferentWorkspace_ShouldSelect(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -621,7 +621,7 @@ func TestFrame_SKey_GivenDifferentWorkspace_ShouldSelect(t *testing.T) {
 
 func TestFrame_SKey_GivenSameWorkspace_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -695,7 +695,7 @@ func TestFrame_GivenLoading_NewKey_ShouldBeIgnored(t *testing.T) {
 func TestFrame_CtrlR_GivenError_ShouldRetry(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusError
 	p.errMsg = "connection failed"
 
@@ -712,7 +712,7 @@ func TestFrame_CtrlR_GivenError_ShouldRetry(t *testing.T) {
 
 func TestFrame_GivenDeletableWorkspace_DKey_ShouldPushConfirmFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -730,7 +730,7 @@ func TestFrame_GivenDeletableWorkspace_DKey_ShouldPushConfirmFrame(t *testing.T)
 
 func TestFrame_GivenConfirmFrame_YKey_ShouldTriggerDelete(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -749,7 +749,7 @@ func TestFrame_GivenConfirmFrame_YKey_ShouldTriggerDelete(t *testing.T) {
 
 func TestFrame_GivenConfirmFrame_NKey_ShouldCancelDelete(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "temp"}
 	p.current = "default"
@@ -796,7 +796,7 @@ func TestFrame_GivenDefaultWorkspace_DKey_ShouldDoNothing(t *testing.T) {
 
 func TestFrame_NKey_ShouldEmitRequestInputMsg(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 	p.current = "default"
@@ -819,7 +819,7 @@ func TestFrame_NKey_ShouldEmitRequestInputMsg(t *testing.T) {
 func TestFrame_NKey_Callback_GivenValidName_ShouldStartCreate(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 	p.current = "default"
@@ -839,7 +839,7 @@ func TestFrame_NKey_Callback_GivenValidName_ShouldStartCreate(t *testing.T) {
 
 func TestFrame_NKey_Callback_GivenEmptyName_ShouldCancel(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
@@ -855,7 +855,7 @@ func TestFrame_NKey_Callback_GivenEmptyName_ShouldCancel(t *testing.T) {
 
 func TestFrame_NKey_Callback_GivenInvalidName_ShouldReject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
@@ -937,7 +937,7 @@ func TestFrame_UpKey_ShouldMoveUp(t *testing.T) {
 
 func TestFrame_EnterKey_GivenSameWorkspace_ShouldDeactivate(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -955,7 +955,7 @@ func TestFrame_EnterKey_GivenSameWorkspace_ShouldDeactivate(t *testing.T) {
 
 func TestFrame_EnterKey_GivenDifferentWorkspace_ShouldSwitch(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.svc = &sdktest.MockService{}
+	p.Svc = &sdktest.MockService{}
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default", "staging"}
 	p.current = "default"
@@ -1213,7 +1213,7 @@ func TestSelected_ShouldReturnCurrentIndex(t *testing.T) {
 func TestRefresh_ShouldResetAndStartLoading(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 	p.selected = 5
 
@@ -1264,7 +1264,7 @@ func TestListFrame_View_ShouldDelegateToPlugin(t *testing.T) {
 func TestFrame_CtrlR_GivenDone_ShouldRefresh(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 	p.workspaces = []string{"default"}
 
@@ -1282,7 +1282,7 @@ func TestFrame_CtrlR_GivenDone_ShouldRefresh(t *testing.T) {
 func TestDeleteWorkspaceCmd_ShouldCallServiceAndReturnMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.svc = svc
+	p.Svc = svc
 	p.status = sdk.StatusDone
 
 	cmd := p.deleteWorkspace("temp")
