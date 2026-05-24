@@ -1,9 +1,6 @@
 package context
 
 import (
-	"io"
-	"log/slog"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
@@ -11,8 +8,8 @@ import (
 
 // Plugin implements the context dashboard — shows Project, Chdir, Workspace.
 type Plugin struct {
+	sdk.PluginBase
 	projectDir string
-	log        *slog.Logger
 	stack      *sdk.Stack
 	chdir      string
 	workspace  sdk.Workspace
@@ -21,18 +18,13 @@ type Plugin struct {
 
 // New creates a new context plugin.
 func New(_ sdk.Service) sdk.Plugin {
-	p := &Plugin{
-		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("context", "Context", "View and manage working context")}
 	p.stack = sdk.NewStack()
 	return p
 }
 
-func (p *Plugin) ID() string          { return "context" }
-func (p *Plugin) Name() string        { return "Context" }
-func (p *Plugin) Description() string { return "View and manage working context" }
-func (p *Plugin) Ready() bool         { return true }
-func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
+func (p *Plugin) Ready() bool       { return true }
+func (p *Plugin) Stack() *sdk.Stack { return p.stack }
 
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(opts map[string]interface{}) error {
@@ -53,9 +45,7 @@ func (p *Plugin) SetMembers(members []string) {
 // is read from deps.Context(); subsequent changes arrive via
 // ContextChangedEvent.
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	if deps.Logger != nil {
-		p.log = deps.Logger
-	}
+	p.InitBase(deps)
 	if deps.Context != nil {
 		if ctx := deps.Context(); ctx != nil {
 			p.workspace = ctx.Workspace

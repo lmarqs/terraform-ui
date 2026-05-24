@@ -82,7 +82,7 @@ func TestPlugin_WhenInitialized_ShouldStoreContext(t *testing.T) {
 			if p.workspace != sdk.NewWorkspace(tt.workspace) {
 				t.Errorf("workspace = %q, want %q", p.workspace, tt.workspace)
 			}
-			if p.log == nil {
+			if p.Log == nil {
 				t.Error("log should not be nil after Init")
 			}
 		})
@@ -97,20 +97,20 @@ func TestPlugin_WhenInitializedWithLogger_ShouldUseProvidedLogger(t *testing.T) 
 
 	p.Init(h.Deps)
 
-	if p.log != logger {
+	if p.Log != logger {
 		t.Error("should use provided logger")
 	}
 }
 
 func TestPlugin_WhenInitializedWithNilLogger_ShouldKeepDefaultLogger(t *testing.T) {
 	p := New(nil).(*Plugin)
-	defaultLog := p.log
+	defaultLog := p.Log
 	h := sdktest.NewDeps(nil)
 	h.Deps.Logger = nil
 
 	p.Init(h.Deps)
 
-	if p.log != defaultLog {
+	if p.Log != defaultLog {
 		t.Error("should keep default logger when ctx.Logger is nil")
 	}
 }
