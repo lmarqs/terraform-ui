@@ -3,8 +3,6 @@ package forceunlock
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -24,8 +22,7 @@ type ForceUnlockResultMsg struct {
 
 // Plugin implements the standalone force-unlock feature.
 type Plugin struct {
-	svc      sdk.Service
-	log      *slog.Logger
+	sdk.PluginBase
 	timer    ui.Timer
 	status   sdk.Status
 	lockID   string
@@ -36,22 +33,17 @@ type Plugin struct {
 
 // New creates a new force-unlock plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc: svc,
-		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("forceunlock", "Force Unlock", "Remove a stale state lock")}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "forceunlock" }
-func (p *Plugin) Name() string        { return "Force Unlock" }
-func (p *Plugin) Description() string { return "Remove a stale state lock" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
+func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
 
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
-	p.log = deps.Logger
+	p.InitBase(deps)
 	return nil
 }
 
@@ -119,8 +111,8 @@ func (p *Plugin) executeUnlock(lockID string) tea.Cmd {
 	p.cancelFn = cancel
 	p.lockID = lockID
 	p.status = sdk.StatusLoading
-	svc := p.svc
-	log := p.log
+	svc := p.Svc
+	log := p.Log
 	return tea.Batch(func() tea.Msg {
 		err := svc.ForceUnlock(ctx, lockID)
 		if err != nil {
@@ -216,11 +208,8 @@ func (p *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.status = sdk.StatusIdle
 	p.lockInfo = nil
