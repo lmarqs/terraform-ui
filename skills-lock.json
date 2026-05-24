@@ -13,6 +13,12 @@
       "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
       "computedHash": "1adf321072f53cce3dcaf5357d91b8230d4aa647bb8a51756745337a6ee567b8"
     },
+    "solid": {
+      "source": "ramziddin/solid-skills",
+      "sourceType": "github",
+      "skillPath": "skills/solid/SKILL.md",
+      "computedHash": "60de610a3c143f79f69552b7da60298bb46c9e8d80ab16c4c111b025823345d1"
+    },
     "tdd": {
       "source": "mattpocock/skills",
       "sourceType": "github",
