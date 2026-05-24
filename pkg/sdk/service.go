@@ -1,6 +1,22 @@
 package sdk
 
-import "context"
+import (
+	"context"
+)
+
+// OutputValue represents a terraform output.
+type OutputValue struct {
+	Name      string
+	Value     interface{}
+	Type      string
+	Sensitive bool
+}
+
+// VersionInfo holds terraform binary version and provider selections.
+type VersionInfo struct {
+	TerraformVersion string
+	Providers        map[string]string
+}
 
 type stateListConfig struct{ skipCache bool }
 
