@@ -3,8 +3,6 @@ package validate
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -20,8 +18,7 @@ type ValidateResultMsg struct {
 
 // Plugin implements the terraform validate feature.
 type Plugin struct {
-	svc         sdk.Service
-	log         *slog.Logger
+	sdk.PluginBase
 	expander    *ui.ExpandSet
 	timer       ui.Timer
 	status      sdk.Status
@@ -33,19 +30,17 @@ type Plugin struct {
 
 // New creates a new validate plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		expander: ui.NewExpandSet(),
-		svc:      svc,
-		log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+	p := &Plugin{
+		PluginBase: sdk.NewPluginBase("validate", "Validate", "Run terraform validate"),
+		expander:   ui.NewExpandSet(),
 	}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "validate" }
-func (p *Plugin) Name() string        { return "Validate" }
-func (p *Plugin) Description() string { return "Run terraform validate" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
-func (p *Plugin) Status() sdk.Status  { return p.status }
-func (p *Plugin) Selected() int       { return p.selected }
+func (p *Plugin) Ready() bool        { return p.status == sdk.StatusDone }
+func (p *Plugin) Status() sdk.Status { return p.status }
+func (p *Plugin) Selected() int      { return p.selected }
 
 func (p *Plugin) Diagnostics() []sdk.Diagnostic {
 	return p.diagnostics
@@ -77,19 +72,15 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies.
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
-	p.log = deps.Logger
+	p.InitBase(deps)
 	p.reset()
 	return nil
 }
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.reset()
 	return nil
@@ -108,7 +99,7 @@ func (p *Plugin) reset() {
 func (p *Plugin) Activate() tea.Cmd {
 	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {
 		p.status = sdk.StatusLoading
-		p.log.Debug("validate.start")
+		p.Log.Debug("validate.start")
 		return tea.Batch(p.runValidate(), p.timer.Start())
 	}
 	return nil
@@ -136,7 +127,7 @@ func (p *Plugin) runValidate() tea.Cmd {
 	p.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
-	svc := p.svc
+	svc := p.Svc
 	return func() tea.Msg {
 		diags, err := svc.Validate(ctx)
 		return ValidateResultMsg{Diagnostics: diags, Err: err}
@@ -154,11 +145,11 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
-			p.log.Debug("validate.error", "error", msg.Err.Error())
+			p.Log.Debug("validate.error", "error", msg.Err.Error())
 		} else {
 			p.status = sdk.StatusDone
 			p.diagnostics = sortDiagnostics(msg.Diagnostics)
-			p.log.Debug("validate.complete", "diagnostics", len(p.diagnostics))
+			p.Log.Debug("validate.complete", "diagnostics", len(p.diagnostics))
 		}
 		return p, nil
 

@@ -831,8 +831,8 @@ func TestHandleContextChanged_ShouldCallWithDir(t *testing.T) {
 		Next: &sdk.Context{Service: originalSvc},
 	})
 
-	if p.svc == nil {
-		t.Fatal("svc should not be nil after HandleContextChanged")
+	if p.Svc == nil {
+		t.Fatal("Svc should not be nil after HandleContextChanged")
 	}
 }
 
