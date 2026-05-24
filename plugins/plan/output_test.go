@@ -158,7 +158,7 @@ func TestPlugin_WhenPinnedCountWithPins_ShouldReturnCount(t *testing.T) {
 
 func TestPlugin_WhenRequestAutoApply_ShouldEmitApplyRequestMsgWithAutoApprove(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
-	p.planFile = "/tmp/auto.tfplan"
+	p.planFile = sdk.NewTempPlanFile("/tmp/auto.tfplan")
 	cmd := p.requestAutoApply()
 	if cmd == nil {
 		t.Fatal("requestAutoApply() = nil")

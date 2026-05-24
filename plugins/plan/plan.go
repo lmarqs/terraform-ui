@@ -56,7 +56,7 @@ type Plugin struct {
 	cancelFn     context.CancelFunc
 	lastStream   *frames.StreamFrame // retained for L key re-display after success
 	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
-	planFile     string              // path to the plan artifact produced by the most recent run
+	planFile     sdk.PlanFile        // plan artifact produced by the most recent run
 	// detail view state
 	detail       string
 	detailAddr   string
@@ -171,10 +171,8 @@ func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 // reset clears all plugin state to initial values. Removes any stale plan
 // artifact from disk so subsequent runs start clean.
 func (e *Plugin) reset() {
-	if e.planFile != "" {
-		_ = os.Remove(e.planFile)
-		e.planFile = ""
-	}
+	e.planFile.Cleanup()
+	e.planFile = sdk.PlanFile{}
 	e.status = sdk.StatusIdle
 	e.stale = false
 	e.summary = nil
@@ -268,7 +266,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 // the plugin so PlanCompletedEvent can hand it off to apply.
 func (e *Plugin) allocPlanFile() string {
 	path := filepath.Join(os.TempDir(), fmt.Sprintf("tfui-%d-%d.tfplan", os.Getpid(), time.Now().UnixNano()))
-	e.planFile = path
+	e.planFile = sdk.NewTempPlanFile(path)
 	return path
 }
 
@@ -321,13 +319,13 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				cmds = append(cmds, pruneCmd)
 			}
 			if msg.Summary != nil {
-				planFile := e.planFile
+				planFilePath := e.planFile.Path()
 				cmds = append(cmds,
 					func() tea.Msg {
 						return sdk.PlanCompletedEvent{
 							Summary:       msg.Summary,
 							ResourceCount: changes,
-							PlanFile:      planFile,
+							PlanFile:      planFilePath,
 						}
 					},
 				)
@@ -956,11 +954,11 @@ func plainActionSymbol(action sdk.Action) string {
 }
 
 func (e *Plugin) requestApply() tea.Cmd {
-	planFile := e.planFile
-	return func() tea.Msg { return ApplyRequestMsg{PlanFile: planFile} }
+	path := e.planFile.Path()
+	return func() tea.Msg { return ApplyRequestMsg{PlanFile: path} }
 }
 
 func (e *Plugin) requestAutoApply() tea.Cmd {
-	planFile := e.planFile
-	return func() tea.Msg { return ApplyRequestMsg{PlanFile: planFile, AutoApprove: true} }
+	path := e.planFile.Path()
+	return func() tea.Msg { return ApplyRequestMsg{PlanFile: path, AutoApprove: true} }
 }

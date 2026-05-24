@@ -240,8 +240,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case ApplyResultMsg:
 		e.timer.Stop()
 		e.stack.Reset()
-		// The plan file was consumed (terraform-exec removes it on success);
-		// drop our reference so a stale path can't accidentally be reused.
+		// Drop our reference; cleanup is owned by the plan plugin (ADR-0020).
 		e.planFile = ""
 		if msg.Err != nil {
 			e.status = sdk.StatusError

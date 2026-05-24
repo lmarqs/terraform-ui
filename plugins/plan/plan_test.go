@@ -1181,12 +1181,12 @@ func TestReset_GivenStalePlanFile_ShouldRemoveItFromDisk(t *testing.T) {
 	if err := os.WriteFile(planPath, []byte("plan-bytes"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	p.planFile = planPath
+	p.planFile = sdk.NewTempPlanFile(planPath)
 
 	p.reset()
 
-	if p.planFile != "" {
-		t.Errorf("after reset planFile = %q, want empty", p.planFile)
+	if !p.planFile.IsZero() {
+		t.Errorf("after reset planFile = %q, want zero", p.planFile.Path())
 	}
 	if _, err := os.Stat(planPath); !os.IsNotExist(err) {
 		t.Errorf("plan file still exists at %q after reset; err=%v", planPath, err)
@@ -1199,7 +1199,7 @@ func TestUpdatePlanResultSuccess_ShouldPopulatePlanFileInEvent(t *testing.T) {
 	p.status = sdk.StatusLoading
 	// Simulate that runPlan recorded a path before dispatching the result.
 	planPath := "/tmp/tfui-test.tfplan"
-	p.planFile = planPath
+	p.planFile = sdk.NewTempPlanFile(planPath)
 
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
