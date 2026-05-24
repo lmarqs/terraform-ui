@@ -3,8 +3,6 @@ package untaint
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -28,8 +26,7 @@ type untaintResultMsg struct {
 
 // Plugin implements the standalone untaint verb.
 type Plugin struct {
-	svc       sdk.Service
-	log       *slog.Logger
+	sdk.PluginBase
 	timer     ui.Timer
 	status    sdk.Status
 	addresses []string
@@ -40,23 +37,18 @@ type Plugin struct {
 
 // New creates a new untaint plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc: svc,
-		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("untaint", "Untaint", "Remove taint mark from resources")}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "untaint" }
-func (p *Plugin) Name() string        { return "Untaint" }
-func (p *Plugin) Description() string { return "Remove taint mark from resources" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
-func (p *Plugin) Busy() bool          { return p.status == sdk.StatusLoading }
+func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
+func (p *Plugin) Busy() bool  { return p.status == sdk.StatusLoading }
 
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
-	p.log = deps.Logger
+	p.InitBase(deps)
 	return nil
 }
 
@@ -107,8 +99,8 @@ func (p *Plugin) executeUntaint() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
-	svc := p.svc
-	log := p.log
+	svc := p.Svc
+	log := p.Log
 	addresses := p.addresses
 	return tea.Batch(func() tea.Msg {
 		var untainted []string
@@ -215,11 +207,8 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.status = sdk.StatusIdle
 	p.addresses = nil
