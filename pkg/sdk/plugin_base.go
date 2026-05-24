@@ -101,29 +101,30 @@ func (b *PluginBase) PinnedAddresses() []string {
 	if b.GetCtx == nil {
 		return nil
 	}
-	return PinnedAddresses(b.GetCtx)
+	return []string(b.GetCtx().Pins)
 }
 
 // PinnedCount satisfies sdk.Pinnable. Returns 0 when GetCtx is unset
 // (e.g., before Init).
 func (b *PluginBase) PinnedCount() int {
-	return len(b.PinnedAddresses())
+	if b.GetCtx == nil {
+		return 0
+	}
+	return b.GetCtx().Pins.Count()
 }
 
 // HasPins reports whether the active Context has at least one pinned address.
-// Equivalent to b.PinnedCount() > 0; provided so callers can read intent
-// directly instead of comparing counts.
 func (b *PluginBase) HasPins() bool {
-	return b.PinnedCount() > 0
+	if b.GetCtx == nil {
+		return false
+	}
+	return b.GetCtx().Pins.HasAny()
 }
 
-// IsPinned reports whether the supplied address is currently pinned. Linear
-// scan over PinnedAddresses — pin sets are small (single-digit typical).
+// IsPinned reports whether the supplied address is currently pinned.
 func (b *PluginBase) IsPinned(address string) bool {
-	for _, a := range b.PinnedAddresses() {
-		if a == address {
-			return true
-		}
+	if b.GetCtx == nil {
+		return false
 	}
-	return false
+	return b.GetCtx().Pins.Contains(address)
 }

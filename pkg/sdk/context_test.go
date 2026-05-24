@@ -81,18 +81,18 @@ func TestContext_WithPins_ShouldReturnFreshSnapshotWithoutMutatingOriginal(t *te
 		VarFiles:    []string{"common.tfvars"},
 		Vars:        map[string]string{"env": "prod"},
 		Parallelism: 5,
-		Pins:        []string{"aws_instance.original"},
+		Pins:        Pins{"aws_instance.original"},
 	}
 
-	next := original.WithPins([]string{"aws_instance.new"})
+	next := original.WithPins(Pins{"aws_instance.new"})
 
 	if next == original {
 		t.Fatal("WithPins returned the same pointer; should be a fresh snapshot")
 	}
-	if !reflect.DeepEqual(original.Pins, []string{"aws_instance.original"}) {
+	if !reflect.DeepEqual(original.Pins, Pins{"aws_instance.original"}) {
 		t.Errorf("original mutated: Pins = %v", original.Pins)
 	}
-	if !reflect.DeepEqual(next.Pins, []string{"aws_instance.new"}) {
+	if !reflect.DeepEqual(next.Pins, Pins{"aws_instance.new"}) {
 		t.Errorf("next.Pins = %v, want [aws_instance.new]", next.Pins)
 	}
 	if next.WorkingDir != original.WorkingDir {
@@ -107,23 +107,23 @@ func TestContext_WithPins_ShouldReturnFreshSnapshotWithoutMutatingOriginal(t *te
 }
 
 func TestContext_TogglePin_ShouldAddWhenAbsent(t *testing.T) {
-	ctx := &Context{WorkingDir: "/p", Pins: []string{"a"}}
+	ctx := &Context{WorkingDir: "/p", Pins: Pins{"a"}}
 	next := ctx.TogglePin("b")
-	if !reflect.DeepEqual(next.Pins, []string{"a", "b"}) {
+	if !reflect.DeepEqual(next.Pins, Pins{"a", "b"}) {
 		t.Errorf("TogglePin add: Pins = %v, want [a b]", next.Pins)
 	}
-	if !reflect.DeepEqual(ctx.Pins, []string{"a"}) {
+	if !reflect.DeepEqual(ctx.Pins, Pins{"a"}) {
 		t.Errorf("original mutated: Pins = %v", ctx.Pins)
 	}
 }
 
 func TestContext_TogglePin_ShouldRemoveWhenPresent(t *testing.T) {
-	ctx := &Context{WorkingDir: "/p", Pins: []string{"a", "b", "c"}}
+	ctx := &Context{WorkingDir: "/p", Pins: Pins{"a", "b", "c"}}
 	next := ctx.TogglePin("b")
-	if !reflect.DeepEqual(next.Pins, []string{"a", "c"}) {
+	if !reflect.DeepEqual(next.Pins, Pins{"a", "c"}) {
 		t.Errorf("TogglePin remove: Pins = %v, want [a c]", next.Pins)
 	}
-	if !reflect.DeepEqual(ctx.Pins, []string{"a", "b", "c"}) {
+	if !reflect.DeepEqual(ctx.Pins, Pins{"a", "b", "c"}) {
 		t.Errorf("original mutated: Pins = %v", ctx.Pins)
 	}
 }
@@ -131,7 +131,7 @@ func TestContext_TogglePin_ShouldRemoveWhenPresent(t *testing.T) {
 func TestContext_TogglePin_ShouldHandleEmptyPins(t *testing.T) {
 	ctx := &Context{WorkingDir: "/p"}
 	next := ctx.TogglePin("x")
-	if !reflect.DeepEqual(next.Pins, []string{"x"}) {
+	if !reflect.DeepEqual(next.Pins, Pins{"x"}) {
 		t.Errorf("TogglePin on empty: Pins = %v, want [x]", next.Pins)
 	}
 }
@@ -195,23 +195,5 @@ func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenPrevIsNil(t *t
 	ev := ContextChangedEvent{Prev: nil, Next: next}
 	if ev.OnlyPinsChanged() {
 		t.Error("OnlyPinsChanged() = true with nil Prev; want false (initial context build)")
-	}
-}
-
-func TestPinnedAddresses_WhenPinsExist_ShouldReturnThem(t *testing.T) {
-	ctx := &Context{Pins: []string{"a", "b"}}
-	getCtx := func() *Context { return ctx }
-	got := PinnedAddresses(getCtx)
-	if !reflect.DeepEqual(got, []string{"a", "b"}) {
-		t.Errorf("PinnedAddresses = %v, want [a b]", got)
-	}
-}
-
-func TestPinnedAddresses_WhenNoPins_ShouldReturnNil(t *testing.T) {
-	ctx := &Context{}
-	getCtx := func() *Context { return ctx }
-	got := PinnedAddresses(getCtx)
-	if len(got) != 0 {
-		t.Errorf("PinnedAddresses(empty ctx) = %v, want empty", got)
 	}
 }

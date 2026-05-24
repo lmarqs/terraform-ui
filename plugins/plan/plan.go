@@ -478,10 +478,10 @@ func (e *Plugin) togglePin(address string) tea.Cmd {
 // summary. Returns a Cmd that asks the App to clear-then-restore the
 // surviving subset (a single ContextChangedEvent), or nil if nothing to do.
 func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
-	pinned := e.PinnedAddresses()
-	if len(pinned) == 0 {
+	if !e.HasPins() {
 		return nil
 	}
+	pinned := e.PinnedAddresses()
 	valid := make(map[string]bool, len(changes))
 	for _, c := range changes {
 		valid[c.Resource.Address] = true
@@ -495,7 +495,7 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 	if len(stale) == 0 {
 		return nil
 	}
-	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", len(pinned)-len(stale))
+	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", e.PinnedCount()-len(stale))
 	cmds := make([]tea.Cmd, 0, len(stale))
 	for _, addr := range stale {
 		if e.PinFn != nil {

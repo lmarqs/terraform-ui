@@ -25,7 +25,7 @@ type Context struct {
 	// Pins are the user-selected resource addresses scoped to this Context.
 	// They become terraform -target flags when PlanOptions is built.
 	// Pins die on context switch — they are part of the snapshot, not a sidecar.
-	Pins []string
+	Pins Pins
 
 	// VarFiles are the resolved -var-file paths for this Context.
 	VarFiles []string
@@ -50,7 +50,7 @@ func (c *Context) PlanOptions() PlanOptions {
 		return PlanOptions{}
 	}
 	return PlanOptions{
-		Targets:     c.Pins,
+		Targets:     []string(c.Pins),
 		VarFiles:    c.VarFiles,
 		Vars:        c.Vars,
 		ExtraArgs:   c.ExtraArgs,
@@ -82,30 +82,14 @@ func (c *Context) ApplyOptions() ApplyOptions {
 // WithPins returns a fresh Context snapshot with the supplied pins,
 // leaving every other field — and the receiver — untouched. Returns a new
 // pointer; the receiver is never mutated.
-func (c *Context) WithPins(pins []string) *Context {
+func (c *Context) WithPins(pins Pins) *Context {
 	next := *c
-	next.Pins = append([]string(nil), pins...)
+	next.Pins = pins.Clone()
 	return &next
 }
 
 // TogglePin returns a fresh Context with the address added to Pins if absent,
 // or removed if present. The receiver is never mutated.
 func (c *Context) TogglePin(address string) *Context {
-	for i, pin := range c.Pins {
-		if pin == address {
-			pins := make([]string, 0, len(c.Pins)-1)
-			pins = append(pins, c.Pins[:i]...)
-			pins = append(pins, c.Pins[i+1:]...)
-			return c.WithPins(pins)
-		}
-	}
-	pins := make([]string, 0, len(c.Pins)+1)
-	pins = append(pins, c.Pins...)
-	pins = append(pins, address)
-	return c.WithPins(pins)
-}
-
-// PinnedAddresses returns the Pins from the Context returned by getCtx.
-func PinnedAddresses(getCtx func() *Context) []string {
-	return getCtx().Pins
+	return c.WithPins(c.Pins.Toggle(address))
 }

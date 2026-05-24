@@ -867,7 +867,7 @@ func contextTargetCount(c *sdk.Context) int {
 	if c == nil {
 		return 0
 	}
-	return len(c.Pins)
+	return c.Pins.Count()
 }
 
 func (a *App) popIfPushed(busCmd tea.Cmd) tea.Cmd {
