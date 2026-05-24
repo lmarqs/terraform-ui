@@ -109,3 +109,21 @@ func (b *PluginBase) PinnedAddresses() []string {
 func (b *PluginBase) PinnedCount() int {
 	return len(b.PinnedAddresses())
 }
+
+// HasPins reports whether the active Context has at least one pinned address.
+// Equivalent to b.PinnedCount() > 0; provided so callers can read intent
+// directly instead of comparing counts.
+func (b *PluginBase) HasPins() bool {
+	return b.PinnedCount() > 0
+}
+
+// IsPinned reports whether the supplied address is currently pinned. Linear
+// scan over PinnedAddresses — pin sets are small (single-digit typical).
+func (b *PluginBase) IsPinned(address string) bool {
+	for _, a := range b.PinnedAddresses() {
+		if a == address {
+			return true
+		}
+	}
+	return false
+}

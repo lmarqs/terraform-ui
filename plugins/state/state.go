@@ -321,7 +321,7 @@ func (e *Plugin) sourceResources() []sdk.Resource {
 	}
 	var result []sdk.Resource
 	for _, r := range e.resources {
-		if e.isPinnedAddress(r.Address) {
+		if e.IsPinned(r.Address) {
 			result = append(result, r)
 		}
 	}
@@ -578,7 +578,7 @@ func (e *Plugin) buildFlatRows(maxVisible int) []string {
 	for i := startIdx; i < endIdx; i++ {
 		r := e.filtered[i]
 		pinMark := "[ ] "
-		if e.isPinnedAddress(r.Address) {
+		if e.IsPinned(r.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
 		rows = append(rows, e.formatResourceRow(pinMark, r))
@@ -642,7 +642,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	pinIndicator := ""
-	if e.isPinnedAddress(e.detailAddr) {
+	if e.IsPinned(e.detailAddr) {
 		pinIndicator = " " + sdk.StyleSuccess.Render("[pinned]")
 	}
 
@@ -673,15 +673,6 @@ func (e *Plugin) clearAllPins() tea.Cmd {
 func (e *Plugin) togglePin(address string) tea.Cmd {
 	e.Log.Debug("state.pin.toggle.request", "address", address)
 	return e.PinFn(address)
-}
-
-func (e *Plugin) isPinnedAddress(address string) bool {
-	for _, a := range e.PinnedAddresses() {
-		if a == address {
-			return true
-		}
-	}
-	return false
 }
 
 func (e *Plugin) isTaintedAddress(address string) bool {

@@ -387,7 +387,7 @@ func (e *Plugin) sourceChanges() []sdk.PlanChange {
 	}
 	var result []sdk.PlanChange
 	for _, c := range e.summary.Changes {
-		if e.isPinnedAddress(c.Resource.Address) {
+		if e.IsPinned(c.Resource.Address) {
 			result = append(result, c)
 		}
 	}
@@ -472,15 +472,6 @@ func (e *Plugin) CursorNode() *tree.Node {
 func (e *Plugin) togglePin(address string) tea.Cmd {
 	e.Log.Debug("plan.pin.toggle.request", "address", address)
 	return e.PinFn(address)
-}
-
-func (e *Plugin) isPinnedAddress(address string) bool {
-	for _, a := range e.PinnedAddresses() {
-		if a == address {
-			return true
-		}
-	}
-	return false
 }
 
 // pruneStalePins drops pinned addresses no longer present in the latest plan
@@ -742,7 +733,7 @@ func (e *Plugin) buildFlatRows(contentWidth, maxVisible int) []string {
 	for i := startIdx; i < endIdx; i++ {
 		change := e.filtered[i]
 		pinMark := "[ ] "
-		if e.isPinnedAddress(change.Resource.Address) {
+		if e.IsPinned(change.Resource.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")
 		}
 		rows = append(rows, e.formatChangeRow(pinMark, change))
@@ -811,7 +802,7 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	pinIndicator := ""
-	if e.isPinnedAddress(e.detailAddr) {
+	if e.IsPinned(e.detailAddr) {
 		pinIndicator = " " + sdk.StyleSuccess.Render("[pinned]")
 	}
 

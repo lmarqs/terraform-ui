@@ -144,4 +144,26 @@ func TestPluginBase_PinnedAddresses_BeforeInit_IsNilSafe(t *testing.T) {
 	if got := b.PinnedCount(); got != 0 {
 		t.Errorf("PinnedCount() before Init = %d, want 0", got)
 	}
+	if b.HasPins() {
+		t.Error("HasPins() before Init = true, want false")
+	}
+	if b.IsPinned("anything") {
+		t.Error("IsPinned() before Init = true, want false")
+	}
+}
+
+func TestPluginBase_HasPinsAndIsPinned(t *testing.T) {
+	ctx := &sdk.Context{Pins: []string{"aws_instance.a", "aws_instance.b"}}
+	b := sdk.NewPluginBase("p", "P", "")
+	b.GetCtx = func() *sdk.Context { return ctx }
+
+	if !b.HasPins() {
+		t.Error("HasPins() = false, want true")
+	}
+	if !b.IsPinned("aws_instance.a") {
+		t.Error("IsPinned(a) = false, want true")
+	}
+	if b.IsPinned("aws_instance.missing") {
+		t.Error("IsPinned(missing) = true, want false")
+	}
 }

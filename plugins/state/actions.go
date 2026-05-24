@@ -79,8 +79,8 @@ func (e *Plugin) batchDelete(addresses []string) tea.Cmd {
 
 // actionTargets returns the addresses to act on: pinned if any, otherwise cursor.
 func (e *Plugin) actionTargets() []string {
-	if pinned := e.PinnedAddresses(); len(pinned) > 0 {
-		return pinned
+	if e.HasPins() {
+		return e.PinnedAddresses()
 	}
 	r := e.SelectedResource()
 	if r.Address != "" {

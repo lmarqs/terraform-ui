@@ -230,7 +230,7 @@ func (f *detailFrame) Hints() []sdk.KeyHint {
 	set := sdk.HintSetWrap | sdk.HintSetPin | sdk.HintSetBack
 	return set.Hints(sdk.HintSetOpts{
 		WrapMode: f.plugin.detailPanel.WrapMode(),
-		Pinned:   f.plugin.isPinnedAddress(f.plugin.detailAddr),
+		Pinned:   f.plugin.IsPinned(f.plugin.detailAddr),
 	})
 }
 

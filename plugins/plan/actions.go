@@ -10,8 +10,8 @@ import (
 )
 
 func (e *Plugin) actionTargets() []string {
-	if pinned := e.PinnedAddresses(); len(pinned) > 0 {
-		return pinned
+	if e.HasPins() {
+		return e.PinnedAddresses()
 	}
 	change := e.SelectedChange()
 	if change != nil {
