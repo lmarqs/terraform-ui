@@ -1,3 +1,11 @@
+# [1.11.0](https://github.com/lmarqs/terraform-ui/compare/v1.10.0...v1.11.0) (2026-05-24)
+
+
+### Features
+
+* **sdk:** add PluginBase to absorb plugin DI boilerplate ([30fdfb1](https://github.com/lmarqs/terraform-ui/commit/30fdfb179fff2dd557a109be2db4e21571fbeedf))
+* **sdk:** promote PinnedCount to PluginBase ([1309e74](https://github.com/lmarqs/terraform-ui/commit/1309e74d3f109f4cd8d04f3b932e81ff68cde421))
+
 # [1.10.0](https://github.com/lmarqs/terraform-ui/compare/v1.9.1...v1.10.0) (2026-05-24)
 
 
