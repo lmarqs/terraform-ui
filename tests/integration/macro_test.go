@@ -106,6 +106,17 @@ func TestMacro(t *testing.T) {
 			wantStdout: "terraform plan -out=",
 		},
 		{
+			// Plan owns all replanning: pinning AFTER an initial plan must
+			// trigger a second targeted plan before apply runs. This proves
+			// the deferred-apply path; without it the user would apply the
+			// stale (un-targeted) plan file.
+			name:       "pin after plan records targeted replan before apply",
+			tape:       "wait ready\nkey p\nwait view aws_instance\nkey space\nkey a\nwait view Are you sure\nkey y",
+			args:       []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit:   0,
+			wantStdout: "-target=aws_instance.web",
+		},
+		{
 			name:       "plan records plan command",
 			tape:       "wait ready\nkey p\nwait view aws_instance",
 			args:       []string{"-plan", planFixture, "-state", stateFixture},
