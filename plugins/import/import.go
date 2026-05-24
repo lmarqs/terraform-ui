@@ -3,8 +3,6 @@ package tfimport
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -38,8 +36,7 @@ const (
 
 // Plugin implements the standalone import verb.
 type Plugin struct {
-	svc      sdk.Service
-	log      *slog.Logger
+	sdk.PluginBase
 	timer    ui.Timer
 	status   sdk.Status
 	address  string
@@ -50,23 +47,18 @@ type Plugin struct {
 
 // New creates a new import plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc: svc,
-		log: slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("import", "Import", "Import existing infrastructure into terraform state")}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "import" }
-func (p *Plugin) Name() string        { return "Import" }
-func (p *Plugin) Description() string { return "Import existing infrastructure into terraform state" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
-func (p *Plugin) Busy() bool          { return p.status == sdk.StatusLoading }
+func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
+func (p *Plugin) Busy() bool  { return p.status == sdk.StatusLoading }
 
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
-	p.log = deps.Logger
+	p.InitBase(deps)
 	return nil
 }
 
@@ -140,8 +132,8 @@ func (p *Plugin) executeImport() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
-	svc := p.svc
-	log := p.log
+	svc := p.Svc
+	log := p.Log
 	address := p.address
 	id := p.id
 	return tea.Batch(func() tea.Msg {
@@ -245,11 +237,8 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.status = sdk.StatusIdle
 	p.address = ""

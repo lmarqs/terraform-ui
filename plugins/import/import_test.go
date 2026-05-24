@@ -15,7 +15,7 @@ import (
 
 func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	p := New(svc).(*Plugin)
-	p.log = slog.New(slog.NewTextHandler(io.Discard, nil))
+	p.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
 	return p
 }
 
