@@ -7,7 +7,7 @@ import (
 )
 
 type Plugin struct {
-	svc      sdk.Service
+	sdk.PluginBase
 	members  []string
 	cursor   *ui.Cursor
 	stack    *sdk.Stack
@@ -16,18 +16,16 @@ type Plugin struct {
 
 func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		svc:    svc,
-		cursor: ui.NewCursor(),
+		PluginBase: sdk.NewPluginBase("chdir", "Chdir", "Select working directory from configured members"),
+		cursor:     ui.NewCursor(),
 	}
+	p.Svc = svc
 	p.stack = sdk.NewStack()
 	return p
 }
 
-func (p *Plugin) ID() string          { return "chdir" }
-func (p *Plugin) Name() string        { return "Chdir" }
-func (p *Plugin) Description() string { return "Select working directory from configured members" }
-func (p *Plugin) Ready() bool         { return p.selected }
-func (p *Plugin) Stack() *sdk.Stack   { return p.stack }
+func (p *Plugin) Ready() bool       { return p.selected }
+func (p *Plugin) Stack() *sdk.Stack { return p.stack }
 
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -41,7 +39,7 @@ func (p *Plugin) SetMembers(members []string) {
 }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
+	p.InitBase(deps)
 	return nil
 }
 
