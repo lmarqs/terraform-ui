@@ -158,15 +158,15 @@ Domain at center, adapters around the edges.
         └─────────┬───────────┘
                   │
 ┌─────────────────▼─────────────────┐
-│              DOMAIN                │
+│              DOMAIN               │
 │   ┌─────────────────────────┐     │
-│   │      Business Logic      │     │
-│   │      Use Cases           │     │
+│   │      Business Logic     │     │
+│   │      Use Cases          │     │
 │   └─────────────────────────┘     │
 └─────────────────┬─────────────────┘
                   │
         ┌─────────▼───────────┐
-        │   Database Adapter   │
+        │   Database Adapter  │
         └─────────────────────┘
 ```
 
