@@ -3,8 +3,6 @@ package plan
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,11 +30,7 @@ func (c changeItem) Address() string { return c.change.Resource.Address }
 
 // Plugin implements the plan review feature.
 type Plugin struct {
-	svc          sdk.Service
-	log          *slog.Logger
-	getCtx       func() *sdk.Context
-	pinFn        func(string) tea.Cmd
-	clearPinsFn  func() tea.Cmd
+	sdk.PluginBase
 	stack        *sdk.Stack
 	fuzzy        *ui.FuzzyFilter[sdk.PlanChange]
 	timer        ui.Timer
@@ -57,6 +51,11 @@ type Plugin struct {
 	lastStream   *frames.StreamFrame // retained for L key re-display after success
 	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
 	planFile     sdk.PlanFile        // plan artifact produced by the most recent run
+	// pendingApply records that the user pressed `a`/`A` against a stale plan;
+	// the apply intent is held until the in-flight replan succeeds. Cleared on
+	// any cancel path so an aborted replan never silently fires apply later.
+	pendingApply       bool
+	pendingAutoApprove bool
 	// detail view state
 	detail       string
 	detailAddr   string
@@ -74,8 +73,7 @@ func New(svc sdk.Service) sdk.Plugin {
 	detailPanel := ui.NewContentPanel()
 
 	p := &Plugin{
-		svc:         svc,
-		log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		PluginBase:  sdk.NewPluginBase("plan", "Plan", "Review terraform plan changes"),
 		tree:        tree.New(nil),
 		listPanel:   listPanel,
 		detailPanel: detailPanel,
@@ -83,18 +81,16 @@ func New(svc sdk.Service) sdk.Plugin {
 			return c.Resource.Address
 		}),
 	}
+	p.Svc = svc
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
 	return p
 }
 
-func (e *Plugin) ID() string          { return "plan" }
-func (e *Plugin) Name() string        { return "Plan" }
-func (e *Plugin) Description() string { return "Review terraform plan changes" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Busy() bool          { return e.status == sdk.StatusLoading }
-func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status { return e.status }
+func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
+func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
 }
@@ -106,14 +102,6 @@ func (e *Plugin) Count() (int, int) {
 	return len(e.filtered), len(e.summary.Changes)
 }
 
-func (e *Plugin) PinnedCount() int {
-	return len(e.pinnedAddresses())
-}
-
-func (e *Plugin) pinnedAddresses() []string {
-	return sdk.PinnedAddresses(e.getCtx)
-}
-
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
 	return nil
@@ -122,11 +110,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies. Does not auto-run plan —
 // the user must explicitly activate the plugin to trigger a plan.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
-	e.log = deps.Logger
-	e.getCtx = deps.Context
-	e.pinFn = deps.Pin
-	e.clearPinsFn = deps.ClearPins
+	e.InitBase(deps)
 	e.reset()
 	return nil
 }
@@ -148,11 +132,14 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	}
 	if ev.OnlyPinsChanged() {
 		e.stale = true
+		// A pin toggle invalidates any in-flight replan-then-apply: the
+		// replan's plan file would be wrong for the new pin set, and firing
+		// apply against it would surprise the user. The next `a` press will
+		// queue a fresh replan with the latest pins.
+		e.clearPendingApply()
 		return nil
 	}
-	if ev.Next.Service != nil {
-		e.svc = ev.Next.Service
-	}
+	e.HandleContextChangedDefault(ev)
 	e.reset()
 	return nil
 }
@@ -175,6 +162,7 @@ func (e *Plugin) reset() {
 	e.planFile = sdk.PlanFile{}
 	e.status = sdk.StatusIdle
 	e.stale = false
+	e.clearPendingApply()
 	e.summary = nil
 	e.filtered = nil
 	e.tree = tree.New(nil)
@@ -199,7 +187,7 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError || e.stale {
 		e.stale = false
 		e.status = sdk.StatusLoading
-		e.log.Debug("plan.start")
+		e.Log.Debug("plan.start")
 		planCmd := e.runPlan()
 		return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 	}
@@ -209,27 +197,25 @@ func (e *Plugin) Activate() tea.Cmd {
 	return nil
 }
 
-// Refresh re-runs the plan.
+// Refresh re-runs the plan. An explicit ctrl+r refresh discards any deferred
+// apply intent — the user is asking for a fresh look, not a deferred apply.
 func (e *Plugin) Refresh() tea.Cmd {
-	e.status = sdk.StatusLoading
-	e.summary = nil
-	e.filtered = nil
-	e.errMsg = ""
-	e.lockInfo = nil
-	e.filter = ""
-	e.filtering = false
-	e.filterScores = nil
-	e.tree = tree.New(nil)
-	e.listPanel.ResetScroll()
-	e.detail = ""
-	e.detailAddr = ""
-	e.fuzzy.SetItems(nil)
-	planCmd := e.runPlan()
-	return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
+	e.clearPendingApply()
+	return e.startReplan()
 }
 
-// Cancel aborts any in-flight terraform operation.
+// Cancel aborts any in-flight terraform operation. Also drops any deferred
+// apply intent — the user's cancel must not silently fire apply once the
+// in-flight replan unwinds.
 func (e *Plugin) Cancel() {
+	e.cancelInflight()
+	e.clearPendingApply()
+}
+
+// cancelInflight aborts the current terraform plan goroutine without
+// touching the deferred-apply intent. Used when starting a new plan run on
+// top of an old one (the new run is the continuation, not an abort).
+func (e *Plugin) cancelInflight() {
 	if e.cancelFn != nil {
 		e.cancelFn()
 		e.cancelFn = nil
@@ -237,7 +223,7 @@ func (e *Plugin) Cancel() {
 }
 
 func (e *Plugin) runPlan() tea.Cmd {
-	e.Cancel()
+	e.cancelInflight()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
 
@@ -248,10 +234,10 @@ func (e *Plugin) runPlan() tea.Cmd {
 	e.stack.Clear()
 	e.stack.Push(sf)
 
-	svc := e.svc
+	svc := e.Svc
 	var opts sdk.PlanOptions
-	if e.getCtx != nil {
-		opts = e.getCtx().PlanOptions()
+	if e.GetCtx != nil {
+		opts = e.GetCtx().PlanOptions()
 	}
 	opts.PlanFile = e.allocPlanFile()
 	opts.Writer = lw
@@ -285,10 +271,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case PlanResultMsg:
 		e.timer.Stop()
 		if msg.Err != nil {
+			e.clearPendingApply()
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
-			e.log.Debug("plan.error", "error", msg.Err.Error())
+			e.Log.Debug("plan.error", "error", msg.Err.Error())
 			e.stack.Clear()
 			e.stack.Push(&listFrame{plugin: e})
 			if e.lockInfo != nil {
@@ -313,13 +300,13 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			if msg.Summary != nil {
 				changes = len(msg.Summary.Changes)
 			}
-			e.log.Debug("plan.complete", "changes", changes)
+			e.Log.Debug("plan.complete", "changes", changes)
 			cmds := []tea.Cmd{}
 			if pruneCmd != nil {
 				cmds = append(cmds, pruneCmd)
 			}
+			planFilePath := e.planFile.Path()
 			if msg.Summary != nil {
-				planFilePath := e.planFile.Path()
 				cmds = append(cmds,
 					func() tea.Msg {
 						return sdk.PlanCompletedEvent{
@@ -331,6 +318,16 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				)
 			}
 			cmds = append(cmds, func() tea.Msg { return sdk.StateRefreshedEvent{} })
+
+			// Fire the deferred apply only when the replan produced changes. If
+			// it ended up clean (zero changes), there is nothing to apply.
+			if e.pendingApply && changes > 0 && planFilePath != "" {
+				autoApprove := e.pendingAutoApprove
+				cmds = append(cmds, func() tea.Msg {
+					return ApplyRequestMsg{PlanFile: planFilePath, AutoApprove: autoApprove}
+				})
+			}
+			e.clearPendingApply()
 			return e, tea.Batch(cmds...)
 		}
 	}
@@ -404,7 +401,7 @@ func (e *Plugin) SetFilter(filter string) {
 		e.filtered = source
 		e.filterScores = nil
 		e.rebuildTree()
-		e.log.Debug("plan.filter", "filter", "", "results", len(source))
+		e.Log.Debug("plan.filter", "filter", "", "results", len(source))
 		return
 	}
 
@@ -423,7 +420,7 @@ func (e *Plugin) SetFilter(filter string) {
 	}
 
 	e.rebuildTree()
-	e.log.Debug("plan.filter", "filter", filter, "results", len(e.filtered))
+	e.Log.Debug("plan.filter", "filter", filter, "results", len(e.filtered))
 }
 
 // --- Tree ---
@@ -447,7 +444,7 @@ func (e *Plugin) rebuildTree() {
 }
 
 func (e *Plugin) syncPinnedToTree() {
-	e.tree.SetPinned(e.pinnedAddresses())
+	e.tree.SetPinned(e.PinnedAddresses())
 }
 
 // --- Selection ---
@@ -473,12 +470,12 @@ func (e *Plugin) CursorNode() *tree.Node {
 // that's exactly the bug class ADR-0018 closes.
 
 func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.log.Debug("plan.pin.toggle.request", "address", address)
-	return e.pinFn(address)
+	e.Log.Debug("plan.pin.toggle.request", "address", address)
+	return e.PinFn(address)
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
-	for _, a := range e.pinnedAddresses() {
+	for _, a := range e.PinnedAddresses() {
 		if a == address {
 			return true
 		}
@@ -490,7 +487,7 @@ func (e *Plugin) isPinnedAddress(address string) bool {
 // summary. Returns a Cmd that asks the App to clear-then-restore the
 // surviving subset (a single ContextChangedEvent), or nil if nothing to do.
 func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
-	pinned := e.pinnedAddresses()
+	pinned := e.PinnedAddresses()
 	if len(pinned) == 0 {
 		return nil
 	}
@@ -507,11 +504,11 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 	if len(stale) == 0 {
 		return nil
 	}
-	e.log.Debug("plan.pin.prune", "stale", len(stale), "remaining", len(pinned)-len(stale))
+	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", len(pinned)-len(stale))
 	cmds := make([]tea.Cmd, 0, len(stale))
 	for _, addr := range stale {
-		if e.pinFn != nil {
-			cmds = append(cmds, e.pinFn(addr))
+		if e.PinFn != nil {
+			cmds = append(cmds, e.PinFn(addr))
 		}
 	}
 	return tea.Batch(cmds...)
@@ -523,8 +520,8 @@ func (e *Plugin) clearAllPins() tea.Cmd {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)
 	}
-	e.log.Debug("plan.pin.clear-all.request")
-	return e.clearPinsFn()
+	e.Log.Debug("plan.pin.clear-all.request")
+	return e.ClearPinsFn()
 }
 
 // --- Detail ---
@@ -953,12 +950,55 @@ func plainActionSymbol(action sdk.Action) string {
 	}
 }
 
+// requestApply emits ApplyRequestMsg directly when the plan artifact is fresh.
+// If the plugin is stale (pins changed since last plan, or the plan was
+// invalidated by a state-mutating op), it instead replans first and defers
+// the apply until the replan succeeds — Plan owns all planning (CONTEXT.md,
+// ADR-0019).
 func (e *Plugin) requestApply() tea.Cmd {
-	path := e.planFile.Path()
-	return func() tea.Msg { return ApplyRequestMsg{PlanFile: path} }
+	return e.applyOrReplan(false)
 }
 
 func (e *Plugin) requestAutoApply() tea.Cmd {
-	path := e.planFile.Path()
-	return func() tea.Msg { return ApplyRequestMsg{PlanFile: path, AutoApprove: true} }
+	return e.applyOrReplan(true)
+}
+
+func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
+	if !e.stale && !e.planFile.IsZero() {
+		path := e.planFile.Path()
+		return func() tea.Msg { return ApplyRequestMsg{PlanFile: path, AutoApprove: autoApprove} }
+	}
+	e.pendingApply = true
+	e.pendingAutoApprove = autoApprove
+	e.Log.Debug("plan.apply.deferred", "auto_approve", autoApprove)
+	return e.startReplan()
+}
+
+// startReplan kicks off a fresh terraform plan, mirroring Refresh's reset
+// behavior so the StreamFrame appears the same way as an explicit ctrl+r
+// replan. Used both by Refresh and by the implicit replan-before-apply path.
+func (e *Plugin) startReplan() tea.Cmd {
+	e.status = sdk.StatusLoading
+	e.summary = nil
+	e.filtered = nil
+	e.errMsg = ""
+	e.lockInfo = nil
+	e.filter = ""
+	e.filtering = false
+	e.filterScores = nil
+	e.tree = tree.New(nil)
+	e.listPanel.ResetScroll()
+	e.detail = ""
+	e.detailAddr = ""
+	e.fuzzy.SetItems(nil)
+	planCmd := e.runPlan()
+	return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
+}
+
+// clearPendingApply drops any deferred apply intent. Called whenever the user
+// cancels a replan or the plan errors — an aborted replan must never silently
+// fire apply later.
+func (e *Plugin) clearPendingApply() {
+	e.pendingApply = false
+	e.pendingAutoApprove = false
 }

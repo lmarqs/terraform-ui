@@ -943,6 +943,8 @@ func TestViewSmallHeight(t *testing.T) {
 func TestRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-test.tfplan")
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1300,6 +1302,8 @@ func TestPlugin_WhenTogglePin_ShouldRequestPinToggle(t *testing.T) {
 func TestPlugin_WhenRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-test.tfplan")
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1315,6 +1319,202 @@ func TestPlugin_WhenRequestApply_ShouldEmitApplyRequestMsg(t *testing.T) {
 	if _, ok := msg.(ApplyRequestMsg); !ok {
 		t.Fatalf("requestApply() cmd produced %T, want ApplyRequestMsg", msg)
 	}
+}
+
+func TestPlugin_WhenRequestApply_WhileStale_ShouldReplanAndDeferApply(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{
+				Changes: []sdk.PlanChange{
+					{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+				},
+				ToCreate: 1,
+			}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.stale = true
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+		},
+	}
+
+	cmd := p.requestApply()
+	if cmd == nil {
+		t.Fatal("requestApply() while stale returned nil cmd, want replan batch")
+	}
+	if !p.pendingApply {
+		t.Error("pendingApply = false after requestApply while stale, want true")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v after requestApply while stale, want Loading", p.status)
+	}
+	drainAndAssertNoApply(t, cmd)
+
+	planPath := p.planFile.Path()
+	_, doneCmd := p.Update(PlanResultMsg{
+		Summary: &sdk.PlanSummary{
+			Changes: []sdk.PlanChange{
+				{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+			},
+		},
+	})
+	if doneCmd == nil {
+		t.Fatal("Update(PlanResultMsg success) cmd = nil, want batch with ApplyRequestMsg")
+	}
+	req := findApplyRequest(doneCmd)
+	if req == nil {
+		t.Fatal("ApplyRequestMsg not emitted after deferred replan succeeded")
+	}
+	if req.PlanFile != planPath {
+		t.Errorf("ApplyRequestMsg.PlanFile = %q, want %q", req.PlanFile, planPath)
+	}
+	if req.AutoApprove {
+		t.Error("ApplyRequestMsg.AutoApprove = true on deferred apply, want false")
+	}
+	if p.pendingApply {
+		t.Error("pendingApply still true after intent fired, want cleared")
+	}
+}
+
+func TestPlugin_WhenRequestAutoApply_WhileStale_ShouldPropagateAutoApprove(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{
+				Changes: []sdk.PlanChange{
+					{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
+				},
+			}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.stale = true
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}},
+	}
+
+	if cmd := p.requestAutoApply(); cmd == nil {
+		t.Fatal("requestAutoApply() while stale returned nil cmd, want replan batch")
+	}
+	if !p.pendingApply || !p.pendingAutoApprove {
+		t.Errorf("pending flags = (%v, %v), want both true", p.pendingApply, p.pendingAutoApprove)
+	}
+
+	_, doneCmd := p.Update(PlanResultMsg{
+		Summary: &sdk.PlanSummary{
+			Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}},
+		},
+	})
+	req := findApplyRequest(doneCmd)
+	if req == nil {
+		t.Fatal("ApplyRequestMsg not emitted after deferred auto-apply replan succeeded")
+	}
+	if !req.AutoApprove {
+		t.Error("ApplyRequestMsg.AutoApprove = false, want true (deferred auto-apply)")
+	}
+}
+
+func TestPlugin_WhenStaleReplanFails_ShouldNotEmitApplyRequest(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return nil, errors.New("boom")
+		},
+	}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.stale = true
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}},
+	}
+
+	if cmd := p.requestApply(); cmd == nil {
+		t.Fatal("requestApply() while stale returned nil cmd")
+	}
+
+	_, errCmd := p.Update(PlanResultMsg{Err: errors.New("boom")})
+	if findApplyRequest(errCmd) != nil {
+		t.Error("ApplyRequestMsg should not be emitted when replan fails")
+	}
+	if p.pendingApply {
+		t.Error("pendingApply should be cleared after replan error")
+	}
+}
+
+func TestPlugin_WhenStaleReplanReturnsNoChanges_ShouldNotEmitApplyRequest(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
+	p.pendingApply = true
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
+
+	_, cmd := p.Update(PlanResultMsg{Summary: &sdk.PlanSummary{}})
+	if findApplyRequest(cmd) != nil {
+		t.Error("ApplyRequestMsg should not be emitted when replan has zero changes")
+	}
+	if p.pendingApply {
+		t.Error("pendingApply should be cleared after replan with no changes")
+	}
+}
+
+func TestPlugin_WhenCancelWhilePendingApply_ShouldDropIntent(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusLoading
+	p.pendingApply = true
+	p.pendingAutoApprove = true
+
+	p.Cancel()
+
+	if p.pendingApply || p.pendingAutoApprove {
+		t.Errorf("after Cancel pending flags = (%v, %v), want both cleared",
+			p.pendingApply, p.pendingAutoApprove)
+	}
+}
+
+func drainAndAssertNoApply(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	if cmd == nil {
+		return
+	}
+	switch v := cmd().(type) {
+	case ApplyRequestMsg:
+		t.Fatal("ApplyRequestMsg emitted before replan completed")
+	case tea.BatchMsg:
+		for _, sub := range v {
+			if sub == nil {
+				continue
+			}
+			if _, ok := sub().(ApplyRequestMsg); ok {
+				t.Fatal("ApplyRequestMsg emitted before replan completed")
+			}
+		}
+	}
+}
+
+func findApplyRequest(cmd tea.Cmd) *ApplyRequestMsg {
+	if cmd == nil {
+		return nil
+	}
+	switch v := cmd().(type) {
+	case ApplyRequestMsg:
+		return &v
+	case tea.BatchMsg:
+		for _, sub := range v {
+			if sub == nil {
+				continue
+			}
+			if msg, ok := sub().(ApplyRequestMsg); ok {
+				return &msg
+			}
+		}
+	}
+	return nil
 }
 
 // --- Frame tests ---
@@ -1403,6 +1603,7 @@ func TestListFrame_WhenAPressedWithResults_ShouldRequestApply(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-test.tfplan")
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
@@ -1418,6 +1619,32 @@ func TestListFrame_WhenAPressedWithResults_ShouldRequestApply(t *testing.T) {
 	msg := cmd()
 	if _, ok := msg.(ApplyRequestMsg); !ok {
 		t.Fatalf("a key cmd produced %T, want ApplyRequestMsg", msg)
+	}
+}
+
+func TestListFrame_WhenAPressedWhileStaleWithResults_ShouldStartReplan(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+	p.status = sdk.StatusDone
+	p.stale = true
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
+		},
+		ToCreate: 1,
+	}
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}})
+	if cmd == nil {
+		t.Fatal("a key while stale with results: cmd = nil, want replan batch")
+	}
+	if !p.pendingApply {
+		t.Error("pendingApply = false after pressing a while stale, want true")
 	}
 }
 

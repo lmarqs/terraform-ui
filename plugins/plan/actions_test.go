@@ -16,6 +16,7 @@ func newPlanPluginWithChanges(changes []sdk.PlanChange) (*Plugin, *sdktest.Plugi
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
 	p.status = sdk.StatusDone
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-test.tfplan")
 	p.summary = &sdk.PlanSummary{Changes: changes}
 	p.filtered = changes
 	p.rebuildTree()

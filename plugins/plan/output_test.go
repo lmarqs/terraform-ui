@@ -478,6 +478,7 @@ func TestListFrame_WhenBigTPressedDone_ShouldEmitUntaintRequest(t *testing.T) {
 func TestListFrame_WhenBigAPressed_ShouldRequestAutoApply(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-test.tfplan")
 	p.summary = &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
