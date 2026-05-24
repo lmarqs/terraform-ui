@@ -65,7 +65,7 @@ type App struct {
 	activePlugin    sdk.Plugin   // nil = home screen
 	navStack        []sdk.Plugin // LIFO stack of return destinations; empty = no history
 	activeOverlay   sdk.Overlay
-	activeChdir     string        // tracks last known active chdir for header updates
+	activeChdir     sdk.Chdir     // tracks last known active chdir for header updates
 	activeWorkspace sdk.Workspace // tracks current workspace for config re-resolution
 	lockInfo        *sdk.StateLock
 	staleState      bool
@@ -206,9 +206,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Standalone mode: activate the target plugin directly
 		if a.standalone != nil {
 			if a.cfg.Chdir != "" {
-				a.activeChdir = a.cfg.Chdir
+				a.activeChdir = sdk.Chdir(a.cfg.Chdir)
 			} else if a.cfg.BaseDir != "" {
-				a.activeChdir = a.cfg.BaseDir
+				a.activeChdir = sdk.Chdir(a.cfg.BaseDir)
 			}
 			if p, ok := a.registry.ByID(a.standalone.PluginID); ok {
 				a.activePlugin = p
@@ -226,11 +226,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.cfg.Chdir != "" || a.cfg.PreloadedData {
 			if a.cfg.Chdir != "" {
 				return a, func() tea.Msg {
-					return sdk.ContextSwitchRequestMsg{Chdir: a.cfg.Chdir, Workspace: sdk.WorkspaceDefault}
+					return sdk.ContextSwitchRequestMsg{Chdir: sdk.Chdir(a.cfg.Chdir), Workspace: sdk.WorkspaceDefault}
 				}
 			}
 			if a.cfg.BaseDir != "" {
-				a.activeChdir = a.cfg.BaseDir
+				a.activeChdir = sdk.Chdir(a.cfg.BaseDir)
 			}
 			return a, nil
 		}
@@ -278,7 +278,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		chdir := msg.Chdir
 		workspace := msg.Workspace
-		absChdir := filepath.Join(a.cfg.Dir, chdir)
+		absChdir := filepath.Join(a.cfg.Dir, chdir.String())
 		a.activeChdir = chdir
 		a.activeWorkspace = workspace
 		a.lockInfo = nil
@@ -290,7 +290,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			a.childCfg = childCfg
 		}
-		a.header = a.header.WithChdir(chdir).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
+		a.header = a.header.WithChdir(chdir.String()).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
 		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace))
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
@@ -797,7 +797,7 @@ func (a *App) navigateBack() {
 // lock-timeout, extra-args) from config.Resolve — NOT just var-files/vars.
 // Pinned targets are preserved across rebuilds within the same chdir; on
 // chdir change callers should pass nil targets to clear them.
-func (a *App) rebuildContext(chdir, absChdir string, workspace sdk.Workspace) *sdk.Context {
+func (a *App) rebuildContext(chdir sdk.Chdir, absChdir string, workspace sdk.Workspace) *sdk.Context {
 	scopedSvc := a.svc
 	if absChdir != "" {
 		scopedSvc = a.svc.WithDir(absChdir)
@@ -1139,8 +1139,8 @@ func (a App) viewStandalone() string {
 
 	var leftParts []string
 	leftParts = append(leftParts, projectStyle.Render(filepath.Base(a.cfg.WorkingDir())))
-	if a.activeChdir != "" {
-		leftParts = append(leftParts, valueStyle.Render(a.activeChdir))
+	if !a.activeChdir.IsZero() {
+		leftParts = append(leftParts, valueStyle.Render(a.activeChdir.String()))
 	}
 	if !a.activeWorkspace.IsZero() {
 		leftParts = append(leftParts, valueStyle.Render(a.activeWorkspace.String()))

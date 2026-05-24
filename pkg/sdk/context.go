@@ -14,7 +14,7 @@ package sdk
 // flow) for rationale.
 type Context struct {
 	// Chdir is the relative member path (e.g., "modules/vpc").
-	Chdir string
+	Chdir Chdir
 	// WorkingDir is the absolute path of the active chdir.
 	WorkingDir string
 	// Workspace is the active terraform workspace.
