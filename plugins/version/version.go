@@ -19,7 +19,7 @@ type VersionResultMsg struct {
 
 // Plugin implements the version info viewer.
 type Plugin struct {
-	svc      sdk.Service
+	sdk.PluginBase
 	status   sdk.Status
 	info     *sdk.VersionInfo
 	errMsg   string
@@ -29,13 +29,12 @@ type Plugin struct {
 
 // New creates a new version plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{svc: svc}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("version", "Version", "Show version information")}
+	p.Svc = svc
+	return p
 }
 
-func (p *Plugin) ID() string          { return "version" }
-func (p *Plugin) Name() string        { return "Version" }
-func (p *Plugin) Description() string { return "Show version information" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
+func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
 
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
@@ -47,7 +46,7 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies.
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
+	p.InitBase(deps)
 	return nil
 }
 
@@ -65,7 +64,7 @@ func (p *Plugin) Activate() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
-	svc := p.svc
+	svc := p.Svc
 	return func() tea.Msg {
 		info, err := svc.Version(ctx)
 		return VersionResultMsg{Info: info, Err: err}
