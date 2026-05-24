@@ -42,7 +42,7 @@ type ModuleImpact struct {
 
 // Plugin implements the blast radius visualization feature.
 type Plugin struct {
-	svc      sdk.Service
+	sdk.PluginBase
 	status   sdk.Status
 	modules  []ModuleImpact
 	selected int
@@ -52,21 +52,20 @@ type Plugin struct {
 
 // New creates a new blast radius plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc:      svc,
-		expanded: make(map[int]bool),
+	p := &Plugin{
+		PluginBase: sdk.NewPluginBase("blastradius", "Blast Radius", "Visualize module-grouped changes with impact scores"),
+		expanded:   make(map[int]bool),
 	}
+	p.Svc = svc
+	return p
 }
 
-func (e *Plugin) ID() string          { return "blastradius" }
-func (e *Plugin) Name() string        { return "Blast Radius" }
-func (e *Plugin) Description() string { return "Visualize module-grouped changes with impact scores" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Selected() int       { return e.selected }
-func (e *Plugin) ModuleCount() int    { return len(e.modules) }
-func (e *Plugin) TotalChanges() int   { return e.total }
-func (e *Plugin) Count() (int, int)   { return len(e.modules), e.total }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status { return e.status }
+func (e *Plugin) Selected() int      { return e.selected }
+func (e *Plugin) ModuleCount() int   { return len(e.modules) }
+func (e *Plugin) TotalChanges() int  { return e.total }
+func (e *Plugin) Count() (int, int)  { return len(e.modules), e.total }
 func (e *Plugin) CursorPosition() (int, int) {
 	if e.status != sdk.StatusDone || len(e.modules) == 0 {
 		return 0, 0
@@ -89,7 +88,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
+	e.InitBase(deps)
 	return nil
 }
 
