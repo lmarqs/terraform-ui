@@ -16,7 +16,7 @@ type RiskGroup struct {
 
 // Plugin implements the risk analysis feature.
 type Plugin struct {
-	svc      sdk.Service
+	sdk.PluginBase
 	status   sdk.Status
 	groups   []RiskGroup
 	overall  sdk.RiskLevel
@@ -26,17 +26,14 @@ type Plugin struct {
 
 // New creates a new risk analysis plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc: svc,
-	}
+	p := &Plugin{PluginBase: sdk.NewPluginBase("risk", "Risk Analysis", "Analyze risk levels of planned changes")}
+	p.Svc = svc
+	return p
 }
 
-func (e *Plugin) ID() string          { return "risk" }
-func (e *Plugin) Name() string        { return "Risk Analysis" }
-func (e *Plugin) Description() string { return "Analyze risk levels of planned changes" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Selected() int       { return e.selected }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status { return e.status }
+func (e *Plugin) Selected() int      { return e.selected }
 func (e *Plugin) Overall() sdk.RiskLevel {
 	return e.overall
 }
@@ -56,7 +53,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
+	e.InitBase(deps)
 	return nil
 }
 
