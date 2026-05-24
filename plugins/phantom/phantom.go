@@ -17,7 +17,7 @@ type PhantomChange struct {
 
 // Plugin implements the phantom change detection feature.
 type Plugin struct {
-	svc      sdk.Service
+	sdk.PluginBase
 	status   sdk.Status
 	phantoms []PhantomChange
 	selected int
@@ -28,21 +28,20 @@ type Plugin struct {
 
 // New creates a new phantom change detection plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{
-		svc:      svc,
-		expanded: make(map[int]bool),
+	p := &Plugin{
+		PluginBase: sdk.NewPluginBase("phantom", "Phantom Changes", "Detect and explain phantom (no-op) changes"),
+		expanded:   make(map[int]bool),
 	}
+	p.Svc = svc
+	return p
 }
 
-func (e *Plugin) ID() string          { return "phantom" }
-func (e *Plugin) Name() string        { return "Phantom Changes" }
-func (e *Plugin) Description() string { return "Detect and explain phantom (no-op) changes" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Selected() int       { return e.selected }
-func (e *Plugin) PhantomCount() int   { return len(e.phantoms) }
-func (e *Plugin) RealCount() int      { return e.real }
-func (e *Plugin) TotalCount() int     { return e.total }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Status() sdk.Status { return e.status }
+func (e *Plugin) Selected() int      { return e.selected }
+func (e *Plugin) PhantomCount() int  { return len(e.phantoms) }
+func (e *Plugin) RealCount() int     { return e.real }
+func (e *Plugin) TotalCount() int    { return e.total }
 func (e *Plugin) CursorPosition() (int, int) {
 	if e.status != sdk.StatusDone || len(e.phantoms) == 0 {
 		return 0, 0
@@ -65,7 +64,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
+	e.InitBase(deps)
 	return nil
 }
 
