@@ -3,8 +3,6 @@ package state
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -54,12 +52,8 @@ func (r resourceItem) Address() string { return r.resource.Address }
 
 // Plugin implements the state browser feature.
 type Plugin struct {
-	svc          sdk.Service
-	log          *slog.Logger
+	sdk.PluginBase
 	stack        *sdk.Stack
-	getCtx       func() *sdk.Context
-	pinFn        func(string) tea.Cmd
-	clearPinsFn  func() tea.Cmd
 	fuzzy        *ui.FuzzyFilter[sdk.Resource]
 	timer        ui.Timer
 	status       sdk.Status
@@ -92,37 +86,30 @@ func New(svc sdk.Service) sdk.Plugin {
 	detailPanel := ui.NewContentPanel()
 
 	p := &Plugin{
-		svc:         svc,
-		log:         slog.New(slog.NewTextHandler(io.Discard, nil)),
+		PluginBase:  sdk.NewPluginBase("state", "State Browser", "Browse and inspect terraform state resources"),
 		tree:        tree.New(nil),
 		listPanel:   listPanel,
 		detailPanel: detailPanel,
 		fuzzy:       ui.NewFuzzyFilter(func(r sdk.Resource) string { return r.Address }),
 	}
+	p.Svc = svc
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
 	return p
 }
 
-func (e *Plugin) ID() string          { return "state" }
-func (e *Plugin) Name() string        { return "State Browser" }
-func (e *Plugin) Description() string { return "Browse and inspect terraform state resources" }
-func (e *Plugin) Ready() bool         { return e.status == sdk.StatusDone || e.status == StatusShowingDetail }
-func (e *Plugin) Status() sdk.Status  { return e.status }
-func (e *Plugin) Busy() bool          { return e.mutating }
-func (e *Plugin) Selected() int       { return e.tree.Cursor() }
-func (e *Plugin) Filter() string      { return e.filter }
-func (e *Plugin) Filtering() bool     { return e.filtering }
-func (e *Plugin) ResourceCount() int  { return len(e.filtered) }
-func (e *Plugin) TotalCount() int     { return len(e.resources) }
-func (e *Plugin) Count() (int, int)   { return len(e.filtered), len(e.resources) }
-func (e *Plugin) Stack() *sdk.Stack   { return e.stack }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone || e.status == StatusShowingDetail }
+func (e *Plugin) Status() sdk.Status { return e.status }
+func (e *Plugin) Busy() bool         { return e.mutating }
+func (e *Plugin) Selected() int      { return e.tree.Cursor() }
+func (e *Plugin) Filter() string     { return e.filter }
+func (e *Plugin) Filtering() bool    { return e.filtering }
+func (e *Plugin) ResourceCount() int { return len(e.filtered) }
+func (e *Plugin) TotalCount() int    { return len(e.resources) }
+func (e *Plugin) Count() (int, int)  { return len(e.filtered), len(e.resources) }
+func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
 
-func (e *Plugin) PinnedCount() int { return len(e.pinnedAddresses()) }
-
-func (e *Plugin) pinnedAddresses() []string {
-	return sdk.PinnedAddresses(e.getCtx)
-}
+func (e *Plugin) PinnedCount() int { return len(e.PinnedAddresses()) }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
@@ -131,11 +118,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies. Does not auto-load state.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
-	e.log = deps.Logger
-	e.getCtx = deps.Context
-	e.pinFn = deps.Pin
-	e.clearPinsFn = deps.ClearPins
+	e.InitBase(deps)
 	e.stack.Clear()
 	e.reset()
 	return nil
@@ -158,11 +141,8 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 // to the active Context — they die on context switch (the very bug this
 // overhaul exists to fix).
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !e.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		e.svc = ev.Next.Service
 	}
 	e.clearAllPins()
 	e.reset()
@@ -217,7 +197,7 @@ func (e *Plugin) loadState(opts ...sdk.StateListOption) tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
-	svc := e.svc
+	svc := e.Svc
 	return func() tea.Msg {
 		resources, err := svc.StateList(ctx, opts...)
 		return StateListMsg{Resources: resources, Err: err}
@@ -228,7 +208,7 @@ func (e *Plugin) loadDetail(address string) tea.Cmd {
 	e.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
-	svc := e.svc
+	svc := e.Svc
 	return func() tea.Msg {
 		detail, err := svc.Show(ctx, address)
 		return ResourceDetailMsg{Address: address, Detail: detail, Err: err}
@@ -248,7 +228,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
-			e.log.Debug("state.load.error", "error", msg.Err.Error())
+			e.Log.Debug("state.load.error", "error", msg.Err.Error())
 			if e.lockInfo != nil {
 				return e, func() tea.Msg { return sdk.LockDetectedEvent{Lock: e.lockInfo} }
 			}
@@ -258,19 +238,19 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.filtered = msg.Resources
 			e.fuzzy.SetItems(msg.Resources)
 			e.rebuildTree()
-			e.log.Debug("state.load.complete", "resources", len(msg.Resources))
+			e.Log.Debug("state.load.complete", "resources", len(msg.Resources))
 			return e, func() tea.Msg { return sdk.StateRefreshedEvent{} }
 		}
 		return e, nil
 
 	case StateDeletedMsg:
 		e.mutating = false
-		e.log.Debug("state.deleted", "address", msg.Address)
+		e.Log.Debug("state.deleted", "address", msg.Address)
 		return e, e.Refresh()
 
 	case StateMovedMsg:
 		e.mutating = false
-		e.log.Debug("state.moved", "source", msg.Source, "dest", msg.Dest)
+		e.Log.Debug("state.moved", "source", msg.Source, "dest", msg.Dest)
 		return e, e.Refresh()
 
 	case ResourceDetailMsg:
@@ -278,12 +258,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.errMsg = msg.Err.Error()
 			e.status = sdk.StatusDone
-			e.log.Debug("state.inspect.error", "address", msg.Address, "error", msg.Err.Error())
+			e.Log.Debug("state.inspect.error", "address", msg.Address, "error", msg.Err.Error())
 		} else {
 			e.detail = msg.Detail
 			e.detailAddr = msg.Address
 			e.status = StatusShowingDetail
-			e.log.Debug("state.inspect", "address", msg.Address)
+			e.Log.Debug("state.inspect", "address", msg.Address)
 			e.stack.Push(&detailFrame{plugin: e})
 		}
 		return e, nil
@@ -359,7 +339,7 @@ func (e *Plugin) SetFilter(filter string) {
 		e.filtered = source
 		e.filterScores = nil
 		e.rebuildTree()
-		e.log.Debug("state.filter", "filter", "", "results", len(source))
+		e.Log.Debug("state.filter", "filter", "", "results", len(source))
 		return
 	}
 
@@ -378,7 +358,7 @@ func (e *Plugin) SetFilter(filter string) {
 	}
 
 	e.rebuildTree()
-	e.log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
+	e.Log.Debug("state.filter", "filter", filter, "results", len(e.filtered))
 }
 
 // rebuildTree reconstructs the tree from filtered resources, syncing pinned state.
@@ -402,7 +382,7 @@ func (e *Plugin) rebuildTree() {
 
 // syncPinnedToTree updates the tree's pinned set from the active Context.
 func (e *Plugin) syncPinnedToTree() {
-	e.tree.SetPinned(e.pinnedAddresses())
+	e.tree.SetPinned(e.PinnedAddresses())
 }
 
 // AppendFilter adds a character to the filter.
@@ -438,10 +418,10 @@ func (e *Plugin) InspectSelected() tea.Cmd {
 	}
 	r := e.SelectedResource()
 	if r.Address == "" {
-		e.log.Debug("state.inspect.skip", "reason", "empty address", "cursor", e.tree.Cursor(), "filtered", len(e.filtered))
+		e.Log.Debug("state.inspect.skip", "reason", "empty address", "cursor", e.tree.Cursor(), "filtered", len(e.filtered))
 		return nil
 	}
-	e.log.Debug("state.inspect.start", "address", r.Address)
+	e.Log.Debug("state.inspect.start", "address", r.Address)
 	e.status = sdk.StatusLoading
 	e.filtering = false
 	if e.stack.Peek() != nil && e.stack.Peek().ID() == "filter" {
@@ -688,17 +668,17 @@ func (e *Plugin) clearAllPins() tea.Cmd {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)
 	}
-	e.log.Debug("state.pin.clear-all.request")
-	return e.clearPinsFn()
+	e.Log.Debug("state.pin.clear-all.request")
+	return e.ClearPinsFn()
 }
 
 func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.log.Debug("state.pin.toggle.request", "address", address)
-	return e.pinFn(address)
+	e.Log.Debug("state.pin.toggle.request", "address", address)
+	return e.PinFn(address)
 }
 
 func (e *Plugin) isPinnedAddress(address string) bool {
-	for _, a := range e.pinnedAddresses() {
+	for _, a := range e.PinnedAddresses() {
 		if a == address {
 			return true
 		}

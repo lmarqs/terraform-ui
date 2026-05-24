@@ -510,7 +510,7 @@ func TestListFrame_PinnedFilter(t *testing.T) {
 	f := &listFrame{plugin: p}
 
 	// Pin one resource
-	p.getCtx().Pins = []string{"aws_instance.b"}
+	p.GetCtx().Pins = []string{"aws_instance.b"}
 	p.syncPinnedToTree()
 
 	t.Run("ShouldFilterToPinnedOnly", func(t *testing.T) {
@@ -545,7 +545,7 @@ func TestListFrame_ClearAllPins(t *testing.T) {
 	p, _ := newTestPluginWithHarness(resources)
 	f := &listFrame{plugin: p}
 
-	p.getCtx().Pins = []string{"aws_instance.a", "aws_instance.b"}
+	p.GetCtx().Pins = []string{"aws_instance.a", "aws_instance.b"}
 	p.syncPinnedToTree()
 
 	if p.PinnedCount() != 2 {
@@ -570,7 +570,7 @@ func TestListFrame_ClearAllPins_ExitsPinnedFilter(t *testing.T) {
 	p.rebuildTree()
 	f := &listFrame{plugin: p}
 
-	p.getCtx().Pins = []string{"aws_instance.a"}
+	p.GetCtx().Pins = []string{"aws_instance.a"}
 	p.syncPinnedToTree()
 	p.pinnedOnly = true
 	p.SetFilter("")
@@ -948,7 +948,7 @@ func TestDetailFrame_Hints_WhenPinned_ShouldReflectPinnedState(t *testing.T) {
 	p.status = StatusShowingDetail
 	p.detailAddr = "aws_instance.web"
 
-	p.getCtx().Pins = []string{"aws_instance.web"}
+	p.GetCtx().Pins = []string{"aws_instance.web"}
 	f := &detailFrame{plugin: p}
 
 	hints := f.Hints()
@@ -993,7 +993,7 @@ func TestStateFilterFrame_Update_WhenEscFromInner_ShouldClearFiltering(t *testin
 func TestStateFilterFrame_Update_WhenPinnedFilter_ShouldToggle(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}, {Address: "b"}})
 
-	p.getCtx().Pins = []string{"a"}
+	p.GetCtx().Pins = []string{"a"}
 	p.rebuildTree()
 
 	// Enter filter mode
@@ -1074,7 +1074,7 @@ func TestListFrame_Hints_WhenLoading_ShouldShowBackOnly(t *testing.T) {
 func TestListFrame_Hints_WhenDoneWithPins_ShouldIncludeClearPins(t *testing.T) {
 	p := newTestPlugin([]sdk.Resource{{Address: "a"}})
 
-	p.getCtx().Pins = []string{"a"}
+	p.GetCtx().Pins = []string{"a"}
 	f := &listFrame{plugin: p}
 
 	hints := f.Hints()

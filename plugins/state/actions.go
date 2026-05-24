@@ -13,8 +13,8 @@ import (
 )
 
 func (e *Plugin) requestMove(address string) tea.Cmd {
-	svc := e.svc
-	log := e.log
+	svc := e.Svc
+	log := e.Log
 	return func() tea.Msg {
 		return sdk.RequestInputMsg{
 			Request: sdk.InputText("Move to:", address, func(dest string) tea.Cmd {
@@ -50,8 +50,8 @@ func (e *Plugin) requestMove(address string) tea.Cmd {
 
 // batchDelete deletes multiple resources sequentially.
 func (e *Plugin) batchDelete(addresses []string) tea.Cmd {
-	svc := e.svc
-	log := e.log
+	svc := e.Svc
+	log := e.Log
 	return func() tea.Msg {
 		return sdk.RequestInputMsg{
 			Request: sdk.InputConfirm(
@@ -79,7 +79,7 @@ func (e *Plugin) batchDelete(addresses []string) tea.Cmd {
 
 // actionTargets returns the addresses to act on: pinned if any, otherwise cursor.
 func (e *Plugin) actionTargets() []string {
-	if pinned := e.pinnedAddresses(); len(pinned) > 0 {
+	if pinned := e.PinnedAddresses(); len(pinned) > 0 {
 		return pinned
 	}
 	r := e.SelectedResource()
@@ -91,7 +91,7 @@ func (e *Plugin) actionTargets() []string {
 
 // buildActionFrame creates the action palette for the given address context.
 func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFrame {
-	pinCount := len(e.pinnedAddresses())
+	pinCount := len(e.PinnedAddresses())
 	multiTarget := batch && pinCount > 1
 
 	title := address
@@ -158,8 +158,8 @@ func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFram
 }
 
 func (e *Plugin) requestDelete(address string) tea.Cmd {
-	svc := e.svc
-	log := e.log
+	svc := e.Svc
+	log := e.Log
 	return func() tea.Msg {
 		return sdk.RequestInputMsg{
 			Request: sdk.InputConfirm(
