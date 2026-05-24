@@ -17,8 +17,8 @@ type Event interface {
 // Plugins do NOT subscribe to this message — it is a request to the App.
 // Subscribe to ContextChangedEvent for notifications about Context updates.
 type ContextSwitchRequestMsg struct {
-	Chdir     string // relative member path (required)
-	Workspace string // workspace name (required)
+	Chdir     string    // relative member path (required)
+	Workspace Workspace // workspace name (required)
 }
 
 // PinToggleRequestMsg asks the App to toggle a single pinned address on the

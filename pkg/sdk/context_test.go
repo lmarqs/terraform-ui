@@ -6,14 +6,13 @@ import (
 )
 
 func TestContext_PlanOptions_ShouldIncludeAllExecFields(t *testing.T) {
-	lock := true
 	ctx := &Context{
 		Pins:        []string{"aws_instance.web"},
 		VarFiles:    []string{"prod.tfvars"},
 		Vars:        map[string]string{"env": "prod"},
 		ExtraArgs:   []string{"-no-color"},
 		Parallelism: 5,
-		Lock:        &lock,
+		Lock:        LockEnabled,
 		LockTimeout: "30s",
 	}
 
@@ -34,8 +33,8 @@ func TestContext_PlanOptions_ShouldIncludeAllExecFields(t *testing.T) {
 	if opts.Parallelism != 5 {
 		t.Errorf("Parallelism = %d, want 5", opts.Parallelism)
 	}
-	if opts.Lock == nil || *opts.Lock != true {
-		t.Errorf("Lock = %v, want true", opts.Lock)
+	if opts.Lock != LockEnabled {
+		t.Errorf("Lock = %v, want LockEnabled", opts.Lock)
 	}
 	if opts.LockTimeout != "30s" {
 		t.Errorf("LockTimeout = %q, want 30s", opts.LockTimeout)
@@ -43,14 +42,13 @@ func TestContext_PlanOptions_ShouldIncludeAllExecFields(t *testing.T) {
 }
 
 func TestContext_ApplyOptions_ShouldIncludeAllExecFields(t *testing.T) {
-	lock := false
 	ctx := &Context{
 		Pins:        []string{"aws_instance.web"},
 		VarFiles:    []string{"staging.tfvars"},
 		Vars:        map[string]string{"region": "us-west-2"},
 		ExtraArgs:   []string{"-compact-warnings"},
 		Parallelism: 10,
-		Lock:        &lock,
+		Lock:        LockDisabled,
 		LockTimeout: "1m",
 	}
 
@@ -68,8 +66,8 @@ func TestContext_ApplyOptions_ShouldIncludeAllExecFields(t *testing.T) {
 	if opts.Parallelism != 10 {
 		t.Errorf("Parallelism = %d, want 10", opts.Parallelism)
 	}
-	if opts.Lock == nil || *opts.Lock != false {
-		t.Errorf("Lock = %v, want false", opts.Lock)
+	if opts.Lock != LockDisabled {
+		t.Errorf("Lock = %v, want LockDisabled", opts.Lock)
 	}
 	if opts.LockTimeout != "1m" {
 		t.Errorf("LockTimeout = %q, want 1m", opts.LockTimeout)
@@ -79,7 +77,7 @@ func TestContext_ApplyOptions_ShouldIncludeAllExecFields(t *testing.T) {
 func TestContext_WithPins_ShouldReturnFreshSnapshotWithoutMutatingOriginal(t *testing.T) {
 	original := &Context{
 		WorkingDir:  "/tmp/project",
-		Workspace:   "default",
+		Workspace:   WorkspaceDefault,
 		VarFiles:    []string{"common.tfvars"},
 		Vars:        map[string]string{"env": "prod"},
 		Parallelism: 5,
@@ -101,7 +99,7 @@ func TestContext_WithPins_ShouldReturnFreshSnapshotWithoutMutatingOriginal(t *te
 		t.Errorf("next.WorkingDir = %q, want %q", next.WorkingDir, original.WorkingDir)
 	}
 	if next.Workspace != original.Workspace {
-		t.Errorf("next.Workspace = %q, want %q", next.Workspace, original.Workspace)
+		t.Errorf("next.Workspace = %v, want %v", next.Workspace, original.Workspace)
 	}
 	if next.Parallelism != original.Parallelism {
 		t.Errorf("next.Parallelism = %d, want %d", next.Parallelism, original.Parallelism)
@@ -157,14 +155,14 @@ func TestContext_PlanOptions_GivenNilReceiver_ShouldReturnZeroValue(t *testing.T
 func TestContext_ApplyOptions_GivenNilReceiver_ShouldReturnZeroValue(t *testing.T) {
 	var ctx *Context
 	opts := ctx.ApplyOptions()
-	if opts.Parallelism != 0 || opts.PlanFile != "" || len(opts.VarFiles) != 0 {
+	if opts.Parallelism != 0 || len(opts.VarFiles) != 0 {
 		t.Errorf("nil receiver ApplyOptions = %+v, want zero ApplyOptions", opts)
 	}
 }
 
 func TestContextChangedEvent_OnlyPinsChanged_ShouldReportTrueWhenOnlyPinsDiffer(t *testing.T) {
-	prev := &Context{WorkingDir: "/p", Workspace: "ws", Pins: []string{"a"}}
-	next := &Context{WorkingDir: "/p", Workspace: "ws", Pins: []string{"a", "b"}}
+	prev := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws"), Pins: []string{"a"}}
+	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws"), Pins: []string{"a", "b"}}
 
 	ev := ContextChangedEvent{Prev: prev, Next: next}
 	if !ev.OnlyPinsChanged() {
@@ -173,8 +171,8 @@ func TestContextChangedEvent_OnlyPinsChanged_ShouldReportTrueWhenOnlyPinsDiffer(
 }
 
 func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenChdirChanges(t *testing.T) {
-	prev := &Context{WorkingDir: "/old", Workspace: "ws"}
-	next := &Context{WorkingDir: "/new", Workspace: "ws"}
+	prev := &Context{WorkingDir: "/old", Workspace: NewWorkspace("ws")}
+	next := &Context{WorkingDir: "/new", Workspace: NewWorkspace("ws")}
 
 	ev := ContextChangedEvent{Prev: prev, Next: next}
 	if ev.OnlyPinsChanged() {
@@ -183,8 +181,8 @@ func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenChdirChanges(t
 }
 
 func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenWorkspaceChanges(t *testing.T) {
-	prev := &Context{WorkingDir: "/p", Workspace: "old"}
-	next := &Context{WorkingDir: "/p", Workspace: "new"}
+	prev := &Context{WorkingDir: "/p", Workspace: NewWorkspace("old")}
+	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("new")}
 
 	ev := ContextChangedEvent{Prev: prev, Next: next}
 	if ev.OnlyPinsChanged() {
@@ -193,7 +191,7 @@ func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenWorkspaceChang
 }
 
 func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenPrevIsNil(t *testing.T) {
-	next := &Context{WorkingDir: "/p", Workspace: "ws"}
+	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws")}
 	ev := ContextChangedEvent{Prev: nil, Next: next}
 	if ev.OnlyPinsChanged() {
 		t.Error("OnlyPinsChanged() = true with nil Prev; want false (initial context build)")

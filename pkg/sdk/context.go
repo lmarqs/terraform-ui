@@ -18,7 +18,7 @@ type Context struct {
 	// WorkingDir is the absolute path of the active chdir.
 	WorkingDir string
 	// Workspace is the active terraform workspace.
-	Workspace string
+	Workspace Workspace
 	// Service is the terraform service scoped to WorkingDir.
 	Service Service
 
@@ -36,15 +36,15 @@ type Context struct {
 
 	// Parallelism is the resolved -parallelism value (0 = terraform default).
 	Parallelism int
-	// Lock is the resolved -lock value (nil = terraform default).
-	Lock *bool
+	// Lock is the resolved -lock mode.
+	Lock LockMode
 	// LockTimeout is the resolved -lock-timeout duration string.
-	LockTimeout string
+	LockTimeout LockTimeout
 }
 
 // PlanOptions builds a PlanOptions from the Context's resolved fields. The
 // caller may override individual fields (Writer, PlanFile, Replace, Destroy,
-// RefreshOnly, Refresh) on the returned struct before passing to Service.
+// Refresh) on the returned struct before passing to Service.
 func (c *Context) PlanOptions() PlanOptions {
 	if c == nil {
 		return PlanOptions{}

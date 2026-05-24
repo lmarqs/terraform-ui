@@ -116,15 +116,6 @@ type PhantomResult struct {
 	PhantomAddresses []string
 }
 
-// Diagnostic represents a terraform validation diagnostic (error or warning).
-type Diagnostic struct {
-	Severity string // "error" or "warning"
-	Summary  string
-	Detail   string
-	File     string
-	Line     int
-}
-
 // OutputValue represents a terraform output.
 type OutputValue struct {
 	Name      string
@@ -155,11 +146,10 @@ type PlanOptions struct {
 	Vars        map[string]string
 	Replace     []string
 	Destroy     bool
-	RefreshOnly bool
-	Refresh     *bool
+	Refresh     RefreshMode
 	Parallelism int
-	Lock        *bool
-	LockTimeout string
+	Lock        LockMode
+	LockTimeout LockTimeout
 	ExtraArgs   []string
 	PlanFile    string    // path to write the plan artifact (-out=<path>); empty = service default
 	Writer      io.Writer // receives streaming output; nil = discard
@@ -173,8 +163,8 @@ type ApplyOptions struct {
 	VarFiles    []string
 	Vars        map[string]string
 	Parallelism int
-	Lock        *bool
-	LockTimeout string
+	Lock        LockMode
+	LockTimeout LockTimeout
 	AutoApprove bool
 	ExtraArgs   []string
 	Writer      io.Writer
@@ -192,15 +182,15 @@ type InitOptions struct {
 
 // WorkspaceNewOptions holds options for terraform workspace new.
 type WorkspaceNewOptions struct {
-	Lock        *bool
-	LockTimeout string
+	Lock        LockMode
+	LockTimeout LockTimeout
 }
 
 // WorkspaceDeleteOptions holds options for terraform workspace delete.
 type WorkspaceDeleteOptions struct {
 	Force       bool
-	Lock        *bool
-	LockTimeout string
+	Lock        LockMode
+	LockTimeout LockTimeout
 }
 
 // VersionInfo holds terraform binary version and provider selections.
