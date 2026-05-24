@@ -3,8 +3,6 @@ package output
 import (
 	"context"
 	"fmt"
-	"io"
-	"log/slog"
 	"sort"
 	"strings"
 
@@ -21,8 +19,7 @@ type OutputResultMsg struct {
 
 // Plugin implements the terraform outputs viewer.
 type Plugin struct {
-	svc       sdk.Service
-	log       *slog.Logger
+	sdk.PluginBase
 	stack     *sdk.Stack
 	fuzzy     *ui.FuzzyFilter[sdk.OutputValue]
 	timer     ui.Timer
@@ -39,26 +36,23 @@ type Plugin struct {
 // New creates a new output plugin.
 func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
-		svc:   svc,
-		log:   slog.New(slog.NewTextHandler(io.Discard, nil)),
-		fuzzy: ui.NewFuzzyFilter(func(o sdk.OutputValue) string { return o.Name }),
+		PluginBase: sdk.NewPluginBase("output", "Outputs", "View terraform outputs"),
+		fuzzy:      ui.NewFuzzyFilter(func(o sdk.OutputValue) string { return o.Name }),
 	}
+	p.Svc = svc
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
 	return p
 }
 
-func (p *Plugin) ID() string          { return "output" }
-func (p *Plugin) Name() string        { return "Outputs" }
-func (p *Plugin) Description() string { return "View terraform outputs" }
-func (p *Plugin) Ready() bool         { return p.status == sdk.StatusDone }
-func (p *Plugin) Status() sdk.Status  { return p.status }
-func (p *Plugin) Selected() int       { return p.selected }
-func (p *Plugin) Filter() string      { return p.filter }
-func (p *Plugin) Filtering() bool     { return p.filtering }
-func (p *Plugin) OutputCount() int    { return len(p.filtered) }
-func (p *Plugin) TotalCount() int     { return len(p.outputs) }
-func (p *Plugin) Count() (int, int)   { return len(p.filtered), len(p.outputs) }
+func (p *Plugin) Ready() bool        { return p.status == sdk.StatusDone }
+func (p *Plugin) Status() sdk.Status { return p.status }
+func (p *Plugin) Selected() int      { return p.selected }
+func (p *Plugin) Filter() string     { return p.filter }
+func (p *Plugin) Filtering() bool    { return p.filtering }
+func (p *Plugin) OutputCount() int   { return len(p.filtered) }
+func (p *Plugin) TotalCount() int    { return len(p.outputs) }
+func (p *Plugin) Count() (int, int)  { return len(p.filtered), len(p.outputs) }
 func (p *Plugin) CursorPosition() (int, int) {
 	if p.status != sdk.StatusDone || len(p.filtered) == 0 {
 		return 0, 0
@@ -74,19 +68,15 @@ func (p *Plugin) Configure(cfg map[string]interface{}) error {
 
 // Init wires the plugin to its shared dependencies.
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	p.svc = deps.Service
-	p.log = deps.Logger
+	p.InitBase(deps)
 	p.reset()
 	return nil
 }
 
 // HandleContextChanged implements sdk.ContextChangedHandler.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
+	if !p.HandleContextChangedDefault(ev) {
 		return nil
-	}
-	if ev.Next.Service != nil {
-		p.svc = ev.Next.Service
 	}
 	p.reset()
 	return nil
@@ -132,7 +122,7 @@ func (p *Plugin) loadOutputs() tea.Cmd {
 	p.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
-	svc := p.svc
+	svc := p.Svc
 	return func() tea.Msg {
 		outputs, err := svc.Output(ctx)
 		return OutputResultMsg{Outputs: outputs, Err: err}
@@ -150,12 +140,12 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			p.status = sdk.StatusError
 			p.errMsg = msg.Err.Error()
-			p.log.Debug("output.load.error", "error", msg.Err.Error())
+			p.Log.Debug("output.load.error", "error", msg.Err.Error())
 		} else {
 			p.status = sdk.StatusDone
 			p.outputs = sortedOutputs(msg.Outputs)
 			p.filtered = p.outputs
-			p.log.Debug("output.load.complete", "outputs", len(p.outputs))
+			p.Log.Debug("output.load.complete", "outputs", len(p.outputs))
 		}
 		return p, nil
 
@@ -210,7 +200,7 @@ func (p *Plugin) SetFilter(filter string) {
 	p.fuzzy.SetItems(p.outputs)
 	p.fuzzy.SetQuery(filter)
 	p.filtered = p.fuzzy.Results()
-	p.log.Debug("output.filter", "filter", filter, "results", len(p.filtered))
+	p.Log.Debug("output.filter", "filter", filter, "results", len(p.filtered))
 }
 
 // AppendFilter adds a character to the filter.
