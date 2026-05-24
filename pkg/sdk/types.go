@@ -174,7 +174,7 @@ type ApplyOptions struct {
 type InitOptions struct {
 	Upgrade       bool
 	Reconfigure   bool
-	Backend       *bool // nil = default (true); explicit false disables
+	Backend       BackendMode
 	BackendConfig []string
 	ExtraArgs     []string
 	Writer        io.Writer // receives streaming output; nil = discard

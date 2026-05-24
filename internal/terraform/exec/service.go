@@ -329,8 +329,11 @@ func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 	if opts.Reconfigure {
 		initOpts = append(initOpts, tfexec.Reconfigure(true))
 	}
-	if opts.Backend != nil {
-		initOpts = append(initOpts, tfexec.Backend(*opts.Backend))
+	switch opts.Backend {
+	case sdk.BackendEnabled:
+		initOpts = append(initOpts, tfexec.Backend(true))
+	case sdk.BackendDisabled:
+		initOpts = append(initOpts, tfexec.Backend(false))
 	}
 	for _, bc := range opts.BackendConfig {
 		initOpts = append(initOpts, tfexec.BackendConfig(bc))

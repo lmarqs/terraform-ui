@@ -233,8 +233,7 @@ func (p *Plugin) submit(lw *sdkframes.LineWriter) tea.Cmd {
 		Writer:        lw,
 	}
 	if !p.backend {
-		f := false
-		opts.Backend = &f
+		opts.Backend = sdk.BackendDisabled
 	}
 	if p.extraArgs != "" {
 		opts.ExtraArgs = strings.Fields(p.extraArgs)

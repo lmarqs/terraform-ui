@@ -275,11 +275,8 @@ func TestPlugin_WhenSubmitWithBackendFalse_ShouldSetBackendPtr(t *testing.T) {
 	if len(svc.InitCalls) == 0 {
 		t.Fatal("Init should have been called")
 	}
-	if svc.InitCalls[0].Backend == nil {
-		t.Fatal("Backend should be non-nil when backend=false")
-	}
-	if *svc.InitCalls[0].Backend != false {
-		t.Error("Backend should be &false")
+	if svc.InitCalls[0].Backend != sdk.BackendDisabled {
+		t.Errorf("Backend = %v, want BackendDisabled", svc.InitCalls[0].Backend)
 	}
 }
 
@@ -299,8 +296,8 @@ func TestPlugin_WhenSubmitWithBackendTrue_ShouldLeaveBackendNil(t *testing.T) {
 	if len(svc.InitCalls) == 0 {
 		t.Fatal("Init should have been called")
 	}
-	if svc.InitCalls[0].Backend != nil {
-		t.Error("Backend should be nil when backend=true")
+	if svc.InitCalls[0].Backend != sdk.BackendDefault {
+		t.Errorf("Backend = %v, want BackendDefault", svc.InitCalls[0].Backend)
 	}
 }
 

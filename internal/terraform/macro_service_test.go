@@ -560,11 +560,10 @@ func TestMacroService_WhenShowWithCachedStateAndMissingResource_ShouldReturnErro
 }
 
 func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T) {
-	backendFalse := false
 	opts := sdk.InitOptions{
 		Upgrade:       true,
 		Reconfigure:   true,
-		Backend:       &backendFalse,
+		Backend:       sdk.BackendDisabled,
 		BackendConfig: []string{"key=value", "region=us-east-1"},
 		ExtraArgs:     []string{"-input=false"},
 	}
@@ -591,9 +590,8 @@ func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T
 }
 
 func TestBuildInitFlags_WhenBackendTrue_ShouldNotIncludeBackendFlag(t *testing.T) {
-	backendTrue := true
 	opts := sdk.InitOptions{
-		Backend: &backendTrue,
+		Backend: sdk.BackendEnabled,
 	}
 
 	flags := buildInitFlags(opts)
@@ -604,15 +602,15 @@ func TestBuildInitFlags_WhenBackendTrue_ShouldNotIncludeBackendFlag(t *testing.T
 	}
 }
 
-func TestBuildInitFlags_WhenBackendNil_ShouldNotIncludeBackendFlag(t *testing.T) {
+func TestBuildInitFlags_WhenBackendDefault_ShouldNotIncludeBackendFlag(t *testing.T) {
 	opts := sdk.InitOptions{
-		Backend: nil,
+		Backend: sdk.BackendDefault,
 	}
 
 	flags := buildInitFlags(opts)
 	for _, f := range flags {
 		if f == "-backend=false" {
-			t.Error("flags should not include -backend=false when backend is nil")
+			t.Error("flags should not include -backend=false when backend is default")
 		}
 	}
 }
@@ -626,11 +624,10 @@ func TestBuildInitFlags_WhenEmpty_ShouldReturnNil(t *testing.T) {
 
 func TestMacroService_WhenInitWithFlags_ShouldRecordCommand(t *testing.T) {
 	svc := NewMacroService("terraform", nil)
-	backendFalse := false
 	opts := sdk.InitOptions{
 		Upgrade:       true,
 		Reconfigure:   true,
-		Backend:       &backendFalse,
+		Backend:       sdk.BackendDisabled,
 		BackendConfig: []string{"key=val"},
 		ExtraArgs:     []string{"-input=false"},
 	}

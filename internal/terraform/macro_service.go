@@ -190,7 +190,7 @@ func buildInitFlags(opts sdk.InitOptions) []string {
 	if opts.Reconfigure {
 		flags = append(flags, "-reconfigure")
 	}
-	if opts.Backend != nil && !*opts.Backend {
+	if opts.Backend == sdk.BackendDisabled {
 		flags = append(flags, "-backend=false")
 	}
 	for _, bc := range opts.BackendConfig {
