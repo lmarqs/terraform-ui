@@ -21,7 +21,7 @@ func (e *Plugin) actionTargets() []string {
 }
 
 func (e *Plugin) buildActionFrame(batch bool) *frames.ActionFrame {
-	pinCount := len(e.PinnedAddresses())
+	pinCount := e.PinnedCount()
 	multiTarget := batch && pinCount > 1
 
 	title := ""

@@ -27,8 +27,7 @@ type ApplyResultMsg struct {
 
 // Plugin implements the terraform apply feature.
 type Plugin struct {
-	svc         sdk.Service
-	getCtx      func() *sdk.Context
+	sdk.PluginBase
 	status      sdk.Status
 	errMsg      string
 	timer       ui.Timer
@@ -43,14 +42,16 @@ type Plugin struct {
 
 // New creates a new apply plugin.
 func New(svc sdk.Service) sdk.Plugin {
-	return &Plugin{svc: svc, stack: sdk.NewStack()}
+	p := &Plugin{
+		PluginBase: sdk.NewPluginBase("apply", "Apply", "Apply terraform changes to infrastructure"),
+		stack:      sdk.NewStack(),
+	}
+	p.Svc = svc
+	return p
 }
 
 func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
-func (e *Plugin) ID() string             { return "apply" }
-func (e *Plugin) Name() string           { return "Apply" }
-func (e *Plugin) Description() string    { return "Apply terraform changes to infrastructure" }
 func (e *Plugin) Ready() bool            { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status     { return e.status }
 func (e *Plugin) Elapsed() time.Duration { return e.timer.Elapsed() }
@@ -105,8 +106,7 @@ func (e *Plugin) Configure(_ map[string]interface{}) error { return nil }
 // reads var-files / vars / parallelism / lock fresh from deps.Context()
 // at every apply.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
-	e.svc = deps.Service
-	e.getCtx = deps.Context
+	e.InitBase(deps)
 	return nil
 }
 
@@ -121,9 +121,7 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	if ev.OnlyPinsChanged() {
 		return nil
 	}
-	if ev.Next.Service != nil {
-		e.svc = ev.Next.Service
-	}
+	e.HandleContextChangedDefault(ev)
 	e.planFile = ""
 	e.confirmed = false
 	e.status = sdk.StatusIdle
@@ -205,10 +203,10 @@ func (e *Plugin) runApply() tea.Cmd {
 	e.stack.Clear()
 	e.stack.Push(sf)
 
-	svc := e.svc
+	svc := e.Svc
 	var opts sdk.ApplyOptions
-	if e.getCtx != nil {
-		opts = e.getCtx().ApplyOptions()
+	if e.GetCtx != nil {
+		opts = e.GetCtx().ApplyOptions()
 	}
 	if e.planFile != "" {
 		opts.PlanFile = e.planFile

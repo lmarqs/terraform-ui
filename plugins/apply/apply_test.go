@@ -749,7 +749,7 @@ func TestHandleContextChanged_WhenNextHasService_ShouldRebindService(t *testing.
 	oldSvc := &sdktest.MockService{}
 	newSvc := &sdktest.MockService{}
 	p := New(oldSvc).(*Plugin)
-	p.svc = oldSvc
+	p.Svc = oldSvc
 
 	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
 		Next: &sdk.Context{Service: newSvc},
@@ -757,7 +757,7 @@ func TestHandleContextChanged_WhenNextHasService_ShouldRebindService(t *testing.
 	if cmd != nil {
 		t.Error("HandleContextChanged returned non-nil cmd")
 	}
-	if p.svc != newSvc {
+	if p.Svc != newSvc {
 		t.Error("svc not rebound to next.Service after chdir change")
 	}
 }

@@ -91,7 +91,7 @@ func (e *Plugin) actionTargets() []string {
 
 // buildActionFrame creates the action palette for the given address context.
 func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFrame {
-	pinCount := len(e.PinnedAddresses())
+	pinCount := e.PinnedCount()
 	multiTarget := batch && pinCount > 1
 
 	title := address
