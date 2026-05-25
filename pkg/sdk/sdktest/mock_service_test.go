@@ -269,3 +269,80 @@ func TestMockService_ShouldTrackCalls(t *testing.T) {
 		t.Errorf("ForceUnlockCalls = %v, want [lock-1]", m.ForceUnlockCalls)
 	}
 }
+
+func TestMockService_JSONVariants_WhenNoFnSet_ShouldReturnEmptyBytes(t *testing.T) {
+	m := &MockService{}
+	ctx := context.Background()
+
+	if data, err := m.PlanJSON(ctx, sdk.PlanOptions{}); data != nil || err != nil {
+		t.Errorf("PlanJSON() = (%v, %v), want (nil, nil)", data, err)
+	}
+	if data, err := m.ValidateJSON(ctx); data != nil || err != nil {
+		t.Errorf("ValidateJSON() = (%v, %v), want (nil, nil)", data, err)
+	}
+	if data, err := m.OutputJSON(ctx); data != nil || err != nil {
+		t.Errorf("OutputJSON() = (%v, %v), want (nil, nil)", data, err)
+	}
+	if data, err := m.VersionJSON(ctx); data != nil || err != nil {
+		t.Errorf("VersionJSON() = (%v, %v), want (nil, nil)", data, err)
+	}
+}
+
+func TestMockService_JSONVariants_WhenFnSet_ShouldDelegate(t *testing.T) {
+	wantErr := errors.New("boom")
+	m := &MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return []byte(`{"plan":true}`), wantErr
+		},
+		ValidateJSONFn: func(_ context.Context) ([]byte, error) {
+			return []byte(`{"validate":true}`), wantErr
+		},
+		OutputJSONFn: func(_ context.Context) ([]byte, error) {
+			return []byte(`{"output":true}`), wantErr
+		},
+		VersionJSONFn: func(_ context.Context) ([]byte, error) {
+			return []byte(`{"version":true}`), wantErr
+		},
+	}
+	ctx := context.Background()
+
+	if data, err := m.PlanJSON(ctx, sdk.PlanOptions{}); string(data) != `{"plan":true}` || err != wantErr {
+		t.Errorf("PlanJSON() = (%s, %v), want bytes+wantErr", data, err)
+	}
+	if data, err := m.ValidateJSON(ctx); string(data) != `{"validate":true}` || err != wantErr {
+		t.Errorf("ValidateJSON() = (%s, %v), want bytes+wantErr", data, err)
+	}
+	if data, err := m.OutputJSON(ctx); string(data) != `{"output":true}` || err != wantErr {
+		t.Errorf("OutputJSON() = (%s, %v), want bytes+wantErr", data, err)
+	}
+	if data, err := m.VersionJSON(ctx); string(data) != `{"version":true}` || err != wantErr {
+		t.Errorf("VersionJSON() = (%s, %v), want bytes+wantErr", data, err)
+	}
+}
+
+func TestMockService_JSONVariants_ShouldTrackCalls(t *testing.T) {
+	m := &MockService{}
+	ctx := context.Background()
+
+	m.PlanJSON(ctx, sdk.PlanOptions{Targets: []string{"a"}})
+	m.PlanJSON(ctx, sdk.PlanOptions{Targets: []string{"b"}})
+	if len(m.PlanJSONCalls) != 2 {
+		t.Errorf("PlanJSONCalls = %d, want 2", len(m.PlanJSONCalls))
+	}
+
+	m.ValidateJSON(ctx)
+	m.ValidateJSON(ctx)
+	if m.ValidateJSONCalls != 2 {
+		t.Errorf("ValidateJSONCalls = %d, want 2", m.ValidateJSONCalls)
+	}
+
+	m.OutputJSON(ctx)
+	if m.OutputJSONCalls != 1 {
+		t.Errorf("OutputJSONCalls = %d, want 1", m.OutputJSONCalls)
+	}
+
+	m.VersionJSON(ctx)
+	if m.VersionJSONCalls != 1 {
+		t.Errorf("VersionJSONCalls = %d, want 1", m.VersionJSONCalls)
+	}
+}

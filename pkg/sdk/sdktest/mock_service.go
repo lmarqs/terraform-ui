@@ -30,6 +30,10 @@ type MockService struct {
 	InitFn            func(ctx context.Context, opts sdk.InitOptions) error
 	ForceUnlockFn     func(ctx context.Context, lockID string) error
 	VersionFn         func(ctx context.Context) (*sdk.VersionInfo, error)
+	PlanJSONFn        func(ctx context.Context, opts sdk.PlanOptions) ([]byte, error)
+	ValidateJSONFn    func(ctx context.Context) ([]byte, error)
+	OutputJSONFn      func(ctx context.Context) ([]byte, error)
+	VersionJSONFn     func(ctx context.Context) ([]byte, error)
 	WithDirFn         func(dir string) sdk.Service
 
 	PlanCalls            []sdk.PlanOptions
@@ -52,6 +56,10 @@ type MockService struct {
 	InitCalls            []sdk.InitOptions
 	ForceUnlockCalls     []string
 	VersionCalls         int
+	PlanJSONCalls        []sdk.PlanOptions
+	ValidateJSONCalls    int
+	OutputJSONCalls      int
+	VersionJSONCalls     int
 	WithDirCalls         []string
 }
 
@@ -211,6 +219,38 @@ func (m *MockService) Version(ctx context.Context) (*sdk.VersionInfo, error) {
 	m.VersionCalls++
 	if m.VersionFn != nil {
 		return m.VersionFn(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockService) PlanJSON(ctx context.Context, opts sdk.PlanOptions) ([]byte, error) {
+	m.PlanJSONCalls = append(m.PlanJSONCalls, opts)
+	if m.PlanJSONFn != nil {
+		return m.PlanJSONFn(ctx, opts)
+	}
+	return nil, nil
+}
+
+func (m *MockService) ValidateJSON(ctx context.Context) ([]byte, error) {
+	m.ValidateJSONCalls++
+	if m.ValidateJSONFn != nil {
+		return m.ValidateJSONFn(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockService) OutputJSON(ctx context.Context) ([]byte, error) {
+	m.OutputJSONCalls++
+	if m.OutputJSONFn != nil {
+		return m.OutputJSONFn(ctx)
+	}
+	return nil, nil
+}
+
+func (m *MockService) VersionJSON(ctx context.Context) ([]byte, error) {
+	m.VersionJSONCalls++
+	if m.VersionJSONFn != nil {
+		return m.VersionJSONFn(ctx)
 	}
 	return nil, nil
 }

@@ -261,4 +261,10 @@ func (s *nopService) Refresh(_ context.Context) error                     { retu
 func (s *nopService) Init(_ context.Context, _ sdk.InitOptions) error     { return nil }
 func (s *nopService) ForceUnlock(_ context.Context, _ string) error       { return nil }
 func (s *nopService) Version(_ context.Context) (*sdk.VersionInfo, error) { return nil, nil }
-func (s *nopService) WithDir(_ string) sdk.Service                        { return s }
+func (s *nopService) PlanJSON(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+	return nil, nil
+}
+func (s *nopService) ValidateJSON(_ context.Context) ([]byte, error) { return nil, nil }
+func (s *nopService) OutputJSON(_ context.Context) ([]byte, error)   { return nil, nil }
+func (s *nopService) VersionJSON(_ context.Context) ([]byte, error)  { return nil, nil }
+func (s *nopService) WithDir(_ string) sdk.Service                   { return s }

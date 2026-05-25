@@ -49,6 +49,11 @@ type Service interface {
 	// the parsed plan summary including changes, risk levels, and phantom detection.
 	Plan(ctx context.Context, opts PlanOptions) (*PlanSummary, error)
 
+	// PlanJSON runs terraform plan and then `terraform show -json` against the
+	// resulting plan file, returning the raw bytes terraform produced. The
+	// schema is terraform's, not tfui's.
+	PlanJSON(ctx context.Context, opts PlanOptions) ([]byte, error)
+
 	// Apply runs terraform apply with the given options.
 	Apply(ctx context.Context, opts ApplyOptions) error
 
@@ -91,8 +96,16 @@ type Service interface {
 	// Validate runs terraform validate and returns diagnostics.
 	Validate(ctx context.Context) ([]Diagnostic, error)
 
+	// ValidateJSON runs terraform validate -json and returns the raw bytes
+	// terraform produced. The schema is terraform's, not tfui's.
+	ValidateJSON(ctx context.Context) ([]byte, error)
+
 	// Output returns all terraform outputs.
 	Output(ctx context.Context) (map[string]OutputValue, error)
+
+	// OutputJSON runs terraform output -json and returns the raw bytes
+	// terraform produced. The schema is terraform's, not tfui's.
+	OutputJSON(ctx context.Context) ([]byte, error)
 
 	// Refresh refreshes the state to match real infrastructure.
 	Refresh(ctx context.Context) error
@@ -105,6 +118,10 @@ type Service interface {
 
 	// Version returns the terraform binary version and provider selections.
 	Version(ctx context.Context) (*VersionInfo, error)
+
+	// VersionJSON runs terraform version -json and returns the raw bytes
+	// terraform produced. The schema is terraform's, not tfui's.
+	VersionJSON(ctx context.Context) ([]byte, error)
 
 	// WithDir returns a new Service instance scoped to the given working directory.
 	WithDir(dir string) Service

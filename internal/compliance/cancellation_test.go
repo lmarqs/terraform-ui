@@ -324,6 +324,22 @@ func (s *contextSpyService) Version(ctx context.Context) (*sdk.VersionInfo, erro
 	s.recordCtx(ctx)
 	return nil, nil
 }
+func (s *contextSpyService) PlanJSON(ctx context.Context, _ sdk.PlanOptions) ([]byte, error) {
+	s.recordCtx(ctx)
+	return nil, nil
+}
+func (s *contextSpyService) ValidateJSON(ctx context.Context) ([]byte, error) {
+	s.recordCtx(ctx)
+	return nil, nil
+}
+func (s *contextSpyService) OutputJSON(ctx context.Context) ([]byte, error) {
+	s.recordCtx(ctx)
+	return nil, nil
+}
+func (s *contextSpyService) VersionJSON(ctx context.Context) ([]byte, error) {
+	s.recordCtx(ctx)
+	return nil, nil
+}
 func (s *contextSpyService) WithDir(_ string) sdk.Service { return s }
 
 // execCmd executes a tea.Cmd, unwrapping tea.BatchMsg recursively.

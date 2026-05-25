@@ -81,6 +81,14 @@ func (r *MacroService) Plan(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanS
 	return &sdk.PlanSummary{}, nil
 }
 
+// PlanJSON records `terraform plan ... -json` with the request's options.
+// MacroService never executes terraform; placeholder JSON bytes are returned.
+func (r *MacroService) PlanJSON(_ context.Context, opts sdk.PlanOptions) ([]byte, error) {
+	flags := append(buildPlanFlags(opts), "-json")
+	r.record("plan", nil, flags)
+	return []byte("{}"), nil
+}
+
 func (r *MacroService) Apply(_ context.Context, opts sdk.ApplyOptions) error {
 	r.record("apply", nil, buildApplyFlags(opts))
 	return r.applyErr
@@ -162,6 +170,13 @@ func (r *MacroService) Validate(_ context.Context) ([]sdk.Diagnostic, error) {
 	return []sdk.Diagnostic{}, nil
 }
 
+// ValidateJSON records `terraform validate -json`. Placeholder bytes are
+// returned; pre-seeded raw JSON is not supported by ServiceCache today.
+func (r *MacroService) ValidateJSON(_ context.Context) ([]byte, error) {
+	r.record("validate", nil, []string{"-json"})
+	return []byte("{}"), nil
+}
+
 func (r *MacroService) Output(_ context.Context) (map[string]sdk.OutputValue, error) {
 	if r.cache != nil {
 		if outputs, ok := r.cache.GetOutputs(); ok {
@@ -169,6 +184,12 @@ func (r *MacroService) Output(_ context.Context) (map[string]sdk.OutputValue, er
 		}
 	}
 	return map[string]sdk.OutputValue{}, nil
+}
+
+// OutputJSON records `terraform output -json` and returns placeholder bytes.
+func (r *MacroService) OutputJSON(_ context.Context) ([]byte, error) {
+	r.record("output", nil, []string{"-json"})
+	return []byte("{}"), nil
 }
 
 func (r *MacroService) Refresh(_ context.Context) error {
@@ -202,6 +223,12 @@ func buildInitFlags(opts sdk.InitOptions) []string {
 
 func (r *MacroService) Version(_ context.Context) (*sdk.VersionInfo, error) {
 	return &sdk.VersionInfo{TerraformVersion: "0.0.0"}, nil
+}
+
+// VersionJSON records `terraform version -json` and returns placeholder bytes.
+func (r *MacroService) VersionJSON(_ context.Context) ([]byte, error) {
+	r.record("version", nil, []string{"-json"})
+	return []byte("{}"), nil
 }
 
 func (r *MacroService) ForceUnlock(_ context.Context, lockID string) error {

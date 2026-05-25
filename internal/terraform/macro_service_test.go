@@ -857,3 +857,91 @@ func TestShowFromState_WhenResourceHasSensitiveValues_ShouldProduceValidJSON(t *
 		t.Errorf("id = %v, want i-123", parsed.Values["id"])
 	}
 }
+
+func TestMacroService_PlanJSON_RecordsCommand(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	ctx := context.Background()
+
+	data, err := svc.PlanJSON(ctx, sdk.PlanOptions{Targets: []string{"aws_instance.web"}})
+	if err != nil {
+		t.Fatalf("PlanJSON() error = %v", err)
+	}
+	if string(data) != "{}" {
+		t.Errorf("PlanJSON() = %q, want %q (placeholder)", data, "{}")
+	}
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	if cmds[0].Verb != "plan" {
+		t.Errorf("verb = %q, want plan", cmds[0].Verb)
+	}
+	got := cmds[0].String()
+	if !strings.Contains(got, "-json") {
+		t.Errorf("PlanJSON command missing -json: %q", got)
+	}
+	if !strings.Contains(got, "-target=aws_instance.web") {
+		t.Errorf("PlanJSON command missing target: %q", got)
+	}
+}
+
+func TestMacroService_ValidateJSON_RecordsCommand(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+
+	data, err := svc.ValidateJSON(context.Background())
+	if err != nil {
+		t.Fatalf("ValidateJSON() error = %v", err)
+	}
+	if string(data) != "{}" {
+		t.Errorf("ValidateJSON() = %q, want %q", data, "{}")
+	}
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	if cmds[0].String() != "terraform validate -json" {
+		t.Errorf("got %q, want %q", cmds[0].String(), "terraform validate -json")
+	}
+}
+
+func TestMacroService_OutputJSON_RecordsCommand(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+
+	data, err := svc.OutputJSON(context.Background())
+	if err != nil {
+		t.Fatalf("OutputJSON() error = %v", err)
+	}
+	if string(data) != "{}" {
+		t.Errorf("OutputJSON() = %q, want %q", data, "{}")
+	}
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	if cmds[0].String() != "terraform output -json" {
+		t.Errorf("got %q, want %q", cmds[0].String(), "terraform output -json")
+	}
+}
+
+func TestMacroService_VersionJSON_RecordsCommand(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+
+	data, err := svc.VersionJSON(context.Background())
+	if err != nil {
+		t.Fatalf("VersionJSON() error = %v", err)
+	}
+	if string(data) != "{}" {
+		t.Errorf("VersionJSON() = %q, want %q", data, "{}")
+	}
+
+	cmds := svc.Commands()
+	if len(cmds) != 1 {
+		t.Fatalf("expected 1 command, got %d", len(cmds))
+	}
+	if cmds[0].String() != "terraform version -json" {
+		t.Errorf("got %q, want %q", cmds[0].String(), "terraform version -json")
+	}
+}
