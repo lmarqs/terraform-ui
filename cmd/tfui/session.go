@@ -40,8 +40,6 @@ type axes struct {
 type Session struct {
 	cfg          config.Config
 	rootCfg      *config.RootConfig
-	pluginID     string
-	args         []string
 	jsonStdout   bool
 	planURI      string
 	stateURI     string
@@ -49,50 +47,6 @@ type Session struct {
 	recordDir    string
 	ciMode       bool
 	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || !isStderrTTY
-}
-
-func NewSession(cfg config.Config, rootCfg *config.RootConfig) *Session {
-	return &Session{cfg: cfg, rootCfg: rootCfg}
-}
-
-func (s *Session) ForPlugin(id string) *Session {
-	s.pluginID = id
-	return s
-}
-
-func (s *Session) WithArgs(args []string) *Session {
-	s.args = args
-	return s
-}
-
-func (s *Session) WithJSON(on bool) *Session {
-	s.jsonStdout = on
-	return s
-}
-
-func (s *Session) WithPlan(uri string) *Session {
-	s.planURI = uri
-	return s
-}
-
-func (s *Session) WithState(uri string) *Session {
-	s.stateURI = uri
-	return s
-}
-
-func (s *Session) WithMacro(uri string) *Session {
-	s.macroURI = uri
-	return s
-}
-
-func (s *Session) WithRecord(dir string) *Session {
-	s.recordDir = dir
-	return s
-}
-
-func (s *Session) WithCI(flag bool) *Session {
-	s.ciMode = flag
-	return s
 }
 
 func (s *Session) Run() error {
@@ -109,25 +63,12 @@ func (s *Session) Run() error {
 		return err
 	}
 	registry := buildRegistry(svc, s.cfg)
-	// Bridge the legacy WithJSON path into the new plugin-state contract:
-	// every plugin still on the old Output(bool) shape now exposes a
-	// SetJSONStdout setter. Always pass the value through so toggling --json
-	// off resets prior plugin state (a future cmd path may reuse plugin
-	// instances). Phases 2/3 retire this bridge per plugin as each migrates
-	// to its typed Input.
-	if s.pluginID != "" {
-		if p, ok := registry.ByID(s.pluginID); ok {
-			if setter, ok := p.(interface{ SetJSONStdout(bool) }); ok {
-				setter.SetJSONStdout(s.jsonStdout)
-			}
-		}
-	}
 	app := s.buildApp(svc, registry)
-	result, err := s.present(app, registry, ax, tape)
+	_, err = s.present(app, ax, tape)
 	if err != nil {
 		return err
 	}
-	return s.emit(result, registry, recorder)
+	return s.emitRecorded(recorder)
 }
 
 func (s *Session) validate() error {
@@ -136,7 +77,7 @@ func (s *Session) validate() error {
 			return err
 		}
 	}
-	if s.pluginID == "" && s.macroURI == "" && !hasTTY() {
+	if s.macroURI == "" && !hasTTY() {
 		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --ci            (CI mode, no TUI)\n  CI=1 tfui plan            (same via env var)")
 	}
 	return nil
@@ -147,23 +88,7 @@ func (s *Session) resolveAxes() axes {
 		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "recording", "reason", "macro")
 		return axes{Headless, Recording}
 	}
-	if s.pluginID == "" {
-		logging.Logger().Debug("session.axes", "presentation", "interactive", "backend", "exec", "reason", "root")
-		return axes{Interactive, Exec}
-	}
-	if s.ciMode {
-		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "exec", "reason", "ci-flag")
-		return axes{Headless, Exec}
-	}
-	if os.Getenv("CI") == "1" {
-		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "exec", "reason", "ci-env")
-		return axes{Headless, Exec}
-	}
-	if !isStderrTTY() {
-		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "exec", "reason", "no-tty")
-		return axes{Headless, Exec}
-	}
-	logging.Logger().Debug("session.axes", "presentation", "interactive", "backend", "exec", "reason", "tty")
+	logging.Logger().Debug("session.axes", "presentation", "interactive", "backend", "exec", "reason", "root")
 	return axes{Interactive, Exec}
 }
 
@@ -212,24 +137,13 @@ func (s *Session) buildService(ax axes) (sdk.Service, *terraform.MacroService, e
 }
 
 func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
-	if s.pluginID == "" {
-		return ui.NewApp(s.cfg, svc, registry, s.rootCfg)
-	}
-	standalone := &ui.StandaloneConfig{
-		PluginID:   s.pluginID,
-		Args:       s.args,
-		JSONStdout: s.jsonStdout,
-	}
-	return ui.NewApp(s.cfg, svc, registry, s.rootCfg, standalone)
+	return ui.NewApp(s.cfg, svc, registry, s.rootCfg)
 }
 
-func (s *Session) present(app ui.App, registry *plugin.Registry, ax axes, tape []macro.Command) (ui.App, error) {
+func (s *Session) present(app ui.App, ax axes, tape []macro.Command) (ui.App, error) {
 	switch ax.presentation {
 	case Interactive:
 		opts := []tea.ProgramOption{tea.WithAltScreen()}
-		if s.pluginID != "" {
-			opts = append(opts, tea.WithOutput(os.Stderr))
-		}
 
 		if s.recordDir != "" {
 			rec := macro.NewRecorder(app, s.recordDir, 80, 24)
@@ -263,53 +177,16 @@ func (s *Session) present(app ui.App, registry *plugin.Registry, ax axes, tape [
 			}
 			return app, runner.Execute(tape)
 		}
-		driver.Init()
-		pluginID := s.pluginID
-		return app, driver.WaitUntil(func(view string) bool {
-			if p, ok := registry.ByID(pluginID); ok {
-				return p.Ready()
-			}
-			return false
-		}, 10*time.Minute)
 	}
 	return app, nil
 }
 
-func (s *Session) emit(app ui.App, registry *plugin.Registry, recorder *terraform.MacroService) error {
-	if recorder != nil {
-		for _, cmd := range recorder.Commands() {
-			fmt.Println(cmd.String())
-		}
+func (s *Session) emitRecorded(recorder *terraform.MacroService) error {
+	if recorder == nil {
 		return nil
 	}
-	if s.pluginID == "" {
-		return nil
-	}
-
-	var p sdk.Plugin
-	if active := app.ActivePlugin(); active != nil {
-		p = active
-	} else if found, ok := registry.ByID(s.pluginID); ok {
-		p = found
-	}
-	if p == nil {
-		return nil
-	}
-
-	if emitter, ok := p.(sdk.StdoutEmitter); ok {
-		data, err := emitter.Stdout()
-		if err != nil {
-			return err
-		}
-		_, _ = os.Stdout.Write(data)
-	}
-	if emitter, ok := p.(sdk.StderrEmitter); ok {
-		_, _ = os.Stderr.Write(emitter.Stderr())
-	}
-	if coder, ok := p.(sdk.ExitCoder); ok {
-		if code := coder.ExitCode(); code != 0 {
-			os.Exit(code)
-		}
+	for _, cmd := range recorder.Commands() {
+		fmt.Println(cmd.String())
 	}
 	return nil
 }
