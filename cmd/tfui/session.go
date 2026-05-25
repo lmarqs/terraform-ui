@@ -111,13 +111,14 @@ func (s *Session) Run() error {
 	registry := buildRegistry(svc, s.cfg)
 	// Bridge the legacy WithJSON path into the new plugin-state contract:
 	// every plugin still on the old Output(bool) shape now exposes a
-	// setJSONStdout setter. Apply it before the model runs so Stdout() reads
-	// the right intent. Phases 2/3 retire this bridge per plugin as each
-	// migrates to its typed Input.
-	if s.jsonStdout && s.pluginID != "" {
+	// SetJSONStdout setter. Always pass the value through so toggling --json
+	// off resets prior plugin state (a future cmd path may reuse plugin
+	// instances). Phases 2/3 retire this bridge per plugin as each migrates
+	// to its typed Input.
+	if s.pluginID != "" {
 		if p, ok := registry.ByID(s.pluginID); ok {
 			if setter, ok := p.(interface{ SetJSONStdout(bool) }); ok {
-				setter.SetJSONStdout(true)
+				setter.SetJSONStdout(s.jsonStdout)
 			}
 		}
 	}
@@ -326,22 +327,16 @@ func (s *Session) JSONStdout() bool {
 }
 
 // resolveSilentStderr derives the stderr-silence boolean from --ci, CI=1, and
-// stderr TTY status. Called from RunPlugin (and the legacy Run path) before
-// dispatch so each axis is local.
+// stderr TTY status. Called once at PersistentPreRunE time; the result is
+// cached on s.silentStderr and read by every dispatch path.
 func (s *Session) resolveSilentStderr() bool {
-	if s.silentStderr {
-		return true
-	}
 	if s.ciMode {
 		return true
 	}
 	if os.Getenv("CI") == "1" {
 		return true
 	}
-	if !isStderrTTY() {
-		return true
-	}
-	return false
+	return !isStderrTTY()
 }
 
 // RunPlugin is the uniform per-plugin execution helper. Every per-plugin cobra
@@ -366,7 +361,7 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 	if err != nil {
 		return err
 	}
-	silent := s.resolveSilentStderr()
+	silent := s.silentStderr
 	macroBackend := s.macroURI != ""
 
 	cache := terraform.NewServiceCache()
@@ -473,8 +468,7 @@ func (s *Session) validatePlugin(_ string) error {
 // state — used to short-circuit the macro driver's WaitUntil when the plugin
 // has no Ready() bridge for terminal Done/Error states.
 func terminalStatus(p sdk.Plugin) bool {
-	type statusReader interface{ Status() sdk.Status }
-	if sr, ok := p.(statusReader); ok {
+	if sr, ok := p.(sdk.Statusable); ok {
 		st := sr.Status()
 		return st == sdk.StatusDone || st == sdk.StatusError
 	}

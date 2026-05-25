@@ -116,6 +116,14 @@ type ExitCoder interface {
 	ExitCode() int
 }
 
+// Statusable is an optional interface plugins implement to expose their
+// lifecycle Status. The macro-driven CI path reads it to short-circuit
+// WaitUntil once the plugin reaches a terminal state (StatusDone or
+// StatusError) — Ready() alone covers Done but not Error.
+type Statusable interface {
+	Status() Status
+}
+
 // ActivateWithArgs is an optional interface plugins implement to receive
 // positional arguments from CLI invocation (e.g., "state mv src dst").
 type ActivateWithArgs interface {
