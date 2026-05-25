@@ -109,6 +109,91 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnValidateResultMsg(t *testing.T
 	}
 }
 
+// TestActivate_WhenInputJSON_ShouldCallValidateJSONNotValidate verifies that
+// JSON passthrough mode skips the typed Validate call and instead issues the
+// raw-bytes ValidateJSON variant.
+func TestActivate_WhenInputJSON_ShouldCallValidateJSONNotValidate(t *testing.T) {
+	want := []byte(`{"format_version":"1.0","valid":true,"diagnostics":[]}`)
+	svc := &sdktest.MockService{
+		ValidateJSONFn: func(_ context.Context) ([]byte, error) {
+			return want, nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{JSON: true})
+	if cmd == nil {
+		t.Fatal("Activate(Input{JSON:true}) returned nil cmd")
+	}
+	msg := cmd()
+	batchMsg, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	for _, sub := range batchMsg {
+		if sub == nil {
+			continue
+		}
+		if jm, ok := sub().(validateJSONMsg); ok {
+			p.Update(jm)
+		}
+	}
+
+	if svc.ValidateCalls != 0 {
+		t.Errorf("ValidateCalls = %d, want 0 (JSON path must not call typed Validate)", svc.ValidateCalls)
+	}
+	if svc.ValidateJSONCalls != 1 {
+		t.Errorf("ValidateJSONCalls = %d, want 1", svc.ValidateJSONCalls)
+	}
+	if string(p.jsonBytes) != string(want) {
+		t.Errorf("jsonBytes = %q, want %q", p.jsonBytes, want)
+	}
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
+	}
+	if code := p.ExitCode(); code != 0 {
+		t.Errorf("ExitCode() in JSON success = %d, want 0", code)
+	}
+}
+
+// TestActivate_WhenInputJSONAndServiceFails_ShouldSetError verifies the
+// passthrough path's error handling.
+func TestActivate_WhenInputJSONAndServiceFails_ShouldSetError(t *testing.T) {
+	svc := &sdktest.MockService{
+		ValidateJSONFn: func(_ context.Context) ([]byte, error) {
+			return nil, errors.New("validate-json failed")
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{JSON: true})
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			if sub == nil {
+				continue
+			}
+			if jm, ok := sub().(validateJSONMsg); ok {
+				p.Update(jm)
+			}
+		}
+	}
+
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+	if code := p.ExitCode(); code != 1 {
+		t.Errorf("ExitCode() in JSON error = %d, want 1", code)
+	}
+}
+
 func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	svc := &sdktest.MockService{
 		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
@@ -920,47 +1005,39 @@ func assertNotContains(t *testing.T, descs []string, notWant string) {
 	}
 }
 
-func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
+// TestOutput_WhenJsonInputAndJSONBytesSet_ShouldPassthroughVerbatim verifies
+// the passthrough contract: with --json the plugin returns whatever raw bytes
+// terraform produced via `terraform validate -json`, never synthesizing a
+// tfui-defined JSON shape.
+func TestOutput_WhenJsonInputAndJSONBytesSet_ShouldPassthroughVerbatim(t *testing.T) {
+	want := []byte(`{"valid":false,"error_count":1,"diagnostics":[{"severity":"error"}]}`)
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
-	p.diagnostics = []sdk.Diagnostic{
-		{Severity: "error", Summary: "Missing arg", Detail: "Required", File: "main.tf", Line: 10},
-		{Severity: "warning", Summary: "Deprecated"},
-	}
 	p.input = Input{JSON: true}
+	p.jsonBytes = want
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if !strings.Contains(s, `"valid": false`) {
-		t.Error("JSON should contain valid: false")
-	}
-	if !strings.Contains(s, `"error_count": 1`) {
-		t.Error("JSON should contain error_count: 1")
-	}
-	if !strings.Contains(s, `"warning_count": 1`) {
-		t.Error("JSON should contain warning_count: 1")
-	}
-	if !strings.Contains(s, `"Missing arg"`) {
-		t.Error("JSON should contain diagnostic summary")
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
 	}
 }
 
-func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
+// TestOutput_WhenJsonInputAndBytesEmpty_ShouldReturnNil pins behavior when
+// the Service hasn't yet captured bytes (before Activate runs, etc).
+func TestOutput_WhenJsonInputAndBytesEmpty_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.diagnostics = []sdk.Diagnostic{}
 	p.input = Input{JSON: true}
+	p.jsonBytes = nil
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if !strings.Contains(s, `"valid": true`) {
-		t.Error("JSON should contain valid: true")
+	if data != nil {
+		t.Errorf("Stdout() = %q, want nil", string(data))
 	}
 }
 

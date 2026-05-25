@@ -16,6 +16,12 @@ type ValidateResultMsg struct {
 	Err         error
 }
 
+// validateJSONMsg carries raw bytes from terraform validate -json.
+type validateJSONMsg struct {
+	Data []byte
+	Err  error
+}
+
 // Plugin implements the terraform validate feature.
 type Plugin struct {
 	sdk.PluginBase
@@ -26,6 +32,7 @@ type Plugin struct {
 	errMsg      string
 	selected    int
 	input       Input
+	jsonBytes   []byte // captured raw bytes from svc.ValidateJSON when input.JSON
 	cancelFn    context.CancelFunc
 }
 
@@ -91,6 +98,7 @@ func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 func (p *Plugin) reset() {
 	p.status = sdk.StatusIdle
 	p.diagnostics = nil
+	p.jsonBytes = nil
 	p.errMsg = ""
 	p.selected = 0
 	p.expander.CollapseAll()
@@ -111,6 +119,7 @@ func (p *Plugin) Activate(input Input) tea.Cmd {
 func (p *Plugin) Refresh() tea.Cmd {
 	p.status = sdk.StatusLoading
 	p.diagnostics = nil
+	p.jsonBytes = nil
 	p.errMsg = ""
 	p.selected = 0
 	p.expander.CollapseAll()
@@ -130,6 +139,15 @@ func (p *Plugin) runValidate() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	svc := p.Svc
+	if p.input.JSON {
+		// Passthrough: capture terraform validate -json bytes verbatim.
+		// Stdout returns the bytes; the parsed diagnostics tree stays empty.
+		// ExitCode falls back to 0 because there are no parsed diagnostics.
+		return func() tea.Msg {
+			data, err := svc.ValidateJSON(ctx)
+			return validateJSONMsg{Data: data, Err: err}
+		}
+	}
 	return func() tea.Msg {
 		diags, err := svc.Validate(ctx)
 		return ValidateResultMsg{Diagnostics: diags, Err: err}
@@ -141,6 +159,19 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ui.TimerTickMsg:
 		return p, p.timer.Tick()
+
+	case validateJSONMsg:
+		p.timer.Stop()
+		if msg.Err != nil {
+			p.status = sdk.StatusError
+			p.errMsg = msg.Err.Error()
+			p.Log.Debug("validate.error", "error", msg.Err.Error(), "json", true)
+			return p, nil
+		}
+		p.status = sdk.StatusDone
+		p.jsonBytes = msg.Data
+		p.Log.Debug("validate.complete", "bytes", len(msg.Data), "json", true)
+		return p, nil
 
 	case ValidateResultMsg:
 		p.timer.Stop()
@@ -324,46 +355,14 @@ func (p *Plugin) renderSummaryLine() string {
 	return strings.Join(parts, ", ")
 }
 
-// Stdout produces stdout content for standalone/CI mode. The plugin reads
-// p.input.JSON to decide between human-readable and JSON output.
+// Stdout produces stdout content for standalone/CI mode.
+//
+// JSON mode is a passthrough: returns the raw `terraform validate -json`
+// bytes captured during the validate run. The schema is terraform's, not
+// tfui's. Human-readable mode renders the diagnostics list.
 func (p *Plugin) Stdout() ([]byte, error) {
 	if p.input.JSON {
-		errorCount, warningCount := 0, 0
-		for _, d := range p.diagnostics {
-			if d.Severity.IsError() {
-				errorCount++
-			} else {
-				warningCount++
-			}
-		}
-		type diagJSON struct {
-			Severity string `json:"severity"`
-			Summary  string `json:"summary"`
-			Detail   string `json:"detail,omitempty"`
-			File     string `json:"file,omitempty"`
-			Line     int    `json:"line,omitempty"`
-		}
-		out := struct {
-			Valid        bool       `json:"valid"`
-			ErrorCount   int        `json:"error_count"`
-			WarningCount int        `json:"warning_count"`
-			Diagnostics  []diagJSON `json:"diagnostics"`
-		}{
-			Valid:        errorCount == 0,
-			ErrorCount:   errorCount,
-			WarningCount: warningCount,
-			Diagnostics:  make([]diagJSON, 0, len(p.diagnostics)),
-		}
-		for _, d := range p.diagnostics {
-			out.Diagnostics = append(out.Diagnostics, diagJSON{
-				Severity: string(d.Severity),
-				Summary:  d.Summary,
-				Detail:   d.Detail,
-				File:     d.File,
-				Line:     d.Line,
-			})
-		}
-		return sdk.MarshalJSON(out), nil
+		return p.jsonBytes, nil
 	}
 
 	if len(p.diagnostics) == 0 {
@@ -391,8 +390,16 @@ func (p *Plugin) Stdout() ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// ExitCode returns 1 if validation has errors, 0 otherwise.
+// ExitCode returns 1 if validation has errors, 0 otherwise. In JSON
+// passthrough mode there are no parsed diagnostics; ExitCode falls back to
+// the error/idle status (1 only when the call itself failed).
 func (p *Plugin) ExitCode() int {
+	if p.input.JSON {
+		if p.status == sdk.StatusError {
+			return 1
+		}
+		return 0
+	}
 	for _, d := range p.diagnostics {
 		if d.Severity.IsError() {
 			return 1
