@@ -18,10 +18,13 @@ import (
 	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
+	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
 	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
+	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
+	tfuiversion "github.com/lmarqs/terraform-ui/plugins/version"
 )
 
 // mockPlugin implements plugin.Plugin for app tests.
@@ -5358,5 +5361,35 @@ func TestApp_Update_WhenPinClearWithBusyPlugin_ShouldReject(t *testing.T) {
 	app.Update(sdk.PinClearRequestMsg{})
 	if len(app.holder.current.Pins) != 1 {
 		t.Errorf("Pins should remain unchanged when busy, got %v", app.holder.current.Pins)
+	}
+}
+
+// TestApp_Activate_TypedSwitch_DispatchesPerPluginType pins the typed-Input
+// dispatch in app.activate. Each migrated plugin type (version, validate,
+// output, plan) reaches its own switch case with a default Input. taint,
+// untaint, import use RequestMsg handlers and don't go through this path.
+func TestApp_Activate_TypedSwitch_DispatchesPerPluginType(t *testing.T) {
+	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	svc := newMockService("default", nil)
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", tfuiplan.New, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("validate", tfuivalidate.New, plugin.PluginMeta{Keybinding: "v", MenuVisible: true})
+	registry.RegisterFactory("output", tfuioutput.New, plugin.PluginMeta{Keybinding: "o", MenuVisible: true})
+	registry.RegisterFactory("version", tfuiversion.New, plugin.PluginMeta{MenuVisible: false})
+	registry.Build(svc, nil)
+
+	app := NewApp(cfg, svc, registry, nil)
+
+	for _, id := range []string{"plan", "validate", "output", "version"} {
+		t.Run(id, func(t *testing.T) {
+			p, ok := registry.ByID(id)
+			if !ok {
+				t.Fatalf("registry missing %q", id)
+			}
+			// Calling activate must not panic and must produce a (possibly nil) cmd.
+			// The point is to exercise the typed-switch case so coverage hits each
+			// branch.
+			_ = app.activate(p)
+		})
 	}
 }

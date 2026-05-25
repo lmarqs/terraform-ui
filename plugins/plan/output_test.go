@@ -11,47 +11,54 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func TestPlugin_WhenOutputJsonWithNilSummary_ShouldReturnNil(t *testing.T) {
+// TestPlugin_WhenInputTextAndSummaryNil_ShouldReturnNil pins the human-text
+// path: a plan with no captured summary (e.g., before Activate ran) emits no
+// stdout content.
+func TestPlugin_WhenInputTextAndSummaryNil_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.summary = nil
 
-	p.SetJSONStdout(true)
-
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
 	if data != nil {
-		t.Errorf("Output(true) = %q, want nil", string(data))
+		t.Errorf("Stdout() = %q, want nil", string(data))
 	}
 }
 
-func TestPlugin_WhenOutputJsonWithChanges_ShouldReturnValidJSON(t *testing.T) {
+// TestPlugin_WhenInputJSONAndJSONBytesEmpty_ShouldReturnNil pins passthrough
+// behavior: with --json the plugin returns whatever raw bytes were captured
+// from svc.PlanJSON, even if empty.
+func TestPlugin_WhenInputJSONAndJSONBytesEmpty_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
-			{Resource: sdk.Resource{Address: "aws_s3_bucket.data"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
-		},
-		ToCreate: 1,
-		ToDelete: 1,
-	}
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
+	p.jsonBytes = nil
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if !strings.Contains(s, `"aws_instance.web"`) {
-		t.Error("JSON missing aws_instance.web")
+	if data != nil {
+		t.Errorf("Stdout() = %q, want nil", string(data))
 	}
-	if !strings.Contains(s, `"create"`) {
-		t.Error("JSON missing create action")
+}
+
+// TestPlugin_WhenInputJSONWithBytes_ShouldPassthroughVerbatim verifies the
+// plugin returns the raw terraform bytes verbatim, never synthesizing a
+// tfui-defined JSON shape.
+func TestPlugin_WhenInputJSONWithBytes_ShouldPassthroughVerbatim(t *testing.T) {
+	want := []byte(`{"format_version":"1.2","resource_changes":[]}`)
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.input = Input{JSON: true}
+	p.jsonBytes = want
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	if !strings.Contains(s, `"destroy": 1`) {
-		t.Error("JSON missing destroy count")
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
 	}
 }
 
@@ -861,6 +868,40 @@ func TestPlugin_WhenPruneStalePinsWithStalePins_ShouldRequestRemoval(t *testing.
 	}
 }
 
+// TestUpdatePlanResultSuccess_WhenStalePinsPresent_ShouldBatchPruneCmd verifies
+// that PlanResultMsg integration emits the prune cmd alongside the standard
+// plan-completed events. Covers the `if pruneCmd != nil` branch.
+func TestUpdatePlanResultSuccess_WhenStalePinsPresent_ShouldBatchPruneCmd(t *testing.T) {
+	p, h := newTestPluginWithHarness(&sdktest.MockService{})
+	h.Ctx.Pins = []string{"alive", "stale_resource"}
+	p.status = sdk.StatusLoading
+
+	summary := &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "alive"}, Action: sdk.ActionCreate},
+		},
+		ToCreate: 1,
+	}
+
+	_, cmd := p.Update(PlanResultMsg{Summary: summary, Err: nil})
+	if cmd == nil {
+		t.Fatal("Update with summary returned nil cmd")
+	}
+	batch, ok := cmd().(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd() = %T, want tea.BatchMsg", cmd())
+	}
+	for _, sub := range batch {
+		if sub == nil {
+			continue
+		}
+		_ = sub()
+	}
+	if len(h.PinRequests) != 1 || h.PinRequests[0] != "stale_resource" {
+		t.Errorf("PinRequests = %v, want [stale_resource]", h.PinRequests)
+	}
+}
+
 func TestPlugin_WhenClearAllPinsWithPinnedOnly_ShouldResetPinnedOnlyAndRefilter(t *testing.T) {
 	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
@@ -1377,27 +1418,6 @@ func TestPlugin_WhenOutputTextWithPhantom_ShouldIncludeInList(t *testing.T) {
 	s := string(data)
 	if !strings.Contains(s, "aws_instance.phantom") {
 		t.Error("text output should include phantom resource")
-	}
-}
-
-func TestPlugin_WhenOutputJsonWithPhantom_ShouldSetPhantomFlag(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "aws_instance.phantom"}, Action: sdk.ActionUpdate, IsPhantom: true},
-		},
-		ToUpdate: 1,
-	}
-
-	p.SetJSONStdout(true)
-
-	data, err := p.Stdout()
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !strings.Contains(s, `"phantom": true`) && !strings.Contains(s, `"phantom":true`) {
-		t.Error("JSON output should include phantom flag")
 	}
 }
 
@@ -2208,27 +2228,6 @@ func TestPlugin_WhenFormatChangeRow_ShouldIncludeFullAddress(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenOutputJsonWithCreateThenDelete_ShouldSetCorrectAction(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreateThenDelete},
-		},
-		ToReplace: 1,
-	}
-
-	p.SetJSONStdout(true)
-
-	data, err := p.Stdout()
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !strings.Contains(s, string(sdk.ActionCreateThenDelete)) {
-		t.Error("JSON output should contain create-then-delete action")
-	}
-}
-
 func TestListFrame_WhenRightPressedNoWrap_ShouldPanRight(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
@@ -2480,24 +2479,6 @@ func TestListFrame_WhenEnterInTreeModeWithNilNode_ShouldCallInspect(t *testing.T
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd != nil {
 		t.Error("enter with nil node should return nil cmd")
-	}
-}
-
-func TestPlugin_WhenOutputJsonWithEmptyChanges_ShouldReturnEmptyArray(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{},
-	}
-
-	p.SetJSONStdout(true)
-
-	data, err := p.Stdout()
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !strings.Contains(s, `"changes": []`) {
-		t.Errorf("JSON output with empty changes should have empty array, got: %s", s)
 	}
 }
 
@@ -2791,27 +2772,6 @@ func TestListFrame_WhenIPressedWithDiffs_ShouldOpenInspect(t *testing.T) {
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'i'}})
 	if p.stack.Peek().ID() != "inspect" {
 		t.Errorf("after i: top frame = %q, want inspect", p.stack.Peek().ID())
-	}
-}
-
-func TestPlugin_WhenOutputJsonWithNoRisk_ShouldIncludeNoneRisk(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate, Risk: sdk.RiskNone},
-		},
-		ToCreate: 1,
-	}
-
-	p.SetJSONStdout(true)
-
-	data, err := p.Stdout()
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !strings.Contains(s, `"risk"`) {
-		t.Error("JSON output should include risk field")
 	}
 }
 

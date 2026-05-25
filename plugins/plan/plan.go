@@ -15,10 +15,29 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
+// Input is the typed input port for the plan plugin. Callers populate this
+// from CLI flags (or via app.go's typed dispatch) before invoking Activate.
+type Input struct {
+	// Targets bind to the cmd-side --target flag. When non-empty, the plugin
+	// scopes the plan to these resources via PlanOptions.Targets.
+	Targets []string
+	// JSON, when true, runs `terraform plan` and returns the raw bytes from
+	// `terraform show -json <planfile>` via Stdout. The TUI tree view is
+	// skipped on the headless path; the full ANSI rendering is still
+	// available in the BubbleTea path.
+	JSON bool
+}
+
 // PlanResultMsg is sent when the plan operation completes.
 type PlanResultMsg struct {
 	Summary *sdk.PlanSummary
 	Err     error
+}
+
+// planJSONMsg carries the raw bytes captured from terraform show -json.
+type planJSONMsg struct {
+	Data []byte
+	Err  error
 }
 
 // changeItem wraps sdk.PlanChange to implement tree.Item.
@@ -62,7 +81,8 @@ type Plugin struct {
 	detailScroll int
 	detailPanel  *ui.ContentPanel
 	viewWidth    int
-	jsonStdout   bool // toggled via legacy Session.WithJSON; Phase 3 migrates to typed Input
+	input        Input  // typed input from cmd/tfui or app.go's typed dispatch
+	jsonBytes    []byte // captured raw bytes from svc.PlanJSON when input.JSON
 }
 
 // New creates a new plan plugin.
@@ -165,6 +185,7 @@ func (e *Plugin) reset() {
 	e.stale = false
 	e.clearPendingApply()
 	e.summary = nil
+	e.jsonBytes = nil
 	e.filtered = nil
 	e.tree = tree.New(nil)
 	e.filter = ""
@@ -183,12 +204,13 @@ func (e *Plugin) reset() {
 	e.stack.Clear()
 }
 
-// Activate triggers the plan when the user enters the plugin view.
-func (e *Plugin) Activate() tea.Cmd {
+// Activate stores the typed input and returns the initial command.
+func (e *Plugin) Activate(input Input) tea.Cmd {
+	e.input = input
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError || e.stale {
 		e.stale = false
 		e.status = sdk.StatusLoading
-		e.Log.Debug("plan.start")
+		e.Log.Debug("plan.start", "json", input.JSON)
 		planCmd := e.runPlan()
 		return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 	}
@@ -242,6 +264,17 @@ func (e *Plugin) runPlan() tea.Cmd {
 	}
 	opts.PlanFile = e.allocPlanFile()
 	opts.Writer = lw
+	if e.input.JSON {
+		// Passthrough: capture terraform's `show -json` bytes verbatim.
+		// The TUI summary view stays empty in this mode; Stdout serves the
+		// raw bytes. ExitCode falls back to 0 because there is no synthesized
+		// summary to count changes against.
+		return func() tea.Msg {
+			data, err := svc.PlanJSON(ctx, opts)
+			lw.Close()
+			return planJSONMsg{Data: data, Err: err}
+		}
+	}
 	return func() tea.Msg {
 		summary, err := svc.Plan(ctx, opts)
 		lw.Close()
@@ -268,6 +301,25 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ui.TimerTickMsg:
 		return e, e.timer.Tick()
+
+	case planJSONMsg:
+		e.timer.Stop()
+		if msg.Err != nil {
+			e.clearPendingApply()
+			e.status = sdk.StatusError
+			e.errMsg = msg.Err.Error()
+			e.lockInfo = sdk.ParseLockError(e.errMsg)
+			e.Log.Debug("plan.error", "error", msg.Err.Error())
+			e.stack.Clear()
+			e.stack.Push(&listFrame{plugin: e})
+			return e, nil
+		}
+		e.status = sdk.StatusDone
+		e.jsonBytes = msg.Data
+		e.stack.Clear()
+		e.stack.Push(&listFrame{plugin: e})
+		e.Log.Debug("plan.complete", "bytes", len(msg.Data), "json", true)
+		return e, nil
 
 	case PlanResultMsg:
 		e.timer.Stop()
@@ -864,48 +916,18 @@ type ApplyRequestMsg struct {
 	AutoApprove bool
 }
 
-// SetJSONStdout is a temporary cmd-side setter used by the legacy
-// Session.WithJSON path. Phase 3 migrates plan to a typed Input flow at which
-// point this setter is removed.
-func (e *Plugin) SetJSONStdout(on bool) { e.jsonStdout = on }
-
 // Stdout produces stdout content for standalone/CI mode.
+//
+// JSON mode is a passthrough: returns the raw `terraform show -json`
+// bytes captured during the plan run. The schema is terraform's, not
+// tfui's. Human-readable mode renders a brief tree summary derived
+// from the parsed PlanSummary.
 func (e *Plugin) Stdout() ([]byte, error) {
+	if e.input.JSON {
+		return e.jsonBytes, nil
+	}
 	if e.summary == nil {
 		return nil, nil
-	}
-
-	if e.jsonStdout {
-		type changeJSON struct {
-			Address string `json:"address"`
-			Action  string `json:"action"`
-			Risk    string `json:"risk"`
-			Phantom bool   `json:"phantom,omitempty"`
-		}
-		out := struct {
-			Changes []changeJSON `json:"changes"`
-			Summary struct {
-				Add     int `json:"add"`
-				Change  int `json:"change"`
-				Destroy int `json:"destroy"`
-			} `json:"summary"`
-			Risk string `json:"risk"`
-		}{
-			Changes: make([]changeJSON, 0, len(e.summary.Changes)),
-		}
-		for _, c := range e.summary.Changes {
-			out.Changes = append(out.Changes, changeJSON{
-				Address: c.Resource.Address,
-				Action:  string(c.Action),
-				Risk:    c.Risk.String(),
-				Phantom: c.IsPhantom,
-			})
-		}
-		out.Summary.Add = e.summary.ToCreate
-		out.Summary.Change = e.summary.ToUpdate + e.summary.ToReplace
-		out.Summary.Destroy = e.summary.ToDelete
-		out.Risk = sdk.OverallRisk(e.summary.Changes).String()
-		return sdk.MarshalJSON(out), nil
 	}
 
 	var b strings.Builder
@@ -922,8 +944,12 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// ExitCode returns 2 when the plan has changes, 0 when clean.
+// ExitCode returns 2 when the plan has changes, 0 when clean. In JSON
+// passthrough mode there is no parsed summary; ExitCode falls back to 0.
 func (e *Plugin) ExitCode() int {
+	if e.input.JSON {
+		return 0
+	}
 	if e.summary != nil && len(e.summary.Changes) > 0 {
 		return 2
 	}

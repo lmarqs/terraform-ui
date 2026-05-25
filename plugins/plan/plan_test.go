@@ -93,7 +93,7 @@ func TestActivate(t *testing.T) {
 	p.Init(h.Deps)
 
 	pp := p.(*Plugin)
-	cmd := pp.Activate()
+	cmd := pp.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() returned nil cmd, want non-nil")
 	}
@@ -113,10 +113,10 @@ func TestActivateWhileLoadingRestartsTick(t *testing.T) {
 	p.Init(h.Deps)
 
 	pp := p.(*Plugin)
-	pp.Activate()
+	pp.Activate(Input{})
 
 	// Simulate re-entering the plugin while plan is still loading
-	cmd := pp.Activate()
+	cmd := pp.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() while loading returned nil cmd, want tick cmd")
 	}
@@ -142,7 +142,7 @@ func TestActivate_GivenPlanSucceeds_ShouldReturnSummaryInCmd(t *testing.T) {
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
 
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	msg := cmd()
 	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
@@ -183,7 +183,7 @@ func TestActivate_GivenPlanFails_ShouldReturnErrorInCmd(t *testing.T) {
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
 
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	msg := cmd()
 	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
@@ -1084,7 +1084,7 @@ func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() while loading returned non-nil cmd, want nil")
 	}
@@ -1095,7 +1095,7 @@ func TestPlugin_WhenActivatedWhileDone_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusDone
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() while done returned non-nil cmd, want nil")
 	}
@@ -1111,7 +1111,7 @@ func TestPlugin_WhenActivatedWhileStale_ShouldReplan(t *testing.T) {
 	p.status = sdk.StatusDone
 	p.stale = true
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() while stale returned nil cmd, want re-plan")
 	}
@@ -1132,7 +1132,7 @@ func TestPlugin_WhenActivatedWhileError_ShouldRetriggerPlan(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusError
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() while error returned nil cmd, want non-nil")
 	}
@@ -1149,7 +1149,7 @@ func TestActivate_GivenPlanRuns_ShouldPassPlanFileToService(t *testing.T) {
 	}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	// Drain the batch so the underlying Plan call executes.
 	if cmd == nil {
 		t.Fatal("Activate() returned nil cmd")
@@ -1172,6 +1172,93 @@ func TestActivate_GivenPlanRuns_ShouldPassPlanFileToService(t *testing.T) {
 	}
 	if !strings.Contains(got.PlanFile, "tfui") || !strings.HasSuffix(got.PlanFile, ".tfplan") {
 		t.Errorf("PlanOptions.PlanFile = %q, want path containing 'tfui' and ending in '.tfplan'", got.PlanFile)
+	}
+}
+
+// TestActivate_WhenInputJSON_ShouldCallPlanJSONNotPlan verifies that JSON
+// passthrough mode skips the typed Plan call and instead issues the raw-bytes
+// PlanJSON variant. The captured bytes land on plugin state for Stdout to
+// emit verbatim.
+func TestActivate_WhenInputJSON_ShouldCallPlanJSONNotPlan(t *testing.T) {
+	want := []byte(`{"format_version":"1.2","resource_changes":[{"address":"aws_instance.web"}]}`)
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return want, nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	cmd := p.Activate(Input{JSON: true})
+	if cmd == nil {
+		t.Fatal("Activate(Input{JSON:true}) returned nil cmd")
+	}
+	// Drain the batch so the goroutine fires.
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			if sub == nil {
+				continue
+			}
+			if jm, ok := sub().(planJSONMsg); ok {
+				p.Update(jm)
+			}
+		}
+	}
+
+	if len(svc.PlanCalls) != 0 {
+		t.Errorf("PlanCalls = %d, want 0 (JSON path must not call typed Plan)", len(svc.PlanCalls))
+	}
+	if len(svc.PlanJSONCalls) != 1 {
+		t.Errorf("PlanJSONCalls = %d, want 1", len(svc.PlanJSONCalls))
+	}
+	if string(p.jsonBytes) != string(want) {
+		t.Errorf("jsonBytes = %q, want %q", p.jsonBytes, want)
+	}
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want StatusDone", p.status)
+	}
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
+	}
+	if code := p.ExitCode(); code != 0 {
+		t.Errorf("ExitCode() in JSON mode = %d, want 0", code)
+	}
+}
+
+// TestActivate_WhenInputJSONAndServiceFails_ShouldSetError verifies the
+// passthrough path's error handling: a failed PlanJSON puts the plugin in
+// StatusError just like the typed path.
+func TestActivate_WhenInputJSONAndServiceFails_ShouldSetError(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return nil, errors.New("plan-json failed")
+		},
+	}
+	p := newTestPlugin(svc)
+
+	cmd := p.Activate(Input{JSON: true})
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			if sub == nil {
+				continue
+			}
+			if jm, ok := sub().(planJSONMsg); ok {
+				p.Update(jm)
+			}
+		}
+	}
+
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+	if p.errMsg == "" {
+		t.Error("errMsg should be set on error")
 	}
 }
 

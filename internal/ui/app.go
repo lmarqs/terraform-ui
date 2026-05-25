@@ -901,6 +901,8 @@ func (a App) activate(p sdk.Plugin) tea.Cmd {
 		return tp.Activate(tfuivalidate.Input{})
 	case *tfuioutput.Plugin:
 		return tp.Activate(tfuioutput.Input{})
+	case *tfuiplan.Plugin:
+		return tp.Activate(tfuiplan.Input{})
 	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()
