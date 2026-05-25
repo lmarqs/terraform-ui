@@ -76,18 +76,21 @@ func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return nil
 }
 
-func (p *Plugin) Activate() tea.Cmd {
-	p.stack.Reset()
-	p.stack.Push(p.buildForm())
-	return nil
-}
-
-func (p *Plugin) ActivateWithArgs(args []string) tea.Cmd {
+// Activate stores the typed input and returns the initial command.
+func (p *Plugin) Activate(input Input) tea.Cmd {
 	p.resetState()
-	p.parseArgs(args)
+	p.upgrade = input.Upgrade
+	p.reconfigure = input.Reconfigure
+	if input.Backend != nil {
+		p.backend = *input.Backend
+	}
+	p.backendConfigs = input.BackendConfig
 	p.stack.Reset()
 	p.stack.Push(p.buildForm())
-	return func() tea.Msg { return initSubmitMsg{} }
+	if input.Upgrade || input.Reconfigure || input.Backend != nil || len(input.BackendConfig) > 0 {
+		return func() tea.Msg { return initSubmitMsg{} }
+	}
+	return nil
 }
 
 func (p *Plugin) resetState() {
@@ -96,23 +99,6 @@ func (p *Plugin) resetState() {
 	p.backend = true
 	p.backendConfigs = nil
 	p.extraArgs = ""
-}
-
-func (p *Plugin) parseArgs(args []string) {
-	for _, arg := range args {
-		switch {
-		case arg == "--upgrade":
-			p.upgrade = true
-		case arg == "--reconfigure":
-			p.reconfigure = true
-		case arg == "--backend=false":
-			p.backend = false
-		case arg == "--backend=true", arg == "--backend":
-			p.backend = true
-		case strings.HasPrefix(arg, "--backend-config="):
-			p.backendConfigs = append(p.backendConfigs, strings.TrimPrefix(arg, "--backend-config="))
-		}
-	}
 }
 
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
@@ -261,12 +247,6 @@ func checkbox(v bool) string {
 	}
 	return "[ ]"
 }
-
-// SetJSONStdout is a temporary cmd-side setter used by the legacy
-// Session.WithJSON path. Init does not vary its stdout content by JSON intent
-// today, but accepts the setter for symmetry until Phase 3 migrates init to a
-// typed Input.
-func (p *Plugin) SetJSONStdout(_ bool) {}
 
 // Stdout produces stdout content for standalone/CI mode.
 func (p *Plugin) Stdout() ([]byte, error) {

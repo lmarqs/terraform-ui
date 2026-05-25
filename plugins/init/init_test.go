@@ -47,7 +47,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 
 func TestActivate_WhenCalled_ShouldPushFormFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 
 	if p.stack.Peek() == nil {
 		t.Fatal("Activate() should push form onto stack")
@@ -78,7 +78,7 @@ func TestPlugin_WhenFieldsToggled_ShouldFlipBooleanValues(t *testing.T) {
 
 func TestUpdate_WhenInitSubmitMsg_ShouldPushResultFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 
 	p.Update(initSubmitMsg{})
 
@@ -93,7 +93,7 @@ func TestUpdate_WhenInitSubmitMsg_ShouldPushResultFrame(t *testing.T) {
 
 func TestUpdate_WhenInitResultSuccess_ShouldEmitDeactivate(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 
 	_, cmd := p.Update(InitResultMsg{Err: nil})
@@ -104,7 +104,7 @@ func TestUpdate_WhenInitResultSuccess_ShouldEmitDeactivate(t *testing.T) {
 
 func TestUpdate_WhenInitResultError_ShouldStayOnResultFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 
 	p.Update(InitResultMsg{Err: errors.New("backend error")})
@@ -127,7 +127,7 @@ func TestUpdate_WhenInitResultError_ShouldStayOnResultFrame(t *testing.T) {
 
 func TestResultFrame_WhenEnterPressedInError_ShouldReturnToForm(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 	p.Update(InitResultMsg{Err: errors.New("fail")})
 
@@ -148,7 +148,7 @@ func TestResultFrame_WhenEnterPressedInError_ShouldReturnToForm(t *testing.T) {
 
 func TestUpdate_WhenTimerTickMsg_ShouldNotPanic(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
@@ -157,7 +157,7 @@ func TestUpdate_WhenTimerTickMsg_ShouldNotPanic(t *testing.T) {
 
 func TestView_WhenFormActive_ShouldDelegateToStack(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 
 	view := p.View(80, 24)
 	if view == "" {
@@ -167,7 +167,7 @@ func TestView_WhenFormActive_ShouldDelegateToStack(t *testing.T) {
 
 func TestView_GivenLoadingWithNoStreamOutput_ShouldShowProgressMessage(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 
 	view := p.View(80, 24)
@@ -178,7 +178,7 @@ func TestView_GivenLoadingWithNoStreamOutput_ShouldShowProgressMessage(t *testin
 
 func TestView_WhenResultFrameError_ShouldReturnNonEmpty(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 	p.Update(InitResultMsg{Err: errors.New("something failed")})
 
@@ -195,7 +195,7 @@ func TestBusy_WhenStatusChanges_ShouldReflectLoadingState(t *testing.T) {
 		t.Error("should not be busy before submit")
 	}
 
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 
 	if !p.Busy() {
@@ -262,8 +262,8 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 func TestPlugin_WhenSubmitWithBackendFalse_ShouldSetBackendPtr(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.backend = false
-	p.Activate()
+	f := false
+	p.Activate(Input{Backend: &f})
 	_, cmd := p.Update(initSubmitMsg{})
 	if cmd != nil {
 		msgs := executeBatch(cmd)
@@ -284,7 +284,7 @@ func TestPlugin_WhenSubmitWithBackendTrue_ShouldLeaveBackendNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.backend = true
-	p.Activate()
+	p.Activate(Input{})
 	_, cmd := p.Update(initSubmitMsg{})
 	if cmd != nil {
 		msgs := executeBatch(cmd)
@@ -304,8 +304,8 @@ func TestPlugin_WhenSubmitWithBackendTrue_ShouldLeaveBackendNil(t *testing.T) {
 func TestPlugin_WhenSubmitWithExtraArgs_ShouldSplitFields(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
+	p.Activate(Input{})
 	p.extraArgs = "-lock=false -input=false"
-	p.Activate()
 	_, cmd := p.Update(initSubmitMsg{})
 	if cmd != nil {
 		msgs := executeBatch(cmd)
@@ -467,9 +467,7 @@ func TestResultFrame_WhenEnterInLoading_ShouldNotPop(t *testing.T) {
 func TestPlugin_WhenSubmitWithUpgrade_ShouldPassUpgradeOption(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.upgrade = true
-	p.reconfigure = true
-	p.Activate()
+	p.Activate(Input{Upgrade: true, Reconfigure: true})
 	_, cmd := p.Update(initSubmitMsg{})
 	if cmd != nil {
 		msgs := executeBatch(cmd)
@@ -505,7 +503,7 @@ func executeBatch(cmd tea.Cmd) []tea.Msg {
 
 func TestPlugin_WhenUpdateWithUnhandledMsg_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 
 	type unknownMsg struct{}
 	_, cmd := p.Update(unknownMsg{})
@@ -538,7 +536,7 @@ func TestPlugin_WhenUpdateInitResultMsgWithNoTopFrame_ShouldReturnNil(t *testing
 func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.upgrade = false
-	p.Activate()
+	p.Activate(Input{})
 
 	// Form is on top of stack with cursor on first selectable field (upgrade)
 	// Press enter to invoke OnSelect
@@ -556,7 +554,7 @@ func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
 func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.reconfigure = false
-	p.Activate()
+	p.Activate(Input{})
 
 	// Move down to reconfigure field
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -569,7 +567,7 @@ func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
 func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.backend = true
-	p.Activate()
+	p.Activate(Input{})
 
 	// Move down to backend field (3rd selectable)
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -582,7 +580,7 @@ func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
 
 func TestPlugin_WhenFormFieldExtraArgsSelected_ShouldEmitInputRequest(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 
 	// Move down to extra args field (4th selectable)
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -668,7 +666,7 @@ func TestResultFrame_WhenNonEnterKeyInError_ShouldReturnSelf(t *testing.T) {
 
 func TestPlugin_WhenUpdateWithUnhandledMsgAndStackHasFrame_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 
 	type customMsg struct{}
@@ -678,12 +676,12 @@ func TestPlugin_WhenUpdateWithUnhandledMsgAndStackHasFrame_ShouldReturnNil(t *te
 	}
 }
 
-func TestActivateWithArgs_WhenUpgradeFlag_ShouldAutoSubmitWithUpgrade(t *testing.T) {
+func TestActivate_WhenUpgradeInput_ShouldAutoSubmitWithUpgrade(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	cmd := p.ActivateWithArgs([]string{"--upgrade"})
+	cmd := p.Activate(Input{Upgrade: true})
 	if cmd == nil {
-		t.Fatal("ActivateWithArgs should return auto-submit cmd")
+		t.Fatal("Activate with Upgrade should return auto-submit cmd")
 	}
 	msg := cmd()
 	if _, ok := msg.(initSubmitMsg); !ok {
@@ -694,46 +692,47 @@ func TestActivateWithArgs_WhenUpgradeFlag_ShouldAutoSubmitWithUpgrade(t *testing
 	}
 }
 
-func TestActivateWithArgs_WhenReconfigureFlag_ShouldAutoSubmitWithReconfigure(t *testing.T) {
+func TestActivate_WhenReconfigureInput_ShouldAutoSubmitWithReconfigure(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	cmd := p.ActivateWithArgs([]string{"--reconfigure"})
+	cmd := p.Activate(Input{Reconfigure: true})
 	if cmd == nil {
-		t.Fatal("ActivateWithArgs should return auto-submit cmd")
+		t.Fatal("Activate with Reconfigure should return auto-submit cmd")
 	}
 	if !p.reconfigure {
 		t.Error("reconfigure should be true")
 	}
 }
 
-func TestActivateWithArgs_WhenBackendFalse_ShouldSetBackendFalse(t *testing.T) {
+func TestActivate_WhenBackendFalse_ShouldSetBackendFalse(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	cmd := p.ActivateWithArgs([]string{"--backend=false"})
+	f := false
+	cmd := p.Activate(Input{Backend: &f})
 	if cmd == nil {
-		t.Fatal("ActivateWithArgs should return auto-submit cmd")
+		t.Fatal("Activate with Backend=false should return auto-submit cmd")
 	}
 	if p.backend {
 		t.Error("backend should be false")
 	}
 }
 
-func TestActivateWithArgs_WhenBackendTrue_ShouldLeaveBackendTrue(t *testing.T) {
+func TestActivate_WhenBackendTrue_ShouldSetBackendTrue(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.backend = false // start with false to verify it gets set
-	p.ActivateWithArgs([]string{"--backend=true"})
+	p.backend = false
+	tr := true
+	p.Activate(Input{Backend: &tr})
 	if !p.backend {
 		t.Error("backend should be true")
 	}
 }
 
-func TestActivateWithArgs_WhenBackendConfig_ShouldPassToService(t *testing.T) {
+func TestActivate_WhenBackendConfig_ShouldPassToService(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.ActivateWithArgs([]string{"--backend-config=path/to/config.hcl", "--backend-config=key=value"})
+	p.Activate(Input{BackendConfig: []string{"path/to/config.hcl", "key=value"}})
 
-	// Trigger the submit
 	_, cmd := p.Update(initSubmitMsg{})
 	if cmd != nil {
 		msgs := executeBatch(cmd)
@@ -756,10 +755,11 @@ func TestActivateWithArgs_WhenBackendConfig_ShouldPassToService(t *testing.T) {
 	}
 }
 
-func TestActivateWithArgs_WhenMultipleFlags_ShouldSetAll(t *testing.T) {
+func TestActivate_WhenMultipleInputFields_ShouldSetAll(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.ActivateWithArgs([]string{"--upgrade", "--reconfigure", "--backend=false"})
+	f := false
+	p.Activate(Input{Upgrade: true, Reconfigure: true, Backend: &f})
 	if !p.upgrade {
 		t.Error("upgrade should be true")
 	}
@@ -771,18 +771,18 @@ func TestActivateWithArgs_WhenMultipleFlags_ShouldSetAll(t *testing.T) {
 	}
 }
 
-func TestActivateWithArgs_WhenEmptyArgs_ShouldAutoSubmitWithDefaults(t *testing.T) {
+func TestActivate_WhenEmptyInput_ShouldShowFormWithoutAutoSubmit(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	cmd := p.ActivateWithArgs([]string{})
-	if cmd == nil {
-		t.Fatal("empty args should still auto-submit (terraform default behavior)")
+	cmd := p.Activate(Input{})
+	if cmd != nil {
+		t.Error("empty Input should not auto-submit (show form instead)")
 	}
 }
 
 func TestUpdate_WhenStreamLineMsgWithResultFrame_ShouldRouteToTopFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Activate()
+	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
 	// result frame is now on top of stack
 
@@ -833,17 +833,16 @@ func TestResultFrame_WhenViewInLoadingWithStreamOutput_ShouldReturnStreamView(t 
 	lw.Close()
 }
 
-func TestActivateWithArgs_ShouldResetPreviousState(t *testing.T) {
+func TestActivate_ShouldResetPreviousState(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	// Set some previous state
 	p.upgrade = true
 	p.reconfigure = true
 	p.backend = false
 	p.backendConfigs = []string{"old"}
 	p.extraArgs = "old args"
 
-	p.ActivateWithArgs([]string{"--upgrade"})
+	p.Activate(Input{Upgrade: true})
 
 	if !p.upgrade {
 		t.Error("upgrade should be true (from args)")
@@ -865,7 +864,7 @@ func TestActivateWithArgs_ShouldResetPreviousState(t *testing.T) {
 func TestHandleContextChanged_ShouldResetStack(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.Activate() // pushes form
+	p.Activate(Input{}) // pushes form
 	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
 	if cmd != nil {
 		t.Error("HandleContextChanged returned non-nil cmd")

@@ -52,7 +52,7 @@ func TestActivate_WhenLockInfoPresent_ShouldRequestConfirmation(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc-123", Who: "user@host"}
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() with lockInfo should return a cmd")
 	}
@@ -71,7 +71,7 @@ func TestActivate_WhenNoLockInfo_ShouldOfferManualEntry(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() without lockInfo should return a cmd")
 	}
@@ -91,7 +91,7 @@ func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() while loading should return nil")
 	}
@@ -328,7 +328,7 @@ func TestConfirmUnlock_WhenConfirmed_ShouldCallServiceWithLockID(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -395,7 +395,7 @@ func TestConfirmUnlock_WhenServiceFails_ShouldReturnError(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-err"}
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -426,7 +426,7 @@ func TestConfirmUnlock_WhenDeclined_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -441,7 +441,7 @@ func TestManualEntry_WhenConfirmedWithLockID_ShouldCallService(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -521,7 +521,7 @@ func TestManualEntry_WhenEmptyLockID_ShouldDeactivate(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -545,7 +545,7 @@ func TestManualEntry_WhenDeclined_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 

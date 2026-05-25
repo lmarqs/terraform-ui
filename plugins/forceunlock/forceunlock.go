@@ -47,11 +47,18 @@ func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	return nil
 }
 
-func (p *Plugin) Activate() tea.Cmd {
+// Activate stores the typed input and returns the initial command.
+func (p *Plugin) Activate(input Input) tea.Cmd {
 	if p.status == sdk.StatusLoading {
 		return nil
 	}
 	p.status = sdk.StatusIdle
+	if input.LockID != "" {
+		if input.Force {
+			return func() tea.Msg { return ForceUnlockStartMsg{LockID: input.LockID} }
+		}
+		return p.confirmUnlock(input.LockID)
+	}
 	if p.lockInfo != nil {
 		return p.confirmUnlock(p.lockInfo.ID)
 	}
@@ -159,7 +166,7 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
 	case "ctrl+r":
 		if p.status == sdk.StatusError {
-			return p.Activate()
+			return p.Activate(Input{})
 		}
 	}
 	return nil

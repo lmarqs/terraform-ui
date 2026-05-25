@@ -19,7 +19,9 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
+	tfuiforceunlock "github.com/lmarqs/terraform-ui/plugins/forceunlock"
 	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
+	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
@@ -903,6 +905,10 @@ func (a App) activate(p sdk.Plugin) tea.Cmd {
 		return tp.Activate(tfuioutput.Input{})
 	case *tfuiplan.Plugin:
 		return tp.Activate(tfuiplan.Input{})
+	case *tfuiforceunlock.Plugin:
+		return tp.Activate(tfuiforceunlock.Input{})
+	case *tfuiinit.Plugin:
+		return tp.Activate(tfuiinit.Input{})
 	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()

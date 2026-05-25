@@ -143,22 +143,7 @@ func main() {
 	scaffoldCmd.Flags().BoolVar(&scaffoldForce, "force", false, "Overwrite existing tfui.hcl")
 	scaffoldCmd.Flags().BoolVar(&scaffoldYes, "yes", false, "Skip prompts, use detected defaults")
 
-	var initUpgrade, initReconfigure bool
-	var initBackendConfig []string
-
-	initCmd := &cobra.Command{
-		Use:   "init",
-		Short: "Run terraform init",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return session.ForPlugin("init").
-				WithArgs(buildInitArgs(cmd)).
-				Run()
-		},
-	}
-	initCmd.Flags().BoolVar(&initUpgrade, "upgrade", false, "Upgrade modules and plugins")
-	initCmd.Flags().BoolVar(&initReconfigure, "reconfigure", false, "Reconfigure backend")
-	initCmd.Flags().Bool("backend", true, "Configure backend (--backend=false to skip)")
-	initCmd.Flags().StringArrayVar(&initBackendConfig, "backend-config", nil, "Backend configuration values")
+	initCmd := buildInitCommand(session)
 
 	stateCmd := &cobra.Command{
 		Use:   "state",
@@ -188,31 +173,6 @@ func main() {
 		}
 		os.Exit(1)
 	}
-}
-
-func buildInitArgs(cmd *cobra.Command) []string {
-	var args []string
-	if cmd.Flags().Changed("upgrade") {
-		args = append(args, "--upgrade")
-	}
-	if cmd.Flags().Changed("reconfigure") {
-		args = append(args, "--reconfigure")
-	}
-	if cmd.Flags().Changed("backend") {
-		val, _ := cmd.Flags().GetBool("backend")
-		if val {
-			args = append(args, "--backend=true")
-		} else {
-			args = append(args, "--backend=false")
-		}
-	}
-	if cmd.Flags().Changed("backend-config") {
-		vals, _ := cmd.Flags().GetStringArray("backend-config")
-		for _, v := range vals {
-			args = append(args, "--backend-config="+v)
-		}
-	}
-	return args
 }
 
 func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
