@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"os"
 	"path/filepath"
@@ -30,7 +31,8 @@ func TestRunPlugin_WhenApplyAutoApproveCI_ShouldTerminateWithoutKeystrokes(t *te
 		cfg:          config.Config{Dir: dir},
 		ciMode:       true,
 		silentStderr: true,
-		macroURI:     writeTempTape(t, ""),
+		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
 	}
 	done := make(chan error, 1)
 	go func() {
@@ -56,20 +58,20 @@ func TestRunPlugin_WhenApplyMacroBackend_ShouldRecordTerraformApply(t *testing.T
 	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
 		t.Fatalf("write tf: %v", err)
 	}
+	var stdoutBuf bytes.Buffer
 	session := &Session{
 		cfg:          config.Config{Dir: dir},
 		ciMode:       true,
 		silentStderr: true,
-		macroURI:     writeTempTape(t, ""),
+		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
+		effects:      Effects{Stdout: &stdoutBuf, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
 	}
-	stdout, err := captureStdoutDuring(func() error {
-		return runPluginWithCapturedStdout(session, "apply", apply.Input{AutoApprove: true})
-	})
+	err := runPluginWithCapturedStdout(session, "apply", apply.Input{AutoApprove: true})
 	if err != nil {
 		t.Fatalf("RunPlugin error = %v", err)
 	}
-	if !strings.Contains(stdout, "terraform apply") {
-		t.Errorf("stdout missing recorded `terraform apply`, got: %q", stdout)
+	if !strings.Contains(stdoutBuf.String(), "terraform apply") {
+		t.Errorf("stdout missing recorded `terraform apply`, got: %q", stdoutBuf.String())
 	}
 }
 
@@ -98,36 +100,4 @@ func writeTempTape(t *testing.T, content string) string {
 		t.Fatalf("close tape: %v", err)
 	}
 	return f.Name()
-}
-
-// captureStdoutDuring redirects os.Stdout for the duration of fn and returns
-// everything written to it.
-func captureStdoutDuring(fn func() error) (string, error) {
-	r, w, perr := os.Pipe()
-	if perr != nil {
-		return "", perr
-	}
-	orig := os.Stdout
-	os.Stdout = w
-	done := make(chan string, 1)
-	go func() {
-		buf := make([]byte, 4096)
-		var out []byte
-		for {
-			n, err := r.Read(buf)
-			if n > 0 {
-				out = append(out, buf[:n]...)
-			}
-			if err != nil {
-				break
-			}
-		}
-		done <- string(out)
-	}()
-	err := fn()
-	os.Stdout = orig
-	_ = w.Close()
-	captured := <-done
-	_ = r.Close()
-	return captured, err
 }

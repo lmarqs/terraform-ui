@@ -11,40 +11,21 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/macro"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/source"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 	"github.com/lmarqs/terraform-ui/internal/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-type Presentation int
-
-const (
-	Interactive Presentation = iota
-	Headless
-)
-
-type Backend int
-
-const (
-	Exec Backend = iota
-	Recording
-)
-
-type axes struct {
-	presentation Presentation
-	backend      Backend
-}
-
+// Session is the cmd-side coordinator. It holds parsed persistent flags and
+// exposes RunPlugin (per-plugin execution) and Run (app-mode execution).
 type Session struct {
 	cfg          config.Config
 	rootCfg      *config.RootConfig
+	sources      PreseedSources
+	macro        MacroSpec
+	effects      Effects
 	jsonStdout   bool
-	planURI      string
-	stateURI     string
-	macroURI     string
-	recordDir    string
 	ciMode       bool
 	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || !isStderrTTY
 }
@@ -53,18 +34,17 @@ func (s *Session) Run() error {
 	if err := s.validate(); err != nil {
 		return err
 	}
-	ax := s.resolveAxes()
-	tape, err := s.loadTape()
+	tape, err := s.macro.LoadTape()
 	if err != nil {
 		return err
 	}
-	svc, recorder, err := s.buildService(ax)
+	svc, recorder, err := s.buildService()
 	if err != nil {
 		return err
 	}
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	app := s.buildApp(svc, registry)
-	_, err = s.present(app, ax, tape)
+	_, err = s.present(app, tape)
 	if err != nil {
 		return err
 	}
@@ -77,106 +57,68 @@ func (s *Session) validate() error {
 			return err
 		}
 	}
-	if s.macroURI == "" && !hasTTY() {
+	if !s.macro.Active() && !hasTTY() {
 		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --ci            (CI mode, no TUI)\n  CI=1 tfui plan            (same via env var)")
 	}
 	return nil
 }
 
-func (s *Session) resolveAxes() axes {
-	if s.macroURI != "" {
-		logging.Logger().Debug("session.axes", "presentation", "headless", "backend", "recording", "reason", "macro")
-		return axes{Headless, Recording}
-	}
-	logging.Logger().Debug("session.axes", "presentation", "interactive", "backend", "exec", "reason", "root")
-	return axes{Interactive, Exec}
-}
-
-func (s *Session) loadTape() ([]macro.Command, error) {
-	if s.macroURI == "" {
-		return nil, nil
-	}
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("getting working directory: %w", err)
-	}
-	resolver := source.NewResolver(
-		&source.LocalProvider{BaseDir: cwd},
-		&source.StdinProvider{},
-	)
-	tapeData, err := resolver.Resolve(context.Background(), s.macroURI)
-	if err != nil {
-		return nil, fmt.Errorf("loading macro tape: %w", err)
-	}
-	commands, err := macro.ParseTape(tapeData)
-	if err != nil {
-		return nil, &macro.RunError{Code: macro.ExitSyntaxError, Message: err.Error()}
-	}
-	if commands == nil {
-		commands = []macro.Command{}
-	}
-	return commands, nil
-}
-
-func (s *Session) buildService(ax axes) (sdk.Service, *terraform.MacroService, error) {
+func (s *Session) buildService() (sdk.Service, *terraform.MacroService, error) {
 	cache := terraform.NewServiceCache()
-	if s.planURI != "" || s.stateURI != "" {
-		s.cfg.PreloadedData = true
-		if err := seedCache(cache, s.planURI, s.stateURI); err != nil {
+	if !s.sources.Empty() {
+		if err := s.sources.Seed(cache); err != nil {
 			return nil, nil, err
 		}
 	}
-	switch ax.backend {
-	case Recording:
+	if s.macro.Active() {
+		logging.Logger().Debug("session.backend", "type", "recording", "reason", "macro")
 		svc := terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
 		return svc, svc, nil
-	default:
-		svc := tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
-		return svc, nil, nil
 	}
+	logging.Logger().Debug("session.backend", "type", "exec")
+	svc := tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
+	return svc, nil, nil
 }
 
 func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
 	return ui.NewApp(s.cfg, svc, registry, s.rootCfg)
 }
 
-func (s *Session) present(app ui.App, ax axes, tape []macro.Command) (ui.App, error) {
-	switch ax.presentation {
-	case Interactive:
-		opts := []tea.ProgramOption{tea.WithAltScreen()}
-
-		if s.recordDir != "" {
-			rec := macro.NewRecorder(app, s.recordDir, 80, 24)
-			_, err := tea.NewProgram(rec, opts...).Run()
-			_ = rec.Finalize()
-			if err != nil {
-				return app, err
-			}
-			if inner, ok := rec.Inner().(ui.App); ok {
-				return inner, nil
-			}
-			return app, nil
-		}
-
-		model, err := tea.NewProgram(app, opts...).Run()
-		if err != nil {
-			return app, err
-		}
-		if a, ok := model.(ui.App); ok {
-			return a, nil
-		}
-		return app, nil
-
-	case Headless:
+func (s *Session) present(app ui.App, tape []macro.Command) (ui.App, error) {
+	if s.macro.Active() {
 		driver := macro.NewDriver(app, 80, 24)
 		if tape != nil {
 			runner := macro.NewRunner(driver)
-			if s.recordDir != "" {
-				rec := macro.NewRecorder(nil, s.recordDir, 80, 24)
+			if s.macro.RecordDir != "" {
+				rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
 				runner.WithRecorder(rec)
 			}
 			return app, runner.Execute(tape)
 		}
+		return app, nil
+	}
+
+	opts := []tea.ProgramOption{tea.WithAltScreen()}
+
+	if s.macro.RecordDir != "" {
+		rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
+		_, err := tea.NewProgram(rec, opts...).Run()
+		_ = rec.Finalize()
+		if err != nil {
+			return app, err
+		}
+		if inner, ok := rec.Inner().(ui.App); ok {
+			return inner, nil
+		}
+		return app, nil
+	}
+
+	model, err := tea.NewProgram(app, opts...).Run()
+	if err != nil {
+		return app, err
+	}
+	if a, ok := model.(ui.App); ok {
+		return a, nil
 	}
 	return app, nil
 }
@@ -185,9 +127,7 @@ func (s *Session) emitRecorded(recorder *terraform.MacroService) error {
 	if recorder == nil {
 		return nil
 	}
-	for _, cmd := range recorder.Commands() {
-		fmt.Println(cmd.String())
-	}
+	s.effects.WriteRecordedCommands(recorder.Commands(), s.jsonStdout)
 	return nil
 }
 
@@ -234,23 +174,20 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 	if err := s.validatePlugin(pluginID); err != nil {
 		return err
 	}
-	tape, err := s.loadTape()
+	tape, err := s.macro.LoadTape()
 	if err != nil {
 		return err
 	}
-	silent := s.silentStderr
-	macroBackend := s.macroURI != ""
 
 	cache := terraform.NewServiceCache()
-	if s.planURI != "" || s.stateURI != "" {
-		s.cfg.PreloadedData = true
-		if err := seedCache(cache, s.planURI, s.stateURI); err != nil {
+	if !s.sources.Empty() {
+		if err := s.sources.Seed(cache); err != nil {
 			return err
 		}
 	}
 	var svc sdk.Service
 	var recorder *terraform.MacroService
-	if macroBackend {
+	if s.macro.Active() {
 		recorder = terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
 		svc = recorder
 	} else {
@@ -264,12 +201,12 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 	}
 	app := ui.NewApp(s.cfg, svc, registry, s.rootCfg, standalone)
 
-	if silent {
+	if s.silentStderr {
 		driver := macro.NewDriver(app, 80, 24)
 		if tape != nil {
 			runner := macro.NewRunner(driver)
-			if s.recordDir != "" {
-				rec := macro.NewRecorder(nil, s.recordDir, 80, 24)
+			if s.macro.RecordDir != "" {
+				rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
 				runner.WithRecorder(rec)
 			}
 			if err := runner.Execute(tape); err != nil {
@@ -287,9 +224,9 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 			}
 		}
 	} else {
-		opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithOutput(os.Stderr)}
-		if s.recordDir != "" {
-			rec := macro.NewRecorder(app, s.recordDir, 80, 24)
+		opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithOutput(s.effects.Stderr)}
+		if s.macro.RecordDir != "" {
+			rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
 			_, runErr := tea.NewProgram(rec, opts...).Run()
 			_ = rec.Finalize()
 			if runErr != nil {
@@ -304,7 +241,7 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 
 	// Pump output port.
 	if recorder != nil {
-		writeRecordedCommands(recorder.Commands(), s.jsonStdout)
+		s.effects.WriteRecordedCommands(recorder.Commands(), s.jsonStdout)
 		return nil
 	}
 	p, ok := registry.ByID(pluginID)
@@ -316,15 +253,13 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 		if err != nil {
 			return err
 		}
-		_, _ = os.Stdout.Write(data)
+		s.effects.WriteStdout(data)
 	}
 	if emitter, ok := p.(sdk.StderrEmitter); ok {
-		_, _ = os.Stderr.Write(emitter.Stderr())
+		s.effects.WriteStderr(emitter.Stderr())
 	}
 	if coder, ok := p.(sdk.ExitCoder); ok {
-		if code := coder.ExitCode(); code != 0 {
-			os.Exit(code)
-		}
+		s.effects.ExitWithCode(coder.ExitCode())
 	}
 	return nil
 }
@@ -350,22 +285,4 @@ func terminalStatus(p sdk.Plugin) bool {
 		return st == sdk.StatusDone || st == sdk.StatusError
 	}
 	return false
-}
-
-// writeRecordedCommands prints MacroService's recorded `terraform …` calls in
-// the requested format: human-readable (one-per-line) when --json is unset,
-// JSON array of strings when --json is set.
-func writeRecordedCommands(cmds []sdk.Command, jsonStdout bool) {
-	if jsonStdout {
-		strs := make([]string, len(cmds))
-		for i, c := range cmds {
-			strs[i] = c.String()
-		}
-		_, _ = os.Stdout.Write(sdk.MarshalJSON(strs))
-		_, _ = os.Stdout.Write([]byte("\n"))
-		return
-	}
-	for _, c := range cmds {
-		fmt.Println(c.String())
-	}
 }

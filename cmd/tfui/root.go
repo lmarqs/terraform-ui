@@ -12,12 +12,13 @@ import (
 func buildRoot() (*cobra.Command, *Session, *[]string) {
 	var cfg config.Config
 	var configOverrides []string
-	var planURI, stateURI, macroURI, recordDir string
+	var sources PreseedSources
+	var macroSpec MacroSpec
 	var ciMode bool
 	var jsonStdout bool
 	var extraArgs []string
 
-	session := &Session{}
+	session := &Session{effects: DefaultEffects()}
 
 	rootCmd := &cobra.Command{
 		Use:          "tfui",
@@ -47,15 +48,14 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			}
 
 			binary := cfg.TerraformBinary()
-			logging.Init(recordDir != "", version, cfg.Dir, binary, recordDir)
+			logging.Init(macroSpec.RecordDir != "", version, cfg.Dir, binary, macroSpec.RecordDir)
 
 			cfg.ExtraArgs = extraArgs
+			cfg.PreloadedData = !sources.Empty()
 			session.cfg = cfg
 			session.rootCfg = rootCfg
-			session.planURI = planURI
-			session.stateURI = stateURI
-			session.macroURI = macroURI
-			session.recordDir = recordDir
+			session.sources = sources
+			session.macro = macroSpec
 			session.ciMode = ciMode
 			session.jsonStdout = jsonStdout
 			session.silentStderr = session.resolveSilentStderr()
@@ -69,10 +69,10 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	rootCmd.PersistentFlags().StringVar(&cfg.Dir, "project", ".", "Project root directory (where tfui.hcl lives)")
 	rootCmd.PersistentFlags().StringVar(&cfg.Terraform.Bin, "terraform-bin", "", "Path to terraform/tofu binary")
 	rootCmd.PersistentFlags().StringArrayVar(&configOverrides, "config", nil, "Override config values (key=value, e.g. --config logger.dir=/tmp/logs --config terraform.bin=tofu)")
-	rootCmd.PersistentFlags().StringVar(&planURI, "plan", "", "Pre-seed plan data from file (./path, /path, file://) or - for stdin")
-	rootCmd.PersistentFlags().StringVar(&stateURI, "state", "", "Pre-seed state data from file (./path, /path, file://) or - for stdin")
-	rootCmd.PersistentFlags().StringVar(&macroURI, "macro", "", "Run a macro tape file (headless TUI recording)")
-	rootCmd.PersistentFlags().StringVar(&recordDir, "record", "", "Record session frames and tape to directory")
+	rootCmd.PersistentFlags().StringVar(&sources.Plan, "plan", "", "Pre-seed plan data from file (./path, /path, file://) or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&sources.State, "state", "", "Pre-seed state data from file (./path, /path, file://) or - for stdin")
+	rootCmd.PersistentFlags().StringVar(&macroSpec.TapeURI, "macro", "", "Run a macro tape file (headless TUI recording)")
+	rootCmd.PersistentFlags().StringVar(&macroSpec.RecordDir, "record", "", "Record session frames and tape to directory")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")

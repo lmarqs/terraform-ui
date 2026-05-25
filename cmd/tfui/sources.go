@@ -10,8 +10,22 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 )
 
-func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
-	if planURI == "-" && stateURI == "-" {
+// PreseedSources holds plan/state pre-seed URIs and owns the cache-seeding
+// logic. Each URI is one of: "" (unused), "-" (stdin), or a file path
+// (relative or absolute, with optional file:// prefix).
+type PreseedSources struct {
+	Plan  string
+	State string
+}
+
+// Empty reports whether no pre-seed sources are configured.
+func (p PreseedSources) Empty() bool {
+	return p.Plan == "" && p.State == ""
+}
+
+// Seed populates the ServiceCache from the configured URIs.
+func (p PreseedSources) Seed(cache *terraform.ServiceCache) error {
+	if p.Plan == "-" && p.State == "-" {
 		return fmt.Errorf("stdin (-) can only be used by one flag per invocation; use a file for the other")
 	}
 
@@ -26,9 +40,9 @@ func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 	)
 	ctx := context.Background()
 
-	if planURI != "" {
-		if planURI == "-" {
-			data, resolveErr := resolver.Resolve(ctx, planURI)
+	if p.Plan != "" {
+		if p.Plan == "-" {
+			data, resolveErr := resolver.Resolve(ctx, p.Plan)
 			if resolveErr != nil {
 				return fmt.Errorf("loading plan: %w", resolveErr)
 			}
@@ -36,7 +50,7 @@ func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 				return fmt.Errorf("parsing plan: %w", err)
 			}
 		} else {
-			planFile, resolveErr := resolveToAbsPath(cwd, planURI)
+			planFile, resolveErr := resolveToAbsPath(cwd, p.Plan)
 			if resolveErr != nil {
 				return fmt.Errorf("resolving plan path: %w", resolveErr)
 			}
@@ -46,9 +60,9 @@ func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 		}
 	}
 
-	if stateURI != "" {
-		if stateURI == "-" {
-			data, resolveErr := resolver.Resolve(ctx, stateURI)
+	if p.State != "" {
+		if p.State == "-" {
+			data, resolveErr := resolver.Resolve(ctx, p.State)
 			if resolveErr != nil {
 				return fmt.Errorf("loading state: %w", resolveErr)
 			}
@@ -56,7 +70,7 @@ func seedCache(cache *terraform.ServiceCache, planURI, stateURI string) error {
 				return fmt.Errorf("parsing state: %w", err)
 			}
 		} else {
-			stateFile, resolveErr := resolveToAbsPath(cwd, stateURI)
+			stateFile, resolveErr := resolveToAbsPath(cwd, p.State)
 			if resolveErr != nil {
 				return fmt.Errorf("resolving state path: %w", resolveErr)
 			}
