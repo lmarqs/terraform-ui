@@ -155,12 +155,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, buildValidateCommand(session), buildOutputCommand(session), stateCmd, scaffoldCmd, buildVersionCommand(session))
-
-	// Plugin CLI commands
-	for _, cmd := range buildPluginCommands(&cfg) {
-		rootCmd.AddCommand(cmd)
-	}
+	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, buildValidateCommand(session), buildOutputCommand(session), stateCmd, scaffoldCmd, buildVersionCommand(session), buildWorkspaceCommand(&cfg), buildForceUnlockCommand(&cfg))
 
 	os.Args, extraArgs = splitPassthrough(os.Args)
 	os.Args = normalizeArgs(os.Args)
