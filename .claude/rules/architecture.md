@@ -74,7 +74,11 @@ type Plugin interface {
 }
 ```
 
-Optional interfaces: `Activatable`, `Busy`, `Cancellable`, `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Positionable`, `Stackable`, `Outputter`, `ExitCoder`, `ActivateWithArgs`.
+Optional interfaces: `Activatable`, `Busy`, `Cancellable`, `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Positionable`, `Stackable`, `StdoutEmitter`, `StderrEmitter`, `ExitCoder`, `Statusable`.
+
+Hexagonal ports (ADR-0021):
+- **Input port:** typed `Input` DTO + `Activate(input Input) tea.Cmd` per plugin. cobra wiring in `cmd/tfui/<plugin>_command.go` parses flags into the Input.
+- **Output port:** `StdoutEmitter.Stdout() ([]byte, error)`, `StderrEmitter.Stderr() []byte`, `ExitCoder.ExitCode() int`. Framework pumps each to the matching sink.
 
 ## Plugin Routing (`internal/plugin/registry.go`)
 

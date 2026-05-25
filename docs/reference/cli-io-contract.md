@@ -43,7 +43,7 @@ otherwise:           → Standalone TUI mode
 2. **stderr = TUI.** Alt-screen rendering in standalone mode. Never data.
 3. **`-json` controls format, not mode.** Both TUI and CI modes respect `-json` — it changes what's written to stdout, not whether the TUI appears.
 4. **`-ci` controls mode, not format.** Disables TUI entirely. Output format determined by `-json` flag independently.
-5. **Plugins produce output.** Each plugin implements `Outputter` — the same code runs in both modes.
+5. **Plugins produce output.** Each plugin implements optional emitter interfaces (`StdoutEmitter`, `StderrEmitter`, `ExitCoder`) — the same code runs in both modes. `--json` is an `Input.JSON` field handed to the plugin at Activate time; the plugin decides what `Stdout()` returns.
 
 ## Full I/O Table
 

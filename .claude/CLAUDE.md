@@ -52,7 +52,9 @@ Full domain glossary with relationships and avoid-lists: see `CONTEXT.md`
 ### Commits
 Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `chore:`
 
-### Go Package Layout
+### Go Package Layout (ADR-0021)
+
+See `docs/adr/0021-plugins-as-use-cases.md` for the full hexagonal architecture rationale. The import rule table:
 
 | Package | Import rule |
 |---------|-------------|

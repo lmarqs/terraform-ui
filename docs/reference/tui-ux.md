@@ -64,7 +64,7 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 | `q` key | Go home (or quit from home) | Quit app |
 | `esc` key | Pop frame / deactivate | Pop frame / quit when at root |
 | NavPush | Works (plan→apply, state→taint) | Works identically |
-| Output | None | stdout on exit (via `Outputter` interface) |
+| Output | None | stdout on exit (via `StdoutEmitter` interface) |
 
 ### Standalone rendering
 

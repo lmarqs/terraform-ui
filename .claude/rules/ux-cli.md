@@ -44,10 +44,17 @@ When `-plan` or `-state` provided:
 
 ## Key Interfaces
 
-Plugins produce output via optional SDK interfaces:
-- `Outputter`: `Output(json bool) ([]byte, error)` — stdout content
+Plugins receive input and produce output via hexagonal ports (ADR-0021):
+
+**Input port** (per-plugin typed Input + Activate):
+- Each plugin exports `Input` struct + `Activate(input Input) tea.Cmd`
+- `--json` flows as `Input.JSON bool` — plugin decides what to do with it
+- cobra wiring lives in `cmd/tfui/<plugin>_command.go`
+
+**Output port** (optional channel-specific emitter interfaces):
+- `StdoutEmitter`: `Stdout() ([]byte, error)` — bytes for stdout
+- `StderrEmitter`: `Stderr() []byte` — post-quit stderr (warnings, summaries)
 - `ExitCoder`: `ExitCode() int` — process exit code
-- `ActivateWithArgs`: `ActivateWithArgs(args []string) tea.Cmd` — receive CLI positional args
 
 ## Flag Conventions
 
