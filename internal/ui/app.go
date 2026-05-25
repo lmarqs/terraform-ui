@@ -410,11 +410,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tfuitaint.TaintRequestMsg:
 		if p, ok := a.registry.ByID("taint"); ok {
 			taintPlugin := p.(*tfuitaint.Plugin)
-			taintPlugin.SetTargets(msg.Addresses)
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "taint", "targets", len(msg.Addresses))
-			return a, a.activate(p)
+			return a, taintPlugin.Activate(tfuitaint.Input{Addrs: msg.Addresses})
 		}
 		return a, nil
 

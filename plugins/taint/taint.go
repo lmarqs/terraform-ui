@@ -29,6 +29,7 @@ type Plugin struct {
 	sdk.PluginBase
 	timer     ui.Timer
 	status    sdk.Status
+	input     Input
 	addresses []string
 	tainted   []string
 	errMsg    string
@@ -52,15 +53,15 @@ func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	return nil
 }
 
-// SetTargets configures the addresses to taint.
-func (p *Plugin) SetTargets(addresses []string) {
-	p.addresses = addresses
-}
-
-func (p *Plugin) Activate() tea.Cmd {
+// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
+// the typed value to the plugin. The TUI flow (TaintRequestMsg) builds the
+// same Input shape from the cursor selection and calls Activate too.
+func (p *Plugin) Activate(input Input) tea.Cmd {
 	if p.status == sdk.StatusLoading {
 		return nil
 	}
+	p.input = input
+	p.addresses = input.Addrs
 	p.status = sdk.StatusIdle
 	p.errMsg = ""
 	p.tainted = nil
