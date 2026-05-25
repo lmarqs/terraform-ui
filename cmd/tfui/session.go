@@ -62,7 +62,7 @@ func (s *Session) Run() error {
 	if err != nil {
 		return err
 	}
-	registry := buildRegistry(svc, s.cfg)
+	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	app := s.buildApp(svc, registry)
 	_, err = s.present(app, ax, tape)
 	if err != nil {
@@ -257,7 +257,7 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 		svc = tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
 	}
 
-	registry := buildRegistry(svc, s.cfg)
+	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	standalone := &ui.StandaloneConfig{
 		PluginID: pluginID,
 		Activate: activate,

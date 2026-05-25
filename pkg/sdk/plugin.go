@@ -124,12 +124,6 @@ type Statusable interface {
 	Status() Status
 }
 
-// ActivateWithArgs is an optional interface plugins implement to receive
-// positional arguments from CLI invocation (e.g., "state mv src dst").
-type ActivateWithArgs interface {
-	ActivateWithArgs(args []string) tea.Cmd
-}
-
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin

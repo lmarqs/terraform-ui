@@ -34,13 +34,7 @@ import (
 // StandaloneConfig configures the app to run a single plugin without
 // home screen or inter-plugin navigation (the fzf model).
 type StandaloneConfig struct {
-	PluginID   string   // which plugin is the app
-	Args       []string // positional args (e.g., "mv", "src", "dst")
-	JSONStdout bool     // user passed --json (root persistent)
-	// Activate, when set, replaces the default Activatable/ActivateWithArgs
-	// dispatch. cmd/tfui supplies a closure that calls the plugin's typed
-	// Activate(input) method — keeps the App ignorant of plugin-specific
-	// Input types.
+	PluginID string // which plugin is the app
 	Activate func(sdk.Plugin) tea.Cmd
 }
 
@@ -225,8 +219,6 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				var cmd tea.Cmd
 				if a.standalone.Activate != nil {
 					cmd = a.standalone.Activate(p)
-				} else if activator, ok := p.(sdk.ActivateWithArgs); ok && len(a.standalone.Args) > 0 {
-					cmd = activator.ActivateWithArgs(a.standalone.Args)
 				} else if activatable, ok := p.(sdk.Activatable); ok {
 					cmd = activatable.Activate()
 				}

@@ -1636,18 +1636,6 @@ func (f *mockFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	return f, nil
 }
 
-type mockActivateWithArgsPlugin struct {
-	mockPlugin
-	activatedWithArgs []string
-}
-
-func (m *mockActivateWithArgsPlugin) ActivateWithArgs(args []string) tea.Cmd {
-	m.activatedWithArgs = args
-	return func() tea.Msg { return nil }
-}
-
-func (m *mockActivateWithArgsPlugin) Activate() tea.Cmd { return nil }
-
 type mockKeyCapturerPlugin struct {
 	mockPlugin
 	captures   bool
@@ -3769,39 +3757,6 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartupWithChdir_ShouldPreferChdi
 
 	if updated.activeChdir != "modules/ecs" {
 		t.Errorf("activeChdir = %q, want %q (Chdir takes precedence over BaseDir)", updated.activeChdir, "modules/ecs")
-	}
-}
-
-func TestApp_Update_WhenStandaloneOpenContextOnStartupWithArgs_ShouldActivateWithArgs(t *testing.T) {
-	cfg := config.Config{
-		Dir:       "/test/dir",
-		Terraform: config.TerraformConfig{Bin: "terraform"},
-	}
-	svc := &sdktest.MockService{}
-	registry := plugin.NewRegistry()
-
-	argPlugin := &mockActivateWithArgsPlugin{
-		mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
-	}
-	registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
-		return argPlugin
-	}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
-	registry.Build(nil, nil)
-
-	sc := &StandaloneConfig{PluginID: "state", Args: []string{"mv", "src", "dst"}}
-	app := NewApp(cfg, svc, registry, nil, sc)
-
-	model, cmd := app.Update(openContextOnStartupMsg{})
-	updated := model.(App)
-
-	if updated.activePlugin == nil {
-		t.Fatal("standalone with args should activate target plugin")
-	}
-	if len(argPlugin.activatedWithArgs) != 3 {
-		t.Errorf("ActivateWithArgs called with %v, want [mv src dst]", argPlugin.activatedWithArgs)
-	}
-	if cmd == nil {
-		t.Error("ActivateWithArgs should return a cmd")
 	}
 }
 

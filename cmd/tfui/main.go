@@ -23,7 +23,7 @@ func init() {
 }
 
 func main() {
-	rootCmd, session := buildRoot()
+	rootCmd, session, extraArgsDst := buildRoot()
 
 	rootCmd.AddCommand(
 		buildPlanCommand(session),
@@ -41,7 +41,7 @@ func main() {
 		buildScaffoldCommand(session),
 	)
 
-	os.Args, session.cfg.ExtraArgs = splitPassthrough(os.Args)
+	os.Args, *extraArgsDst = splitPassthrough(os.Args)
 	os.Args = normalizeArgs(os.Args)
 
 	if err := rootCmd.Execute(); err != nil {

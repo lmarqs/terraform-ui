@@ -9,12 +9,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func buildRoot() (*cobra.Command, *Session) {
+func buildRoot() (*cobra.Command, *Session, *[]string) {
 	var cfg config.Config
 	var configOverrides []string
 	var planURI, stateURI, macroURI, recordDir string
 	var ciMode bool
 	var jsonStdout bool
+	var extraArgs []string
 
 	session := &Session{}
 
@@ -48,6 +49,7 @@ func buildRoot() (*cobra.Command, *Session) {
 			binary := cfg.TerraformBinary()
 			logging.Init(recordDir != "", version, cfg.Dir, binary, recordDir)
 
+			cfg.ExtraArgs = extraArgs
 			session.cfg = cfg
 			session.rootCfg = rootCfg
 			session.planURI = planURI
@@ -75,5 +77,5 @@ func buildRoot() (*cobra.Command, *Session) {
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
 
-	return rootCmd, session
+	return rootCmd, session, &extraArgs
 }

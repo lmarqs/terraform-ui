@@ -24,7 +24,7 @@ import (
 	tfuiworkspace "github.com/lmarqs/terraform-ui/plugins/workspace"
 )
 
-func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
+func buildRegistry(svc sdk.Service, cfg config.Config, rootCfg *config.RootConfig) *plugin.Registry {
 	registry := plugin.NewRegistry()
 	registry.RegisterFactory("context", tfuicontext.New, plugin.PluginMeta{Keybinding: "C", MenuVisible: true})
 	registry.RegisterFactory("chdir", tfuichdir.New, plugin.PluginMeta{Keybinding: "", MenuVisible: false, Nav: plugin.NavPush})
@@ -48,7 +48,7 @@ func buildRegistry(svc sdk.Service, cfg config.Config) *plugin.Registry {
 	registry.Build(svc, cfg.Plugins)
 
 	var memberPaths []string
-	if rootCfg, err := config.LoadRoot(cfg.Dir); err == nil && len(rootCfg.Members) > 0 {
+	if rootCfg != nil && len(rootCfg.Members) > 0 {
 		memberPaths = make([]string, len(rootCfg.Members))
 		for i, m := range rootCfg.Members {
 			memberPaths[i] = m.Path
