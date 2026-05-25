@@ -20,6 +20,7 @@ import (
 	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 	tfuiapply "github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
+	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
@@ -898,6 +899,8 @@ func (a App) activate(p sdk.Plugin) tea.Cmd {
 		return tp.Activate(tfuiversion.Input{})
 	case *tfuivalidate.Plugin:
 		return tp.Activate(tfuivalidate.Input{})
+	case *tfuioutput.Plugin:
+		return tp.Activate(tfuioutput.Input{})
 	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()

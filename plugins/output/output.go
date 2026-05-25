@@ -20,18 +20,18 @@ type OutputResultMsg struct {
 // Plugin implements the terraform outputs viewer.
 type Plugin struct {
 	sdk.PluginBase
-	stack      *sdk.Stack
-	fuzzy      *ui.FuzzyFilter[sdk.OutputValue]
-	timer      ui.Timer
-	status     sdk.Status
-	outputs    []sdk.OutputValue
-	filtered   []sdk.OutputValue
-	filter     string
-	filtering  bool
-	errMsg     string
-	selected   int
-	jsonStdout bool
-	cancelFn   context.CancelFunc
+	stack     *sdk.Stack
+	fuzzy     *ui.FuzzyFilter[sdk.OutputValue]
+	timer     ui.Timer
+	status    sdk.Status
+	outputs   []sdk.OutputValue
+	filtered  []sdk.OutputValue
+	filter    string
+	filtering bool
+	errMsg    string
+	selected  int
+	input     Input
+	cancelFn  context.CancelFunc
 }
 
 // New creates a new output plugin.
@@ -95,8 +95,12 @@ func (p *Plugin) reset() {
 	p.fuzzy.SetItems(nil)
 }
 
-// Activate triggers output loading when the user enters the plugin.
-func (p *Plugin) Activate() tea.Cmd {
+// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
+// the typed value to the plugin. The TUI flow (`:output`) calls
+// Activate(Input{}) via app.go's typed dispatch — both paths run the same
+// output-fetch lifecycle.
+func (p *Plugin) Activate(input Input) tea.Cmd {
+	p.input = input
 	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {
 		p.status = sdk.StatusLoading
 		return tea.Batch(p.loadOutputs(), p.timer.Start())
@@ -291,14 +295,10 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	return filterLine + b.String() + "\n" + count
 }
 
-// SetJSONStdout is a temporary cmd-side setter used by the legacy
-// Session.WithJSON path. Phase 2 migrates this plugin to a typed Input flow
-// at which point this setter is removed.
-func (p *Plugin) SetJSONStdout(on bool) { p.jsonStdout = on }
-
-// Stdout produces stdout content for standalone/CI mode.
+// Stdout produces stdout content for standalone/CI mode. The plugin reads
+// p.input.JSON to decide between human-readable and JSON output.
 func (p *Plugin) Stdout() ([]byte, error) {
-	if p.jsonStdout {
+	if p.input.JSON {
 		outputMap := make(map[string]interface{}, len(p.outputs))
 		for _, o := range p.outputs {
 			entry := map[string]interface{}{

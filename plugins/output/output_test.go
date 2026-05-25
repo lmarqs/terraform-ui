@@ -93,7 +93,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnOutputResultMsg(t *testing.T) 
 	ctx := sdktest.NewDeps(svc).Deps
 
 	p.Init(ctx)
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() returned nil cmd, want non-nil")
 	}
@@ -134,7 +134,7 @@ func TestActivate_WhenServiceFails_ShouldReturnOutputResultMsgWithError(t *testi
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() returned nil cmd, want non-nil")
 	}
@@ -937,7 +937,7 @@ func TestHandleContextChanged_WhenCalled_ShouldResetToIdleWithNewContext(t *test
 		t.Errorf("status = %v, want sdk.StatusIdle after HandleContextChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() after HandleContextChanged: want non-nil cmd")
 	}
@@ -953,7 +953,7 @@ func TestActivate_WhenSameContextAlreadyDone_ShouldReturnNilCmd(t *testing.T) {
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 	p.status = sdk.StatusDone
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() same context done: want nil")
 	}
@@ -964,7 +964,7 @@ func TestActivate_WhenNoContextSelected_ShouldProceedWithLoading(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
 	if cmd == nil {
 		t.Error("Activate() multi-context no selection: want non-nil cmd (loads outputs)")
@@ -983,7 +983,7 @@ func TestActivate_WhenScopeDirSet_ShouldReturnLoadCmd(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() with context dir: want non-nil cmd")
 	}
@@ -998,7 +998,7 @@ func TestActivate_WhenNoSession_ShouldReturnLoadCmd(t *testing.T) {
 	p := New(svc).(*Plugin)
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() no session: want non-nil cmd")
 	}
@@ -1251,7 +1251,7 @@ func TestOutput_WhenJsonTrue_ShouldReturnJSONMap(t *testing.T) {
 		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
 	}
 
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -1270,7 +1270,7 @@ func TestOutput_WhenJsonTrueEmpty_ShouldReturnEmptyObject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = []sdk.OutputValue{}
 
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -1318,7 +1318,7 @@ func TestOutput_WhenJsonTrueNilOutputs_ShouldReturnEmptyObject(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.outputs = nil
 
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
