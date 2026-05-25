@@ -80,18 +80,55 @@ func TestActivate_WhenServiceFails_ShouldReturnError(t *testing.T) {
 	}
 }
 
-// TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin verifies the typed
-// input port copies JSON onto plugin state so Stdout reads it back.
-func TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin(t *testing.T) {
+func TestActivate_WhenInputJSON_ShouldCallVersionJSONNotVersion(t *testing.T) {
+	want := []byte(`{"terraform_version":"1.5.0","platform":"linux_amd64"}`)
 	svc := &sdktest.MockService{
-		VersionFn: func(_ context.Context) (*sdk.VersionInfo, error) {
-			return &sdk.VersionInfo{}, nil
+		VersionJSONFn: func(_ context.Context) ([]byte, error) {
+			return want, nil
 		},
 	}
 	p, _ := newTestPlugin(svc)
-	p.Activate(Input{JSON: true})
-	if !p.input.JSON {
-		t.Error("Input.JSON should be stored on plugin state")
+
+	cmd := p.Activate(Input{JSON: true})
+	if cmd == nil {
+		t.Fatal("Activate(Input{JSON:true}) returned nil cmd")
+	}
+	msg := cmd()
+	p.Update(msg)
+
+	if svc.VersionCalls != 0 {
+		t.Errorf("VersionCalls = %d, want 0 (JSON path must not call typed Version)", svc.VersionCalls)
+	}
+	if svc.VersionJSONCalls != 1 {
+		t.Errorf("VersionJSONCalls = %d, want 1", svc.VersionJSONCalls)
+	}
+	if string(p.jsonBytes) != string(want) {
+		t.Errorf("jsonBytes = %q, want %q", p.jsonBytes, want)
+	}
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
+	}
+}
+
+func TestActivate_WhenInputJSONAndServiceFails_ShouldSetError(t *testing.T) {
+	svc := &sdktest.MockService{
+		VersionJSONFn: func(_ context.Context) ([]byte, error) {
+			return nil, errors.New("version-json failed")
+		},
+	}
+	p, _ := newTestPlugin(svc)
+
+	cmd := p.Activate(Input{JSON: true})
+	msg := cmd()
+	p.Update(msg)
+
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
 	}
 }
 
@@ -274,55 +311,32 @@ func TestPlugin_WhenCancelCalledWithActiveCancelFn_ShouldCallItAndClear(t *testi
 	}
 }
 
-func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing.T) {
+func TestPlugin_WhenOutputJSON_ShouldPassthroughVerbatim(t *testing.T) {
+	want := []byte(`{"terraform_version":"1.5.0","platform":"linux_amd64"}`)
 	p, _ := newTestPlugin(&sdktest.MockService{})
-	p.version = "1.0.0"
-	p.info = nil
 	p.input = Input{JSON: true}
+	p.jsonBytes = want
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if !contains(s, `"tfui_version": "1.0.0"`) {
-		t.Errorf("Output(true) missing tfui_version, got: %s", s)
-	}
-	if !contains(s, `"platform"`) {
-		t.Errorf("Output(true) missing platform, got: %s", s)
-	}
-	if contains(s, `"terraform_version"`) {
-		t.Errorf("Output(true) should not contain terraform_version when info is nil, got: %s", s)
-	}
-	if contains(s, `"provider_selections"`) {
-		t.Errorf("Output(true) should not contain provider_selections when info is nil, got: %s", s)
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
 	}
 }
 
-func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
+func TestPlugin_WhenOutputJSONAndBytesNil_ShouldReturnNil(t *testing.T) {
 	p, _ := newTestPlugin(&sdktest.MockService{})
-	p.version = "1.0.0"
-	p.info = &sdk.VersionInfo{
-		TerraformVersion: "1.5.0",
-		Providers: map[string]string{
-			"registry.terraform.io/hashicorp/aws": "5.0.0",
-		},
-	}
 	p.input = Input{JSON: true}
+	p.jsonBytes = nil
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if !contains(s, `"terraform_version": "1.5.0"`) {
-		t.Errorf("Output(true) missing terraform_version, got: %s", s)
-	}
-	if !contains(s, `"provider_selections"`) {
-		t.Errorf("Output(true) missing provider_selections, got: %s", s)
-	}
-	if !contains(s, `"registry.terraform.io/hashicorp/aws": "5.0.0"`) {
-		t.Errorf("Output(true) missing provider entry, got: %s", s)
+	if data != nil {
+		t.Errorf("Stdout() = %q, want nil", string(data))
 	}
 }
 
@@ -374,30 +388,18 @@ func TestPlugin_WhenOutputText_ShouldReturnFullTextWithProviders(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenOutputWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
+func TestPlugin_WhenOutputTextWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
 	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = ""
 	p.info = nil
+	p.input = Input{JSON: false}
 
-	tests := []struct {
-		name          string
-		jsonStdoutput bool
-		want          string
-	}{
-		{"ShouldShowUnknownInJSON", true, "unknown"},
-		{"ShouldShowUnknownInText", false, "tfui vunknown"},
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p.input = Input{JSON: tt.jsonStdoutput}
-			data, err := p.Stdout()
-			if err != nil {
-				t.Fatalf("Stdout(%v) error = %v", tt.jsonStdoutput, err)
-			}
-			if !contains(string(data), tt.want) {
-				t.Errorf("Stdout(%v) = %s, want to contain %q", tt.jsonStdoutput, string(data), tt.want)
-			}
-		})
+	if !contains(string(data), "tfui vunknown") {
+		t.Errorf("Stdout() = %s, want to contain %q", string(data), "tfui vunknown")
 	}
 }
 
@@ -432,47 +434,17 @@ func TestOutput_WhenTextWithNilInfo_ShouldShowOnlyTfuiVersion(t *testing.T) {
 	}
 }
 
-func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
-	p, _ := newTestPlugin(&sdktest.MockService{})
-	p.version = "1.2.3"
-	p.info = nil
-	p.input = Input{JSON: true}
-
-	data, err := p.Stdout()
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	s := string(data)
-	if !contains(s, `"tfui_version": "1.2.3"`) {
-		t.Errorf("expected tfui_version in JSON, got %q", s)
-	}
-	if contains(s, `"terraform_version"`) {
-		t.Error("should not include terraform_version when info is nil")
-	}
-}
-
-func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *testing.T) {
+func TestOutput_WhenTextWithEmptyTerraformVersion_ShouldOmitTerraformLine(t *testing.T) {
 	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.2.3"
 	p.info = &sdk.VersionInfo{TerraformVersion: ""}
-	p.input = Input{JSON: true}
+	p.input = Input{JSON: false}
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if contains(s, `"terraform_version"`) {
-		t.Errorf("should not include terraform_version when it's empty, got %q", s)
-	}
-
-	p.input = Input{JSON: false}
-	data, err = p.Stdout()
-	if err != nil {
-		t.Fatalf("Stdout(false) error = %v", err)
-	}
-	s = string(data)
-	if contains(s, "terraform v") {
-		t.Errorf("text should not include terraform version when empty, got %q", s)
+	if contains(string(data), "terraform v") {
+		t.Errorf("text should not include terraform version when empty, got %q", string(data))
 	}
 }

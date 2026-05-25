@@ -17,6 +17,12 @@ type OutputResultMsg struct {
 	Err     error
 }
 
+// outputJSONMsg carries raw bytes from terraform output -json.
+type outputJSONMsg struct {
+	Data []byte
+	Err  error
+}
+
 // Plugin implements the terraform outputs viewer.
 type Plugin struct {
 	sdk.PluginBase
@@ -31,6 +37,7 @@ type Plugin struct {
 	errMsg    string
 	selected  int
 	input     Input
+	jsonBytes []byte
 	cancelFn  context.CancelFunc
 }
 
@@ -88,6 +95,7 @@ func (p *Plugin) reset() {
 	p.status = sdk.StatusIdle
 	p.outputs = nil
 	p.filtered = nil
+	p.jsonBytes = nil
 	p.filter = ""
 	p.filtering = false
 	p.errMsg = ""
@@ -125,6 +133,12 @@ func (p *Plugin) loadOutputs() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	svc := p.Svc
+	if p.input.JSON {
+		return func() tea.Msg {
+			data, err := svc.OutputJSON(ctx)
+			return outputJSONMsg{Data: data, Err: err}
+		}
+	}
 	return func() tea.Msg {
 		outputs, err := svc.Output(ctx)
 		return OutputResultMsg{Outputs: outputs, Err: err}
@@ -136,6 +150,19 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
 	case ui.TimerTickMsg:
 		return p, p.timer.Tick()
+
+	case outputJSONMsg:
+		p.timer.Stop()
+		if msg.Err != nil {
+			p.status = sdk.StatusError
+			p.errMsg = msg.Err.Error()
+			p.Log.Debug("output.load.error", "error", msg.Err.Error(), "json", true)
+		} else {
+			p.status = sdk.StatusDone
+			p.jsonBytes = msg.Data
+			p.Log.Debug("output.load.complete", "bytes", len(msg.Data), "json", true)
+		}
+		return p, nil
 
 	case OutputResultMsg:
 		p.timer.Stop()
@@ -292,20 +319,14 @@ func (p *Plugin) renderOutputs(width, height int) string {
 	return filterLine + b.String() + "\n" + count
 }
 
-// Stdout produces stdout content for standalone/CI mode. The plugin reads
-// p.input.JSON to decide between human-readable and JSON output.
+// Stdout produces stdout content for standalone/CI mode.
+//
+// JSON mode is a passthrough: returns the raw `terraform output -json`
+// bytes captured during the output fetch. The schema is terraform's, not
+// tfui's. Human-readable mode renders a key = value list.
 func (p *Plugin) Stdout() ([]byte, error) {
 	if p.input.JSON {
-		outputMap := make(map[string]interface{}, len(p.outputs))
-		for _, o := range p.outputs {
-			entry := map[string]interface{}{
-				"value":     o.Value,
-				"type":      o.Type,
-				"sensitive": o.Sensitive,
-			}
-			outputMap[o.Name] = entry
-		}
-		return sdk.MarshalJSON(outputMap), nil
+		return p.jsonBytes, nil
 	}
 
 	var b strings.Builder

@@ -17,15 +17,22 @@ type VersionResultMsg struct {
 	Err  error
 }
 
+// versionJSONMsg carries raw bytes from terraform version -json.
+type versionJSONMsg struct {
+	Data []byte
+	Err  error
+}
+
 // Plugin implements the version info viewer.
 type Plugin struct {
 	sdk.PluginBase
-	status   sdk.Status
-	info     *sdk.VersionInfo
-	errMsg   string
-	version  string
-	input    Input
-	cancelFn context.CancelFunc
+	status    sdk.Status
+	info      *sdk.VersionInfo
+	errMsg    string
+	version   string
+	input     Input
+	jsonBytes []byte
+	cancelFn  context.CancelFunc
 }
 
 // New creates a new version plugin.
@@ -62,11 +69,18 @@ func (p *Plugin) Cancel() {
 // Activate stores the typed input and returns the initial command.
 func (p *Plugin) Activate(input Input) tea.Cmd {
 	p.input = input
+	p.jsonBytes = nil
 	p.Cancel()
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	p.status = sdk.StatusLoading
 	svc := p.Svc
+	if input.JSON {
+		return func() tea.Msg {
+			data, err := svc.VersionJSON(ctx)
+			return versionJSONMsg{Data: data, Err: err}
+		}
+	}
 	return func() tea.Msg {
 		info, err := svc.Version(ctx)
 		return VersionResultMsg{Info: info, Err: err}
@@ -81,6 +95,16 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 // Update processes messages.
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case versionJSONMsg:
+		if msg.Err != nil {
+			p.status = sdk.StatusError
+			p.errMsg = msg.Err.Error()
+		} else {
+			p.status = sdk.StatusDone
+			p.jsonBytes = msg.Data
+		}
+		return p, nil
+
 	case VersionResultMsg:
 		if msg.Err != nil {
 			p.status = sdk.StatusError
@@ -112,33 +136,20 @@ func (p *Plugin) View(width, height int) string {
 	}
 }
 
-// Stdout produces stdout content for standalone/CI mode. The plugin reads
-// p.input.JSON to decide between human-readable and JSON output; the SDK has
-// no opinion on the bytes.
+// Stdout produces stdout content for standalone/CI mode.
+//
+// JSON mode is a passthrough: returns the raw `terraform version -json`
+// bytes captured during the version fetch. The schema is terraform's, not
+// tfui's. Human-readable mode renders tfui + terraform version info.
 func (p *Plugin) Stdout() ([]byte, error) {
+	if p.input.JSON {
+		return p.jsonBytes, nil
+	}
+
 	platform := runtime.GOOS + "_" + runtime.GOARCH
 	ver := p.version
 	if ver == "" {
 		ver = "unknown"
-	}
-
-	if p.input.JSON {
-		out := struct {
-			TfuiVersion       string            `json:"tfui_version"`
-			Platform          string            `json:"platform"`
-			TerraformVersion  string            `json:"terraform_version,omitempty"`
-			TerraformPlatform string            `json:"terraform_platform,omitempty"`
-			Providers         map[string]string `json:"provider_selections,omitempty"`
-		}{
-			TfuiVersion: ver,
-			Platform:    platform,
-		}
-		if p.info != nil && p.info.TerraformVersion != "" {
-			out.TerraformVersion = p.info.TerraformVersion
-			out.TerraformPlatform = platform
-			out.Providers = p.info.Providers
-		}
-		return sdk.MarshalJSON(out), nil
 	}
 
 	var b strings.Builder

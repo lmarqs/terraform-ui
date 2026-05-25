@@ -100,50 +100,11 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 		planFilePath = filepath.Join(s.workingDir, planFileName)
 	}
 
-	planOpts := []tfexec.PlanOption{
-		tfexec.Out(planFilePath),
-	}
 	if opts.Writer != nil {
 		tf.SetStdout(opts.Writer)
 		tf.SetStderr(opts.Writer)
 	}
-	for _, t := range opts.Targets {
-		planOpts = append(planOpts, tfexec.Target(t))
-	}
-	for _, f := range opts.VarFiles {
-		planOpts = append(planOpts, tfexec.VarFile(f))
-	}
-	for k, v := range opts.Vars {
-		planOpts = append(planOpts, tfexec.Var(k+"="+v))
-	}
-	for _, r := range opts.Replace {
-		planOpts = append(planOpts, tfexec.Replace(r))
-	}
-	if opts.Destroy {
-		planOpts = append(planOpts, tfexec.Destroy(true))
-	}
-	switch opts.Refresh {
-	case sdk.RefreshOnly:
-		planOpts = append(planOpts, tfexec.RefreshOnly(true))
-	case sdk.RefreshEnabled:
-		planOpts = append(planOpts, tfexec.Refresh(true))
-	case sdk.RefreshDisabled:
-		planOpts = append(planOpts, tfexec.Refresh(false))
-	case sdk.RefreshDefault:
-	}
-	if opts.Parallelism > 0 {
-		planOpts = append(planOpts, tfexec.Parallelism(opts.Parallelism))
-	}
-	switch opts.Lock {
-	case sdk.LockEnabled:
-		planOpts = append(planOpts, tfexec.Lock(true))
-	case sdk.LockDisabled:
-		planOpts = append(planOpts, tfexec.Lock(false))
-	case sdk.LockDefault:
-	}
-	if opts.LockTimeout != "" {
-		planOpts = append(planOpts, tfexec.LockTimeout(string(opts.LockTimeout)))
-	}
+	planOpts := buildTfexecPlanOptions(opts, planFilePath)
 
 	_, err = tf.Plan(ctx, planOpts...)
 	if err != nil {
@@ -409,27 +370,13 @@ func (s *ExecService) runRawJSON(ctx context.Context, args ...string) ([]byte, e
 	if err := cmd.Run(); err != nil {
 		return nil, fmt.Errorf("terraform %s: %w: %s", args[0], err, stderr.String())
 	}
+	if stderr.Len() > 0 {
+		logging.Logger().Debug("terraform.stderr", "cmd", args[0], "stderr", stderr.String())
+	}
 	return stdout.Bytes(), nil
 }
 
-// PlanJSON runs terraform plan, then `terraform show -json <planfile>`
-// and returns the raw bytes terraform produced.
-func (s *ExecService) PlanJSON(ctx context.Context, opts sdk.PlanOptions) ([]byte, error) {
-	s.dirLock.Acquire(s.workingDir)
-	defer s.dirLock.Release(s.workingDir)
-	logging.Logger().Debug("terraform.exec", "cmd", "plan-json", "dir", s.workingDir)
-	start := time.Now()
-
-	tf, err := s.newTerraform()
-	if err != nil {
-		return nil, fmt.Errorf("planning: %w", err)
-	}
-
-	planFilePath := opts.PlanFile
-	if planFilePath == "" {
-		planFilePath = filepath.Join(s.workingDir, planFileName)
-	}
-
+func buildTfexecPlanOptions(opts sdk.PlanOptions, planFilePath string) []tfexec.PlanOption {
 	planOpts := []tfexec.PlanOption{tfexec.Out(planFilePath)}
 	for _, t := range opts.Targets {
 		planOpts = append(planOpts, tfexec.Target(t))
@@ -468,6 +415,28 @@ func (s *ExecService) PlanJSON(ctx context.Context, opts sdk.PlanOptions) ([]byt
 	if opts.LockTimeout != "" {
 		planOpts = append(planOpts, tfexec.LockTimeout(string(opts.LockTimeout)))
 	}
+	return planOpts
+}
+
+// PlanJSON runs terraform plan, then `terraform show -json <planfile>`
+// and returns the raw bytes terraform produced.
+func (s *ExecService) PlanJSON(ctx context.Context, opts sdk.PlanOptions) ([]byte, error) {
+	s.dirLock.Acquire(s.workingDir)
+	defer s.dirLock.Release(s.workingDir)
+	logging.Logger().Debug("terraform.exec", "cmd", "plan-json", "dir", s.workingDir)
+	start := time.Now()
+
+	tf, err := s.newTerraform()
+	if err != nil {
+		return nil, fmt.Errorf("planning: %w", err)
+	}
+
+	planFilePath := opts.PlanFile
+	if planFilePath == "" {
+		planFilePath = filepath.Join(s.workingDir, planFileName)
+	}
+
+	planOpts := buildTfexecPlanOptions(opts, planFilePath)
 
 	if _, err := tf.Plan(ctx, planOpts...); err != nil {
 		return nil, fmt.Errorf("running terraform plan: %w", err)

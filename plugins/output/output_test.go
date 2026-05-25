@@ -162,6 +162,75 @@ func TestActivate_WhenServiceFails_ShouldReturnOutputResultMsgWithError(t *testi
 	}
 }
 
+func TestActivate_WhenInputJSON_ShouldCallOutputJSONNotOutput(t *testing.T) {
+	want := []byte(`{"vpc_id":{"value":"vpc-abc123","type":"string","sensitive":false}}`)
+	svc := &sdktest.MockService{
+		OutputJSONFn: func(_ context.Context) ([]byte, error) {
+			return want, nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{JSON: true})
+	if cmd == nil {
+		t.Fatal("Activate(Input{JSON:true}) returned nil cmd")
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			if sub == nil {
+				continue
+			}
+			if jm, ok := sub().(outputJSONMsg); ok {
+				p.Update(jm)
+			}
+		}
+	}
+
+	if svc.OutputCalls != 0 {
+		t.Errorf("OutputCalls = %d, want 0 (JSON path must not call typed Output)", svc.OutputCalls)
+	}
+	if svc.OutputJSONCalls != 1 {
+		t.Errorf("OutputJSONCalls = %d, want 1", svc.OutputJSONCalls)
+	}
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
+	}
+}
+
+func TestActivate_WhenInputJSONAndServiceFails_ShouldSetError(t *testing.T) {
+	svc := &sdktest.MockService{
+		OutputJSONFn: func(_ context.Context) ([]byte, error) {
+			return nil, errors.New("output-json failed")
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{JSON: true})
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			if sub == nil {
+				continue
+			}
+			if jm, ok := sub().(outputJSONMsg); ok {
+				p.Update(jm)
+			}
+		}
+	}
+
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+}
+
 func TestUpdate_WhenOutputResultSuccess_ShouldTransitionToDone(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
@@ -1244,40 +1313,32 @@ func TestListFrame_WhenNonKeyMsg_ShouldReturnSelf(t *testing.T) {
 	}
 }
 
-func TestOutput_WhenJsonTrue_ShouldReturnJSONMap(t *testing.T) {
+func TestOutput_WhenJsonInputAndJSONBytesSet_ShouldPassthroughVerbatim(t *testing.T) {
+	want := []byte(`{"vpc_id":{"value":"vpc-abc123","type":"string","sensitive":false}}`)
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.outputs = []sdk.OutputValue{
-		{Name: "vpc_id", Value: "vpc-abc123", Type: "string", Sensitive: false},
-		{Name: "db_password", Value: "secret", Type: "string", Sensitive: true},
-	}
-
 	p.input = Input{JSON: true}
+	p.jsonBytes = want
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	s := string(data)
-	if !strings.Contains(s, `"vpc_id"`) {
-		t.Error("JSON should contain vpc_id key")
-	}
-	if !strings.Contains(s, `"sensitive": true`) {
-		t.Error("JSON should contain sensitive: true")
+	if string(data) != string(want) {
+		t.Errorf("Stdout() = %q, want %q (verbatim passthrough)", data, want)
 	}
 }
 
-func TestOutput_WhenJsonTrueEmpty_ShouldReturnEmptyObject(t *testing.T) {
+func TestOutput_WhenJsonInputAndBytesNil_ShouldReturnNil(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.outputs = []sdk.OutputValue{}
-
 	p.input = Input{JSON: true}
+	p.jsonBytes = nil
 
 	data, err := p.Stdout()
 	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
+		t.Fatalf("Stdout() error = %v", err)
 	}
-	if !strings.Contains(string(data), "{}") {
-		t.Errorf("JSON for empty = %q, want '{}'", string(data))
+	if data != nil {
+		t.Errorf("Stdout() = %q, want nil", string(data))
 	}
 }
 
@@ -1311,21 +1372,6 @@ func TestOutput_WhenJsonFalseEmpty_ShouldReturnEmpty(t *testing.T) {
 	}
 	if len(data) != 0 {
 		t.Errorf("text for empty = %q, want empty", string(data))
-	}
-}
-
-func TestOutput_WhenJsonTrueNilOutputs_ShouldReturnEmptyObject(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.outputs = nil
-
-	p.input = Input{JSON: true}
-
-	data, err := p.Stdout()
-	if err != nil {
-		t.Fatalf("Output(true) error = %v", err)
-	}
-	if !strings.Contains(string(data), "{}") {
-		t.Errorf("JSON for nil outputs = %q, want '{}'", string(data))
 	}
 }
 

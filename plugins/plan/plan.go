@@ -212,6 +212,9 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 		e.status = sdk.StatusLoading
 		e.Log.Debug("plan.start", "json", input.JSON)
 		planCmd := e.runPlan()
+		if input.JSON {
+			return tea.Batch(planCmd, e.timer.Start())
+		}
 		return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 	}
 	if e.status == sdk.StatusLoading && e.timer.Running() {
@@ -250,31 +253,30 @@ func (e *Plugin) runPlan() tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
 
-	lw, ch := frames.NewLineWriter()
-	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
-	e.lastStream = sf
-	e.streamCh = ch
-	e.stack.Clear()
-	e.stack.Push(sf)
-
 	svc := e.Svc
 	var opts sdk.PlanOptions
 	if e.GetCtx != nil {
 		opts = e.GetCtx().PlanOptions()
 	}
 	opts.PlanFile = e.allocPlanFile()
-	opts.Writer = lw
+
 	if e.input.JSON {
-		// Passthrough: capture terraform's `show -json` bytes verbatim.
-		// The TUI summary view stays empty in this mode; Stdout serves the
-		// raw bytes. ExitCode falls back to 0 because there is no synthesized
-		// summary to count changes against.
+		e.stack.Clear()
+		e.stack.Push(&listFrame{plugin: e})
 		return func() tea.Msg {
 			data, err := svc.PlanJSON(ctx, opts)
-			lw.Close()
 			return planJSONMsg{Data: data, Err: err}
 		}
 	}
+
+	lw, ch := frames.NewLineWriter()
+	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
+	e.lastStream = sf
+	e.streamCh = ch
+	e.stack.Clear()
+	e.stack.Push(sf)
+	opts.Writer = lw
+
 	return func() tea.Msg {
 		summary, err := svc.Plan(ctx, opts)
 		lw.Close()
