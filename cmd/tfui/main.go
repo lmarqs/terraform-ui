@@ -200,7 +200,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, versionCmd)
+	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, versionCmd)
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {

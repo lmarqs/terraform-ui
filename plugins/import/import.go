@@ -39,6 +39,7 @@ type Plugin struct {
 	sdk.PluginBase
 	timer    ui.Timer
 	status   sdk.Status
+	input    Input
 	address  string
 	id       string
 	errMsg   string
@@ -62,18 +63,25 @@ func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	return nil
 }
 
-// SetAddress pre-fills the resource address field.
-func (p *Plugin) SetAddress(address string) {
-	p.address = address
-}
-
-func (p *Plugin) Activate() tea.Cmd {
+// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
+// the typed value to the plugin. When the cmd path provides both Addr and ID,
+// the form is skipped and the plugin jumps straight to the confirm step.
+// When only Addr is provided (TUI flow), the form runs starting at the ID
+// field with Addr pre-filled.
+func (p *Plugin) Activate(input Input) tea.Cmd {
 	if p.status == sdk.StatusLoading {
 		return nil
 	}
+	p.input = input
+	p.address = input.Addr
+	p.id = input.ID
+	p.errMsg = ""
+	if input.Addr != "" && input.ID != "" {
+		p.status = sdk.StatusIdle
+		return p.confirmImport()
+	}
 	p.status = StatusForm
 	p.id = ""
-	p.errMsg = ""
 	return p.requestAddress()
 }
 

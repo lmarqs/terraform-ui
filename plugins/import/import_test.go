@@ -19,6 +19,67 @@ func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	return p
 }
 
+// TestPlugin_WhenActivatedWithBothAddrAndID_ShouldSkipFormAndConfirm verifies
+// the cmd-side path: when both Addr and ID are provided, the plugin bypasses
+// the form and goes straight to the confirm step.
+func TestPlugin_WhenActivatedWithBothAddrAndID_ShouldSkipFormAndConfirm(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+
+	input := Input{Addr: "aws_instance.web", ID: "i-abc", JSON: true}
+	cmd := p.Activate(input)
+	if cmd == nil {
+		t.Fatal("Activate() should return a confirm cmd")
+	}
+	if p.address != "aws_instance.web" || p.id != "i-abc" {
+		t.Errorf("address/id = %q/%q, want aws_instance.web/i-abc", p.address, p.id)
+	}
+	if !p.input.JSON {
+		t.Error("Input.JSON should be stored on plugin state")
+	}
+	msg := cmd()
+	reqMsg, ok := msg.(sdk.RequestInputMsg)
+	if !ok {
+		t.Fatalf("expected sdk.RequestInputMsg (confirm), got %T", msg)
+	}
+	if reqMsg.Request.Mode != sdk.InputRequestBool {
+		t.Errorf("request mode = %v, want InputRequestBool (confirm)", reqMsg.Request.Mode)
+	}
+}
+
+// TestPlugin_WhenActivatedWithOnlyAddr_ShouldRunForm verifies the TUI path:
+// when only Addr is provided the plugin still runs the form (address
+// pre-filled, ID prompted).
+func TestPlugin_WhenActivatedWithOnlyAddr_ShouldRunForm(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+
+	cmd := p.Activate(Input{Addr: "aws_instance.web"})
+	if cmd == nil {
+		t.Fatal("Activate() should return a form cmd")
+	}
+	msg := cmd()
+	reqMsg, ok := msg.(sdk.RequestInputMsg)
+	if !ok {
+		t.Fatalf("expected sdk.RequestInputMsg, got %T", msg)
+	}
+	if reqMsg.Request.Mode != sdk.InputRequestText {
+		t.Errorf("request mode = %v, want InputRequestText", reqMsg.Request.Mode)
+	}
+	if reqMsg.Request.Default != "aws_instance.web" {
+		t.Errorf("default = %q, want %q", reqMsg.Request.Default, "aws_instance.web")
+	}
+}
+
+// TestPlugin_DoesNotImplementStdoutEmitter pins the contract: import emits no
+// stdout content today.
+func TestPlugin_DoesNotImplementStdoutEmitter(t *testing.T) {
+	p := New(&sdktest.MockService{})
+	if _, ok := p.(sdk.StdoutEmitter); ok {
+		t.Error("import must not implement sdk.StdoutEmitter (no stdout content)")
+	}
+}
+
 func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
@@ -50,9 +111,8 @@ func TestPlugin_Lifecycle(t *testing.T) {
 func TestPlugin_WhenActivated_ShouldRequestAddress(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
-	p.SetAddress("aws_instance.web")
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{Addr: "aws_instance.web"})
 	if cmd == nil {
 		t.Fatal("Activate() should return a cmd")
 	}
@@ -75,7 +135,7 @@ func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{Addr: "aws_instance.web"})
 	if cmd != nil {
 		t.Error("Activate() while loading should return nil")
 	}
@@ -85,7 +145,7 @@ func TestPlugin_WhenActivatedWithNoAddress_ShouldRequestEmptyDefault(t *testing.
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() should return a cmd")
 	}
@@ -104,7 +164,7 @@ func TestPlugin_WhenAddressSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -122,7 +182,7 @@ func TestPlugin_WhenIDSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -153,7 +213,7 @@ func TestPlugin_WhenFormCompleted_ShouldRequestConfirmation(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -481,11 +541,14 @@ func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenSetAddress_ShouldPreFillForm(t *testing.T) {
+func TestPlugin_WhenActivatedWithAddr_ShouldPreFillForm(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
-	p.SetAddress("aws_instance.web")
 
+	cmd := p.Activate(Input{Addr: "aws_instance.web"})
+	if cmd == nil {
+		t.Fatal("Activate() should return a cmd")
+	}
 	if p.address != "aws_instance.web" {
 		t.Errorf("address = %q, want %q", p.address, "aws_instance.web")
 	}

@@ -430,11 +430,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tfuiimport.ImportRequestMsg:
 		if p, ok := a.registry.ByID("import"); ok {
 			importPlugin := p.(*tfuiimport.Plugin)
-			importPlugin.SetAddress(msg.Address)
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "import")
-			return a, a.activate(p)
+			return a, importPlugin.Activate(tfuiimport.Input{Addr: msg.Address})
 		}
 		return a, nil
 
