@@ -89,6 +89,38 @@ func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
 	}
 }
 
+func TestActivate_WhenLockIDProvided_ShouldRequestConfirmation(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, _ := newTestPlugin(svc)
+
+	cmd := p.Activate(Input{LockID: "lock-from-cli"})
+	if cmd == nil {
+		t.Fatal("Activate() with LockID should return a cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(sdk.RequestInputMsg); !ok {
+		t.Errorf("expected RequestInputMsg, got %T", msg)
+	}
+}
+
+func TestActivate_WhenLockIDAndForce_ShouldStartUnlockDirectly(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, _ := newTestPlugin(svc)
+
+	cmd := p.Activate(Input{LockID: "lock-from-cli", Force: true})
+	if cmd == nil {
+		t.Fatal("Activate() with LockID+Force should return a cmd")
+	}
+	msg := cmd()
+	startMsg, ok := msg.(ForceUnlockStartMsg)
+	if !ok {
+		t.Fatalf("expected ForceUnlockStartMsg, got %T", msg)
+	}
+	if startMsg.LockID != "lock-from-cli" {
+		t.Errorf("LockID = %q, want %q", startMsg.LockID, "lock-from-cli")
+	}
+}
+
 func TestUpdate_WhenUnlockSuccess_ShouldSetDoneAndEmitEvents(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p, _ := newTestPlugin(svc)
