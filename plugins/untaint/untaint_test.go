@@ -20,6 +20,35 @@ func newTestPlugin(svc *sdktest.MockService) *Plugin {
 	return p
 }
 
+// TestPlugin_WhenActivatedWithInput_ShouldStoreInputAndAddrs verifies the
+// typed input port copies Addrs onto plugin state and stores the full Input
+// for later access (e.g., JSON propagation).
+func TestPlugin_WhenActivatedWithInput_ShouldStoreInputAndAddrs(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+
+	input := Input{Addrs: []string{"aws_instance.web", "aws_instance.db"}, JSON: true}
+	cmd := p.Activate(input)
+	if cmd == nil {
+		t.Fatal("Activate() should return a confirm cmd")
+	}
+	if len(p.addresses) != 2 || p.addresses[0] != "aws_instance.web" {
+		t.Errorf("addresses = %v, want [aws_instance.web aws_instance.db]", p.addresses)
+	}
+	if !p.input.JSON {
+		t.Error("Input.JSON should be stored on plugin state")
+	}
+}
+
+// TestPlugin_DoesNotImplementStdoutEmitter pins the contract: untaint emits no
+// stdout content today.
+func TestPlugin_DoesNotImplementStdoutEmitter(t *testing.T) {
+	p := New(&sdktest.MockService{})
+	if _, ok := p.(sdk.StdoutEmitter); ok {
+		t.Error("untaint must not implement sdk.StdoutEmitter (no stdout content)")
+	}
+}
+
 func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
@@ -63,9 +92,8 @@ func TestPlugin_WhenActivated_ShouldRequestConfirmation(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &sdktest.MockService{}
 			p := newTestPlugin(svc)
-			p.SetTargets(tt.addresses)
 
-			cmd := p.Activate()
+			cmd := p.Activate(Input{Addrs: tt.addresses})
 			if cmd == nil {
 				t.Fatal("Activate() should return a cmd")
 			}
@@ -94,7 +122,7 @@ func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{Addrs: []string{"aws_instance.web"}})
 	if cmd != nil {
 		t.Error("Activate() while loading should return nil")
 	}
@@ -121,9 +149,8 @@ func TestPlugin_WhenConfirmed_ShouldExecuteUntaint(t *testing.T) {
 				},
 			}
 			p := newTestPlugin(svc)
-			p.SetTargets(tt.addresses)
 
-			cmd := p.Activate()
+			cmd := p.Activate(Input{Addrs: tt.addresses})
 			msg := cmd()
 			reqMsg := msg.(sdk.RequestInputMsg)
 
@@ -195,9 +222,8 @@ func TestPlugin_WhenConfirmed_ShouldExecuteUntaint(t *testing.T) {
 func TestPlugin_WhenConfirmDeclined_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
-	p.SetTargets([]string{"aws_instance.web"})
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{Addrs: []string{"aws_instance.web"}})
 	msg := cmd()
 	reqMsg := msg.(sdk.RequestInputMsg)
 

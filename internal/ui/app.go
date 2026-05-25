@@ -420,11 +420,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tfuiuntaint.UntaintRequestMsg:
 		if p, ok := a.registry.ByID("untaint"); ok {
 			untaintPlugin := p.(*tfuiuntaint.Plugin)
-			untaintPlugin.SetTargets(msg.Addresses)
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "untaint", "targets", len(msg.Addresses))
-			return a, a.activate(p)
+			return a, untaintPlugin.Activate(tfuiuntaint.Input{Addrs: msg.Addresses})
 		}
 		return a, nil
 
