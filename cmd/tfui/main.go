@@ -143,16 +143,6 @@ func main() {
 	scaffoldCmd.Flags().BoolVar(&scaffoldForce, "force", false, "Overwrite existing tfui.hcl")
 	scaffoldCmd.Flags().BoolVar(&scaffoldYes, "yes", false, "Skip prompts, use detected defaults")
 
-	versionCmd := &cobra.Command{
-		Use:   "version",
-		Short: "Print version",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return session.ForPlugin("version").
-				WithArgs(args).
-				Run()
-		},
-	}
-
 	var initUpgrade, initReconfigure bool
 	var initBackendConfig []string
 
@@ -200,7 +190,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, versionCmd)
+	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, buildVersionCommand(session))
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {

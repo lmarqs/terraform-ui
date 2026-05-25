@@ -24,6 +24,7 @@ import (
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
 	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
+	tfuiversion "github.com/lmarqs/terraform-ui/plugins/version"
 )
 
 // StandaloneConfig configures the app to run a single plugin without
@@ -886,6 +887,15 @@ func (a *App) popIfPushed(busCmd tea.Cmd) tea.Cmd {
 }
 
 func (a App) activate(p sdk.Plugin) tea.Cmd {
+	// Plugins migrated to the typed-Input port (version/validate/output) use
+	// this dispatch with a default Input. The cmd side passes real
+	// flag-derived Input via StandaloneConfig.Activate. taint/untaint/import
+	// use their own RequestMsg handlers (specific dispatch) and never hit
+	// this path.
+	switch tp := p.(type) {
+	case *tfuiversion.Plugin:
+		return tp.Activate(tfuiversion.Input{})
+	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()
 	}

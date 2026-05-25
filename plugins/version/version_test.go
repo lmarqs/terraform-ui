@@ -41,7 +41,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnVersionResult(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() returned nil, want cmd")
 	}
@@ -65,11 +65,26 @@ func TestActivate_WhenServiceFails_ShouldReturnError(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	msg := cmd()
 	result := msg.(VersionResultMsg)
 	if result.Err == nil {
 		t.Error("Err = nil, want error")
+	}
+}
+
+// TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin verifies the typed
+// input port copies JSON onto plugin state so Stdout reads it back.
+func TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin(t *testing.T) {
+	svc := &sdktest.MockService{
+		VersionFn: func(_ context.Context) (*sdk.VersionInfo, error) {
+			return &sdk.VersionInfo{}, nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Activate(Input{JSON: true})
+	if !p.input.JSON {
+		t.Error("Input.JSON should be stored on plugin state")
 	}
 }
 
@@ -256,8 +271,7 @@ func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.version = "1.0.0"
 	p.info = nil
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -287,8 +301,7 @@ func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
 			"registry.terraform.io/hashicorp/aws": "5.0.0",
 		},
 	}
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -369,7 +382,7 @@ func TestPlugin_WhenOutputWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			p.SetJSONStdout(tt.jsonStdoutput)
+			p.input = Input{JSON: tt.jsonStdoutput}
 			data, err := p.Stdout()
 			if err != nil {
 				t.Fatalf("Stdout(%v) error = %v", tt.jsonStdoutput, err)
@@ -416,8 +429,7 @@ func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.version = "1.2.3"
 	p.info = nil
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -436,8 +448,7 @@ func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *te
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.version = "1.2.3"
 	p.info = &sdk.VersionInfo{TerraformVersion: ""}
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -448,7 +459,7 @@ func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *te
 		t.Errorf("should not include terraform_version when it's empty, got %q", s)
 	}
 
-	p.SetJSONStdout(false)
+	p.input = Input{JSON: false}
 	data, err = p.Stdout()
 	if err != nil {
 		t.Fatalf("Stdout(false) error = %v", err)
