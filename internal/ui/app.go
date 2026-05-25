@@ -24,6 +24,7 @@ import (
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
 	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
+	tfuivalidate "github.com/lmarqs/terraform-ui/plugins/validate"
 	tfuiversion "github.com/lmarqs/terraform-ui/plugins/version"
 )
 
@@ -895,6 +896,8 @@ func (a App) activate(p sdk.Plugin) tea.Cmd {
 	switch tp := p.(type) {
 	case *tfuiversion.Plugin:
 		return tp.Activate(tfuiversion.Input{})
+	case *tfuivalidate.Plugin:
+		return tp.Activate(tfuivalidate.Input{})
 	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()

@@ -45,12 +45,26 @@ func TestActivate_WhenIdle_ShouldStartLoading(t *testing.T) {
 	p.Init(ctx)
 
 	pp := p.(*Plugin)
-	cmd := pp.Activate()
+	cmd := pp.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() returned nil cmd, want non-nil")
 	}
 	if pp.status != sdk.StatusLoading {
 		t.Errorf("status = %v, want sdk.StatusLoading", pp.status)
+	}
+}
+
+// TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin verifies the typed
+// input port copies JSON onto plugin state so Stdout reads it back.
+func TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	ctx := sdktest.NewDeps(svc).Deps
+	p.Init(ctx)
+
+	p.Activate(Input{JSON: true})
+	if !p.input.JSON {
+		t.Error("Input.JSON should be stored on plugin state")
 	}
 }
 
@@ -67,7 +81,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnValidateResultMsg(t *testing.T
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	msg := cmd()
 	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
@@ -105,7 +119,7 @@ func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	ctx := sdktest.NewDeps(svc).Deps
 	p.Init(ctx)
 
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	msg := cmd()
 	batchMsg, ok := msg.(tea.BatchMsg)
 	if !ok {
@@ -843,7 +857,7 @@ func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
 	p.Init(ctx)
 	p.status = sdk.StatusLoading
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() when Loading should return nil cmd")
 	}
@@ -856,7 +870,7 @@ func TestActivate_WhenDone_ShouldReturnNil(t *testing.T) {
 	p.Init(ctx)
 	p.status = sdk.StatusDone
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() when Done should return nil cmd")
 	}
@@ -869,7 +883,7 @@ func TestActivate_WhenError_ShouldRetriggerValidation(t *testing.T) {
 	p.Init(ctx)
 	p.status = sdk.StatusError
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() when Error should return non-nil cmd")
 	}
@@ -913,8 +927,7 @@ func TestOutput_WhenJsonTrueWithDiagnostics_ShouldReturnJSON(t *testing.T) {
 		{Severity: "error", Summary: "Missing arg", Detail: "Required", File: "main.tf", Line: 10},
 		{Severity: "warning", Summary: "Deprecated"},
 	}
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -939,8 +952,7 @@ func TestOutput_WhenJsonTrueNoDiagnostics_ShouldReturnValid(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.diagnostics = []sdk.Diagnostic{}
-
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {

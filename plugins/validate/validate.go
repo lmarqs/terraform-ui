@@ -25,7 +25,7 @@ type Plugin struct {
 	diagnostics []sdk.Diagnostic
 	errMsg      string
 	selected    int
-	jsonStdout  bool
+	input       Input
 	cancelFn    context.CancelFunc
 }
 
@@ -96,8 +96,12 @@ func (p *Plugin) reset() {
 	p.expander.CollapseAll()
 }
 
-// Activate triggers validate when the user enters the plugin view.
-func (p *Plugin) Activate() tea.Cmd {
+// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
+// the typed value to the plugin. The TUI flow (`:validate`) calls
+// Activate(Input{}) via app.go's typed dispatch — both paths run the same
+// validate lifecycle.
+func (p *Plugin) Activate(input Input) tea.Cmd {
+	p.input = input
 	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {
 		p.status = sdk.StatusLoading
 		p.Log.Debug("validate.start")
@@ -323,14 +327,10 @@ func (p *Plugin) renderSummaryLine() string {
 	return strings.Join(parts, ", ")
 }
 
-// SetJSONStdout is a temporary cmd-side setter used by the legacy
-// Session.WithJSON path. Phase 2 migrates this plugin to a typed Input flow
-// at which point this setter is removed.
-func (p *Plugin) SetJSONStdout(on bool) { p.jsonStdout = on }
-
-// Stdout produces stdout content for standalone/CI mode.
+// Stdout produces stdout content for standalone/CI mode. The plugin reads
+// p.input.JSON to decide between human-readable and JSON output.
 func (p *Plugin) Stdout() ([]byte, error) {
-	if p.jsonStdout {
+	if p.input.JSON {
 		errorCount, warningCount := 0, 0
 		for _, d := range p.diagnostics {
 			if d.Severity.IsError() {

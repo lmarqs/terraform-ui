@@ -160,16 +160,6 @@ func main() {
 	initCmd.Flags().Bool("backend", true, "Configure backend (--backend=false to skip)")
 	initCmd.Flags().StringArrayVar(&initBackendConfig, "backend-config", nil, "Backend configuration values")
 
-	validateCmd := &cobra.Command{
-		Use:   "validate",
-		Short: "Run terraform validate",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return session.ForPlugin("validate").
-				WithArgs(args).
-				Run()
-		},
-	}
-
 	outputCmd := &cobra.Command{
 		Use:   "output",
 		Short: "Show terraform outputs",
@@ -190,7 +180,7 @@ func main() {
 		},
 	}
 
-	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, validateCmd, outputCmd, stateCmd, scaffoldCmd, buildVersionCommand(session))
+	rootCmd.AddCommand(planCmd, buildApplyCommand(session), buildTaintCommand(session), buildUntaintCommand(session), buildImportCommand(session), initCmd, buildValidateCommand(session), outputCmd, stateCmd, scaffoldCmd, buildVersionCommand(session))
 
 	// Plugin CLI commands
 	for _, cmd := range buildPluginCommands(&cfg) {
