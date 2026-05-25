@@ -3,8 +3,6 @@ package tfimport
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -13,10 +11,11 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-func newTestPlugin(svc *sdktest.MockService) *Plugin {
+func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
+	h := sdktest.NewDeps(svc)
 	p := New(svc).(*Plugin)
-	p.Log = slog.New(slog.NewTextHandler(io.Discard, nil))
-	return p
+	p.Init(h.Deps)
+	return p, h
 }
 
 // TestPlugin_WhenActivatedWithBothAddrAndID_ShouldSkipFormAndConfirm verifies
@@ -24,7 +23,7 @@ func newTestPlugin(svc *sdktest.MockService) *Plugin {
 // the form and goes straight to the confirm step.
 func TestPlugin_WhenActivatedWithBothAddrAndID_ShouldSkipFormAndConfirm(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	input := Input{Addr: "aws_instance.web", ID: "i-abc", JSON: true}
 	cmd := p.Activate(input)
@@ -52,7 +51,7 @@ func TestPlugin_WhenActivatedWithBothAddrAndID_ShouldSkipFormAndConfirm(t *testi
 // pre-filled, ID prompted).
 func TestPlugin_WhenActivatedWithOnlyAddr_ShouldRunForm(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{Addr: "aws_instance.web"})
 	if cmd == nil {
@@ -96,11 +95,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	ctx := &sdk.PluginDeps{
-		Service: svc,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
-	if cmd := p.Init(ctx); cmd != nil {
+	if cmd := p.Init(sdktest.NewDeps(svc).Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -110,7 +105,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 
 func TestPlugin_WhenActivated_ShouldRequestAddress(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{Addr: "aws_instance.web"})
 	if cmd == nil {
@@ -132,7 +127,7 @@ func TestPlugin_WhenActivated_ShouldRequestAddress(t *testing.T) {
 
 func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 
 	cmd := p.Activate(Input{Addr: "aws_instance.web"})
@@ -143,7 +138,7 @@ func TestPlugin_WhenActivatedWhileLoading_ShouldReturnNil(t *testing.T) {
 
 func TestPlugin_WhenActivatedWithNoAddress_ShouldRequestEmptyDefault(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{})
 	if cmd == nil {
@@ -162,7 +157,7 @@ func TestPlugin_WhenActivatedWithNoAddress_ShouldRequestEmptyDefault(t *testing.
 
 func TestPlugin_WhenAddressSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{})
 	msg := cmd()
@@ -180,7 +175,7 @@ func TestPlugin_WhenAddressSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 
 func TestPlugin_WhenIDSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{})
 	msg := cmd()
@@ -211,7 +206,7 @@ func TestPlugin_WhenIDSubmittedEmpty_ShouldDeactivate(t *testing.T) {
 
 func TestPlugin_WhenFormCompleted_ShouldRequestConfirmation(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{})
 	msg := cmd()
@@ -268,7 +263,7 @@ func TestPlugin_WhenConfirmed_ShouldExecuteImport(t *testing.T) {
 					return tt.importErr
 				},
 			}
-			p := newTestPlugin(svc)
+			p, _ := newTestPlugin(svc)
 			p.address = "aws_instance.web"
 			p.id = "i-1234567890"
 
@@ -366,7 +361,7 @@ func TestPlugin_WhenConfirmed_ShouldExecuteImport(t *testing.T) {
 
 func TestPlugin_WhenConfirmDeclined_ShouldReturnNil(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 	p.address = "aws_instance.web"
 	p.id = "i-123"
 
@@ -400,7 +395,7 @@ func TestPlugin_WhenReceivingKeys_ShouldNavigate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &sdktest.MockService{}
-			p := newTestPlugin(svc)
+			p, _ := newTestPlugin(svc)
 			p.status = tt.status
 			p.address = "aws_instance.web"
 			p.id = "i-123"
@@ -448,7 +443,7 @@ func TestPlugin_WhenReceivingKeys_ShouldNavigate(t *testing.T) {
 
 func TestPlugin_WhenTimerTicks_ShouldPropagate(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.timer.Start()
 
@@ -491,7 +486,7 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &sdktest.MockService{}
-			p := newTestPlugin(svc)
+			p, _ := newTestPlugin(svc)
 			tt.setup(p)
 
 			view := p.View(80, 24)
@@ -510,7 +505,7 @@ func TestPlugin_WhenViewRendered_ShouldShowCorrectContent(t *testing.T) {
 
 func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	p.status = sdk.StatusIdle
 	if p.Busy() {
@@ -530,7 +525,7 @@ func TestPlugin_WhenBusy_ShouldReportLoadingState(t *testing.T) {
 
 func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	result, cmd := p.Update(struct{}{})
 	if result.(*Plugin) != p {
@@ -543,7 +538,7 @@ func TestPlugin_WhenUnhandledMsg_ShouldReturnSelf(t *testing.T) {
 
 func TestPlugin_WhenActivatedWithAddr_ShouldPreFillForm(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	cmd := p.Activate(Input{Addr: "aws_instance.web"})
 	if cmd == nil {
@@ -556,7 +551,7 @@ func TestPlugin_WhenActivatedWithAddr_ShouldPreFillForm(t *testing.T) {
 
 func TestPlugin_WhenImportSubmitMsg_ShouldStoreAddressAndID(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, _ := newTestPlugin(svc)
 
 	_, cmd := p.Update(importSubmitMsg{Address: "aws_instance.web", ID: "i-abc"})
 	if cmd == nil {
@@ -571,13 +566,13 @@ func TestPlugin_WhenImportSubmitMsg_ShouldStoreAddressAndID(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -590,7 +585,7 @@ func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	hints := p.Hints()
 	if len(hints) != 2 {
@@ -602,7 +597,7 @@ func TestPlugin_WhenHintsInDone_ShouldReturnPlanAndCancel(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	hints := p.Hints()
 	if len(hints) == 0 {
@@ -611,7 +606,7 @@ func TestPlugin_WhenHintsInError_ShouldReturnRetryAndBack(t *testing.T) {
 }
 
 func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 	hints := p.Hints()
 	if len(hints) == 0 {
@@ -621,7 +616,7 @@ func TestPlugin_WhenHintsInIdle_ShouldReturnBack(t *testing.T) {
 
 func TestHandleContextChanged_ShouldResetState(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p, _ := newTestPlugin(svc)
 	p.status = sdk.StatusError
 	p.address = "old.addr"
 	p.id = "old-id"
@@ -637,7 +632,7 @@ func TestHandleContextChanged_ShouldResetState(t *testing.T) {
 
 func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
+	p, _ := newTestPlugin(svc)
 	p.address = "keep"
 	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
 	if cmd != nil {

@@ -59,10 +59,7 @@ func (p *Plugin) Cancel() {
 	}
 }
 
-// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
-// the typed value to the plugin. The TUI flow (`:version`) calls
-// Activate(Input{}) via app.go's typed dispatch — both paths run the same
-// version-fetch lifecycle.
+// Activate stores the typed input and returns the initial command.
 func (p *Plugin) Activate(input Input) tea.Cmd {
 	p.input = input
 	p.Cancel()

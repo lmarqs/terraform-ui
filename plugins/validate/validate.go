@@ -96,10 +96,7 @@ func (p *Plugin) reset() {
 	p.expander.CollapseAll()
 }
 
-// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
-// the typed value to the plugin. The TUI flow (`:validate`) calls
-// Activate(Input{}) via app.go's typed dispatch — both paths run the same
-// validate lifecycle.
+// Activate stores the typed input and returns the initial command.
 func (p *Plugin) Activate(input Input) tea.Cmd {
 	p.input = input
 	if p.status == sdk.StatusIdle || p.status == sdk.StatusError {

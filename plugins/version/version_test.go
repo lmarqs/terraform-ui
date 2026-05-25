@@ -10,6 +10,13 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
+func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
+	h := sdktest.NewDeps(svc)
+	p := New(svc).(*Plugin)
+	p.Init(h.Deps)
+	return p, h
+}
+
 func TestPlugin_Lifecycle(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc)
@@ -26,7 +33,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.Configure(map[string]interface{}{"tfui_version": "1.0.0", "unknown": true}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.PluginDeps{Service: svc}); cmd != nil {
+	if cmd := p.Init(sdktest.NewDeps(svc).Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.Ready() {
@@ -40,7 +47,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnVersionResult(t *testing.T) {
 			return &sdk.VersionInfo{TerraformVersion: "1.5.0"}, nil
 		},
 	}
-	p := New(svc).(*Plugin)
+	p, _ := newTestPlugin(svc)
 	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Fatal("Activate() returned nil, want cmd")
@@ -64,7 +71,7 @@ func TestActivate_WhenServiceFails_ShouldReturnError(t *testing.T) {
 			return nil, errors.New("binary not found")
 		},
 	}
-	p := New(svc).(*Plugin)
+	p, _ := newTestPlugin(svc)
 	cmd := p.Activate(Input{})
 	msg := cmd()
 	result := msg.(VersionResultMsg)
@@ -81,7 +88,7 @@ func TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin(t *testing.T) {
 			return &sdk.VersionInfo{}, nil
 		},
 	}
-	p := New(svc).(*Plugin)
+	p, _ := newTestPlugin(svc)
 	p.Activate(Input{JSON: true})
 	if !p.input.JSON {
 		t.Error("Input.JSON should be stored on plugin state")
@@ -89,7 +96,7 @@ func TestActivate_WhenJSONInputProvided_ShouldStoreOnPlugin(t *testing.T) {
 }
 
 func TestUpdate_WhenVersionResultSuccess_ShouldSetDoneStatus(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 	p.version = "0.1.0"
 
@@ -111,7 +118,7 @@ func TestUpdate_WhenVersionResultSuccess_ShouldSetDoneStatus(t *testing.T) {
 }
 
 func TestUpdate_WhenVersionResultError_ShouldSetErrorStatus(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 
 	updated, _ := p.Update(VersionResultMsg{Err: errors.New("failed")})
@@ -125,7 +132,7 @@ func TestUpdate_WhenVersionResultError_ShouldSetErrorStatus(t *testing.T) {
 }
 
 func TestUpdate_WhenEscPressed_ShouldDeactivate(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if cmd == nil {
 		t.Fatal("esc should produce a cmd")
@@ -137,7 +144,7 @@ func TestUpdate_WhenEscPressed_ShouldDeactivate(t *testing.T) {
 }
 
 func TestUpdate_WhenQPressed_ShouldDeactivate(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
 	if cmd == nil {
 		t.Fatal("q should produce a cmd")
@@ -149,7 +156,7 @@ func TestUpdate_WhenQPressed_ShouldDeactivate(t *testing.T) {
 }
 
 func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusLoading
 	view := p.View(80, 24)
 	if view == "" {
@@ -158,7 +165,7 @@ func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
 }
 
 func TestView_WhenDone_ShouldShowVersionAndProviders(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.version = "0.1.0"
 	p.info = &sdk.VersionInfo{
@@ -181,7 +188,7 @@ func TestView_WhenDone_ShouldShowVersionAndProviders(t *testing.T) {
 }
 
 func TestView_WhenError_ShouldShowTfuiVersionAndError(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusError
 	p.version = "0.1.0"
 	p.errMsg = "binary not found"
@@ -196,7 +203,7 @@ func TestView_WhenError_ShouldShowTfuiVersionAndError(t *testing.T) {
 }
 
 func TestView_WhenDoneWithoutProviders_ShouldShowVersionOnly(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.version = "0.1.0"
 	p.info = &sdk.VersionInfo{TerraformVersion: "1.14.9"}
@@ -208,7 +215,7 @@ func TestView_WhenDoneWithoutProviders_ShouldShowVersionOnly(t *testing.T) {
 }
 
 func TestHints_WhenCalled_ShouldReturnBackHint(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	hints := p.Hints()
 	if len(hints) != 1 {
 		t.Fatalf("Hints() = %d items, want 1", len(hints))
@@ -219,7 +226,7 @@ func TestHints_WhenCalled_ShouldReturnBackHint(t *testing.T) {
 }
 
 func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusIdle
 	view := p.View(80, 24)
 	if view == "" {
@@ -228,7 +235,7 @@ func TestView_WhenIdle_ShouldReturnNonEmpty(t *testing.T) {
 }
 
 func TestView_WhenNoVersionConfigured_ShouldShowUnknown(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.info = &sdk.VersionInfo{TerraformVersion: "1.0.0"}
 	view := p.View(80, 24)
@@ -238,7 +245,7 @@ func TestView_WhenNoVersionConfigured_ShouldShowUnknown(t *testing.T) {
 }
 
 func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	updated, cmd := p.Update(tea.MouseMsg{})
 	if updated != p {
 		t.Error("unknown msg should return same plugin")
@@ -249,13 +256,13 @@ func TestUpdate_WhenUnknownMsg_ShouldReturnSelfAndNil(t *testing.T) {
 }
 
 func TestPlugin_WhenCancelCalledWithNilCancelFn_ShouldNotPanic(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.cancelFn = nil
 	p.Cancel()
 }
 
 func TestPlugin_WhenCancelCalledWithActiveCancelFn_ShouldCallItAndClear(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	called := false
 	p.cancelFn = func() { called = true }
 	p.Cancel()
@@ -268,7 +275,7 @@ func TestPlugin_WhenCancelCalledWithActiveCancelFn_ShouldCallItAndClear(t *testi
 }
 
 func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.0.0"
 	p.info = nil
 	p.input = Input{JSON: true}
@@ -293,7 +300,7 @@ func TestPlugin_WhenOutputJSON_ShouldReturnTfuiVersionAndPlatformOnly(t *testing
 }
 
 func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.0.0"
 	p.info = &sdk.VersionInfo{
 		TerraformVersion: "1.5.0",
@@ -320,7 +327,7 @@ func TestPlugin_WhenOutputJSON_ShouldReturnFullJSONWithProviders(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputText_ShouldReturnTfuiLineOnly(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.0.0"
 	p.info = nil
 
@@ -338,7 +345,7 @@ func TestPlugin_WhenOutputText_ShouldReturnTfuiLineOnly(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputText_ShouldReturnFullTextWithProviders(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.0.0"
 	p.info = &sdk.VersionInfo{
 		TerraformVersion: "1.5.0",
@@ -368,7 +375,7 @@ func TestPlugin_WhenOutputText_ShouldReturnFullTextWithProviders(t *testing.T) {
 }
 
 func TestPlugin_WhenOutputWithEmptyVersion_ShouldShowUnknown(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = ""
 	p.info = nil
 
@@ -408,7 +415,7 @@ func containsHelper(s, substr string) bool {
 }
 
 func TestOutput_WhenTextWithNilInfo_ShouldShowOnlyTfuiVersion(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.2.3"
 	p.info = nil
 
@@ -426,7 +433,7 @@ func TestOutput_WhenTextWithNilInfo_ShouldShowOnlyTfuiVersion(t *testing.T) {
 }
 
 func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.2.3"
 	p.info = nil
 	p.input = Input{JSON: true}
@@ -445,7 +452,7 @@ func TestOutput_WhenJsonWithNilInfo_ShouldOmitTerraformFields(t *testing.T) {
 }
 
 func TestOutput_WhenInfoHasEmptyTerraformVersion_ShouldOmitTerraformFields(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	p.version = "1.2.3"
 	p.info = &sdk.VersionInfo{TerraformVersion: ""}
 	p.input = Input{JSON: true}

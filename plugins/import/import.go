@@ -63,11 +63,7 @@ func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	return nil
 }
 
-// Activate is the input port: cmd/tfui parses CLI flags into Input and hands
-// the typed value to the plugin. When the cmd path provides both Addr and ID,
-// the form is skipped and the plugin jumps straight to the confirm step.
-// When only Addr is provided (TUI flow), the form runs starting at the ID
-// field with Addr pre-filled.
+// Activate stores the typed input and returns the initial command.
 func (p *Plugin) Activate(input Input) tea.Cmd {
 	if p.status == sdk.StatusLoading {
 		return nil
