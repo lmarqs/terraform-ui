@@ -75,7 +75,7 @@ type Plugin struct {
 	detailScroll int
 	detailPanel  *ui.ContentPanel
 	cancelFn     context.CancelFunc
-	jsonStdout   bool // toggled via legacy Session.WithJSON; Phase 3 migrates to typed Input
+	input        Input
 }
 
 // New creates a new state browser plugin.
@@ -162,8 +162,9 @@ func (e *Plugin) reset() {
 	e.fuzzy.SetItems(nil)
 }
 
-// Activate triggers state loading when the user enters the plugin.
-func (e *Plugin) Activate() tea.Cmd {
+// Activate stores the typed input and returns the initial command.
+func (e *Plugin) Activate(input Input) tea.Cmd {
+	e.input = input
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
 		e.status = sdk.StatusLoading
 		return tea.Batch(e.loadState(), e.timer.Start())
@@ -685,14 +686,9 @@ func (e *Plugin) isTaintedAddress(address string) bool {
 	return false
 }
 
-// SetJSONStdout is a temporary cmd-side setter used by the legacy
-// Session.WithJSON path. Phase 3 migrates state to a typed Input flow at
-// which point this setter is removed.
-func (e *Plugin) SetJSONStdout(on bool) { e.jsonStdout = on }
-
 // Stdout produces stdout content for standalone/CI mode.
 func (e *Plugin) Stdout() ([]byte, error) {
-	if e.jsonStdout {
+	if e.input.JSON {
 		type resourceJSON struct {
 			Address string `json:"address"`
 			Type    string `json:"type"`

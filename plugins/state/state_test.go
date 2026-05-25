@@ -70,7 +70,7 @@ func TestActivate_WhenServiceSucceeds_ShouldReturnStateListMsg(t *testing.T) {
 	h := sdktest.NewDeps(svc)
 
 	p.Init(h.Deps)
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	msg := cmd()
 
 	batchMsg, ok := msg.(tea.BatchMsg)
@@ -107,7 +107,7 @@ func TestActivate_WhenServiceFails_ShouldReturnErrorMsg(t *testing.T) {
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
 
-	cmd := p.(*Plugin).Activate()
+	cmd := p.(*Plugin).Activate(Input{})
 	msg := cmd()
 
 	batchMsg, ok := msg.(tea.BatchMsg)
@@ -1345,7 +1345,7 @@ func TestHandleContextChanged_WhenCalled_ShouldResetAndUpdateContext(t *testing.
 		t.Errorf("status = %v, want sdk.StatusIdle after HandleContextChanged", p.status)
 	}
 	// Activate should now trigger loading since status is Idle
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() after HandleContextChanged: want non-nil cmd")
 	}
@@ -1388,7 +1388,7 @@ func TestActivate_WhenSameContextDone_ShouldReturnNil(t *testing.T) {
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
 	p.status = sdk.StatusDone
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() same context done: want nil")
 	}
@@ -1399,7 +1399,7 @@ func TestActivate_WhenNoSelectionWithoutChdirGuard_ShouldStartLoading(t *testing
 	p := New(svc).(*Plugin)
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	// Without ChdirGuard, Activate proceeds with loading (no scope gating)
 	if cmd == nil {
 		t.Error("Activate() multi-context no selection: want non-nil cmd (loads state)")
@@ -1416,7 +1416,7 @@ func TestActivate_WhenScopeDir_ShouldStartLoading(t *testing.T) {
 	p := New(svc).(*Plugin)
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() with context dir: want non-nil cmd")
 	}
@@ -1429,7 +1429,7 @@ func TestActivate_WhenNoPinFn_ShouldStartLoading(t *testing.T) {
 	p := New(svc).(*Plugin)
 	deps := &sdk.PluginDeps{Service: svc, Logger: slog.New(slog.NewTextHandler(io.Discard, nil))}
 	p.Init(deps)
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() no pinFn: want non-nil cmd")
 	}
@@ -2000,7 +2000,7 @@ func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
 	p.status = sdk.StatusLoading
 	p.timer.Start()
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() when loading with running timer should return tick cmd")
 	}
@@ -2012,7 +2012,7 @@ func TestActivate_WhenLoadingAndTimerNotRunning_ShouldReturnNil(t *testing.T) {
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
 
-	cmd := p.Activate()
+	cmd := p.Activate(Input{})
 	if cmd != nil {
 		t.Error("Activate() when loading with stopped timer should return nil")
 	}
@@ -2062,7 +2062,7 @@ func TestOutput_WhenJsonWithNilResources_ShouldReturnEmptyArray(t *testing.T) {
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.resources = nil
 
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2189,7 +2189,7 @@ func TestPlugin_WhenOutputJson_ShouldReturnResourceArray(t *testing.T) {
 		{Address: "aws_s3_bucket.data", Type: "aws_s3_bucket"},
 	}
 
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {
@@ -2259,7 +2259,7 @@ func TestOutput_WhenJsonWithTaintedResource_ShouldIncludeTaintedField(t *testing
 		{Address: "aws_instance.web", Type: "aws_instance", Tainted: true},
 	}
 
-	p.SetJSONStdout(true)
+	p.input = Input{JSON: true}
 
 	data, err := p.Stdout()
 	if err != nil {

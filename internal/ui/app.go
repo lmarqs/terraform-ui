@@ -156,7 +156,7 @@ func (a App) Init() tea.Cmd {
 		WorkingDir: bootDir,
 		Workspace:  sdk.WorkspaceDefault,
 		Service:    bootSvc,
-		Pins:       a.cfg.Targets,
+		Pins:       a.cfg.InitialPins,
 		ExtraArgs:  a.cfg.ExtraArgs,
 	}
 
@@ -909,6 +909,8 @@ func (a App) activate(p sdk.Plugin) tea.Cmd {
 		return tp.Activate(tfuiforceunlock.Input{})
 	case *tfuiinit.Plugin:
 		return tp.Activate(tfuiinit.Input{})
+	case *tfuistate.Plugin:
+		return tp.Activate(tfuistate.Input{})
 	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()

@@ -120,16 +120,7 @@ func main() {
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
 
-	planCmd := &cobra.Command{
-		Use:   "plan",
-		Short: "Run terraform plan",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return session.ForPlugin("plan").
-				WithArgs(args).
-				Run()
-		},
-	}
-	planCmd.Flags().StringSliceVar(&cfg.Targets, "target", nil, "Resource targets for plan")
+	planCmd := buildPlanCommand(session)
 
 	var scaffoldForce, scaffoldYes bool
 	scaffoldCmd := &cobra.Command{

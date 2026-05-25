@@ -15,7 +15,7 @@ type Config struct {
 	PreloadedData bool
 	Terraform     TerraformConfig
 	Logger        LoggerConfig
-	Targets       []string
+	InitialPins   []string
 	Plugins       map[string]PluginConfig
 	Overrides     map[string]string
 	ExtraArgs     []string
