@@ -1,3 +1,16 @@
+# [1.12.0](https://github.com/lmarqs/terraform-ui/compare/v1.11.0...v1.12.0) (2026-05-27)
+
+
+### Bug Fixes
+
+* **ci:** resolve integration test failures masked by 3m timeout ([026e70e](https://github.com/lmarqs/terraform-ui/commit/026e70ef60c8345aae8452d8ea841ad9bcacf8eb))
+* **cmd:** ExtraArgs overwrite bug + remove dead ActivateWithArgs + DRY registry ([522a0a8](https://github.com/lmarqs/terraform-ui/commit/522a0a819f4b9a661f487e0f57a8d2009bc9bae5))
+
+
+### Features
+
+* **sdk:** add raw-bytes JSON Service variants ([6ec62b6](https://github.com/lmarqs/terraform-ui/commit/6ec62b699a9f1bab7ff08a1f03ce199e02313565))
+
 # [1.11.0](https://github.com/lmarqs/terraform-ui/compare/v1.10.0...v1.11.0) (2026-05-24)
 
 
