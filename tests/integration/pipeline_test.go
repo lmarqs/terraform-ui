@@ -26,11 +26,12 @@ func TestPipeline_Plan(t *testing.T) {
 		t.Fatalf("expected valid JSON, got: %v\noutput: %q", err, stdout)
 	}
 
-	if _, ok := result["changes"]; !ok {
-		t.Errorf("expected 'changes' field in JSON output")
+	// `plan -json` passes through `terraform show -json` (ADR-0006).
+	if _, ok := result["format_version"]; !ok {
+		t.Errorf("expected 'format_version' field in terraform JSON output")
 	}
-	if _, ok := result["summary"]; !ok {
-		t.Errorf("expected 'summary' field in JSON output")
+	if _, ok := result["resource_changes"]; !ok {
+		t.Errorf("expected 'resource_changes' field in terraform JSON output")
 	}
 }
 

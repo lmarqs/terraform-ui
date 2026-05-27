@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
@@ -27,6 +28,11 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Dir = resolveProjectDir(cfg.Dir)
+			if info, err := os.Stat(cfg.Dir); err != nil {
+				return fmt.Errorf("project directory not found: %s", cfg.Dir)
+			} else if !info.IsDir() {
+				return fmt.Errorf("project path is not a directory: %s", cfg.Dir)
+			}
 			cfg.ApplyOverrides(configOverrides)
 
 			var rootCfg *config.RootConfig

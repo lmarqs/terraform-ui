@@ -2340,3 +2340,259 @@ func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }
+
+func TestActivate_WhenSubcommandRm_ShouldCallStateRmForEachTarget(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "rm", Targets: []string{"local_file.one", "local_file.two"}})
+	if cmd == nil {
+		t.Fatal("Activate(rm) returned nil cmd")
+	}
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err != nil {
+		t.Errorf("Err = %v, want nil", done.Err)
+	}
+	if got, want := svc.StateRmCalls, []string{"local_file.one", "local_file.two"}; !equalStrings(got, want) {
+		t.Errorf("StateRmCalls = %v, want %v", got, want)
+	}
+}
+
+func TestActivate_WhenSubcommandRm_StateRmFails_ShouldReturnError(t *testing.T) {
+	svc := &sdktest.MockService{
+		StateRmFn: func(_ context.Context, _ string) error { return errors.New("boom") },
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "rm", Targets: []string{"local_file.one"}})
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestActivate_WhenSubcommandTaint_ShouldCallTaintForEachTarget(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "taint", Targets: []string{"a", "b"}})
+	if cmd == nil {
+		t.Fatal("Activate(taint) returned nil cmd")
+	}
+	msg := cmd()
+	if _, ok := msg.(cliRmDoneMsg); !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if got, want := svc.TaintCalls, []string{"a", "b"}; !equalStrings(got, want) {
+		t.Errorf("TaintCalls = %v, want %v", got, want)
+	}
+}
+
+func TestActivate_WhenSubcommandUntaint_ShouldCallUntaintForEachTarget(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "untaint", Targets: []string{"x"}})
+	msg := cmd()
+	if _, ok := msg.(cliRmDoneMsg); !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if got, want := svc.UntaintCalls, []string{"x"}; !equalStrings(got, want) {
+		t.Errorf("UntaintCalls = %v, want %v", got, want)
+	}
+}
+
+func TestActivate_WhenSubcommandMv_ShouldCallStateMove(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "mv", Targets: []string{"old.addr", "new.addr"}})
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err != nil {
+		t.Errorf("Err = %v, want nil", done.Err)
+	}
+	if len(svc.StateMoveCalls) != 1 {
+		t.Fatalf("expected 1 StateMove call, got %d", len(svc.StateMoveCalls))
+	}
+	if svc.StateMoveCalls[0] != [2]string{"old.addr", "new.addr"} {
+		t.Errorf("StateMoveCalls[0] = %v, want [old.addr new.addr]", svc.StateMoveCalls[0])
+	}
+}
+
+func TestActivate_WhenSubcommandMv_WrongArity_ShouldReportError(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "mv", Targets: []string{"only.one"}})
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err == nil {
+		t.Error("expected error for wrong arity, got nil")
+	}
+	if len(svc.StateMoveCalls) != 0 {
+		t.Errorf("StateMoveCalls = %v, want empty", svc.StateMoveCalls)
+	}
+}
+
+func TestActivate_WhenSubcommandMv_StateMoveFails_ShouldReturnError(t *testing.T) {
+	svc := &sdktest.MockService{
+		StateMoveFn: func(_ context.Context, _, _ string) error { return errors.New("boom") },
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "mv", Targets: []string{"a", "b"}})
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err == nil {
+		t.Fatal("expected error, got nil")
+	}
+}
+
+func TestActivate_WhenSubcommandUnknown_ShouldReportError(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "bogus", Targets: []string{"a"}})
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err == nil {
+		t.Error("expected error for unknown subcommand")
+	}
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+}
+
+func TestActivate_WhenSubcommandRm_NoTargets_ShouldReportError(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	cmd := p.Activate(Input{Subcommand: "rm"})
+	msg := cmd()
+	done, ok := msg.(cliRmDoneMsg)
+	if !ok {
+		t.Fatalf("got %T, want cliRmDoneMsg", msg)
+	}
+	if done.Err == nil {
+		t.Error("expected error for empty targets")
+	}
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+	if len(svc.StateRmCalls) != 0 {
+		t.Errorf("StateRmCalls = %v, want empty", svc.StateRmCalls)
+	}
+}
+
+func TestUpdate_WhenCliRmDoneMsg_Success_ShouldMarkDone(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.status = sdk.StatusLoading
+	p.mutating = true
+
+	updated, _ := p.Update(cliRmDoneMsg{})
+	got := updated.(*Plugin)
+	if got.status != sdk.StatusDone {
+		t.Errorf("status = %v, want StatusDone", got.status)
+	}
+	if got.mutating {
+		t.Error("mutating should be cleared on rm done")
+	}
+}
+
+func TestUpdate_WhenCliRmDoneMsg_Error_ShouldRecordError(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.status = sdk.StatusLoading
+	p.mutating = true
+
+	updated, _ := p.Update(cliRmDoneMsg{Err: errors.New("boom")})
+	got := updated.(*Plugin)
+	if got.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", got.status)
+	}
+	if got.errMsg != "boom" {
+		t.Errorf("errMsg = %q, want %q", got.errMsg, "boom")
+	}
+}
+
+func TestStderr_WhenError_ShouldEmitMessage(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	p.errMsg = "something failed"
+
+	if got, want := string(p.Stderr()), "something failed\n"; got != want {
+		t.Errorf("Stderr() = %q, want %q", got, want)
+	}
+}
+
+func TestStderr_WhenIdle_ShouldReturnNil(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	if p.Stderr() != nil {
+		t.Errorf("Stderr() = %q, want nil", string(p.Stderr()))
+	}
+}
+
+func TestExitCode_WhenError_Returns1(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusError
+	if got := p.ExitCode(); got != 1 {
+		t.Errorf("ExitCode() = %d, want 1", got)
+	}
+}
+
+func TestExitCode_WhenDone_Returns0(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.status = sdk.StatusDone
+	if got := p.ExitCode(); got != 0 {
+		t.Errorf("ExitCode() = %d, want 0", got)
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}

@@ -43,6 +43,12 @@ type StateEditMsg struct {
 	Addresses []string // if set, open multiple files
 }
 
+// cliRmDoneMsg signals that a CLI-driven `state rm` finished. Err is set on
+// the first failure encountered while iterating targets.
+type cliRmDoneMsg struct {
+	Err error
+}
+
 // resourceItem wraps sdk.Resource to implement tree.Item.
 type resourceItem struct {
 	resource sdk.Resource
@@ -165,6 +171,28 @@ func (e *Plugin) reset() {
 // Activate stores the typed input and returns the initial command.
 func (e *Plugin) Activate(input Input) tea.Cmd {
 	e.input = input
+	switch input.Subcommand {
+	case "":
+		// fall through to interactive browser
+	case "rm":
+		return e.runCLIPerTarget("rm", input.Targets, func(ctx context.Context, addr string) error {
+			return e.Svc.StateRm(ctx, addr)
+		})
+	case "taint":
+		return e.runCLIPerTarget("taint", input.Targets, func(ctx context.Context, addr string) error {
+			return e.Svc.Taint(ctx, addr)
+		})
+	case "untaint":
+		return e.runCLIPerTarget("untaint", input.Targets, func(ctx context.Context, addr string) error {
+			return e.Svc.Untaint(ctx, addr)
+		})
+	case "mv":
+		return e.runCLIMv(input.Targets)
+	default:
+		e.status = sdk.StatusError
+		e.errMsg = fmt.Sprintf("unknown state subcommand: %s", input.Subcommand)
+		return func() tea.Msg { return cliRmDoneMsg{Err: fmt.Errorf("%s", e.errMsg)} }
+	}
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError {
 		e.status = sdk.StatusLoading
 		return tea.Batch(e.loadState(), e.timer.Start())
@@ -173,6 +201,57 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 		return e.timer.Tick()
 	}
 	return nil
+}
+
+// runCLIPerTarget runs op for each address in addresses. The first error
+// short-circuits the loop and is reported through cliRmDoneMsg.
+func (e *Plugin) runCLIPerTarget(name string, addresses []string, op func(context.Context, string) error) tea.Cmd {
+	if len(addresses) == 0 {
+		e.status = sdk.StatusError
+		e.errMsg = fmt.Sprintf("state %s requires at least one address", name)
+		return func() tea.Msg { return cliRmDoneMsg{Err: fmt.Errorf("%s", e.errMsg)} }
+	}
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
+	e.mutating = true
+	e.status = sdk.StatusLoading
+	log := e.Log
+	return func() tea.Msg {
+		for _, addr := range addresses {
+			if err := op(ctx, addr); err != nil {
+				log.Debug("state."+name+".error", "address", addr, "error", err.Error())
+				return cliRmDoneMsg{Err: err}
+			}
+			log.Debug("state."+name+".success", "address", addr)
+		}
+		return cliRmDoneMsg{}
+	}
+}
+
+// runCLIMv runs `terraform state mv <source> <dest>` from the CLI.
+func (e *Plugin) runCLIMv(args []string) tea.Cmd {
+	if len(args) != 2 {
+		e.status = sdk.StatusError
+		e.errMsg = "state mv requires source and destination addresses"
+		return func() tea.Msg { return cliRmDoneMsg{Err: fmt.Errorf("%s", e.errMsg)} }
+	}
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
+	e.mutating = true
+	e.status = sdk.StatusLoading
+	svc := e.Svc
+	log := e.Log
+	source, dest := args[0], args[1]
+	return func() tea.Msg {
+		if err := svc.StateMove(ctx, source, dest); err != nil {
+			log.Debug("state.mv.error", "source", source, "dest", dest, "error", err.Error())
+			return cliRmDoneMsg{Err: err}
+		}
+		log.Debug("state.mv.success", "source", source, "dest", dest)
+		return cliRmDoneMsg{}
+	}
 }
 
 // Refresh reloads the state.
@@ -247,6 +326,17 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		e.mutating = false
 		e.Log.Debug("state.deleted", "address", msg.Address)
 		return e, e.Refresh()
+
+	case cliRmDoneMsg:
+		e.mutating = false
+		e.timer.Stop()
+		if msg.Err != nil {
+			e.status = sdk.StatusError
+			e.errMsg = msg.Err.Error()
+			return e, nil
+		}
+		e.status = sdk.StatusDone
+		return e, nil
 
 	case StateMovedMsg:
 		e.mutating = false
@@ -711,4 +801,21 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		b.WriteByte('\n')
 	}
 	return []byte(b.String()), nil
+}
+
+// Stderr returns the post-quit stderr message: the captured error from a
+// CLI-driven state subcommand, or nil when the run succeeded.
+func (e *Plugin) Stderr() []byte {
+	if e.status == sdk.StatusError && e.errMsg != "" {
+		return []byte(e.errMsg + "\n")
+	}
+	return nil
+}
+
+// ExitCode returns 1 when a CLI-driven state subcommand failed, 0 otherwise.
+func (e *Plugin) ExitCode() int {
+	if e.status == sdk.StatusError {
+		return 1
+	}
+	return 0
 }

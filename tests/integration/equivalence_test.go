@@ -15,7 +15,7 @@ func TestEquivalence_Apply_CLI(t *testing.T) {
 		t.Fatalf("plan failed: %v\nstderr: %s", err, stderr)
 	}
 
-	_, stderr, err = runTfui("apply", "-project", dir, "-ci")
+	_, stderr, err = runTfui("apply", "-project", dir, "-ci", "-auto-approve")
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s", err, stderr)
 	}
@@ -28,12 +28,11 @@ func TestEquivalence_Apply_CLI(t *testing.T) {
 func TestEquivalence_Apply_Targeted(t *testing.T) {
 	dir := copyFixture(t, "apply-targeted")
 
-	_, stderr, err := runTfui("plan", "-project", dir, "-ci", "-target", "local_file.alpha")
-	if err != nil && !isExitCode(err, 2) {
-		t.Fatalf("targeted plan failed: %v\nstderr: %s", err, stderr)
-	}
-
-	_, stderr, err = runTfui("apply", "-project", dir, "-ci")
+	// Standalone CLI path (ADR-0019): `tfui apply --target=X` invokes
+	// terraform's plan-and-apply-in-one-shot mode. No intermediate plan
+	// artifact persists across process boundaries — `-target` is passed to
+	// apply directly.
+	_, stderr, err := runTfui("apply", "-project", dir, "-ci", "-auto-approve", "-target", "local_file.alpha")
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s", err, stderr)
 	}
@@ -70,7 +69,7 @@ func TestEquivalence_Apply_CIvsJSON(t *testing.T) {
 	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan (ci) failed: %v\nstderr: %s", err, stderr)
 	}
-	_, stderr, err = runTfui("apply", "-project", dirA, "-ci")
+	_, stderr, err = runTfui("apply", "-project", dirA, "-ci", "-auto-approve")
 	if err != nil {
 		t.Fatalf("apply (ci) failed: %v\nstderr: %s", err, stderr)
 	}
@@ -81,7 +80,7 @@ func TestEquivalence_Apply_CIvsJSON(t *testing.T) {
 	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan (json) failed: %v\nstderr: %s", err, stderr)
 	}
-	_, stderr, err = runTfui("apply", "-project", dirB, "-json")
+	_, stderr, err = runTfui("apply", "-project", dirB, "-json", "-auto-approve")
 	if err != nil {
 		t.Fatalf("apply (json) failed: %v\nstderr: %s", err, stderr)
 	}
@@ -92,24 +91,17 @@ func TestEquivalence_Apply_CIvsJSON(t *testing.T) {
 }
 
 func TestEquivalence_Apply_Targeted_CIvsJSON(t *testing.T) {
-	// Path A: -ci with target
+	// Standalone CLI path (ADR-0019): targets passed directly to apply, no
+	// intermediate plan artifact. Both -ci and -json paths must produce the
+	// same state.
 	dirA := copyFixture(t, "apply-targeted")
-	_, stderr, err := runTfui("plan", "-project", dirA, "-ci", "-target", "local_file.alpha")
-	if err != nil && !isExitCode(err, 2) {
-		t.Fatalf("plan (ci) failed: %v\nstderr: %s", err, stderr)
-	}
-	_, stderr, err = runTfui("apply", "-project", dirA, "-ci")
+	_, stderr, err := runTfui("apply", "-project", dirA, "-ci", "-auto-approve", "-target", "local_file.alpha")
 	if err != nil {
 		t.Fatalf("apply (ci) failed: %v\nstderr: %s", err, stderr)
 	}
 
-	// Path B: -json with target
 	dirB := copyFixture(t, "apply-targeted")
-	_, stderr, err = runTfui("plan", "-project", dirB, "-json", "-target", "local_file.alpha")
-	if err != nil && !isExitCode(err, 2) {
-		t.Fatalf("plan (json) failed: %v\nstderr: %s", err, stderr)
-	}
-	_, stderr, err = runTfui("apply", "-project", dirB, "-json")
+	_, stderr, err = runTfui("apply", "-project", dirB, "-json", "-auto-approve", "-target", "local_file.alpha")
 	if err != nil {
 		t.Fatalf("apply (json) failed: %v\nstderr: %s", err, stderr)
 	}

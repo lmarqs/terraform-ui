@@ -88,11 +88,11 @@ func TestCLI_PlanJSONValid(t *testing.T) {
 		t.Fatalf("expected valid JSON output, got error: %v\noutput: %q", err, stdout)
 	}
 
-	// Verify required fields exist
-	requiredFields := []string{"changes", "summary", "risk"}
+	// Plan -json passes through `terraform show -json` output (ADR-0006).
+	requiredFields := []string{"format_version", "resource_changes", "planned_values"}
 	for _, field := range requiredFields {
 		if _, ok := result[field]; !ok {
-			t.Errorf("expected field %q in agent JSON output", field)
+			t.Errorf("expected field %q in terraform JSON output", field)
 		}
 	}
 }

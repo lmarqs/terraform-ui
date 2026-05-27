@@ -8,29 +8,50 @@ import (
 	"testing"
 )
 
-// agentJSON is the parsed structure of -json output.
-type agentJSON struct {
-	Changes          []agentChange `json:"changes"`
-	Summary          agentSummary  `json:"summary"`
-	Risk             string        `json:"risk"`
-	PhantomChanges   int           `json:"phantom_changes,omitempty"`
-	PhantomResources []string      `json:"phantom_resources,omitempty"`
+// terraformPlan is the parsed `terraform show -json <planfile>` output that
+// `tfui plan -json` passes through verbatim (ADR-0006).
+type terraformPlan struct {
+	FormatVersion   string                  `json:"format_version"`
+	ResourceChanges []terraformResourceChange `json:"resource_changes"`
 }
 
-type agentChange struct {
-	Address string `json:"address"`
-	Action  string `json:"action"`
-	Risk    string `json:"risk"`
-	Phantom bool   `json:"phantom,omitempty"`
+type terraformResourceChange struct {
+	Address string          `json:"address"`
+	Change  terraformChange `json:"change"`
 }
 
-type agentSummary struct {
-	Add     int `json:"add"`
-	Change  int `json:"change"`
-	Destroy int `json:"destroy"`
+type terraformChange struct {
+	Actions []string `json:"actions"`
 }
 
-func runPlanAgent(t *testing.T, fixture string) agentJSON {
+// summary tallies create/update/delete from terraform's resource_changes.
+type summary struct {
+	add     int
+	change  int
+	destroy int
+	replace int
+}
+
+func summarize(p terraformPlan) summary {
+	var s summary
+	for _, rc := range p.ResourceChanges {
+		switch joinActions(rc.Change.Actions) {
+		case "create":
+			s.add++
+		case "update":
+			s.change++
+		case "delete":
+			s.destroy++
+		case "delete,create", "create,delete":
+			s.replace++
+		}
+	}
+	return s
+}
+
+func joinActions(a []string) string { return strings.Join(a, ",") }
+
+func runPlanAgent(t *testing.T, fixture string) terraformPlan {
 	t.Helper()
 	initFixture(t, fixture)
 
@@ -39,9 +60,9 @@ func runPlanAgent(t *testing.T, fixture string) agentJSON {
 		t.Fatalf("plan -json failed for fixture %q: %v\nstderr: %s", fixture, err, stderr)
 	}
 
-	var result agentJSON
+	var result terraformPlan
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
-		t.Fatalf("failed to parse agent JSON for fixture %q: %v\noutput: %q", fixture, err, stdout)
+		t.Fatalf("failed to parse terraform JSON for fixture %q: %v\noutput: %q", fixture, err, stdout)
 	}
 	return result
 }
@@ -61,23 +82,24 @@ func runPlanSilent(t *testing.T, fixture string) string {
 
 func TestPlan_CreateFixture_AgentMode(t *testing.T) {
 	result := runPlanAgent(t, "create")
+	s := summarize(result)
 
-	if result.Summary.Add != 2 {
-		t.Errorf("expected summary.add=2, got %d", result.Summary.Add)
+	if s.add != 2 {
+		t.Errorf("expected add=2, got %d", s.add)
 	}
-	if result.Summary.Change != 0 {
-		t.Errorf("expected summary.change=0, got %d", result.Summary.Change)
+	if s.change != 0 {
+		t.Errorf("expected change=0, got %d", s.change)
 	}
-	if result.Summary.Destroy != 0 {
-		t.Errorf("expected summary.destroy=0, got %d", result.Summary.Destroy)
+	if s.destroy != 0 {
+		t.Errorf("expected destroy=0, got %d", s.destroy)
 	}
-	if len(result.Changes) != 2 {
-		t.Errorf("expected 2 changes, got %d", len(result.Changes))
+	if len(result.ResourceChanges) != 2 {
+		t.Errorf("expected 2 resource_changes, got %d", len(result.ResourceChanges))
 	}
 
-	for _, c := range result.Changes {
-		if c.Action != "create" {
-			t.Errorf("expected action 'create', got %q for %s", c.Action, c.Address)
+	for _, rc := range result.ResourceChanges {
+		if joinActions(rc.Change.Actions) != "create" {
+			t.Errorf("expected actions=[create], got %v for %s", rc.Change.Actions, rc.Address)
 		}
 	}
 }
@@ -106,25 +128,16 @@ func TestPlan_CreateFixture_SilentMode(t *testing.T) {
 
 func TestPlan_NoChangesFixture_AgentMode(t *testing.T) {
 	result := runPlanAgent(t, "no-changes")
+	s := summarize(result)
 
-	if result.Summary.Add != 0 {
-		t.Errorf("expected summary.add=0, got %d", result.Summary.Add)
-	}
-	if result.Summary.Change != 0 {
-		t.Errorf("expected summary.change=0, got %d", result.Summary.Change)
-	}
-	if result.Summary.Destroy != 0 {
-		t.Errorf("expected summary.destroy=0, got %d", result.Summary.Destroy)
-	}
-	if len(result.Changes) != 0 {
-		t.Errorf("expected 0 changes, got %d", len(result.Changes))
+	if s.add != 0 || s.change != 0 || s.destroy != 0 {
+		t.Errorf("expected all zero, got add=%d change=%d destroy=%d", s.add, s.change, s.destroy)
 	}
 }
 
 func TestPlan_NoChangesFixture_SilentMode(t *testing.T) {
 	output := runPlanSilent(t, "no-changes")
 
-	// With no changes, the output should show 0 to add/change/destroy
 	if !strings.Contains(output, "0 to add") {
 		t.Errorf("expected '0 to add' in output for no-changes fixture, got: %q", output)
 	}
@@ -134,21 +147,26 @@ func TestPlan_NoChangesFixture_SilentMode(t *testing.T) {
 
 func TestPlan_DeleteFixture_AgentMode(t *testing.T) {
 	result := runPlanAgent(t, "delete")
+	s := summarize(result)
 
-	if result.Summary.Destroy != 1 {
-		t.Errorf("expected summary.destroy=1, got %d", result.Summary.Destroy)
+	if s.destroy != 1 {
+		t.Errorf("expected destroy=1, got %d", s.destroy)
 	}
-	if result.Summary.Add != 0 {
-		t.Errorf("expected summary.add=0, got %d", result.Summary.Add)
+	if s.add != 0 {
+		t.Errorf("expected add=0, got %d", s.add)
 	}
-	if len(result.Changes) != 1 {
-		t.Fatalf("expected 1 change, got %d", len(result.Changes))
+
+	var deletes []terraformResourceChange
+	for _, rc := range result.ResourceChanges {
+		if joinActions(rc.Change.Actions) == "delete" {
+			deletes = append(deletes, rc)
+		}
 	}
-	if result.Changes[0].Action != "delete" {
-		t.Errorf("expected action 'delete', got %q", result.Changes[0].Action)
+	if len(deletes) != 1 {
+		t.Fatalf("expected 1 delete, got %d", len(deletes))
 	}
-	if !strings.Contains(result.Changes[0].Address, "local_file.to_remove") {
-		t.Errorf("expected address to contain 'local_file.to_remove', got %q", result.Changes[0].Address)
+	if !strings.Contains(deletes[0].Address, "local_file.to_remove") {
+		t.Errorf("expected address to contain 'local_file.to_remove', got %q", deletes[0].Address)
 	}
 }
 
@@ -167,29 +185,27 @@ func TestPlan_DeleteFixture_SilentMode(t *testing.T) {
 
 func TestPlan_UpdateFixture_AgentMode(t *testing.T) {
 	result := runPlanAgent(t, "update")
+	s := summarize(result)
 
-	if result.Summary.Change != 1 {
-		t.Errorf("expected summary.change=1, got %d", result.Summary.Change)
+	if s.change != 1 {
+		t.Errorf("expected change=1, got %d", s.change)
 	}
-	if result.Summary.Add != 0 {
-		t.Errorf("expected summary.add=0, got %d", result.Summary.Add)
+	if s.add != 0 {
+		t.Errorf("expected add=0, got %d", s.add)
 	}
-	if result.Summary.Destroy != 0 {
-		t.Errorf("expected summary.destroy=0, got %d", result.Summary.Destroy)
-	}
-	if len(result.Changes) < 1 {
-		t.Fatalf("expected at least 1 change, got %d", len(result.Changes))
+	if s.destroy != 0 {
+		t.Errorf("expected destroy=0, got %d", s.destroy)
 	}
 
 	found := false
-	for _, c := range result.Changes {
-		if c.Action == "update" {
+	for _, rc := range result.ResourceChanges {
+		if joinActions(rc.Change.Actions) == "update" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Error("expected to find an 'update' action in changes")
+		t.Error("expected to find an 'update' action in resource_changes")
 	}
 }
 
@@ -209,23 +225,23 @@ func TestPlan_UpdateFixture_SilentMode(t *testing.T) {
 func TestPlan_ReplaceFixture_AgentMode(t *testing.T) {
 	result := runPlanAgent(t, "replace")
 
-	// Replace may be counted as change in summary since it's ToReplace added to Change
-	if len(result.Changes) < 1 {
-		t.Fatalf("expected at least 1 change, got %d", len(result.Changes))
+	if len(result.ResourceChanges) < 1 {
+		t.Fatalf("expected at least 1 resource_change, got %d", len(result.ResourceChanges))
 	}
 
 	foundReplace := false
-	for _, c := range result.Changes {
-		if c.Action == "delete-then-create" || c.Action == "create-then-delete" {
+	for _, rc := range result.ResourceChanges {
+		actions := joinActions(rc.Change.Actions)
+		if actions == "delete,create" || actions == "create,delete" {
 			foundReplace = true
-			if !strings.Contains(c.Address, "local_file.moved") {
-				t.Errorf("expected replace address to contain 'local_file.moved', got %q", c.Address)
+			if !strings.Contains(rc.Address, "local_file.moved") {
+				t.Errorf("expected replace address to contain 'local_file.moved', got %q", rc.Address)
 			}
 			break
 		}
 	}
 	if !foundReplace {
-		t.Errorf("expected a replace action in changes, got actions: %v", result.Changes)
+		t.Errorf("expected a replace action in resource_changes, got: %v", result.ResourceChanges)
 	}
 }
 
@@ -241,12 +257,13 @@ func TestPlan_ReplaceFixture_SilentMode(t *testing.T) {
 
 func TestPlan_MultiResourceFixture_AgentMode(t *testing.T) {
 	result := runPlanAgent(t, "multi-resource")
+	s := summarize(result)
 
-	if result.Summary.Add != 5 {
-		t.Errorf("expected summary.add=5, got %d", result.Summary.Add)
+	if s.add != 5 {
+		t.Errorf("expected add=5, got %d", s.add)
 	}
-	if len(result.Changes) != 5 {
-		t.Errorf("expected 5 changes, got %d", len(result.Changes))
+	if len(result.ResourceChanges) != 5 {
+		t.Errorf("expected 5 resource_changes, got %d", len(result.ResourceChanges))
 	}
 }
 
@@ -274,26 +291,24 @@ func TestPlan_AgentMode_JSONStructure(t *testing.T) {
 		t.Fatalf("plan failed: %v", err)
 	}
 
-	// Verify it's valid JSON
 	var raw map[string]interface{}
 	if err := json.Unmarshal([]byte(stdout), &raw); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
 
-	// Verify top-level fields
+	// terraform show -json top-level keys (ADR-0006 passthrough)
 	expectedFields := map[string]string{
-		"changes": "array",
-		"summary": "object",
-		"risk":    "string",
+		"format_version":   "string",
+		"resource_changes": "array",
+		"planned_values":   "object",
 	}
 
 	for field, expectedType := range expectedFields {
 		val, ok := raw[field]
 		if !ok {
-			t.Errorf("missing field %q in agent output", field)
+			t.Errorf("missing field %q in terraform JSON output", field)
 			continue
 		}
-
 		switch expectedType {
 		case "array":
 			if _, ok := val.([]interface{}); !ok {
@@ -307,32 +322,25 @@ func TestPlan_AgentMode_JSONStructure(t *testing.T) {
 			if _, ok := val.(string); !ok {
 				t.Errorf("field %q expected string, got %T", field, val)
 			}
-		case "number":
-			if _, ok := val.(float64); !ok {
-				t.Errorf("field %q expected number, got %T", field, val)
-			}
 		}
 	}
 
-	// Verify summary sub-fields
-	summary, _ := raw["summary"].(map[string]interface{})
-	for _, field := range []string{"add", "change", "destroy"} {
-		if _, ok := summary[field]; !ok {
-			t.Errorf("missing field summary.%s in agent output", field)
-		}
-	}
-
-	// Verify change entry structure
-	changes, _ := raw["changes"].([]interface{})
-	if len(changes) > 0 {
-		change, ok := changes[0].(map[string]interface{})
+	// resource_changes entries must have address + change.actions
+	rcs, _ := raw["resource_changes"].([]interface{})
+	if len(rcs) > 0 {
+		rc, ok := rcs[0].(map[string]interface{})
 		if !ok {
-			t.Fatal("change entry is not an object")
+			t.Fatal("resource_changes[0] is not an object")
 		}
-		for _, field := range []string{"address", "action", "risk"} {
-			if _, ok := change[field]; !ok {
-				t.Errorf("missing field changes[0].%s in agent output", field)
-			}
+		if _, ok := rc["address"]; !ok {
+			t.Error("missing resource_changes[0].address")
+		}
+		change, ok := rc["change"].(map[string]interface{})
+		if !ok {
+			t.Fatal("resource_changes[0].change is not an object")
+		}
+		if _, ok := change["actions"]; !ok {
+			t.Error("missing resource_changes[0].change.actions")
 		}
 	}
 }

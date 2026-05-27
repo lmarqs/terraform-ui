@@ -87,15 +87,16 @@ func TestState_Taint_MarksForRecreation(t *testing.T) {
 	// Verify: subsequent plan should show replace action
 	result := runPlanAgentInDir(t, dir)
 	foundReplace := false
-	for _, c := range result.Changes {
-		if strings.Contains(c.Address, "local_file.one") {
-			if c.Action == "delete-then-create" || c.Action == "create-then-delete" {
+	for _, rc := range result.ResourceChanges {
+		if strings.Contains(rc.Address, "local_file.one") {
+			actions := joinActions(rc.Change.Actions)
+			if actions == "delete,create" || actions == "create,delete" {
 				foundReplace = true
 			}
 		}
 	}
 	if !foundReplace {
-		t.Errorf("expected tainted resource to show replace in plan, got changes: %v", result.Changes)
+		t.Errorf("expected tainted resource to show replace in plan, got resource_changes: %v", result.ResourceChanges)
 	}
 }
 
@@ -114,9 +115,10 @@ func TestState_Untaint_RemovesMark(t *testing.T) {
 
 	// Verify: plan should show no changes (resource is current)
 	result := runPlanAgentInDir(t, dir)
-	if result.Summary.Add != 0 || result.Summary.Change != 0 || result.Summary.Destroy != 0 {
-		t.Errorf("expected no changes after untaint, got: add=%d change=%d destroy=%d",
-			result.Summary.Add, result.Summary.Change, result.Summary.Destroy)
+	s := summarize(result)
+	if s.add != 0 || s.change != 0 || s.destroy != 0 || s.replace != 0 {
+		t.Errorf("expected no changes after untaint, got: add=%d change=%d destroy=%d replace=%d",
+			s.add, s.change, s.destroy, s.replace)
 	}
 }
 
@@ -130,16 +132,16 @@ func TestState_Rm_InvalidAddress_Errors(t *testing.T) {
 }
 
 // runPlanAgentInDir runs plan in -json mode against the given directory.
-func runPlanAgentInDir(t *testing.T, dir string) agentJSON {
+func runPlanAgentInDir(t *testing.T, dir string) terraformPlan {
 	t.Helper()
 	stdout, stderr, err := runTfui("plan", "-project", dir, "-json")
 	if err != nil && !isExitCode(err, 2) {
 		t.Fatalf("plan -json failed: %v\nstderr: %s", err, stderr)
 	}
 
-	var result agentJSON
+	var result terraformPlan
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
-		t.Fatalf("failed to parse agent JSON: %v\noutput: %q", err, stdout)
+		t.Fatalf("failed to parse terraform JSON: %v\noutput: %q", err, stdout)
 	}
 	return result
 }
