@@ -156,15 +156,28 @@ func (e *Plugin) View(width, height int) string {
 
 The frame stack routes **input** (via `Stack.Update()`) but NOT rendering. Each plugin's `View()` must check which frame is active and delegate accordingly.
 
-## Verb-First Action Plugins (taint, untaint, import)
+## Action Mode (the run → result → render lifecycle)
 
-Action plugins are transient — arrive with context, confirm, execute, return. They are NavPush, hidden from menu, reachable via contextual keys or `:command`.
+A plugin is in *action mode* while it executes-and-reports: cancel → run → result →
+render → `ctrl+r` retry → emit success events, with a cancellable context and an elapsed
+timer. It enters this mode after gathering input (confirm / form / selection) and returns
+to idle when done.
+
+The lifecycle is a capability provided by the embeddable `sdk.ActionRunner` (configured
+per operation with an `sdk.ActionSpec`) — see CONTEXT.md glossary. A plugin composes it to
+gain the mode, and can gain or shed the mode as it evolves. `plan` and `state` mutations
+(`rm`/`mv`) run the same shape today and are candidates to converge onto it.
+
+Using it today (transient, NavPush, hidden from menu, reachable via contextual keys or
+`:command`): taint, untaint, import, forceunlock. They arrive with context, confirm,
+execute, return.
 
 Navigation: State/Plan `t`/`T`/`n` keys emit `TaintRequestMsg`/`UntaintRequestMsg`/`ImportRequestMsg`. App handles these by setting targets on the plugin and navigating with NavPush.
 
 Events emitted on success:
 - Taint/Untaint: `PlanInvalidatedEvent`
 - Import: `StateRefreshedEvent` + `PlanInvalidatedEvent`
+- ForceUnlock: `LockClearedEvent` + `PlanInvalidatedEvent`
 
 State plugin auto-refreshes on `PlanInvalidatedEvent` (implements `PlanInvalidatedHandler`).
 

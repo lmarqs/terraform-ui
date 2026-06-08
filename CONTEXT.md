@@ -40,8 +40,12 @@ _Avoid_: page, screen, panel (when meaning sub-view within a plugin)
 The public contract (`pkg/sdk/`) that plugins depend on. The only allowed import for plugin code.
 _Avoid_: API, library, framework (when referring to the plugin contract)
 
+**Action Mode**:
+The mode a plugin is in while executing-and-reporting: run → result → render → ctrl+r retry → emit success events, with a cancellable context and an elapsed timer. A plugin enters it after gathering input (confirm / form / manual entry) and returns to idle when done; it can gain or shed the mode as it evolves.
+_Avoid_: verb-first (it names a mode, not a plugin class); operation, task, command
+
 **Action Runner**:
-The shared back-half lifecycle of the verb-first action plugins (taint, untaint, import, forceunlock): run → result → render → ctrl+r retry → emit success events, with a cancellable context and an elapsed timer. Provided by the embeddable `sdk.ActionRunner`, configured per verb with an `sdk.ActionSpec` (the operation, its success events, and labels). The input prelude (confirm / form / manual entry) stays in each plugin; only the lifecycle is shared.
+The embeddable capability (`sdk.ActionRunner`) that provides **Action Mode**, configured per operation with an `sdk.ActionSpec` (the operation, its success events, and labels). Plugins compose it to execute-and-report; taint, untaint, import, and forceunlock use it today, with plan and state mutations as convergence candidates.
 _Avoid_: operation, task, command (for the runner); verb (for the spec — it is an ActionSpec)
 
 ### UI Zones
