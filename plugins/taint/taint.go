@@ -70,7 +70,7 @@ func (p *Plugin) spec() sdk.ActionSpec {
 	addrs := p.addresses
 	svc := p.Svc
 	return sdk.ActionSpec{
-		Verb: "taint",
+		LogKey: "taint",
 		Run: func(ctx context.Context) ([]string, error) {
 			var done []string
 			for _, addr := range addrs {

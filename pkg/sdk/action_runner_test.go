@@ -39,7 +39,7 @@ func runResult(t *testing.T, cmd tea.Cmd) actionResultMsg {
 
 func taintLikeSpec(run func(ctx context.Context) ([]string, error)) ActionSpec {
 	return ActionSpec{
-		Verb:       "taint",
+		LogKey:     "taint",
 		Run:        run,
 		OnSuccess:  []tea.Msg{PlanInvalidatedEvent{}},
 		Idle:       "Waiting for confirmation...",
@@ -347,14 +347,6 @@ func TestActionRunner_View(t *testing.T) {
 		view := a.View()
 		if !strings.Contains(view, "Taint failed") || !strings.Contains(view, "permission denied") {
 			t.Errorf("Error view = %q, want label + message", view)
-		}
-	})
-
-	t.Run("unknown status renders empty", func(t *testing.T) {
-		a := makeRunner()
-		a.status = Status(99)
-		if a.View() != "" {
-			t.Errorf("unknown status view = %q, want empty", a.View())
 		}
 	})
 }

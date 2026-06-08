@@ -10,14 +10,14 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-// ActionSpec is the per-verb adapter surface for ActionRunner — the only thing
-// that differs between the verb-first action plugins (taint, untaint, import,
-// forceunlock). The plugin builds one in Activate, arms the runner with it, and
-// the runner owns everything that happens afterwards.
+// ActionSpec is the per-operation adapter surface for ActionRunner — the only
+// thing that differs between plugins in action mode (today: taint, untaint,
+// import, forceunlock). The plugin builds one in Activate, arms the runner with
+// it, and the runner owns everything that happens afterwards.
 type ActionSpec struct {
-	// Verb is the log key (e.g. "taint"). Results are logged as
-	// "<verb>.success" / "<verb>.error".
-	Verb string
+	// LogKey identifies the operation in logs (e.g. "taint"). Results are
+	// logged as "<LogKey>.success" / "<LogKey>.error".
+	LogKey string
 	// Run performs the terraform mutation against the supplied cancellable
 	// context and returns the addresses that completed. It may loop (taint over
 	// many addresses, accumulating partial success) or call once (import,
@@ -49,11 +49,12 @@ type actionResultMsg struct {
 	err  error
 }
 
-// ActionRunner is the deep, embeddable back-half lifecycle shared by the
-// verb-first action plugins. It owns the cancellable execution, the elapsed
-// timer, the Idle→Loading→Done/Error status machine, result handling, retry,
-// and success-event emission — so each plugin only supplies an ActionSpec and
-// its own input prelude (confirm / form / manual entry).
+// ActionRunner is the deep, embeddable capability providing the action-mode
+// lifecycle: the execute-and-report phase a plugin enters after gathering input.
+// It owns the cancellable execution, the elapsed timer, the Idle→Loading→
+// Done/Error status machine, result handling, retry, and success-event emission
+// — so each plugin only supplies an ActionSpec and its own input prelude
+// (confirm / form / manual entry). A plugin composes it to gain the mode.
 //
 // Embed it next to PluginBase:
 //
@@ -107,9 +108,9 @@ func (a *ActionRunner) Start() tea.Cmd {
 		func() tea.Msg {
 			done, err := spec.Run(ctx)
 			if err != nil {
-				log.Debug(spec.Verb+".error", "error", err.Error())
+				log.Debug(spec.LogKey+".error", "error", err.Error())
 			} else {
-				log.Debug(spec.Verb+".success", "count", len(done))
+				log.Debug(spec.LogKey+".success", "count", len(done))
 			}
 			return actionResultMsg{done: done, err: err}
 		},
@@ -192,8 +193,6 @@ func deactivate() tea.Cmd {
 // and read CurrentStatus / Elapsed / ErrMessage instead.
 func (a *ActionRunner) View() string {
 	switch a.status {
-	case StatusIdle:
-		return StyleFaintItalic.Render(a.spec.Idle)
 	case StatusLoading:
 		return StyleFaintItalic.Render(fmt.Sprintf("%s... %s", a.spec.Running(), a.timer.FormatElapsed()))
 	case StatusDone:
@@ -201,9 +200,8 @@ func (a *ActionRunner) View() string {
 			"\n" + StyleFaint.Render("Duration: "+a.timer.FormatElapsed())
 	case StatusError:
 		return StyleError.Render("✗ " + a.spec.ErrorLabel + ": " + a.errMsg)
-	default:
-		return ""
 	}
+	return StyleFaintItalic.Render(a.spec.Idle) // idle / pre-run placeholder
 }
 
 // Hints returns the standard hint sets for the Done/Error/default states.
