@@ -40,6 +40,10 @@ _Avoid_: page, screen, panel (when meaning sub-view within a plugin)
 The public contract (`pkg/sdk/`) that plugins depend on. The only allowed import for plugin code.
 _Avoid_: API, library, framework (when referring to the plugin contract)
 
+**Action Runner**:
+The shared back-half lifecycle of the verb-first action plugins (taint, untaint, import, forceunlock): run → result → render → ctrl+r retry → emit success events, with a cancellable context and an elapsed timer. Provided by the embeddable `sdk.ActionRunner`, configured per verb with an `sdk.ActionSpec` (the operation, its success events, and labels). The input prelude (confirm / form / manual entry) stays in each plugin; only the lifecycle is shared.
+_Avoid_: operation, task, command (for the runner); verb (for the spec — it is an ActionSpec)
+
 ### UI Zones
 
 **Actions Bar**:
