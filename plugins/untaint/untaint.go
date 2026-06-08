@@ -7,7 +7,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // UntaintRequestMsg requests navigation to the untaint plugin with target addresses.
@@ -15,25 +14,13 @@ type UntaintRequestMsg struct {
 	Addresses []string
 }
 
-// untaintStartMsg triggers execution after confirmation.
-type untaintStartMsg struct{}
-
-// untaintResultMsg is sent when the untaint operation completes.
-type untaintResultMsg struct {
-	Untainted []string
-	Err       error
-}
-
-// Plugin implements the standalone untaint verb.
+// Plugin implements the standalone untaint verb. The confirm prelude is its own;
+// the run/result/render lifecycle is delegated to the embedded ActionRunner.
 type Plugin struct {
 	sdk.PluginBase
-	timer     ui.Timer
-	status    sdk.Status
+	sdk.ActionRunner
 	input     Input
 	addresses []string
-	untainted []string
-	errMsg    string
-	cancelFn  context.CancelFunc
 }
 
 // New creates a new untaint plugin.
@@ -43,174 +30,98 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
-func (p *Plugin) Busy() bool  { return p.status == sdk.StatusLoading }
-
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	p.InitBase(deps)
+	p.InitRunner(p.Log)
 	return nil
 }
 
-// Activate stores the typed input and returns the initial command.
+// Activate stores the typed input, arms the runner with the untaint spec, and
+// requests confirmation. Returns immediately if already running or if there is
+// nothing to untaint.
 func (p *Plugin) Activate(input Input) tea.Cmd {
-	if p.status == sdk.StatusLoading {
+	if p.Busy() {
 		return nil
 	}
 	p.input = input
 	p.addresses = input.Addrs
-	p.status = sdk.StatusIdle
-	p.errMsg = ""
-	p.untainted = nil
-	return p.confirmUntaint()
-}
-
-func (p *Plugin) confirmUntaint() tea.Cmd {
 	if len(p.addresses) == 0 {
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
 	}
+	p.Arm(p.spec())
+	return p.confirm()
+}
 
+func (p *Plugin) confirm() tea.Cmd {
 	prompt := fmt.Sprintf("Untaint %s?", p.addresses[0])
 	if len(p.addresses) > 1 {
 		prompt = fmt.Sprintf("Untaint %d resources?\n  %s", len(p.addresses), strings.Join(p.addresses, "\n  "))
 	}
-
 	return func() tea.Msg {
 		return sdk.RequestInputMsg{
-			Request: sdk.InputConfirm(prompt, func() tea.Cmd {
-				return func() tea.Msg { return untaintStartMsg{} }
-			}),
+			Request: sdk.InputConfirm(prompt, func() tea.Cmd { return p.Start() }),
 		}
 	}
 }
 
-// Cancel aborts any in-flight terraform operation.
-func (p *Plugin) Cancel() {
-	if p.cancelFn != nil {
-		p.cancelFn()
-		p.cancelFn = nil
-	}
-}
-
-func (p *Plugin) executeUntaint() tea.Cmd {
-	p.Cancel()
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancelFn = cancel
-	p.status = sdk.StatusLoading
+func (p *Plugin) spec() sdk.ActionSpec {
+	addrs := p.addresses
 	svc := p.Svc
-	log := p.Log
-	addresses := p.addresses
-	return tea.Batch(func() tea.Msg {
-		var untainted []string
-		for _, addr := range addresses {
-			if err := svc.Untaint(ctx, addr); err != nil {
-				log.Debug("untaint.error", "address", addr, "error", err.Error())
-				return untaintResultMsg{Untainted: untainted, Err: fmt.Errorf("%s: %w", addr, err)}
+	return sdk.ActionSpec{
+		Verb: "untaint",
+		Run: func(ctx context.Context) ([]string, error) {
+			var done []string
+			for _, addr := range addrs {
+				if err := svc.Untaint(ctx, addr); err != nil {
+					return done, fmt.Errorf("%s: %w", addr, err)
+				}
+				done = append(done, addr)
 			}
-			untainted = append(untainted, addr)
-		}
-		log.Debug("untaint.success", "count", len(untainted))
-		return untaintResultMsg{Untainted: untainted}
-	}, p.timer.Start())
+			return done, nil
+		},
+		OnSuccess:  []tea.Msg{sdk.PlanInvalidatedEvent{}},
+		Idle:       "Waiting for confirmation...",
+		Running:    func() string { return "Untainting " + label(addrs) },
+		Done:       doneLabel,
+		ErrorLabel: "Untaint failed",
+		OfferPlan:  true,
+	}
+}
+
+func label(addrs []string) string {
+	if len(addrs) > 1 {
+		return fmt.Sprintf("%d resources", len(addrs))
+	}
+	return addrs[0]
+}
+
+func doneLabel(done []string) string {
+	if len(done) == 1 {
+		return "✓ Untainted " + done[0]
+	}
+	return fmt.Sprintf("✓ Untainted %d resources", len(done))
 }
 
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	switch msg := msg.(type) {
-	case ui.TimerTickMsg:
-		return p, p.timer.Tick()
-
-	case untaintStartMsg:
-		return p, p.executeUntaint()
-
-	case untaintResultMsg:
-		p.timer.Stop()
-		p.untainted = msg.Untainted
-		if msg.Err != nil {
-			p.status = sdk.StatusError
-			p.errMsg = msg.Err.Error()
-		} else {
-			p.status = sdk.StatusDone
-			return p, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
-		}
-		return p, nil
-
-	case tea.KeyMsg:
-		return p, p.handleKey(msg)
+	if handled, cmd := p.ActionRunner.Update(msg); handled {
+		return p, cmd
+	}
+	if key, ok := msg.(tea.KeyMsg); ok {
+		return p, p.StandardKeys(key)
 	}
 	return p, nil
 }
 
-func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
-	switch p.status {
-	case sdk.StatusDone:
-		switch msg.String() {
-		case "p":
-			return func() tea.Msg { return sdk.NavigateMsg{PluginID: "plan"} }
-		case "esc":
-			return func() tea.Msg { return sdk.DeactivateMsg{} }
-		}
-	case sdk.StatusError:
-		switch msg.String() {
-		case "ctrl+r":
-			return p.executeUntaint()
-		case "esc":
-			return func() tea.Msg { return sdk.DeactivateMsg{} }
-		}
-	case sdk.StatusIdle:
-		switch msg.String() {
-		case "esc":
-			return func() tea.Msg { return sdk.DeactivateMsg{} }
-		}
-	}
-	return nil
-}
+func (p *Plugin) View(_, _ int) string { return p.ActionRunner.View() }
 
-func (p *Plugin) View(_, _ int) string {
-	switch p.status {
-	case sdk.StatusIdle:
-		return sdk.StyleFaintItalic.Render("Waiting for confirmation...")
-	case sdk.StatusLoading:
-		label := p.addresses[0]
-		if len(p.addresses) > 1 {
-			label = fmt.Sprintf("%d resources", len(p.addresses))
-		}
-		return sdk.StyleFaintItalic.Render(fmt.Sprintf("Untainting %s... %s", label, p.timer.FormatElapsed()))
-	case sdk.StatusDone:
-		if len(p.untainted) == 1 {
-			return sdk.StyleSuccess.Render(fmt.Sprintf("✓ Untainted %s", p.untainted[0])) +
-				"\n" + sdk.StyleFaint.Render("Duration: "+p.timer.FormatElapsed())
-		}
-		return sdk.StyleSuccess.Render(fmt.Sprintf("✓ Untainted %d resources", len(p.untainted))) +
-			"\n" + sdk.StyleFaint.Render("Duration: "+p.timer.FormatElapsed())
-	case sdk.StatusError:
-		return sdk.StyleError.Render("✗ Untaint failed: " + p.errMsg)
-	default:
-		return ""
-	}
-}
-
-func (p *Plugin) Hints() []sdk.KeyHint {
-	switch p.status {
-	case sdk.StatusDone:
-		return []sdk.KeyHint{
-			{Key: "p", Description: "plan"},
-			sdk.HintCancel,
-		}
-	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
-	default:
-		return (sdk.HintSetBack).Hints()
-	}
-}
-
-// HandleContextChanged implements sdk.ContextChangedHandler.
+// HandleContextChanged resets the runner and clears targets on a context switch.
 func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	if !p.HandleContextChangedDefault(ev) {
 		return nil
 	}
-	p.status = sdk.StatusIdle
+	p.Reset()
 	p.addresses = nil
-	p.errMsg = ""
 	return nil
 }
