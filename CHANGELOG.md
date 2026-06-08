@@ -1,3 +1,10 @@
+# [1.13.0](https://github.com/lmarqs/terraform-ui/compare/v1.12.0...v1.13.0) (2026-06-08)
+
+
+### Features
+
+* **sdk:** add ActionRunner — deep lifecycle for verb-first actions ([af08dad](https://github.com/lmarqs/terraform-ui/commit/af08dad72d1a91cc4d9f8b2e0b00f04197358964))
+
 # [1.12.0](https://github.com/lmarqs/terraform-ui/compare/v1.11.0...v1.12.0) (2026-05-27)
 
 
