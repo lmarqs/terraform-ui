@@ -143,8 +143,8 @@ func TestPlugin_Spec(t *testing.T) {
 		p, _ := newTestPlugin(&sdktest.MockService{})
 		p.addresses = []string{"a"}
 		spec := p.spec()
-		if spec.LogKey != "untaint" {
-			t.Errorf("LogKey = %q, want untaint", spec.LogKey)
+		if spec.Name != "untaint" {
+			t.Errorf("Name = %q, want untaint", spec.Name)
 		}
 		if !spec.OfferPlan {
 			t.Error("untaint should offer the plan shortcut on success")

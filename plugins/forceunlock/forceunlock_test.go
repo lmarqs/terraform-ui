@@ -182,8 +182,8 @@ func TestSpecAndRun(t *testing.T) {
 	t.Run("metadata wires force-unlock semantics", func(t *testing.T) {
 		p, _ := newTestPlugin(&sdktest.MockService{})
 		spec := p.spec("lock-1")
-		if spec.LogKey != "forceunlock" {
-			t.Errorf("LogKey = %q", spec.LogKey)
+		if spec.Name != "forceunlock" {
+			t.Errorf("Name = %q", spec.Name)
 		}
 		if len(spec.OnSuccess) != 2 {
 			t.Fatalf("OnSuccess len = %d, want 2", len(spec.OnSuccess))

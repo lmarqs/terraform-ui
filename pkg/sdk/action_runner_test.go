@@ -39,7 +39,7 @@ func runResult(t *testing.T, cmd tea.Cmd) actionResultMsg {
 
 func taintLikeSpec(run func(ctx context.Context) ([]string, error)) ActionSpec {
 	return ActionSpec{
-		LogKey:     "taint",
+		Name:       "taint",
 		Run:        run,
 		OnSuccess:  []tea.Msg{PlanInvalidatedEvent{}},
 		Idle:       "Waiting for confirmation...",

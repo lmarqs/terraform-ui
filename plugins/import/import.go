@@ -106,7 +106,7 @@ func (p *Plugin) spec() sdk.ActionSpec {
 	address, id := p.address, p.id
 	svc := p.Svc
 	return sdk.ActionSpec{
-		LogKey: "import",
+		Name: "import",
 		Run: func(ctx context.Context) ([]string, error) {
 			if err := svc.Import(ctx, address, id); err != nil {
 				return nil, err

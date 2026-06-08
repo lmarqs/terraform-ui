@@ -15,9 +15,9 @@ import (
 // import, forceunlock). The plugin builds one in Activate, arms the runner with
 // it, and the runner owns everything that happens afterwards.
 type ActionSpec struct {
-	// LogKey identifies the operation in logs (e.g. "taint"). Results are
-	// logged as "<LogKey>.success" / "<LogKey>.error".
-	LogKey string
+	// Name identifies the action (e.g. "taint"). Used to tag result log
+	// lines: "<Name>.success" / "<Name>.error".
+	Name string
 	// Run performs the terraform mutation against the supplied cancellable
 	// context and returns the addresses that completed. It may loop (taint over
 	// many addresses, accumulating partial success) or call once (import,
@@ -108,9 +108,9 @@ func (a *ActionRunner) Start() tea.Cmd {
 		func() tea.Msg {
 			done, err := spec.Run(ctx)
 			if err != nil {
-				log.Debug(spec.LogKey+".error", "error", err.Error())
+				log.Debug(spec.Name+".error", "error", err.Error())
 			} else {
-				log.Debug(spec.LogKey+".success", "count", len(done))
+				log.Debug(spec.Name+".success", "count", len(done))
 			}
 			return actionResultMsg{done: done, err: err}
 		},

@@ -105,7 +105,7 @@ func (p *Plugin) start(lockID string) tea.Cmd {
 func (p *Plugin) spec(lockID string) sdk.ActionSpec {
 	svc := p.Svc
 	return sdk.ActionSpec{
-		LogKey: "forceunlock",
+		Name: "forceunlock",
 		Run: func(ctx context.Context) ([]string, error) {
 			if err := svc.ForceUnlock(ctx, lockID); err != nil {
 				return nil, err

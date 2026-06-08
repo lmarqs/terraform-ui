@@ -183,7 +183,7 @@ func TestPlugin_Spec(t *testing.T) {
 		p, _ := newTestPlugin(&sdktest.MockService{})
 		p.address, p.id = "aws_instance.web", "i-1"
 		spec := p.spec()
-		if spec.LogKey != "import" || spec.ErrorLabel != "Import failed" || !spec.OfferPlan {
+		if spec.Name != "import" || spec.ErrorLabel != "Import failed" || !spec.OfferPlan {
 			t.Errorf("spec metadata = %+v", spec)
 		}
 		if len(spec.OnSuccess) != 2 {
