@@ -6,29 +6,22 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-// ForceUnlockStartMsg triggers the loading state and starts the unlock operation.
+// ForceUnlockStartMsg triggers execution after confirmation (or directly when
+// --force skips the prompt).
 type ForceUnlockStartMsg struct {
 	LockID string
 }
 
-// ForceUnlockResultMsg is sent when the force-unlock operation completes.
-type ForceUnlockResultMsg struct {
-	LockID string
-	Err    error
-}
-
-// Plugin implements the standalone force-unlock feature.
+// Plugin implements the standalone force-unlock feature. Its prelude is bespoke
+// (lock-aware idle view, manual-entry fallback, danger confirm); the
+// run/result/cancel lifecycle is delegated to the embedded ActionRunner.
 type Plugin struct {
 	sdk.PluginBase
-	timer    ui.Timer
-	status   sdk.Status
+	sdk.ActionRunner
 	lockID   string
 	lockInfo *sdk.StateLock
-	errMsg   string
-	cancelFn context.CancelFunc
 }
 
 // New creates a new force-unlock plugin.
@@ -38,21 +31,21 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
-
 func (p *Plugin) Configure(_ map[string]interface{}) error { return nil }
 
 func (p *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	p.InitBase(deps)
+	p.InitRunner(p.Log)
 	return nil
 }
 
-// Activate stores the typed input and returns the initial command.
+// Activate resolves the lock ID from the input, the detected lock, or a manual
+// prompt, then confirms (unless --force skips it).
 func (p *Plugin) Activate(input Input) tea.Cmd {
-	if p.status == sdk.StatusLoading {
+	if p.Busy() {
 		return nil
 	}
-	p.status = sdk.StatusIdle
+	p.Reset()
 	if input.LockID != "" {
 		if input.Force {
 			return func() tea.Msg { return ForceUnlockStartMsg{LockID: input.LockID} }
@@ -70,9 +63,7 @@ func (p *Plugin) offerManualEntry() tea.Cmd {
 		return sdk.RequestInputMsg{
 			Request: sdk.InputConfirm(
 				"No active lock detected. Enter lock ID manually?",
-				func() tea.Cmd {
-					return p.requestLockIDInput()
-				},
+				func() tea.Cmd { return p.requestLockIDInput() },
 			),
 		}
 	}
@@ -104,56 +95,37 @@ func (p *Plugin) confirmUnlock(lockID string) tea.Cmd {
 	}
 }
 
-// Cancel aborts any in-flight terraform operation.
-func (p *Plugin) Cancel() {
-	if p.cancelFn != nil {
-		p.cancelFn()
-		p.cancelFn = nil
+// start arms the runner with the unlock spec for lockID and begins execution.
+func (p *Plugin) start(lockID string) tea.Cmd {
+	p.lockID = lockID
+	p.Arm(p.spec(lockID))
+	return p.Start()
+}
+
+func (p *Plugin) spec(lockID string) sdk.ActionSpec {
+	svc := p.Svc
+	return sdk.ActionSpec{
+		Verb: "forceunlock",
+		Run: func(ctx context.Context) ([]string, error) {
+			if err := svc.ForceUnlock(ctx, lockID); err != nil {
+				return nil, err
+			}
+			return []string{lockID}, nil
+		},
+		OnSuccess: []tea.Msg{sdk.LockClearedEvent{}, sdk.PlanInvalidatedEvent{}},
 	}
 }
 
-func (p *Plugin) executeUnlock(lockID string) tea.Cmd {
-	p.Cancel()
-	ctx, cancel := context.WithCancel(context.Background())
-	p.cancelFn = cancel
-	p.lockID = lockID
-	p.status = sdk.StatusLoading
-	svc := p.Svc
-	log := p.Log
-	return tea.Batch(func() tea.Msg {
-		err := svc.ForceUnlock(ctx, lockID)
-		if err != nil {
-			log.Debug("forceunlock.error", "lockID", lockID, "error", err.Error())
-		} else {
-			log.Debug("forceunlock.success", "lockID", lockID)
-		}
-		return ForceUnlockResultMsg{LockID: lockID, Err: err}
-	}, p.timer.Start())
-}
-
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	switch msg := msg.(type) {
-	case ui.TimerTickMsg:
-		return p, p.timer.Tick()
-
-	case ForceUnlockStartMsg:
-		return p, p.executeUnlock(msg.LockID)
-
-	case ForceUnlockResultMsg:
-		p.timer.Stop()
-		if msg.Err != nil {
-			p.status = sdk.StatusError
-			p.errMsg = fmt.Sprintf("Force-unlock failed: %s", msg.Err.Error())
-		} else {
-			p.status = sdk.StatusDone
+	if handled, cmd := p.ActionRunner.Update(msg); handled {
+		if p.Ready() {
 			p.lockInfo = nil
-			return p, tea.Batch(
-				func() tea.Msg { return sdk.LockClearedEvent{} },
-				func() tea.Msg { return sdk.PlanInvalidatedEvent{} },
-			)
 		}
-		return p, nil
-
+		return p, cmd
+	}
+	switch msg := msg.(type) {
+	case ForceUnlockStartMsg:
+		return p, p.start(msg.LockID)
 	case tea.KeyMsg:
 		return p, p.handleKey(msg)
 	}
@@ -165,7 +137,7 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "q", "esc":
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
 	case "ctrl+r":
-		if p.status == sdk.StatusError {
+		if p.CurrentStatus() == sdk.StatusError {
 			return p.Activate(Input{})
 		}
 	}
@@ -173,32 +145,26 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (p *Plugin) View(_, _ int) string {
-	switch p.status {
-	case sdk.StatusIdle:
-		if p.lockInfo != nil {
-			return sdk.FormatLockInfo(p.lockInfo)
-		}
-		return sdk.StyleFaintItalic.Render("No active lock detected.")
+	switch p.CurrentStatus() {
 	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render(fmt.Sprintf("Force-unlocking %s... %s", p.lockID, p.timer.FormatElapsed()))
+		return sdk.StyleFaintItalic.Render(fmt.Sprintf("Force-unlocking %s... %s", p.lockID, p.Elapsed()))
 	case sdk.StatusDone:
 		return sdk.StyleSuccess.Render(fmt.Sprintf("Lock %s released successfully", p.lockID))
 	case sdk.StatusError:
-		return sdk.StyleError.Render("Error: " + p.errMsg)
-	default:
-		return ""
+		return sdk.StyleError.Render("Error: " + p.ErrMessage())
 	}
+	// Idle: show the detected lock (if any) or the no-lock placeholder.
+	if p.lockInfo != nil {
+		return sdk.FormatLockInfo(p.lockInfo)
+	}
+	return sdk.StyleFaintItalic.Render("No active lock detected.")
 }
 
 func (p *Plugin) Hints() []sdk.KeyHint {
-	switch p.status {
-	case sdk.StatusError:
+	if p.CurrentStatus() == sdk.StatusError {
 		return (sdk.HintSetRetry | sdk.HintSetBack | sdk.HintSetQuit).Hints()
-	case sdk.StatusDone:
-		return (sdk.HintSetBack | sdk.HintSetQuit).Hints()
-	default:
-		return (sdk.HintSetBack | sdk.HintSetQuit).Hints()
 	}
+	return (sdk.HintSetBack | sdk.HintSetQuit).Hints()
 }
 
 // HandleLockDetected implements sdk.LockDetectedHandler.
@@ -218,9 +184,8 @@ func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	if !p.HandleContextChangedDefault(ev) {
 		return nil
 	}
-	p.status = sdk.StatusIdle
+	p.Reset()
 	p.lockInfo = nil
 	p.lockID = ""
-	p.errMsg = ""
 	return nil
 }

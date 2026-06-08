@@ -18,10 +18,24 @@ func newTestPlugin(svc *sdktest.MockService) (*Plugin, *sdktest.PluginDepsHarnes
 	return p, h
 }
 
-func TestPlugin_Lifecycle(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
+// driveToTerminal sends a start message for lockID, then feeds the work result
+// back so the runner reaches Done/Error. Returns the emitted event cmd.
+func driveToTerminal(t *testing.T, p *Plugin, lockID string) tea.Cmd {
+	t.Helper()
+	_, cmd := p.Update(ForceUnlockStartMsg{LockID: lockID})
+	if cmd == nil {
+		t.Fatal("ForceUnlockStartMsg should start the unlock")
+	}
+	batch, ok := cmd().(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("start cmd = %T, want tea.BatchMsg", cmd())
+	}
+	_, event := p.Update(batch[0]()) // batch[0] is the work cmd → result
+	return event
+}
 
+func TestPlugin_Lifecycle(t *testing.T) {
+	p, _ := newTestPlugin(&sdktest.MockService{})
 	if p.ID() != "forceunlock" {
 		t.Errorf("ID() = %q, want %q", p.ID(), "forceunlock")
 	}
@@ -39,712 +53,398 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	}
 }
 
-func TestActivate_WhenLockInfoPresent_ShouldRequestConfirmation(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.lockInfo = &sdk.StateLock{ID: "lock-abc-123", Who: "user@host"}
-
-	cmd := p.Activate(Input{})
-	if cmd == nil {
-		t.Fatal("Activate() with lockInfo should return a cmd")
+// TestPlugin_OptionalInterfaces pins the normalization: forceunlock now
+// implements sdk.Busy (promoted from ActionRunner), so an in-flight unlock is
+// guarded by requireIdle like the other action verbs.
+func TestPlugin_OptionalInterfaces(t *testing.T) {
+	p := New(&sdktest.MockService{})
+	if _, ok := p.(sdk.Cancellable); !ok {
+		t.Error("forceunlock must implement sdk.Cancellable")
 	}
-
-	msg := cmd()
-	reqMsg, ok := msg.(sdk.RequestInputMsg)
-	if !ok {
-		t.Fatalf("Activate() cmd returned %T, want sdk.RequestInputMsg", msg)
-	}
-	if reqMsg.Request.Mode != sdk.InputRequestBool {
-		t.Errorf("request mode = %v, want InputRequestBool", reqMsg.Request.Mode)
+	if _, ok := p.(sdk.Busy); !ok {
+		t.Error("forceunlock must implement sdk.Busy (normalized via ActionRunner)")
 	}
 }
 
-func TestActivate_WhenNoLockInfo_ShouldOfferManualEntry(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
+func TestActivate(t *testing.T) {
+	t.Run("lockInfo present → confirm", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.lockInfo = &sdk.StateLock{ID: "lock-abc-123", Who: "user@host"}
+		req := p.Activate(Input{})().(sdk.RequestInputMsg)
+		if req.Request.Mode != sdk.InputRequestBool {
+			t.Errorf("mode = %v, want InputRequestBool", req.Request.Mode)
+		}
+	})
 
-	cmd := p.Activate(Input{})
-	if cmd == nil {
-		t.Fatal("Activate() without lockInfo should return a cmd")
-	}
+	t.Run("no lockInfo → offer manual entry", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		req := p.Activate(Input{})().(sdk.RequestInputMsg)
+		if req.Request.Mode != sdk.InputRequestBool {
+			t.Errorf("mode = %v, want InputRequestBool (manual-entry offer)", req.Request.Mode)
+		}
+	})
 
-	msg := cmd()
-	reqMsg, ok := msg.(sdk.RequestInputMsg)
-	if !ok {
-		t.Fatalf("Activate() cmd returned %T, want sdk.RequestInputMsg", msg)
-	}
-	if reqMsg.Request.Mode != sdk.InputRequestBool {
-		t.Errorf("request mode = %v, want InputRequestBool (offer manual entry)", reqMsg.Request.Mode)
-	}
+	t.Run("LockID provided → confirm", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		req := p.Activate(Input{LockID: "lock-from-cli"})().(sdk.RequestInputMsg)
+		if req.Request.Mode != sdk.InputRequestBool {
+			t.Errorf("mode = %v, want InputRequestBool", req.Request.Mode)
+		}
+	})
+
+	t.Run("LockID + Force → start directly", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		msg := p.Activate(Input{LockID: "lock-from-cli", Force: true})()
+		start, ok := msg.(ForceUnlockStartMsg)
+		if !ok {
+			t.Fatalf("got %T, want ForceUnlockStartMsg", msg)
+		}
+		if start.LockID != "lock-from-cli" {
+			t.Errorf("LockID = %q, want lock-from-cli", start.LockID)
+		}
+	})
+
+	t.Run("while busy → nil", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.Update(ForceUnlockStartMsg{LockID: "x"}) // → Loading
+		if !p.Busy() {
+			t.Fatal("precondition: should be Busy after start")
+		}
+		if cmd := p.Activate(Input{LockID: "y", Force: true}); cmd != nil {
+			t.Error("Activate() while busy should return nil")
+		}
+	})
 }
 
-func TestActivate_WhenAlreadyLoading_ShouldReturnNil(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
+func TestConfirmUnlock(t *testing.T) {
+	t.Run("accept yields a start message for the lock", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
+		req := p.Activate(Input{})().(sdk.RequestInputMsg)
+		startCmd := req.Request.Callback("y")
+		if startCmd == nil {
+			t.Fatal("confirm should return a start cmd")
+		}
+		start, ok := startCmd().(ForceUnlockStartMsg)
+		if !ok || start.LockID != "lock-abc" {
+			t.Errorf("got %#v, want ForceUnlockStartMsg{lock-abc}", startCmd())
+		}
+	})
 
-	cmd := p.Activate(Input{})
-	if cmd != nil {
-		t.Error("Activate() while loading should return nil")
-	}
+	t.Run("decline returns nil", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
+		req := p.Activate(Input{})().(sdk.RequestInputMsg)
+		if req.Request.Callback("n") != nil {
+			t.Error("declining should return nil")
+		}
+	})
 }
 
-func TestActivate_WhenLockIDProvided_ShouldRequestConfirmation(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
+func TestManualEntry(t *testing.T) {
+	t.Run("full flow: confirm → enter id → confirm → start", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		offer := p.Activate(Input{})().(sdk.RequestInputMsg)
+		idPrompt := offer.Request.Callback("y")().(sdk.RequestInputMsg)
+		if idPrompt.Request.Mode != sdk.InputRequestText {
+			t.Errorf("id prompt mode = %v, want Text", idPrompt.Request.Mode)
+		}
+		confirm := idPrompt.Request.Callback("manual-lock-id")().(sdk.RequestInputMsg)
+		if confirm.Request.Mode != sdk.InputRequestBool {
+			t.Errorf("confirm mode = %v, want Bool", confirm.Request.Mode)
+		}
+		start := confirm.Request.Callback("y")().(ForceUnlockStartMsg)
+		if start.LockID != "manual-lock-id" {
+			t.Errorf("LockID = %q, want manual-lock-id", start.LockID)
+		}
+	})
 
-	cmd := p.Activate(Input{LockID: "lock-from-cli"})
-	if cmd == nil {
-		t.Fatal("Activate() with LockID should return a cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.RequestInputMsg); !ok {
-		t.Errorf("expected RequestInputMsg, got %T", msg)
-	}
+	t.Run("empty lock id deactivates", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		offer := p.Activate(Input{})().(sdk.RequestInputMsg)
+		idPrompt := offer.Request.Callback("y")().(sdk.RequestInputMsg)
+		cmd := idPrompt.Request.Callback("")
+		if _, ok := cmd().(sdk.DeactivateMsg); !ok {
+			t.Errorf("empty id → %T, want DeactivateMsg", cmd())
+		}
+	})
+
+	t.Run("declining the offer returns nil", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		offer := p.Activate(Input{})().(sdk.RequestInputMsg)
+		if offer.Request.Callback("n") != nil {
+			t.Error("declining manual entry should return nil")
+		}
+	})
 }
 
-func TestActivate_WhenLockIDAndForce_ShouldStartUnlockDirectly(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
+func TestSpecAndRun(t *testing.T) {
+	t.Run("metadata wires force-unlock semantics", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		spec := p.spec("lock-1")
+		if spec.Verb != "forceunlock" {
+			t.Errorf("Verb = %q", spec.Verb)
+		}
+		if len(spec.OnSuccess) != 2 {
+			t.Fatalf("OnSuccess len = %d, want 2", len(spec.OnSuccess))
+		}
+		if _, ok := spec.OnSuccess[0].(sdk.LockClearedEvent); !ok {
+			t.Errorf("OnSuccess[0] = %T, want LockClearedEvent", spec.OnSuccess[0])
+		}
+		if _, ok := spec.OnSuccess[1].(sdk.PlanInvalidatedEvent); !ok {
+			t.Errorf("OnSuccess[1] = %T, want PlanInvalidatedEvent", spec.OnSuccess[1])
+		}
+	})
 
-	cmd := p.Activate(Input{LockID: "lock-from-cli", Force: true})
-	if cmd == nil {
-		t.Fatal("Activate() with LockID+Force should return a cmd")
-	}
-	msg := cmd()
-	startMsg, ok := msg.(ForceUnlockStartMsg)
-	if !ok {
-		t.Fatalf("expected ForceUnlockStartMsg, got %T", msg)
-	}
-	if startMsg.LockID != "lock-from-cli" {
-		t.Errorf("LockID = %q, want %q", startMsg.LockID, "lock-from-cli")
-	}
+	t.Run("Run unlocks the given lock id", func(t *testing.T) {
+		svc := &sdktest.MockService{}
+		p, _ := newTestPlugin(svc)
+		done, err := p.spec("lock-99").Run(context.Background())
+		if err != nil || len(done) != 1 || done[0] != "lock-99" {
+			t.Errorf("Run() = %v, %v", done, err)
+		}
+		if len(svc.ForceUnlockCalls) != 1 || svc.ForceUnlockCalls[0] != "lock-99" {
+			t.Errorf("ForceUnlockCalls = %v, want [lock-99]", svc.ForceUnlockCalls)
+		}
+	})
+
+	t.Run("Run surfaces unlock errors", func(t *testing.T) {
+		svc := &sdktest.MockService{ForceUnlockFn: func(context.Context, string) error {
+			return errors.New("denied")
+		}}
+		p, _ := newTestPlugin(svc)
+		if _, err := p.spec("lock-1").Run(context.Background()); err == nil {
+			t.Error("Run() should surface the unlock error")
+		}
+	})
 }
 
-func TestUpdate_WhenUnlockSuccess_ShouldSetDoneAndEmitEvents(t *testing.T) {
+func TestDriveToDone_ClearsLockAndEmitsEvents(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-	p.lockID = "lock-123"
-
-	result, cmd := p.Update(ForceUnlockResultMsg{LockID: "lock-123", Err: nil})
-	pp := result.(*Plugin)
-
-	if pp.status != sdk.StatusDone {
-		t.Errorf("status = %v, want StatusDone", pp.status)
-	}
-	if cmd == nil {
-		t.Fatal("success should return cmd (LockClearedEvent + PlanInvalidatedEvent)")
-	}
-}
-
-func TestUpdate_WhenUnlockError_ShouldSetErrorStatus(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-	p.lockID = "lock-123"
-
-	result, cmd := p.Update(ForceUnlockResultMsg{LockID: "lock-123", Err: errors.New("denied")})
-	pp := result.(*Plugin)
-
-	if pp.status != sdk.StatusError {
-		t.Errorf("status = %v, want StatusError", pp.status)
-	}
-	if pp.errMsg == "" {
-		t.Error("errMsg should be set on error")
-	}
-	if cmd != nil {
-		t.Error("error should return nil cmd")
-	}
-}
-
-func TestUpdate_WhenQKeyPressed_ShouldDeactivate(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if cmd == nil {
-		t.Fatal("q should return a cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("q cmd() = %T, want sdk.DeactivateMsg", msg)
-	}
-}
-
-func TestUpdate_WhenEscKeyPressed_ShouldDeactivate(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if cmd == nil {
-		t.Fatal("esc should return a cmd")
-	}
-	msg := cmd()
-	if _, ok := msg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("esc cmd() = %T, want sdk.DeactivateMsg", msg)
-	}
-}
-
-func TestUpdate_WhenCtrlRInError_ShouldReactivate(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusError
 	p.lockInfo = &sdk.StateLock{ID: "lock-123"}
 
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
-	if cmd == nil {
-		t.Fatal("ctrl+r in error should return a cmd (re-activate)")
+	eventCmd := driveToTerminal(t, p, "lock-123")
+	if !p.Ready() {
+		t.Fatalf("status = %v, want Done", p.CurrentStatus())
 	}
-}
-
-func TestUpdate_WhenCtrlRInDone_ShouldReturnNil(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
-	if cmd != nil {
-		t.Error("ctrl+r in done state should return nil")
-	}
-}
-
-func TestView_WhenIdleNoLock_ShouldReturnNonEmpty(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusIdle
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View() idle with no lock should not be empty")
-	}
-}
-
-func TestView_WhenIdleWithLock_ShouldReturnNonEmpty(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusIdle
-	p.lockInfo = &sdk.StateLock{ID: "lock-abc", Who: "user@host"}
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View() idle with lock should not be empty")
-	}
-}
-
-func TestView_WhenLoading_ShouldReturnNonEmpty(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-	p.lockID = "lock-xyz"
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View() loading should not be empty")
-	}
-}
-
-func TestView_WhenDone_ShouldReturnNonEmpty(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-	p.lockID = "lock-xyz"
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View() done should not be empty")
-	}
-}
-
-func TestView_WhenError_ShouldReturnNonEmpty(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusError
-	p.errMsg = "something went wrong"
-
-	view := p.View(80, 24)
-	if view == "" {
-		t.Error("View() error should not be empty")
-	}
-}
-
-func TestHints_WhenIdle_ShouldReturnBackAndQuitHints(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusIdle
-
-	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() idle should not be empty")
-	}
-}
-
-func TestHints_WhenLoading_ShouldReturnBackAndQuitHints(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-
-	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() loading should not be empty")
-	}
-}
-
-func TestHints_WhenDone_ShouldReturnBackHints(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-
-	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() done should not be empty")
-	}
-}
-
-func TestHints_WhenError_ShouldReturnRetryHints(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusError
-
-	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() error should not be empty")
-	}
-}
-
-func TestHandleLockDetected_WhenCalled_ShouldStoreLockInfo(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-
-	lock := &sdk.StateLock{ID: "lock-new", Who: "other@host"}
-	cmd := p.HandleLockDetected(sdk.LockDetectedEvent{Lock: lock})
-
-	if p.lockInfo == nil {
-		t.Fatal("HandleLockDetected should store lockInfo")
-	}
-	if p.lockInfo.ID != "lock-new" {
-		t.Errorf("lockInfo.ID = %q, want %q", p.lockInfo.ID, "lock-new")
-	}
-	if cmd != nil {
-		t.Error("HandleLockDetected should return nil cmd")
-	}
-}
-
-func TestHandleLockCleared_WhenCalled_ShouldClearLockInfo(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.lockInfo = &sdk.StateLock{ID: "old-lock"}
-
-	cmd := p.HandleLockCleared(sdk.LockClearedEvent{})
-
 	if p.lockInfo != nil {
-		t.Error("HandleLockCleared should clear lockInfo")
+		t.Error("lockInfo should be cleared on success")
 	}
-	if cmd != nil {
-		t.Error("HandleLockCleared should return nil cmd")
+	if eventCmd == nil {
+		t.Fatal("success should emit events")
 	}
-}
-
-func TestConfirmUnlock_WhenConfirmed_ShouldCallServiceWithLockID(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
-
-	cmd := p.Activate(Input{})
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	// Simulate user confirming "y" — returns ForceUnlockStartMsg
-	startCmd := reqMsg.Request.Callback("y")
-	if startCmd == nil {
-		t.Fatal("confirm callback should return a cmd")
-	}
-	startMsg := startCmd()
-	start, ok := startMsg.(ForceUnlockStartMsg)
-	if !ok {
-		t.Fatalf("callback cmd returned %T, want ForceUnlockStartMsg", startMsg)
-	}
-	if start.LockID != "lock-abc" {
-		t.Errorf("ForceUnlockStartMsg.LockID = %q, want %q", start.LockID, "lock-abc")
-	}
-
-	// Feed ForceUnlockStartMsg into Update — triggers the actual unlock
-	_, execCmd := p.Update(start)
-	if execCmd == nil {
-		t.Fatal("Update(ForceUnlockStartMsg) should return exec cmd")
-	}
-	if p.status != sdk.StatusLoading {
-		t.Errorf("status = %v, want StatusLoading", p.status)
-	}
-
-	// Execute the batch command and find ForceUnlockResultMsg
-	execMsg := execCmd()
-	batchMsg, ok := execMsg.(tea.BatchMsg)
-	if !ok {
-		t.Fatalf("exec cmd returned %T, want tea.BatchMsg", execMsg)
-	}
-	var result ForceUnlockResultMsg
-	found := false
-	for _, subCmd := range batchMsg {
-		if subCmd == nil {
-			continue
-		}
-		if r, ok := subCmd().(ForceUnlockResultMsg); ok {
-			result = r
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("batch did not contain ForceUnlockResultMsg")
-	}
-	if result.Err != nil {
-		t.Errorf("ForceUnlockResultMsg.Err = %v, want nil", result.Err)
-	}
-	if result.LockID != "lock-abc" {
-		t.Errorf("ForceUnlockResultMsg.LockID = %q, want %q", result.LockID, "lock-abc")
-	}
-	if len(svc.ForceUnlockCalls) == 0 || svc.ForceUnlockCalls[0] != "lock-abc" {
-		t.Errorf("service.ForceUnlock called with %v, want [lock-abc]", svc.ForceUnlockCalls)
-	}
-}
-
-func TestConfirmUnlock_WhenServiceFails_ShouldReturnError(t *testing.T) {
-	svc := &sdktest.MockService{
-		ForceUnlockFn: func(_ context.Context, _ string) error {
-			return errors.New("denied")
-		},
-	}
-	p, _ := newTestPlugin(svc)
-	p.lockInfo = &sdk.StateLock{ID: "lock-err"}
-
-	cmd := p.Activate(Input{})
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	startCmd := reqMsg.Request.Callback("y")
-	startMsg := startCmd()
-	start := startMsg.(ForceUnlockStartMsg)
-
-	_, execCmd := p.Update(start)
-	execMsg := execCmd()
-	batchMsg := execMsg.(tea.BatchMsg)
-	var result ForceUnlockResultMsg
-	for _, subCmd := range batchMsg {
-		if subCmd == nil {
-			continue
-		}
-		if r, ok := subCmd().(ForceUnlockResultMsg); ok {
-			result = r
-		}
-	}
-
-	if result.Err == nil {
-		t.Error("ForceUnlockResultMsg.Err = nil, want error")
-	}
-}
-
-func TestConfirmUnlock_WhenDeclined_ShouldReturnNil(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.lockInfo = &sdk.StateLock{ID: "lock-abc"}
-
-	cmd := p.Activate(Input{})
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	// Simulate user declining "n"
-	result := reqMsg.Request.Callback("n")
-	if result != nil {
-		t.Error("declining should return nil cmd")
-	}
-}
-
-func TestManualEntry_WhenConfirmedWithLockID_ShouldCallService(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-
-	cmd := p.Activate(Input{})
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	// First confirm: "Enter lock ID manually? (y/n)" — answer yes
-	manualCmd := reqMsg.Request.Callback("y")
-	if manualCmd == nil {
-		t.Fatal("confirming manual entry should return a cmd")
-	}
-
-	// Second step: InputText("Lock ID:")
-	msg2 := manualCmd()
-	reqMsg2, ok := msg2.(sdk.RequestInputMsg)
-	if !ok {
-		t.Fatalf("manual entry cmd returned %T, want sdk.RequestInputMsg", msg2)
-	}
-	if reqMsg2.Request.Mode != sdk.InputRequestText {
-		t.Errorf("request mode = %v, want InputRequestText", reqMsg2.Request.Mode)
-	}
-
-	// User types a lock ID
-	confirmCmd := reqMsg2.Request.Callback("manual-lock-id")
-	if confirmCmd == nil {
-		t.Fatal("entering lock ID should return a cmd")
-	}
-
-	// Third step: confirmation prompt
-	msg3 := confirmCmd()
-	reqMsg3, ok := msg3.(sdk.RequestInputMsg)
-	if !ok {
-		t.Fatalf("confirm cmd returned %T, want sdk.RequestInputMsg", msg3)
-	}
-	if reqMsg3.Request.Mode != sdk.InputRequestBool {
-		t.Errorf("request mode = %v, want InputRequestBool", reqMsg3.Request.Mode)
-	}
-
-	// User confirms — returns ForceUnlockStartMsg
-	startCmd := reqMsg3.Request.Callback("y")
-	if startCmd == nil {
-		t.Fatal("confirming unlock should return a cmd")
-	}
-	startMsg := startCmd()
-	start, ok := startMsg.(ForceUnlockStartMsg)
-	if !ok {
-		t.Fatalf("confirm cmd returned %T, want ForceUnlockStartMsg", startMsg)
-	}
-
-	// Feed into Update
-	_, execCmd := p.Update(start)
-	execMsg := execCmd()
-	batchMsg, ok := execMsg.(tea.BatchMsg)
-	if !ok {
-		t.Fatalf("exec cmd returned %T, want tea.BatchMsg", execMsg)
-	}
-	var result ForceUnlockResultMsg
-	found := false
-	for _, subCmd := range batchMsg {
-		if subCmd == nil {
-			continue
-		}
-		if r, ok := subCmd().(ForceUnlockResultMsg); ok {
-			result = r
-			found = true
-		}
-	}
-	if !found {
-		t.Fatal("batch did not contain ForceUnlockResultMsg")
-	}
-	if result.LockID != "manual-lock-id" {
-		t.Errorf("LockID = %q, want %q", result.LockID, "manual-lock-id")
-	}
-	if len(svc.ForceUnlockCalls) == 0 || svc.ForceUnlockCalls[0] != "manual-lock-id" {
-		t.Errorf("service called with %v, want [manual-lock-id]", svc.ForceUnlockCalls)
-	}
-}
-
-func TestManualEntry_WhenEmptyLockID_ShouldDeactivate(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-
-	cmd := p.Activate(Input{})
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	// Confirm manual entry
-	manualCmd := reqMsg.Request.Callback("y")
-	msg2 := manualCmd()
-	reqMsg2 := msg2.(sdk.RequestInputMsg)
-
-	// User submits empty lock ID
-	deactivateCmd := reqMsg2.Request.Callback("")
-	if deactivateCmd == nil {
-		t.Fatal("empty lock ID should return a deactivate cmd")
-	}
-	resultMsg := deactivateCmd()
-	if _, ok := resultMsg.(sdk.DeactivateMsg); !ok {
-		t.Errorf("empty lock ID cmd() = %T, want sdk.DeactivateMsg", resultMsg)
-	}
-}
-
-func TestManualEntry_WhenDeclined_ShouldReturnNil(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-
-	cmd := p.Activate(Input{})
-	msg := cmd()
-	reqMsg := msg.(sdk.RequestInputMsg)
-
-	// Decline manual entry
-	result := reqMsg.Request.Callback("n")
-	if result != nil {
-		t.Error("declining manual entry should return nil cmd")
-	}
-}
-
-func TestView_WhenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = 99 // unknown status
-
-	view := p.View(80, 24)
-	if view != "" {
-		t.Errorf("View() with unknown status should return empty, got %q", view)
-	}
-}
-
-func TestUpdate_WhenUnhandledMsg_ShouldReturnSelfAndNil(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-
-	result, cmd := p.Update(struct{}{})
-	if result.(*Plugin) != p {
-		t.Error("unhandled msg should return same plugin")
-	}
-	if cmd != nil {
-		t.Error("unhandled msg should return nil cmd")
-	}
-}
-
-func TestPlugin_WhenCancelWithNilFn_ShouldNotPanic(t *testing.T) {
-	p, _ := newTestPlugin(&sdktest.MockService{})
-	p.cancelFn = nil
-	p.Cancel()
-}
-
-func TestPlugin_WhenCancelWithFn_ShouldCallAndClear(t *testing.T) {
-	p, _ := newTestPlugin(&sdktest.MockService{})
-	called := false
-	p.cancelFn = func() { called = true }
-	p.Cancel()
-	if !called {
-		t.Error("Cancel() should call cancelFn")
-	}
-	if p.cancelFn != nil {
-		t.Error("Cancel() should set cancelFn to nil")
-	}
-}
-
-func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-	p.timer.Start()
-
-	_, cmd := p.Update(ui.TimerTickMsg{})
-	if cmd == nil {
-		t.Error("TimerTickMsg while timer running: cmd = nil, want non-nil")
-	}
-}
-
-func TestUpdate_WhenTimerTickMsgNotRunning_ShouldReturnNilCmd(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(ui.TimerTickMsg{})
-	if cmd != nil {
-		t.Error("TimerTickMsg while timer stopped: cmd != nil, want nil")
-	}
-}
-
-func TestUpdate_WhenKeyOtherThanQEscCtrlR_ShouldDoNothing(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusDone
-
-	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}})
-	if cmd != nil {
-		t.Error("unhandled key in done: cmd != nil, want nil")
-	}
-}
-
-func TestUpdate_WhenForceUnlockResultSuccessWithRunningTimer_ShouldStopTimerAndEmitEvents(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-	p.lockID = "lock-123"
-	p.timer.Start()
-
-	result, cmd := p.Update(ForceUnlockResultMsg{LockID: "lock-123", Err: nil})
-	pp := result.(*Plugin)
-
-	if pp.status != sdk.StatusDone {
-		t.Errorf("status = %v, want StatusDone", pp.status)
-	}
-	if pp.timer.Running() {
-		t.Error("timer should be stopped after result")
-	}
-	if pp.lockInfo != nil {
-		t.Error("lockInfo should be nil after success")
-	}
-	if cmd == nil {
-		t.Fatal("success should return cmd (LockClearedEvent + PlanInvalidatedEvent)")
-	}
-	msg := cmd()
-	batchMsg, ok := msg.(tea.BatchMsg)
-	if !ok {
-		t.Fatalf("cmd() returned %T, want tea.BatchMsg", msg)
-	}
-	foundCleared := false
-	foundInvalidated := false
-	for _, subCmd := range batchMsg {
-		if subCmd == nil {
-			continue
-		}
-		subMsg := subCmd()
-		switch subMsg.(type) {
+	batch := eventCmd().(tea.BatchMsg)
+	var cleared, invalidated bool
+	for _, sub := range batch {
+		switch sub().(type) {
 		case sdk.LockClearedEvent:
-			foundCleared = true
+			cleared = true
 		case sdk.PlanInvalidatedEvent:
-			foundInvalidated = true
+			invalidated = true
 		}
 	}
-	if !foundCleared {
-		t.Error("batch should contain LockClearedEvent")
+	if !cleared || !invalidated {
+		t.Errorf("events: cleared=%v invalidated=%v, want both", cleared, invalidated)
 	}
-	if !foundInvalidated {
-		t.Error("batch should contain PlanInvalidatedEvent")
-	}
-}
-
-func TestUpdate_WhenForceUnlockResultErrorWithRunningTimer_ShouldStopTimer(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusLoading
-	p.lockID = "lock-err"
-	p.timer.Start()
-
-	result, _ := p.Update(ForceUnlockResultMsg{LockID: "lock-err", Err: errors.New("denied")})
-	pp := result.(*Plugin)
-
-	if pp.timer.Running() {
-		t.Error("timer should be stopped after error result")
+	if len(svc.ForceUnlockCalls) != 1 || svc.ForceUnlockCalls[0] != "lock-123" {
+		t.Errorf("ForceUnlockCalls = %v", svc.ForceUnlockCalls)
 	}
 }
 
-func TestHandleContextChanged_ShouldResetState(t *testing.T) {
-	svc := &sdktest.MockService{}
+func TestDriveToError_SetsMessage(t *testing.T) {
+	svc := &sdktest.MockService{ForceUnlockFn: func(context.Context, string) error {
+		return errors.New("denied")
+	}}
 	p, _ := newTestPlugin(svc)
-	p.status = sdk.StatusError
-	p.lockID = "abc"
-	p.errMsg = "boom"
-	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
-	if cmd != nil {
-		t.Error("HandleContextChanged returned non-nil cmd")
+
+	eventCmd := driveToTerminal(t, p, "lock-err")
+	if p.CurrentStatus() != sdk.StatusError {
+		t.Errorf("status = %v, want Error", p.CurrentStatus())
 	}
-	if p.status != sdk.StatusIdle || p.lockID != "" || p.errMsg != "" {
-		t.Errorf("state not reset: status=%v lockID=%q errMsg=%q", p.status, p.lockID, p.errMsg)
+	if p.ErrMessage() == "" {
+		t.Error("ErrMessage should be set on failure")
+	}
+	if eventCmd != nil {
+		t.Error("failure should not emit events")
 	}
 }
 
-func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newTestPlugin(svc)
-	p.lockID = "keep"
-	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil})
-	if cmd != nil {
-		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
+func TestKeys(t *testing.T) {
+	t.Run("q deactivates", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+		if _, ok := cmd().(sdk.DeactivateMsg); !ok {
+			t.Errorf("q → %T, want DeactivateMsg", cmd())
+		}
+	})
+
+	t.Run("esc deactivates (via Update)", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+		if _, ok := cmd().(sdk.DeactivateMsg); !ok {
+			t.Errorf("esc → %T, want DeactivateMsg", cmd())
+		}
+	})
+
+	t.Run("ctrl+r in error re-activates", func(t *testing.T) {
+		svc := &sdktest.MockService{ForceUnlockFn: func(context.Context, string) error {
+			return errors.New("x")
+		}}
+		p, _ := newTestPlugin(svc)
+		p.lockInfo = &sdk.StateLock{ID: "lock-123"}
+		driveToTerminal(t, p, "lock-123") // → Error
+		if cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyCtrlR}); cmd == nil {
+			t.Error("ctrl+r in error should re-activate")
+		}
+	})
+
+	t.Run("ctrl+r when not in error does nothing", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		if cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyCtrlR}); cmd != nil {
+			t.Error("ctrl+r outside error should return nil")
+		}
+	})
+
+	t.Run("other keys do nothing", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		if cmd := p.handleKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'x'}}); cmd != nil {
+			t.Error("unhandled key should return nil")
+		}
+	})
+}
+
+func TestView(t *testing.T) {
+	t.Run("idle without lock", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		if p.View(80, 24) == "" {
+			t.Error("idle no-lock view should not be empty")
+		}
+	})
+
+	t.Run("idle with lock shows lock info", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.lockInfo = &sdk.StateLock{ID: "lock-abc", Who: "user@host"}
+		if p.View(80, 24) == "" {
+			t.Error("idle with-lock view should not be empty")
+		}
+	})
+
+	t.Run("loading", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.Update(ForceUnlockStartMsg{LockID: "lock-xyz"}) // → Loading
+		if p.View(80, 24) == "" {
+			t.Error("loading view should not be empty")
+		}
+	})
+
+	t.Run("done", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		driveToTerminal(t, p, "lock-xyz") // → Done
+		if p.View(80, 24) == "" {
+			t.Error("done view should not be empty")
+		}
+	})
+
+	t.Run("error", func(t *testing.T) {
+		svc := &sdktest.MockService{ForceUnlockFn: func(context.Context, string) error {
+			return errors.New("boom")
+		}}
+		p, _ := newTestPlugin(svc)
+		driveToTerminal(t, p, "lock-err") // → Error
+		if p.View(80, 24) == "" {
+			t.Error("error view should not be empty")
+		}
+	})
+}
+
+func TestHints(t *testing.T) {
+	t.Run("idle offers back and quit", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		if len(p.Hints()) == 0 {
+			t.Error("idle hints should not be empty")
+		}
+	})
+
+	t.Run("error offers retry", func(t *testing.T) {
+		svc := &sdktest.MockService{ForceUnlockFn: func(context.Context, string) error {
+			return errors.New("x")
+		}}
+		p, _ := newTestPlugin(svc)
+		driveToTerminal(t, p, "lock-1") // → Error
+		var retry bool
+		for _, h := range p.Hints() {
+			if h.Description == "retry" {
+				retry = true
+			}
+		}
+		if !retry {
+			t.Error("error hints should contain retry")
+		}
+	})
+}
+
+func TestLockEventHandlers(t *testing.T) {
+	t.Run("HandleLockDetected stores lock", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		lock := &sdk.StateLock{ID: "lock-new", Who: "other@host"}
+		if cmd := p.HandleLockDetected(sdk.LockDetectedEvent{Lock: lock}); cmd != nil {
+			t.Error("HandleLockDetected should return nil cmd")
+		}
+		if p.lockInfo == nil || p.lockInfo.ID != "lock-new" {
+			t.Errorf("lockInfo = %v, want stored lock", p.lockInfo)
+		}
+	})
+
+	t.Run("HandleLockCleared clears lock", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.lockInfo = &sdk.StateLock{ID: "old-lock"}
+		if cmd := p.HandleLockCleared(sdk.LockClearedEvent{}); cmd != nil {
+			t.Error("HandleLockCleared should return nil cmd")
+		}
+		if p.lockInfo != nil {
+			t.Error("HandleLockCleared should clear lockInfo")
+		}
+	})
+}
+
+func TestUpdate_TimerTickAndUnhandled(t *testing.T) {
+	p, _ := newTestPlugin(&sdktest.MockService{})
+
+	// Running timer ticks again; idle tick is handled with no cmd.
+	p.Update(ForceUnlockStartMsg{LockID: "x"}) // starts the timer
+	if _, cmd := p.Update(ui.TimerTickMsg{}); cmd == nil {
+		t.Error("running timer tick should return a tick cmd")
 	}
-	if p.lockID != "keep" {
-		t.Errorf("lockID mutated, got %q", p.lockID)
+
+	if self, cmd := p.Update(struct{}{}); self.(*Plugin) != p || cmd != nil {
+		t.Error("unhandled msg should return same plugin and nil cmd")
 	}
+}
+
+func TestHandleContextChanged(t *testing.T) {
+	t.Run("resets state", func(t *testing.T) {
+		svc := &sdktest.MockService{}
+		p, _ := newTestPlugin(svc)
+		p.lockInfo = &sdk.StateLock{ID: "abc"}
+		driveToTerminal(t, p, "abc") // reach a terminal state
+		cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc}})
+		if cmd != nil {
+			t.Error("HandleContextChanged should return nil cmd")
+		}
+		if p.CurrentStatus() != sdk.StatusIdle || p.lockID != "" || p.lockInfo != nil {
+			t.Errorf("not reset: status=%v lockID=%q lockInfo=%v", p.CurrentStatus(), p.lockID, p.lockInfo)
+		}
+	})
+
+	t.Run("nil Next is a no-op", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.lockID = "keep"
+		if cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Next: nil}); cmd != nil {
+			t.Error("nil Next should return nil cmd")
+		}
+		if p.lockID != "keep" {
+			t.Errorf("lockID mutated on no-op: %q", p.lockID)
+		}
+	})
 }
