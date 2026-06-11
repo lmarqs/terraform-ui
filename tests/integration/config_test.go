@@ -33,8 +33,8 @@ func TestConfig_EmptyConfig_ShouldReturnEmptyRootConfig(t *testing.T) {
 	if cfg.Terraform.Bin != "" {
 		t.Errorf("Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
 	}
-	if len(cfg.Members) != 0 {
-		t.Errorf("Members = %v, want empty", cfg.Members)
+	if len(cfg.Members) != 1 || cfg.Members[0].Path != "." {
+		t.Errorf("Members = %v, want single %q member", cfg.Members, ".")
 	}
 }
 
@@ -46,8 +46,8 @@ func TestConfig_SingleModule_ShouldParseBinary(t *testing.T) {
 	if cfg.Terraform.Bin != "terraform" {
 		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "terraform")
 	}
-	if len(cfg.Members) != 0 {
-		t.Errorf("Members = %v, want empty", cfg.Members)
+	if len(cfg.Members) != 1 || cfg.Members[0].Path != "." {
+		t.Errorf("Members = %v, want single %q member", cfg.Members, ".")
 	}
 }
 

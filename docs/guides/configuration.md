@@ -55,6 +55,9 @@ defaults {
 
 Every block is optional. An empty `tfui.hcl` is valid.
 
+When a `tfui.hcl` defines no `member` blocks, the project is treated as having a
+single member `member "." {}` — the project root directory itself.
+
 ## Child Config (per member)
 
 Place a `tfui.hcl` in any member directory for per-module overrides:

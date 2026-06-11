@@ -114,14 +114,14 @@ terraform {
 	if cfg.Terraform.Bin != "terraform" {
 		t.Errorf("Terraform.Bin = %q, want %q", cfg.Terraform.Bin, "terraform")
 	}
-	if len(cfg.Members) != 0 {
-		t.Errorf("Members should be empty, got %v", cfg.Members)
+	if len(cfg.Members) != 1 || cfg.Members[0].Path != "." {
+		t.Errorf("Members = %v, want single %q member", cfg.Members, ".")
 	}
 }
 
 // --- LoadRoot: empty file is valid ---
 
-func TestLoadRoot_WhenEmptyFile_ShouldReturnEmptyConfig(t *testing.T) {
+func TestLoadRoot_WhenEmptyFile_ShouldDefaultToCurrentDirMember(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, ``)
 
@@ -133,8 +133,8 @@ func TestLoadRoot_WhenEmptyFile_ShouldReturnEmptyConfig(t *testing.T) {
 	if cfg.Terraform.Bin != "" {
 		t.Errorf("Terraform.Bin = %q, want empty", cfg.Terraform.Bin)
 	}
-	if len(cfg.Members) != 0 {
-		t.Errorf("Members should be empty, got %v", cfg.Members)
+	if len(cfg.Members) != 1 || cfg.Members[0].Path != "." {
+		t.Errorf("Members = %v, want single %q member", cfg.Members, ".")
 	}
 }
 
@@ -303,7 +303,7 @@ member "modules/rds" {}
 	}
 }
 
-func TestLoadRoot_WhenNoMemberBlocks_ShouldDefaultToEmpty(t *testing.T) {
+func TestLoadRoot_WhenNoMemberBlocks_ShouldDefaultToCurrentDirMember(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
 terraform {
@@ -316,8 +316,8 @@ terraform {
 		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	if len(cfg.Members) != 0 {
-		t.Errorf("Members = %v, want empty", cfg.Members)
+	if len(cfg.Members) != 1 || cfg.Members[0].Path != "." {
+		t.Errorf("Members = %v, want single %q member", cfg.Members, ".")
 	}
 }
 
