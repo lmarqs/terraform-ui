@@ -12,6 +12,10 @@ import (
 
 const HCLConfigFileName = "tfui.hcl"
 
+// DefaultMemberPath is the implicit single member used when a tfui.hcl defines
+// no member blocks: the project root itself.
+const DefaultMemberPath = "."
+
 func LoadRoot(dir string) (*RootConfig, error) {
 	path := filepath.Join(dir, HCLConfigFileName)
 
@@ -24,7 +28,7 @@ func LoadRoot(dir string) (*RootConfig, error) {
 	}
 
 	if len(data) == 0 {
-		return &RootConfig{}, nil
+		return convertRootFile(&hclRootFile{}), nil
 	}
 
 	var raw hclRootFile
@@ -92,6 +96,9 @@ func convertRootFile(raw *hclRootFile) *RootConfig {
 
 	for _, m := range raw.Members {
 		cfg.Members = append(cfg.Members, MemberConfig{Path: m.Path})
+	}
+	if len(cfg.Members) == 0 {
+		cfg.Members = []MemberConfig{{Path: DefaultMemberPath}}
 	}
 
 	if raw.Cache != nil {
