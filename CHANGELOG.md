@@ -1,3 +1,10 @@
+# [1.14.0](https://github.com/lmarqs/terraform-ui/compare/v1.13.0...v1.14.0) (2026-06-12)
+
+
+### Features
+
+* **config:** default to single "." member when none configured ([6e62d6e](https://github.com/lmarqs/terraform-ui/commit/6e62d6eae96855967efa96b0886b4f3458713c14))
+
 # [1.13.0](https://github.com/lmarqs/terraform-ui/compare/v1.12.0...v1.13.0) (2026-06-08)
 
 
