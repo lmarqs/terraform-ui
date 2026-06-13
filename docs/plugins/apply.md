@@ -74,8 +74,9 @@ tfui apply -project ./infra
 # Auto-approve: skip confirmation (required for non-interactive apply)
 tfui apply -project ./infra -auto-approve
 
-# Silent: no animation. Non-interactive apply requires -auto-approve —
-# without it there is no prompt to answer, so tfui errors out.
+# Silent: no animation. Mirrors terraform — non-interactive apply without a
+# plan file requires -auto-approve, else "Apply not allowed for non-interactive
+# use" (exit 1), exactly as `terraform apply` behaves with no TTY.
 tfui apply -project ./infra -ci -auto-approve
 
 # NDJSON events (terraform-compatible)

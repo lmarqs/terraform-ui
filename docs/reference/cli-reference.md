@@ -74,14 +74,15 @@ tfui apply -target=aws_instance.web # Targeted apply
 ```
 
 Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires
-`-auto-approve`. The confirmation prompt is a TUI-only gate, so without a way to
-answer it tfui errors out instead of applying — apply never runs unconfirmed.
+`-auto-approve` — exactly as `terraform apply` does. With no plan file and no
+TTY to approve from, tfui reproduces terraform's own error, "Apply not allowed
+for non-interactive use" (exit 1), rather than applying unconfirmed.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
 | Standalone | "Apply complete." or JSON | TUI (alt-screen) | 0/1 |
 | CI (`-auto-approve`) | "Apply complete." or JSON | — | 0/1 |
-| CI (no `-auto-approve`) | — | confirmation-required error | 1 |
+| CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
 
 ### `tfui state`
 

@@ -32,14 +32,15 @@ func buildApplyCommand(s *Session) *cobra.Command {
 	return c
 }
 
-// requireApplyConfirmable rejects an apply that has no way to confirm. Apply
-// without --auto-approve relies on the TUI confirmation prompt; when stderr is
-// not a terminal (CI / piped) and no macro tape is driving the session, there
-// is no prompt to answer. Rather than hang or apply silently, fail fast and
-// direct the user to --auto-approve.
+// requireApplyConfirmable mirrors terraform's own behavior: `terraform apply`
+// with no plan file and no -auto-approve requires interactive approval, and
+// errors out ("Apply not allowed for non-interactive use") when there is no
+// terminal to approve from. terraform-exec hides this by always injecting
+// -auto-approve, so we reproduce terraform's error at our boundary instead of
+// silently applying (or hanging on a prompt that can never be answered).
 func requireApplyConfirmable(s *Session, autoApprove bool) error {
 	if autoApprove || s.macro.Active() || !s.SilentStderr() {
 		return nil
 	}
-	return fmt.Errorf("apply needs confirmation but stderr is not a terminal; re-run with --auto-approve for non-interactive apply")
+	return fmt.Errorf("Apply not allowed for non-interactive use.\n\nThe apply command requires interactive approval of the plan. To run apply in an automated environment, use the -auto-approve flag.")
 }
