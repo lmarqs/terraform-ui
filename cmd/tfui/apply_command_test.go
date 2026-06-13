@@ -67,6 +67,39 @@ func TestBuildApplyCommand_WhenSessionJSONStdout_ShouldPropagateIntoInput(t *tes
 	}
 }
 
+// TestRequireApplyConfirmable enforces the invariant: apply without
+// --auto-approve must never run in a context where it cannot confirm. The TUI
+// prompt is the only confirmation gate, so a non-interactive session (silent
+// stderr, no macro tape) without --auto-approve must fail fast rather than hang
+// or apply silently.
+func TestRequireApplyConfirmable(t *testing.T) {
+	tests := []struct {
+		name         string
+		silentStderr bool
+		macroURI     string
+		autoApprove  bool
+		wantErr      bool
+	}{
+		{name: "interactive, no auto-approve", silentStderr: false, wantErr: false},
+		{name: "non-interactive without auto-approve", silentStderr: true, wantErr: true},
+		{name: "non-interactive with auto-approve", silentStderr: true, autoApprove: true, wantErr: false},
+		{name: "non-interactive driven by macro tape", silentStderr: true, macroURI: "tape.txt", wantErr: false},
+		{name: "interactive with auto-approve", silentStderr: false, autoApprove: true, wantErr: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Session{
+				silentStderr: tt.silentStderr,
+				macro:        MacroSpec{TapeURI: tt.macroURI},
+			}
+			err := requireApplyConfirmable(s, tt.autoApprove)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("requireApplyConfirmable() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func mustBool(c *cobra.Command, name string) bool {
 	v, err := c.Flags().GetBool(name)
 	if err != nil {

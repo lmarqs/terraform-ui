@@ -245,14 +245,25 @@ func TestUpdate_WhenUpperYInConfirming_ShouldStartApply(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenEnterInConfirming_ShouldStartApply(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+// Enter must NOT confirm a destructive apply: the Enter keystroke that launches
+// `tfui apply` leaks into the alt-screen TUI, and accepting it would auto-apply
+// without the user ever seeing the prompt. Confirmation requires an explicit
+// affirmative key (y/Y), matching the ConfirmFrame convention (y/n/esc only).
+func TestUpdate_WhenEnterInConfirming_ShouldNotStartApply(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusConfirming
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Error("after enter in confirming: cmd = nil, want non-nil")
+	if cmd != nil {
+		t.Error("after enter in confirming: cmd = non-nil, want nil (enter must not confirm)")
+	}
+	if p.status != StatusConfirming {
+		t.Errorf("after enter: status = %v, want StatusConfirming (still awaiting y/n)", p.status)
+	}
+	if len(svc.ApplyCalls) != 0 {
+		t.Errorf("after enter: apply called %d times, want 0", len(svc.ApplyCalls))
 	}
 }
 

@@ -254,7 +254,7 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	case StatusConfirming:
 		switch msg.String() {
-		case "y", "Y", "enter":
+		case "y", "Y":
 			return e.Confirm()
 		case "n", "N", "esc":
 			e.Abort()
