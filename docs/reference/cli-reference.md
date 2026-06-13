@@ -68,15 +68,20 @@ Run terraform apply. Opens the apply plugin TUI.
 ```bash
 tfui apply                          # TUI: shows confirmation, then progress
 tfui apply -auto-approve           # TUI: skips confirmation, shows progress
-tfui apply -ci                     # No TUI: apply immediately
+tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
 ```
 
+Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires
+`-auto-approve`. The confirmation prompt is a TUI-only gate, so without a way to
+answer it tfui errors out instead of applying — apply never runs unconfirmed.
+
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
 | Standalone | "Apply complete." or JSON | TUI (alt-screen) | 0/1 |
-| CI | "Apply complete." or JSON | — | 0/1 |
+| CI (`-auto-approve`) | "Apply complete." or JSON | — | 0/1 |
+| CI (no `-auto-approve`) | — | confirmation-required error | 1 |
 
 ### `tfui state`
 

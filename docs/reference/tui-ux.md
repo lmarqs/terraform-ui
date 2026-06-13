@@ -674,11 +674,10 @@ Activate → Form (home state)
 |---------|-------|-----------|
 | `↓` | `j` | vim convention |
 | `↑` | `k` | vim convention |
-| `Enter` | `y`/`Y` | explicit "yes" in confirmations |
 
 ### Rules
 
-- `Enter` always means inspect or confirm — never overloaded
+- `Enter` always means inspect or confirm a **selection** — never overloaded. It does NOT answer y/n confirmations: those require an explicit `y`/`Y` (`ConfirmFrame` / `InputConfirm`), so a destructive prompt can't be dismissed by a stray `Enter`.
 - `Space` always means pin — never overloaded
 - Aliases are never shown in hints (only primary is shown)
 - Free keys should not be claimed without updating this map

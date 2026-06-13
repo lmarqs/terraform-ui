@@ -38,10 +38,15 @@ The Apply screen adds:
 | Key | Action | Context |
 |-----|--------|---------|
 | `Enter` | Start apply (shows confirmation) | Idle |
-| `y` / `Enter` | Confirm and execute | Confirming |
+| `y` / `Y` | Confirm and execute | Confirming |
 | `n` / `Esc` | Cancel | Confirming |
 | `r` | Retry after failure | Error |
 | `Esc` / `q` | Back to home | Always |
+
+Confirmation requires an explicit `y`/`Y` — `Enter` does **not** confirm. This
+matches the project-wide confirmation convention (`ConfirmFrame` / `InputConfirm`)
+and prevents the `Enter` that launched `tfui apply` from leaking into the TUI and
+auto-confirming a destructive apply.
 
 ### Flow
 
@@ -66,11 +71,12 @@ When pinned resources exist, apply does NOT use the saved plan file directly (te
 tfui plan -project ./infra
 tfui apply -project ./infra
 
-# Auto-approve: skip confirmation (CI pipelines)
+# Auto-approve: skip confirmation (required for non-interactive apply)
 tfui apply -project ./infra -auto-approve
 
-# Silent: no animation
-tfui apply -project ./infra -ci
+# Silent: no animation. Non-interactive apply requires -auto-approve —
+# without it there is no prompt to answer, so tfui errors out.
+tfui apply -project ./infra -ci -auto-approve
 
 # NDJSON events (terraform-compatible)
 tfui apply -project ./infra -json
