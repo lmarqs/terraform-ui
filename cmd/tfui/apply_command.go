@@ -42,5 +42,5 @@ func requireApplyConfirmable(s *Session, autoApprove bool) error {
 	if autoApprove || s.macro.Active() || !s.SilentStderr() {
 		return nil
 	}
-	return fmt.Errorf("Apply not allowed for non-interactive use.\n\nThe apply command requires interactive approval of the plan. To run apply in an automated environment, use the -auto-approve flag.")
+	return fmt.Errorf("apply not allowed for non-interactive use\n\nThe apply command requires interactive approval of the plan. To run apply in an automated environment, use the -auto-approve flag")
 }
