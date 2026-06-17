@@ -674,10 +674,11 @@ Activate → Form (home state)
 |---------|-------|-----------|
 | `↓` | `j` | vim convention |
 | `↑` | `k` | vim convention |
+| `Enter` | `y`/`Y` | explicit "yes" in confirmations |
 
 ### Rules
 
-- `Enter` confirms: it inspects/selects, and in the apply confirmation it answers **yes** (parity: `Enter` = yes, `Esc` = no). Note the divergence — the reusable `ConfirmFrame` / `InputConfirm` primitives are stricter and require an explicit `y`/`Y` (they ignore `Enter`).
+- `Enter` confirms: it inspects/selects, and answers **yes** in y/n confirmations. All confirmations share one key set — confirm = `y`/`Y`/`Enter`, cancel = `n`/`N`/`Esc` — honored uniformly by `ConfirmFrame`, `InputConfirm`, and the apply prompt.
 - `Space` always means pin — never overloaded
 - Aliases are never shown in hints (only primary is shown)
 - Free keys should not be claimed without updating this map

@@ -39,6 +39,22 @@ func TestConfirmFrame_UpperY(t *testing.T) {
 	}
 }
 
+func TestConfirmFrame_EnterConfirms(t *testing.T) {
+	called := false
+	f := NewConfirmFrame("Delete?", func() tea.Cmd {
+		called = true
+		return nil
+	}, nil)
+
+	result, _ := f.Update(keyMsg("enter"))
+	if result != nil {
+		t.Fatal("enter should pop confirm frame")
+	}
+	if !called {
+		t.Fatal("enter should call onYes (parity with y/Y)")
+	}
+}
+
 func TestConfirmFrame_NoCallsHandler(t *testing.T) {
 	noCalled := false
 	f := NewConfirmFrame("Delete?", func() tea.Cmd { return nil }, func() tea.Cmd {
@@ -74,7 +90,7 @@ func TestConfirmFrame_EscCancels(t *testing.T) {
 func TestConfirmFrame_OtherKeysIgnored(t *testing.T) {
 	f := NewConfirmFrame("Delete?", func() tea.Cmd { return nil }, nil)
 
-	otherKeys := []string{"a", "i", "d", "enter", " ", "r", "q"}
+	otherKeys := []string{"a", "i", "d", " ", "r", "q"}
 	for _, key := range otherKeys {
 		result, _ := f.Update(keyMsg(key))
 		if result == nil {
