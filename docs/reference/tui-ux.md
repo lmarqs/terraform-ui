@@ -677,7 +677,7 @@ Activate → Form (home state)
 
 ### Rules
 
-- `Enter` always means inspect or confirm a **selection** — never overloaded. It does NOT answer y/n confirmations: those require an explicit `y`/`Y` (`ConfirmFrame` / `InputConfirm`), so a destructive prompt can't be dismissed by a stray `Enter`.
+- `Enter` always means inspect or confirm a **selection** — never overloaded. It never *approves* a y/n confirmation: approval requires an explicit `y`/`Y` (`ConfirmFrame` / `InputConfirm`). A handler may treat `Enter` as cancel for parity with `Esc` (e.g. apply), but never as approve — so a destructive prompt can't be accepted by a stray `Enter`.
 - `Space` always means pin — never overloaded
 - Aliases are never shown in hints (only primary is shown)
 - Free keys should not be claimed without updating this map

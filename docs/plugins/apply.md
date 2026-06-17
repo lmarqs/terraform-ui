@@ -39,14 +39,14 @@ The Apply screen adds:
 |-----|--------|---------|
 | `Enter` | Start apply (shows confirmation) | Idle |
 | `y` / `Y` | Confirm and execute | Confirming |
-| `n` / `Esc` | Cancel | Confirming |
+| `n` / `Esc` / `Enter` | Cancel | Confirming |
 | `r` | Retry after failure | Error |
 | `Esc` / `q` | Back to home | Always |
 
-Confirmation requires an explicit `y`/`Y` — `Enter` does **not** confirm. This
-matches the project-wide confirmation convention (`ConfirmFrame` / `InputConfirm`)
-and prevents the `Enter` that launched `tfui apply` from leaking into the TUI and
-auto-confirming a destructive apply.
+Confirmation requires an explicit `y`/`Y`. `Enter` has **parity with `Esc`** — it
+cancels, never confirms. This prevents the `Enter` that launched `tfui apply` from
+leaking into the TUI and auto-confirming a destructive apply; a stray `Enter`
+safely backs out instead.
 
 ### Flow
 

@@ -256,7 +256,10 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		switch msg.String() {
 		case "y", "Y":
 			return e.Confirm()
-		case "n", "N", "esc":
+		// enter has parity with esc: it cancels, never confirms. The enter that
+		// launches `tfui apply` can leak into the TUI, so it must back out, not
+		// approve a destructive apply.
+		case "n", "N", "esc", "enter":
 			e.Abort()
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		}
