@@ -245,12 +245,9 @@ func TestUpdate_WhenUpperYInConfirming_ShouldStartApply(t *testing.T) {
 	}
 }
 
-// Enter must NOT confirm a destructive apply: the Enter keystroke that launches
-// `tfui apply` leaks into the alt-screen TUI, and accepting it would auto-apply
-// without the user ever seeing the prompt. Confirmation requires an explicit
-// affirmative key (y/Y). For Enter/Esc parity, Enter cancels exactly like Esc —
-// a stray Enter safely backs out instead of confirming.
-func TestUpdate_WhenEnterInConfirming_ShouldAbortLikeEsc(t *testing.T) {
+// Enter/Esc parity: Enter confirms the apply (yes), mirroring y/Y, while Esc
+// cancels (no).
+func TestUpdate_WhenEnterInConfirming_ShouldStartApply(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Init(sdktest.NewDeps(svc).Deps)
@@ -258,13 +255,10 @@ func TestUpdate_WhenEnterInConfirming_ShouldAbortLikeEsc(t *testing.T) {
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Error("after enter in confirming: cmd = nil, want DeactivateMsg (parity with esc)")
+		t.Error("after enter in confirming: cmd = nil, want non-nil (enter confirms like y)")
 	}
-	if p.status != sdk.StatusIdle {
-		t.Errorf("after enter: status = %v, want sdk.StatusIdle (cancelled like esc)", p.status)
-	}
-	if len(svc.ApplyCalls) != 0 {
-		t.Errorf("after enter: apply called %d times, want 0 (enter must never confirm)", len(svc.ApplyCalls))
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after enter: status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 

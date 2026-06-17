@@ -38,15 +38,12 @@ The Apply screen adds:
 | Key | Action | Context |
 |-----|--------|---------|
 | `Enter` | Start apply (shows confirmation) | Idle |
-| `y` / `Y` | Confirm and execute | Confirming |
-| `n` / `Esc` / `Enter` | Cancel | Confirming |
+| `y` / `Y` / `Enter` | Confirm and execute | Confirming |
+| `n` / `Esc` | Cancel | Confirming |
 | `r` | Retry after failure | Error |
 | `Esc` / `q` | Back to home | Always |
 
-Confirmation requires an explicit `y`/`Y`. `Enter` has **parity with `Esc`** — it
-cancels, never confirms. This prevents the `Enter` that launched `tfui apply` from
-leaking into the TUI and auto-confirming a destructive apply; a stray `Enter`
-safely backs out instead.
+Enter/Esc parity: `Enter` confirms (yes), `Esc` cancels (no).
 
 ### Flow
 
