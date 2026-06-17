@@ -34,8 +34,8 @@ Mark resources for recreation on next apply. Standalone verb plugin -- mirrors `
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `y` | Confirm taint | Confirming |
-| `n` / `Esc` | Cancel and return | Confirming |
+| `y` / `Y` / `Enter` | Confirm taint | Confirming |
+| `n` / `N` / `Esc` | Cancel and return | Confirming |
 | `p` | Navigate to plan | Done |
 | `Esc` | Back to previous plugin | Any |
 | `ctrl+r` | Retry | Error |

@@ -39,7 +39,7 @@ The Apply screen adds:
 |-----|--------|---------|
 | `Enter` | Start apply (shows confirmation) | Idle |
 | `y` / `Y` / `Enter` | Confirm and execute | Confirming |
-| `n` / `Esc` | Cancel | Confirming |
+| `n` / `N` / `Esc` | Cancel | Confirming |
 | `r` | Retry after failure | Error |
 | `Esc` / `q` | Back to home | Always |
 

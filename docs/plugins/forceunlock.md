@@ -25,8 +25,8 @@ Remove a stale terraform state lock. Access via `:forceunlock` from the command 
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `y` | Confirm unlock | Confirming |
-| `n` / `Esc` | Cancel and return | Confirming |
+| `y` / `Y` / `Enter` | Confirm unlock | Confirming |
+| `n` / `N` / `Esc` | Cancel and return | Confirming |
 | `ctrl+r` | Retry | Error |
 | `q` / `Esc` | Back to previous plugin | Always |
 
