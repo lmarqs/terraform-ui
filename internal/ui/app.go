@@ -535,9 +535,9 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if a.inputActive {
 		switch a.inputMode {
 		case sdk.InputRequestBool:
-			// Confirmation mode: only handle y/n/esc
+			// Confirmation mode: confirm on y/Y/enter, cancel on n/N/esc.
 			switch msg.String() {
-			case "y":
+			case "y", "Y", "enter":
 				if a.inputCallback != nil {
 					cmd := a.inputCallback("y")
 					a.inputActive = false
@@ -547,7 +547,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 					a.inputCallback = nil
 					return a, cmd
 				}
-			case "n", "esc":
+			case "n", "N", "esc":
 				a.inputActive = false
 				a.inputMode = 0
 				a.inputPrompt = ""

@@ -34,8 +34,8 @@ Remove taint mark from resources to prevent forced recreation. Standalone verb p
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `y` | Confirm untaint | Confirming |
-| `n` / `Esc` | Cancel and return | Confirming |
+| `y` / `Y` / `Enter` | Confirm untaint | Confirming |
+| `n` / `N` / `Esc` | Cancel and return | Confirming |
 | `p` | Navigate to plan | Done |
 | `Esc` | Back to previous plugin | Any |
 | `ctrl+r` | Retry | Error |

@@ -678,7 +678,7 @@ Activate → Form (home state)
 
 ### Rules
 
-- `Enter` always means inspect or confirm — never overloaded
+- `Enter` confirms: it inspects/selects, and answers **yes** in y/n confirmations. All confirmations share one key set — confirm = `y`/`Y`/`Enter`, cancel = `n`/`N`/`Esc` — honored uniformly by `ConfirmFrame`, `InputConfirm`, and the apply prompt.
 - `Space` always means pin — never overloaded
 - Aliases are never shown in hints (only primary is shown)
 - Free keys should not be claimed without updating this map

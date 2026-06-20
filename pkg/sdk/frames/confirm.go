@@ -8,7 +8,8 @@ import (
 )
 
 // ConfirmFrame displays a y/n confirmation prompt and consumes all input
-// except y, n, and esc. This prevents accidental actions while confirming.
+// except the confirm keys (y/Y/enter) and cancel keys (n/N/esc). This prevents
+// accidental actions while confirming.
 type ConfirmFrame struct {
 	Prompt string
 	onYes  func() tea.Cmd
@@ -33,7 +34,7 @@ func (f *ConfirmFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	}
 
 	switch keyMsg.String() {
-	case "y", "Y":
+	case "y", "Y", "enter":
 		if f.onYes != nil {
 			return nil, f.onYes()
 		}

@@ -38,10 +38,12 @@ The Apply screen adds:
 | Key | Action | Context |
 |-----|--------|---------|
 | `Enter` | Start apply (shows confirmation) | Idle |
-| `y` / `Enter` | Confirm and execute | Confirming |
-| `n` / `Esc` | Cancel | Confirming |
+| `y` / `Y` / `Enter` | Confirm and execute | Confirming |
+| `n` / `N` / `Esc` | Cancel | Confirming |
 | `r` | Retry after failure | Error |
 | `Esc` / `q` | Back to home | Always |
+
+Enter/Esc parity: `Enter` confirms (yes), `Esc` cancels (no).
 
 ### Flow
 
@@ -66,11 +68,13 @@ When pinned resources exist, apply does NOT use the saved plan file directly (te
 tfui plan -project ./infra
 tfui apply -project ./infra
 
-# Auto-approve: skip confirmation (CI pipelines)
+# Auto-approve: skip confirmation (required for non-interactive apply)
 tfui apply -project ./infra -auto-approve
 
-# Silent: no animation
-tfui apply -project ./infra -ci
+# Silent: no animation. Mirrors terraform — non-interactive apply without a
+# plan file requires -auto-approve, else "Apply not allowed for non-interactive
+# use" (exit 1), exactly as `terraform apply` behaves with no TTY.
+tfui apply -project ./infra -ci -auto-approve
 
 # NDJSON events (terraform-compatible)
 tfui apply -project ./infra -json

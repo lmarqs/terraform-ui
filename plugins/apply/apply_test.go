@@ -245,14 +245,20 @@ func TestUpdate_WhenUpperYInConfirming_ShouldStartApply(t *testing.T) {
 	}
 }
 
+// Enter/Esc parity: Enter confirms the apply (yes), mirroring y/Y, while Esc
+// cancels (no).
 func TestUpdate_WhenEnterInConfirming_ShouldStartApply(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = StatusConfirming
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Error("after enter in confirming: cmd = nil, want non-nil")
+		t.Error("after enter in confirming: cmd = nil, want non-nil (enter confirms like y)")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("after enter: status = %v, want sdk.StatusLoading", p.status)
 	}
 }
 

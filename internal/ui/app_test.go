@@ -2052,6 +2052,48 @@ func TestApp_HandleKey_WhenInputActiveBool_ShouldIgnoreOtherKeys(t *testing.T) {
 	}
 }
 
+func TestApp_HandleKey_WhenInputActiveBool_ShouldConfirmOnEnterAndUpperY(t *testing.T) {
+	for _, key := range []tea.KeyMsg{
+		{Type: tea.KeyEnter},
+		{Type: tea.KeyRunes, Runes: []rune{'Y'}},
+	} {
+		app := setupTestApp()
+		callbackAnswer := ""
+		app.inputActive = true
+		app.inputMode = sdk.InputRequestBool
+		app.inputPrompt = "Confirm?"
+		app.inputCallback = func(answer string) tea.Cmd {
+			callbackAnswer = answer
+			return nil
+		}
+
+		model, _ := app.Update(key)
+		updated := model.(App)
+
+		if callbackAnswer != "y" {
+			t.Errorf("key %v: callback answer = %q, want %q", key, callbackAnswer, "y")
+		}
+		if updated.inputActive {
+			t.Errorf("key %v: inputActive should be false after confirm", key)
+		}
+	}
+}
+
+func TestApp_HandleKey_WhenInputActiveBool_ShouldCancelOnUpperN(t *testing.T) {
+	app := setupTestApp()
+	app.inputActive = true
+	app.inputMode = sdk.InputRequestBool
+	app.inputPrompt = "Confirm?"
+	app.inputCallback = func(answer string) tea.Cmd { return nil }
+
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'N'}})
+	updated := model.(App)
+
+	if updated.inputActive {
+		t.Error("inputActive should be false after N")
+	}
+}
+
 func TestApp_HandleKey_WhenInputActiveText_ShouldHandleEnter(t *testing.T) {
 	app := setupTestApp()
 	callbackAnswer := ""

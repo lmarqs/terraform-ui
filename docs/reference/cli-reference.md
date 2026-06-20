@@ -68,15 +68,21 @@ Run terraform apply. Opens the apply plugin TUI.
 ```bash
 tfui apply                          # TUI: shows confirmation, then progress
 tfui apply -auto-approve           # TUI: skips confirmation, shows progress
-tfui apply -ci                     # No TUI: apply immediately
+tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
 ```
 
+Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires
+`-auto-approve` — exactly as `terraform apply` does. With no plan file and no
+TTY to approve from, tfui reproduces terraform's own error, "Apply not allowed
+for non-interactive use" (exit 1), rather than applying unconfirmed.
+
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
 | Standalone | "Apply complete." or JSON | TUI (alt-screen) | 0/1 |
-| CI | "Apply complete." or JSON | — | 0/1 |
+| CI (`-auto-approve`) | "Apply complete." or JSON | — | 0/1 |
+| CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
 
 ### `tfui state`
 

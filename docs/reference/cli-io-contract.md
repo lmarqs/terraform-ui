@@ -71,8 +71,9 @@ otherwise:           → Standalone TUI mode
 |---------|--------|--------|------|
 | `tfui plan -ci` | Tree view | — | 0/2 |
 | `tfui plan -ci -json` | Plan JSON | — | 0/2 |
-| `tfui apply -ci` | "Apply complete." | — | 0/1 |
-| `tfui apply -ci -json` | `{"status":"complete"}` | — | 0/1 |
+| `tfui apply -ci -auto-approve` | "Apply complete." | — | 0/1 |
+| `tfui apply -ci -auto-approve -json` | `{"status":"complete"}` | — | 0/1 |
+| `tfui apply -ci` (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" (mirrors terraform) | 1 |
 | `tfui state -ci` | Addresses (one/line) | — | 0 |
 | `tfui validate -ci` | Diagnostics text | — | 0/1 |
 | `tfui validate -ci -json` | Diagnostics JSON | — | 0/1 |

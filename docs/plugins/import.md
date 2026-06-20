@@ -32,8 +32,10 @@ Import existing infrastructure into terraform state. Standalone verb plugin -- m
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `Enter` | Submit form / confirm | Form / Confirming |
+| `Enter` | Submit form | Form |
 | `Tab` | Next field | Form |
+| `y` / `Y` / `Enter` | Confirm import | Confirming |
+| `n` / `N` / `Esc` | Cancel and return | Confirming |
 | `Esc` | Cancel and return | Any |
 | `p` | Navigate to plan | Done |
 | `ctrl+r` | Retry | Error |

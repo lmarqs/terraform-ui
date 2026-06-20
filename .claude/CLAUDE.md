@@ -169,11 +169,3 @@ CRITICAL: tfui is a UI layer, not a terraform validator. **Never invent behavior
 **The rule:** pass through to terraform, warn when helpful (stderr), never block. If terraform rejects it, the user sees terraform's error — that's fine. Don't duplicate terraform's validation.
 
 **Test corollary:** tests must exercise real behavior through the harness, not bypass Init to test impossible states.
-
-## Learnings
-
-When encountering undocumented patterns or decisions that caused rework, suggest additions to this section.
-
-- 2025-05: Terraform does NOT support `-target` with a saved plan file. In the TUI pipeline, apply consumes only a plan file (ADR-0019). The standalone CLI path passes `-target` directly.
-- 2025-05: Apply plugin is NOT on the home menu — only reachable via plan's `a` key. Confirmation is owned by apply (single confirm), not plan.
-- 2025-05: `returnTo` is set both by `NavPush` metadata AND workflow transitions (plan→apply). All esc/cancel paths in sub-state plugins must emit `DeactivateMsg`.
