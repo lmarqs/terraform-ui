@@ -1,3 +1,18 @@
+# [1.15.0](https://github.com/lmarqs/terraform-ui/compare/v1.14.0...v1.15.0) (2026-06-20)
+
+
+### Bug Fixes
+
+* **apply:** Enter confirms apply (Enter/Esc parity = yes/no) ([5cddbfe](https://github.com/lmarqs/terraform-ui/commit/5cddbfe0782108690c667fb319ff10e11e5f00d3))
+* **apply:** give Enter parity with Esc in apply confirmation ([b316d46](https://github.com/lmarqs/terraform-ui/commit/b316d46c0be142193521fa0e0a6bea5678eb6c58))
+* **apply:** never apply without explicit confirmation ([f38a939](https://github.com/lmarqs/terraform-ui/commit/f38a9394f13efa69559708677f06e8db4e12cdd8))
+* **apply:** satisfy staticcheck ST1005 on non-interactive error ([a0b60bb](https://github.com/lmarqs/terraform-ui/commit/a0b60bb8e9b1d219a6ee3ee8d1a99e2688635ed8))
+
+
+### Features
+
+* **sdk:** unify confirmation keys to y/Y/Enter + n/N/Esc ([ddfe716](https://github.com/lmarqs/terraform-ui/commit/ddfe7160b449ec69297e697bbeccc51d2855d248))
+
 # [1.14.0](https://github.com/lmarqs/terraform-ui/compare/v1.13.0...v1.14.0) (2026-06-12)
 
 
