@@ -40,10 +40,7 @@ brew install lmarqs/tap/tfui
 go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 
 # Or via mise
-```toml
-[tools]
-"github:lmarqs/terraform-ui" = { version = "<version>", exe = "tfui" }
-```
+mise use github:lmarqs/terraform-ui
 
 # Launch interactive TUI
 cd my-terraform-project
@@ -80,20 +77,11 @@ sudo mv tfui /usr/local/bin/
 
 ### mise
 
-Add to your project's `mise.toml`:
-
-```toml
-[tools]
-"github:lmarqs/terraform-ui" = { version = "latest", exe = "tfui", extract_all = "true", bin_path = "bin" }
-```
-
-Then run:
-
 ```bash
-mise install
+mise use github:lmarqs/terraform-ui
 ```
 
-To pin a specific version, replace `"latest"` with a version number (e.g. `"1.4.0"`). The latest version is in the [`VERSION`](VERSION) file and on the [releases page](https://github.com/lmarqs/terraform-ui/releases).
+This adds the tool to your `mise.toml` and installs it. To pin a specific version, append `@<version>` (e.g. `mise use github:lmarqs/terraform-ui@1.4.0`). The latest version is in the [`VERSION`](VERSION) file and on the [releases page](https://github.com/lmarqs/terraform-ui/releases).
 
 ## Features
 
