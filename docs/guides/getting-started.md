@@ -19,6 +19,9 @@ brew install lmarqs/tap/tfui
 # Go install
 go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 
+# mise
+mise use github:lmarqs/terraform-ui
+
 # Or download binary from GitHub Releases
 ```
 

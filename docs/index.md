@@ -138,6 +138,9 @@ brew install lmarqs/tap/tfui
 # Go install
 go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 
+# mise
+mise use github:lmarqs/terraform-ui
+
 # Binary download
 curl -sL https://github.com/lmarqs/terraform-ui/releases/latest/download/tfui_linux_amd64.tar.gz | tar xz
 sudo mv tfui /usr/local/bin/
