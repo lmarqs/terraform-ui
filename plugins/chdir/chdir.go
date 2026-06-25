@@ -48,6 +48,11 @@ func (p *Plugin) Activate() tea.Cmd {
 		p.selected = true
 		return nil
 	}
+	// A lone member needs no choice — including the implicit "." injected when
+	// tfui.hcl declares no members. Auto-select it and skip the picker.
+	if len(p.members) == 1 {
+		return p.selectAt(0)
+	}
 	p.stack.Clear()
 	p.stack.Push(&listFrame{plugin: p})
 	return nil
@@ -67,11 +72,11 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (p *Plugin) selectMember() tea.Cmd {
-	if len(p.members) == 0 {
-		return nil
-	}
-	idx := p.cursor.Pos()
-	if idx >= len(p.members) {
+	return p.selectAt(p.cursor.Pos())
+}
+
+func (p *Plugin) selectAt(idx int) tea.Cmd {
+	if idx < 0 || idx >= len(p.members) {
 		return nil
 	}
 

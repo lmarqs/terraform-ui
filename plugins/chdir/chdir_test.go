@@ -60,6 +60,34 @@ func TestPlugin_WhenMembers_ShouldNotBeReadyUntilSelection(t *testing.T) {
 	}
 }
 
+func TestPlugin_WhenSingleMember_ShouldAutoSelect(t *testing.T) {
+	p := New(nil).(*Plugin)
+	p.SetMembers([]string{"modules/vpc"})
+	cmd := p.Activate()
+
+	if p.stack.Depth() != 0 {
+		t.Errorf("stack depth = %d, want 0 (no picker for a single member)", p.stack.Depth())
+	}
+	if !p.Ready() {
+		t.Error("Ready() = false, want true after auto-selecting the lone member")
+	}
+	if cmd == nil {
+		t.Fatal("Activate() returned nil cmd, want ContextSwitchRequestMsg")
+	}
+
+	msg := cmd()
+	req, ok := msg.(sdk.ContextSwitchRequestMsg)
+	if !ok {
+		t.Fatalf("cmd() returned %T, want sdk.ContextSwitchRequestMsg", msg)
+	}
+	if req.Chdir != "modules/vpc" {
+		t.Errorf("req.Chdir = %q, want modules/vpc", req.Chdir)
+	}
+	if req.Workspace != "default" {
+		t.Errorf("req.Workspace = %q, want default", req.Workspace)
+	}
+}
+
 func TestPlugin_WhenEnterPressed_ShouldEmitContextSwitchRequest(t *testing.T) {
 	p := New(nil).(*Plugin)
 	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
@@ -143,7 +171,7 @@ func TestPlugin_WhenNavigateWithUpKey_ShouldMoveCursorUp(t *testing.T) {
 
 func TestPlugin_EscPopsFrame(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"})
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	if p.stack.Depth() != 1 {
@@ -159,7 +187,7 @@ func TestPlugin_EscPopsFrame(t *testing.T) {
 
 func TestPlugin_WhenNonKeyMsg_ShouldReturnFrameUnchanged(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"})
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	type customMsg struct{}
@@ -204,7 +232,7 @@ func TestPlugin_View_WhenMembersEmpty_ShouldRenderEmptyMessage(t *testing.T) {
 
 func TestPlugin_Hints_ShouldIncludeEnterAndBack(t *testing.T) {
 	p := New(nil).(*Plugin)
-	p.SetMembers([]string{"modules/vpc"})
+	p.SetMembers([]string{"modules/vpc", "modules/ecs"})
 	p.Activate()
 
 	hints := p.stack.Hints()
