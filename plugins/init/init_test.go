@@ -228,11 +228,10 @@ func TestPlugin_WhenSubmitFromForm_ShouldEmitInitSubmitMsg(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenEditExtraArgs_ShouldEmitRequestInputMsg(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	cmd := p.editExtraArgs()
+func TestPlugin_WhenEditText_ShouldEmitRequestInputMsg(t *testing.T) {
+	cmd := editText("lock-timeout", "", func(string) {})
 	if cmd == nil {
-		t.Fatal("editExtraArgs() = nil")
+		t.Fatal("editText() = nil")
 	}
 	msg := cmd()
 	if _, ok := msg.(sdk.RequestInputMsg); !ok {
@@ -301,11 +300,16 @@ func TestPlugin_WhenSubmitWithBackendTrue_ShouldLeaveBackendNil(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenSubmitWithExtraArgs_ShouldSplitFields(t *testing.T) {
+func TestPlugin_WhenSubmitWithTypedOptions_ShouldForwardAll(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Activate(Input{})
-	p.extraArgs = "-lock=false -input=false"
+	p.forceCopy = true
+	p.get = false
+	p.lock = false
+	p.lockTimeout = "30s"
+	p.fromModule = "./template"
+	p.pluginDir = []string{"/plugins"}
 	_, cmd := p.Update(initSubmitMsg{})
 	if cmd != nil {
 		msgs := executeBatch(cmd)
@@ -317,27 +321,59 @@ func TestPlugin_WhenSubmitWithExtraArgs_ShouldSplitFields(t *testing.T) {
 	if len(svc.InitCalls) == 0 {
 		t.Fatal("Init should have been called")
 	}
-	if len(svc.InitCalls[0].ExtraArgs) != 2 {
-		t.Fatalf("ExtraArgs len = %d, want 2", len(svc.InitCalls[0].ExtraArgs))
+	got := svc.InitCalls[0]
+	if !got.ForceCopy {
+		t.Error("ForceCopy should be true")
 	}
-	if svc.InitCalls[0].ExtraArgs[0] != "-lock=false" {
-		t.Errorf("ExtraArgs[0] = %q, want %q", svc.InitCalls[0].ExtraArgs[0], "-lock=false")
+	if got.Get == nil || *got.Get {
+		t.Errorf("Get = %v, want pointer to false", got.Get)
+	}
+	if got.Lock == nil || *got.Lock {
+		t.Errorf("Lock = %v, want pointer to false", got.Lock)
+	}
+	if got.LockTimeout != "30s" {
+		t.Errorf("LockTimeout = %q, want %q", got.LockTimeout, "30s")
+	}
+	if got.FromModule != "./template" {
+		t.Errorf("FromModule = %q, want %q", got.FromModule, "./template")
+	}
+	if len(got.PluginDir) != 1 || got.PluginDir[0] != "/plugins" {
+		t.Errorf("PluginDir = %v, want [/plugins]", got.PluginDir)
 	}
 }
 
-func TestPlugin_WhenExtraArgsDisplayEmpty_ShouldReturnNone(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.extraArgs = ""
-	if got := p.extraArgsDisplay(); got != "(none)" {
-		t.Errorf("extraArgsDisplay() = %q, want %q", got, "(none)")
+func TestPlugin_WhenSubmitWithDefaults_ShouldSendGetLockTrue(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Activate(Input{})
+	_, cmd := p.Update(initSubmitMsg{})
+	if cmd != nil {
+		for _, msg := range executeBatch(cmd) {
+			p.Update(msg)
+		}
+	}
+
+	if len(svc.InitCalls) == 0 {
+		t.Fatal("Init should have been called")
+	}
+	got := svc.InitCalls[0]
+	if got.Get == nil || !*got.Get {
+		t.Errorf("Get = %v, want pointer to true (terraform default)", got.Get)
+	}
+	if got.Lock == nil || !*got.Lock {
+		t.Errorf("Lock = %v, want pointer to true (terraform default)", got.Lock)
 	}
 }
 
-func TestPlugin_WhenExtraArgsDisplaySet_ShouldReturnValue(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.extraArgs = "-lock=false"
-	if got := p.extraArgsDisplay(); got != "-lock=false" {
-		t.Errorf("extraArgsDisplay() = %q, want %q", got, "-lock=false")
+func TestDisplay_WhenEmpty_ShouldReturnNone(t *testing.T) {
+	if got := display(""); got != "(none)" {
+		t.Errorf("display(\"\") = %q, want %q", got, "(none)")
+	}
+}
+
+func TestDisplay_WhenSet_ShouldReturnValue(t *testing.T) {
+	if got := display("30s"); got != "30s" {
+		t.Errorf("display(\"30s\") = %q, want %q", got, "30s")
 	}
 }
 
@@ -533,38 +569,37 @@ func TestPlugin_WhenUpdateInitResultMsgWithNoTopFrame_ShouldReturnNil(t *testing
 	}
 }
 
-func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
+func TestPlugin_WhenSpaceOnUpgradeField_ShouldToggleUpgrade(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.upgrade = false
 	p.Activate(Input{})
 
-	// Form is on top of stack with cursor on first selectable field (upgrade)
-	// Press enter to invoke OnSelect
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// Cursor starts on the first toggle (upgrade); Space flips it.
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if !p.upgrade {
-		t.Error("expected upgrade=true after pressing enter on upgrade field")
+		t.Error("expected upgrade=true after pressing space on upgrade field")
 	}
 
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if p.upgrade {
-		t.Error("expected upgrade=false after second press on upgrade field")
+		t.Error("expected upgrade=false after second space on upgrade field")
 	}
 }
 
-func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
+func TestPlugin_WhenSpaceOnReconfigureField_ShouldToggle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.reconfigure = false
 	p.Activate(Input{})
 
 	// Move down to reconfigure field
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if !p.reconfigure {
-		t.Error("expected reconfigure=true after pressing enter on reconfigure field")
+		t.Error("expected reconfigure=true after pressing space on reconfigure field")
 	}
 }
 
-func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
+func TestPlugin_WhenSpaceOnBackendField_ShouldToggle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.backend = true
 	p.Activate(Input{})
@@ -572,47 +607,95 @@ func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
 	// Move down to backend field (3rd selectable)
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if p.backend {
-		t.Error("expected backend=false after pressing enter on backend field")
+		t.Error("expected backend=false after pressing space on backend field")
 	}
 }
 
-func TestPlugin_WhenFormFieldExtraArgsSelected_ShouldEmitInputRequest(t *testing.T) {
+func TestPlugin_WhenEnterOnCheckbox_ShouldSubmitForm(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.upgrade = false
+	p.Activate(Input{})
+
+	// Enter confirms the form from any field: it runs init, never toggles.
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if p.upgrade {
+		t.Error("enter on a checkbox must not toggle it")
+	}
+	if cmd == nil {
+		t.Fatal("enter on a checkbox should submit the form")
+	}
+	if _, ok := cmd().(initSubmitMsg); !ok {
+		t.Errorf("enter should emit initSubmitMsg, got %T", cmd())
+	}
+}
+
+func TestPlugin_WhenSpaceOnTextField_ShouldEmitInputRequest(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate(Input{})
 
-	// Move down to extra args field (4th selectable)
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	if cmd == nil {
-		t.Fatal("expected non-nil cmd for extra args field selection")
+	// Move down past the 6 toggle fields to the first text field (lock-timeout).
+	for i := 0; i < 6; i++ {
+		p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	}
-	msg := cmd()
-	if _, ok := msg.(sdk.RequestInputMsg); !ok {
-		t.Errorf("expected RequestInputMsg, got %T", msg)
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd == nil {
+		t.Fatal("expected non-nil cmd for space on text field")
+	}
+	if _, ok := cmd().(sdk.RequestInputMsg); !ok {
+		t.Errorf("expected RequestInputMsg, got %T", cmd())
 	}
 }
 
-func TestPlugin_WhenEditExtraArgsCallback_ShouldStoreValue(t *testing.T) {
+func TestPlugin_WhenTextFieldCallback_ShouldStoreValue(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.extraArgs = ""
+	field := textField("lock-timeout", &p.lockTimeout)
 
-	cmd := p.editExtraArgs()
-	msg := cmd()
-	reqMsg, ok := msg.(sdk.RequestInputMsg)
+	cmd := field.OnSpace()
+	reqMsg, ok := cmd().(sdk.RequestInputMsg)
 	if !ok {
-		t.Fatalf("editExtraArgs cmd returned %T, want RequestInputMsg", msg)
+		t.Fatalf("textField OnSpace returned %T, want RequestInputMsg", cmd())
 	}
-
-	result := reqMsg.Request.Callback("-lock=false")
-	if result != nil {
+	if result := reqMsg.Request.Callback("30s"); result != nil {
 		t.Error("callback should return nil cmd")
 	}
-	if p.extraArgs != "-lock=false" {
-		t.Errorf("extraArgs = %q, want %q", p.extraArgs, "-lock=false")
+	if p.lockTimeout != "30s" {
+		t.Errorf("lockTimeout = %q, want %q", p.lockTimeout, "30s")
+	}
+}
+
+func TestPlugin_WhenListFieldCallback_ShouldSplitAndStore(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	field := listField("plugin-dir", &p.pluginDir)
+
+	reqMsg := field.OnSpace()().(sdk.RequestInputMsg)
+	reqMsg.Request.Callback("/a /b")
+	if len(p.pluginDir) != 2 || p.pluginDir[0] != "/a" || p.pluginDir[1] != "/b" {
+		t.Errorf("pluginDir = %v, want [/a /b]", p.pluginDir)
+	}
+
+	// Clearing the field resets the slice to nil.
+	reqMsg.Request.Callback("   ")
+	if p.pluginDir != nil {
+		t.Errorf("pluginDir = %v, want nil after clearing", p.pluginDir)
+	}
+}
+
+func TestPlugin_WhenEnterOnTextField_ShouldSubmitNotEdit(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Activate(Input{})
+
+	// Enter on a text field confirms the form rather than opening the editor.
+	for i := 0; i < 6; i++ {
+		p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
+	}
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on text field should submit the form")
+	}
+	if _, ok := cmd().(initSubmitMsg); !ok {
+		t.Errorf("enter should emit initSubmitMsg, got %T", cmd())
 	}
 }
 
@@ -839,8 +922,13 @@ func TestActivate_ShouldResetPreviousState(t *testing.T) {
 	p.upgrade = true
 	p.reconfigure = true
 	p.backend = false
+	p.get = false
+	p.lock = false
+	p.forceCopy = true
+	p.lockTimeout = "30s"
+	p.fromModule = "./old"
+	p.pluginDir = []string{"/old"}
 	p.backendConfigs = []string{"old"}
-	p.extraArgs = "old args"
 
 	p.Activate(Input{Upgrade: true})
 
@@ -853,11 +941,26 @@ func TestActivate_ShouldResetPreviousState(t *testing.T) {
 	if !p.backend {
 		t.Error("backend should be reset to true (default)")
 	}
+	if !p.get {
+		t.Error("get should be reset to true (default)")
+	}
+	if !p.lock {
+		t.Error("lock should be reset to true (default)")
+	}
+	if p.forceCopy {
+		t.Error("forceCopy should be reset to false")
+	}
+	if p.lockTimeout != "" {
+		t.Errorf("lockTimeout should be reset, got %q", p.lockTimeout)
+	}
+	if p.fromModule != "" {
+		t.Errorf("fromModule should be reset, got %q", p.fromModule)
+	}
+	if len(p.pluginDir) != 0 {
+		t.Errorf("pluginDir should be reset, got %v", p.pluginDir)
+	}
 	if len(p.backendConfigs) != 0 {
 		t.Errorf("backendConfigs should be reset, got %v", p.backendConfigs)
-	}
-	if p.extraArgs != "" {
-		t.Errorf("extraArgs should be reset, got %q", p.extraArgs)
 	}
 }
 

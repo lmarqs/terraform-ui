@@ -301,6 +301,24 @@ func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 	for _, bc := range opts.BackendConfig {
 		initOpts = append(initOpts, tfexec.BackendConfig(bc))
 	}
+	if opts.ForceCopy {
+		initOpts = append(initOpts, tfexec.ForceCopy(true))
+	}
+	if opts.Get != nil {
+		initOpts = append(initOpts, tfexec.Get(*opts.Get))
+	}
+	if opts.Lock != nil {
+		initOpts = append(initOpts, tfexec.Lock(*opts.Lock))
+	}
+	if opts.LockTimeout != "" {
+		initOpts = append(initOpts, tfexec.LockTimeout(opts.LockTimeout))
+	}
+	if opts.FromModule != "" {
+		initOpts = append(initOpts, tfexec.FromModule(opts.FromModule))
+	}
+	for _, dir := range opts.PluginDir {
+		initOpts = append(initOpts, tfexec.PluginDir(dir))
+	}
 
 	if err := tf.Init(ctx, initOpts...); err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "init", "error", err.Error(), "duration", time.Since(start).String())
