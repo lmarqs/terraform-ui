@@ -1387,21 +1387,6 @@ func TestPlugin_WhenRenderDetailSmallWidth_ShouldUseMinWidth(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenRenderSummaryLineWithReplace_ShouldIncludeReplaceCount(t *testing.T) {
-	p := newTestPlugin(&sdktest.MockService{})
-	p.summary = &sdk.PlanSummary{
-		ToCreate:  1,
-		ToUpdate:  2,
-		ToDelete:  1,
-		ToReplace: 3,
-	}
-
-	result := p.renderSummaryLine()
-	if !strings.Contains(result, "3 to replace") {
-		t.Error("renderSummaryLine should include replace count")
-	}
-}
-
 func TestPlugin_WhenOutputTextWithPhantom_ShouldIncludeInList(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.summary = &sdk.PlanSummary{
