@@ -766,7 +766,7 @@ func (e *Plugin) renderResults(width, height int) string {
 		Rows:         rows,
 	})
 
-	summary := e.renderSummaryLine()
+	summary := e.summary.SummaryLine()
 	riskLine := e.renderOverallRisk()
 
 	content := filterLine + treeContent + "\n\n" + summary
@@ -862,28 +862,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 	}
 
 	return address + pinIndicator + scrollInfo + "\n\n" + detail + ui.RenderActionsBar(actions, width)
-}
-
-func (e *Plugin) renderSummaryLine() string {
-	s := e.summary
-	parts := []string{}
-	if s.ToCreate > 0 {
-		parts = append(parts, sdk.StyleCreate.Render(fmt.Sprintf("%d to add", s.ToCreate)))
-	}
-	if s.ToUpdate > 0 {
-		parts = append(parts, sdk.StyleUpdate.Render(fmt.Sprintf("%d to change", s.ToUpdate)))
-	}
-	if s.ToDelete > 0 {
-		parts = append(parts, sdk.StyleDelete.Render(fmt.Sprintf("%d to destroy", s.ToDelete)))
-	}
-	if s.ToReplace > 0 {
-		parts = append(parts, sdk.StyleReplace.Render(fmt.Sprintf("%d to replace", s.ToReplace)))
-	}
-
-	if len(parts) == 0 {
-		return sdk.StyleFaint.Render("Plan: no changes")
-	}
-	return "Plan: " + strings.Join(parts, ", ")
 }
 
 func (e *Plugin) renderOverallRisk() string {

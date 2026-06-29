@@ -985,20 +985,6 @@ func TestView_WhenPlanning_ShouldShowPlanningState(t *testing.T) {
 	}
 }
 
-func TestRenderSummaryLine_GivenActionCounts_ShouldRenderEachKind(t *testing.T) {
-	all := renderSummaryLine(&sdk.PlanSummary{ToCreate: 1, ToUpdate: 2, ToDelete: 3, ToReplace: 4})
-	for _, want := range []string{"1 to add", "2 to change", "3 to destroy", "4 to replace"} {
-		if !strings.Contains(all, want) {
-			t.Errorf("summary line %q missing %q", all, want)
-		}
-	}
-
-	none := renderSummaryLine(&sdk.PlanSummary{})
-	if !strings.Contains(none, "no changes") {
-		t.Errorf("empty summary line = %q, want 'no changes'", none)
-	}
-}
-
 func collectPlanPreview(t *testing.T, cmd tea.Cmd) planPreviewMsg {
 	t.Helper()
 	done := make(chan planPreviewMsg, 1)

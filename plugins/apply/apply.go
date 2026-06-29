@@ -438,35 +438,13 @@ func (e *Plugin) renderConfirmation(_, _ int) string {
 	// populates this; in the TUI pipeline the plan plugin already rendered the
 	// full diff, so summary is nil and only the prompt is shown.
 	if e.summary != nil {
-		b.WriteString(renderSummaryLine(e.summary))
+		b.WriteString(e.summary.SummaryLine())
 		b.WriteString("\n\n")
 	}
 	header := sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
 	detail := sdk.StyleFaint.Render("This will modify your infrastructure.")
 	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
 	return b.String() + header + "\n" + detail + "\n\n" + prompt
-}
-
-// renderSummaryLine formats the plan's action counts, mirroring the plan
-// plugin's summary line styling.
-func renderSummaryLine(s *sdk.PlanSummary) string {
-	parts := []string{}
-	if s.ToCreate > 0 {
-		parts = append(parts, sdk.StyleCreate.Render(fmt.Sprintf("%d to add", s.ToCreate)))
-	}
-	if s.ToUpdate > 0 {
-		parts = append(parts, sdk.StyleUpdate.Render(fmt.Sprintf("%d to change", s.ToUpdate)))
-	}
-	if s.ToDelete > 0 {
-		parts = append(parts, sdk.StyleDelete.Render(fmt.Sprintf("%d to destroy", s.ToDelete)))
-	}
-	if s.ToReplace > 0 {
-		parts = append(parts, sdk.StyleReplace.Render(fmt.Sprintf("%d to replace", s.ToReplace)))
-	}
-	if len(parts) == 0 {
-		return sdk.StyleFaint.Render("Plan: no changes")
-	}
-	return "Plan: " + strings.Join(parts, ", ")
 }
 
 // ExitCode returns the process exit code: 1 if the apply failed, 0 otherwise.

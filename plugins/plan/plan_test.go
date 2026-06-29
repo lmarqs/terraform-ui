@@ -748,17 +748,6 @@ func TestViewDefaultStatus(t *testing.T) {
 	}
 }
 
-func TestRenderSummaryLineAllZero(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
-	p.summary = &sdk.PlanSummary{}
-
-	result := p.renderSummaryLine()
-	if result == "" {
-		t.Error("renderSummaryLine with all zero returned empty string")
-	}
-}
-
 func TestRenderOverallRisk(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
