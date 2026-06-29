@@ -785,15 +785,248 @@ func TestActivate_WhenAutoApprove_ShouldStartApplyImmediately(t *testing.T) {
 	}
 }
 
-func TestActivate_WhenNoAutoApprove_ShouldEnterConfirming(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
+// Standalone CLI apply (no plan file staged, no auto-approve) must show the
+// changes before confirming: it enters StatusPlanning and runs a plan first,
+// mirroring terraform's own `terraform apply` flow.
+func TestActivate_WhenNoAutoApproveAndNoPlanFile_ShouldPreviewPlanFirst(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	cmd := p.Activate(Input{})
+	if cmd == nil {
+		t.Fatal("Activate(empty) cmd = nil, want non-nil (plan preview)")
+	}
+	if p.status != StatusPlanning {
+		t.Errorf("status = %v, want StatusPlanning", p.status)
+	}
+	if p.IsConfirming() {
+		t.Error("IsConfirming() = true before changes are shown, want false")
+	}
+}
+
+// TUI pipeline path: the plan plugin already showed the diff and staged a plan
+// file, so apply goes straight to the confirmation.
+func TestActivate_WhenPlanFileStaged_ShouldEnterConfirming(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	p.SetPlanFile("/tmp/staged.tfplan")
+	cmd := p.Activate(Input{})
 	if cmd != nil {
-		t.Errorf("Activate(empty) cmd = %v, want nil", cmd)
+		t.Errorf("Activate(staged plan) cmd = %v, want nil", cmd)
 	}
 	if p.status != StatusConfirming {
 		t.Errorf("status = %v, want StatusConfirming", p.status)
+	}
+}
+
+func TestPreviewPlan_WhenChangesPresent_ShouldEnterConfirmingWithSummary(t *testing.T) {
+	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{{}}, ToCreate: 1}
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return summary, nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	p.PreviewPlan()
+	result, _ := p.Update(planPreviewMsg{Summary: summary})
+	updated := result.(*Plugin)
+
+	if updated.status != StatusConfirming {
+		t.Errorf("status = %v, want StatusConfirming after preview with changes", updated.status)
+	}
+	if updated.summary != summary {
+		t.Error("summary not stored after preview")
+	}
+	view := updated.View(80, 24)
+	if !strings.Contains(view, "1 to add") {
+		t.Errorf("confirmation view should show the plan summary, got %q", view)
+	}
+}
+
+func TestPreviewPlan_WhenNoChanges_ShouldFinishWithoutConfirming(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	p.PreviewPlan()
+	result, _ := p.Update(planPreviewMsg{Summary: &sdk.PlanSummary{}})
+	updated := result.(*Plugin)
+
+	if updated.status != sdk.StatusDone {
+		t.Errorf("status = %v, want StatusDone when plan has no changes", updated.status)
+	}
+	view := updated.View(80, 24)
+	if !strings.Contains(view, "No changes") {
+		t.Errorf("view should report no changes, got %q", view)
+	}
+	if updated.ExitCode() != 0 {
+		t.Errorf("ExitCode() = %d, want 0 for no-changes apply", updated.ExitCode())
+	}
+}
+
+func TestPreviewPlan_WhenPlanFails_ShouldTransitionToError(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	p.PreviewPlan()
+	result, _ := p.Update(planPreviewMsg{Err: errors.New("plan boom")})
+	updated := result.(*Plugin)
+
+	if updated.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError when preview plan fails", updated.status)
+	}
+	if updated.errMsg != "plan boom" {
+		t.Errorf("errMsg = %q, want %q", updated.errMsg, "plan boom")
+	}
+}
+
+func TestRunPlanPreview_WhenTargetsProvided_ShouldPassThroughToPlan(t *testing.T) {
+	var got sdk.PlanOptions
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			got = opts
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.input = Input{Targets: []string{"aws_instance.web"}}
+
+	cmd := p.runPlanPreview()
+	collectPlanPreview(t, cmd)
+
+	if len(got.Targets) != 1 || got.Targets[0] != "aws_instance.web" {
+		t.Errorf("PlanOptions.Targets = %v, want [aws_instance.web]", got.Targets)
+	}
+	if got.PlanFile == "" {
+		t.Error("preview plan should write to a temp plan file, got empty PlanFile")
+	}
+}
+
+func TestBusy_WhenPlanning_ShouldReturnTrue(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusPlanning
+	if !p.Busy() {
+		t.Error("Busy() = false while planning, want true (terraform plan in flight)")
+	}
+}
+
+func TestHints_WhenPlanning_ShouldReturnCancel(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusPlanning
+
+	hints := p.Hints()
+	if len(hints) == 0 {
+		t.Fatal("Hints() returned empty slice while planning")
+	}
+	if hints[0].Key != "Esc" {
+		t.Errorf("Hints()[0].Key = %q, want Esc", hints[0].Key)
+	}
+}
+
+func TestHints_WhenConfirmingWithLastStream_ShouldIncludeLHint(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusConfirming
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("test", ch, nil)
+
+	hints := p.Hints()
+	hasL := false
+	for _, h := range hints {
+		if h.Key == "l" {
+			hasL = true
+		}
+	}
+	if !hasL {
+		t.Error("Hints() when confirming with lastStream should include 'l' hint")
+	}
+}
+
+func TestHandleKey_WhenConfirmingAndLKey_ShouldPushLastStream(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusConfirming
+	lw, ch := frames.NewLineWriter()
+	lw.Close()
+	p.lastStream = frames.NewStreamFrame("test", ch, nil)
+	depthBefore := p.stack.Depth()
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore+1 {
+		t.Errorf("stack depth = %d, want %d after l key in confirming", p.stack.Depth(), depthBefore+1)
+	}
+}
+
+func TestHandleKey_WhenConfirmingAndLKey_NoLastStream_ShouldDoNothing(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusConfirming
+	depthBefore := p.stack.Depth()
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore {
+		t.Errorf("stack depth changed without lastStream; got %d, want %d", p.stack.Depth(), depthBefore)
+	}
+}
+
+func TestView_WhenPlanning_ShouldShowPlanningState(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = StatusPlanning
+	p.timer.Start()
+
+	view := p.View(80, 24)
+	if !strings.Contains(view, "Planning") {
+		t.Errorf("view should indicate planning changes, got %q", view)
+	}
+}
+
+func TestRenderSummaryLine_GivenActionCounts_ShouldRenderEachKind(t *testing.T) {
+	all := renderSummaryLine(&sdk.PlanSummary{ToCreate: 1, ToUpdate: 2, ToDelete: 3, ToReplace: 4})
+	for _, want := range []string{"1 to add", "2 to change", "3 to destroy", "4 to replace"} {
+		if !strings.Contains(all, want) {
+			t.Errorf("summary line %q missing %q", all, want)
+		}
+	}
+
+	none := renderSummaryLine(&sdk.PlanSummary{})
+	if !strings.Contains(none, "no changes") {
+		t.Errorf("empty summary line = %q, want 'no changes'", none)
+	}
+}
+
+func collectPlanPreview(t *testing.T, cmd tea.Cmd) planPreviewMsg {
+	t.Helper()
+	done := make(chan planPreviewMsg, 1)
+	var run func(c tea.Cmd)
+	run = func(c tea.Cmd) {
+		go func() {
+			msg := c()
+			if r, ok := msg.(planPreviewMsg); ok {
+				select {
+				case done <- r:
+				default:
+				}
+				return
+			}
+			if batch, ok := msg.(tea.BatchMsg); ok {
+				for _, sub := range batch {
+					run(sub)
+				}
+			}
+		}()
+	}
+	run(cmd)
+	select {
+	case r := <-done:
+		return r
+	case <-time.After(2 * time.Second):
+		t.Fatal("runPlanPreview did not produce planPreviewMsg")
+		return planPreviewMsg{}
 	}
 }
 

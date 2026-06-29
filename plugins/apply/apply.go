@@ -1,10 +1,17 @@
 // Package apply runs terraform apply in two modes:
 //   - Plan-file mode (TUI flow): consumes a plan artifact from the plan plugin (ADR-0019).
-//   - Auto-plan mode (CLI standalone): targets provided directly, terraform plans+applies in one shot.
+//     The plan plugin already rendered the diff, so apply goes straight to confirmation.
+//   - Auto-plan mode (CLI standalone): runs a plan first and streams the pending changes
+//     so the user can review them before confirming, then terraform plans+applies in one
+//     shot (with any --target flags). --auto-approve skips both the review and the prompt.
 package apply
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -17,10 +24,21 @@ import (
 // before the plan file is applied.
 const StatusConfirming = sdk.Status(10)
 
+// StatusPlanning is the apply-specific state where a plan runs before the
+// confirmation prompt, so the standalone CLI user sees the pending changes
+// before approving them (terraform's own `terraform apply` flow).
+const StatusPlanning = sdk.Status(11)
+
 // ApplyResultMsg is sent when apply completes.
 type ApplyResultMsg struct {
 	Err      error
 	Duration time.Duration
+}
+
+// planPreviewMsg carries the result of the pre-confirmation plan run.
+type planPreviewMsg struct {
+	Summary *sdk.PlanSummary
+	Err     error
 }
 
 // Plugin implements the terraform apply feature.
@@ -32,6 +50,8 @@ type Plugin struct {
 	confirmed  bool
 	input      Input
 	planFile   string
+	summary    *sdk.PlanSummary
+	noChanges  bool
 	cancelFn   context.CancelFunc
 	stack      *sdk.Stack
 	lastStream *frames.StreamFrame
@@ -53,7 +73,9 @@ func (e *Plugin) Ready() bool            { return e.status == sdk.StatusDone }
 func (e *Plugin) Status() sdk.Status     { return e.status }
 func (e *Plugin) Elapsed() time.Duration { return e.timer.Elapsed() }
 func (e *Plugin) IsConfirming() bool     { return e.status == StatusConfirming }
-func (e *Plugin) Busy() bool             { return e.status == sdk.StatusLoading }
+func (e *Plugin) Busy() bool {
+	return e.status == sdk.StatusLoading || e.status == StatusPlanning
+}
 
 // SetPlanFile stages the plan artifact that the next RequestApply / AutoApply
 // will consume. Called by the app when routing ApplyRequestMsg from plan.
@@ -71,13 +93,17 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	switch e.status {
 	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
-	case sdk.StatusLoading:
+	case sdk.StatusLoading, StatusPlanning:
 		return sdk.HintSetCancel.Hints()
 	case StatusConfirming:
-		return []sdk.KeyHint{
+		hints := []sdk.KeyHint{
 			{Key: "y/n", Description: "confirm"},
 			sdk.HintCancel,
 		}
+		if e.lastStream != nil {
+			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
+		}
+		return hints
 	case sdk.StatusDone:
 		hints := (sdk.HintSetRefresh | sdk.HintSetCancel).Hints()
 		if e.lastStream != nil {
@@ -121,6 +147,8 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	e.HandleContextChangedDefault(ev)
 	e.planFile = ""
 	e.confirmed = false
+	e.summary = nil
+	e.noChanges = false
 	e.status = sdk.StatusIdle
 	e.errMsg = ""
 	return nil
@@ -134,6 +162,14 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 	if input.AutoApprove {
 		return e.AutoApply()
 	}
+	// Standalone CLI apply: no plan artifact was staged by the plan plugin, so
+	// run a plan first and stream the changes before asking for confirmation —
+	// the same review-then-approve flow terraform itself uses. The TUI pipeline
+	// path (plan → a) already showed the diff and arrives with a staged plan
+	// file, so it goes straight to the confirmation.
+	if e.planFile == "" {
+		return e.PreviewPlan()
+	}
 	return e.RequestApply()
 }
 
@@ -144,6 +180,57 @@ func (e *Plugin) RequestApply() tea.Cmd {
 	e.errMsg = ""
 	e.status = StatusConfirming
 	return nil
+}
+
+// PreviewPlan runs a plan and streams its output so the user can review the
+// pending changes before confirming the apply. Used by the standalone CLI path.
+func (e *Plugin) PreviewPlan() tea.Cmd {
+	e.confirmed = false
+	e.errMsg = ""
+	e.summary = nil
+	e.noChanges = false
+	e.status = StatusPlanning
+	return tea.Batch(e.runPlanPreview(), e.timer.Start())
+}
+
+func (e *Plugin) runPlanPreview() tea.Cmd {
+	e.Cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	e.cancelFn = cancel
+
+	lw, ch := frames.NewLineWriter()
+	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
+	e.lastStream = sf
+	e.stack.Clear()
+	e.stack.Push(sf)
+
+	svc := e.Svc
+	var opts sdk.PlanOptions
+	if e.GetCtx != nil {
+		opts = e.GetCtx().PlanOptions()
+	}
+	opts.Targets = e.input.Targets
+	// The preview plan is shown, not applied: terraform forbids re-specifying
+	// plan-time inputs (vars, var-files) when applying a saved plan, so the
+	// confirmed apply re-plans in one shot rather than consuming this file.
+	// Write to a temp artifact and drop it once the summary has been read.
+	plan := sdk.NewTempPlanFile(tempPlanPath())
+	opts.PlanFile = plan.Path()
+	opts.Writer = lw
+
+	return tea.Batch(
+		func() tea.Msg {
+			summary, err := svc.Plan(ctx, opts)
+			lw.Close()
+			plan.Cleanup()
+			return planPreviewMsg{Summary: summary, Err: err}
+		},
+		frames.WaitForLine(ch),
+	)
+}
+
+func tempPlanPath() string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("tfui-apply-%d-%d.tfplan", os.Getpid(), time.Now().UnixNano()))
 }
 
 // AutoApply skips confirmation and begins apply immediately.
@@ -219,6 +306,24 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case planPreviewMsg:
+		e.timer.Stop()
+		e.stack.Reset()
+		if msg.Err != nil {
+			e.status = sdk.StatusError
+			e.errMsg = msg.Err.Error()
+			return e, nil
+		}
+		e.summary = msg.Summary
+		if msg.Summary == nil || len(msg.Summary.Changes) == 0 {
+			// Nothing to apply — mirror terraform's "No changes" outcome.
+			e.noChanges = true
+			e.status = sdk.StatusDone
+			return e, nil
+		}
+		e.status = StatusConfirming
+		return e, nil
+
 	case ApplyResultMsg:
 		e.timer.Stop()
 		e.stack.Reset()
@@ -260,6 +365,11 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "n", "N", "esc":
 			e.Abort()
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
+		case "l":
+			// Re-open the streamed plan to review the full diff before deciding.
+			if e.lastStream != nil {
+				e.stack.Push(e.lastStream)
+			}
 		}
 	case sdk.StatusDone:
 		switch msg.String() {
@@ -297,6 +407,9 @@ func (e *Plugin) View(width, height int) string {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run plan first, then apply changes here.")
 
+	case StatusPlanning:
+		return sdk.StyleFaintItalic.Render("Planning changes... " + e.timer.FormatElapsed())
+
 	case StatusConfirming:
 		return e.renderConfirmation(width, height)
 
@@ -304,6 +417,9 @@ func (e *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Applying changes... " + e.timer.FormatElapsed())
 
 	case sdk.StatusDone:
+		if e.noChanges {
+			return sdk.StyleSuccess.Render("No changes. Your infrastructure matches the configuration.")
+		}
 		success := sdk.StyleSuccess.Render("Apply complete! Resources are up-to-date.")
 		duration := sdk.StyleFaint.Render("Duration: " + e.timer.FormatElapsed())
 		return success + "\n" + duration
@@ -317,10 +433,40 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderConfirmation(_, _ int) string {
+	var b strings.Builder
+	// Show the changes being approved. In the standalone path the preview plan
+	// populates this; in the TUI pipeline the plan plugin already rendered the
+	// full diff, so summary is nil and only the prompt is shown.
+	if e.summary != nil {
+		b.WriteString(renderSummaryLine(e.summary))
+		b.WriteString("\n\n")
+	}
 	header := sdk.StyleRiskHigh.Render("Are you sure you want to apply these changes?")
 	detail := sdk.StyleFaint.Render("This will modify your infrastructure.")
 	prompt := sdk.StyleKey.Render("[y]es") + " / " + sdk.StyleFaint.Render("[n]o")
-	return header + "\n" + detail + "\n\n" + prompt
+	return b.String() + header + "\n" + detail + "\n\n" + prompt
+}
+
+// renderSummaryLine formats the plan's action counts, mirroring the plan
+// plugin's summary line styling.
+func renderSummaryLine(s *sdk.PlanSummary) string {
+	parts := []string{}
+	if s.ToCreate > 0 {
+		parts = append(parts, sdk.StyleCreate.Render(fmt.Sprintf("%d to add", s.ToCreate)))
+	}
+	if s.ToUpdate > 0 {
+		parts = append(parts, sdk.StyleUpdate.Render(fmt.Sprintf("%d to change", s.ToUpdate)))
+	}
+	if s.ToDelete > 0 {
+		parts = append(parts, sdk.StyleDelete.Render(fmt.Sprintf("%d to destroy", s.ToDelete)))
+	}
+	if s.ToReplace > 0 {
+		parts = append(parts, sdk.StyleReplace.Render(fmt.Sprintf("%d to replace", s.ToReplace)))
+	}
+	if len(parts) == 0 {
+		return sdk.StyleFaint.Render("Plan: no changes")
+	}
+	return "Plan: " + strings.Join(parts, ", ")
 }
 
 // ExitCode returns the process exit code: 1 if the apply failed, 0 otherwise.

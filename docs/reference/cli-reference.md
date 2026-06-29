@@ -66,12 +66,17 @@ Exit code 2 = changes present (terraform-compatible).
 Run terraform apply. Opens the apply plugin TUI.
 
 ```bash
-tfui apply                          # TUI: shows confirmation, then progress
-tfui apply -auto-approve           # TUI: skips confirmation, shows progress
+tfui apply                          # TUI: shows the plan, then confirmation, then progress
+tfui apply -auto-approve           # TUI: skips plan review + confirmation, shows progress
 tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
 ```
+
+Standalone `tfui apply` runs a plan and streams the pending changes first, then
+asks for confirmation — the same review-then-approve flow as `terraform apply`.
+`-auto-approve` skips both the review and the prompt. (In the TUI pipeline the
+plan plugin already showed the diff, so `a` goes straight to the confirmation.)
 
 Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires
 `-auto-approve` — exactly as `terraform apply` does. With no plan file and no
