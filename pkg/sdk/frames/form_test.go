@@ -439,11 +439,11 @@ func TestFormFrame_View_WhenMultipleActions_ShouldNotInsertExtraBlankLines(t *te
 	}
 }
 
-func TestFormFrame_WhenSpaceOnToggle_ShouldCallOnSelect(t *testing.T) {
+func TestFormFrame_WhenSpaceOnToggleField_ShouldCallOnToggle(t *testing.T) {
 	called := false
 	f := NewFormFrame(FormOpts{
 		Fields: []FormField{
-			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, Toggle: true, OnSelect: func() tea.Cmd {
+			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, OnToggle: func() tea.Cmd {
 				called = true
 				return nil
 			}},
@@ -455,11 +455,32 @@ func TestFormFrame_WhenSpaceOnToggle_ShouldCallOnSelect(t *testing.T) {
 		t.Fatal("space should not pop form frame")
 	}
 	if !called {
-		t.Fatal("space on toggle field should call OnSelect")
+		t.Fatal("space on toggle field should call OnToggle")
 	}
 }
 
-func TestFormFrame_WhenSpaceOnNonToggle_ShouldDoNothing(t *testing.T) {
+func TestFormFrame_WhenEnterOnToggleOnlyField_ShouldDoNothing(t *testing.T) {
+	called := false
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, OnToggle: func() tea.Cmd {
+				called = true
+				return nil
+			}},
+		},
+	})
+
+	// Enter and Space are independent: Enter must not invoke a toggle-only field.
+	result, cmd := f.Update(keyMsg("enter"))
+	if result != f {
+		t.Fatal("enter on toggle-only field should return same frame")
+	}
+	if cmd != nil || called {
+		t.Fatal("enter on toggle-only field should be inert")
+	}
+}
+
+func TestFormFrame_WhenSpaceOnSelectOnlyField_ShouldDoNothing(t *testing.T) {
 	called := false
 	f := NewFormFrame(FormOpts{
 		Fields: []FormField{
@@ -472,23 +493,23 @@ func TestFormFrame_WhenSpaceOnNonToggle_ShouldDoNothing(t *testing.T) {
 
 	result, cmd := f.Update(keyMsg(" "))
 	if result != f {
-		t.Fatal("space on non-toggle field should return same frame")
+		t.Fatal("space on select-only field should return same frame")
 	}
 	if cmd != nil || called {
-		t.Fatal("space on non-toggle field should be inert")
+		t.Fatal("space on select-only field should be inert")
 	}
 }
 
-func TestFormFrame_Hints_WhenFocusedOnToggle_ShouldShowToggle(t *testing.T) {
+func TestFormFrame_Hints_WhenFocusedOnToggleOnly_ShouldShowToggleNotSelect(t *testing.T) {
 	f := NewFormFrame(FormOpts{
 		Fields: []FormField{
-			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, Toggle: true},
+			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, OnToggle: func() tea.Cmd { return nil }},
 		},
 	})
 
 	hints := f.Hints()
 	if len(hints) != 3 {
-		t.Fatalf("expected 3 hints, got %d", len(hints))
+		t.Fatalf("expected 3 hints (navigate, toggle, cancel), got %d: %v", len(hints), hints)
 	}
 	if hints[1].Key != "Space" || hints[1].Description != "toggle" {
 		t.Fatalf("expected Space toggle hint, got %v", hints[1])

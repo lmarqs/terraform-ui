@@ -569,38 +569,37 @@ func TestPlugin_WhenUpdateInitResultMsgWithNoTopFrame_ShouldReturnNil(t *testing
 	}
 }
 
-func TestPlugin_WhenFormFieldUpgradeSelected_ShouldToggleUpgrade(t *testing.T) {
+func TestPlugin_WhenSpaceOnUpgradeField_ShouldToggleUpgrade(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.upgrade = false
 	p.Activate(Input{})
 
-	// Form is on top of stack with cursor on first selectable field (upgrade)
-	// Press enter to invoke OnSelect
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// Cursor starts on the first toggle (upgrade); Space flips it.
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if !p.upgrade {
-		t.Error("expected upgrade=true after pressing enter on upgrade field")
+		t.Error("expected upgrade=true after pressing space on upgrade field")
 	}
 
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if p.upgrade {
-		t.Error("expected upgrade=false after second press on upgrade field")
+		t.Error("expected upgrade=false after second space on upgrade field")
 	}
 }
 
-func TestPlugin_WhenFormFieldReconfigureSelected_ShouldToggle(t *testing.T) {
+func TestPlugin_WhenSpaceOnReconfigureField_ShouldToggle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.reconfigure = false
 	p.Activate(Input{})
 
 	// Move down to reconfigure field
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if !p.reconfigure {
-		t.Error("expected reconfigure=true after pressing enter on reconfigure field")
+		t.Error("expected reconfigure=true after pressing space on reconfigure field")
 	}
 }
 
-func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
+func TestPlugin_WhenSpaceOnBackendField_ShouldToggle(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.backend = true
 	p.Activate(Input{})
@@ -608,9 +607,21 @@ func TestPlugin_WhenFormFieldBackendSelected_ShouldToggle(t *testing.T) {
 	// Move down to backend field (3rd selectable)
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if p.backend {
-		t.Error("expected backend=false after pressing enter on backend field")
+		t.Error("expected backend=false after pressing space on backend field")
+	}
+}
+
+func TestPlugin_WhenEnterOnCheckbox_ShouldNotToggle(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.upgrade = false
+	p.Activate(Input{})
+
+	// Enter and Space are independent: Enter on a checkbox must not toggle it.
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if p.upgrade {
+		t.Error("expected upgrade unchanged after pressing enter on checkbox field")
 	}
 }
 
@@ -663,18 +674,6 @@ func TestPlugin_WhenListFieldCallback_ShouldSplitAndStore(t *testing.T) {
 	reqMsg.Request.Callback("   ")
 	if p.pluginDir != nil {
 		t.Errorf("pluginDir = %v, want nil after clearing", p.pluginDir)
-	}
-}
-
-func TestPlugin_WhenSpacePressedOnToggle_ShouldFlip(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.upgrade = false
-	p.Activate(Input{})
-
-	// Cursor starts on the first toggle (upgrade); Space flips it.
-	p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
-	if !p.upgrade {
-		t.Error("expected upgrade=true after pressing space on upgrade field")
 	}
 }
 

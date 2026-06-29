@@ -179,15 +179,13 @@ func (p *Plugin) buildForm() *sdkframes.FormFrame {
 	})
 }
 
-// toggleField builds a checkbox form field bound to a boolean. Space (or Enter)
-// flips it.
+// toggleField builds a checkbox form field bound to a boolean. Space flips it.
 func toggleField(label string, v *bool) sdkframes.FormField {
 	return sdkframes.FormField{
 		Label:      label,
 		Value:      func() string { return checkbox(*v) },
 		Selectable: true,
-		Toggle:     true,
-		OnSelect:   func() tea.Cmd { *v = !*v; return nil },
+		OnToggle:   func() tea.Cmd { *v = !*v; return nil },
 	}
 }
 

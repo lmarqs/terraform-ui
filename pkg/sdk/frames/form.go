@@ -14,15 +14,15 @@ type FormField struct {
 	Label string
 	// Value returns the current display value for the field.
 	Value func() string
-	// Selectable indicates whether the user can press Enter to act on this field.
+	// Selectable indicates whether the cursor can land on this field.
 	Selectable bool
 	// IsAction renders the field as a distinct submit button rather than a data field.
 	IsAction bool
-	// Toggle marks a boolean field that can be flipped with Space (in addition
-	// to Enter). Used for checkbox-style options.
-	Toggle bool
-	// OnSelect is called when Enter is pressed on a selectable field.
+	// OnSelect is called when Enter is pressed on this field. Enter = act/submit.
 	OnSelect func() tea.Cmd
+	// OnToggle is called when Space is pressed on this field. Space = toggle.
+	// Enter and Space are independent: a field binds whichever it responds to.
+	OnToggle func() tea.Cmd
 }
 
 // FormOpts configures a FormFrame.
@@ -67,13 +67,12 @@ func (f *FormFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "k", "up":
 		f.moveUp()
 	case "enter":
-		if field, ok := f.focused(); ok && field.Selectable && field.OnSelect != nil {
+		if field, ok := f.focused(); ok && field.OnSelect != nil {
 			return f, field.OnSelect()
 		}
 	case " ":
-		// Space toggles checkbox-style fields; other fields ignore it.
-		if field, ok := f.focused(); ok && field.Toggle && field.OnSelect != nil {
-			return f, field.OnSelect()
+		if field, ok := f.focused(); ok && field.OnToggle != nil {
+			return f, field.OnToggle()
 		}
 	case "esc":
 		return nil, nil
@@ -157,9 +156,12 @@ func (f *FormFrame) renderAction(field FormField, selected bool) string {
 
 func (f *FormFrame) Hints() []sdk.KeyHint {
 	hints := []sdk.KeyHint{{Key: "↑↓", Description: "navigate"}}
-	if field, ok := f.focused(); ok && field.Toggle {
+	field, ok := f.focused()
+	if ok && field.OnToggle != nil {
 		hints = append(hints, sdk.HintToggle)
-	} else {
+	}
+	// Enter is the default action hint; show it unless this field only toggles.
+	if !ok || field.OnSelect != nil || field.OnToggle == nil {
 		hints = append(hints, sdk.HintSelect)
 	}
 	return append(hints, sdk.HintCancel)
