@@ -1,3 +1,10 @@
+## [1.15.1](https://github.com/lmarqs/terraform-ui/compare/v1.15.0...v1.15.1) (2026-06-29)
+
+
+### Bug Fixes
+
+* **apply:** show plan changes before confirming standalone apply ([ccecac1](https://github.com/lmarqs/terraform-ui/commit/ccecac1e310dd644389d95bf6cb694e8681b33a7))
+
 # [1.15.0](https://github.com/lmarqs/terraform-ui/compare/v1.14.0...v1.15.0) (2026-06-20)
 
 
