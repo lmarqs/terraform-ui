@@ -17,7 +17,6 @@ var (
 	HintRetry   = KeyHint{Key: "^r", Description: "retry"}
 	HintFilter  = KeyHint{Key: "/", Description: "filter"}
 	HintPin     = KeyHint{Key: "Space", Description: "pin"}
-	HintToggle  = KeyHint{Key: "Space", Description: "toggle"}
 	HintInspect = KeyHint{Key: "Enter", Description: "inspect"}
 	HintSelect  = KeyHint{Key: "Enter", Description: "select"}
 	HintConfirm = KeyHint{Key: "Enter", Description: "confirm"}

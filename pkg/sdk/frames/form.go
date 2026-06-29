@@ -9,6 +9,11 @@ import (
 )
 
 // FormField represents a single field in a form.
+//
+// Enter and Space are independent keys. Space operates the focused field
+// (toggle a checkbox, open a value editor) via OnSpace. Enter confirms — it
+// runs the field's OnSelect if set, otherwise the form-level OnSubmit. A field
+// binds whichever it responds to.
 type FormField struct {
 	// Label is the field name displayed on the left.
 	Label string
@@ -18,30 +23,42 @@ type FormField struct {
 	Selectable bool
 	// IsAction renders the field as a distinct submit button rather than a data field.
 	IsAction bool
-	// OnSelect is called when Enter is pressed on this field. Enter = act/submit.
+	// OnSelect is called when Enter is pressed on this field (per-field activate,
+	// e.g. opening a picker). When nil, Enter falls back to FormOpts.OnSubmit.
 	OnSelect func() tea.Cmd
-	// OnToggle is called when Space is pressed on this field. Space = toggle.
-	// Enter and Space are independent: a field binds whichever it responds to.
-	OnToggle func() tea.Cmd
+	// OnSpace is called when Space is pressed on this field (operate the field).
+	OnSpace func() tea.Cmd
+	// SpaceHint labels the Space action in the hint bar (e.g. "toggle", "edit").
+	SpaceHint string
 }
 
 // FormOpts configures a FormFrame.
 type FormOpts struct {
 	Fields []FormField
+	// OnSubmit confirms the whole form. Enter triggers it from any field whose
+	// OnSelect is nil, so a settings form runs without navigating to a button.
+	OnSubmit func() tea.Cmd
+	// SubmitHint labels the Enter action in the hint bar when OnSubmit is set
+	// (e.g. "run"). Defaults to "confirm".
+	SubmitHint string
 }
 
 // FormFrame is a reusable frame that renders labeled fields with cursor navigation.
-// Users navigate with j/k and press Enter on selectable fields to trigger actions.
+// Navigate with j/k; Space operates the focused field, Enter confirms the form.
 type FormFrame struct {
-	fields []FormField
-	cursor int
+	fields     []FormField
+	cursor     int
+	onSubmit   func() tea.Cmd
+	submitHint string
 }
 
 // NewFormFrame creates a form frame with the given options.
 func NewFormFrame(opts FormOpts) *FormFrame {
 	f := &FormFrame{
-		fields: opts.Fields,
-		cursor: -1,
+		fields:     opts.Fields,
+		cursor:     -1,
+		onSubmit:   opts.OnSubmit,
+		submitHint: opts.SubmitHint,
 	}
 	// Start cursor at first selectable field
 	for i, field := range f.fields {
@@ -67,12 +84,17 @@ func (f *FormFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "k", "up":
 		f.moveUp()
 	case "enter":
+		// Enter confirms: the field's own action if it has one, else the form.
 		if field, ok := f.focused(); ok && field.OnSelect != nil {
 			return f, field.OnSelect()
 		}
+		if f.onSubmit != nil {
+			return f, f.onSubmit()
+		}
 	case " ":
-		if field, ok := f.focused(); ok && field.OnToggle != nil {
-			return f, field.OnToggle()
+		// Space operates the focused field.
+		if field, ok := f.focused(); ok && field.OnSpace != nil {
+			return f, field.OnSpace()
 		}
 	case "esc":
 		return nil, nil
@@ -156,12 +178,21 @@ func (f *FormFrame) renderAction(field FormField, selected bool) string {
 
 func (f *FormFrame) Hints() []sdk.KeyHint {
 	hints := []sdk.KeyHint{{Key: "↑↓", Description: "navigate"}}
-	field, ok := f.focused()
-	if ok && field.OnToggle != nil {
-		hints = append(hints, sdk.HintToggle)
+	if field, ok := f.focused(); ok && field.OnSpace != nil {
+		desc := field.SpaceHint
+		if desc == "" {
+			desc = "select"
+		}
+		hints = append(hints, sdk.KeyHint{Key: "Space", Description: desc})
 	}
-	// Enter is the default action hint; show it unless this field only toggles.
-	if !ok || field.OnSelect != nil || field.OnToggle == nil {
+	// Enter confirms: a form-level submit ("run"), else per-field select.
+	if f.onSubmit != nil {
+		desc := f.submitHint
+		if desc == "" {
+			desc = "confirm"
+		}
+		hints = append(hints, sdk.KeyHint{Key: "Enter", Description: desc})
+	} else {
 		hints = append(hints, sdk.HintSelect)
 	}
 	return append(hints, sdk.HintCancel)

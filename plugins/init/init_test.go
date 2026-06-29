@@ -613,19 +613,25 @@ func TestPlugin_WhenSpaceOnBackendField_ShouldToggle(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenEnterOnCheckbox_ShouldNotToggle(t *testing.T) {
+func TestPlugin_WhenEnterOnCheckbox_ShouldSubmitForm(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.upgrade = false
 	p.Activate(Input{})
 
-	// Enter and Space are independent: Enter on a checkbox must not toggle it.
-	p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	// Enter confirms the form from any field: it runs init, never toggles.
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if p.upgrade {
-		t.Error("expected upgrade unchanged after pressing enter on checkbox field")
+		t.Error("enter on a checkbox must not toggle it")
+	}
+	if cmd == nil {
+		t.Fatal("enter on a checkbox should submit the form")
+	}
+	if _, ok := cmd().(initSubmitMsg); !ok {
+		t.Errorf("enter should emit initSubmitMsg, got %T", cmd())
 	}
 }
 
-func TestPlugin_WhenFormFieldTextSelected_ShouldEmitInputRequest(t *testing.T) {
+func TestPlugin_WhenSpaceOnTextField_ShouldEmitInputRequest(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate(Input{})
 
@@ -633,13 +639,12 @@ func TestPlugin_WhenFormFieldTextSelected_ShouldEmitInputRequest(t *testing.T) {
 	for i := 0; i < 6; i++ {
 		p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	}
-	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
 	if cmd == nil {
-		t.Fatal("expected non-nil cmd for text field selection")
+		t.Fatal("expected non-nil cmd for space on text field")
 	}
-	msg := cmd()
-	if _, ok := msg.(sdk.RequestInputMsg); !ok {
-		t.Errorf("expected RequestInputMsg, got %T", msg)
+	if _, ok := cmd().(sdk.RequestInputMsg); !ok {
+		t.Errorf("expected RequestInputMsg, got %T", cmd())
 	}
 }
 
@@ -647,10 +652,10 @@ func TestPlugin_WhenTextFieldCallback_ShouldStoreValue(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	field := textField("lock-timeout", &p.lockTimeout)
 
-	cmd := field.OnSelect()
+	cmd := field.OnSpace()
 	reqMsg, ok := cmd().(sdk.RequestInputMsg)
 	if !ok {
-		t.Fatalf("textField OnSelect returned %T, want RequestInputMsg", cmd())
+		t.Fatalf("textField OnSpace returned %T, want RequestInputMsg", cmd())
 	}
 	if result := reqMsg.Request.Callback("30s"); result != nil {
 		t.Error("callback should return nil cmd")
@@ -664,7 +669,7 @@ func TestPlugin_WhenListFieldCallback_ShouldSplitAndStore(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	field := listField("plugin-dir", &p.pluginDir)
 
-	reqMsg := field.OnSelect()().(sdk.RequestInputMsg)
+	reqMsg := field.OnSpace()().(sdk.RequestInputMsg)
 	reqMsg.Request.Callback("/a /b")
 	if len(p.pluginDir) != 2 || p.pluginDir[0] != "/a" || p.pluginDir[1] != "/b" {
 		t.Errorf("pluginDir = %v, want [/a /b]", p.pluginDir)
@@ -677,16 +682,20 @@ func TestPlugin_WhenListFieldCallback_ShouldSplitAndStore(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenSpacePressedOnTextField_ShouldNotEmitInput(t *testing.T) {
+func TestPlugin_WhenEnterOnTextField_ShouldSubmitNotEdit(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate(Input{})
 
-	// Move to the first text field (lock-timeout); Space must not open a prompt.
+	// Enter on a text field confirms the form rather than opening the editor.
 	for i := 0; i < 6; i++ {
 		p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	}
-	if cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace}); cmd != nil {
-		t.Errorf("space on text field should be inert, got cmd %T", cmd())
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if cmd == nil {
+		t.Fatal("enter on text field should submit the form")
+	}
+	if _, ok := cmd().(initSubmitMsg); !ok {
+		t.Errorf("enter should emit initSubmitMsg, got %T", cmd())
 	}
 }
 

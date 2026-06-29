@@ -157,6 +157,9 @@ func (p *Plugin) View(width, height int) string {
 
 func (p *Plugin) buildForm() *sdkframes.FormFrame {
 	return sdkframes.NewFormFrame(sdkframes.FormOpts{
+		// Enter runs init from any field; Space operates the focused field.
+		OnSubmit:   p.submitFromForm,
+		SubmitHint: "run",
 		Fields: []sdkframes.FormField{
 			toggleField("upgrade", &p.upgrade),
 			toggleField("reconfigure", &p.reconfigure),
@@ -173,7 +176,8 @@ func (p *Plugin) buildForm() *sdkframes.FormFrame {
 				Value:      func() string { return "Run terraform init" },
 				Selectable: true,
 				IsAction:   true,
-				OnSelect:   p.submitFromForm,
+				OnSpace:    p.submitFromForm,
+				SpaceHint:  "run",
 			},
 		},
 	})
@@ -185,27 +189,30 @@ func toggleField(label string, v *bool) sdkframes.FormField {
 		Label:      label,
 		Value:      func() string { return checkbox(*v) },
 		Selectable: true,
-		OnToggle:   func() tea.Cmd { *v = !*v; return nil },
+		OnSpace:    func() tea.Cmd { *v = !*v; return nil },
+		SpaceHint:  "toggle",
 	}
 }
 
-// textField builds a form field that opens a text prompt to edit a string.
+// textField builds a form field whose value is edited via a text prompt (Space).
 func textField(label string, v *string) sdkframes.FormField {
 	return sdkframes.FormField{
 		Label:      label,
 		Value:      func() string { return display(*v) },
 		Selectable: true,
-		OnSelect:   func() tea.Cmd { return editText(label, *v, func(s string) { *v = s }) },
+		OnSpace:    func() tea.Cmd { return editText(label, *v, func(s string) { *v = s }) },
+		SpaceHint:  "edit",
 	}
 }
 
-// listField builds a form field that edits a space-separated string slice.
+// listField builds a form field that edits a space-separated string slice (Space).
 func listField(label string, v *[]string) sdkframes.FormField {
 	return sdkframes.FormField{
 		Label:      label,
 		Value:      func() string { return display(strings.Join(*v, " ")) },
 		Selectable: true,
-		OnSelect: func() tea.Cmd {
+		SpaceHint:  "edit",
+		OnSpace: func() tea.Cmd {
 			return editText(label, strings.Join(*v, " "), func(s string) {
 				if fields := strings.Fields(s); len(fields) > 0 {
 					*v = fields
