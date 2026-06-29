@@ -439,6 +439,62 @@ func TestFormFrame_View_WhenMultipleActions_ShouldNotInsertExtraBlankLines(t *te
 	}
 }
 
+func TestFormFrame_WhenSpaceOnToggle_ShouldCallOnSelect(t *testing.T) {
+	called := false
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, Toggle: true, OnSelect: func() tea.Cmd {
+				called = true
+				return nil
+			}},
+		},
+	})
+
+	result, _ := f.Update(keyMsg(" "))
+	if result == nil {
+		t.Fatal("space should not pop form frame")
+	}
+	if !called {
+		t.Fatal("space on toggle field should call OnSelect")
+	}
+}
+
+func TestFormFrame_WhenSpaceOnNonToggle_ShouldDoNothing(t *testing.T) {
+	called := false
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "lock-timeout", Value: func() string { return "(none)" }, Selectable: true, OnSelect: func() tea.Cmd {
+				called = true
+				return nil
+			}},
+		},
+	})
+
+	result, cmd := f.Update(keyMsg(" "))
+	if result != f {
+		t.Fatal("space on non-toggle field should return same frame")
+	}
+	if cmd != nil || called {
+		t.Fatal("space on non-toggle field should be inert")
+	}
+}
+
+func TestFormFrame_Hints_WhenFocusedOnToggle_ShouldShowToggle(t *testing.T) {
+	f := NewFormFrame(FormOpts{
+		Fields: []FormField{
+			{Label: "upgrade", Value: func() string { return "[ ]" }, Selectable: true, Toggle: true},
+		},
+	})
+
+	hints := f.Hints()
+	if len(hints) != 3 {
+		t.Fatalf("expected 3 hints, got %d", len(hints))
+	}
+	if hints[1].Key != "Space" || hints[1].Description != "toggle" {
+		t.Fatalf("expected Space toggle hint, got %v", hints[1])
+	}
+}
+
 func TestFormFrame_Hints(t *testing.T) {
 	f := NewFormFrame(FormOpts{})
 	hints := f.Hints()

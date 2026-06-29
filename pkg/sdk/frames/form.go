@@ -18,6 +18,9 @@ type FormField struct {
 	Selectable bool
 	// IsAction renders the field as a distinct submit button rather than a data field.
 	IsAction bool
+	// Toggle marks a boolean field that can be flipped with Space (in addition
+	// to Enter). Used for checkbox-style options.
+	Toggle bool
 	// OnSelect is called when Enter is pressed on a selectable field.
 	OnSelect func() tea.Cmd
 }
@@ -64,16 +67,26 @@ func (f *FormFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "k", "up":
 		f.moveUp()
 	case "enter":
-		if f.cursor >= 0 && f.cursor < len(f.fields) {
-			field := f.fields[f.cursor]
-			if field.Selectable && field.OnSelect != nil {
-				return f, field.OnSelect()
-			}
+		if field, ok := f.focused(); ok && field.Selectable && field.OnSelect != nil {
+			return f, field.OnSelect()
+		}
+	case " ":
+		// Space toggles checkbox-style fields; other fields ignore it.
+		if field, ok := f.focused(); ok && field.Toggle && field.OnSelect != nil {
+			return f, field.OnSelect()
 		}
 	case "esc":
 		return nil, nil
 	}
 	return f, nil
+}
+
+// focused returns the field under the cursor, if any.
+func (f *FormFrame) focused() (FormField, bool) {
+	if f.cursor >= 0 && f.cursor < len(f.fields) {
+		return f.fields[f.cursor], true
+	}
+	return FormField{}, false
 }
 
 func (f *FormFrame) moveDown() {
@@ -119,7 +132,7 @@ func (f *FormFrame) renderField(field FormField, selected bool) string {
 		cursor = sdk.StyleKey.Render("▸ ")
 	}
 
-	label := sdk.StyleFaint.Render(fmt.Sprintf("%-12s", field.Label))
+	label := sdk.StyleFaint.Render(fmt.Sprintf("%-16s", field.Label))
 
 	value := field.Value()
 	if selected {
@@ -143,9 +156,11 @@ func (f *FormFrame) renderAction(field FormField, selected bool) string {
 }
 
 func (f *FormFrame) Hints() []sdk.KeyHint {
-	return []sdk.KeyHint{
-		{Key: "↑↓", Description: "navigate"},
-		sdk.HintSelect,
-		sdk.HintCancel,
+	hints := []sdk.KeyHint{{Key: "↑↓", Description: "navigate"}}
+	if field, ok := f.focused(); ok && field.Toggle {
+		hints = append(hints, sdk.HintToggle)
+	} else {
+		hints = append(hints, sdk.HintSelect)
 	}
+	return append(hints, sdk.HintCancel)
 }

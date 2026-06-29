@@ -655,12 +655,18 @@ func TestMacroService_WhenShowWithCachedStateAndMissingResource_ShouldReturnErro
 }
 
 func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T) {
+	falsePtr := false
 	opts := sdk.InitOptions{
 		Upgrade:       true,
 		Reconfigure:   true,
 		Backend:       sdk.BackendDisabled,
 		BackendConfig: []string{"key=value", "region=us-east-1"},
-		ExtraArgs:     []string{"-input=false"},
+		ForceCopy:     true,
+		Get:           &falsePtr,
+		Lock:          &falsePtr,
+		LockTimeout:   "30s",
+		FromModule:    "./template",
+		PluginDir:     []string{"/plugins"},
 	}
 
 	flags := buildInitFlags(opts)
@@ -671,7 +677,12 @@ func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T
 		"-backend=false",
 		"-backend-config=key=value",
 		"-backend-config=region=us-east-1",
-		"-input=false",
+		"-force-copy",
+		"-get=false",
+		"-lock=false",
+		"-lock-timeout=30s",
+		"-from-module=./template",
+		"-plugin-dir=/plugins",
 	}
 
 	if len(flags) != len(expected) {
@@ -710,6 +721,18 @@ func TestBuildInitFlags_WhenBackendDefault_ShouldNotIncludeBackendFlag(t *testin
 	}
 }
 
+func TestBuildInitFlags_WhenGetLockTrue_ShouldOmitFlags(t *testing.T) {
+	truePtr := true
+	opts := sdk.InitOptions{Get: &truePtr, Lock: &truePtr}
+
+	flags := buildInitFlags(opts)
+	for _, f := range flags {
+		if f == "-get=false" || f == "-lock=false" {
+			t.Errorf("flags should omit %q when get/lock are true (terraform default)", f)
+		}
+	}
+}
+
 func TestBuildInitFlags_WhenEmpty_ShouldReturnNil(t *testing.T) {
 	flags := buildInitFlags(sdk.InitOptions{})
 	if flags != nil {
@@ -724,7 +747,6 @@ func TestMacroService_WhenInitWithFlags_ShouldRecordCommand(t *testing.T) {
 		Reconfigure:   true,
 		Backend:       sdk.BackendDisabled,
 		BackendConfig: []string{"key=val"},
-		ExtraArgs:     []string{"-input=false"},
 	}
 	svc.Init(context.Background(), opts)
 
@@ -732,7 +754,7 @@ func TestMacroService_WhenInitWithFlags_ShouldRecordCommand(t *testing.T) {
 	if len(cmds) != 1 {
 		t.Fatalf("expected 1 command, got %d", len(cmds))
 	}
-	expected := "terraform init -upgrade -reconfigure -backend=false -backend-config=key=val -input=false"
+	expected := "terraform init -upgrade -reconfigure -backend=false -backend-config=key=val"
 	if cmds[0].String() != expected {
 		t.Errorf("got %q, want %q", cmds[0].String(), expected)
 	}
