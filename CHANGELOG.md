@@ -1,3 +1,11 @@
+# [1.16.0](https://github.com/lmarqs/terraform-ui/compare/v1.15.1...v1.16.0) (2026-06-30)
+
+
+### Features
+
+* auto-select chdir when only one member configured ([6abb2a9](https://github.com/lmarqs/terraform-ui/commit/6abb2a9ac2e590f7c7b1d41c6cc8b936e0081043))
+* surface terraform init options as typed form fields with space toggle ([02186c6](https://github.com/lmarqs/terraform-ui/commit/02186c6fbb76053b33d0a555a619f7be7e25d9a3))
+
 ## [1.15.1](https://github.com/lmarqs/terraform-ui/compare/v1.15.0...v1.15.1) (2026-06-29)
 
 
