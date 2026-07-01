@@ -270,7 +270,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 	}
 
 	lw, ch := frames.NewLineWriter()
-	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
+	sf := frames.NewStreamFrame("terraform plan", ch, cancel).WithElapsed(e.timer.FormatElapsed)
 	e.lastStream = sf
 	e.streamCh = ch
 	e.stack.Clear()

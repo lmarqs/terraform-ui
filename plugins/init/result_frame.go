@@ -68,11 +68,9 @@ func (f *resultFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 func (f *resultFrame) View(width, height int) string {
 	switch f.status {
 	case sdk.StatusLoading:
-		v := f.stream.View(width, height)
-		if v == "" {
-			return sdk.StyleFaintItalic.Render("Running terraform init... " + f.timer.FormatElapsed())
-		}
-		return v
+		// The stream renders its own elapsed header, so it always has content
+		// to show — even before terraform emits its first line.
+		return f.stream.View(width, height)
 	case sdk.StatusError:
 		return sdk.StyleError.Render("Init failed: " + f.errMsg)
 	default:

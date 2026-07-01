@@ -99,6 +99,7 @@ type StreamFrame struct {
 	sigintSent bool
 	confirm    *ConfirmFrame
 	panel      *ui.ContentPanel
+	elapsed    func() string
 }
 
 // NewStreamFrame creates a StreamFrame.
@@ -113,6 +114,15 @@ func NewStreamFrame(title string, ch <-chan string, cancelFn func()) *StreamFram
 		cancelFn:   cancelFn,
 		panel:      ui.NewContentPanel(),
 	}
+}
+
+// WithElapsed wires an elapsed-time provider so the stream renders a header line
+// (title + elapsed) as its first line — always, even before the command emits any
+// output. This gives immediate feedback during the silent startup phase (state
+// lock, init, refresh) instead of a blank panel. Returns the frame for chaining.
+func (f *StreamFrame) WithElapsed(elapsed func() string) *StreamFrame {
+	f.elapsed = elapsed
+	return f
 }
 
 func (f *StreamFrame) ID() string { return "stream" }
@@ -198,12 +208,20 @@ func (f *StreamFrame) View(width, height int) string {
 		height = 20
 	}
 
+	// A sticky elapsed header occupies the first line so it never scrolls away;
+	// the log fills the remaining height beneath it.
+	header := f.headerLine()
+	logHeight := height
+	if header != "" {
+		logHeight = height - 1
+	}
+
 	// Advance auto-scroll to the bottom before rendering.
 	if f.autoScroll && len(f.lines) > 0 {
 		f.scrollY = len(f.lines) - 1
 	}
 
-	maxScroll := len(f.lines) - height
+	maxScroll := len(f.lines) - logHeight
 	if maxScroll < 0 {
 		maxScroll = 0
 	}
@@ -214,19 +232,37 @@ func (f *StreamFrame) View(width, height int) string {
 		f.scrollY = 0
 	}
 
-	end := f.scrollY + height
+	end := f.scrollY + logHeight
 	if end > len(f.lines) {
 		end = len(f.lines)
 	}
 
-	return f.panel.Render(ui.RenderParams{
+	body := f.panel.Render(ui.RenderParams{
 		Rows:         f.lines[f.scrollY:end],
 		Width:        width,
-		Height:       height,
+		Height:       logHeight,
 		TotalItems:   len(f.lines),
 		Cursor:       -1,
 		ScrollOffset: f.scrollY,
 	})
+
+	switch {
+	case header == "":
+		return body
+	case body == "":
+		return header
+	default:
+		return header + "\n" + body
+	}
+}
+
+// headerLine returns the sticky elapsed header, or "" when no elapsed provider
+// is wired (in which case the frame renders the log alone).
+func (f *StreamFrame) headerLine() string {
+	if f.elapsed == nil {
+		return ""
+	}
+	return sdk.StyleFaintItalic.Render(f.title + "... " + f.elapsed())
 }
 
 func (f *StreamFrame) Hints() []sdk.KeyHint {

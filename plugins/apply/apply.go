@@ -199,7 +199,7 @@ func (e *Plugin) runPlanPreview() tea.Cmd {
 	e.cancelFn = cancel
 
 	lw, ch := frames.NewLineWriter()
-	sf := frames.NewStreamFrame("terraform plan", ch, cancel)
+	sf := frames.NewStreamFrame("terraform plan", ch, cancel).WithElapsed(e.timer.FormatElapsed)
 	e.lastStream = sf
 	e.stack.Clear()
 	e.stack.Push(sf)
@@ -269,7 +269,7 @@ func (e *Plugin) runApply() tea.Cmd {
 	e.cancelFn = cancel
 
 	lw, ch := frames.NewLineWriter()
-	sf := frames.NewStreamFrame("terraform apply", ch, cancel)
+	sf := frames.NewStreamFrame("terraform apply", ch, cancel).WithElapsed(e.timer.FormatElapsed)
 	e.lastStream = sf
 	e.stack.Clear()
 	e.stack.Push(sf)
