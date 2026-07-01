@@ -34,9 +34,7 @@ type Plugin struct {
 	reconfigure    bool
 	backend        bool
 	get            bool
-	lock           bool
 	forceCopy      bool
-	lockTimeout    string
 	fromModule     string
 	pluginDir      []string
 	backendConfigs []string
@@ -50,7 +48,6 @@ func New(svc sdk.Service) sdk.Plugin {
 		stack:      sdk.NewStack(),
 		backend:    true,
 		get:        true,
-		lock:       true,
 	}
 	p.Svc = svc
 	return p
@@ -106,9 +103,7 @@ func (p *Plugin) resetState() {
 	p.reconfigure = false
 	p.backend = true
 	p.get = true
-	p.lock = true
 	p.forceCopy = false
-	p.lockTimeout = ""
 	p.fromModule = ""
 	p.pluginDir = nil
 	p.backendConfigs = nil
@@ -165,9 +160,7 @@ func (p *Plugin) buildForm() *sdkframes.FormFrame {
 			toggleField("reconfigure", &p.reconfigure),
 			toggleField("backend", &p.backend),
 			toggleField("get", &p.get),
-			toggleField("lock", &p.lock),
 			toggleField("force-copy", &p.forceCopy),
-			textField("lock-timeout", &p.lockTimeout),
 			textField("from-module", &p.fromModule),
 			listField("plugin-dir", &p.pluginDir),
 			listField("backend-config", &p.backendConfigs),
@@ -254,15 +247,13 @@ func (p *Plugin) submit(lw *sdkframes.LineWriter) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	p.cancelFn = cancel
 	svc := p.Svc
-	get, lock := p.get, p.lock
+	get := p.get
 	opts := sdk.InitOptions{
 		Upgrade:       p.upgrade,
 		Reconfigure:   p.reconfigure,
 		BackendConfig: p.backendConfigs,
 		ForceCopy:     p.forceCopy,
 		Get:           &get,
-		Lock:          &lock,
-		LockTimeout:   p.lockTimeout,
 		FromModule:    p.fromModule,
 		PluginDir:     p.pluginDir,
 		Writer:        lw,

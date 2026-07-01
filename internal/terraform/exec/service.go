@@ -307,12 +307,6 @@ func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 	if opts.Get != nil {
 		initOpts = append(initOpts, tfexec.Get(*opts.Get))
 	}
-	if opts.Lock != nil {
-		initOpts = append(initOpts, tfexec.Lock(*opts.Lock))
-	}
-	if opts.LockTimeout != "" {
-		initOpts = append(initOpts, tfexec.LockTimeout(opts.LockTimeout))
-	}
 	if opts.FromModule != "" {
 		initOpts = append(initOpts, tfexec.FromModule(opts.FromModule))
 	}

@@ -223,12 +223,6 @@ func buildInitFlags(opts sdk.InitOptions) []string {
 	if opts.Get != nil && !*opts.Get {
 		flags = append(flags, "-get=false")
 	}
-	if opts.Lock != nil && !*opts.Lock {
-		flags = append(flags, "-lock=false")
-	}
-	if opts.LockTimeout != "" {
-		flags = append(flags, "-lock-timeout="+opts.LockTimeout)
-	}
 	if opts.FromModule != "" {
 		flags = append(flags, "-from-module="+opts.FromModule)
 	}

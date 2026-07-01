@@ -234,7 +234,7 @@ func TestPlugin_WhenSubmitFromForm_ShouldEmitInitSubmitMsg(t *testing.T) {
 }
 
 func TestPlugin_WhenEditText_ShouldEmitRequestInputMsg(t *testing.T) {
-	cmd := editText("lock-timeout", "", func(string) {})
+	cmd := editText("from-module", "", func(string) {})
 	if cmd == nil {
 		t.Fatal("editText() = nil")
 	}
@@ -311,8 +311,6 @@ func TestPlugin_WhenSubmitWithTypedOptions_ShouldForwardAll(t *testing.T) {
 	p.Activate(Input{})
 	p.forceCopy = true
 	p.get = false
-	p.lock = false
-	p.lockTimeout = "30s"
 	p.fromModule = "./template"
 	p.pluginDir = []string{"/plugins"}
 	_, cmd := p.Update(initSubmitMsg{})
@@ -333,12 +331,6 @@ func TestPlugin_WhenSubmitWithTypedOptions_ShouldForwardAll(t *testing.T) {
 	if got.Get == nil || *got.Get {
 		t.Errorf("Get = %v, want pointer to false", got.Get)
 	}
-	if got.Lock == nil || *got.Lock {
-		t.Errorf("Lock = %v, want pointer to false", got.Lock)
-	}
-	if got.LockTimeout != "30s" {
-		t.Errorf("LockTimeout = %q, want %q", got.LockTimeout, "30s")
-	}
 	if got.FromModule != "./template" {
 		t.Errorf("FromModule = %q, want %q", got.FromModule, "./template")
 	}
@@ -347,7 +339,19 @@ func TestPlugin_WhenSubmitWithTypedOptions_ShouldForwardAll(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenSubmitWithDefaults_ShouldSendGetLockTrue(t *testing.T) {
+// TestPlugin_ShouldNotOfferLockOptions guards against re-introducing the
+// -lock / -lock-timeout init flags. terraform-exec rejects them for any
+// Terraform >= 0.15, so exposing them made every init fail on modern binaries.
+func TestPlugin_ShouldNotOfferLockOptions(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Activate(Input{})
+	view := p.View(120, 40)
+	if strings.Contains(view, "lock") {
+		t.Errorf("init form must not offer lock/lock-timeout options, got view:\n%s", view)
+	}
+}
+
+func TestPlugin_WhenSubmitWithDefaults_ShouldSendGetTrue(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Activate(Input{})
@@ -364,9 +368,6 @@ func TestPlugin_WhenSubmitWithDefaults_ShouldSendGetLockTrue(t *testing.T) {
 	got := svc.InitCalls[0]
 	if got.Get == nil || !*got.Get {
 		t.Errorf("Get = %v, want pointer to true (terraform default)", got.Get)
-	}
-	if got.Lock == nil || !*got.Lock {
-		t.Errorf("Lock = %v, want pointer to true (terraform default)", got.Lock)
 	}
 }
 
@@ -640,8 +641,8 @@ func TestPlugin_WhenSpaceOnTextField_ShouldEmitInputRequest(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate(Input{})
 
-	// Move down past the 6 toggle fields to the first text field (lock-timeout).
-	for i := 0; i < 6; i++ {
+	// Move down past the 5 toggle fields to the first text field (from-module).
+	for i := 0; i < 5; i++ {
 		p.stack.Update(tea.KeyMsg{Type: tea.KeyDown})
 	}
 	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
@@ -655,18 +656,18 @@ func TestPlugin_WhenSpaceOnTextField_ShouldEmitInputRequest(t *testing.T) {
 
 func TestPlugin_WhenTextFieldCallback_ShouldStoreValue(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	field := textField("lock-timeout", &p.lockTimeout)
+	field := textField("from-module", &p.fromModule)
 
 	cmd := field.OnSpace()
 	reqMsg, ok := cmd().(sdk.RequestInputMsg)
 	if !ok {
 		t.Fatalf("textField OnSpace returned %T, want RequestInputMsg", cmd())
 	}
-	if result := reqMsg.Request.Callback("30s"); result != nil {
+	if result := reqMsg.Request.Callback("./template"); result != nil {
 		t.Error("callback should return nil cmd")
 	}
-	if p.lockTimeout != "30s" {
-		t.Errorf("lockTimeout = %q, want %q", p.lockTimeout, "30s")
+	if p.fromModule != "./template" {
+		t.Errorf("fromModule = %q, want %q", p.fromModule, "./template")
 	}
 }
 
@@ -928,9 +929,7 @@ func TestActivate_ShouldResetPreviousState(t *testing.T) {
 	p.reconfigure = true
 	p.backend = false
 	p.get = false
-	p.lock = false
 	p.forceCopy = true
-	p.lockTimeout = "30s"
 	p.fromModule = "./old"
 	p.pluginDir = []string{"/old"}
 	p.backendConfigs = []string{"old"}
@@ -949,14 +948,8 @@ func TestActivate_ShouldResetPreviousState(t *testing.T) {
 	if !p.get {
 		t.Error("get should be reset to true (default)")
 	}
-	if !p.lock {
-		t.Error("lock should be reset to true (default)")
-	}
 	if p.forceCopy {
 		t.Error("forceCopy should be reset to false")
-	}
-	if p.lockTimeout != "" {
-		t.Errorf("lockTimeout should be reset, got %q", p.lockTimeout)
 	}
 	if p.fromModule != "" {
 		t.Errorf("fromModule should be reset, got %q", p.fromModule)
