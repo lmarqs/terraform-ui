@@ -1,3 +1,10 @@
+# [1.17.0](https://github.com/lmarqs/terraform-ui/compare/v1.16.0...v1.17.0) (2026-07-01)
+
+
+### Features
+
+* show elapsed-time header immediately in stream frame ([1e8cecc](https://github.com/lmarqs/terraform-ui/commit/1e8ceccd802153ff01d0887efe48db1525722955))
+
 # [1.16.0](https://github.com/lmarqs/terraform-ui/compare/v1.15.1...v1.16.0) (2026-06-30)
 
 
