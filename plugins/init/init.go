@@ -122,7 +122,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		lw, ch := sdkframes.NewLineWriter()
 		p.lw = lw
 		p.ch = ch
-		sf := sdkframes.NewStreamFrame("terraform init", ch, p.Cancel)
+		sf := sdkframes.NewStreamFrame("terraform init", ch, p.Cancel).WithElapsed(p.timer.FormatElapsed)
 		rf := newResultFrame(&p.timer, sf)
 		p.stack.Push(rf)
 		return p, p.submit(lw)

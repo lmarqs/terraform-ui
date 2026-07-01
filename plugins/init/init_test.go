@@ -171,8 +171,13 @@ func TestView_GivenLoadingWithNoStreamOutput_ShouldShowProgressMessage(t *testin
 	p.Update(initSubmitMsg{})
 
 	view := p.View(80, 24)
-	if !strings.Contains(view, "Running terraform init") {
-		t.Errorf("View in Loading state should show progress message, got %q", view)
+	// Before any output arrives, the stream shows its elapsed header so the user
+	// gets immediate feedback instead of a blank panel.
+	if !strings.Contains(view, "terraform init") {
+		t.Errorf("View in Loading state should show progress header, got %q", view)
+	}
+	if !strings.Contains(view, "0s") {
+		t.Errorf("View in Loading state should show elapsed time, got %q", view)
 	}
 }
 

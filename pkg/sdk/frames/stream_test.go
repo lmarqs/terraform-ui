@@ -266,6 +266,41 @@ func TestStreamFrame_ViewEmptyWhenNoLines(t *testing.T) {
 	}
 }
 
+// makeStreamWithElapsed builds a StreamFrame wired with an elapsed provider,
+// mirroring how the plan/apply/init plugins construct it from their timer.
+func makeStreamWithElapsed(lines []string, elapsed func() string) *StreamFrame {
+	_, ch := NewLineWriter()
+	sf := NewStreamFrame("terraform plan", ch, nil).WithElapsed(elapsed)
+	sf.lines = lines
+	return sf
+}
+
+func TestStreamFrame_ViewShowsElapsedHeaderWhenNoLines(t *testing.T) {
+	sf := makeStreamWithElapsed(nil, func() string { return "3s" })
+	view := sf.View(80, 24)
+	if !strings.Contains(view, "3s") {
+		t.Errorf("view with an elapsed provider should show elapsed before any output, got %q", view)
+	}
+	if !strings.Contains(view, "terraform plan") {
+		t.Errorf("elapsed header should carry the stream title, got %q", view)
+	}
+}
+
+func TestStreamFrame_ViewElapsedHeaderIsFirstLine(t *testing.T) {
+	sf := makeStreamWithElapsed([]string{"Refreshing state..."}, func() string { return "42s" })
+	sf.done = true
+	sf.autoScroll = false
+
+	view := sf.View(80, 24)
+	first := strings.SplitN(view, "\n", 2)[0]
+	if !strings.Contains(first, "42s") {
+		t.Errorf("first line should be the elapsed time, got %q", first)
+	}
+	if !strings.Contains(view, "Refreshing state...") {
+		t.Errorf("log output should still render below the header, got %q", view)
+	}
+}
+
 func TestStreamFrame_AutoScrollAdvancesToBottom(t *testing.T) {
 	sf := makeStream([]string{"a", "b", "c", "d", "e"})
 	sf.autoScroll = true
