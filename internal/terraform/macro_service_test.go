@@ -663,8 +663,6 @@ func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T
 		BackendConfig: []string{"key=value", "region=us-east-1"},
 		ForceCopy:     true,
 		Get:           &falsePtr,
-		Lock:          &falsePtr,
-		LockTimeout:   "30s",
 		FromModule:    "./template",
 		PluginDir:     []string{"/plugins"},
 	}
@@ -679,8 +677,6 @@ func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T
 		"-backend-config=region=us-east-1",
 		"-force-copy",
 		"-get=false",
-		"-lock=false",
-		"-lock-timeout=30s",
 		"-from-module=./template",
 		"-plugin-dir=/plugins",
 	}
@@ -721,14 +717,14 @@ func TestBuildInitFlags_WhenBackendDefault_ShouldNotIncludeBackendFlag(t *testin
 	}
 }
 
-func TestBuildInitFlags_WhenGetLockTrue_ShouldOmitFlags(t *testing.T) {
+func TestBuildInitFlags_WhenGetTrue_ShouldOmitFlags(t *testing.T) {
 	truePtr := true
-	opts := sdk.InitOptions{Get: &truePtr, Lock: &truePtr}
+	opts := sdk.InitOptions{Get: &truePtr}
 
 	flags := buildInitFlags(opts)
 	for _, f := range flags {
-		if f == "-get=false" || f == "-lock=false" {
-			t.Errorf("flags should omit %q when get/lock are true (terraform default)", f)
+		if f == "-get=false" {
+			t.Errorf("flags should omit %q when get is true (terraform default)", f)
 		}
 	}
 }
