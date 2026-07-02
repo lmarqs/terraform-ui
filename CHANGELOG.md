@@ -1,3 +1,10 @@
+## [1.17.1](https://github.com/lmarqs/terraform-ui/compare/v1.17.0...v1.17.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **init:** drop incompatible -lock/-lock-timeout options ([060bc43](https://github.com/lmarqs/terraform-ui/commit/060bc43d3357dc91d4851a8eb20638b892af551b))
+
 # [1.17.0](https://github.com/lmarqs/terraform-ui/compare/v1.16.0...v1.17.0) (2026-07-01)
 
 
