@@ -110,7 +110,7 @@ func (p *Plugin) resetState() {
 }
 
 func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
-	switch msg.(type) {
+	switch msg := msg.(type) {
 	case initSubmitMsg:
 		p.stack.Reset()
 		p.stack.Push(p.buildForm())
@@ -137,7 +137,25 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			return p, cmd
 		}
 
-	case InitResultMsg, ui.TimerTickMsg:
+	case InitResultMsg:
+		if top := p.stack.Peek(); top != nil {
+			_, cmd := top.Update(msg)
+			// On success the result frame becomes a terminal confirmation
+			// screen that lingers until the user leaves. Collapse the stack so
+			// it is the sole (root) frame: otherwise the form sitting beneath
+			// keeps the stack at depth 2, and the app's global `q` handler would
+			// only Clear() back to the form instead of deactivating init to home.
+			// The error path keeps the form beneath so Esc/Enter returns to it.
+			if msg.Err == nil {
+				if rf := p.stack.Peek(); rf != nil {
+					p.stack.Reset()
+					p.stack.Push(rf)
+				}
+			}
+			return p, cmd
+		}
+
+	case ui.TimerTickMsg:
 		if top := p.stack.Peek(); top != nil {
 			_, cmd := top.Update(msg)
 			return p, cmd

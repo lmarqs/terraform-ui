@@ -114,6 +114,28 @@ func TestUpdate_WhenInitResultSuccess_ShouldStayOnResultFrame(t *testing.T) {
 	if rf.status != sdk.StatusDone {
 		t.Errorf("result frame status = %v, want StatusDone", rf.status)
 	}
+
+	// The stack must collapse to depth 1 on success so the result frame is the
+	// sole (root) frame. Otherwise the form beneath keeps depth at 2 and the
+	// app's global `q` handler would Clear() back to the form instead of
+	// deactivating init to home.
+	if got := p.stack.Depth(); got != 1 {
+		t.Errorf("stack depth after success = %d, want 1 (form collapsed)", got)
+	}
+}
+
+func TestUpdate_WhenInitResultError_ShouldKeepFormBeneath(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Activate(Input{})
+	p.Update(initSubmitMsg{})
+
+	p.Update(InitResultMsg{Err: errors.New("boom")})
+
+	// Error keeps the form beneath the result frame so Esc/Enter can pop back
+	// to it for a retry with adjusted flags.
+	if got := p.stack.Depth(); got != 2 {
+		t.Errorf("stack depth after error = %d, want 2 (form retained)", got)
+	}
 }
 
 func TestUpdate_WhenInitResultError_ShouldStayOnResultFrame(t *testing.T) {
@@ -440,13 +462,16 @@ func TestResultFrame_WhenHintsInError_ShouldReturnEnterAndBack(t *testing.T) {
 	}
 }
 
-func TestResultFrame_WhenHintsInDone_ShouldReturnBackAndQuit(t *testing.T) {
+func TestResultFrame_WhenHintsInDone_ShouldReturnQuit(t *testing.T) {
 	var timer ui.Timer
 	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusDone
 	hints := rf.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints in Done should offer a way to leave")
+	if len(hints) != 1 {
+		t.Fatalf("Hints in Done: len = %d, want 1 (q quit)", len(hints))
+	}
+	if hints[0].Key != "q" {
+		t.Errorf("hints[0].Key = %q, want %q", hints[0].Key, "q")
 	}
 }
 

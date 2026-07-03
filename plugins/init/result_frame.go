@@ -87,6 +87,9 @@ func (f *resultFrame) Hints() []sdk.KeyHint {
 			sdk.HintBack,
 		}
 	default:
-		return (sdk.HintSetBack | sdk.HintSetQuit).Hints()
+		// init is a top-level (NavReplace) plugin, so leaving the success
+		// screen returns home — advertise `q quit`, not `Esc back` (there is no
+		// return origin). Esc still works as a convenience, handled in Update.
+		return sdk.HintSetQuit.Hints()
 	}
 }
