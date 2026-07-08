@@ -1,3 +1,11 @@
+## [1.18.4](https://github.com/lmarqs/terraform-ui/compare/v1.18.3...v1.18.4) (2026-07-08)
+
+
+### Bug Fixes
+
+* **pins:** clear the targeting selection once the plan scope is spent ([c2daba4](https://github.com/lmarqs/terraform-ui/commit/c2daba4a4657572356acc97a87ccb7207f140ee6)), closes [#39](https://github.com/lmarqs/terraform-ui/issues/39) [#38](https://github.com/lmarqs/terraform-ui/issues/38)
+* **sdk:** drive OnlyPinsChanged by provenance, not a Prev/Next diff ([c5d67a0](https://github.com/lmarqs/terraform-ui/commit/c5d67a0d959d729dbb346e7f1ccb7cff1bd4d4a3)), closes [#37](https://github.com/lmarqs/terraform-ui/issues/37)
+
 ## [1.18.3](https://github.com/lmarqs/terraform-ui/compare/v1.18.2...v1.18.3) (2026-07-08)
 
 
