@@ -1,3 +1,11 @@
+## [1.18.2](https://github.com/lmarqs/terraform-ui/compare/v1.18.1...v1.18.2) (2026-07-08)
+
+
+### Bug Fixes
+
+* **state:** make ctrl+u (unpin all) actually clear pins ([963c133](https://github.com/lmarqs/terraform-ui/commit/963c133a84289c52f87444eac941dd639ccad3ee)), closes [#35](https://github.com/lmarqs/terraform-ui/issues/35)
+* **ui:** remove dead '? help' hint from the status bar ([14ef8a9](https://github.com/lmarqs/terraform-ui/commit/14ef8a9be6add0ab46a55e23fea011595bf2d739)), closes [#41](https://github.com/lmarqs/terraform-ui/issues/41)
+
 ## [1.18.1](https://github.com/lmarqs/terraform-ui/compare/v1.18.0...v1.18.1) (2026-07-08)
 
 
