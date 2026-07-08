@@ -77,7 +77,7 @@ Re-running `terraform plan` within the Plan plugin to incorporate changed inputs
 _Avoid_: re-plan inside apply, targeted apply
 
 **Pin**:
-A user-selected resource marked for targeted operations. Pins scope `plan` to specific resources. Plugin-derived state — scoped to the current Context, dies on context switch.
+A user-selected resource marked for targeted operations. Pins scope `plan` to specific resources. Plugin-derived state — scoped to the current Context, shared across plugins within it (pin in state, consume in plan). Transient by design: preserved across re-plan but cleared once the scope is spent — apply reaches a terminal state, or the user leaves the plan workflow to home — and reset on a context switch. No cross-session persistence.
 _Avoid_: selection, mark, target (as noun for the set)
 
 **Macro**:
