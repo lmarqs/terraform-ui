@@ -1,3 +1,12 @@
+## [1.18.3](https://github.com/lmarqs/terraform-ui/compare/v1.18.2...v1.18.3) (2026-07-08)
+
+
+### Bug Fixes
+
+* **plan:** refresh the pinned-only view when a pin is toggled ([55c9e45](https://github.com/lmarqs/terraform-ui/commit/55c9e45f8f01c685f2ccbc57d27272a3495f92c2)), closes [#36](https://github.com/lmarqs/terraform-ui/issues/36)
+* **ui:** clamp the status/hint bar to a single line ([befeb37](https://github.com/lmarqs/terraform-ui/commit/befeb378e0ce4b5fb947639e1fcca83b0bb40a68)), closes [#42](https://github.com/lmarqs/terraform-ui/issues/42)
+* **ui:** don't fire a ContextChangedEvent when clearing already-empty pins ([317db27](https://github.com/lmarqs/terraform-ui/commit/317db27970a02da13de00d1297c9e63e31e5d60b)), closes [#38](https://github.com/lmarqs/terraform-ui/issues/38) [#39](https://github.com/lmarqs/terraform-ui/issues/39)
+
 ## [1.18.2](https://github.com/lmarqs/terraform-ui/compare/v1.18.1...v1.18.2) (2026-07-08)
 
 
