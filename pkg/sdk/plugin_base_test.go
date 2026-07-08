@@ -120,6 +120,69 @@ func TestPluginBase_HandleContextChangedDefault(t *testing.T) {
 	}
 }
 
+func TestPluginBase_ReactToContext(t *testing.T) {
+	original := &sdktest.MockService{}
+	replacement := &sdktest.MockService{}
+
+	t.Run("next nil → neither callback fires, svc unchanged", func(t *testing.T) {
+		b := sdk.NewPluginBase("p", "P", "")
+		b.Svc = original
+		var pins, reset bool
+		cmd := b.ReactToContext(sdk.ContextChangedEvent{Next: nil},
+			func() { pins = true }, func() { reset = true })
+		if cmd != nil || pins || reset {
+			t.Errorf("nil Next should be a no-op; cmd=%v pins=%v reset=%v", cmd, pins, reset)
+		}
+		if b.Svc != original {
+			t.Error("svc should be unchanged on nil Next")
+		}
+	})
+
+	t.Run("pins-only → onPins fires, no reset, svc not rebound", func(t *testing.T) {
+		b := sdk.NewPluginBase("p", "P", "")
+		b.Svc = original
+		var pins, reset bool
+		b.ReactToContext(sdk.ContextChangedEvent{
+			Next:   &sdk.Context{Service: replacement},
+			Reason: sdk.ContextPinsChanged,
+		}, func() { pins = true }, func() { reset = true })
+		if !pins || reset {
+			t.Errorf("pins-only should run onPins only; pins=%v reset=%v", pins, reset)
+		}
+		if b.Svc != original {
+			t.Error("svc must not rebind on a pins-only change")
+		}
+	})
+
+	t.Run("pins-only with nil onPins → safe no-op", func(t *testing.T) {
+		b := sdk.NewPluginBase("p", "P", "")
+		var reset bool
+		b.ReactToContext(sdk.ContextChangedEvent{
+			Next:   &sdk.Context{},
+			Reason: sdk.ContextPinsChanged,
+		}, nil, func() { reset = true })
+		if reset {
+			t.Error("reset should not fire on pins-only change")
+		}
+	})
+
+	t.Run("switch → svc rebound then onReset fires", func(t *testing.T) {
+		b := sdk.NewPluginBase("p", "P", "")
+		b.Svc = original
+		var pins, reset bool
+		b.ReactToContext(sdk.ContextChangedEvent{
+			Next:   &sdk.Context{Service: replacement},
+			Reason: sdk.ContextSwitched,
+		}, func() { pins = true }, func() { reset = true })
+		if pins || !reset {
+			t.Errorf("switch should run onReset only; pins=%v reset=%v", pins, reset)
+		}
+		if b.Svc != replacement {
+			t.Error("svc should rebind to next.Service on a switch")
+		}
+	})
+}
+
 func TestPluginBase_PinnedAddresses_ReturnsContextPins(t *testing.T) {
 	ctx := &sdk.Context{Pins: []string{"a", "b"}}
 	b := sdk.NewPluginBase("p", "P", "")

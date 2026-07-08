@@ -148,10 +148,7 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 // becomes stale but other UI state is preserved; on chdir or workspace
 // changes the plugin fully resets.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
-		return nil
-	}
-	if ev.OnlyPinsChanged() {
+	return e.ReactToContext(ev, func() {
 		e.stale = true
 		// Reflect the new pin set in the tree so tree-mode indicators update
 		// immediately. The flat list reads pins live from Context, but the tree
@@ -168,11 +165,7 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 		// apply against it would surprise the user. The next `a` press will
 		// queue a fresh replan with the latest pins.
 		e.clearPendingApply()
-		return nil
-	}
-	e.HandleContextChangedDefault(ev)
-	e.reset()
-	return nil
+	}, e.reset)
 }
 
 // HandlePlanInvalidated implements sdk.PlanInvalidatedHandler.

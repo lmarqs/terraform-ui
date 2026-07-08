@@ -138,20 +138,16 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 // previous context's resources (the safety bug ADR-0018 fixes). Pure pin
 // toggles are no-ops — apply has no targets to refresh.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
-		return nil
-	}
-	if ev.OnlyPinsChanged() {
-		return nil
-	}
-	e.HandleContextChangedDefault(ev)
-	e.planFile = ""
-	e.confirmed = false
-	e.summary = nil
-	e.noChanges = false
-	e.status = sdk.StatusIdle
-	e.errMsg = ""
-	return nil
+	// onPins is nil: a pure pin toggle is a no-op — apply has no targets to
+	// refresh (it consumes the saved plan file, ADR-0019).
+	return e.ReactToContext(ev, nil, func() {
+		e.planFile = ""
+		e.confirmed = false
+		e.summary = nil
+		e.noChanges = false
+		e.status = sdk.StatusIdle
+		e.errMsg = ""
+	})
 }
 
 // Activate is the input port: cmd/tfui parses CLI flags into Input and hands

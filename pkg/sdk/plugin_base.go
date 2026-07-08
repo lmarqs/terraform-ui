@@ -81,9 +81,10 @@ func (b *PluginBase) InitBase(deps *PluginDeps) {
 // almost every plugin needs. Returns true if the embedder should proceed with
 // its own reset / refresh; false if the event is a no-op (Next == nil).
 //
-// Plugins with custom logic (plan's OnlyPinsChanged, apply's pin no-op,
-// state's pin-clear) check the event themselves and decide whether to call
-// this helper at all.
+// Pins-unaware plugins (console, output, validate, …) call this directly and
+// full-reset on true. Plugins that distinguish a pin toggle from a switch
+// (plan, apply, state) go through ReactToContext, which calls this on the
+// switch path.
 func (b *PluginBase) HandleContextChangedDefault(ev ContextChangedEvent) bool {
 	if ev.Next == nil {
 		return false
@@ -92,6 +93,33 @@ func (b *PluginBase) HandleContextChangedDefault(ev ContextChangedEvent) bool {
 		b.Svc = ev.Next.Service
 	}
 	return true
+}
+
+// ReactToContext is the canonical shape for reacting to a Context replacement,
+// shared by the plugins that distinguish a pin toggle from a chdir/workspace
+// switch (plan, apply, state). It:
+//   - no-ops when Next is nil;
+//   - on a pins-only change (OnlyPinsChanged), runs onPins and preserves state —
+//     the service is unchanged, so it is not rebound;
+//   - otherwise rebinds the service (HandleContextChangedDefault) and runs
+//     onReset for the full reset.
+//
+// onPins may be nil (e.g. apply has nothing to re-sync on a pin change); onReset
+// is always required. Plugins that only ever full-reset should keep calling
+// HandleContextChangedDefault directly rather than pass a trivial onPins.
+func (b *PluginBase) ReactToContext(ev ContextChangedEvent, onPins, onReset func()) tea.Cmd {
+	if ev.Next == nil {
+		return nil
+	}
+	if ev.OnlyPinsChanged() {
+		if onPins != nil {
+			onPins()
+		}
+		return nil
+	}
+	b.HandleContextChangedDefault(ev)
+	onReset()
+	return nil
 }
 
 // PinnedAddresses returns the addresses pinned in the current Context.

@@ -148,20 +148,15 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 // workspace switch fully resets — the App has already reset pins on the new
 // Context, so no clear needs to be re-requested here.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if ev.Next == nil {
-		return nil
-	}
-	if ev.OnlyPinsChanged() {
+	return e.ReactToContext(ev, func() {
 		e.syncPinnedToTree()
 		if e.pinnedOnly {
 			e.SetFilter(e.filter)
 		}
-		return nil
-	}
-	e.HandleContextChangedDefault(ev)
-	e.pinnedOnly = false
-	e.reset()
-	return nil
+	}, func() {
+		e.pinnedOnly = false
+		e.reset()
+	})
 }
 
 // reset clears all plugin state to initial values.
