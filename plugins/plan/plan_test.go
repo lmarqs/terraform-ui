@@ -2355,6 +2355,40 @@ func TestHandleContextChanged_WhenOnlyPinsChangeInTreeMode_ShouldRenderPinMarker
 	}
 }
 
+func TestHandleContextChanged_WhenOnlyPinsChangeWithPinnedOnly_ShouldRefilter(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, h := newTestPluginWithHarness(svc)
+	p.status = sdk.StatusDone
+	p.pinnedOnly = true
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_s3_bucket.a"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "aws_s3_bucket.b"}, Action: sdk.ActionCreate},
+		},
+		ToCreate: 2,
+	}
+	// Both pinned: the pinned-only view shows both rows.
+	h.Ctx.Pins = []string{"aws_s3_bucket.a", "aws_s3_bucket.b"}
+	p.SetFilter("")
+	if len(p.filtered) != 2 {
+		t.Fatalf("precondition: pinned-only view should show 2 rows, got %d", len(p.filtered))
+	}
+
+	// User unpins b; the app fires a pins-only ContextChangedEvent.
+	h.Ctx.Pins = []string{"aws_s3_bucket.a"}
+	p.HandleContextChanged(sdk.ContextChangedEvent{
+		Prev: &sdk.Context{Pins: []string{"aws_s3_bucket.a", "aws_s3_bucket.b"}},
+		Next: &sdk.Context{Pins: []string{"aws_s3_bucket.a"}},
+	})
+
+	if len(p.filtered) != 1 {
+		t.Fatalf("pinned-only view should refilter to 1 row after unpin, got %d", len(p.filtered))
+	}
+	if p.filtered[0].Resource.Address != "aws_s3_bucket.a" {
+		t.Errorf("remaining row = %q, want aws_s3_bucket.a", p.filtered[0].Resource.Address)
+	}
+}
+
 func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)

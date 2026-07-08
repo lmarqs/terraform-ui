@@ -157,6 +157,12 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 		// immediately. The flat list reads pins live from Context, but the tree
 		// keeps its own pin map, refreshed only here and on rebuild.
 		e.syncPinnedToTree()
+		// In pinned-only view the filtered slice is derived from the pin set,
+		// so re-run the filter to drop newly-unpinned rows (and admit newly-
+		// pinned ones). Flat/full view reads pins live and needs no refilter.
+		if e.pinnedOnly {
+			e.SetFilter(e.filter)
+		}
 		// A pin toggle invalidates any in-flight replan-then-apply: the
 		// replan's plan file would be wrong for the new pin set, and firing
 		// apply against it would surprise the user. The next `a` press will
