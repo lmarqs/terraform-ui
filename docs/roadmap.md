@@ -7,39 +7,13 @@ description: Planned features and enhancements for terraform-ui
 
 # Roadmap
 
-{% assign active = site.roadmap | where: "status", "active" %}
-{% assign planned = site.roadmap | where: "status", "planned" %}
-{% assign ideas = site.roadmap | where: "status", "idea" %}
-{% assign completed = site.roadmap | where: "status", "completed" %}
+The roadmap now lives on GitHub, tracked as issues on the project board so work,
+discussion, and status stay in one place.
 
-{% if active.size > 0 %}
-## Active
+- **Project board:** [terraform-ui project](https://github.com/users/lmarqs/projects/2)
+- **Planned features:** [`roadmap` label](https://github.com/lmarqs/terraform-ui/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap)
+- **Refactors:** [`refactor` label](https://github.com/lmarqs/terraform-ui/issues?q=is%3Aissue+is%3Aopen+label%3Arefactor)
+- **Bugs:** [`bug` label](https://github.com/lmarqs/terraform-ui/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
 
-{% for item in active %}
-- [{{ item.title }}]({{ item.url }}) — {{ item.priority }} priority, {{ item.effort }} effort
-{% endfor %}
-{% endif %}
-
-{% if planned.size > 0 %}
-## Planned
-
-{% for item in planned %}
-- [{{ item.title }}]({{ item.url }}) — {{ item.priority }} priority, {{ item.effort }} effort
-{% endfor %}
-{% endif %}
-
-{% if ideas.size > 0 %}
-## Ideas
-
-{% for item in ideas %}
-- [{{ item.title }}]({{ item.url }}) — {{ item.priority }} priority
-{% endfor %}
-{% endif %}
-
-{% if completed.size > 0 %}
-## Completed
-
-{% for item in completed %}
-- [{{ item.title }}]({{ item.url }})
-{% endfor %}
-{% endif %}
+Issues carry a **Status** (Backlog → Todo → In Progress → In Review → Done) and a
+type label (`bug`, `enhancement`, `refactor`, `ux`, `tech-debt`, `documentation`).

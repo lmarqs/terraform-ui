@@ -21,7 +21,7 @@ The docs site at `docs/` is published to GitHub Pages using Jekyll with the [jus
 ```
 docs/
 ├── index.md                  # Home (landing page with demo GIFs)
-├── roadmap.md                # Roadmap (top-level)
+├── roadmap.md                # Roadmap (top-level; links to GitHub project board)
 ├── guides/                   # Getting Started section
 │   ├── index.md              #   Section parent (nav_order: 2)
 │   ├── getting-started.md    #   Quick Start guide
@@ -46,7 +46,6 @@ docs/
 │   ├── architecture.md
 │   └── testing.md
 ├── adr/                      # ADRs (grandchildren of Development > Architecture)
-├── _roadmap/                 # Jekyll collection (rendered by roadmap.md)
 ├── _config.yml               # Jekyll configuration
 └── assets/demo/              # Demo GIFs referenced by index.md
 ```
