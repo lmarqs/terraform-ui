@@ -308,7 +308,37 @@ func checkbox(v bool) string {
 	return "[ ]"
 }
 
-// Stdout produces stdout content for standalone/CI mode.
+// outcome reports the terminal init status and error message from the top
+// result frame. Before init has run (no result frame), it reports StatusIdle.
+func (p *Plugin) outcome() (sdk.Status, string) {
+	if rf, ok := p.stack.Peek().(*resultFrame); ok {
+		return rf.status, rf.errMsg
+	}
+	return sdk.StatusIdle, ""
+}
+
+// Stdout produces stdout content for standalone/CI mode. A failed init must
+// not claim success — the error is surfaced via Stderr and ExitCode instead.
 func (p *Plugin) Stdout() ([]byte, error) {
+	if status, _ := p.outcome(); status == sdk.StatusError {
+		return nil, nil
+	}
 	return []byte("Initialized successfully.\n"), nil
+}
+
+// Stderr surfaces the terraform init failure on the error channel so a headless
+// `tfui init -ci` does not exit non-zero silently.
+func (p *Plugin) Stderr() []byte {
+	if status, errMsg := p.outcome(); status == sdk.StatusError && errMsg != "" {
+		return []byte(errMsg + "\n")
+	}
+	return nil
+}
+
+// ExitCode returns 1 when init failed so CI pipelines see a non-zero status.
+func (p *Plugin) ExitCode() int {
+	if status, _ := p.outcome(); status == sdk.StatusError {
+		return 1
+	}
+	return 0
 }

@@ -430,6 +430,53 @@ func TestPlugin_WhenOutput_ShouldReturnSuccessMessage(t *testing.T) {
 	}
 }
 
+func TestPlugin_WhenInitFailed_ShouldNotClaimSuccessOnStdout(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.stack.Push(&resultFrame{status: sdk.StatusError, errMsg: "backend init failed"})
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if len(data) != 0 {
+		t.Errorf("Stdout() on failure = %q, want empty (must not claim success)", data)
+	}
+}
+
+func TestPlugin_WhenInitFailed_ShouldEmitErrorToStderr(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.stack.Push(&resultFrame{status: sdk.StatusError, errMsg: "backend init failed"})
+
+	if got := string(p.Stderr()); got != "backend init failed\n" {
+		t.Errorf("Stderr() = %q, want %q", got, "backend init failed\n")
+	}
+}
+
+func TestPlugin_WhenInitFailed_ShouldExitNonZero(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.stack.Push(&resultFrame{status: sdk.StatusError, errMsg: "backend init failed"})
+
+	if got := p.ExitCode(); got != 1 {
+		t.Errorf("ExitCode() on failure = %d, want 1", got)
+	}
+}
+
+func TestPlugin_WhenInitSucceeded_ShouldExitZeroWithNoStderr(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.stack.Push(&resultFrame{status: sdk.StatusDone})
+
+	if got := p.ExitCode(); got != 0 {
+		t.Errorf("ExitCode() on success = %d, want 0", got)
+	}
+	if got := p.Stderr(); got != nil {
+		t.Errorf("Stderr() on success = %q, want nil", got)
+	}
+	data, _ := p.Stdout()
+	if string(data) != "Initialized successfully.\n" {
+		t.Errorf("Stdout() on success = %q, want success message", data)
+	}
+}
+
 func TestResultFrame_WhenViewInDone_ShouldShowSuccess(t *testing.T) {
 	var timer ui.Timer
 	rf := newTestResultFrame(&timer)
