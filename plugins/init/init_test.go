@@ -91,7 +91,7 @@ func TestUpdate_WhenInitSubmitMsg_ShouldPushResultFrame(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenInitResultSuccess_ShouldEmitDeactivate(t *testing.T) {
+func TestUpdate_WhenInitResultSuccess_ShouldStayOnResultFrame(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.Activate(Input{})
 	p.Update(initSubmitMsg{})
@@ -99,6 +99,42 @@ func TestUpdate_WhenInitResultSuccess_ShouldEmitDeactivate(t *testing.T) {
 	_, cmd := p.Update(InitResultMsg{Err: nil})
 	if cmd == nil {
 		t.Fatal("success should return a command")
+	}
+
+	// Success no longer auto-returns home: the result frame stays visible showing
+	// the success message until the user leaves it (like force-unlock).
+	top := p.stack.Peek()
+	if top == nil {
+		t.Fatal("success should keep result frame on stack")
+	}
+	rf, ok := top.(*resultFrame)
+	if !ok {
+		t.Fatalf("top frame is %T, want *resultFrame", top)
+	}
+	if rf.status != sdk.StatusDone {
+		t.Errorf("result frame status = %v, want StatusDone", rf.status)
+	}
+
+	// The stack must collapse to depth 1 on success so the result frame is the
+	// sole (root) frame. Otherwise the form beneath keeps depth at 2 and the
+	// app's global `q` handler would Clear() back to the form instead of
+	// deactivating init to home.
+	if got := p.stack.Depth(); got != 1 {
+		t.Errorf("stack depth after success = %d, want 1 (form collapsed)", got)
+	}
+}
+
+func TestUpdate_WhenInitResultError_ShouldKeepFormBeneath(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Activate(Input{})
+	p.Update(initSubmitMsg{})
+
+	p.Update(InitResultMsg{Err: errors.New("boom")})
+
+	// Error keeps the form beneath the result frame so Esc/Enter can pop back
+	// to it for a retry with adjusted flags.
+	if got := p.stack.Depth(); got != 2 {
+		t.Errorf("stack depth after error = %d, want 2 (form retained)", got)
 	}
 }
 
@@ -426,49 +462,60 @@ func TestResultFrame_WhenHintsInError_ShouldReturnEnterAndBack(t *testing.T) {
 	}
 }
 
-func TestResultFrame_WhenHintsInDone_ShouldReturnNil(t *testing.T) {
+func TestResultFrame_WhenHintsInDone_ShouldReturnQuit(t *testing.T) {
 	var timer ui.Timer
 	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusDone
-	if hints := rf.Hints(); hints != nil {
-		t.Errorf("Hints in Done = %v, want nil", hints)
+	hints := rf.Hints()
+	if len(hints) != 1 {
+		t.Fatalf("Hints in Done: len = %d, want 1 (q quit)", len(hints))
+	}
+	if hints[0].Key != "q" {
+		t.Errorf("hints[0].Key = %q, want %q", hints[0].Key, "q")
 	}
 }
 
-func TestResultFrame_WhenSuccess_ShouldReturnCmd(t *testing.T) {
+func TestResultFrame_WhenSuccess_ShouldInvalidatePlanButStay(t *testing.T) {
 	var timer ui.Timer
 	rf := newTestResultFrame(&timer)
-	_, cmd := rf.Update(InitResultMsg{Err: nil, Duration: time.Second})
+	frame, cmd := rf.Update(InitResultMsg{Err: nil, Duration: time.Second})
 	if cmd == nil {
 		t.Fatal("success should return cmd")
+	}
+	if frame != rf {
+		t.Error("success should stay on the result frame (not pop)")
 	}
 	if rf.status != sdk.StatusDone {
 		t.Errorf("status = %v, want Done", rf.status)
 	}
-	msg := cmd()
-	batchMsg, ok := msg.(tea.BatchMsg)
-	if !ok {
-		t.Fatalf("cmd() returned %T, want tea.BatchMsg", msg)
+	// Success emits PlanInvalidatedEvent but does NOT auto-deactivate — the
+	// success message stays on screen until the user leaves.
+	if _, ok := cmd().(sdk.PlanInvalidatedEvent); !ok {
+		t.Errorf("cmd() = %T, want sdk.PlanInvalidatedEvent", cmd())
 	}
-	foundInvalidated := false
-	foundDeactivate := false
-	for _, subCmd := range batchMsg {
-		if subCmd == nil {
-			continue
-		}
-		subMsg := subCmd()
-		switch subMsg.(type) {
-		case sdk.PlanInvalidatedEvent:
-			foundInvalidated = true
-		case sdk.DeactivateMsg:
-			foundDeactivate = true
-		}
+}
+
+func TestResultFrame_WhenLeaveKeyInDone_ShouldDeactivate(t *testing.T) {
+	cases := map[string]tea.KeyMsg{
+		"esc": {Type: tea.KeyEsc},
+		"q":   {Type: tea.KeyRunes, Runes: []rune{'q'}},
 	}
-	if !foundInvalidated {
-		t.Error("batch should contain PlanInvalidatedEvent")
-	}
-	if !foundDeactivate {
-		t.Error("batch should contain DeactivateMsg")
+	for name, key := range cases {
+		t.Run(name, func(t *testing.T) {
+			var timer ui.Timer
+			rf := newTestResultFrame(&timer)
+			rf.status = sdk.StatusDone
+			frame, cmd := rf.Update(key)
+			if frame != rf {
+				t.Error("leaving Done should return self (app handles deactivation)")
+			}
+			if cmd == nil {
+				t.Fatal("leaving Done should return a command")
+			}
+			if _, ok := cmd().(sdk.DeactivateMsg); !ok {
+				t.Errorf("cmd() = %T, want sdk.DeactivateMsg", cmd())
+			}
+		})
 	}
 }
 
@@ -894,15 +941,18 @@ func TestUpdate_WhenStreamLineMsgWithEmptyStack_ShouldReturnWaitForLineCmd(t *te
 	lw.Close()
 }
 
-func TestResultFrame_WhenKeyMsgInDone_ShouldDelegateToStream(t *testing.T) {
+func TestResultFrame_WhenNonLeaveKeyInDone_ShouldStay(t *testing.T) {
 	var timer ui.Timer
 	rf := newTestResultFrame(&timer)
 	rf.status = sdk.StatusDone
 
-	// Any key in Done state delegates to the stream frame
-	frame, _ := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	// A key that is not a leave key keeps the success message visible.
+	frame, cmd := rf.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
 	if frame != rf {
-		t.Error("key in Done should return self (not pop)")
+		t.Error("non-leave key in Done should return self (not pop)")
+	}
+	if cmd != nil {
+		t.Error("non-leave key in Done should not emit a command")
 	}
 }
 

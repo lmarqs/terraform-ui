@@ -8,8 +8,8 @@ import (
 )
 
 // resultFrame wraps a StreamFrame to display init execution output.
-// On success it emits DeactivateMsg (auto-return home) unless the user is
-// viewing the log (in which case Esc from the stream frame deactivates).
+// On success it shows a confirmation message and stays visible (like
+// force-unlock) until the user leaves with Esc/q — it does not auto-return home.
 // On error it stays visible so the user can review the failure.
 type resultFrame struct {
 	status sdk.Status
@@ -45,10 +45,7 @@ func (f *resultFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			return f, nil
 		}
 		f.status = sdk.StatusDone
-		return f, tea.Batch(
-			func() tea.Msg { return sdk.PlanInvalidatedEvent{} },
-			func() tea.Msg { return sdk.DeactivateMsg{} },
-		)
+		return f, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
 
 	case tea.KeyMsg:
 		if f.status == sdk.StatusError {
@@ -58,8 +55,10 @@ func (f *resultFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			}
 		}
 		if f.status == sdk.StatusDone {
-			_, cmd := f.stream.Update(msg)
-			return f, cmd
+			switch msg.String() {
+			case "esc", "q":
+				return f, func() tea.Msg { return sdk.DeactivateMsg{} }
+			}
 		}
 	}
 	return f, nil
@@ -88,6 +87,9 @@ func (f *resultFrame) Hints() []sdk.KeyHint {
 			sdk.HintBack,
 		}
 	default:
-		return nil
+		// init is a top-level (NavReplace) plugin, so leaving the success
+		// screen returns home — advertise `q quit`, not `Esc back` (there is no
+		// return origin). Esc still works as a convenience, handled in Update.
+		return sdk.HintSetQuit.Hints()
 	}
 }
