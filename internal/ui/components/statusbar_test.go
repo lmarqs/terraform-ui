@@ -27,7 +27,7 @@ func TestStatusBar_Render_ContainsKeyBindings(t *testing.T) {
 
 	output := sb.Render(120)
 
-	expectedBindings := []string{"q", "esc", "?", "/"}
+	expectedBindings := []string{"q", "esc", "^w", "/"}
 	for _, key := range expectedBindings {
 		if !strings.Contains(output, key) {
 			t.Errorf("Render() should contain key binding %q", key)
@@ -40,11 +40,15 @@ func TestStatusBar_Render_ContainsLabels(t *testing.T) {
 
 	output := sb.Render(120)
 
-	expectedLabels := []string{"quit", "back", "wrap", "help", "search"}
+	expectedLabels := []string{"quit", "back", "wrap", "search"}
 	for _, label := range expectedLabels {
 		if !strings.Contains(output, label) {
 			t.Errorf("Render() should contain label %q", label)
 		}
+	}
+	// There is no help view; the fallback bar must not advertise one.
+	if strings.Contains(output, "help") {
+		t.Error("Render() should not contain a dead 'help' hint")
 	}
 }
 
