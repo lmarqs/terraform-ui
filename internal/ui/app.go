@@ -262,6 +262,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if current == nil {
 			return a, nil
 		}
+		if !current.Pins.HasAny() {
+			// Nothing pinned: clearing is a no-op. Skip the Context replacement
+			// so we don't fire a redundant ContextChangedEvent — that would
+			// needlessly reset plugins, and if a handler re-emits clear it could
+			// loop. This guard is what makes the return-to-home / apply-terminal
+			// pin clears (#38) safe to fire unconditionally.
+			return a, nil
+		}
 		next := current.WithPins(nil)
 		return a, a.bus.Dispatch(a.replaceContext(next)())
 

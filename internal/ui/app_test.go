@@ -5361,6 +5361,25 @@ func TestApp_Update_WhenPinClearWithBusyPlugin_ShouldReject(t *testing.T) {
 	}
 }
 
+func TestApp_Update_WhenPinClearWithNoPins_ShouldNotReplaceContext(t *testing.T) {
+	app := setupBusyGuardApp(false)
+	app.Init()
+	ctx := &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+		// no pins
+	}
+	app.holder.current = ctx
+
+	_, cmd := app.Update(sdk.PinClearRequestMsg{})
+	if cmd != nil {
+		t.Error("PinClearRequestMsg with no pins should not dispatch a ContextChangedEvent (want nil cmd)")
+	}
+	if app.holder.current != ctx {
+		t.Error("PinClearRequestMsg with no pins should not replace the Context (redundant event)")
+	}
+}
+
 // TestApp_Activate_TypedSwitch_DispatchesPerPluginType pins the typed-Input
 // dispatch in app.activate. Each migrated plugin type (version, validate,
 // output, plan) reaches its own switch case with a default Input. taint,
