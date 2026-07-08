@@ -762,7 +762,7 @@ func TestHandleContextChanged_WhenOnlyPinsChange_ShouldBeNoOp(t *testing.T) {
 	prev := &sdk.Context{Pins: []string{"a"}}
 	next := &sdk.Context{Pins: []string{"a", "b"}}
 
-	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: next})
+	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: next, Reason: sdk.ContextPinsChanged})
 	if cmd != nil {
 		t.Error("HandleContextChanged returned non-nil cmd")
 	}

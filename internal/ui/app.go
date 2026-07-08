@@ -252,7 +252,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		next := current.TogglePin(msg.Address)
-		return a, a.bus.Dispatch(a.replaceContext(next)())
+		return a, a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
 
 	case sdk.PinClearRequestMsg:
 		if !a.requireIdle("pin") {
@@ -271,7 +271,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		next := current.WithPins(nil)
-		return a, a.bus.Dispatch(a.replaceContext(next)())
+		return a, a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
 
 	case sdk.ContextSwitchRequestMsg:
 		// Single chokepoint: chdir/workspace plugins emit this when the user
@@ -302,7 +302,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.childCfg = childCfg
 		}
 		a.header = a.header.WithChdir(chdir.String()).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
-		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace))
+		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace), sdk.ContextSwitched)
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
@@ -838,13 +838,14 @@ func (a *App) rebuildContext(chdir sdk.Chdir, absChdir string, workspace sdk.Wor
 }
 
 // replaceContext atomically swaps the active Context and returns a Cmd that
-// dispatches a single ContextChangedEvent carrying both the previous and
-// next snapshots. Callers must build `next` via rebuildContext (or
-// WithPins on an existing Context) — never mutate `current` in place.
+// dispatches a single ContextChangedEvent carrying both snapshots and the
+// reason for the change. Callers must build `next` via rebuildContext (or
+// WithPins on an existing Context) — never mutate `current` in place — and pass
+// the reason so plugins react to intent, not to an inferred diff (#37).
 //
 // Every replacement is logged so every transition is observable in the debug
 // log: prev/next chdir, workspace, and target counts.
-func (a *App) replaceContext(next *sdk.Context) tea.Cmd {
+func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
 	logging.Logger().Debug("context.replaced",
@@ -854,9 +855,10 @@ func (a *App) replaceContext(next *sdk.Context) tea.Cmd {
 		"next_workspace", contextWorkspace(next),
 		"prev_targets", contextTargetCount(prev),
 		"next_targets", contextTargetCount(next),
+		"reason", reason,
 	)
 	return func() tea.Msg {
-		return sdk.ContextChangedEvent{Prev: prev, Next: next}
+		return sdk.ContextChangedEvent{Prev: prev, Next: next, Reason: reason}
 	}
 }
 

@@ -2312,8 +2312,9 @@ func TestHandleContextChanged_WhenOnlyPinsChange_ShouldMarkStaleAndPreserveUI(t 
 	p.summary = summary
 
 	cmd := p.HandleContextChanged(sdk.ContextChangedEvent{
-		Prev: &sdk.Context{Pins: []string{"a"}},
-		Next: &sdk.Context{Pins: []string{"a", "b"}},
+		Prev:   &sdk.Context{Pins: []string{"a"}},
+		Next:   &sdk.Context{Pins: []string{"a", "b"}},
+		Reason: sdk.ContextPinsChanged,
 	})
 	if cmd != nil {
 		t.Error("HandleContextChanged returned non-nil cmd")
@@ -2345,8 +2346,9 @@ func TestHandleContextChanged_WhenOnlyPinsChangeInTreeMode_ShouldRenderPinMarker
 	// pins-only ContextChangedEvent.
 	h.Ctx.Pins = []string{"aws_s3_bucket.logs"}
 	p.HandleContextChanged(sdk.ContextChangedEvent{
-		Prev: &sdk.Context{Pins: nil},
-		Next: &sdk.Context{Pins: []string{"aws_s3_bucket.logs"}},
+		Prev:   &sdk.Context{Pins: nil},
+		Next:   &sdk.Context{Pins: []string{"aws_s3_bucket.logs"}},
+		Reason: sdk.ContextPinsChanged,
 	})
 
 	view := p.View(80, 24)
@@ -2377,8 +2379,9 @@ func TestHandleContextChanged_WhenOnlyPinsChangeWithPinnedOnly_ShouldRefilter(t 
 	// User unpins b; the app fires a pins-only ContextChangedEvent.
 	h.Ctx.Pins = []string{"aws_s3_bucket.a"}
 	p.HandleContextChanged(sdk.ContextChangedEvent{
-		Prev: &sdk.Context{Pins: []string{"aws_s3_bucket.a", "aws_s3_bucket.b"}},
-		Next: &sdk.Context{Pins: []string{"aws_s3_bucket.a"}},
+		Prev:   &sdk.Context{Pins: []string{"aws_s3_bucket.a", "aws_s3_bucket.b"}},
+		Next:   &sdk.Context{Pins: []string{"aws_s3_bucket.a"}},
+		Reason: sdk.ContextPinsChanged,
 	})
 
 	if len(p.filtered) != 1 {

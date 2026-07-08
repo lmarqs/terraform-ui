@@ -5072,7 +5072,7 @@ func TestApp_ReplaceContext_ShouldDispatchContextChangedEventOnce(t *testing.T) 
 
 	prev := app.holder.current
 	next := &sdk.Context{Service: svc}
-	cmd := app.replaceContext(next)
+	cmd := app.replaceContext(next, sdk.ContextSwitched)
 
 	if app.holder.current != next {
 		t.Error("holder.current was not swapped to next")
@@ -5091,6 +5091,9 @@ func TestApp_ReplaceContext_ShouldDispatchContextChangedEventOnce(t *testing.T) 
 	}
 	if ev.Next != next {
 		t.Errorf("ev.Next = %v, want %v", ev.Next, next)
+	}
+	if ev.Reason != sdk.ContextSwitched {
+		t.Errorf("ev.Reason = %v, want ContextSwitched", ev.Reason)
 	}
 }
 

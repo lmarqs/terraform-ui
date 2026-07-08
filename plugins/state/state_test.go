@@ -2353,7 +2353,7 @@ func TestHandleContextChanged_WhenOnlyPinsChanged_ShouldPreserveListAndSyncTree(
 	h.Ctx.Pins = []string{"aws_instance.a"}
 	prev := &sdk.Context{Service: svc, WorkingDir: "/proj", Workspace: "default"}
 
-	p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: h.Ctx})
+	p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: h.Ctx, Reason: sdk.ContextPinsChanged})
 
 	if p.status != sdk.StatusDone {
 		t.Errorf("status = %v, want StatusDone (list preserved) on pin-only change", p.status)
@@ -2385,7 +2385,7 @@ func TestHandleContextChanged_WhenOnlyPinsChanged_WithPinnedOnly_ShouldRefilter(
 	h.Ctx.Pins = []string{"aws_instance.a"}
 	prev := &sdk.Context{Service: svc, WorkingDir: "/proj", Workspace: "default"}
 
-	p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: h.Ctx})
+	p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: h.Ctx, Reason: sdk.ContextPinsChanged})
 
 	if p.status != sdk.StatusDone {
 		t.Errorf("status = %v, want StatusDone", p.status)

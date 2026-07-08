@@ -33,31 +33,39 @@ type PinToggleRequestMsg struct {
 // Plugins emit this via PluginDeps.ClearPins.
 type PinClearRequestMsg struct{}
 
+// ContextChangeReason records why the app replaced the Context, so plugins
+// react to the app's intent instead of inferring it from a Prev/Next diff. The
+// zero value is ContextSwitched — the conservative default that triggers a full
+// reset, so any event built without an explicit reason is safe.
+type ContextChangeReason int
+
+const (
+	// ContextSwitched marks a chdir or workspace change (or the initial build):
+	// plugins fully reset state derived from the previous Context.
+	ContextSwitched ContextChangeReason = iota
+	// ContextPinsChanged marks a pin toggle/clear: working dir and workspace are
+	// unchanged, so plugins preserve UI and only re-sync the pin set.
+	ContextPinsChanged
+)
+
 // ContextChangedEvent is dispatched by the app whenever the immutable Context
-// is replaced (chdir change, workspace change, pin toggle). Plugins should
-// implement ContextChangedHandler and perform a full reset of any state
-// derived from the previous Context.
+// is replaced (chdir change, workspace change, pin toggle). Reason carries the
+// app's intent; plugins implement ContextChangedHandler and, unless the reason
+// is ContextPinsChanged, perform a full reset of any derived state.
 type ContextChangedEvent struct {
-	Prev *Context
-	Next *Context
+	Prev   *Context
+	Next   *Context
+	Reason ContextChangeReason
 }
 
 func (ContextChangedEvent) event() {}
 
-// OnlyPinsChanged reports whether the only difference between Prev and
-// Next is the Pins slice. Plugins can use this to skip full UI resets on
-// pure pin toggles. Returns false when Prev is nil (initial Context build).
+// OnlyPinsChanged reports whether this change was a pure pin toggle/clear rather
+// than a chdir/workspace switch. It reads the app-supplied Reason — NOT a
+// Prev/Next diff — so a same-chdir re-selection (which also nulls pins) is
+// correctly treated as a switch and drives a full reset, not a pin-only update.
 func (e ContextChangedEvent) OnlyPinsChanged() bool {
-	if e.Prev == nil || e.Next == nil {
-		return false
-	}
-	if e.Prev.WorkingDir != e.Next.WorkingDir {
-		return false
-	}
-	if e.Prev.Workspace != e.Next.Workspace {
-		return false
-	}
-	return true
+	return e.Reason == ContextPinsChanged
 }
 
 // ContextChangedHandler is implemented by plugins that need to react to the

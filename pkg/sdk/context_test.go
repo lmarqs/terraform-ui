@@ -160,40 +160,45 @@ func TestContext_ApplyOptions_GivenNilReceiver_ShouldReturnZeroValue(t *testing.
 	}
 }
 
-func TestContextChangedEvent_OnlyPinsChanged_ShouldReportTrueWhenOnlyPinsDiffer(t *testing.T) {
+func TestContextChangedEvent_OnlyPinsChanged_ShouldReportTrueWhenReasonIsPins(t *testing.T) {
 	prev := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws"), Pins: []string{"a"}}
 	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws"), Pins: []string{"a", "b"}}
 
-	ev := ContextChangedEvent{Prev: prev, Next: next}
+	ev := ContextChangedEvent{Prev: prev, Next: next, Reason: ContextPinsChanged}
 	if !ev.OnlyPinsChanged() {
-		t.Error("OnlyPinsChanged() = false; want true when only Pins differ")
+		t.Error("OnlyPinsChanged() = false; want true when Reason is ContextPinsChanged")
 	}
 }
 
-func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenChdirChanges(t *testing.T) {
+func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenReasonIsSwitched(t *testing.T) {
 	prev := &Context{WorkingDir: "/old", Workspace: NewWorkspace("ws")}
 	next := &Context{WorkingDir: "/new", Workspace: NewWorkspace("ws")}
 
-	ev := ContextChangedEvent{Prev: prev, Next: next}
+	ev := ContextChangedEvent{Prev: prev, Next: next, Reason: ContextSwitched}
 	if ev.OnlyPinsChanged() {
-		t.Error("OnlyPinsChanged() = true; want false when WorkingDir differs")
+		t.Error("OnlyPinsChanged() = true; want false for a chdir/workspace switch")
 	}
 }
 
-func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenWorkspaceChanges(t *testing.T) {
-	prev := &Context{WorkingDir: "/p", Workspace: NewWorkspace("old")}
-	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("new")}
+// Regression for #37: a same-chdir re-selection goes through the switch path
+// (which also nulls pins), so Prev and Next share WorkingDir+Workspace while
+// pins differ. The old diff-based check misread this as a pins-only change and
+// skipped the full reset. Provenance (Reason=ContextSwitched) fixes it.
+func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseOnSameChdirReselection(t *testing.T) {
+	prev := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws"), Pins: []string{"a"}}
+	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws")} // pins dropped by rebuild
 
-	ev := ContextChangedEvent{Prev: prev, Next: next}
+	ev := ContextChangedEvent{Prev: prev, Next: next, Reason: ContextSwitched}
 	if ev.OnlyPinsChanged() {
-		t.Error("OnlyPinsChanged() = true; want false when Workspace differs")
+		t.Error("OnlyPinsChanged() = true; want false — a same-chdir re-selection is a switch, not a pin change")
 	}
 }
 
-func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseWhenPrevIsNil(t *testing.T) {
-	next := &Context{WorkingDir: "/p", Workspace: NewWorkspace("ws")}
-	ev := ContextChangedEvent{Prev: nil, Next: next}
+func TestContextChangedEvent_OnlyPinsChanged_ShouldReportFalseForZeroReason(t *testing.T) {
+	// The zero value defaults to ContextSwitched: any event built without an
+	// explicit reason is treated as a full reset.
+	ev := ContextChangedEvent{Next: &Context{WorkingDir: "/p"}}
 	if ev.OnlyPinsChanged() {
-		t.Error("OnlyPinsChanged() = true with nil Prev; want false (initial context build)")
+		t.Error("OnlyPinsChanged() = true for zero-value Reason; want false (defaults to switch)")
 	}
 }
