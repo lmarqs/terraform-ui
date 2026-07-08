@@ -2331,6 +2331,70 @@ func TestHandleContextChanged_WhenChdirChanges_ShouldResetState(t *testing.T) {
 	}
 }
 
+// A pin toggle (same chdir + workspace) must NOT wipe the loaded resource list
+// or clear the pins — it should only reflect the new pin set in the tree.
+func TestHandleContextChanged_WhenOnlyPinsChanged_ShouldPreserveListAndSyncTree(t *testing.T) {
+	svc := &sdktest.MockService{StateListFn: func(_ context.Context, _ ...sdk.StateListOption) ([]sdk.Resource, error) {
+		return []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_instance.b"}}, nil
+	}}
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
+
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_instance.b"}}
+	p.filtered = p.resources
+	p.rebuildTree()
+
+	// Same chdir + workspace as Prev; a pin was just toggled on, so the live
+	// snapshot (Next) now carries the new pin set.
+	h.Ctx.WorkingDir = "/proj"
+	h.Ctx.Workspace = "default"
+	h.Ctx.Pins = []string{"aws_instance.a"}
+	prev := &sdk.Context{Service: svc, WorkingDir: "/proj", Workspace: "default"}
+
+	p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: h.Ctx})
+
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want StatusDone (list preserved) on pin-only change", p.status)
+	}
+	if len(p.resources) != 2 {
+		t.Errorf("resources = %d, want 2 preserved on pin-only change", len(p.resources))
+	}
+	if got := p.tree.PinnedPaths(); len(got) != 1 || got[0] != "aws_instance.a" {
+		t.Errorf("tree pinned paths = %v, want [aws_instance.a]", got)
+	}
+}
+
+// In pinned-only view, a pin-only change must re-filter so only pinned rows
+// remain visible (the list is preserved, not reset).
+func TestHandleContextChanged_WhenOnlyPinsChanged_WithPinnedOnly_ShouldRefilter(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	h := sdktest.NewDeps(svc)
+	p.Init(h.Deps)
+
+	p.status = sdk.StatusDone
+	p.resources = []sdk.Resource{{Address: "aws_instance.a"}, {Address: "aws_instance.b"}}
+	p.filtered = p.resources
+	p.pinnedOnly = true
+	p.rebuildTree()
+
+	h.Ctx.WorkingDir = "/proj"
+	h.Ctx.Workspace = "default"
+	h.Ctx.Pins = []string{"aws_instance.a"}
+	prev := &sdk.Context{Service: svc, WorkingDir: "/proj", Workspace: "default"}
+
+	p.HandleContextChanged(sdk.ContextChangedEvent{Prev: prev, Next: h.Ctx})
+
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v, want StatusDone", p.status)
+	}
+	if len(p.filtered) != 1 || p.filtered[0].Address != "aws_instance.a" {
+		t.Errorf("filtered = %v, want only [aws_instance.a] in pinned-only view", p.filtered)
+	}
+}
+
 func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)

@@ -142,14 +142,24 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 	return nil
 }
 
-// HandleContextChanged implements sdk.ContextChangedHandler. Pins are scoped
-// to the active Context — they die on context switch (the very bug this
-// overhaul exists to fix).
+// HandleContextChanged implements sdk.ContextChangedHandler. A pin toggle
+// (same chdir + workspace) must not wipe the loaded list: it only reflects the
+// new pin set in the tree (and re-filters the pinned-only view). A chdir or
+// workspace switch fully resets — the App has already reset pins on the new
+// Context, so no clear needs to be re-requested here.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
-	if !e.HandleContextChangedDefault(ev) {
+	if ev.Next == nil {
 		return nil
 	}
-	e.clearAllPins()
+	if ev.OnlyPinsChanged() {
+		e.syncPinnedToTree()
+		if e.pinnedOnly {
+			e.SetFilter(e.filter)
+		}
+		return nil
+	}
+	e.HandleContextChangedDefault(ev)
+	e.pinnedOnly = false
 	e.reset()
 	return nil
 }
