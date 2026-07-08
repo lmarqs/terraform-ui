@@ -1,3 +1,10 @@
+## [1.18.5](https://github.com/lmarqs/terraform-ui/compare/v1.18.4...v1.18.5) (2026-07-08)
+
+
+### Bug Fixes
+
+* **state:** share Show resource-JSON so macro path keeps Tainted ([59fad61](https://github.com/lmarqs/terraform-ui/commit/59fad61c8a459e059bfdd75bdace8e8bf8ac9da4)), closes [#46](https://github.com/lmarqs/terraform-ui/issues/46) [#46](https://github.com/lmarqs/terraform-ui/issues/46)
+
 ## [1.18.4](https://github.com/lmarqs/terraform-ui/compare/v1.18.3...v1.18.4) (2026-07-08)
 
 
