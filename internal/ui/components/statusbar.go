@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -27,7 +28,8 @@ func (s StatusBar) WithBinaryName(name string) StatusBar {
 }
 
 var statusStyle = lipgloss.NewStyle().
-	Foreground(sdk.ColorText)
+	Foreground(sdk.ColorText).
+	MaxHeight(1)
 
 func (s StatusBar) Render(width int) string {
 	var bindings string
@@ -40,8 +42,7 @@ func (s StatusBar) Render(width int) string {
 			sdk.StyleKey.Render("/") + " search"
 	}
 
-	content := s.appendBinaryName(bindings, width)
-	return statusStyle.Width(width).Render(content)
+	return s.renderLine(bindings, width)
 }
 
 // RenderHints formats a slice of KeyHint into a styled status bar string.
@@ -55,7 +56,15 @@ func (s StatusBar) RenderHints(hints []sdk.KeyHint, width int) string {
 		}
 	}
 	bindings := strings.Join(parts, "  ")
-	content := s.appendBinaryName(bindings, width)
+	return s.renderLine(bindings, width)
+}
+
+// renderLine composes the final status bar: appends the binary name, clamps the
+// result to a single row no wider than width (the footer is budgeted at one
+// line), and applies the base style. Truncation is ANSI-aware so styled hints
+// are never cut mid-escape-sequence.
+func (s StatusBar) renderLine(bindings string, width int) string {
+	content := ansi.Truncate(s.appendBinaryName(bindings, width), width, "")
 	return statusStyle.Width(width).Render(content)
 }
 

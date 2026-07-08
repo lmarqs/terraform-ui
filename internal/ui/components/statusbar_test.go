@@ -52,6 +52,40 @@ func TestStatusBar_Render_ContainsLabels(t *testing.T) {
 	}
 }
 
+func TestStatusBar_Render_NeverWrapsToTwoLines(t *testing.T) {
+	// A hint set wider than the terminal must be clamped to a single line;
+	// the footer is budgeted at exactly one row (app.go), so wrapping overflows it.
+	sb := NewStatusBar().WithBinaryName("terraform")
+
+	for _, w := range []int{10, 20, 30, 40} {
+		output := sb.Render(w)
+		if strings.Count(output, "\n") != 0 {
+			t.Errorf("Render(%d) wrapped to %d lines; hint bar must be one line", w, strings.Count(output, "\n")+1)
+		}
+	}
+}
+
+func TestStatusBar_RenderHints_NeverWrapsToTwoLines(t *testing.T) {
+	sb := NewStatusBar().WithBinaryName("terraform")
+	hints := []sdk.KeyHint{
+		{Key: "enter", Description: "inspect"},
+		{Key: "/", Description: "filter"},
+		{Key: "space", Description: "pin"},
+		{Key: "^t", Description: "tree"},
+		{Key: "^r", Description: "refresh"},
+		{Key: "^p", Description: "pinned"},
+		{Key: "^u", Description: "unpin all"},
+		{Key: ":", Description: "command"},
+		{Key: "q", Description: "quit"},
+	}
+	for _, w := range []int{10, 20, 40, 60} {
+		output := sb.RenderHints(hints, w)
+		if strings.Count(output, "\n") != 0 {
+			t.Errorf("RenderHints(%d) wrapped to %d lines; hint bar must be one line", w, strings.Count(output, "\n")+1)
+		}
+	}
+}
+
 func TestStatusBar_Render_VariousWidths(t *testing.T) {
 	sb := NewStatusBar()
 
