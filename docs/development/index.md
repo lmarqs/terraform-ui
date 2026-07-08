@@ -12,6 +12,7 @@ Internal architecture, design decisions, and testing strategy for contributors.
 
 - [Architecture](architecture.md) — Plugin system, event bus, navigation model
 - [Testing](testing.md) — Behavioral testing standard and layered test architecture
+- [Backlog Maintenance](backlog.md) — Project board, status workflow, and label taxonomy
 - [Architecture Decision Records](../adr/) — Design decisions and rationale
 
 ## Documentation Site Structure
@@ -44,7 +45,8 @@ docs/
 ├── development/              # Development section (this page)
 │   ├── index.md              #   Section parent (nav_order: 6)
 │   ├── architecture.md
-│   └── testing.md
+│   ├── testing.md
+│   └── backlog.md            #   Backlog maintenance (board, status, labels)
 ├── adr/                      # ADRs (grandchildren of Development > Architecture)
 ├── _config.yml               # Jekyll configuration
 └── assets/demo/              # Demo GIFs referenced by index.md

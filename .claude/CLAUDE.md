@@ -114,6 +114,7 @@ For UI changes, also run `mise run test:macro` to verify rendering.
 - Demo pipeline: `demo/README.md`
 - Configuration reference: `docs/guides/configuration.md`
 - Testing strategy: `docs/development/testing.md`
+- Backlog maintenance (board, status, labels): `docs/development/backlog.md`
 - Plugin catalog: `docs/plugins/index.md`
 - Risk analysis methodology: `docs/features/risk-analysis.md`
 - Phantom change detection: `docs/features/phantom-changes.md`
