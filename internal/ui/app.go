@@ -150,7 +150,6 @@ func (a App) Init() tea.Cmd {
 		WorkingDir: bootDir,
 		Workspace:  sdk.WorkspaceDefault,
 		Service:    bootSvc,
-		Pins:       a.cfg.InitialPins,
 		ExtraArgs:  a.cfg.ExtraArgs,
 	}
 
@@ -796,8 +795,9 @@ func (a *App) navigateBack() {
 // app's config + the supplied chdir/workspace. It populates ALL six
 // terraform-affecting exec fields (var-files, vars, parallelism, lock,
 // lock-timeout, extra-args) from config.Resolve — NOT just var-files/vars.
-// Pinned targets are preserved across rebuilds within the same chdir; on
-// chdir change callers should pass nil targets to clear them.
+// Pins are intentionally NOT carried over: a chdir or workspace switch ends
+// the current plan/re-plan cycle, so the new snapshot starts with no targeting
+// selection (Pins defaults to nil).
 func (a *App) rebuildContext(chdir sdk.Chdir, absChdir string, workspace sdk.Workspace) *sdk.Context {
 	scopedSvc := a.svc
 	if absChdir != "" {
