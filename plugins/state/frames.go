@@ -90,7 +90,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.pinnedOnly = !f.plugin.pinnedOnly
 		f.plugin.SetFilter(f.plugin.filter)
 	case "ctrl+u":
-		f.plugin.clearAllPins()
+		return f, f.plugin.clearAllPins()
 	case "ctrl+t":
 		f.plugin.treeMode = !f.plugin.treeMode
 		f.plugin.SetFilter(f.plugin.filter)

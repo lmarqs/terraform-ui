@@ -561,6 +561,26 @@ func TestListFrame_ClearAllPins(t *testing.T) {
 	}
 }
 
+// ctrl+u must return the clear-pins command so the App actually drops the
+// pins from the Context — not just clear the local tree display.
+func TestListFrame_ClearAllPins_RequestsClearFromApp(t *testing.T) {
+	resources := []sdk.Resource{{Address: "aws_instance.a", Type: "aws_instance"}}
+	p, h := newTestPluginWithHarness(resources)
+	f := &listFrame{plugin: p}
+
+	p.GetCtx().Pins = []string{"aws_instance.a"}
+	p.syncPinnedToTree()
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
+	if cmd == nil {
+		t.Fatal("ctrl+u returned nil cmd; expected a clear-pins request to the App")
+	}
+	cmd()
+	if h.ClearPinsCount != 1 {
+		t.Errorf("ClearPinsCount = %d, want 1 after ctrl+u", h.ClearPinsCount)
+	}
+}
+
 func TestListFrame_ClearAllPins_ExitsPinnedFilter(t *testing.T) {
 	resources := []sdk.Resource{
 		{Address: "aws_instance.a", Type: "aws_instance"},
