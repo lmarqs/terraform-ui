@@ -2326,6 +2326,35 @@ func TestHandleContextChanged_WhenOnlyPinsChange_ShouldMarkStaleAndPreserveUI(t 
 	}
 }
 
+func TestHandleContextChanged_WhenOnlyPinsChangeInTreeMode_ShouldRenderPinMarker(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, h := newTestPluginWithHarness(svc)
+	p.status = sdk.StatusDone
+	p.treeMode = true
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "aws_s3_bucket.logs"}, Action: sdk.ActionCreate},
+		},
+		ToCreate: 1,
+	}
+	p.filtered = p.summary.Changes
+	// Fresh plan builds the tree with no pins.
+	p.rebuildTree()
+
+	// User pins the resource: Context gains the pin and the app fires a
+	// pins-only ContextChangedEvent.
+	h.Ctx.Pins = []string{"aws_s3_bucket.logs"}
+	p.HandleContextChanged(sdk.ContextChangedEvent{
+		Prev: &sdk.Context{Pins: nil},
+		Next: &sdk.Context{Pins: []string{"aws_s3_bucket.logs"}},
+	})
+
+	view := p.View(80, 24)
+	if !strings.Contains(view, "[*]") {
+		t.Errorf("tree-mode view after pin toggle should show [*] pin marker, got:\n%s", view)
+	}
+}
+
 func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)

@@ -153,6 +153,10 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	}
 	if ev.OnlyPinsChanged() {
 		e.stale = true
+		// Reflect the new pin set in the tree so tree-mode indicators update
+		// immediately. The flat list reads pins live from Context, but the tree
+		// keeps its own pin map, refreshed only here and on rebuild.
+		e.syncPinnedToTree()
 		// A pin toggle invalidates any in-flight replan-then-apply: the
 		// replan's plan file would be wrong for the new pin set, and firing
 		// apply against it would surprise the user. The next `a` press will
