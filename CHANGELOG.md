@@ -1,3 +1,10 @@
+## [1.17.2](https://github.com/lmarqs/terraform-ui/compare/v1.17.1...v1.17.2) (2026-07-08)
+
+
+### Bug Fixes
+
+* **plan:** sync tree pin markers on pin toggle ([4d9a5db](https://github.com/lmarqs/terraform-ui/commit/4d9a5db28e7aefa8162e18919c580449a6c021aa))
+
 ## [1.17.1](https://github.com/lmarqs/terraform-ui/compare/v1.17.0...v1.17.1) (2026-07-02)
 
 
