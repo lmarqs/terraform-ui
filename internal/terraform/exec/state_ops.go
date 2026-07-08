@@ -2,7 +2,6 @@ package exec
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -41,40 +40,7 @@ func (s *ExecService) Show(ctx context.Context, address string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-
-	if state == nil || state.Values == nil {
-		return "", fmt.Errorf("no state available")
-	}
-
-	resource := terraform.FindResourceInState(state.Values.RootModule, address)
-	if resource == nil {
-		return "", fmt.Errorf("resource %q not found in state", address)
-	}
-
-	redacted := terraform.RedactSensitiveValues(resource.AttributeValues, resource.SensitiveValues)
-
-	display := struct {
-		Address      string                 `json:"address"`
-		Type         string                 `json:"type"`
-		Name         string                 `json:"name"`
-		ProviderName string                 `json:"provider_name"`
-		Tainted      bool                   `json:"tainted,omitempty"`
-		Values       map[string]interface{} `json:"values"`
-	}{
-		Address:      resource.Address,
-		Type:         resource.Type,
-		Name:         resource.Name,
-		ProviderName: resource.ProviderName,
-		Tainted:      resource.Tainted,
-		Values:       redacted,
-	}
-
-	output, err := json.MarshalIndent(display, "", "  ")
-	if err != nil {
-		return "", fmt.Errorf("marshaling resource: %w", err)
-	}
-
-	return string(output), nil
+	return terraform.ShowResourceJSON(state, address)
 }
 
 // StateRm removes a resource from state.

@@ -654,6 +654,46 @@ func TestMacroService_WhenShowWithCachedStateAndMissingResource_ShouldReturnErro
 	}
 }
 
+// Regression for #46: the macro (recorded-command) Show path must not drop the
+// Tainted field that the exec path includes. Both adapters now route through
+// terraform.ShowResourceJSON, so the record and exec paths cannot drift.
+func TestMacroService_WhenShowWithTaintedResource_ShouldIncludeTaintedField(t *testing.T) {
+	cache := NewServiceCache()
+	state := &tfjson.State{
+		FormatVersion: "1.0",
+		Values: &tfjson.StateValues{
+			RootModule: &tfjson.StateModule{
+				Resources: []*tfjson.StateResource{
+					{
+						Address:         "aws_instance.web",
+						Type:            "aws_instance",
+						Name:            "web",
+						ProviderName:    "registry.terraform.io/hashicorp/aws",
+						Tainted:         true,
+						AttributeValues: map[string]interface{}{"id": "i-123"},
+						SensitiveValues: json.RawMessage(`{}`),
+					},
+				},
+			},
+		},
+	}
+	cache.SetState([]sdk.Resource{{Address: "aws_instance.web"}}, state)
+
+	svc := NewMacroService("terraform", cache)
+	result, err := svc.Show(context.Background(), "aws_instance.web")
+	if err != nil {
+		t.Fatalf("Show() error = %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(result), &parsed); err != nil {
+		t.Fatalf("result is not valid JSON: %v", err)
+	}
+	if parsed["tainted"] != true {
+		t.Errorf("tainted = %v, want true (macro Show dropped the Tainted field)", parsed["tainted"])
+	}
+}
+
 func TestBuildInitFlags_WhenAllOptionsSet_ShouldProduceCorrectFlags(t *testing.T) {
 	falsePtr := false
 	opts := sdk.InitOptions{
@@ -770,22 +810,22 @@ func TestMacroService_WhenVersion_ShouldReturnDefaultVersion(t *testing.T) {
 	}
 }
 
-func TestShowFromState_WhenNilState_ShouldReturnError(t *testing.T) {
-	_, err := showFromState(nil, "aws_instance.web")
+func TestShowResourceJSON_WhenNilState_ShouldReturnError(t *testing.T) {
+	_, err := ShowResourceJSON(nil, "aws_instance.web")
 	if err == nil {
 		t.Fatal("expected error for nil state")
 	}
 }
 
-func TestShowFromState_WhenNilValues_ShouldReturnError(t *testing.T) {
+func TestShowResourceJSON_WhenNilValues_ShouldReturnError(t *testing.T) {
 	state := &tfjson.State{FormatVersion: "1.0", Values: nil}
-	_, err := showFromState(state, "aws_instance.web")
+	_, err := ShowResourceJSON(state, "aws_instance.web")
 	if err == nil {
 		t.Fatal("expected error for nil Values")
 	}
 }
 
-func TestShowFromState_WhenResourceNotFound_ShouldReturnError(t *testing.T) {
+func TestShowResourceJSON_WhenResourceNotFound_ShouldReturnError(t *testing.T) {
 	state := &tfjson.State{
 		FormatVersion: "1.0",
 		Values: &tfjson.StateValues{
@@ -796,13 +836,13 @@ func TestShowFromState_WhenResourceNotFound_ShouldReturnError(t *testing.T) {
 			},
 		},
 	}
-	_, err := showFromState(state, "aws_instance.nonexistent")
+	_, err := ShowResourceJSON(state, "aws_instance.nonexistent")
 	if err == nil {
 		t.Fatal("expected error for missing resource")
 	}
 }
 
-func TestShowFromState_WhenResourceFound_ShouldReturnJSON(t *testing.T) {
+func TestShowResourceJSON_WhenResourceFound_ShouldReturnJSON(t *testing.T) {
 	state := &tfjson.State{
 		FormatVersion: "1.0",
 		Values: &tfjson.StateValues{
@@ -821,9 +861,9 @@ func TestShowFromState_WhenResourceFound_ShouldReturnJSON(t *testing.T) {
 		},
 	}
 
-	result, err := showFromState(state, "aws_instance.web")
+	result, err := ShowResourceJSON(state, "aws_instance.web")
 	if err != nil {
-		t.Fatalf("showFromState() error = %v", err)
+		t.Fatalf("ShowResourceJSON() error = %v", err)
 	}
 
 	var parsed map[string]interface{}
@@ -839,9 +879,12 @@ func TestShowFromState_WhenResourceFound_ShouldReturnJSON(t *testing.T) {
 	if parsed["name"] != "web" {
 		t.Errorf("name = %v, want web", parsed["name"])
 	}
+	if _, present := parsed["tainted"]; present {
+		t.Error("tainted key present for an untainted resource; want omitted (omitempty)")
+	}
 }
 
-func TestShowFromState_WhenResourceHasSensitiveValues_ShouldProduceValidJSON(t *testing.T) {
+func TestShowResourceJSON_WhenResourceHasSensitiveValues_ShouldProduceValidJSON(t *testing.T) {
 	state := &tfjson.State{
 		FormatVersion: "1.0",
 		Values: &tfjson.StateValues{
@@ -860,9 +903,9 @@ func TestShowFromState_WhenResourceHasSensitiveValues_ShouldProduceValidJSON(t *
 		},
 	}
 
-	result, err := showFromState(state, "aws_instance.web")
+	result, err := ShowResourceJSON(state, "aws_instance.web")
 	if err != nil {
-		t.Fatalf("showFromState() error = %v", err)
+		t.Fatalf("ShowResourceJSON() error = %v", err)
 	}
 
 	var parsed struct {

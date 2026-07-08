@@ -2,11 +2,9 @@ package terraform
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 
-	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -103,7 +101,7 @@ func (r *MacroService) StateList(_ context.Context, _ ...sdk.StateListOption) ([
 
 func (r *MacroService) Show(_ context.Context, address string) (string, error) {
 	if state, ok := r.cache.GetState(); ok {
-		return showFromState(state, address)
+		return ShowResourceJSON(state, address)
 	}
 	return "{}", nil
 }
@@ -253,35 +251,6 @@ func (r *MacroService) WithDir(dir string) sdk.Service {
 		cache:  NewServiceCache(),
 		store:  r.store,
 	}
-}
-
-// showFromState looks up a resource in tfjson.State and returns JSON.
-func showFromState(state *tfjson.State, address string) (string, error) {
-	if state == nil || state.Values == nil {
-		return "", fmt.Errorf("no state available")
-	}
-	resource := FindResourceInState(state.Values.RootModule, address)
-	if resource == nil {
-		return "", fmt.Errorf("resource %q not found in state", address)
-	}
-	redacted := RedactSensitiveValues(resource.AttributeValues, resource.SensitiveValues)
-	display := struct {
-		Address      string                 `json:"address"`
-		Type         string                 `json:"type"`
-		Name         string                 `json:"name"`
-		ProviderName string                 `json:"provider_name"`
-		Values       map[string]interface{} `json:"values"`
-	}{
-		Address:      resource.Address,
-		Type:         resource.Type,
-		Name:         resource.Name,
-		ProviderName: resource.ProviderName,
-		Values:       redacted,
-	}
-	// json.MarshalIndent cannot fail here: the struct contains only strings and
-	// a map[string]interface{} produced by json.Unmarshal (JSON-safe types).
-	output, _ := json.MarshalIndent(display, "", "  ")
-	return string(output), nil
 }
 
 func buildPlanFlags(opts sdk.PlanOptions) []string {
