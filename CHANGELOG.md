@@ -1,3 +1,10 @@
+## [1.18.1](https://github.com/lmarqs/terraform-ui/compare/v1.18.0...v1.18.1) (2026-07-08)
+
+
+### Bug Fixes
+
+* **state:** don't wipe the resource list when a pin is toggled ([3932249](https://github.com/lmarqs/terraform-ui/commit/3932249e9dfa8c02e454972bfe26ecf047680d32)), closes [#34](https://github.com/lmarqs/terraform-ui/issues/34)
+
 # [1.18.0](https://github.com/lmarqs/terraform-ui/compare/v1.17.2...v1.18.0) (2026-07-08)
 
 
