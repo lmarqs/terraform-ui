@@ -355,9 +355,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.standalone != nil {
 				return a, tea.Quit
 			}
-			prev := a.activePlugin.ID()
-			a.activePlugin = nil
-			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
+			return a, a.goHome(a.activePlugin.ID())
 		}
 		return a, nil
 
@@ -692,11 +690,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			} else if c, ok := a.activePlugin.(sdk.Cancellable); ok {
 				c.Cancel()
 			}
-			prev := a.activePlugin.ID()
-			a.activePlugin = nil
-			a.navStack = nil
-			logging.Logger().Debug("view.transition", "from", prev, "to", "home")
-			return a, nil
+			return a, a.goHome(a.activePlugin.ID())
 		}
 		return a, a.cmdQuit()
 	}
@@ -713,10 +707,7 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 						a.navigateBack()
 						return a, tea.Batch(cmd, a.activate(a.activePlugin))
 					}
-					prev := a.activePlugin.ID()
-					a.activePlugin = nil
-					a.navStack = nil
-					logging.Logger().Debug("view.transition", "from", prev, "to", "home")
+					return a, tea.Batch(cmd, a.goHome(a.activePlugin.ID()))
 				}
 				return a, cmd
 			}
@@ -797,6 +788,17 @@ func (a *App) navigateBack() {
 		to = prev.ID()
 	}
 	logging.Logger().Debug("view.transition", "from", from, "to", to)
+}
+
+// goHome resets navigation to the app root and requests a pin clear: leaving
+// the plan/re-plan workflow ends the targeting selection (#38). The empty-pins
+// guard in the PinClearRequestMsg handler makes the clear a no-op when nothing
+// is pinned, so callers invoke this unconditionally.
+func (a *App) goHome(prev string) tea.Cmd {
+	a.activePlugin = nil
+	a.navStack = nil
+	logging.Logger().Debug("view.transition", "from", prev, "to", "home")
+	return func() tea.Msg { return sdk.PinClearRequestMsg{} }
 }
 
 // rebuildContext constructs a fresh, immutable Context snapshot from the

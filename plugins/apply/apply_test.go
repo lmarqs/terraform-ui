@@ -142,19 +142,49 @@ func TestAbort_WhenCalled_ShouldResetToIdle(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenApplyResultSuccess_ShouldEmitPlanInvalidated(t *testing.T) {
+// flattenCmd executes cmd, expanding any tea.Batch into its leaf messages.
+func flattenCmd(cmd tea.Cmd) []tea.Msg {
+	if cmd == nil {
+		return nil
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		var out []tea.Msg
+		for _, c := range batch {
+			out = append(out, flattenCmd(c)...)
+		}
+		return out
+	}
+	return []tea.Msg{msg}
+}
+
+func hasMsg[T tea.Msg](msgs []tea.Msg) bool {
+	for _, m := range msgs {
+		if _, ok := m.(T); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func TestUpdate_WhenApplyResultSuccess_ShouldEmitPlanInvalidatedAndClearPins(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
+	h := sdktest.NewDeps(&sdktest.MockService{})
+	p.Init(h.Deps)
 	p.status = sdk.StatusLoading
 	p.planFile = "/tmp/foo.tfplan"
 	p.timer.Start()
 
 	result, cmd := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
 	if cmd == nil {
-		t.Fatal("Update(ApplyResultMsg) cmd = nil, want PlanInvalidatedEvent emitter")
+		t.Fatal("Update(ApplyResultMsg) cmd = nil, want PlanInvalidatedEvent + pin clear")
 	}
-	msg := cmd()
-	if _, ok := msg.(sdk.PlanInvalidatedEvent); !ok {
-		t.Errorf("cmd() = %T, want sdk.PlanInvalidatedEvent", msg)
+	msgs := flattenCmd(cmd)
+	if !hasMsg[sdk.PlanInvalidatedEvent](msgs) {
+		t.Errorf("terminal cmd should emit PlanInvalidatedEvent, got %v", msgs)
+	}
+	if h.ClearPinsCount != 1 {
+		t.Errorf("ClearPinsCount = %d, want 1 (pins cleared on apply success)", h.ClearPinsCount)
 	}
 
 	updated := result.(*Plugin)
@@ -172,13 +202,19 @@ func TestUpdate_WhenApplyResultSuccess_ShouldEmitPlanInvalidated(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenApplyResultError_ShouldTransitionToError(t *testing.T) {
+func TestUpdate_WhenApplyResultError_ShouldTransitionToErrorAndClearPins(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
+	h := sdktest.NewDeps(&sdktest.MockService{})
+	p.Init(h.Deps)
 	p.status = sdk.StatusLoading
 
 	result, cmd := p.Update(ApplyResultMsg{Err: errors.New("apply failed"), Duration: 3 * time.Second})
-	if cmd != nil {
-		t.Errorf("Update(ApplyResultMsg) cmd = %v, want nil", cmd)
+	msgs := flattenCmd(cmd)
+	if !hasMsg[sdk.PinClearRequestMsg](msgs) {
+		t.Errorf("terminal cmd should clear pins on apply error, got %v", msgs)
+	}
+	if h.ClearPinsCount != 1 {
+		t.Errorf("ClearPinsCount = %d, want 1 (pins cleared on apply error)", h.ClearPinsCount)
 	}
 	updated := result.(*Plugin)
 	if updated.status != sdk.StatusError {

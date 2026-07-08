@@ -5380,6 +5380,77 @@ func TestApp_Update_WhenPinClearWithNoPins_ShouldNotReplaceContext(t *testing.T)
 	}
 }
 
+// appCmdEmits reports whether executing cmd (expanding tea.Batch) yields a
+// message of type T.
+func appCmdEmits[T tea.Msg](cmd tea.Cmd) bool {
+	if cmd == nil {
+		return false
+	}
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, c := range batch {
+			if appCmdEmits[T](c) {
+				return true
+			}
+		}
+		return false
+	}
+	_, ok := msg.(T)
+	return ok
+}
+
+func TestApp_HandleKey_WhenReturnToHome_ShouldRequestPinClear(t *testing.T) {
+	app := setupTestApp()
+	app.holder.current = &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+		Pins:       []string{"aws_instance.web"},
+	}
+	model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
+	app = model.(App)
+	if app.activePlugin == nil {
+		t.Fatal("plugin should be active before q")
+	}
+
+	model, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
+	app = model.(App)
+	if app.activePlugin != nil {
+		t.Error("q should return to home")
+	}
+	if !appCmdEmits[sdk.PinClearRequestMsg](cmd) {
+		t.Error("returning to home should request a pin clear — the plan/re-plan cycle ended (#38)")
+	}
+}
+
+func TestApp_Update_WhenDeactivatePopsToPlugin_ShouldPreservePins(t *testing.T) {
+	app := setupTestApp()
+	planP, ok := app.registry.ByID("plan")
+	if !ok {
+		t.Fatal("plan plugin not registered")
+	}
+	stateP, _ := app.registry.ByID("state")
+	// Simulate apply (stand-in: state) pushed over plan.
+	app.activePlugin = stateP
+	app.navStack = []sdk.Plugin{planP}
+	app.holder.current = &sdk.Context{
+		WorkingDir: "/test",
+		Service:    newMockService("default", nil),
+		Pins:       []string{"aws_instance.web"},
+	}
+
+	model, cmd := app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+	if app.activePlugin == nil || app.activePlugin.ID() != "plan" {
+		t.Fatalf("DeactivateMsg with navStack should pop to plan, got %v", app.activePlugin)
+	}
+	if appCmdEmits[sdk.PinClearRequestMsg](cmd) {
+		t.Error("popping back to plan (not home) must NOT clear pins — re-plan needs them")
+	}
+	if len(app.holder.current.Pins) != 1 {
+		t.Errorf("pins should be preserved on pop-to-plugin, got %v", app.holder.current.Pins)
+	}
+}
+
 // TestApp_Activate_TypedSwitch_DispatchesPerPluginType pins the typed-Input
 // dispatch in app.activate. Each migrated plugin type (version, validate,
 // output, plan) reaches its own switch case with a default Input. taint,

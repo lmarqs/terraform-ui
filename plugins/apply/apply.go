@@ -329,13 +329,20 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		e.stack.Reset()
 		// Drop our reference; cleanup is owned by the plan plugin (ADR-0020).
 		e.planFile = ""
+		// The targeting selection is spent once apply reaches a terminal state,
+		// success or error — clear pins so the next plan isn't silently scoped
+		// to the just-applied set. The app's empty-pins guard makes this a no-op
+		// for an un-targeted apply.
 		if msg.Err != nil {
 			e.status = sdk.StatusError
 			e.errMsg = msg.Err.Error()
-			return e, nil
+			return e, e.ClearPinsFn()
 		}
 		e.status = sdk.StatusDone
-		return e, func() tea.Msg { return sdk.PlanInvalidatedEvent{} }
+		return e, tea.Batch(
+			func() tea.Msg { return sdk.PlanInvalidatedEvent{} },
+			e.ClearPinsFn(),
+		)
 
 	case ui.TimerTickMsg:
 		return e, e.timer.Tick()
