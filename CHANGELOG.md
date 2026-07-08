@@ -1,3 +1,15 @@
+# [1.18.0](https://github.com/lmarqs/terraform-ui/compare/v1.17.2...v1.18.0) (2026-07-08)
+
+
+### Bug Fixes
+
+* make q/esc leave the init success screen to home ([8563c60](https://github.com/lmarqs/terraform-ui/commit/8563c60094b51cbf345bf5b0baac3e1ec4fcdfec))
+
+
+### Features
+
+* show success message after init instead of auto-returning home ([19a4cd2](https://github.com/lmarqs/terraform-ui/commit/19a4cd21b23749118ef01aed17f0c33147b39820))
+
 ## [1.17.2](https://github.com/lmarqs/terraform-ui/compare/v1.17.1...v1.17.2) (2026-07-08)
 
 
