@@ -1,3 +1,10 @@
+## [1.18.6](https://github.com/lmarqs/terraform-ui/compare/v1.18.5...v1.18.6) (2026-07-12)
+
+
+### Bug Fixes
+
+* **init:** exit non-zero and stop claiming success when init fails ([8527b1c](https://github.com/lmarqs/terraform-ui/commit/8527b1c6707fe7b387c7743711704d88497a9688)), closes [#47](https://github.com/lmarqs/terraform-ui/issues/47)
+
 ## [1.18.5](https://github.com/lmarqs/terraform-ui/compare/v1.18.4...v1.18.5) (2026-07-08)
 
 
