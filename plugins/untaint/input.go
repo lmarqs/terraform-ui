@@ -10,4 +10,8 @@ type Input struct {
 	// JSON signals the caller wants JSON-shaped stdout. Untaint has no stdout
 	// content today; the field exists for symmetry with other plugins.
 	JSON bool
+	// AutoConfirm skips the interactive confirmation prelude. The cmd layer
+	// sets it for non-interactive (headless/macro) invocations, mirroring
+	// terraform's own prompt-free behavior for this verb.
+	AutoConfirm bool
 }

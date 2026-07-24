@@ -106,6 +106,75 @@ func TestPlugin_Activate(t *testing.T) {
 	})
 }
 
+// runHeadless walks the cmd chain returned by Activate, failing on any
+// sdk.RequestInputMsg and feeding every other message back through Update
+// until the runner reaches a terminal status.
+func runHeadless(t *testing.T, p *Plugin, cmd tea.Cmd) {
+	t.Helper()
+	queue := []tea.Cmd{cmd}
+	for steps := 0; len(queue) > 0; steps++ {
+		if steps > 100 {
+			t.Fatal("cmd chain did not terminate")
+		}
+		if p.Status() == sdk.StatusDone || p.Status() == sdk.StatusError {
+			return
+		}
+		next := queue[0]
+		queue = queue[1:]
+		if next == nil {
+			continue
+		}
+		switch msg := next().(type) {
+		case tea.BatchMsg:
+			queue = append(queue, msg...)
+		case sdk.RequestInputMsg:
+			t.Fatalf("AutoConfirm chain produced sdk.RequestInputMsg (prompt %q)", msg.Request.Prompt)
+		case ui.TimerTickMsg:
+			// swallow: re-feeding real ticks would loop forever
+		default:
+			_, cmd := p.Update(msg)
+			queue = append(queue, cmd)
+		}
+	}
+}
+
+func TestPlugin_Activate_AutoConfirm(t *testing.T) {
+	t.Run("runs without prompting and reports success on stderr", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		cmd := p.Activate(Input{Addrs: []string{"aws_instance.web"}, AutoConfirm: true})
+		if cmd == nil {
+			t.Fatal("Activate() with AutoConfirm should return a start cmd")
+		}
+		runHeadless(t, p, cmd)
+		if p.Status() != sdk.StatusDone {
+			t.Fatalf("status = %v, want Done", p.Status())
+		}
+		if got := string(p.Stderr()); got != "✓ Untainted aws_instance.web\n" {
+			t.Errorf("Stderr() = %q, want the untainted line", got)
+		}
+		if p.ExitCode() != 0 {
+			t.Errorf("ExitCode() = %d, want 0", p.ExitCode())
+		}
+	})
+
+	t.Run("runs without prompting and reports failure on stderr", func(t *testing.T) {
+		svc := &sdktest.MockService{UntaintFn: func(context.Context, string) error {
+			return errors.New("lock held")
+		}}
+		p, _ := newTestPlugin(svc)
+		runHeadless(t, p, p.Activate(Input{Addrs: []string{"aws_instance.web"}, AutoConfirm: true}))
+		if p.Status() != sdk.StatusError {
+			t.Fatalf("status = %v, want Error", p.Status())
+		}
+		if got := string(p.Stderr()); got != "aws_instance.web: lock held\n" {
+			t.Errorf("Stderr() = %q, want the error line", got)
+		}
+		if p.ExitCode() != 1 {
+			t.Errorf("ExitCode() = %d, want 1", p.ExitCode())
+		}
+	})
+}
+
 func TestPlugin_Confirm(t *testing.T) {
 	t.Run("single-address prompt and accept starts the run", func(t *testing.T) {
 		p, _ := newTestPlugin(&sdktest.MockService{})

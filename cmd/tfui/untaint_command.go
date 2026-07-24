@@ -19,6 +19,7 @@ func buildUntaintCommand(s *Session) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			input.Addrs = args
 			input.JSON = s.JSONStdout()
+			input.AutoConfirm = s.SilentStderr() || s.macro.Active()
 			return s.RunPlugin(cmd.Context(), "untaint", func(p sdk.Plugin) tea.Cmd {
 				return p.(*untaint.Plugin).Activate(input)
 			})

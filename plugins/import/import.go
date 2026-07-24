@@ -56,6 +56,10 @@ func (p *Plugin) Activate(input Input) tea.Cmd {
 	p.id = input.ID
 	p.Reset()
 	if input.Addr != "" && input.ID != "" {
+		if input.AutoConfirm {
+			p.Arm(p.spec())
+			return p.Start()
+		}
 		return p.confirmImport()
 	}
 	p.id = ""
