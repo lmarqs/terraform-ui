@@ -1205,6 +1205,54 @@ func TestExitCode_WhenStatusDone_ShouldReturn0(t *testing.T) {
 	}
 }
 
+func TestStderr_WhenApplyFailed_ShouldEmitErrMsg(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+	p.status = sdk.StatusLoading
+
+	result, _ := p.Update(ApplyResultMsg{Err: errors.New("apply failed"), Duration: 3 * time.Second})
+	updated := result.(*Plugin)
+
+	if got := string(updated.Stderr()); got != "apply failed\n" {
+		t.Errorf("Stderr() = %q, want %q", got, "apply failed\n")
+	}
+}
+
+func TestStderr_WhenApplySucceeded_ShouldEmitApplyComplete(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+	p.status = sdk.StatusLoading
+
+	result, _ := p.Update(ApplyResultMsg{Err: nil, Duration: 5 * time.Second})
+	updated := result.(*Plugin)
+
+	if got := string(updated.Stderr()); got != "Apply complete.\n" {
+		t.Errorf("Stderr() = %q, want %q", got, "Apply complete.\n")
+	}
+}
+
+func TestStderr_WhenNoChanges_ShouldEmitNoChanges(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	p.PreviewPlan()
+	result, _ := p.Update(planPreviewMsg{Summary: &sdk.PlanSummary{}})
+	updated := result.(*Plugin)
+
+	if got := string(updated.Stderr()); got != "No changes.\n" {
+		t.Errorf("Stderr() = %q, want %q", got, "No changes.\n")
+	}
+}
+
+func TestStderr_WhenIdle_ShouldReturnNil(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	if got := p.Stderr(); got != nil {
+		t.Errorf("Stderr() when idle = %q, want nil", got)
+	}
+}
+
 func TestStack_WhenCalled_ShouldReturnInternalStack(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	if p.Stack() == nil {

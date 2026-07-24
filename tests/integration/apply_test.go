@@ -89,10 +89,28 @@ func TestApply_CreateFixture_SilentMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
 	}
+	if !strings.Contains(stderr, "Apply complete.") {
+		t.Errorf("expected 'Apply complete.' on stderr, got: %q", stderr)
+	}
 
 	resultPath := filepath.Join(dir, "out", "result.txt")
 	if _, err := os.Stat(resultPath); err != nil {
 		t.Errorf("expected %s to exist after apply, got error: %v", resultPath, err)
+	}
+}
+
+func TestApply_BrokenFixture_SilentMode(t *testing.T) {
+	initFixture(t, "broken")
+
+	stdout, stderr, err := runTfui("apply", "-project", fixtureDir("broken"), "-ci", "-auto-approve")
+	if !isExitCode(err, 1) {
+		t.Fatalf("expected exit code 1 for broken fixture, got err=%v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("expected empty stdout for failed apply, got: %q", stdout)
+	}
+	if !strings.Contains(stderr, "not been declared") {
+		t.Errorf("expected terraform's error on stderr, got: %q", stderr)
 	}
 }
 
@@ -104,8 +122,9 @@ func TestApply_CreateFixture_AgentMode(t *testing.T) {
 		t.Fatalf("plan failed: %v", err)
 	}
 
-	// Per ADR-0022 hexagonal contract: apply does not implement StdoutEmitter.
-	// The signal that apply succeeded is exit code 0 (carried by ExitCoder).
+	// Per the ADR-0021 output-port contract: apply does not implement
+	// StdoutEmitter. The machine signal that apply succeeded is exit code 0
+	// (carried by ExitCoder); the outcome summary goes to stderr.
 	// `--json` is handed to the plugin via Input.JSON; apply ignores it today.
 	_, stderr, err := runTfui("apply", "-project", dir, "-json", "-auto-approve")
 	if err != nil {

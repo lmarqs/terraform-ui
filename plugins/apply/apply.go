@@ -450,6 +450,23 @@ func (e *Plugin) renderConfirmation(_, _ int) string {
 	return b.String() + header + "\n" + detail + "\n\n" + prompt
 }
 
+// Stderr reports the apply outcome. Apply deliberately emits no stdout —
+// exit code 0 is the machine signal — but headless callers still need a
+// human-readable confirmation or the terraform error, on the status channel.
+func (e *Plugin) Stderr() []byte {
+	switch e.status {
+	case sdk.StatusError:
+		return []byte(e.errMsg + "\n")
+	case sdk.StatusDone:
+		if e.noChanges {
+			return []byte("No changes.\n")
+		}
+		return []byte("Apply complete.\n")
+	default:
+		return nil
+	}
+}
+
 // ExitCode returns the process exit code: 1 if the apply failed, 0 otherwise.
 func (e *Plugin) ExitCode() int {
 	if e.status == sdk.StatusError {
