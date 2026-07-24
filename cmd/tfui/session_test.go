@@ -83,6 +83,39 @@ func runPluginWithCapturedStdout(session *Session, id string, input apply.Input)
 	})
 }
 
+// TestResolveSilentStderrFrom_ModeMatrix pins the headless (silent-stderr)
+// decision matrix: explicit --ci wins, CI=1 (exact match) wins, agent
+// environments (CLAUDECODE, AI_AGENT) win, otherwise a non-TTY stderr means
+// headless.
+func TestResolveSilentStderrFrom_ModeMatrix(t *testing.T) {
+	tests := []struct {
+		name        string
+		ciMode      bool
+		env         map[string]string
+		stderrIsTTY bool
+		want        bool
+	}{
+		{"ShouldSilenceOnCIFlag", true, nil, true, true},
+		{"ShouldSilenceOnCIEnvExactlyOne", false, map[string]string{"CI": "1"}, true, true},
+		{"ShouldNotSilenceOnCIEnvTrue", false, map[string]string{"CI": "true"}, true, false},
+		{"ShouldSilenceOnClaudeCodeEnv", false, map[string]string{"CLAUDECODE": "1"}, true, true},
+		{"ShouldSilenceOnAIAgentEnv", false, map[string]string{"AI_AGENT": "claude-code"}, true, true},
+		{"ShouldNotSilenceOnInteractiveTTY", false, nil, true, false},
+		{"ShouldSilenceOnNonTTYStderr", false, nil, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			getenv := func(k string) string { return tt.env[k] }
+			stderrIsTTY := func() bool { return tt.stderrIsTTY }
+			got := resolveSilentStderrFrom(tt.ciMode, getenv, stderrIsTTY)
+			if got != tt.want {
+				t.Errorf("resolveSilentStderrFrom(%v, env=%v, tty=%v) = %v, want %v",
+					tt.ciMode, tt.env, tt.stderrIsTTY, got, tt.want)
+			}
+		})
+	}
+}
+
 // writeTempTape writes a tape file with the given content and returns its
 // absolute path. Empty content is valid — the macro runner handles it cleanly.
 func writeTempTape(t *testing.T, content string) string {

@@ -27,7 +27,7 @@ type Session struct {
 	effects      Effects
 	jsonStdout   bool
 	ciMode       bool
-	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || !isStderrTTY
+	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || agent env || !isStderrTTY
 }
 
 func (s *Session) Run() error {
@@ -143,17 +143,29 @@ func (s *Session) JSONStdout() bool {
 	return s.jsonStdout
 }
 
-// resolveSilentStderr derives the stderr-silence boolean from --ci, CI=1, and
-// stderr TTY status. Called once at PersistentPreRunE time; the result is
-// cached on s.silentStderr and read by every dispatch path.
+// resolveSilentStderr derives the stderr-silence boolean from --ci, headless
+// environment variables, and stderr TTY status. Called once at
+// PersistentPreRunE time; the result is cached on s.silentStderr and read by
+// every dispatch path.
 func (s *Session) resolveSilentStderr() bool {
-	if s.ciMode {
+	return resolveSilentStderrFrom(s.ciMode, os.Getenv, isStderrTTY)
+}
+
+// resolveSilentStderrFrom is the pure mode-resolution rule behind
+// resolveSilentStderr. Headless is chosen for --ci, CI=1, agent environments
+// (CLAUDECODE / AI_AGENT — coding agents attach a PTY, so TTY detection alone
+// would launch a TUI their session can never drive), or a non-TTY stderr.
+func resolveSilentStderrFrom(ciMode bool, getenv func(string) string, stderrIsTTY func() bool) bool {
+	if ciMode {
 		return true
 	}
-	if os.Getenv("CI") == "1" {
+	if getenv("CI") == "1" {
 		return true
 	}
-	return !isStderrTTY()
+	if getenv("CLAUDECODE") != "" || getenv("AI_AGENT") != "" {
+		return true
+	}
+	return !stderrIsTTY()
 }
 
 // RunPlugin is the uniform per-plugin execution helper. Every per-plugin cobra
