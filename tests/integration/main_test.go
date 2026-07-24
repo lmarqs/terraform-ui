@@ -84,6 +84,20 @@ func runTfuiIn(dir string, args ...string) (string, string, error) {
 	return stdout.String(), stderr.String(), err
 }
 
+// runTfuiEnv runs the tfui binary with extra environment variables appended
+// to the inherited environment.
+func runTfuiEnv(env []string, args ...string) (string, string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binaryPath, args...)
+	cmd.Env = append(os.Environ(), env...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return stdout.String(), stderr.String(), err
+}
+
 func initFixture(t *testing.T, fixtureName string) string {
 	t.Helper()
 	dir := fixtureDir(fixtureName)
