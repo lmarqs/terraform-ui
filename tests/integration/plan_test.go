@@ -78,6 +78,35 @@ func runPlanSilent(t *testing.T, fixture string) string {
 	return stdout
 }
 
+// -- Broken fixture tests (terraform plan itself fails) --
+
+func TestPlan_BrokenFixture_SilentMode(t *testing.T) {
+	initFixture(t, "broken")
+
+	stdout, stderr, err := runTfui("plan", "-project", fixtureDir("broken"), "-ci")
+	if !isExitCode(err, 1) {
+		t.Fatalf("expected exit code 1 for broken fixture, got err=%v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+	}
+	if stdout != "" {
+		t.Errorf("expected empty stdout for failed plan, got: %q", stdout)
+	}
+	if !strings.Contains(stderr, "not been declared") {
+		t.Errorf("expected terraform's error on stderr, got: %q", stderr)
+	}
+}
+
+func TestPlan_BrokenFixture_AgentMode(t *testing.T) {
+	initFixture(t, "broken")
+
+	stdout, stderr, err := runTfui("plan", "-project", fixtureDir("broken"), "-ci", "-json")
+	if !isExitCode(err, 1) {
+		t.Fatalf("expected exit code 1 for broken fixture in JSON mode, got err=%v\nstdout: %q\nstderr: %q", err, stdout, stderr)
+	}
+	if !strings.Contains(stderr, "not been declared") {
+		t.Errorf("expected terraform's error on stderr, got: %q", stderr)
+	}
+}
+
 // -- Create fixture tests --
 
 func TestPlan_CreateFixture_AgentMode(t *testing.T) {

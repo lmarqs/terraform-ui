@@ -2404,3 +2404,107 @@ func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 		t.Error("status mutated on nil Next")
 	}
 }
+
+var _ sdk.StderrEmitter = (*Plugin)(nil)
+
+// drainActivate executes the Activate cmd batch and feeds every plan result
+// message back through Update, returning the settled plugin.
+func drainActivate(t *testing.T, p *Plugin, input Input) *Plugin {
+	t.Helper()
+	cmd := p.Activate(input)
+	if cmd == nil {
+		t.Fatal("Activate returned nil cmd")
+	}
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	updated := p
+	for _, sub := range batch {
+		if sub == nil {
+			continue
+		}
+		switch m := sub().(type) {
+		case PlanResultMsg:
+			res, _ := updated.Update(m)
+			updated = res.(*Plugin)
+		case planJSONMsg:
+			res, _ := updated.Update(m)
+			updated = res.(*Plugin)
+		}
+	}
+	return updated
+}
+
+func TestStderr_WhenPlanFailed_ShouldEmitErrMsg(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return nil, errors.New("plan failed")
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{})
+
+	if p.status != sdk.StatusError {
+		t.Fatalf("status = %v, want sdk.StatusError", p.status)
+	}
+	if got := string(p.Stderr()); got != "plan failed\n" {
+		t.Errorf("Stderr() = %q, want %q", got, "plan failed\n")
+	}
+}
+
+func TestStderr_WhenPlanSucceeded_ShouldReturnNil(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{})
+
+	if p.status != sdk.StatusDone {
+		t.Fatalf("status = %v, want sdk.StatusDone", p.status)
+	}
+	if got := p.Stderr(); got != nil {
+		t.Errorf("Stderr() on success = %q, want nil", got)
+	}
+}
+
+func TestExitCode_WhenPlanFailed_ShouldReturnOne(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return nil, errors.New("plan failed")
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{JSON: false})
+
+	if p.status != sdk.StatusError {
+		t.Fatalf("status = %v, want sdk.StatusError", p.status)
+	}
+	if got := p.ExitCode(); got != 1 {
+		t.Errorf("ExitCode() on failure = %d, want 1", got)
+	}
+}
+
+func TestExitCode_WhenPlanFailedInJSONMode_ShouldReturnOne(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return nil, errors.New("plan-json failed")
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{JSON: true})
+
+	if p.status != sdk.StatusError {
+		t.Fatalf("status = %v, want sdk.StatusError", p.status)
+	}
+	if got := p.ExitCode(); got != 1 {
+		t.Errorf("ExitCode() on JSON-mode failure = %d, want 1", got)
+	}
+}

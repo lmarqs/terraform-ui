@@ -927,9 +927,22 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// ExitCode returns 2 when the plan has changes, 0 when clean. In JSON
-// passthrough mode there is no parsed summary; ExitCode falls back to 0.
+// Stderr surfaces the failure when the plan run itself failed — a failed
+// plan must not pass silently in headless mode.
+func (e *Plugin) Stderr() []byte {
+	if e.status != sdk.StatusError {
+		return nil
+	}
+	return []byte(e.errMsg + "\n")
+}
+
+// ExitCode returns 1 when the plan run failed, 2 when the plan has changes,
+// 0 when clean. In JSON passthrough mode there is no parsed summary;
+// ExitCode falls back to 0 unless the run failed.
 func (e *Plugin) ExitCode() int {
+	if e.status == sdk.StatusError {
+		return 1
+	}
 	if e.input.JSON {
 		return 0
 	}
