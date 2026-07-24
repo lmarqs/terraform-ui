@@ -190,7 +190,7 @@ func deactivate() tea.Cmd {
 
 // View renders the standard Idle/Loading/Done/Error states from the spec.
 // Plugins that need a custom look (forceunlock's lock info) render their own
-// and read CurrentStatus / Elapsed / ErrMessage instead.
+// and read Status / Elapsed / ErrMessage instead.
 func (a *ActionRunner) View() string {
 	switch a.status {
 	case StatusLoading:
@@ -242,10 +242,36 @@ func (a *ActionRunner) Busy() bool { return a.status == StatusLoading }
 // Ready reports a completed run. Promoted to satisfy Plugin.Ready.
 func (a *ActionRunner) Ready() bool { return a.status == StatusDone }
 
-// CurrentStatus exposes the lifecycle status for plugins that render their own
-// view. It is deliberately NOT named Status() to avoid implementing
-// sdk.Statusable by promotion, which would change CI completion detection.
-func (a *ActionRunner) CurrentStatus() Status { return a.status }
+// Status exposes the lifecycle status. Promotion makes every embedder
+// Statusable on purpose: headless completion detection must treat a failed
+// run as terminal instead of waiting out its timeout.
+func (a *ActionRunner) Status() Status { return a.status }
+
+// Stderr reports the action outcome for headless callers on the status
+// channel: the spec's Done message on success, the failure message on error.
+// Promoted to satisfy sdk.StderrEmitter.
+func (a *ActionRunner) Stderr() []byte {
+	switch a.status {
+	case StatusDone:
+		if a.spec.Done == nil {
+			return nil
+		}
+		return []byte(a.spec.Done(a.done) + "\n")
+	case StatusError:
+		return []byte(a.errMsg + "\n")
+	default:
+		return nil
+	}
+}
+
+// ExitCode returns 1 when the action failed, 0 otherwise. Promoted to
+// satisfy sdk.ExitCoder.
+func (a *ActionRunner) ExitCode() int {
+	if a.status == StatusError {
+		return 1
+	}
+	return 0
+}
 
 // Elapsed returns the formatted elapsed time of the current/last run.
 func (a *ActionRunner) Elapsed() string { return a.timer.FormatElapsed() }

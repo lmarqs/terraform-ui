@@ -124,6 +124,75 @@ func TestPlugin_Activate(t *testing.T) {
 	})
 }
 
+// runHeadless walks the cmd chain returned by Activate, failing on any
+// sdk.RequestInputMsg (form or confirm) and feeding every other message back
+// through Update until the runner reaches a terminal status.
+func runHeadless(t *testing.T, p *Plugin, cmd tea.Cmd) {
+	t.Helper()
+	queue := []tea.Cmd{cmd}
+	for steps := 0; len(queue) > 0; steps++ {
+		if steps > 100 {
+			t.Fatal("cmd chain did not terminate")
+		}
+		if p.Status() == sdk.StatusDone || p.Status() == sdk.StatusError {
+			return
+		}
+		next := queue[0]
+		queue = queue[1:]
+		if next == nil {
+			continue
+		}
+		switch msg := next().(type) {
+		case tea.BatchMsg:
+			queue = append(queue, msg...)
+		case sdk.RequestInputMsg:
+			t.Fatalf("AutoConfirm chain produced sdk.RequestInputMsg (prompt %q)", msg.Request.Prompt)
+		case ui.TimerTickMsg:
+			// swallow: re-feeding real ticks would loop forever
+		default:
+			_, cmd := p.Update(msg)
+			queue = append(queue, cmd)
+		}
+	}
+}
+
+func TestPlugin_Activate_AutoConfirm(t *testing.T) {
+	t.Run("skips form and confirm, reports success on stderr", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		cmd := p.Activate(Input{Addr: "aws_instance.web", ID: "i-123", AutoConfirm: true})
+		if cmd == nil {
+			t.Fatal("Activate() with AutoConfirm should return a start cmd")
+		}
+		runHeadless(t, p, cmd)
+		if p.Status() != sdk.StatusDone {
+			t.Fatalf("status = %v, want Done", p.Status())
+		}
+		if got := string(p.Stderr()); got != "✓ Imported i-123 as aws_instance.web\n" {
+			t.Errorf("Stderr() = %q, want the imported line", got)
+		}
+		if p.ExitCode() != 0 {
+			t.Errorf("ExitCode() = %d, want 0", p.ExitCode())
+		}
+	})
+
+	t.Run("skips form and confirm, reports failure on stderr", func(t *testing.T) {
+		svc := &sdktest.MockService{ImportFn: func(context.Context, string, string) error {
+			return errors.New("already managed")
+		}}
+		p, _ := newTestPlugin(svc)
+		runHeadless(t, p, p.Activate(Input{Addr: "aws_instance.web", ID: "i-123", AutoConfirm: true}))
+		if p.Status() != sdk.StatusError {
+			t.Fatalf("status = %v, want Error", p.Status())
+		}
+		if got := string(p.Stderr()); got != "already managed\n" {
+			t.Errorf("Stderr() = %q, want the error line", got)
+		}
+		if p.ExitCode() != 1 {
+			t.Errorf("ExitCode() = %d, want 1", p.ExitCode())
+		}
+	})
+}
+
 func TestPlugin_Form(t *testing.T) {
 	t.Run("empty address deactivates", func(t *testing.T) {
 		p, _ := newTestPlugin(&sdktest.MockService{})
@@ -238,7 +307,7 @@ func TestPlugin_DriveToDone_EmitsEvents(t *testing.T) {
 
 	eventCmd := driveToTerminal(t, p)
 	if !p.Ready() {
-		t.Fatalf("status = %v, want Done", p.CurrentStatus())
+		t.Fatalf("status = %v, want Done", p.Status())
 	}
 	if eventCmd == nil {
 		t.Fatal("success should emit events")
@@ -269,8 +338,8 @@ func TestPlugin_DriveToError_SetsMessage(t *testing.T) {
 	p.address, p.id = "a", "b"
 
 	eventCmd := driveToTerminal(t, p)
-	if p.CurrentStatus() != sdk.StatusError {
-		t.Errorf("status = %v, want Error", p.CurrentStatus())
+	if p.Status() != sdk.StatusError {
+		t.Errorf("status = %v, want Error", p.Status())
 	}
 	if p.ErrMessage() == "" {
 		t.Error("ErrMessage should be set on failure")
@@ -370,8 +439,8 @@ func TestPlugin_HandleContextChanged(t *testing.T) {
 		if cmd != nil {
 			t.Error("HandleContextChanged should return nil cmd")
 		}
-		if p.address != "" || p.id != "" || p.CurrentStatus() != sdk.StatusIdle {
-			t.Errorf("not reset: addr=%q id=%q status=%v", p.address, p.id, p.CurrentStatus())
+		if p.address != "" || p.id != "" || p.Status() != sdk.StatusIdle {
+			t.Errorf("not reset: addr=%q id=%q status=%v", p.address, p.id, p.Status())
 		}
 	})
 

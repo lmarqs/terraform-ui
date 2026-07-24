@@ -13,6 +13,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
+	"github.com/lmarqs/terraform-ui/plugins/taint"
 )
 
 // TestRunPlugin_WhenApplyAutoApproveCI_ShouldTerminateWithoutKeystrokes is
@@ -81,6 +82,71 @@ func runPluginWithCapturedStdout(session *Session, id string, input apply.Input)
 	return session.RunPlugin(context.Background(), id, func(p sdk.Plugin) tea.Cmd {
 		return p.(*apply.Plugin).Activate(input)
 	})
+}
+
+// TestRunPlugin_WhenTaintAutoConfirmCI_ShouldTerminateWithoutKeystrokes is
+// the per-plugin CI-termination invariant guard for the action verbs.
+// AutoConfirm drives the lifecycle past the confirm prelude — without it the
+// headless driver waits on a prompt that can never be answered.
+func TestRunPlugin_WhenTaintAutoConfirmCI_ShouldTerminateWithoutKeystrokes(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
+		t.Fatalf("write tf: %v", err)
+	}
+	session := &Session{
+		cfg:          config.Config{Dir: dir},
+		ciMode:       true,
+		silentStderr: true,
+		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- session.RunPlugin(context.Background(), "taint", func(p sdk.Plugin) tea.Cmd {
+			return p.(*taint.Plugin).Activate(taint.Input{Addrs: []string{"null_resource.x"}, AutoConfirm: true})
+		})
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("RunPlugin error = %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("RunPlugin --ci hung waiting for taint confirmation")
+	}
+}
+
+// TestResolveSilentStderrFrom_ModeMatrix pins the headless (silent-stderr)
+// decision matrix: explicit --ci wins, CI=1 (exact match) wins, agent
+// environments (CLAUDECODE, AI_AGENT) win, otherwise a non-TTY stderr means
+// headless.
+func TestResolveSilentStderrFrom_ModeMatrix(t *testing.T) {
+	tests := []struct {
+		name        string
+		ciMode      bool
+		env         map[string]string
+		stderrIsTTY bool
+		want        bool
+	}{
+		{"ShouldSilenceOnCIFlag", true, nil, true, true},
+		{"ShouldSilenceOnCIEnvExactlyOne", false, map[string]string{"CI": "1"}, true, true},
+		{"ShouldNotSilenceOnCIEnvTrue", false, map[string]string{"CI": "true"}, true, false},
+		{"ShouldSilenceOnClaudeCodeEnv", false, map[string]string{"CLAUDECODE": "1"}, true, true},
+		{"ShouldSilenceOnAIAgentEnv", false, map[string]string{"AI_AGENT": "claude-code"}, true, true},
+		{"ShouldNotSilenceOnInteractiveTTY", false, nil, true, false},
+		{"ShouldSilenceOnNonTTYStderr", false, nil, false, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			getenv := func(k string) string { return tt.env[k] }
+			stderrIsTTY := func() bool { return tt.stderrIsTTY }
+			got := resolveSilentStderrFrom(tt.ciMode, getenv, stderrIsTTY)
+			if got != tt.want {
+				t.Errorf("resolveSilentStderrFrom(%v, env=%v, tty=%v) = %v, want %v",
+					tt.ciMode, tt.env, tt.stderrIsTTY, got, tt.want)
+			}
+		})
+	}
 }
 
 // writeTempTape writes a tape file with the given content and returns its

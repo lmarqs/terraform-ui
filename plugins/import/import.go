@@ -56,6 +56,10 @@ func (p *Plugin) Activate(input Input) tea.Cmd {
 	p.id = input.ID
 	p.Reset()
 	if input.Addr != "" && input.ID != "" {
+		if input.AutoConfirm {
+			p.Arm(p.spec())
+			return p.Start()
+		}
 		return p.confirmImport()
 	}
 	p.id = ""
@@ -137,7 +141,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 }
 
 func (p *Plugin) View(_, _ int) string {
-	if p.CurrentStatus() == sdk.StatusIdle {
+	if p.Status() == sdk.StatusIdle {
 		return sdk.StyleFaintItalic.Render("Import resource into terraform state...")
 	}
 	return p.ActionRunner.View()
@@ -145,7 +149,7 @@ func (p *Plugin) View(_, _ int) string {
 
 // Hints uses q-to-quit (standalone verb) rather than the runner's esc-to-back.
 func (p *Plugin) Hints() []sdk.KeyHint {
-	switch p.CurrentStatus() {
+	switch p.Status() {
 	case sdk.StatusDone:
 		return []sdk.KeyHint{{Key: "p", Description: "plan"}, sdk.HintCancel}
 	case sdk.StatusError:

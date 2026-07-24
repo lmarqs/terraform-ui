@@ -51,6 +51,9 @@ func (p *Plugin) Activate(input Input) tea.Cmd {
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
 	}
 	p.Arm(p.spec())
+	if input.AutoConfirm {
+		return p.Start()
+	}
 	return p.confirm()
 }
 

@@ -85,9 +85,13 @@ for non-interactive use" (exit 1), rather than applying unconfirmed.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
-| Standalone | "Apply complete." or JSON | TUI (alt-screen) | 0/1 |
-| CI (`-auto-approve`) | "Apply complete." or JSON | — | 0/1 |
+| Standalone | — | TUI; "Apply complete." / "No changes." on exit | 0/1 |
+| CI (`-auto-approve`, success) | — | "Apply complete." / "No changes." | 0 |
+| CI (`-auto-approve`, failure) | — | terraform error | 1 |
 | CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
+
+Apply deliberately emits nothing on stdout — exit code 0 is the machine
+signal; the outcome summary goes to stderr (the status channel).
 
 ### `tfui state`
 
@@ -220,7 +224,7 @@ Available on all commands:
 | `-ci` | `false` | Disable TUI, output directly to stdout |
 | `-json` | `false` | Output in JSON format |
 
-`-ci` is also triggered by `CI=1` environment variable or stderr not being a TTY.
+`-ci` is also triggered by the `CI=1` environment variable, an AI agent environment (non-empty `CLAUDECODE` or `AI_AGENT` — see ADR-0022), or stderr not being a TTY. In CI mode the action verbs (`taint`, `untaint`, `import`) skip their interactive confirmation, mirroring terraform's own prompt-free behavior.
 
 ## Data Flags (available on all commands)
 

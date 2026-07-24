@@ -21,6 +21,7 @@ func buildImportCommand(s *Session) *cobra.Command {
 			input.Addr = args[0]
 			input.ID = args[1]
 			input.JSON = s.JSONStdout()
+			input.AutoConfirm = s.SilentStderr() || s.macro.Active()
 			return s.RunPlugin(cmd.Context(), "import", func(p sdk.Plugin) tea.Cmd {
 				return p.(*tfuiimport.Plugin).Activate(input)
 			})
