@@ -364,6 +364,9 @@ func (p *Plugin) Stdout() ([]byte, error) {
 	if p.input.JSON {
 		return p.jsonBytes, nil
 	}
+	if p.status == sdk.StatusError {
+		return nil, nil
+	}
 
 	if len(p.diagnostics) == 0 {
 		return []byte("✓ Configuration is valid\n"), nil
@@ -390,14 +393,23 @@ func (p *Plugin) Stdout() ([]byte, error) {
 	return []byte(b.String()), nil
 }
 
-// ExitCode returns 1 if validation has errors, 0 otherwise. In JSON
-// passthrough mode there are no parsed diagnostics; ExitCode falls back to
-// the error/idle status (1 only when the call itself failed).
+// Stderr surfaces the failure when the validate call itself failed — a
+// failed run must not pass silently in headless mode.
+func (p *Plugin) Stderr() []byte {
+	if p.status != sdk.StatusError {
+		return nil
+	}
+	return []byte(p.errMsg + "\n")
+}
+
+// ExitCode returns 1 if the validate call failed or validation has errors,
+// 0 otherwise. In JSON passthrough mode there are no parsed diagnostics;
+// only the call status decides.
 func (p *Plugin) ExitCode() int {
+	if p.status == sdk.StatusError {
+		return 1
+	}
 	if p.input.JSON {
-		if p.status == sdk.StatusError {
-			return 1
-		}
 		return 0
 	}
 	for _, d := range p.diagnostics {

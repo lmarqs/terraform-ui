@@ -1204,3 +1204,89 @@ func TestHandleContextChanged_WhenNextNil_ShouldBeNoOp(t *testing.T) {
 		t.Error("HandleContextChanged with nil Next returned non-nil cmd")
 	}
 }
+
+func runValidateToCompletion(t *testing.T, p *Plugin) {
+	t.Helper()
+	cmd := p.Activate(Input{})
+	if cmd == nil {
+		t.Fatal("Activate() returned nil cmd")
+	}
+	msg := cmd()
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("Activate cmd returned %T, want tea.BatchMsg", msg)
+	}
+	for _, sub := range batch {
+		if sub == nil {
+			continue
+		}
+		if r, ok := sub().(ValidateResultMsg); ok {
+			p.Update(r)
+		}
+	}
+}
+
+func newFailedRunPlugin(t *testing.T, errMsg string) *Plugin {
+	t.Helper()
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return nil, errors.New(errMsg)
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	runValidateToCompletion(t, p)
+	if p.status != sdk.StatusError {
+		t.Fatalf("status = %v, want sdk.StatusError", p.status)
+	}
+	return p
+}
+
+func TestStdout_WhenValidateRunFailed_ShouldNotClaimValid(t *testing.T) {
+	p := newFailedRunPlugin(t, "terraform validate: exec failed")
+
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if data != nil {
+		t.Errorf("Stdout() on failed run = %q, want nil (must not claim success)", data)
+	}
+	if strings.Contains(string(data), "valid") {
+		t.Errorf("Stdout() on failed run = %q, must not contain %q", data, "valid")
+	}
+}
+
+func TestStderr_WhenValidateRunFailed_ShouldEmitErrorMessage(t *testing.T) {
+	p := newFailedRunPlugin(t, "terraform validate: exec failed")
+
+	if got := string(p.Stderr()); got != "terraform validate: exec failed\n" {
+		t.Errorf("Stderr() = %q, want %q", got, "terraform validate: exec failed\n")
+	}
+}
+
+func TestStderr_WhenValidateRunSucceeded_ShouldReturnNil(t *testing.T) {
+	svc := &sdktest.MockService{
+		ValidateFn: func(_ context.Context) ([]sdk.Diagnostic, error) {
+			return []sdk.Diagnostic{}, nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	runValidateToCompletion(t, p)
+	if p.status != sdk.StatusDone {
+		t.Fatalf("status = %v, want sdk.StatusDone", p.status)
+	}
+
+	if got := p.Stderr(); got != nil {
+		t.Errorf("Stderr() on success = %q, want nil", got)
+	}
+}
+
+func TestExitCode_WhenValidateRunFailed_ShouldReturnOne(t *testing.T) {
+	p := newFailedRunPlugin(t, "terraform validate: exec failed")
+
+	if code := p.ExitCode(); code != 1 {
+		t.Errorf("ExitCode() on failed run = %d, want 1", code)
+	}
+}
