@@ -226,7 +226,7 @@ func TestDriveToDone_ClearsLockAndEmitsEvents(t *testing.T) {
 
 	eventCmd := driveToTerminal(t, p, "lock-123")
 	if !p.Ready() {
-		t.Fatalf("status = %v, want Done", p.CurrentStatus())
+		t.Fatalf("status = %v, want Done", p.Status())
 	}
 	if p.lockInfo != nil {
 		t.Error("lockInfo should be cleared on success")
@@ -259,8 +259,8 @@ func TestDriveToError_SetsMessage(t *testing.T) {
 	p, _ := newTestPlugin(svc)
 
 	eventCmd := driveToTerminal(t, p, "lock-err")
-	if p.CurrentStatus() != sdk.StatusError {
-		t.Errorf("status = %v, want Error", p.CurrentStatus())
+	if p.Status() != sdk.StatusError {
+		t.Errorf("status = %v, want Error", p.Status())
 	}
 	if p.ErrMessage() == "" {
 		t.Error("ErrMessage should be set on failure")
@@ -432,8 +432,8 @@ func TestHandleContextChanged(t *testing.T) {
 		if cmd != nil {
 			t.Error("HandleContextChanged should return nil cmd")
 		}
-		if p.CurrentStatus() != sdk.StatusIdle || p.lockID != "" || p.lockInfo != nil {
-			t.Errorf("not reset: status=%v lockID=%q lockInfo=%v", p.CurrentStatus(), p.lockID, p.lockInfo)
+		if p.Status() != sdk.StatusIdle || p.lockID != "" || p.lockInfo != nil {
+			t.Errorf("not reset: status=%v lockID=%q lockInfo=%v", p.Status(), p.lockID, p.lockInfo)
 		}
 	})
 

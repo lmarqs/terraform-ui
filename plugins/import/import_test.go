@@ -238,7 +238,7 @@ func TestPlugin_DriveToDone_EmitsEvents(t *testing.T) {
 
 	eventCmd := driveToTerminal(t, p)
 	if !p.Ready() {
-		t.Fatalf("status = %v, want Done", p.CurrentStatus())
+		t.Fatalf("status = %v, want Done", p.Status())
 	}
 	if eventCmd == nil {
 		t.Fatal("success should emit events")
@@ -269,8 +269,8 @@ func TestPlugin_DriveToError_SetsMessage(t *testing.T) {
 	p.address, p.id = "a", "b"
 
 	eventCmd := driveToTerminal(t, p)
-	if p.CurrentStatus() != sdk.StatusError {
-		t.Errorf("status = %v, want Error", p.CurrentStatus())
+	if p.Status() != sdk.StatusError {
+		t.Errorf("status = %v, want Error", p.Status())
 	}
 	if p.ErrMessage() == "" {
 		t.Error("ErrMessage should be set on failure")
@@ -370,8 +370,8 @@ func TestPlugin_HandleContextChanged(t *testing.T) {
 		if cmd != nil {
 			t.Error("HandleContextChanged should return nil cmd")
 		}
-		if p.address != "" || p.id != "" || p.CurrentStatus() != sdk.StatusIdle {
-			t.Errorf("not reset: addr=%q id=%q status=%v", p.address, p.id, p.CurrentStatus())
+		if p.address != "" || p.id != "" || p.Status() != sdk.StatusIdle {
+			t.Errorf("not reset: addr=%q id=%q status=%v", p.address, p.id, p.Status())
 		}
 	})
 

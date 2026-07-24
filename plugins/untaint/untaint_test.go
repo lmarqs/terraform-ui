@@ -259,8 +259,8 @@ func TestPlugin_HandleContextChanged(t *testing.T) {
 		if p.addresses != nil {
 			t.Errorf("addresses = %v, want nil", p.addresses)
 		}
-		if p.CurrentStatus() != sdk.StatusIdle {
-			t.Errorf("status = %v, want StatusIdle", p.CurrentStatus())
+		if p.Status() != sdk.StatusIdle {
+			t.Errorf("status = %v, want StatusIdle", p.Status())
 		}
 	})
 

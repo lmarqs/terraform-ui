@@ -137,7 +137,7 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case "q", "esc":
 		return func() tea.Msg { return sdk.DeactivateMsg{} }
 	case "ctrl+r":
-		if p.CurrentStatus() == sdk.StatusError {
+		if p.Status() == sdk.StatusError {
 			return p.Activate(Input{})
 		}
 	}
@@ -145,7 +145,7 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 }
 
 func (p *Plugin) View(_, _ int) string {
-	switch p.CurrentStatus() {
+	switch p.Status() {
 	case sdk.StatusLoading:
 		return sdk.StyleFaintItalic.Render(fmt.Sprintf("Force-unlocking %s... %s", p.lockID, p.Elapsed()))
 	case sdk.StatusDone:
@@ -161,7 +161,7 @@ func (p *Plugin) View(_, _ int) string {
 }
 
 func (p *Plugin) Hints() []sdk.KeyHint {
-	if p.CurrentStatus() == sdk.StatusError {
+	if p.Status() == sdk.StatusError {
 		return (sdk.HintSetRetry | sdk.HintSetBack | sdk.HintSetQuit).Hints()
 	}
 	return (sdk.HintSetBack | sdk.HintSetQuit).Hints()

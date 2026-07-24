@@ -59,8 +59,8 @@ func newRunner(spec ActionSpec) *ActionRunner {
 
 func TestActionRunner_WhenArmed_ShouldBeIdle(t *testing.T) {
 	a := newRunner(taintLikeSpec(func(context.Context) ([]string, error) { return nil, nil }))
-	if a.CurrentStatus() != StatusIdle {
-		t.Errorf("CurrentStatus() = %v, want StatusIdle", a.CurrentStatus())
+	if a.Status() != StatusIdle {
+		t.Errorf("Status() = %v, want StatusIdle", a.Status())
 	}
 	if a.Busy() {
 		t.Error("Busy() = true when idle, want false")
@@ -78,8 +78,8 @@ func TestActionRunner_WhenStarted_ShouldRunAndComplete(t *testing.T) {
 	}))
 
 	cmd := a.Start()
-	if a.CurrentStatus() != StatusLoading {
-		t.Fatalf("CurrentStatus() = %v after Start, want StatusLoading", a.CurrentStatus())
+	if a.Status() != StatusLoading {
+		t.Fatalf("Status() = %v after Start, want StatusLoading", a.Status())
 	}
 	if !a.Busy() {
 		t.Error("Busy() = false while loading, want true")
@@ -97,8 +97,8 @@ func TestActionRunner_WhenStarted_ShouldRunAndComplete(t *testing.T) {
 	if !handled {
 		t.Error("Update(actionResultMsg) should report handled")
 	}
-	if a.CurrentStatus() != StatusDone {
-		t.Errorf("CurrentStatus() = %v after success, want StatusDone", a.CurrentStatus())
+	if a.Status() != StatusDone {
+		t.Errorf("Status() = %v after success, want StatusDone", a.Status())
 	}
 	if !a.Ready() {
 		t.Error("Ready() = false after Done, want true")
@@ -119,8 +119,8 @@ func TestActionRunner_WhenRunFails_ShouldEnterErrorWithMessage(t *testing.T) {
 	result := runResult(t, a.Start())
 	_, eventCmd := a.Update(result)
 
-	if a.CurrentStatus() != StatusError {
-		t.Errorf("CurrentStatus() = %v, want StatusError", a.CurrentStatus())
+	if a.Status() != StatusError {
+		t.Errorf("Status() = %v, want StatusError", a.Status())
 	}
 	if a.ErrMessage() != "boom" {
 		t.Errorf("ErrMessage() = %q, want %q", a.ErrMessage(), "boom")
@@ -253,15 +253,15 @@ func TestActionRunner_StandardKeys(t *testing.T) {
 			return nil, errors.New("fail")
 		}))
 		a.Update(runResult(t, a.Start()))
-		if a.CurrentStatus() != StatusError {
-			t.Fatalf("precondition: want StatusError, got %v", a.CurrentStatus())
+		if a.Status() != StatusError {
+			t.Fatalf("precondition: want StatusError, got %v", a.Status())
 		}
 		cmd := a.StandardKeys(keyCtrlR)
 		if cmd == nil {
 			t.Fatal("ctrl+r in Error should return retry cmd")
 		}
-		if a.CurrentStatus() != StatusLoading {
-			t.Errorf("after retry CurrentStatus() = %v, want StatusLoading", a.CurrentStatus())
+		if a.Status() != StatusLoading {
+			t.Errorf("after retry Status() = %v, want StatusLoading", a.Status())
 		}
 		runResult(t, cmd) // drains the retry's work; must re-invoke spec.Run
 		if calls != 2 {
@@ -400,13 +400,13 @@ func TestActionRunner_Reset_ShouldReturnToIdle(t *testing.T) {
 		return nil, errors.New("x")
 	}))
 	a.Update(runResult(t, a.Start()))
-	if a.CurrentStatus() != StatusError || a.ErrMessage() == "" {
+	if a.Status() != StatusError || a.ErrMessage() == "" {
 		t.Fatal("precondition: expected error state with message")
 	}
 
 	a.Reset()
-	if a.CurrentStatus() != StatusIdle {
-		t.Errorf("CurrentStatus() = %v after Reset, want StatusIdle", a.CurrentStatus())
+	if a.Status() != StatusIdle {
+		t.Errorf("Status() = %v after Reset, want StatusIdle", a.Status())
 	}
 	if a.ErrMessage() != "" {
 		t.Error("Reset should clear the error message")
@@ -429,5 +429,180 @@ func TestActionRunner_Elapsed_ShouldBeFormatted(t *testing.T) {
 	a.Start()
 	if a.Elapsed() == "" {
 		t.Error("Elapsed() should be non-empty while/after running")
+	}
+}
+
+// succeed / fail are canned Run funcs for the lifecycle tables below.
+func succeed(addrs ...string) func(context.Context) ([]string, error) {
+	return func(context.Context) ([]string, error) { return addrs, nil }
+}
+
+func fail(msg string) func(context.Context) ([]string, error) {
+	return func(context.Context) ([]string, error) { return nil, errors.New(msg) }
+}
+
+// zeroSpecDoneRunner arms a runner with a zero rendering spec (forceunlock shape:
+// no Done/Running/Idle labels) and drives it to completion.
+func zeroSpecDoneRunner(t *testing.T) *ActionRunner {
+	t.Helper()
+	a := &ActionRunner{}
+	a.InitRunner(nil)
+	a.Arm(ActionSpec{Name: "forceunlock", Run: succeed("lock-id")})
+	a.Update(runResult(t, a.Start()))
+	return a
+}
+
+func TestActionRunner_Status_ShouldReflectLifecycle(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T) *ActionRunner
+		want  Status
+	}{
+		{
+			name: "ShouldBeIdleWhenArmed",
+			setup: func(*testing.T) *ActionRunner {
+				return newRunner(taintLikeSpec(succeed()))
+			},
+			want: StatusIdle,
+		},
+		{
+			name: "ShouldBeLoadingAfterStart",
+			setup: func(*testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(succeed()))
+				a.Start()
+				return a
+			},
+			want: StatusLoading,
+		},
+		{
+			name: "ShouldBeDoneAfterSuccessfulRun",
+			setup: func(t *testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(succeed("local_file.a")))
+				a.Update(runResult(t, a.Start()))
+				return a
+			},
+			want: StatusDone,
+		},
+		{
+			name: "ShouldBeErrorAfterFailedRun",
+			setup: func(t *testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(fail("boom")))
+				a.Update(runResult(t, a.Start()))
+				return a
+			},
+			want: StatusError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			a := tt.setup(t)
+			if got := a.Status(); got != tt.want {
+				t.Errorf("Status() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestActionRunner_Stderr_ShouldReportOutcome(t *testing.T) {
+	tests := []struct {
+		name    string
+		setup   func(t *testing.T) *ActionRunner
+		want    string
+		wantNil bool
+	}{
+		{
+			name: "ShouldEmitDoneMessageWithNewlineWhenDone",
+			setup: func(t *testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(succeed("local_file.a")))
+				a.Update(runResult(t, a.Start()))
+				return a
+			},
+			want: "✓ Tainted local_file.a\n",
+		},
+		{
+			name:    "ShouldBeNilWhenDoneWithZeroSpec",
+			setup:   zeroSpecDoneRunner,
+			wantNil: true,
+		},
+		{
+			name: "ShouldEmitErrorMessageWithNewlineWhenError",
+			setup: func(t *testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(fail("boom")))
+				a.Update(runResult(t, a.Start()))
+				return a
+			},
+			want: "boom\n",
+		},
+		{
+			name: "ShouldBeNilWhenIdle",
+			setup: func(*testing.T) *ActionRunner {
+				return newRunner(taintLikeSpec(succeed()))
+			},
+			wantNil: true,
+		},
+		{
+			name: "ShouldBeNilWhenLoading",
+			setup: func(*testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(succeed()))
+				a.Start()
+				return a
+			},
+			wantNil: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.setup(t).Stderr()
+			if tt.wantNil {
+				if got != nil {
+					t.Errorf("Stderr() = %q, want nil", got)
+				}
+				return
+			}
+			if string(got) != tt.want {
+				t.Errorf("Stderr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestActionRunner_ExitCode_ShouldReflectFailure(t *testing.T) {
+	tests := []struct {
+		name  string
+		setup func(t *testing.T) *ActionRunner
+		want  int
+	}{
+		{
+			name: "ShouldBeOneWhenError",
+			setup: func(t *testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(fail("boom")))
+				a.Update(runResult(t, a.Start()))
+				return a
+			},
+			want: 1,
+		},
+		{
+			name: "ShouldBeZeroWhenDone",
+			setup: func(t *testing.T) *ActionRunner {
+				a := newRunner(taintLikeSpec(succeed("local_file.a")))
+				a.Update(runResult(t, a.Start()))
+				return a
+			},
+			want: 0,
+		},
+		{
+			name: "ShouldBeZeroWhenIdle",
+			setup: func(*testing.T) *ActionRunner {
+				return newRunner(taintLikeSpec(succeed()))
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.setup(t).ExitCode(); got != tt.want {
+				t.Errorf("ExitCode() = %d, want %d", got, tt.want)
+			}
+		})
 	}
 }
