@@ -227,6 +227,8 @@ When stdout is piped (`tfui plan | jq`), we still show the TUI on stderr. The us
 
 AI coding agents may attach a PTY to the commands they spawn, so TTY detection alone would launch the alt-screen TUI into a session no human can drive: the agent sees ANSI noise and the process blocks. Their env vars are the reliable signal that no human is present. There is no `--agent` flag — the explicit spelling is `-ci` + `-json`; only implicit detection needed a new signal.
 
+See [Terraform for AI Coding Agents](../features/ai-agents.md) for the agent-facing overview, including measured context-window savings.
+
 ### Why full TUI (`tfui` no args) uses stdout?
 
 The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split.

@@ -224,7 +224,7 @@ Available on all commands:
 | `-ci` | `false` | Disable TUI, output directly to stdout |
 | `-json` | `false` | Output in JSON format |
 
-`-ci` is also triggered by the `CI=1` environment variable, an AI agent environment (non-empty `CLAUDECODE` or `AI_AGENT` — see ADR-0022), or stderr not being a TTY. In CI mode the action verbs (`taint`, `untaint`, `import`) skip their interactive confirmation, mirroring terraform's own prompt-free behavior.
+`-ci` is also triggered by the `CI=1` environment variable, an AI agent environment (non-empty `CLAUDECODE` or `AI_AGENT` — see ADR-0022 and [Terraform for AI Coding Agents](../features/ai-agents.md)), or stderr not being a TTY. In CI mode the action verbs (`taint`, `untaint`, `import`) skip their interactive confirmation, mirroring terraform's own prompt-free behavior.
 
 ## Data Flags (available on all commands)
 

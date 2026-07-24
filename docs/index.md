@@ -5,7 +5,8 @@ nav_order: 1
 description: >-
   Interactive terminal UI for Terraform plan review, risk analysis, state
   browsing, and targeted apply. A k9s-style TUI that works with Terraform,
-  OpenTofu, and Terragrunt.
+  OpenTofu, and Terragrunt — and runs headless for AI coding agents like
+  Claude Code.
 permalink: /
 ---
 
@@ -79,6 +80,24 @@ Stop chasing ghost diffs. Stop second-guessing whether that "update in-place" is
 
 ---
 
+## Terraform for AI Coding Agents
+
+Claude Code runs `tfui plan` and gets 53 lines instead of 763 — every change address, the summary, and a risk verdict, in **38× fewer bytes** than raw `terraform plan` output.
+
+```
++ local_file.f00
++ local_file.f01
+...
+Plan: 50 to add, 0 to change, 0 to destroy.
+Risk: low
+```
+
+Zero configuration: agent environments are detected automatically (`CLAUDECODE`, `AI_AGENT`, `CI`), the TUI never launches, and a failed run never claims success — terraform's error lands on stderr with exit 1. Exit code 2 means changes are present, so agents can branch without reading a byte.
+
+[How agent integration works →](features/ai-agents.md)
+
+---
+
 ## Try it now
 
 ```bash
@@ -111,6 +130,7 @@ docker run -it lmarqs/terraform-ui:demo
 - **Single binary.** Zero runtime dependencies. Download and run.
 - **Keyboard-driven.** No mouse required. Vim-style navigation.
 - **Works with Terraform, OpenTofu, and Terragrunt.** One tool, all backends.
+- **Agent-ready.** Claude Code and CI get headless, truthful output automatically.
 - **Your data never leaves your machine.** Local-only. No telemetry. No cloud.
 - **Plugin architecture.** Every feature is a plugin. Extend or disable as needed.
 
@@ -126,6 +146,7 @@ docker run -it lmarqs/terraform-ui:demo
 | `terraform state rm` with no confirmation | Interactive state browser with safety prompts |
 | Phantom diffs you chase for 20 minutes | Automatic detection and marking |
 | Switching between 5 terminal windows | One TUI, one keyboard, every operation |
+| Plan output flooding your AI agent's context | One line per change + risk, 38× fewer bytes |
 
 ---
 
