@@ -19,13 +19,14 @@ This follows the fzf model: interactive UI on one fd, structured output on anoth
 | Mode | TUI | stdout | Trigger |
 |------|-----|--------|---------|
 | **Standalone** | Alt-screen on stderr | Plugin output on exit | Default (stderr is TTY) |
-| **CI** | None | Plugin output immediately | `-ci`, `CI=1`, stderr not TTY |
+| **CI** | None | Plugin output immediately | `-ci`, `CI=1`, agent env, stderr not TTY |
 
 Mode resolution:
 ```go
-if -ci OR CI=1:     → CI mode
-if stderr not TTY:   → CI mode
-otherwise:           → Standalone TUI
+if -ci OR CI=1:                → CI mode
+if CLAUDECODE or AI_AGENT set:  → CI mode (agent environment, ADR-0022)
+if stderr not TTY:              → CI mode
+otherwise:                      → Standalone TUI
 ```
 
 ## 3. Output Channel Rules

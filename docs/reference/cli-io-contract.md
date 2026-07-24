@@ -26,16 +26,19 @@ Mode 1: Standalone TUI (default)
 Mode 2: CI (headless)
   No TUI, no interactivity
   Output goes directly to stdout
-  Triggered by: -ci flag, CI=1 env var, or stderr not a TTY
+  Triggered by: -ci flag, CI=1 env var, agent environment, or stderr not a TTY
 ```
 
 ### Mode Resolution
 
 ```
-if -ci OR CI=1:     → CI mode
-if stderr not TTY:   → CI mode (nowhere to render)
-otherwise:           → Standalone TUI mode
+if -ci OR CI=1:                    → CI mode
+if CLAUDECODE or AI_AGENT set:      → CI mode (AI agent environment, see ADR-0022)
+if stderr not TTY:                  → CI mode (nowhere to render)
+otherwise:                          → Standalone TUI mode
 ```
+
+Agent environment variables match on non-empty. `CI` matches `1` exactly.
 
 ### Rules
 
@@ -53,8 +56,8 @@ otherwise:           → Standalone TUI mode
 |---------|-----------------|--------|------|
 | `tfui plan` | Tree view | TUI (alt-screen) | 0/2 |
 | `tfui plan -json` | Plan JSON | TUI (alt-screen) | 0/2 |
-| `tfui apply` | "Apply complete." | TUI (alt-screen) | 0/1 |
-| `tfui apply -json` | `{"status":"complete"}` | TUI (alt-screen) | 0/1 |
+| `tfui apply` | — | TUI; "Apply complete." / "No changes." on exit | 0/1 |
+| `tfui apply -json` | — | TUI; outcome message on exit | 0/1 |
 | `tfui state` | Addresses (one/line) | TUI (alt-screen) | 0 |
 | `tfui state -json` | Resource JSON array | TUI (alt-screen) | 0 |
 | `tfui validate` | Diagnostics text | TUI (alt-screen) | 0/1 |
@@ -65,14 +68,13 @@ otherwise:           → Standalone TUI mode
 | `tfui version` | Version text | TUI (alt-screen) | 0 |
 | `tfui version -json` | Version JSON | TUI (alt-screen) | 0 |
 
-### CI mode (`-ci`, `CI=1`, or stderr not TTY)
+### CI mode (`-ci`, `CI=1`, agent environment, or stderr not TTY)
 
 | Command | stdout | stderr | Exit |
 |---------|--------|--------|------|
 | `tfui plan -ci` | Tree view | — | 0/2 |
 | `tfui plan -ci -json` | Plan JSON | — | 0/2 |
-| `tfui apply -ci -auto-approve` | "Apply complete." | — | 0/1 |
-| `tfui apply -ci -auto-approve -json` | `{"status":"complete"}` | — | 0/1 |
+| `tfui apply -ci -auto-approve` | — | "Apply complete." / "No changes." | 0 |
 | `tfui apply -ci` (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" (mirrors terraform) | 1 |
 | `tfui state -ci` | Addresses (one/line) | — | 0 |
 | `tfui validate -ci` | Diagnostics text | — | 0/1 |
@@ -81,6 +83,26 @@ otherwise:           → Standalone TUI mode
 | `tfui output -ci -json` | Outputs JSON | — | 0 |
 | `tfui init -ci` | "Initialized successfully." | — | 0/1 |
 | `tfui version -ci` | Version text | — | 0 |
+| `tfui taint addr -ci` | — | "✓ Tainted addr" | 0 |
+| `tfui untaint addr -ci` | — | "✓ Untainted addr" | 0 |
+| `tfui import addr id -ci` | — | "✓ Imported addr" | 0 |
+
+Action verbs (taint, untaint, import) skip their interactive confirmation in
+CI mode — CLI arguments are declared intent, mirroring terraform's own
+prompt-free behavior for these commands (ADR-0022).
+
+### Failure rows (CI mode)
+
+Every plugin command reports failure the same way: terraform's error message
+on stderr, empty stdout, exit 1. A failed run never claims success.
+
+| Command | stdout | stderr | Exit |
+|---------|--------|--------|------|
+| `tfui plan -ci` (terraform fails) | — | terraform error | 1 |
+| `tfui validate -ci` (run itself fails) | — | terraform error | 1 |
+| `tfui apply -ci -auto-approve` (fails) | — | terraform error | 1 |
+| `tfui taint/untaint/import ... -ci` (fails) | — | terraform error | 1 |
+| `tfui init -ci` (fails) | — | terraform error | 1 |
 
 ### Full TUI mode (`tfui` no command)
 
@@ -118,7 +140,7 @@ otherwise:           → Standalone TUI mode
 | Flag | Effect | Scope |
 |------|--------|-------|
 | `-ci` | Disable TUI, direct output | All plugin commands |
-| `-json` | JSON output format | plan, apply, validate, output, version |
+| `-json` | JSON output format | plan, state, validate, output, version |
 | `-project dir` | Set project root | All commands |
 | `-terraform-bin path` | Override binary | All commands |
 | `-chdir member` | Select chdir member | All commands |
@@ -163,6 +185,11 @@ tfui validate -ci -json | jq '.valid'
 
 # Auto-detected (stderr not TTY in most CI runners):
 tfui plan -json > plan-output.json
+
+# Inside an AI coding agent (CLAUDECODE / AI_AGENT set): bare invocations
+# are already headless — no flags needed (ADR-0022):
+tfui plan
+tfui validate
 ```
 
 ### Novel command chains
@@ -194,7 +221,11 @@ The user reviews the plan interactively (expand/collapse, filter, inspect attrib
 
 When stdout is piped (`tfui plan | jq`), we still show the TUI on stderr. The user wants both: interactive review AND piped output. Auto-disabling TUI on pipe would break this.
 
-`-ci` is the explicit "I don't want any TUI at all" signal. It's also auto-detected via `CI=1` env var (set by GitHub Actions, GitLab CI, Jenkins, etc.) and when stderr is not a TTY.
+`-ci` is the explicit "I don't want any TUI at all" signal. It's also auto-detected via the `CI=1` env var (set by GitHub Actions, GitLab CI, Jenkins, etc.), via agent environment variables (`CLAUDECODE`, `AI_AGENT` — see ADR-0022), and when stderr is not a TTY.
+
+### Why agent environments force headless (ADR-0022)?
+
+AI coding agents may attach a PTY to the commands they spawn, so TTY detection alone would launch the alt-screen TUI into a session no human can drive: the agent sees ANSI noise and the process blocks. Their env vars are the reliable signal that no human is present. There is no `--agent` flag — the explicit spelling is `-ci` + `-json`; only implicit detection needed a new signal.
 
 ### Why full TUI (`tfui` no args) uses stdout?
 

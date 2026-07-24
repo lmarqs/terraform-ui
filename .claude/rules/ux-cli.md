@@ -9,18 +9,21 @@ Full spec: `docs/reference/cli-ux.md`
 
 ## Execution Model
 
-Every `tfui <command>` launches the plugin in a standalone TUI (on stderr). Output goes to stdout on exit. `-ci` or `CI=1` disables the TUI.
+Every `tfui <command>` launches the plugin in a standalone TUI (on stderr). Output goes to stdout on exit. `-ci`, `CI=1`, or an agent environment disables the TUI.
 
 Two modes:
 - **Standalone TUI**: alt-screen on stderr, plugin output to stdout on exit (fzf model)
 - **CI**: no TUI, headless execution via macro driver, output to stdout immediately
 
-Mode resolution:
+Mode resolution (`resolveSilentStderrFrom`, see ADR-0022):
 ```go
-if -ci OR CI=1:     → CI mode
-if stderr not TTY:   → CI mode
-otherwise:           → Standalone TUI
+if -ci OR CI=1:                → CI mode
+if CLAUDECODE or AI_AGENT set:  → CI mode (agent environment)
+if stderr not TTY:              → CI mode
+otherwise:                      → Standalone TUI
 ```
+
+Headless failure contract: a failed run never claims success — terraform's error goes to stderr, stdout stays empty, exit 1. Action verbs (taint/untaint/import) skip their confirm prelude headlessly via `Input.AutoConfirm` set at the cmd boundary.
 
 Behavior matrix:
 - `tfui plan` → TUI on stderr, tree view to stdout on quit
