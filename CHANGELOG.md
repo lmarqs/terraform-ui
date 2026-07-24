@@ -1,3 +1,19 @@
+# [1.19.0](https://github.com/lmarqs/terraform-ui/compare/v1.18.6...v1.19.0) (2026-07-24)
+
+
+### Bug Fixes
+
+* **apply:** emit outcome on stderr ([9e2becf](https://github.com/lmarqs/terraform-ui/commit/9e2becf97031260796656950fbcd800eded2baec)), closes [#48](https://github.com/lmarqs/terraform-ui/issues/48)
+* **plan:** surface terraform errors on stderr and exit 1 ([98303b9](https://github.com/lmarqs/terraform-ui/commit/98303b905502fdc9972dbb089bb4a887f36b3e74)), closes [#48](https://github.com/lmarqs/terraform-ui/issues/48)
+* **taint,untaint,import:** run headlessly without the confirm prompt ([ab18b30](https://github.com/lmarqs/terraform-ui/commit/ab18b306b5a66782737056c15335b5794389a98f)), closes [#48](https://github.com/lmarqs/terraform-ui/issues/48)
+* **validate:** stop claiming valid and exit non-zero when the run fails ([9e12079](https://github.com/lmarqs/terraform-ui/commit/9e12079f8a273903d9936acb1c8d7e5836a9e6cd)), closes [#48](https://github.com/lmarqs/terraform-ui/issues/48)
+
+
+### Features
+
+* **cli:** treat agent environments as headless ([7275f6b](https://github.com/lmarqs/terraform-ui/commit/7275f6bf67449717d7ff19e903dc3b9174ab4a49)), closes [#48](https://github.com/lmarqs/terraform-ui/issues/48)
+* **sdk:** action runner exposes terminal status and outcome emitters ([7b09f8b](https://github.com/lmarqs/terraform-ui/commit/7b09f8bb6dd0adf950c025890adb146a82320a5c)), closes [#48](https://github.com/lmarqs/terraform-ui/issues/48)
+
 ## [1.18.6](https://github.com/lmarqs/terraform-ui/compare/v1.18.5...v1.18.6) (2026-07-12)
 
 
