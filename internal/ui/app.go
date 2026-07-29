@@ -461,8 +461,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a.handleKey(msg)
 
 	case tea.WindowSizeMsg:
-		a.width = msg.Width
-		a.height = msg.Height
+		a.width = usableDimension(msg.Width, fallbackWidth)
+		a.height = usableDimension(msg.Height, fallbackHeight)
 		return a, nil
 	}
 
@@ -1045,7 +1045,27 @@ func (a App) commandMatches() []string {
 	return matches
 }
 
+// fallbackWidth and fallbackHeight stand in for a terminal that reports no
+// usable window size. A PTY allocated without a winsize — `script`, some CI
+// harnesses — sends 0x0, and rendering into that produces nothing at all; the
+// plan is already computed by then, so a conventional 80x24 shows it rather than
+// stranding the user on "Loading...".
+const (
+	fallbackWidth  = 80
+	fallbackHeight = 24
+)
+
+// usableDimension replaces a non-positive terminal dimension with a fallback.
+func usableDimension(reported, fallback int) int {
+	if reported <= 0 {
+		return fallback
+	}
+	return reported
+}
+
 func (a App) View() string {
+	// Only before the first WindowSizeMsg arrives: an unusable size reported by
+	// the terminal is substituted, never left at zero.
 	if a.width == 0 || a.height == 0 {
 		return "Loading..."
 	}
