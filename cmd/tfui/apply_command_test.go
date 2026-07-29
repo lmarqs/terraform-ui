@@ -21,7 +21,7 @@ func TestBuildApplyCommand_WhenAutoApproveAndTarget_ShouldBindIntoTypedInput(t *
 	c.RunE = func(_ *cobra.Command, _ []string) error {
 		captured = apply.Input{
 			AutoApprove: mustBool(c, "auto-approve"),
-			Targets:     mustStringSlice(c, "target"),
+			Targets:     mustStringArray(c, "target"),
 			JSON:        session.JSONStdout(),
 		}
 		return nil
@@ -52,7 +52,7 @@ func TestBuildApplyCommand_WhenSessionJSONStdout_ShouldPropagateIntoInput(t *tes
 	c.RunE = func(_ *cobra.Command, _ []string) error {
 		captured = apply.Input{
 			AutoApprove: mustBool(c, "auto-approve"),
-			Targets:     mustStringSlice(c, "target"),
+			Targets:     mustStringArray(c, "target"),
 			JSON:        session.JSONStdout(),
 		}
 		return nil
@@ -108,8 +108,8 @@ func mustBool(c *cobra.Command, name string) bool {
 	return v
 }
 
-func mustStringSlice(c *cobra.Command, name string) []string {
-	v, err := c.Flags().GetStringSlice(name)
+func mustStringArray(c *cobra.Command, name string) []string {
+	v, err := c.Flags().GetStringArray(name)
 	if err != nil {
 		panic(err)
 	}

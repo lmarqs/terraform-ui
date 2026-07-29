@@ -117,7 +117,7 @@ All commands follow the same rules headlessly — including the state-mutating o
 $ tfui taint local_file.alpha
 ✓ Tainted local_file.alpha        # stderr; exit 0
 $ tfui apply -auto-approve
-Apply complete.                    # stderr; exit 0
+Apply complete. Resources: 1 added, 0 changed, 0 destroyed.   # stderr; exit 0
 ```
 
 | Command | stdout | stderr | Exit |

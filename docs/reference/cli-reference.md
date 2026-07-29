@@ -51,8 +51,15 @@ tfui plan -json                     # TUI: review plan, JSON output on exit
 tfui plan -ci                      # No TUI: tree view to stdout immediately
 tfui plan -ci -json                # No TUI: JSON to stdout immediately
 tfui plan -target=aws_instance.web  # Targeted plan
+tfui plan -target=a -target=b        # Repeat the flag per address
+tfui plan -lock=false               # Skip state locking for this run
+tfui plan -lock-timeout=30s         # Retry a held lock for 30s
 tfui plan -out=tfplan.out           # Save binary plan file
 ```
+
+`-target` is repeatable and each value reaches terraform verbatim, so quoted
+index keys work as typed: `-target='module.a["x y"]'`. There is no
+comma-separated form — a comma is part of an address, not a separator.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
@@ -71,7 +78,14 @@ tfui apply -auto-approve           # TUI: skips plan review + confirmation, show
 tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
+tfui apply -target=a -target=b      # Repeat the flag per address
+tfui apply -lock=false              # Skip state locking for this run
+tfui apply -lock-timeout=30s        # Retry a held lock for 30s
 ```
+
+`-lock` and `-lock-timeout` apply to the preview plan and the apply alike, and
+override `defaults { lock }` / `defaults { lock_timeout }` from `tfui.hcl` for
+that run only. Omitting them keeps whatever the config resolved.
 
 Standalone `tfui apply` runs a plan and streams the pending changes first, then
 asks for confirmation — the same review-then-approve flow as `terraform apply`.
@@ -85,8 +99,8 @@ for non-interactive use" (exit 1), rather than applying unconfirmed.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
-| Standalone | — | TUI; "Apply complete." / "No changes." on exit | 0/1 |
-| CI (`-auto-approve`, success) | — | "Apply complete." / "No changes." | 0 |
+| Standalone | — | TUI; "Apply complete. Resources: …" / "No changes." on exit | 0/1 |
+| CI (`-auto-approve`, success) | — | "Apply complete. Resources: …" / "No changes." | 0 |
 | CI (`-auto-approve`, failure) | — | terraform error | 1 |
 | CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
 
@@ -185,6 +199,8 @@ tfui workspace delete <name> -force    # delete non-empty workspace
 |------|-----------|-------------|
 | `-lock` | `new`, `delete` | Lock state during operation (default: true) |
 | `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
+
+`plan` and `apply` accept the same two flags — see their sections above.
 | `-force` | `delete` | Force deletion of a non-empty workspace |
 
 ### `tfui force-unlock`
@@ -194,6 +210,7 @@ Remove a terraform state lock (imperative, no TUI).
 ```bash
 tfui force-unlock <lock-id>          # interactive confirmation
 tfui force-unlock -force <lock-id>  # skip confirmation (CI/scripts)
+tfui force-unlock -chdir modules/vpc <lock-id>  # unlock a member's state
 ```
 
 ### `tfui scaffold`

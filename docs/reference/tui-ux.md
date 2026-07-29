@@ -206,6 +206,14 @@ The user sees every step. There is no shortcut.
 | Streaming terraform command | `StreamFrame` — real-time log output with auto-scroll, scrollbar gutter |
 | Non-streaming async (workspace list, etc.) | Faint italic text with elapsed time: `"Loading workspaces... 4s"` |
 
+#### Terminal size
+
+`"Loading..."` is the pre-first-frame placeholder only: it covers the gap before
+the terminal reports its size. A terminal that reports an unusable size — a PTY
+allocated without a winsize sends 0x0 — renders at a conventional 80x24 instead,
+because the work behind the view is already done by then and honest feedback
+means showing it.
+
 `StreamFrame` (`pkg/sdk/frames/`) is the standard treatment for `plan`, `apply`, and `init`. It:
 - Auto-scrolls to the bottom as lines arrive; pauses if the user scrolls up manually
 - `G` jumps back to the bottom and resumes auto-scroll

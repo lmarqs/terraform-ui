@@ -14,11 +14,14 @@ import (
 // the root-persistent --json value is copied into Input.JSON at RunE time.
 func buildApplyCommand(s *Session) *cobra.Command {
 	var input apply.Input
+	var lock bool
 	c := &cobra.Command{
 		Use:   "apply",
 		Short: "Run terraform apply (with plan file or directly with targets)",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			input.JSON = s.JSONStdout()
+			input.Lock = lockModeFrom(cmd, lock)
 			if err := requireApplyConfirmable(s, input.AutoApprove); err != nil {
 				return err
 			}
@@ -28,7 +31,8 @@ func buildApplyCommand(s *Session) *cobra.Command {
 		},
 	}
 	c.Flags().BoolVar(&input.AutoApprove, "auto-approve", false, "Skip confirmation prompt")
-	c.Flags().StringSliceVar(&input.Targets, "target", nil, "Resource targets (plans+applies in one shot)")
+	c.Flags().StringArrayVar(&input.Targets, "target", nil, "Resource target, repeatable and taken verbatim (plans+applies in one shot)")
+	bindLockFlags(c, &lock, (*string)(&input.LockTimeout))
 	return c
 }
 

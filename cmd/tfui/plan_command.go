@@ -9,17 +9,25 @@ import (
 
 func buildPlanCommand(s *Session) *cobra.Command {
 	var input tfuiplan.Input
+	var lock bool
 
 	c := &cobra.Command{
 		Use:   "plan",
 		Short: "Run terraform plan",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			input.JSON = s.JSONStdout()
+			input.Lock = lockModeFrom(cmd, lock)
 			return s.RunPlugin(cmd.Context(), "plan", func(p sdk.Plugin) tea.Cmd {
 				return p.(*tfuiplan.Plugin).Activate(input)
 			})
 		},
 	}
-	c.Flags().StringSliceVar(&input.Targets, "target", nil, "Resource targets for plan")
+	// StringArrayVar, not StringSliceVar: a slice flag parses each value as a CSV
+	// record, which rejects every quoted index key (module.a["x y"]) and leaves an
+	// address containing a comma inexpressible. Repeat the flag per address, the
+	// way terraform's own -target works.
+	c.Flags().StringArrayVar(&input.Targets, "target", nil, "Resource target for plan (repeatable, taken verbatim)")
+	bindLockFlags(c, &lock, (*string)(&input.LockTimeout))
 	return c
 }

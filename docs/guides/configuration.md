@@ -105,7 +105,8 @@ Root defaults → Child top-level → Workspace block → CLI flags → [-- pass
 
 - **Var-files**: concatenated in order (all levels stacked)
 - **Vars**: map merge (later level wins for same key)
-- **Plugins**: per-plugin option merge (later wins)
+- **Plugins**: per-plugin option merge (later wins); `enabled = false` keeps the
+  plugin out of the registry, and its command reports that rather than exiting 0
 - **Scalars** (parallelism, lock): last writer wins
 
 ## Workspace Matching
@@ -135,7 +136,7 @@ tfui plan -target=aws_instance.web     # terraform-style
 tfui plan -target=aws_instance.web    # cobra-style (both work)
 tfui plan -var-file=prod.tfvars -var=env=prod
 tfui plan -destroy
-tfui plan -parallelism=5 -lock=false
+tfui plan -lock=false -lock-timeout=30s
 
 # Passthrough (everything after -- goes to terraform unmodified)
 tfui plan -- -no-color -compact-warnings

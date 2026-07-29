@@ -1967,8 +1967,8 @@ func TestExtractPluginOptions_WhenUnsupportedType_ShouldSkipOption(t *testing.T)
 	writeHCL(t, dir, `
 defaults {
   plugin "risk" {
-    tags  = ["a", "b"]
-    level = "high"
+    thresholds = { high = 3 }
+    level      = "high"
   }
 }
 `)
@@ -1982,8 +1982,10 @@ defaults {
 	if risk.Options["level"] != "high" {
 		t.Errorf("risk level = %v, want %q", risk.Options["level"], "high")
 	}
-	if _, exists := risk.Options["tags"]; exists {
-		t.Error("list option should be skipped (unsupported type)")
+	// Keyed values have no reader on the plugin side; passing them through in a
+	// shape no plugin consumes would be worse than dropping them.
+	if _, exists := risk.Options["thresholds"]; exists {
+		t.Error("object option should be skipped (no plugin option type for it)")
 	}
 }
 
@@ -2008,5 +2010,96 @@ defaults {
 	risk := cfg.Defaults.PluginConfig("risk")
 	if risk.Options != nil {
 		t.Errorf("plugin with nested labeled block should have nil options, got %v", risk.Options)
+	}
+}
+
+// TestLoadRoot_WhenPluginOptionIsAList_ShouldDecodeTheStrings covers the option
+// shape the plan and apply plugins document — `targets = [...]` — which the
+// extractor used to drop on the floor (lmarqs/terraform-ui#57).
+func TestLoadRoot_WhenPluginOptionIsAList_ShouldDecodeTheStrings(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+terraform {
+  bin = "terraform"
+}
+
+defaults {
+  plugin "plan" {
+    targets = ["module.networking", "aws_instance.web"]
+    empty   = []
+    mixed   = ["ok", 3]
+  }
+}
+`)
+
+	cfg, err := LoadRoot(dir)
+	if err != nil {
+		t.Fatalf("LoadRoot() error: %v", err)
+	}
+
+	opts := cfg.Defaults.PluginConfig("plan").Options
+	assertOptionStrings(t, opts, "targets", []string{"module.networking", "aws_instance.web"})
+	assertOptionStrings(t, opts, "empty", []string{})
+	assertOptionStrings(t, opts, "mixed", []string{"ok"})
+}
+
+func TestLoadChild_WhenPluginOptionIsAList_ShouldDecodeTheStrings(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `
+plugin "plan" {
+  targets = ["module.vpc"]
+}
+`)
+
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild() error: %v", err)
+	}
+
+	assertOptionStrings(t, cfg.PluginConfig("plan").Options, "targets", []string{"module.vpc"})
+}
+
+// TestResolvedConfig_PluginConfigs_ShouldExposeEveryPluginForTheRegistry covers
+// the hand-off the registry consumes: without it, a `plugin` block parses and
+// then changes nothing.
+func TestResolvedConfig_PluginConfigs_ShouldExposeEveryPluginForTheRegistry(t *testing.T) {
+	root := &RootConfig{Defaults: DefaultsConfig{Plugins: map[string]PluginSettings{
+		"risk": {Enabled: false},
+		"plan": {Enabled: true, Options: map[string]interface{}{"targets": []string{"module.vpc"}}},
+	}}}
+
+	got := Resolve(root, nil, "").PluginConfigs()
+
+	if len(got) != 2 {
+		t.Fatalf("PluginConfigs() = %d entries, want 2", len(got))
+	}
+	if got["risk"].IsEnabled() {
+		t.Error("risk should be reported disabled")
+	}
+	if !got["plan"].IsEnabled() {
+		t.Error("plan should be reported enabled")
+	}
+	assertOptionStrings(t, got["plan"].Options, "targets", []string{"module.vpc"})
+}
+
+func TestResolvedConfig_PluginConfigs_WhenNoPluginBlocks_ShouldReturnNil(t *testing.T) {
+	if got := Resolve(&RootConfig{}, nil, "").PluginConfigs(); got != nil {
+		t.Errorf("PluginConfigs() = %v, want nil when no plugin blocks are declared", got)
+	}
+}
+
+func assertOptionStrings(t *testing.T, opts map[string]interface{}, key string, want []string) {
+	t.Helper()
+	got, ok := opts[key].([]string)
+	if !ok {
+		t.Fatalf("option %q = %#v, want []string", key, opts[key])
+	}
+	if len(got) != len(want) {
+		t.Fatalf("option %q = %q, want %q", key, got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("option %q = %q, want %q", key, got, want)
+		}
 	}
 }

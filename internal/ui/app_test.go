@@ -140,6 +140,38 @@ func TestApp_Update_WhenWindowSizeMsg_ShouldUpdateDimensions(t *testing.T) {
 	}
 }
 
+// TestApp_Update_WhenWindowSizeIsUnusable_ShouldFallBackToADefault covers PTYs
+// that report no window size (a `script`-wrapped run, some CI harnesses): the
+// app used to keep both dimensions at zero and render "Loading..." forever,
+// long after terraform had finished (lmarqs/terraform-ui#55).
+func TestApp_Update_WhenWindowSizeIsUnusable_ShouldFallBackToADefault(t *testing.T) {
+	tests := []struct {
+		name       string
+		msg        tea.WindowSizeMsg
+		wantWidth  int
+		wantHeight int
+	}{
+		{"zero area", tea.WindowSizeMsg{}, fallbackWidth, fallbackHeight},
+		{"zero width only", tea.WindowSizeMsg{Height: 30}, fallbackWidth, 30},
+		{"zero height only", tea.WindowSizeMsg{Width: 100}, 100, fallbackHeight},
+		{"negative dimensions", tea.WindowSizeMsg{Width: -1, Height: -1}, fallbackWidth, fallbackHeight},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			model, _ := setupTestApp().Update(tt.msg)
+			updated := model.(App)
+
+			if updated.width != tt.wantWidth || updated.height != tt.wantHeight {
+				t.Errorf("dimensions = %dx%d, want %dx%d", updated.width, updated.height, tt.wantWidth, tt.wantHeight)
+			}
+			if view := updated.View(); view == "Loading..." {
+				t.Error("View() = \"Loading...\" after a size message, want rendered content")
+			}
+		})
+	}
+}
+
 func TestApp_Update_WhenWorkspaceLoaded_ShouldShowWorkspaceInHeader(t *testing.T) {
 	app := setupTestApp()
 	app.width = 120

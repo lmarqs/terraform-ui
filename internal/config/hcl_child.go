@@ -186,14 +186,8 @@ func extractChildPlugin(body hcl.Body) PluginSettings {
 			ps.Enabled = val.True()
 			continue
 		}
-		switch {
-		case val.Type() == cty.String:
-			ps.Options[name] = val.AsString()
-		case val.Type() == cty.Bool:
-			ps.Options[name] = val.True()
-		case val.Type() == cty.Number:
-			f, _ := val.AsBigFloat().Float64()
-			ps.Options[name] = f
+		if v, ok := pluginOptionValue(val); ok {
+			ps.Options[name] = v
 		}
 	}
 

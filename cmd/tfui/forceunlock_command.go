@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
-	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +17,10 @@ func buildForceUnlockCommand(cfg *config.Config) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
 			lockID := args[0]
-			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc, err := imperativeService(cfg)
+			if err != nil {
+				return err
+			}
 
 			if !force && hasTTY() {
 				fmt.Fprintf(os.Stderr, "Terraform state has been locked. Force-unlock will remove the lock.\n")

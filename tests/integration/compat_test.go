@@ -180,6 +180,59 @@ func TestCompat_StandaloneApplyWithTarget(t *testing.T) {
 	}
 }
 
+// TestCompat_LockFlagsReachTerraform verifies the per-invocation lock override:
+// `--lock=false --lock-timeout=30s` must appear on the terraform command line
+// for plan and apply alike (lmarqs/terraform-ui#58).
+func TestCompat_LockFlagsReachTerraform(t *testing.T) {
+	projectRoot := findProjectRoot()
+	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
+	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
+	tapeDir := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat")
+
+	tests := []struct {
+		name    string
+		args    []string
+		command string
+	}{
+		{
+			name:    "plan",
+			args:    []string{"plan", "--lock=false", "--lock-timeout=30s", "-plan", planFixture, "-macro", filepath.Join(tapeDir, "standalone_plan_lock.tape")},
+			command: "terraform plan",
+		},
+		{
+			name:    "apply",
+			args:    []string{"apply", "--auto-approve", "--lock=false", "--lock-timeout=30s", "-state", stateFixture, "-macro", filepath.Join(tapeDir, "standalone_apply_target.tape")},
+			command: "terraform apply",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout, stderr, err := runTfui(tt.args...)
+			if err != nil {
+				t.Fatalf("macro run failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
+			}
+
+			var line string
+			for _, l := range strings.Split(stdout, "\n") {
+				if strings.Contains(l, tt.command) {
+					line = l
+					break
+				}
+			}
+			if line == "" {
+				t.Fatalf("expected %q in stdout, got: %q", tt.command, stdout)
+			}
+			if !strings.Contains(line, "-lock=false") {
+				t.Errorf("expected '-lock=false' on the %s line, got: %q", tt.name, line)
+			}
+			if !strings.Contains(line, "-lock-timeout=30s") {
+				t.Errorf("expected '-lock-timeout=30s' on the %s line, got: %q", tt.name, line)
+			}
+		})
+	}
+}
+
 // TestCompat_ExtraArgsPassthrough verifies that the TUI functions normally when
 // ExtraArgs would be configured. The tape asserts the plan view loads correctly.
 // Once ExtraArgs CLI support (-- separator) is implemented, this test should

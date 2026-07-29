@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -943,6 +944,123 @@ func TestRunPlanPreview_WhenTargetsProvided_ShouldPassThroughToPlan(t *testing.T
 	}
 }
 
+// TestStderr_WhenApplyReportedATally_ShouldReportTheCounts covers the headless
+// outcome line: an agent that just changed infrastructure needs to know what
+// changed, and terraform's own tally is the authoritative answer
+// (lmarqs/terraform-ui#54).
+func TestStderr_WhenApplyReportedATally_ShouldReportTheCounts(t *testing.T) {
+	tests := []struct {
+		name   string
+		result ApplyResultMsg
+		want   string
+	}{
+		{
+			name:   "tally from terraform is reported",
+			result: ApplyResultMsg{Counts: &sdk.ApplyCounts{Added: 1}, Applied: sdk.ApplyCounts{Added: 1}},
+			want:   "Apply complete. Resources: 1 added, 0 changed, 0 destroyed.\n",
+		},
+		{
+			name:   "destroy tally reports the destroyed count",
+			result: ApplyResultMsg{Counts: &sdk.ApplyCounts{Destroyed: 2}},
+			want:   "Apply complete. Resources: 0 added, 0 changed, 2 destroyed.\n",
+		},
+		{
+			name:   "no tally falls back to the bare outcome",
+			result: ApplyResultMsg{},
+			want:   "Apply complete.\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(&sdktest.MockService{}).(*Plugin)
+			p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+
+			updated, _ := p.Update(tt.result)
+
+			if got := string(updated.(*Plugin).Stderr()); got != tt.want {
+				t.Errorf("Stderr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRunApply_ShouldTallyTheStreamedOutput proves the tally is read at the
+// writer boundary: in headless mode the streamed lines reach the message loop
+// after the result message, too late to describe the run.
+func TestRunApply_ShouldTallyTheStreamedOutput(t *testing.T) {
+	svc := &sdktest.MockService{
+		ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+			fmt.Fprint(opts.Writer, "terraform_data.a: Creation complete after 0s\n")
+			fmt.Fprint(opts.Writer, "Apply complete! Resources: 1 added, 0 changed, 0 destroyed.\n")
+			return nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	msg := collectApplyResult(t, p.runApply())
+	if msg.Counts == nil {
+		t.Fatal("ApplyResultMsg.Counts = nil, want terraform's tally")
+	}
+	if *msg.Counts != (sdk.ApplyCounts{Added: 1}) {
+		t.Errorf("ApplyResultMsg.Counts = %+v, want 1 added", *msg.Counts)
+	}
+	if msg.Applied != (sdk.ApplyCounts{Added: 1}) {
+		t.Errorf("ApplyResultMsg.Applied = %+v, want 1 added", msg.Applied)
+	}
+}
+
+// TestStderr_WhenApplyFailedPartway_ShouldReportWhatGotApplied covers the
+// retry-safety half of the outcome contract: terraform prints no tally when a
+// run fails, so "nothing happened" and "half applied" would otherwise look the
+// same to the caller (lmarqs/terraform-ui#54).
+func TestStderr_WhenApplyFailedPartway_ShouldReportWhatGotApplied(t *testing.T) {
+	tests := []struct {
+		name    string
+		applied sdk.ApplyCounts
+		want    string
+	}{
+		{
+			name:    "resources completed before the failure",
+			applied: sdk.ApplyCounts{Added: 1, Destroyed: 1},
+			want:    "boom\nApplied before the failure: 1 added, 0 changed, 1 destroyed.\n",
+		},
+		{
+			name: "nothing completed leaves the error alone",
+			want: "boom\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(&sdktest.MockService{}).(*Plugin)
+			p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+
+			p.Update(ApplyResultMsg{Err: errors.New("boom"), Applied: tt.applied})
+
+			if got := string(p.Stderr()); got != tt.want {
+				t.Errorf("Stderr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRunApply_WhenRerun_ShouldDropThePreviousTally keeps a retry from
+// reporting the counts of the run before it.
+func TestRunApply_WhenRerun_ShouldDropThePreviousTally(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+
+	p.Update(ApplyResultMsg{Counts: &sdk.ApplyCounts{Added: 1}})
+	p.runApply()
+	p.Update(ApplyResultMsg{})
+
+	if got := string(p.Stderr()); got != "Apply complete.\n" {
+		t.Errorf("Stderr() = %q, want the bare outcome after a fresh run", got)
+	}
+}
+
 func TestBusy_WhenPlanning_ShouldReturnTrue(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusPlanning
@@ -1068,6 +1186,143 @@ func TestActivate_WhenTargetsProvided_ShouldPassThroughToApply(t *testing.T) {
 
 	if len(got.Targets) != 1 || got.Targets[0] != "aws_instance.web" {
 		t.Errorf("ApplyOptions.Targets = %v, want [aws_instance.web]", got.Targets)
+	}
+}
+
+// TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode covers the
+// per-invocation lock flags on both terraform runs apply makes: the preview
+// plan and the apply itself (lmarqs/terraform-ui#58).
+func TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		ctxLock     sdk.LockMode
+		ctxTimeout  sdk.LockTimeout
+		input       Input
+		wantLock    sdk.LockMode
+		wantTimeout sdk.LockTimeout
+	}{
+		{
+			name:     "flag disables locking against an enabled default",
+			ctxLock:  sdk.LockEnabled,
+			input:    Input{Lock: sdk.LockDisabled},
+			wantLock: sdk.LockDisabled,
+		},
+		{
+			name:     "no flag keeps the resolved default",
+			ctxLock:  sdk.LockDisabled,
+			input:    Input{},
+			wantLock: sdk.LockDisabled,
+		},
+		{
+			name:        "timeout flag overrides the resolved timeout",
+			ctxTimeout:  sdk.LockTimeout("30s"),
+			input:       Input{LockTimeout: sdk.LockTimeout("5s")},
+			wantTimeout: sdk.LockTimeout("5s"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var planOpts sdk.PlanOptions
+			var applyOpts sdk.ApplyOptions
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					planOpts = opts
+					return &sdk.PlanSummary{}, nil
+				},
+				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+					applyOpts = opts
+					return nil
+				},
+			}
+			p := New(svc).(*Plugin)
+			h := sdktest.NewDeps(svc)
+			h.Ctx.Lock = tt.ctxLock
+			h.Ctx.LockTimeout = tt.ctxTimeout
+			p.Init(h.Deps)
+
+			p.input = tt.input
+			collectPlanPreview(t, p.runPlanPreview())
+			collectApplyResult(t, p.Activate(withAutoApprove(tt.input)))
+
+			if planOpts.Lock != tt.wantLock {
+				t.Errorf("PlanOptions.Lock = %v, want %v", planOpts.Lock, tt.wantLock)
+			}
+			if planOpts.LockTimeout != tt.wantTimeout {
+				t.Errorf("PlanOptions.LockTimeout = %q, want %q", planOpts.LockTimeout, tt.wantTimeout)
+			}
+			if applyOpts.Lock != tt.wantLock {
+				t.Errorf("ApplyOptions.Lock = %v, want %v", applyOpts.Lock, tt.wantLock)
+			}
+			if applyOpts.LockTimeout != tt.wantTimeout {
+				t.Errorf("ApplyOptions.LockTimeout = %q, want %q", applyOpts.LockTimeout, tt.wantTimeout)
+			}
+		})
+	}
+}
+
+func withAutoApprove(in Input) Input {
+	in.AutoApprove = true
+	return in
+}
+
+// TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault keeps apply scoped
+// the same way plan is when both read `targets` from config: a default that no
+// --target overrode would otherwise apply more than the plan showed
+// (lmarqs/terraform-ui#57).
+func TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
+	tests := []struct {
+		name  string
+		input Input
+		want  []string
+	}{
+		{name: "no --target uses the config default", input: Input{}, want: []string{"module.networking"}},
+		{
+			name:  "an explicit --target replaces the default",
+			input: Input{Targets: []string{"aws_instance.web"}},
+			want:  []string{"aws_instance.web"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var planOpts sdk.PlanOptions
+			var applyOpts sdk.ApplyOptions
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					planOpts = opts
+					return &sdk.PlanSummary{}, nil
+				},
+				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+					applyOpts = opts
+					return nil
+				},
+			}
+			p := New(svc).(*Plugin)
+			p.Init(sdktest.NewDeps(svc).Deps)
+			if err := p.Configure(map[string]interface{}{"targets": []string{"module.networking"}}); err != nil {
+				t.Fatalf("Configure() error = %v", err)
+			}
+
+			p.input = tt.input
+			collectPlanPreview(t, p.runPlanPreview())
+			collectApplyResult(t, p.Activate(withAutoApprove(tt.input)))
+
+			assertStrings(t, "PlanOptions.Targets", planOpts.Targets, tt.want)
+			assertStrings(t, "ApplyOptions.Targets", applyOpts.Targets, tt.want)
+		})
+	}
+}
+
+func assertStrings(t *testing.T, label string, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s = %q, want %q", label, got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("%s = %q, want %q", label, got, want)
+		}
 	}
 }
 
