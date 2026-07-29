@@ -1,3 +1,19 @@
+# [1.20.0](https://github.com/lmarqs/terraform-ui/compare/v1.19.1...v1.20.0) (2026-07-29)
+
+
+### Bug Fixes
+
+* **cli:** honor --chdir in force-unlock and workspace commands ([3c900d0](https://github.com/lmarqs/terraform-ui/commit/3c900d0d35eec0d8e919199349e35803321e338d)), closes [#51](https://github.com/lmarqs/terraform-ui/issues/51)
+* **cli:** take --target values verbatim instead of parsing them as CSV ([a34d715](https://github.com/lmarqs/terraform-ui/commit/a34d71551d8ce24f2fb49416f25834d5d4235c50)), closes [#59](https://github.com/lmarqs/terraform-ui/issues/59)
+* **ui:** render at a default size when the terminal reports 0x0 ([31b4dd6](https://github.com/lmarqs/terraform-ui/commit/31b4dd62dc54d5c8bc5e04ed1b8e553cd94125bd)), closes [#55](https://github.com/lmarqs/terraform-ui/issues/55)
+
+
+### Features
+
+* **apply:** report terraform's resource tally in the headless outcome ([f4c5041](https://github.com/lmarqs/terraform-ui/commit/f4c50416c81eca8b365c398662231325b0f868ef)), closes [#54](https://github.com/lmarqs/terraform-ui/issues/54)
+* **cli:** add --lock and --lock-timeout to plan and apply ([ce89e8d](https://github.com/lmarqs/terraform-ui/commit/ce89e8d0438b2488fd08663825b9af7b8d8d0c03)), closes [#58](https://github.com/lmarqs/terraform-ui/issues/58)
+* **config:** make the plugin block reach the plugin it names ([4e417e4](https://github.com/lmarqs/terraform-ui/commit/4e417e463e3f94e1b93308b280651167db5a7d43)), closes [#57](https://github.com/lmarqs/terraform-ui/issues/57)
+
 ## [1.19.1](https://github.com/lmarqs/terraform-ui/compare/v1.19.0...v1.19.1) (2026-07-29)
 
 
