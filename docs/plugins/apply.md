@@ -91,7 +91,16 @@ tfui apply -project ./infra -chdir modules/networking
 
 **Silent mode:**
 ```
-Apply complete.
+Apply complete. Resources: 1 added, 0 changed, 0 destroyed.
+```
+
+The counts are terraform's own tally, so an apply can be reconciled against the
+plan that was approved. A run that fails partway prints no tally — terraform
+does not emit one — so the outcome reports what did finish instead:
+
+```
+Error: creating local_file: ...
+Applied before the failure: 1 added, 0 changed, 0 destroyed.
 ```
 
 **Agent mode (JSON):**

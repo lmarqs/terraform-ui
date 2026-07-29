@@ -3,6 +3,7 @@ package apply
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -940,6 +941,123 @@ func TestRunPlanPreview_WhenTargetsProvided_ShouldPassThroughToPlan(t *testing.T
 	}
 	if got.PlanFile == "" {
 		t.Error("preview plan should write to a temp plan file, got empty PlanFile")
+	}
+}
+
+// TestStderr_WhenApplyReportedATally_ShouldReportTheCounts covers the headless
+// outcome line: an agent that just changed infrastructure needs to know what
+// changed, and terraform's own tally is the authoritative answer
+// (lmarqs/terraform-ui#54).
+func TestStderr_WhenApplyReportedATally_ShouldReportTheCounts(t *testing.T) {
+	tests := []struct {
+		name   string
+		result ApplyResultMsg
+		want   string
+	}{
+		{
+			name:   "tally from terraform is reported",
+			result: ApplyResultMsg{Counts: &sdk.ApplyCounts{Added: 1}, Applied: sdk.ApplyCounts{Added: 1}},
+			want:   "Apply complete. Resources: 1 added, 0 changed, 0 destroyed.\n",
+		},
+		{
+			name:   "destroy tally reports the destroyed count",
+			result: ApplyResultMsg{Counts: &sdk.ApplyCounts{Destroyed: 2}},
+			want:   "Apply complete. Resources: 0 added, 0 changed, 2 destroyed.\n",
+		},
+		{
+			name:   "no tally falls back to the bare outcome",
+			result: ApplyResultMsg{},
+			want:   "Apply complete.\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(&sdktest.MockService{}).(*Plugin)
+			p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+
+			updated, _ := p.Update(tt.result)
+
+			if got := string(updated.(*Plugin).Stderr()); got != tt.want {
+				t.Errorf("Stderr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRunApply_ShouldTallyTheStreamedOutput proves the tally is read at the
+// writer boundary: in headless mode the streamed lines reach the message loop
+// after the result message, too late to describe the run.
+func TestRunApply_ShouldTallyTheStreamedOutput(t *testing.T) {
+	svc := &sdktest.MockService{
+		ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+			fmt.Fprint(opts.Writer, "terraform_data.a: Creation complete after 0s\n")
+			fmt.Fprint(opts.Writer, "Apply complete! Resources: 1 added, 0 changed, 0 destroyed.\n")
+			return nil
+		},
+	}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+
+	msg := collectApplyResult(t, p.runApply())
+	if msg.Counts == nil {
+		t.Fatal("ApplyResultMsg.Counts = nil, want terraform's tally")
+	}
+	if *msg.Counts != (sdk.ApplyCounts{Added: 1}) {
+		t.Errorf("ApplyResultMsg.Counts = %+v, want 1 added", *msg.Counts)
+	}
+	if msg.Applied != (sdk.ApplyCounts{Added: 1}) {
+		t.Errorf("ApplyResultMsg.Applied = %+v, want 1 added", msg.Applied)
+	}
+}
+
+// TestStderr_WhenApplyFailedPartway_ShouldReportWhatGotApplied covers the
+// retry-safety half of the outcome contract: terraform prints no tally when a
+// run fails, so "nothing happened" and "half applied" would otherwise look the
+// same to the caller (lmarqs/terraform-ui#54).
+func TestStderr_WhenApplyFailedPartway_ShouldReportWhatGotApplied(t *testing.T) {
+	tests := []struct {
+		name    string
+		applied sdk.ApplyCounts
+		want    string
+	}{
+		{
+			name:    "resources completed before the failure",
+			applied: sdk.ApplyCounts{Added: 1, Destroyed: 1},
+			want:    "boom\nApplied before the failure: 1 added, 0 changed, 1 destroyed.\n",
+		},
+		{
+			name: "nothing completed leaves the error alone",
+			want: "boom\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(&sdktest.MockService{}).(*Plugin)
+			p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+
+			p.Update(ApplyResultMsg{Err: errors.New("boom"), Applied: tt.applied})
+
+			if got := string(p.Stderr()); got != tt.want {
+				t.Errorf("Stderr() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestRunApply_WhenRerun_ShouldDropThePreviousTally keeps a retry from
+// reporting the counts of the run before it.
+func TestRunApply_WhenRerun_ShouldDropThePreviousTally(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.Init(sdktest.NewDeps(&sdktest.MockService{}).Deps)
+
+	p.Update(ApplyResultMsg{Counts: &sdk.ApplyCounts{Added: 1}})
+	p.runApply()
+	p.Update(ApplyResultMsg{})
+
+	if got := string(p.Stderr()); got != "Apply complete.\n" {
+		t.Errorf("Stderr() = %q, want the bare outcome after a fresh run", got)
 	}
 }
 

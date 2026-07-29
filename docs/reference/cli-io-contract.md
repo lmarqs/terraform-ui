@@ -56,7 +56,7 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly.
 |---------|-----------------|--------|------|
 | `tfui plan` | Tree view | TUI (alt-screen) | 0/2 |
 | `tfui plan -json` | Plan JSON | TUI (alt-screen) | 0/2 |
-| `tfui apply` | — | TUI; "Apply complete." / "No changes." on exit | 0/1 |
+| `tfui apply` | — | TUI; "Apply complete. Resources: …" / "No changes." on exit | 0/1 |
 | `tfui apply -json` | — | TUI; outcome message on exit | 0/1 |
 | `tfui state` | Addresses (one/line) | TUI (alt-screen) | 0 |
 | `tfui state -json` | Resource JSON array | TUI (alt-screen) | 0 |
@@ -74,7 +74,7 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly.
 |---------|--------|--------|------|
 | `tfui plan -ci` | Tree view | — | 0/2 |
 | `tfui plan -ci -json` | Plan JSON | — | 0/2 |
-| `tfui apply -ci -auto-approve` | — | "Apply complete." / "No changes." | 0 |
+| `tfui apply -ci -auto-approve` | — | "Apply complete. Resources: …" / "No changes." | 0 |
 | `tfui apply -ci` (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" (mirrors terraform) | 1 |
 | `tfui state -ci` | Addresses (one/line) | — | 0 |
 | `tfui validate -ci` | Diagnostics text | — | 0/1 |

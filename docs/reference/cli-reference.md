@@ -99,8 +99,8 @@ for non-interactive use" (exit 1), rather than applying unconfirmed.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
-| Standalone | — | TUI; "Apply complete." / "No changes." on exit | 0/1 |
-| CI (`-auto-approve`, success) | — | "Apply complete." / "No changes." | 0 |
+| Standalone | — | TUI; "Apply complete. Resources: …" / "No changes." on exit | 0/1 |
+| CI (`-auto-approve`, success) | — | "Apply complete. Resources: …" / "No changes." | 0 |
 | CI (`-auto-approve`, failure) | — | terraform error | 1 |
 | CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
 

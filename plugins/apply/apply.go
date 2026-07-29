@@ -9,6 +9,7 @@ package apply
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -33,6 +34,12 @@ const StatusPlanning = sdk.Status(11)
 type ApplyResultMsg struct {
 	Err      error
 	Duration time.Duration
+	// Counts is the resource tally terraform printed on completion, or nil when
+	// it printed none. A failed run never prints one.
+	Counts *sdk.ApplyCounts
+	// Applied is what terraform reported finishing, resource by resource. It is
+	// the only account of a run that stopped partway.
+	Applied sdk.ApplyCounts
 }
 
 // planPreviewMsg carries the result of the pre-confirmation plan run.
@@ -55,6 +62,14 @@ type Plugin struct {
 	cancelFn   context.CancelFunc
 	stack      *sdk.Stack
 	lastStream *frames.StreamFrame
+	// counts is terraform's own post-apply tally, read off the output stream.
+	// nil until terraform reports one — an unreported tally is unknown, which is
+	// not the same answer as zeros.
+	counts *sdk.ApplyCounts
+	// applied accumulates the per-resource completion notices. terraform prints
+	// no tally when a run fails, so this is the only account of what a partial
+	// apply managed to do before it stopped.
+	applied sdk.ApplyCounts
 }
 
 // New creates a new apply plugin.
@@ -263,6 +278,8 @@ func (e *Plugin) Abort() {
 
 func (e *Plugin) runApply() tea.Cmd {
 	e.Cancel()
+	e.counts = nil
+	e.applied = sdk.ApplyCounts{}
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
 
@@ -285,13 +302,21 @@ func (e *Plugin) runApply() tea.Cmd {
 	opts.AutoApprove = e.input.AutoApprove
 	opts.Lock = e.input.Lock.Or(opts.Lock)
 	opts.LockTimeout = e.input.LockTimeout.Or(opts.LockTimeout)
-	opts.Writer = lw
+	// The tally rides the same output terraform streams to the UI, so the result
+	// message can describe what happened without waiting on the message loop.
+	tally := &sdk.ApplyTally{}
+	opts.Writer = io.MultiWriter(lw, tally)
 	start := time.Now()
 	return tea.Batch(
 		func() tea.Msg {
 			err := svc.Apply(ctx, opts)
 			lw.Close()
-			return ApplyResultMsg{Err: err, Duration: time.Since(start)}
+			return ApplyResultMsg{
+				Err:      err,
+				Duration: time.Since(start),
+				Counts:   tally.Reported(),
+				Applied:  tally.Applied(),
+			}
 		},
 		frames.WaitForLine(ch),
 	)
@@ -327,6 +352,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case ApplyResultMsg:
 		e.timer.Stop()
 		e.stack.Reset()
+		e.counts = msg.Counts
+		e.applied = msg.Applied
 		// Drop our reference; cleanup is owned by the plan plugin (ADR-0020).
 		e.planFile = ""
 		// The targeting selection is spent once apply reaches a terminal state,
@@ -457,13 +484,24 @@ func (e *Plugin) renderConfirmation(_, _ int) string {
 // Stderr reports the apply outcome. Apply deliberately emits no stdout —
 // exit code 0 is the machine signal — but headless callers still need a
 // human-readable confirmation or the terraform error, on the status channel.
+//
+// The outcome carries terraform's resource tally when terraform reported one:
+// it is what a caller reconciles the plan against, and after a partial failure
+// it separates "nothing happened" from "half applied". A run that reported no
+// tally says so by omission rather than printing zeros.
 func (e *Plugin) Stderr() []byte {
 	switch e.status {
 	case sdk.StatusError:
-		return []byte(e.errMsg + "\n")
+		if e.applied.Empty() {
+			return []byte(e.errMsg + "\n")
+		}
+		return []byte(fmt.Sprintf("%s\nApplied before the failure: %s.\n", e.errMsg, e.applied))
 	case sdk.StatusDone:
 		if e.noChanges {
 			return []byte("No changes.\n")
+		}
+		if e.counts != nil {
+			return []byte(fmt.Sprintf("Apply complete. Resources: %s.\n", e.counts))
 		}
 		return []byte("Apply complete.\n")
 	default:

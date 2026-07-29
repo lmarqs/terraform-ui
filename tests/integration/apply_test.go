@@ -87,6 +87,22 @@ func applyInDir(t *testing.T, dir string) {
 	}
 }
 
+// TestApply_PartialFailure_ShouldReportWhatGotApplied covers the retry-safety
+// half of the outcome contract: terraform prints no tally when a run fails, so
+// without this the caller cannot tell "nothing happened" from "half applied"
+// (lmarqs/terraform-ui#54).
+func TestApply_PartialFailure_ShouldReportWhatGotApplied(t *testing.T) {
+	dir := copyFixture(t, "apply-partial")
+
+	_, stderr, err := runTfui("apply", "-project", dir, "-ci", "-auto-approve")
+	if err == nil {
+		t.Fatalf("expected the apply to fail\nstderr: %s", stderr)
+	}
+	if !strings.Contains(stderr, "Applied before the failure: 1 added, 0 changed, 0 destroyed.") {
+		t.Errorf("expected the partial tally on stderr, got: %q", stderr)
+	}
+}
+
 func TestApply_CreateFixture_SilentMode(t *testing.T) {
 	dir := copyFixture(t, "apply-create")
 
@@ -99,8 +115,10 @@ func TestApply_CreateFixture_SilentMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("apply failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
 	}
-	if !strings.Contains(stderr, "Apply complete.") {
-		t.Errorf("expected 'Apply complete.' on stderr, got: %q", stderr)
+	// The outcome carries terraform's own tally, so a caller can reconcile the
+	// apply against the plan it approved (lmarqs/terraform-ui#54).
+	if !strings.Contains(stderr, "Apply complete. Resources: 1 added, 0 changed, 0 destroyed.") {
+		t.Errorf("expected the apply tally on stderr, got: %q", stderr)
 	}
 
 	resultPath := filepath.Join(dir, "out", "result.txt")
