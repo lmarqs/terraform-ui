@@ -1251,6 +1251,185 @@ func TestActivate_WhenInputJSONAndServiceFails_ShouldSetError(t *testing.T) {
 	}
 }
 
+// --- CLI --target scoping ---
+
+func TestRunPlan_WhenInputCarriesTargets_ShouldScopeThePlan(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	drainActivate(t, p, Input{Targets: []string{"aws_instance.web", "module.db"}})
+
+	if len(svc.PlanCalls) == 0 {
+		t.Fatal("expected at least one Plan call")
+	}
+	assertTargets(t, svc.PlanCalls[0].Targets, []string{"aws_instance.web", "module.db"})
+}
+
+// TestRunPlan_WhenInputTargetsAndContextPins_ShouldPlanTheUnion pins the
+// resolution order: Context pins (TUI selection) first, CLI --target appended.
+// Both are terraform -target values, so the plan covers both sets.
+func TestRunPlan_WhenInputTargetsAndContextPins_ShouldPlanTheUnion(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p, h := newTestPluginWithHarness(svc)
+	h.Ctx.Pins = sdk.Pins{"aws_s3_bucket.logs"}
+
+	drainActivate(t, p, Input{Targets: []string{"aws_instance.web"}})
+
+	if len(svc.PlanCalls) == 0 {
+		t.Fatal("expected at least one Plan call")
+	}
+	assertTargets(t, svc.PlanCalls[0].Targets, []string{"aws_s3_bucket.logs", "aws_instance.web"})
+}
+
+func TestRunPlan_WhenInputTargetRepeatsAPin_ShouldNotDuplicateIt(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p, h := newTestPluginWithHarness(svc)
+	h.Ctx.Pins = sdk.Pins{"aws_instance.web"}
+
+	drainActivate(t, p, Input{Targets: []string{"aws_instance.web", "aws_instance.web"}})
+
+	if len(svc.PlanCalls) == 0 {
+		t.Fatal("expected at least one Plan call")
+	}
+	assertTargets(t, svc.PlanCalls[0].Targets, []string{"aws_instance.web"})
+}
+
+func TestRunPlan_WhenNoTargetsAnywhere_ShouldLeaveTargetsUnset(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+			return &sdk.PlanSummary{}, nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	drainActivate(t, p, Input{})
+
+	if len(svc.PlanCalls) == 0 {
+		t.Fatal("expected at least one Plan call")
+	}
+	if got := svc.PlanCalls[0].Targets; len(got) != 0 {
+		t.Errorf("PlanOptions.Targets = %v, want empty (unscoped plan)", got)
+	}
+}
+
+func TestRunPlan_WhenJSONAndInputCarriesTargets_ShouldScopeThePlanJSON(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return []byte(`{"resource_changes":[]}`), nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	drainActivate(t, p, Input{JSON: true, Targets: []string{"aws_instance.web"}})
+
+	if len(svc.PlanJSONCalls) == 0 {
+		t.Fatal("expected at least one PlanJSON call")
+	}
+	assertTargets(t, svc.PlanJSONCalls[0].Targets, []string{"aws_instance.web"})
+}
+
+func assertTargets(t *testing.T, got, want []string) {
+	t.Helper()
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Errorf("PlanOptions.Targets = %v, want %v", got, want)
+	}
+}
+
+// --- JSON-mode exit codes ---
+
+func TestExitCode_WhenJSONPlanHasChanges_ShouldReturnTwo(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return []byte(`{"resource_changes":[{"address":"aws_instance.web","change":{"actions":["create"]}}]}`), nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{JSON: true})
+
+	if p.status != sdk.StatusDone {
+		t.Fatalf("status = %v, want sdk.StatusDone", p.status)
+	}
+	if got := p.ExitCode(); got != 2 {
+		t.Errorf("ExitCode() with changes in JSON mode = %d, want 2 (same as the text path)", got)
+	}
+}
+
+func TestExitCode_WhenJSONPlanIsClean_ShouldReturnZero(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return []byte(`{"resource_changes":[{"address":"aws_instance.web","change":{"actions":["no-op"]}}]}`), nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{JSON: true})
+
+	if got := p.ExitCode(); got != 0 {
+		t.Errorf("ExitCode() with no changes in JSON mode = %d, want 0", got)
+	}
+}
+
+// TestUpdate_WhenJSONIsUnreadable_ShouldFailRatherThanReportClean covers the
+// case where the change count cannot be established: exiting 0 would tell the
+// caller "no changes", which is the one answer we know to be unfounded.
+func TestUpdate_WhenJSONIsUnreadable_ShouldFailRatherThanReportClean(t *testing.T) {
+	raw := []byte("not a plan document")
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return raw, nil
+		},
+	}
+	p := newTestPlugin(svc)
+
+	p = drainActivate(t, p, Input{JSON: true})
+
+	if p.status != sdk.StatusError {
+		t.Fatalf("status = %v, want sdk.StatusError", p.status)
+	}
+	if got := p.ExitCode(); got != 1 {
+		t.Errorf("ExitCode() = %d, want 1", got)
+	}
+	if len(p.Stderr()) == 0 {
+		t.Error("Stderr() = empty, want the parse failure reported")
+	}
+	data, err := p.Stdout()
+	if err != nil {
+		t.Fatalf("Stdout() error = %v", err)
+	}
+	if string(data) != string(raw) {
+		t.Errorf("Stdout() = %q, want terraform's bytes passed through verbatim", data)
+	}
+}
+
+func TestReset_GivenCountedJSONChanges_ShouldClearThem(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return []byte(`{"resource_changes":[{"address":"a","change":{"actions":["create"]}}]}`), nil
+		},
+	}
+	p := newTestPlugin(svc)
+	p = drainActivate(t, p, Input{JSON: true})
+
+	p.reset()
+
+	if got := p.ExitCode(); got != 0 {
+		t.Errorf("ExitCode() after reset = %d, want 0", got)
+	}
+}
+
 func TestReset_GivenStalePlanFile_ShouldRemoveItFromDisk(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
