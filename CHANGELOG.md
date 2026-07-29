@@ -1,3 +1,10 @@
+## [1.19.1](https://github.com/lmarqs/terraform-ui/compare/v1.19.0...v1.19.1) (2026-07-29)
+
+
+### Bug Fixes
+
+* **plan:** honor --target and count changes in JSON mode ([b1adf5d](https://github.com/lmarqs/terraform-ui/commit/b1adf5d1298403c9ed89c585423cb91c37c2bc08)), closes [#52](https://github.com/lmarqs/terraform-ui/issues/52) [#53](https://github.com/lmarqs/terraform-ui/issues/53)
+
 # [1.19.0](https://github.com/lmarqs/terraform-ui/compare/v1.18.6...v1.19.0) (2026-07-24)
 
 
