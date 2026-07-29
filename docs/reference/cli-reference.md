@@ -210,6 +210,7 @@ Remove a terraform state lock (imperative, no TUI).
 ```bash
 tfui force-unlock <lock-id>          # interactive confirmation
 tfui force-unlock -force <lock-id>  # skip confirmation (CI/scripts)
+tfui force-unlock -chdir modules/vpc <lock-id>  # unlock a member's state
 ```
 
 ### `tfui scaffold`

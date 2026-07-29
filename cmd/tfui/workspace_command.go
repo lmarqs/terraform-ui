@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
-	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/spf13/cobra"
 )
@@ -22,7 +21,10 @@ func buildWorkspaceCommand(cfg *config.Config) *cobra.Command {
 		Short: "Show current workspace name",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc, err := imperativeService(cfg)
+			if err != nil {
+				return err
+			}
 			name, err := svc.Workspace(context.Background())
 			if err != nil {
 				return fmt.Errorf("workspace show failed: %w", err)
@@ -37,7 +39,10 @@ func buildWorkspaceCommand(cfg *config.Config) *cobra.Command {
 		Short: "List workspaces",
 		Args:  cobra.NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc, err := imperativeService(cfg)
+			if err != nil {
+				return err
+			}
 			workspaces, err := svc.WorkspaceList(context.Background())
 			if err != nil {
 				return fmt.Errorf("workspace list failed: %w", err)
@@ -62,7 +67,10 @@ func buildWorkspaceCommand(cfg *config.Config) *cobra.Command {
 		Short: "Select a workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(_ *cobra.Command, args []string) error {
-			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc, err := imperativeService(cfg)
+			if err != nil {
+				return err
+			}
 			if err := svc.WorkspaceSelect(context.Background(), args[0]); err != nil {
 				return fmt.Errorf("workspace select failed: %w", err)
 			}
@@ -71,17 +79,20 @@ func buildWorkspaceCommand(cfg *config.Config) *cobra.Command {
 		},
 	}
 
-	var newLock *bool
+	var newLock bool
 	var newLockTimeout string
 	newCmd := &cobra.Command{
 		Use:   "new <name>",
 		Short: "Create a new workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
-			opts := sdk.WorkspaceNewOptions{LockTimeout: sdk.LockTimeout(newLockTimeout)}
-			if cmd.Flags().Changed("lock") {
-				opts.Lock = sdk.LockModeFromPtr(newLock)
+			svc, err := imperativeService(cfg)
+			if err != nil {
+				return err
+			}
+			opts := sdk.WorkspaceNewOptions{
+				Lock:        lockModeFrom(cmd, newLock),
+				LockTimeout: sdk.LockTimeout(newLockTimeout),
 			}
 			if err := svc.WorkspaceNew(context.Background(), args[0], opts); err != nil {
 				return fmt.Errorf("workspace new failed: %w", err)
@@ -90,24 +101,24 @@ func buildWorkspaceCommand(cfg *config.Config) *cobra.Command {
 			return nil
 		},
 	}
-	newLock = newCmd.Flags().Bool("lock", true, "Lock state during operation")
-	newCmd.Flags().StringVar(&newLockTimeout, "lock-timeout", "", "Duration to wait for a state lock")
+	bindLockFlags(newCmd, &newLock, &newLockTimeout)
 
 	var deleteForce bool
-	var deleteLock *bool
+	var deleteLock bool
 	var deleteLockTimeout string
 	deleteCmd := &cobra.Command{
 		Use:   "delete <name>",
 		Short: "Delete a workspace",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			svc := tfexec.NewExecService(cfg.WorkingDir(), cfg.TerraformBinary(), nil)
+			svc, err := imperativeService(cfg)
+			if err != nil {
+				return err
+			}
 			opts := sdk.WorkspaceDeleteOptions{
 				Force:       deleteForce,
+				Lock:        lockModeFrom(cmd, deleteLock),
 				LockTimeout: sdk.LockTimeout(deleteLockTimeout),
-			}
-			if cmd.Flags().Changed("lock") {
-				opts.Lock = sdk.LockModeFromPtr(deleteLock)
 			}
 			if err := svc.WorkspaceDelete(context.Background(), args[0], opts); err != nil {
 				return fmt.Errorf("workspace delete failed: %w", err)
@@ -117,8 +128,7 @@ func buildWorkspaceCommand(cfg *config.Config) *cobra.Command {
 		},
 	}
 	deleteCmd.Flags().BoolVar(&deleteForce, "force", false, "Force deletion of a non-empty workspace")
-	deleteLock = deleteCmd.Flags().Bool("lock", true, "Lock state during operation")
-	deleteCmd.Flags().StringVar(&deleteLockTimeout, "lock-timeout", "", "Duration to wait for a state lock")
+	bindLockFlags(deleteCmd, &deleteLock, &deleteLockTimeout)
 
 	wsCmd.AddCommand(showCmd, listCmd, selectCmd, newCmd, deleteCmd)
 	return wsCmd

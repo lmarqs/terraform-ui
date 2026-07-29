@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
+	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 )
 
 func effectiveWorkDir(cfg config.Config) string {
@@ -14,6 +15,20 @@ func effectiveWorkDir(cfg config.Config) string {
 		return filepath.Join(cfg.Dir, cfg.Chdir)
 	}
 	return cfg.WorkingDir()
+}
+
+// imperativeService builds the terraform service for the commands that execute
+// terraform directly instead of activating a plugin through Session
+// (force-unlock, workspace). Routing every one of them through here is what
+// keeps --chdir handling from drifting per subcommand: the member directory is
+// resolved and validated exactly as Session does before dispatching a plugin.
+func imperativeService(cfg *config.Config) (*tfexec.ExecService, error) {
+	if cfg.Chdir != "" {
+		if err := validateChdir(*cfg); err != nil {
+			return nil, err
+		}
+	}
+	return tfexec.NewExecService(effectiveWorkDir(*cfg), cfg.TerraformBinary(), nil), nil
 }
 
 func validateChdir(cfg config.Config) error {

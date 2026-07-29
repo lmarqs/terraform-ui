@@ -20,6 +20,16 @@ func copyFixture(t *testing.T, name string) string {
 	return dst
 }
 
+// copyFixtureWithoutInit copies a fixture whose root is not a terraform working
+// directory (a project root whose members are), so the caller inits the member
+// it needs.
+func copyFixtureWithoutInit(t *testing.T, name string) string {
+	t.Helper()
+	dst := t.TempDir()
+	copyDir(t, fixtureDir(name), dst)
+	return dst
+}
+
 // copyDir recursively copies src to dst, skipping .terraform directories.
 func copyDir(t *testing.T, src, dst string) {
 	t.Helper()
