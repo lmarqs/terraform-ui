@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // ParsePlan converts a tfjson.Plan into a PlanSummary.
@@ -59,25 +60,14 @@ func ParsePlan(plan *tfjson.Plan) *PlanSummary {
 	return summary
 }
 
+// mapActions delegates to the SDK so the plan-file path and the `-json`
+// passthrough path agree on which actions count as a change.
 func mapActions(actions tfjson.Actions) Action {
-	switch {
-	case actions.NoOp():
-		return ActionNoOp
-	case actions.Read():
-		return ActionRead
-	case actions.Create():
-		return ActionCreate
-	case actions.Update():
-		return ActionUpdate
-	case actions.Delete():
-		return ActionDelete
-	case actions.DestroyBeforeCreate():
-		return ActionDeleteThenCreate
-	case actions.CreateBeforeDestroy():
-		return ActionCreateThenDelete
-	default:
-		return ActionNoOp
+	strs := make([]string, len(actions))
+	for i, a := range actions {
+		strs[i] = string(a)
 	}
+	return sdk.ActionFromStrings(strs)
 }
 
 func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {

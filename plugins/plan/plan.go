@@ -83,6 +83,7 @@ type Plugin struct {
 	viewWidth    int
 	input        Input  // typed input from cmd/tfui or app.go's typed dispatch
 	jsonBytes    []byte // captured raw bytes from svc.PlanJSON when input.JSON
+	jsonChanges  int    // change count read from jsonBytes; drives ExitCode in JSON mode
 }
 
 // New creates a new plan plugin.
@@ -189,6 +190,7 @@ func (e *Plugin) reset() {
 	e.clearPendingApply()
 	e.summary = nil
 	e.jsonBytes = nil
+	e.jsonChanges = 0
 	e.filtered = nil
 	e.tree = tree.New(nil)
 	e.filter = ""
@@ -261,6 +263,10 @@ func (e *Plugin) runPlan() tea.Cmd {
 	if e.GetCtx != nil {
 		opts = e.GetCtx().PlanOptions()
 	}
+	// Context contributes the TUI pin selection; Input contributes the CLI
+	// --target flags. Both are terraform -target values and neither can speak
+	// for the other, so the plan covers the union.
+	opts.Targets = mergeTargets(opts.Targets, e.input.Targets)
 	opts.PlanFile = e.allocPlanFile()
 
 	if e.input.JSON {
@@ -285,6 +291,25 @@ func (e *Plugin) runPlan() tea.Cmd {
 		lw.Close()
 		return PlanResultMsg{Summary: summary, Err: err}
 	}
+}
+
+// mergeTargets appends the CLI targets missing from pinned, preserving the
+// pinned order. Returns nil when both are empty so an unscoped plan carries no
+// -target flags at all.
+func mergeTargets(pinned, cli []string) []string {
+	if len(cli) == 0 {
+		return pinned
+	}
+	seen := make(map[string]bool, len(pinned)+len(cli))
+	merged := make([]string, 0, len(pinned)+len(cli))
+	for _, t := range append(append([]string{}, pinned...), cli...) {
+		if seen[t] {
+			continue
+		}
+		seen[t] = true
+		merged = append(merged, t)
+	}
+	return merged
 }
 
 // allocPlanFile reserves a unique path for the plan artifact and stores it on
@@ -319,11 +344,22 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.stack.Push(&listFrame{plugin: e})
 			return e, nil
 		}
-		e.status = sdk.StatusDone
 		e.jsonBytes = msg.Data
 		e.stack.Clear()
 		e.stack.Push(&listFrame{plugin: e})
-		e.Log.Debug("plan.complete", "bytes", len(msg.Data), "json", true)
+		// The document still reaches stdout verbatim, but a count we cannot read
+		// is not a clean plan — reporting the failure beats exiting 0 on a guess.
+		changes, err := sdk.PlanJSONChangeCount(msg.Data)
+		if err != nil {
+			e.clearPendingApply()
+			e.status = sdk.StatusError
+			e.errMsg = err.Error()
+			e.Log.Debug("plan.error", "error", err.Error(), "json", true)
+			return e, nil
+		}
+		e.status = sdk.StatusDone
+		e.jsonChanges = changes
+		e.Log.Debug("plan.complete", "bytes", len(msg.Data), "changes", changes, "json", true)
 		return e, nil
 
 	case PlanResultMsg:
@@ -937,13 +973,16 @@ func (e *Plugin) Stderr() []byte {
 }
 
 // ExitCode returns 1 when the plan run failed, 2 when the plan has changes,
-// 0 when clean. In JSON passthrough mode there is no parsed summary;
-// ExitCode falls back to 0 unless the run failed.
+// 0 when clean. JSON passthrough mode has no parsed summary and counts changes
+// from the document itself, so both output modes answer alike.
 func (e *Plugin) ExitCode() int {
 	if e.status == sdk.StatusError {
 		return 1
 	}
 	if e.input.JSON {
+		if e.jsonChanges > 0 {
+			return 2
+		}
 		return 0
 	}
 	if e.summary != nil && len(e.summary.Changes) > 0 {

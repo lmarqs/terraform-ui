@@ -310,6 +310,94 @@ func TestPlan_MultiResourceFixture_SilentMode(t *testing.T) {
 	}
 }
 
+// -- Targeted plan tests --
+
+func TestPlan_Targeted_SilentMode_OnlyPlansTarget(t *testing.T) {
+	dir := copyFixture(t, "apply-targeted")
+
+	stdout, stderr, err := runTfui("plan", "-project", dir, "-ci", "-target", "local_file.alpha")
+	if err != nil && !isExitCode(err, 2) {
+		t.Fatalf("targeted plan failed: %v\nstderr: %s", err, stderr)
+	}
+
+	if !strings.Contains(stdout, "+ local_file.alpha") {
+		t.Errorf("expected '+ local_file.alpha' in targeted plan, got: %q", stdout)
+	}
+	if strings.Contains(stdout, "local_file.beta") {
+		t.Errorf("targeted plan listed local_file.beta, which was not requested: %q", stdout)
+	}
+	if strings.Contains(stdout, "local_file.gamma") {
+		t.Errorf("targeted plan listed local_file.gamma, which was not requested: %q", stdout)
+	}
+	if !strings.Contains(stdout, "1 to add") {
+		t.Errorf("expected '1 to add' in targeted plan summary, got: %q", stdout)
+	}
+}
+
+func TestPlan_Targeted_AgentMode_OnlyPlansTarget(t *testing.T) {
+	dir := copyFixture(t, "apply-targeted")
+
+	stdout, stderr, err := runTfui("plan", "-project", dir, "-json", "-target", "local_file.alpha")
+	if err != nil && !isExitCode(err, 2) {
+		t.Fatalf("targeted plan -json failed: %v\nstderr: %s", err, stderr)
+	}
+
+	var result terraformPlan
+	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
+		t.Fatalf("failed to parse terraform JSON: %v\noutput: %q", err, stdout)
+	}
+	if len(result.ResourceChanges) != 1 {
+		t.Fatalf("expected 1 resource_change for a single target, got %d: %v",
+			len(result.ResourceChanges), result.ResourceChanges)
+	}
+	if result.ResourceChanges[0].Address != "local_file.alpha" {
+		t.Errorf("expected local_file.alpha, got %q", result.ResourceChanges[0].Address)
+	}
+}
+
+func TestPlan_MultipleTargets_PlansEachTarget(t *testing.T) {
+	dir := copyFixture(t, "apply-targeted")
+
+	stdout, stderr, err := runTfui("plan", "-project", dir, "-ci",
+		"-target", "local_file.alpha", "-target", "local_file.gamma")
+	if err != nil && !isExitCode(err, 2) {
+		t.Fatalf("multi-target plan failed: %v\nstderr: %s", err, stderr)
+	}
+
+	if !strings.Contains(stdout, "+ local_file.alpha") {
+		t.Errorf("expected '+ local_file.alpha' in plan, got: %q", stdout)
+	}
+	if !strings.Contains(stdout, "+ local_file.gamma") {
+		t.Errorf("expected '+ local_file.gamma' in plan, got: %q", stdout)
+	}
+	if strings.Contains(stdout, "local_file.beta") {
+		t.Errorf("multi-target plan listed local_file.beta, which was not requested: %q", stdout)
+	}
+	if !strings.Contains(stdout, "2 to add") {
+		t.Errorf("expected '2 to add' in plan summary, got: %q", stdout)
+	}
+}
+
+// -- Exit code tests --
+
+func TestPlan_AgentMode_WithChanges_ShouldExitTwo(t *testing.T) {
+	initFixture(t, "create")
+
+	_, stderr, err := runTfui("plan", "-project", fixtureDir("create"), "-json")
+	if !isExitCode(err, 2) {
+		t.Fatalf("expected exit code 2 for a plan with changes in JSON mode, got err=%v\nstderr: %q", err, stderr)
+	}
+}
+
+func TestPlan_AgentMode_NoChanges_ShouldExitZero(t *testing.T) {
+	dir := copyFixture(t, "no-changes")
+
+	_, stderr, err := runTfui("plan", "-project", dir, "-json")
+	if err != nil {
+		t.Fatalf("expected exit code 0 for a clean plan in JSON mode, got err=%v\nstderr: %q", err, stderr)
+	}
+}
+
 // -- Output JSON structure tests --
 
 func TestPlan_AgentMode_JSONStructure(t *testing.T) {
