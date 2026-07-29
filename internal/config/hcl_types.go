@@ -92,6 +92,21 @@ func (r *ResolvedConfig) Parallelism() int        { return r.parallelism }
 func (r *ResolvedConfig) Lock() *bool             { return r.lock }
 func (r *ResolvedConfig) LockTimeout() string     { return r.lockTimeout }
 
+// PluginConfigs converts the resolved per-plugin settings into the shape the
+// plugin registry consumes, so a `plugin` block in tfui.hcl reaches the plugin
+// it names. Returns nil when no plugin block was declared anywhere.
+func (r *ResolvedConfig) PluginConfigs() map[string]PluginConfig {
+	if len(r.plugins) == 0 {
+		return nil
+	}
+	out := make(map[string]PluginConfig, len(r.plugins))
+	for id, ps := range r.plugins {
+		enabled := ps.Enabled
+		out[id] = PluginConfig{Enabled: &enabled, Options: ps.Options}
+	}
+	return out
+}
+
 func (r *ResolvedConfig) PluginConfig(id string) PluginSettings {
 	if r.plugins == nil {
 		return PluginSettings{}

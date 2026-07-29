@@ -149,15 +149,48 @@ func extractPluginOptions(body hcl.Body) map[string]interface{} {
 		if diags.HasErrors() {
 			continue
 		}
-		switch {
-		case val.Type() == cty.String:
-			opts[name] = val.AsString()
-		case val.Type() == cty.Bool:
-			opts[name] = val.True()
-		case val.Type() == cty.Number:
-			f, _ := val.AsBigFloat().Float64()
-			opts[name] = f
+		if v, ok := pluginOptionValue(val); ok {
+			opts[name] = v
 		}
 	}
 	return opts
+}
+
+// pluginOptionValue converts one HCL attribute into the plugin option types the
+// SDK exposes to plugins: string, bool, float64, and []string. Anything else has
+// no reader on the plugin side, so it is dropped rather than passed on in a
+// shape no plugin can consume.
+func pluginOptionValue(val cty.Value) (interface{}, bool) {
+	switch {
+	case val.Type() == cty.String:
+		return val.AsString(), true
+	case val.Type() == cty.Bool:
+		return val.True(), true
+	case val.Type() == cty.Number:
+		f, _ := val.AsBigFloat().Float64()
+		return f, true
+	case isStringSequence(val.Type()):
+		return stringsFromCty(val), true
+	}
+	return nil, false
+}
+
+// isStringSequence reports whether a value can be read as an ordered sequence.
+// Maps and objects iterate too, but they carry keys no plugin option consumes —
+// and AsValueSlice does not accept them.
+func isStringSequence(t cty.Type) bool {
+	return t.IsTupleType() || t.IsListType() || t.IsSetType()
+}
+
+// stringsFromCty collects the string elements of a tuple or list value. Non-string
+// elements are skipped: a resource address list with a number in it is a typo,
+// not an instruction.
+func stringsFromCty(val cty.Value) []string {
+	out := []string{}
+	for _, elem := range val.AsValueSlice() {
+		if elem.Type() == cty.String && !elem.IsNull() {
+			out = append(out, elem.AsString())
+		}
+	}
+	return out
 }

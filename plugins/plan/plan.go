@@ -87,9 +87,13 @@ type Plugin struct {
 	detailScroll int
 	detailPanel  *ui.ContentPanel
 	viewWidth    int
-	input        Input  // typed input from cmd/tfui or app.go's typed dispatch
-	jsonBytes    []byte // captured raw bytes from svc.PlanJSON when input.JSON
-	jsonChanges  int    // change count read from jsonBytes; drives ExitCode in JSON mode
+	input        Input // typed input from cmd/tfui or app.go's typed dispatch
+	// cfgTargets is the project-level default target list from
+	// `plugin "plan" { targets = [...] }`. Used only when no explicit selection
+	// exists, so an explicit --target or pin narrows rather than widens.
+	cfgTargets  []string
+	jsonBytes   []byte // captured raw bytes from svc.PlanJSON when input.JSON
+	jsonChanges int    // change count read from jsonBytes; drives ExitCode in JSON mode
 }
 
 // New creates a new plan plugin.
@@ -132,6 +136,7 @@ func (e *Plugin) Count() (int, int) {
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	e.cfgTargets = sdk.ConfigStrings(cfg, "targets", nil)
 	return nil
 }
 
@@ -273,6 +278,12 @@ func (e *Plugin) runPlan() tea.Cmd {
 	// --target flags. Both are terraform -target values and neither can speak
 	// for the other, so the plan covers the union.
 	opts.Targets = mergeTargets(opts.Targets, e.input.Targets)
+	// The config list is a project default, not a third source to union in: an
+	// explicit selection — CLI --target or a TUI pin — replaces it, because a
+	// default that cannot be narrowed is the wrong shape for targeting.
+	if len(opts.Targets) == 0 {
+		opts.Targets = e.cfgTargets
+	}
 	// Locking is a single decision, not a union: an explicit flag replaces the
 	// value resolved from config, and its absence leaves that value alone.
 	opts.Lock = e.input.Lock.Or(opts.Lock)

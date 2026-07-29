@@ -139,6 +139,12 @@ plugin "plan" {
 | `enabled` | bool | `true` | Enable/disable the plugin |
 | `targets` | list | `[]` | Default resource targets for plan |
 
+`targets` is a project default, used only when the run carries no explicit
+selection. An explicit `-target` flag or a TUI pin **replaces** it — a default
+that could not be narrowed would be the wrong shape for targeting. Declare the
+same list under `plugin "apply"` to keep a scoped apply in step with the scoped
+plan.
+
 ## Related
 
 - [Apply](apply.md) -- execute the planned changes

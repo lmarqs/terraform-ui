@@ -279,11 +279,16 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 // validatePlugin runs the lightweight pre-dispatch checks shared with the
 // legacy Run path (chdir validation, TTY check). Per-plugin commands hand
 // control here from cobra's RunE.
-func (s *Session) validatePlugin(_ string) error {
+func (s *Session) validatePlugin(pluginID string) error {
 	if s.cfg.Chdir != "" {
 		if err := validateChdir(s.cfg); err != nil {
 			return err
 		}
+	}
+	// A disabled plugin never reaches the registry, so there is nothing for the
+	// dispatch path to activate — saying so beats exiting 0 having done nothing.
+	if pc, ok := s.cfg.Plugins[pluginID]; ok && !pc.IsEnabled() {
+		return fmt.Errorf("plugin %q is disabled in tfui.hcl\n\nRemove `enabled = false` from its plugin block, or drop the block entirely", pluginID)
 	}
 	return nil
 }

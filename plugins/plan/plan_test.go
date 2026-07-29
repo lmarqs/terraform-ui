@@ -56,9 +56,11 @@ func TestCountable(t *testing.T) {
 func TestConfigure(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := newTestPlugin(svc)
-	err := p.Configure(map[string]interface{}{"key": "value"})
-	if err != nil {
+	if err := p.Configure(map[string]interface{}{"key": "value"}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
+	}
+	if p.cfgTargets != nil {
+		t.Errorf("cfgTargets = %q, want nil when the config declares no targets", p.cfgTargets)
 	}
 }
 
@@ -1373,6 +1375,55 @@ func TestRunPlan_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T
 			if got := svc.PlanCalls[0].LockTimeout; got != tt.wantLockTimeout {
 				t.Errorf("PlanOptions.LockTimeout = %q, want %q", got, tt.wantLockTimeout)
 			}
+		})
+	}
+}
+
+// TestRunPlan_WhenConfigDeclaresTargets_ShouldUseThemAsADefault covers
+// `plugin "plan" { targets = [...] }`: a project-level default that an explicit
+// selection replaces rather than widens (lmarqs/terraform-ui#57).
+func TestRunPlan_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
+	tests := []struct {
+		name  string
+		pins  sdk.Pins
+		input Input
+		want  []string
+	}{
+		{
+			name: "no explicit selection uses the config default",
+			want: []string{"module.networking"},
+		},
+		{
+			name:  "an explicit --target replaces the default",
+			input: Input{Targets: []string{"aws_instance.web"}},
+			want:  []string{"aws_instance.web"},
+		},
+		{
+			name: "a TUI pin replaces the default",
+			pins: sdk.Pins{"aws_s3_bucket.logs"},
+			want: []string{"aws_s3_bucket.logs"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					return &sdk.PlanSummary{}, nil
+				},
+			}
+			p, h := newTestPluginWithHarness(svc)
+			if err := p.Configure(map[string]interface{}{"targets": []string{"module.networking"}}); err != nil {
+				t.Fatalf("Configure() error = %v", err)
+			}
+			h.Ctx.Pins = tt.pins
+
+			drainActivate(t, p, tt.input)
+
+			if len(svc.PlanCalls) == 0 {
+				t.Fatal("expected at least one Plan call")
+			}
+			assertTargets(t, svc.PlanCalls[0].Targets, tt.want)
 		})
 	}
 }

@@ -70,6 +70,10 @@ type Plugin struct {
 	// no tally when a run fails, so this is the only account of what a partial
 	// apply managed to do before it stopped.
 	applied sdk.ApplyCounts
+	// cfgTargets is the project-level default target list from
+	// `plugin "apply" { targets = [...] }`, used only when the caller passed no
+	// --target. It keeps apply scoped like plan when both read the same config.
+	cfgTargets []string
 }
 
 // New creates a new apply plugin.
@@ -137,7 +141,19 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 }
 
 // Configure applies plugin-specific options from config.
-func (e *Plugin) Configure(_ map[string]interface{}) error { return nil }
+func (e *Plugin) Configure(cfg map[string]interface{}) error {
+	e.cfgTargets = sdk.ConfigStrings(cfg, "targets", nil)
+	return nil
+}
+
+// targets resolves the target list for a run: the explicit --target selection
+// when there is one, the project default otherwise.
+func (e *Plugin) targets() []string {
+	if len(e.input.Targets) > 0 {
+		return e.input.Targets
+	}
+	return e.cfgTargets
+}
 
 // Init wires the plugin to its shared dependencies. Apply rebinds its
 // Service via HandleContextChanged on every chdir/workspace switch and
@@ -220,7 +236,7 @@ func (e *Plugin) runPlanPreview() tea.Cmd {
 	if e.GetCtx != nil {
 		opts = e.GetCtx().PlanOptions()
 	}
-	opts.Targets = e.input.Targets
+	opts.Targets = e.targets()
 	opts.Lock = e.input.Lock.Or(opts.Lock)
 	opts.LockTimeout = e.input.LockTimeout.Or(opts.LockTimeout)
 	// The preview plan is shown, not applied: terraform forbids re-specifying
@@ -297,7 +313,7 @@ func (e *Plugin) runApply() tea.Cmd {
 	if e.planFile != "" {
 		opts.PlanFile = e.planFile
 	} else {
-		opts.Targets = e.input.Targets
+		opts.Targets = e.targets()
 	}
 	opts.AutoApprove = e.input.AutoApprove
 	opts.Lock = e.input.Lock.Or(opts.Lock)

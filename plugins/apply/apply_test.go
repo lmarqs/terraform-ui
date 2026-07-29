@@ -1266,6 +1266,66 @@ func withAutoApprove(in Input) Input {
 	return in
 }
 
+// TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault keeps apply scoped
+// the same way plan is when both read `targets` from config: a default that no
+// --target overrode would otherwise apply more than the plan showed
+// (lmarqs/terraform-ui#57).
+func TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
+	tests := []struct {
+		name  string
+		input Input
+		want  []string
+	}{
+		{name: "no --target uses the config default", input: Input{}, want: []string{"module.networking"}},
+		{
+			name:  "an explicit --target replaces the default",
+			input: Input{Targets: []string{"aws_instance.web"}},
+			want:  []string{"aws_instance.web"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var planOpts sdk.PlanOptions
+			var applyOpts sdk.ApplyOptions
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					planOpts = opts
+					return &sdk.PlanSummary{}, nil
+				},
+				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+					applyOpts = opts
+					return nil
+				},
+			}
+			p := New(svc).(*Plugin)
+			p.Init(sdktest.NewDeps(svc).Deps)
+			if err := p.Configure(map[string]interface{}{"targets": []string{"module.networking"}}); err != nil {
+				t.Fatalf("Configure() error = %v", err)
+			}
+
+			p.input = tt.input
+			collectPlanPreview(t, p.runPlanPreview())
+			collectApplyResult(t, p.Activate(withAutoApprove(tt.input)))
+
+			assertStrings(t, "PlanOptions.Targets", planOpts.Targets, tt.want)
+			assertStrings(t, "ApplyOptions.Targets", applyOpts.Targets, tt.want)
+		})
+	}
+}
+
+func assertStrings(t *testing.T, label string, got, want []string) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("%s = %q, want %q", label, got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("%s = %q, want %q", label, got, want)
+		}
+	}
+}
+
 func TestActivate_WhenInputJSONSet_ShouldStoreOnPlugin(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 

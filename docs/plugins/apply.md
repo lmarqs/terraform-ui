@@ -123,7 +123,7 @@ Applied before the failure: 1 added, 0 changed, 0 destroyed.
 
 **TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
 
-**Key insight:** You don't pass `-target` to `apply`. Targeting happens at plan time — apply always executes the saved plan file exactly.
+**Standalone CLI:** `tfui apply -target=X` also works on its own. With no saved plan file, apply plans and applies in one shot, so the targets go on that command — terraform's own constraint is only that `-target` cannot be combined with a *saved plan file*, which the TUI pipeline uses.
 
 ## Equivalence
 
@@ -146,7 +146,10 @@ plugin "apply" {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `enabled` | bool | `true` | Enable/disable the plugin |
-| `targets` | list | `[]` | Default resource targets (used when no pins active) |
+| `targets` | list | `[]` | Default resource targets, used when the run carries no `-target` |
+
+An explicit `-target` replaces the list rather than adding to it, the same way it
+does for `plugin "plan"`.
 
 ## Related
 
