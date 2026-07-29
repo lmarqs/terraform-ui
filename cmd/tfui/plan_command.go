@@ -20,6 +20,10 @@ func buildPlanCommand(s *Session) *cobra.Command {
 			})
 		},
 	}
-	c.Flags().StringSliceVar(&input.Targets, "target", nil, "Resource targets for plan")
+	// StringArrayVar, not StringSliceVar: a slice flag parses each value as a CSV
+	// record, which rejects every quoted index key (module.a["x y"]) and leaves an
+	// address containing a comma inexpressible. Repeat the flag per address, the
+	// way terraform's own -target works.
+	c.Flags().StringArrayVar(&input.Targets, "target", nil, "Resource target for plan (repeatable, taken verbatim)")
 	return c
 }

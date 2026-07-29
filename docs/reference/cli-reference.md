@@ -51,8 +51,13 @@ tfui plan -json                     # TUI: review plan, JSON output on exit
 tfui plan -ci                      # No TUI: tree view to stdout immediately
 tfui plan -ci -json                # No TUI: JSON to stdout immediately
 tfui plan -target=aws_instance.web  # Targeted plan
+tfui plan -target=a -target=b        # Repeat the flag per address
 tfui plan -out=tfplan.out           # Save binary plan file
 ```
+
+`-target` is repeatable and each value reaches terraform verbatim, so quoted
+index keys work as typed: `-target='module.a["x y"]'`. There is no
+comma-separated form — a comma is part of an address, not a separator.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
@@ -71,6 +76,7 @@ tfui apply -auto-approve           # TUI: skips plan review + confirmation, show
 tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
+tfui apply -target=a -target=b      # Repeat the flag per address
 ```
 
 Standalone `tfui apply` runs a plan and streams the pending changes first, then

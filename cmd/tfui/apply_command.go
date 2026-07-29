@@ -28,7 +28,7 @@ func buildApplyCommand(s *Session) *cobra.Command {
 		},
 	}
 	c.Flags().BoolVar(&input.AutoApprove, "auto-approve", false, "Skip confirmation prompt")
-	c.Flags().StringSliceVar(&input.Targets, "target", nil, "Resource targets (plans+applies in one shot)")
+	c.Flags().StringArrayVar(&input.Targets, "target", nil, "Resource target, repeatable and taken verbatim (plans+applies in one shot)")
 	return c
 }
 

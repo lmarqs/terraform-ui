@@ -11,7 +11,7 @@ import (
 // terraformPlan is the parsed `terraform show -json <planfile>` output that
 // `tfui plan -json` passes through verbatim (ADR-0006).
 type terraformPlan struct {
-	FormatVersion   string                  `json:"format_version"`
+	FormatVersion   string                    `json:"format_version"`
 	ResourceChanges []terraformResourceChange `json:"resource_changes"`
 }
 
@@ -331,6 +331,41 @@ func TestPlan_Targeted_SilentMode_OnlyPlansTarget(t *testing.T) {
 	}
 	if !strings.Contains(stdout, "1 to add") {
 		t.Errorf("expected '1 to add' in targeted plan summary, got: %q", stdout)
+	}
+}
+
+// TestPlan_TargetWithQuotedIndexKey_ShouldReachTerraformVerbatim covers the
+// address class a CSV-parsed flag cannot carry: an index key with a space, and
+// one with a comma (lmarqs/terraform-ui#59).
+func TestPlan_TargetWithQuotedIndexKey_ShouldReachTerraformVerbatim(t *testing.T) {
+	tests := []struct {
+		name   string
+		target string
+		absent string
+	}{
+		{name: "space in index key", target: `terraform_data.keyed["x y"]`, absent: `terraform_data.keyed["a,b"]`},
+		{name: "comma in index key", target: `terraform_data.keyed["a,b"]`, absent: `terraform_data.keyed["x y"]`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := copyFixture(t, "targeted-indexed")
+
+			stdout, stderr, err := runTfui("plan", "-project", dir, "-ci", "-target", tt.target)
+			if err != nil && !isExitCode(err, 2) {
+				t.Fatalf("targeted plan failed: %v\nstderr: %s", err, stderr)
+			}
+
+			if !strings.Contains(stdout, "+ "+tt.target) {
+				t.Errorf("expected %q in targeted plan, got: %q", "+ "+tt.target, stdout)
+			}
+			if strings.Contains(stdout, tt.absent) {
+				t.Errorf("targeted plan listed %q, which was not requested: %q", tt.absent, stdout)
+			}
+			if !strings.Contains(stdout, "1 to add") {
+				t.Errorf("expected '1 to add' in targeted plan summary, got: %q", stdout)
+			}
+		})
 	}
 }
 
