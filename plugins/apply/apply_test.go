@@ -1071,6 +1071,83 @@ func TestActivate_WhenTargetsProvided_ShouldPassThroughToApply(t *testing.T) {
 	}
 }
 
+// TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode covers the
+// per-invocation lock flags on both terraform runs apply makes: the preview
+// plan and the apply itself (lmarqs/terraform-ui#58).
+func TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		ctxLock     sdk.LockMode
+		ctxTimeout  sdk.LockTimeout
+		input       Input
+		wantLock    sdk.LockMode
+		wantTimeout sdk.LockTimeout
+	}{
+		{
+			name:     "flag disables locking against an enabled default",
+			ctxLock:  sdk.LockEnabled,
+			input:    Input{Lock: sdk.LockDisabled},
+			wantLock: sdk.LockDisabled,
+		},
+		{
+			name:     "no flag keeps the resolved default",
+			ctxLock:  sdk.LockDisabled,
+			input:    Input{},
+			wantLock: sdk.LockDisabled,
+		},
+		{
+			name:        "timeout flag overrides the resolved timeout",
+			ctxTimeout:  sdk.LockTimeout("30s"),
+			input:       Input{LockTimeout: sdk.LockTimeout("5s")},
+			wantTimeout: sdk.LockTimeout("5s"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var planOpts sdk.PlanOptions
+			var applyOpts sdk.ApplyOptions
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					planOpts = opts
+					return &sdk.PlanSummary{}, nil
+				},
+				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+					applyOpts = opts
+					return nil
+				},
+			}
+			p := New(svc).(*Plugin)
+			h := sdktest.NewDeps(svc)
+			h.Ctx.Lock = tt.ctxLock
+			h.Ctx.LockTimeout = tt.ctxTimeout
+			p.Init(h.Deps)
+
+			p.input = tt.input
+			collectPlanPreview(t, p.runPlanPreview())
+			collectApplyResult(t, p.Activate(withAutoApprove(tt.input)))
+
+			if planOpts.Lock != tt.wantLock {
+				t.Errorf("PlanOptions.Lock = %v, want %v", planOpts.Lock, tt.wantLock)
+			}
+			if planOpts.LockTimeout != tt.wantTimeout {
+				t.Errorf("PlanOptions.LockTimeout = %q, want %q", planOpts.LockTimeout, tt.wantTimeout)
+			}
+			if applyOpts.Lock != tt.wantLock {
+				t.Errorf("ApplyOptions.Lock = %v, want %v", applyOpts.Lock, tt.wantLock)
+			}
+			if applyOpts.LockTimeout != tt.wantTimeout {
+				t.Errorf("ApplyOptions.LockTimeout = %q, want %q", applyOpts.LockTimeout, tt.wantTimeout)
+			}
+		})
+	}
+}
+
+func withAutoApprove(in Input) Input {
+	in.AutoApprove = true
+	return in
+}
+
 func TestActivate_WhenInputJSONSet_ShouldStoreOnPlugin(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 

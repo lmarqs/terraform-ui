@@ -52,6 +52,8 @@ tfui plan -ci                      # No TUI: tree view to stdout immediately
 tfui plan -ci -json                # No TUI: JSON to stdout immediately
 tfui plan -target=aws_instance.web  # Targeted plan
 tfui plan -target=a -target=b        # Repeat the flag per address
+tfui plan -lock=false               # Skip state locking for this run
+tfui plan -lock-timeout=30s         # Retry a held lock for 30s
 tfui plan -out=tfplan.out           # Save binary plan file
 ```
 
@@ -77,7 +79,13 @@ tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
 tfui apply -target=aws_instance.web # Targeted apply
 tfui apply -target=a -target=b      # Repeat the flag per address
+tfui apply -lock=false              # Skip state locking for this run
+tfui apply -lock-timeout=30s        # Retry a held lock for 30s
 ```
+
+`-lock` and `-lock-timeout` apply to the preview plan and the apply alike, and
+override `defaults { lock }` / `defaults { lock_timeout }` from `tfui.hcl` for
+that run only. Omitting them keeps whatever the config resolved.
 
 Standalone `tfui apply` runs a plan and streams the pending changes first, then
 asks for confirmation — the same review-then-approve flow as `terraform apply`.
@@ -191,6 +199,8 @@ tfui workspace delete <name> -force    # delete non-empty workspace
 |------|-----------|-------------|
 | `-lock` | `new`, `delete` | Lock state during operation (default: true) |
 | `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
+
+`plan` and `apply` accept the same two flags — see their sections above.
 | `-force` | `delete` | Force deletion of a non-empty workspace |
 
 ### `tfui force-unlock`

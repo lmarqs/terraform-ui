@@ -135,7 +135,7 @@ tfui plan -target=aws_instance.web     # terraform-style
 tfui plan -target=aws_instance.web    # cobra-style (both work)
 tfui plan -var-file=prod.tfvars -var=env=prod
 tfui plan -destroy
-tfui plan -parallelism=5 -lock=false
+tfui plan -lock=false -lock-timeout=30s
 
 # Passthrough (everything after -- goes to terraform unmodified)
 tfui plan -- -no-color -compact-warnings

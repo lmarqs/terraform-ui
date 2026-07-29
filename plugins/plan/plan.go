@@ -26,6 +26,12 @@ type Input struct {
 	// skipped on the headless path; the full ANSI rendering is still
 	// available in the BubbleTea path.
 	JSON bool
+	// Lock overrides the state-locking mode resolved from config for this run.
+	// LockDefault — the zero value — means the caller passed no --lock flag.
+	Lock sdk.LockMode
+	// LockTimeout overrides the resolved -lock-timeout for this run. Empty means
+	// the caller passed no --lock-timeout flag.
+	LockTimeout sdk.LockTimeout
 }
 
 // PlanResultMsg is sent when the plan operation completes.
@@ -267,6 +273,10 @@ func (e *Plugin) runPlan() tea.Cmd {
 	// --target flags. Both are terraform -target values and neither can speak
 	// for the other, so the plan covers the union.
 	opts.Targets = mergeTargets(opts.Targets, e.input.Targets)
+	// Locking is a single decision, not a union: an explicit flag replaces the
+	// value resolved from config, and its absence leaves that value alone.
+	opts.Lock = e.input.Lock.Or(opts.Lock)
+	opts.LockTimeout = e.input.LockTimeout.Or(opts.LockTimeout)
 	opts.PlanFile = e.allocPlanFile()
 
 	if e.input.JSON {

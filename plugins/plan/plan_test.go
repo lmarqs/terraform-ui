@@ -1306,6 +1306,77 @@ func TestRunPlan_WhenInputTargetRepeatsAPin_ShouldNotDuplicateIt(t *testing.T) {
 	assertTargets(t, svc.PlanCalls[0].Targets, []string{"aws_instance.web"})
 }
 
+// TestRunPlan_WhenInputCarriesLock_ShouldOverrideTheResolvedMode covers the
+// per-invocation lock flags: an explicit --lock / --lock-timeout wins over the
+// value resolved from tfui.hcl defaults, and absence leaves the resolved value
+// alone (lmarqs/terraform-ui#58).
+func TestRunPlan_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T) {
+	tests := []struct {
+		name            string
+		ctxLock         sdk.LockMode
+		ctxTimeout      sdk.LockTimeout
+		input           Input
+		wantLock        sdk.LockMode
+		wantLockTimeout sdk.LockTimeout
+	}{
+		{
+			name:     "flag disables locking against an enabled default",
+			ctxLock:  sdk.LockEnabled,
+			input:    Input{Lock: sdk.LockDisabled},
+			wantLock: sdk.LockDisabled,
+		},
+		{
+			name:     "flag enables locking against a disabled default",
+			ctxLock:  sdk.LockDisabled,
+			input:    Input{Lock: sdk.LockEnabled},
+			wantLock: sdk.LockEnabled,
+		},
+		{
+			name:     "no flag keeps the resolved default",
+			ctxLock:  sdk.LockDisabled,
+			input:    Input{},
+			wantLock: sdk.LockDisabled,
+		},
+		{
+			name:            "timeout flag overrides the resolved timeout",
+			ctxTimeout:      sdk.LockTimeout("30s"),
+			input:           Input{LockTimeout: sdk.LockTimeout("5s")},
+			wantLockTimeout: sdk.LockTimeout("5s"),
+		},
+		{
+			name:            "no timeout flag keeps the resolved timeout",
+			ctxTimeout:      sdk.LockTimeout("30s"),
+			input:           Input{},
+			wantLockTimeout: sdk.LockTimeout("30s"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					return &sdk.PlanSummary{}, nil
+				},
+			}
+			p, h := newTestPluginWithHarness(svc)
+			h.Ctx.Lock = tt.ctxLock
+			h.Ctx.LockTimeout = tt.ctxTimeout
+
+			drainActivate(t, p, tt.input)
+
+			if len(svc.PlanCalls) == 0 {
+				t.Fatal("expected at least one Plan call")
+			}
+			if got := svc.PlanCalls[0].Lock; got != tt.wantLock {
+				t.Errorf("PlanOptions.Lock = %v, want %v", got, tt.wantLock)
+			}
+			if got := svc.PlanCalls[0].LockTimeout; got != tt.wantLockTimeout {
+				t.Errorf("PlanOptions.LockTimeout = %q, want %q", got, tt.wantLockTimeout)
+			}
+		})
+	}
+}
+
 func TestRunPlan_WhenNoTargetsAnywhere_ShouldLeaveTargetsUnset(t *testing.T) {
 	svc := &sdktest.MockService{
 		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {

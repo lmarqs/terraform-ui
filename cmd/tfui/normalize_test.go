@@ -613,3 +613,15 @@ func TestNormalizeArgs_WhenInputNotMutated_ShouldNotModifyOriginal(t *testing.T)
 		t.Errorf("normalizeArgs mutated input slice: got %v, original was %v", inputCopy, original)
 	}
 }
+
+// TestNormalizeArgs_WhenLockPrecedesAnotherFlag_ShouldNormalizeBoth guards the
+// bool classification of -lock: a value flag would swallow the next argument
+// and leave it single-dashed, so `-lock -json` lost its --json.
+func TestNormalizeArgs_WhenLockPrecedesAnotherFlag_ShouldNormalizeBoth(t *testing.T) {
+	args := []string{"tfui", "plan", "-lock", "-json"}
+	got := normalizeArgs(args)
+	want := []string{"tfui", "plan", "--lock", "--json"}
+	if !slices.Equal(got, want) {
+		t.Errorf("normalizeArgs(%v) = %v, want %v", args, got, want)
+	}
+}

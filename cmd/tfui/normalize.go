@@ -9,7 +9,6 @@ var knownValueFlags = map[string]bool{
 	"replace":        true,
 	"out":            true,
 	"parallelism":    true,
-	"lock":           true,
 	"lock-timeout":   true,
 	"chdir":          true,
 	"workspace":      true,
@@ -19,8 +18,11 @@ var knownValueFlags = map[string]bool{
 	"get":            true,
 }
 
+// knownBoolFlags carry their value in the flag itself (-lock=false), so
+// normalization must not consume the following argument for them.
 var knownBoolFlags = map[string]bool{
 	"json":             true,
+	"lock":             true,
 	"destroy":          true,
 	"refresh-only":     true,
 	"compact-warnings": true,

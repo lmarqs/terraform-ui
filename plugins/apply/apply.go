@@ -206,6 +206,8 @@ func (e *Plugin) runPlanPreview() tea.Cmd {
 		opts = e.GetCtx().PlanOptions()
 	}
 	opts.Targets = e.input.Targets
+	opts.Lock = e.input.Lock.Or(opts.Lock)
+	opts.LockTimeout = e.input.LockTimeout.Or(opts.LockTimeout)
 	// The preview plan is shown, not applied: terraform forbids re-specifying
 	// plan-time inputs (vars, var-files) when applying a saved plan, so the
 	// confirmed apply re-plans in one shot rather than consuming this file.
@@ -281,6 +283,8 @@ func (e *Plugin) runApply() tea.Cmd {
 		opts.Targets = e.input.Targets
 	}
 	opts.AutoApprove = e.input.AutoApprove
+	opts.Lock = e.input.Lock.Or(opts.Lock)
+	opts.LockTimeout = e.input.LockTimeout.Or(opts.LockTimeout)
 	opts.Writer = lw
 	start := time.Now()
 	return tea.Batch(
