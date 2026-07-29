@@ -33,6 +33,14 @@ func TestParseApplyCounts_GivenTerraformOutput_ShouldReadTheTally(t *testing.T) 
 			want:    ApplyCounts{Added: 7},
 			wantHit: true,
 		},
+		{
+			// A count that does not fit an int is not a count we can report; the
+			// field stays unknown rather than being guessed at.
+			name:    "unreadable count leaves its field alone",
+			line:    "Apply complete! Resources: 99999999999999999999 added, 2 changed, 0 destroyed.",
+			want:    ApplyCounts{Changed: 2},
+			wantHit: true,
+		},
 		{name: "plan summary is not an apply tally", line: "Plan: 3 to add, 0 to change, 0 to destroy."},
 		{name: "progress line", line: "terraform_data.e: Creating..."},
 		{name: "tally header without numbers", line: "Apply complete! Resources:"},
