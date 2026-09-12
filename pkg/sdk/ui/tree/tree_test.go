@@ -21,6 +21,36 @@ func pinnedSet(addresses ...string) func(string) bool {
 	return func(address string) bool { return set[address] }
 }
 
+// findRow locates a visible row by the only string it identifies itself with: a
+// branch by its ModulePath, a leaf by its Address.
+func findRow(t *testing.T, tr *Tree, path string) *Node {
+	t.Helper()
+	for _, n := range tr.Nodes() {
+		if n.Kind == KindBranch && n.ModulePath == path {
+			return n
+		}
+		if n.Kind == KindLeaf && n.Address() == path {
+			return n
+		}
+	}
+	t.Fatalf("no row identified by %q", path)
+	return nil
+}
+
+// visibleRows lists every visible row by its identifying string, so an
+// expand/collapse assertion never has to name a row by index.
+func visibleRows(tr *Tree) []string {
+	rows := make([]string, 0, tr.VisibleCount())
+	for _, n := range tr.Nodes() {
+		if n.Kind == KindBranch {
+			rows = append(rows, n.ModulePath)
+			continue
+		}
+		rows = append(rows, n.Address())
+	}
+	return rows
+}
+
 func TestSplitTerraform_WhenGivenVariousAddresses(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -124,7 +154,7 @@ func TestNew_WhenGivenFlatItems_ShouldBuildTree(t *testing.T) {
 		nodes := tree.Nodes()
 		for _, n := range nodes {
 			if n.Kind == KindBranch && n.Expanded {
-				t.Fatalf("expected all branches to start collapsed, but %q is expanded", n.Path)
+				t.Fatalf("expected all branches to start collapsed, but %q is expanded", n.ModulePath)
 			}
 		}
 	})
@@ -147,7 +177,7 @@ func TestNew_WhenGivenFlatItems_ShouldBuildTree(t *testing.T) {
 		nodes := tree.Nodes()
 		foundLeaf := false
 		for _, n := range nodes {
-			if n.Kind == KindLeaf && n.Path == "aws_s3_bucket.main" {
+			if n.Kind == KindLeaf && n.Address() == "aws_s3_bucket.main" {
 				foundLeaf = true
 				if n.Depth != 0 {
 					t.Fatalf("expected root leaf at depth 0, got %d", n.Depth)
@@ -158,6 +188,112 @@ func TestNew_WhenGivenFlatItems_ShouldBuildTree(t *testing.T) {
 			t.Fatal("expected aws_s3_bucket.main as a root leaf node")
 		}
 	})
+}
+
+func TestNode_WhenBranchRow_AddressIsEmpty(t *testing.T) {
+	items := []Item{
+		testItem{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		testItem{"module.vpc.aws_vpc.main"},
+		testItem{"aws_instance.web"},
+	}
+	tr := New(items)
+	tr.MoveToStart()
+	branch := tr.CursorNode()
+
+	if branch.Kind != KindBranch {
+		t.Fatalf("first row kind = %v, want KindBranch", branch.Kind)
+	}
+	if branch.ModulePath != "module.vpc" {
+		t.Errorf("ModulePath = %q, want %q", branch.ModulePath, "module.vpc")
+	}
+	if got := branch.Address(); got != "" {
+		t.Errorf("Address() on a branch row = %q, want empty", got)
+	}
+}
+
+func TestNode_WhenLeafRow_ModulePathIsEmpty(t *testing.T) {
+	items := []Item{
+		testItem{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		testItem{"module.vpc.aws_vpc.main"},
+		testItem{"aws_instance.web"},
+	}
+	tr := New(items)
+	tr.ExpandAll()
+
+	tests := []struct {
+		name    string
+		address string
+	}{
+		{"root leaf", "aws_instance.web"},
+		{"leaf under a module", "module.vpc.aws_vpc.main"},
+		{"leaf under a nested module", "module.vpc.module.subnets.aws_subnet.private[0]"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			leaf := findRow(t, tr, tt.address)
+			if leaf.Kind != KindLeaf {
+				t.Fatalf("row kind = %v, want KindLeaf", leaf.Kind)
+			}
+			if got := leaf.Address(); got != tt.address {
+				t.Errorf("Address() = %q, want %q", got, tt.address)
+			}
+			if leaf.ModulePath != "" {
+				t.Errorf("ModulePath on a leaf row = %q, want empty", leaf.ModulePath)
+			}
+		})
+	}
+}
+
+func TestNode_WhenLeafRow_AddressComesFromItsItem(t *testing.T) {
+	items := []Item{
+		testItem{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		testItem{"module.vpc.aws_vpc.main"},
+		testItem{"aws_instance.web"},
+	}
+	tr := New(items)
+	tr.ExpandAll()
+
+	leaves := 0
+	for _, n := range tr.Nodes() {
+		if n.Kind != KindLeaf {
+			continue
+		}
+		leaves++
+		if n.Item == nil {
+			t.Fatalf("leaf row %q carries no Item", n.Label)
+		}
+		if n.Address() != n.Item.Address() {
+			t.Errorf("Address() = %q, Item.Address() = %q; a leaf row must not diverge from its item", n.Address(), n.Item.Address())
+		}
+	}
+	if leaves != len(items) {
+		t.Fatalf("visited %d leaf rows, want %d", leaves, len(items))
+	}
+}
+
+func TestNode_WhenModuleIsNested_ModulePathIsFullyQualified(t *testing.T) {
+	items := []Item{
+		testItem{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		testItem{"module.vpc.aws_vpc.main"},
+		testItem{"aws_instance.web"},
+	}
+	tr := New(items)
+	tr.ExpandAll()
+
+	nested := findRow(t, tr, "module.vpc.module.subnets")
+	if nested.Kind != KindBranch {
+		t.Fatalf("row kind = %v, want KindBranch", nested.Kind)
+	}
+	if nested.Label != "module.subnets" {
+		t.Errorf("Label = %q, want %q", nested.Label, "module.subnets")
+	}
+	if nested.ModulePath != "module.vpc.module.subnets" {
+		t.Errorf("ModulePath = %q, want %q", nested.ModulePath, "module.vpc.module.subnets")
+	}
+	if got := nested.Address(); got != "" {
+		t.Errorf("Address() on a nested branch row = %q, want empty", got)
+	}
 }
 
 func TestNavigation_WhenMoving_ShouldUpdateCursor(t *testing.T) {
@@ -282,7 +418,7 @@ func TestExpandAll_CollapseAll_ShouldAffectAllBranches(t *testing.T) {
 		tree.ExpandAll()
 		for _, n := range tree.Nodes() {
 			if n.Kind == KindBranch && !n.Expanded {
-				t.Fatalf("expected branch %q to be expanded", n.Path)
+				t.Fatalf("expected branch %q to be expanded", n.ModulePath)
 			}
 		}
 	})
@@ -305,7 +441,7 @@ func TestExpandAll_CollapseAll_ShouldAffectAllBranches(t *testing.T) {
 		tree.CollapseAll()
 		for _, n := range tree.Nodes() {
 			if n.Kind == KindBranch && n.Expanded {
-				t.Fatalf("expected branch %q to be collapsed", n.Path)
+				t.Fatalf("expected branch %q to be collapsed", n.ModulePath)
 			}
 		}
 	})
@@ -318,6 +454,123 @@ func TestExpandAll_CollapseAll_ShouldAffectAllBranches(t *testing.T) {
 			t.Fatalf("expected cursor at 0 after CollapseAll, got %d", tree.Cursor())
 		}
 	})
+}
+
+func TestExpandCollapse_WhenToggledByCursor_VisibleRowsFollowBranchIdentity(t *testing.T) {
+	items := []Item{
+		testItem{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		testItem{"module.vpc.aws_vpc.main"},
+		testItem{"aws_instance.web"},
+	}
+	tr := New(items)
+
+	collapsed := []string{"module.vpc", "aws_instance.web"}
+
+	t.Run("ShouldStartFullyCollapsed", func(t *testing.T) {
+		if got := visibleRows(tr); !reflect.DeepEqual(got, collapsed) {
+			t.Errorf("rows = %v, want %v", got, collapsed)
+		}
+	})
+
+	t.Run("ShouldRevealOneLevelWhenBranchAtCursorExpands", func(t *testing.T) {
+		tr.MoveToStart()
+		tr.Toggle()
+		want := []string{
+			"module.vpc",
+			"module.vpc.module.subnets",
+			"module.vpc.aws_vpc.main",
+			"aws_instance.web",
+		}
+		if got := visibleRows(tr); !reflect.DeepEqual(got, want) {
+			t.Errorf("rows = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("ShouldHideThatLevelAgainWhenTheSameBranchCollapses", func(t *testing.T) {
+		tr.MoveToStart()
+		tr.Toggle()
+		if got := visibleRows(tr); !reflect.DeepEqual(got, collapsed) {
+			t.Errorf("rows = %v, want %v", got, collapsed)
+		}
+	})
+
+	t.Run("ShouldRevealEveryDescendantOnExpandAll", func(t *testing.T) {
+		tr.ExpandAll()
+		want := []string{
+			"module.vpc",
+			"module.vpc.module.subnets",
+			"module.vpc.module.subnets.aws_subnet.private[0]",
+			"module.vpc.aws_vpc.main",
+			"aws_instance.web",
+		}
+		if got := visibleRows(tr); !reflect.DeepEqual(got, want) {
+			t.Errorf("rows = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("ShouldReturnToTopLevelOnCollapseAll", func(t *testing.T) {
+		tr.ExpandAll()
+		tr.CollapseAll()
+		if got := visibleRows(tr); !reflect.DeepEqual(got, collapsed) {
+			t.Errorf("rows = %v, want %v", got, collapsed)
+		}
+	})
+}
+
+func TestPinAddresses_WhenRowIsBranch_ShouldNeverIncludeTheModulePath(t *testing.T) {
+	items := []Item{
+		testItem{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		testItem{"module.vpc.aws_vpc.main"},
+		testItem{"aws_instance.web"},
+	}
+	tr := New(items)
+	tr.ExpandAll()
+
+	tests := []struct {
+		name string
+		path string
+		want []string
+	}{
+		{
+			name: "leaf row resolves to exactly its own address",
+			path: "aws_instance.web",
+			want: []string{"aws_instance.web"},
+		},
+		{
+			name: "leaf row inside a nested module resolves to exactly its own address",
+			path: "module.vpc.module.subnets.aws_subnet.private[0]",
+			want: []string{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		},
+		{
+			name: "branch row resolves to every descendant leaf",
+			path: "module.vpc",
+			want: []string{
+				"module.vpc.module.subnets.aws_subnet.private[0]",
+				"module.vpc.aws_vpc.main",
+			},
+		},
+		{
+			name: "nested branch row resolves to its own subtree only",
+			path: "module.vpc.module.subnets",
+			want: []string{"module.vpc.module.subnets.aws_subnet.private[0]"},
+		},
+	}
+
+	modulePaths := pinnedSet("module.vpc", "module.vpc.module.subnets")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tr.PinAddresses(findRow(t, tr, tt.path))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PinAddresses(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+			for _, a := range got {
+				if modulePaths(a) {
+					t.Errorf("PinAddresses(%q) returned module path %q; pins are resource addresses", tt.path, a)
+				}
+			}
+		})
+	}
 }
 
 func TestCollapseFocused_WhenOnLeaf_ShouldCollapseParent(t *testing.T) {
@@ -423,16 +676,6 @@ func TestPinAddresses_ShouldResolveRowToResourceAddresses(t *testing.T) {
 	tr := New(items)
 	tr.ExpandAll()
 
-	byPath := func(path string) *Node {
-		for _, n := range tr.Nodes() {
-			if n.Path == path {
-				return n
-			}
-		}
-		t.Fatalf("no row with path %q; rows: %v", path, tr.Nodes())
-		return nil
-	}
-
 	tests := []struct {
 		name string
 		path string
@@ -460,7 +703,7 @@ func TestPinAddresses_ShouldResolveRowToResourceAddresses(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := tr.PinAddresses(byPath(tt.path))
+			got := tr.PinAddresses(findRow(t, tr, tt.path))
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("PinAddresses(%q) = %v, want %v", tt.path, got, tt.want)
 			}
@@ -521,16 +764,6 @@ func TestPinStateOf_ShouldDeriveRowStateFromTheCallersPins(t *testing.T) {
 	tr := New(items)
 	tr.ExpandAll()
 
-	byPath := func(path string) *Node {
-		for _, n := range tr.Nodes() {
-			if n.Path == path {
-				return n
-			}
-		}
-		t.Fatalf("no row with path %q", path)
-		return nil
-	}
-
 	tests := []struct {
 		name   string
 		path   string
@@ -586,7 +819,7 @@ func TestPinStateOf_ShouldDeriveRowStateFromTheCallersPins(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tr.PinStateOf(byPath(tt.path), tt.pinned); got != tt.want {
+			if got := tr.PinStateOf(findRow(t, tr, tt.path), tt.pinned); got != tt.want {
 				t.Errorf("PinStateOf(%q) = %v, want %v", tt.path, got, tt.want)
 			}
 		})
@@ -634,7 +867,7 @@ func TestCursorItem_WhenOnDifferentNodeTypes(t *testing.T) {
 		// Navigate to the aws_s3_bucket.main leaf
 		tree.ExpandAll()
 		for i, n := range tree.Nodes() {
-			if n.Kind == KindLeaf && n.Path == "aws_s3_bucket.main" {
+			if n.Kind == KindLeaf && n.Address() == "aws_s3_bucket.main" {
 				tree.MoveToStart()
 				for j := 0; j < i; j++ {
 					tree.MoveDown()
@@ -918,7 +1151,7 @@ func TestSetItems_ShouldPreserveExpansionState(t *testing.T) {
 	tree.MoveToStart()
 	tree.Toggle()
 	node := tree.CursorNode()
-	expandedPath := node.Path
+	expandedPath := node.ModulePath
 
 	newItems := []Item{
 		testItem{"module.vpc.aws_subnet.main"},
@@ -929,7 +1162,7 @@ func TestSetItems_ShouldPreserveExpansionState(t *testing.T) {
 	tree.SetItems(newItems)
 
 	for _, n := range tree.Nodes() {
-		if n.Path == expandedPath && n.Kind == KindBranch {
+		if n.Kind == KindBranch && n.ModulePath == expandedPath {
 			if !n.Expanded {
 				t.Fatal("expected expansion state to be preserved after SetItems")
 			}
@@ -969,14 +1202,14 @@ func TestWithPreserveOrder_ShouldKeepInsertionOrder(t *testing.T) {
 		if len(nodes) != 3 {
 			t.Fatalf("expected 3 nodes, got %d", len(nodes))
 		}
-		if nodes[0].Path != "alpha.resource" {
-			t.Fatalf("expected first node to be alpha.resource, got %q", nodes[0].Path)
+		if nodes[0].Address() != "alpha.resource" {
+			t.Fatalf("expected first node to be alpha.resource, got %q", nodes[0].Address())
 		}
-		if nodes[1].Path != "middle.resource" {
-			t.Fatalf("expected second node to be middle.resource, got %q", nodes[1].Path)
+		if nodes[1].Address() != "middle.resource" {
+			t.Fatalf("expected second node to be middle.resource, got %q", nodes[1].Address())
 		}
-		if nodes[2].Path != "zebra.resource" {
-			t.Fatalf("expected third node to be zebra.resource, got %q", nodes[2].Path)
+		if nodes[2].Address() != "zebra.resource" {
+			t.Fatalf("expected third node to be zebra.resource, got %q", nodes[2].Address())
 		}
 	})
 
@@ -986,14 +1219,14 @@ func TestWithPreserveOrder_ShouldKeepInsertionOrder(t *testing.T) {
 		if len(nodes) != 3 {
 			t.Fatalf("expected 3 nodes, got %d", len(nodes))
 		}
-		if nodes[0].Path != "zebra.resource" {
-			t.Fatalf("expected first node to be zebra.resource, got %q", nodes[0].Path)
+		if nodes[0].Address() != "zebra.resource" {
+			t.Fatalf("expected first node to be zebra.resource, got %q", nodes[0].Address())
 		}
-		if nodes[1].Path != "alpha.resource" {
-			t.Fatalf("expected second node to be alpha.resource, got %q", nodes[1].Path)
+		if nodes[1].Address() != "alpha.resource" {
+			t.Fatalf("expected second node to be alpha.resource, got %q", nodes[1].Address())
 		}
-		if nodes[2].Path != "middle.resource" {
-			t.Fatalf("expected third node to be middle.resource, got %q", nodes[2].Path)
+		if nodes[2].Address() != "middle.resource" {
+			t.Fatalf("expected third node to be middle.resource, got %q", nodes[2].Address())
 		}
 	})
 
@@ -1001,18 +1234,18 @@ func TestWithPreserveOrder_ShouldKeepInsertionOrder(t *testing.T) {
 		tr := New(items, WithPreserveOrder())
 		tr.MoveToStart()
 		node := tr.CursorNode()
-		if node.Path != "zebra.resource" {
-			t.Fatalf("expected cursor to start at zebra.resource, got %q", node.Path)
+		if node.Address() != "zebra.resource" {
+			t.Fatalf("expected cursor to start at zebra.resource, got %q", node.Address())
 		}
 		tr.MoveDown()
 		node = tr.CursorNode()
-		if node.Path != "alpha.resource" {
-			t.Fatalf("expected cursor at alpha.resource after MoveDown, got %q", node.Path)
+		if node.Address() != "alpha.resource" {
+			t.Fatalf("expected cursor at alpha.resource after MoveDown, got %q", node.Address())
 		}
 		tr.MoveDown()
 		node = tr.CursorNode()
-		if node.Path != "middle.resource" {
-			t.Fatalf("expected cursor at middle.resource after second MoveDown, got %q", node.Path)
+		if node.Address() != "middle.resource" {
+			t.Fatalf("expected cursor at middle.resource after second MoveDown, got %q", node.Address())
 		}
 	})
 
@@ -1023,14 +1256,14 @@ func TestWithPreserveOrder_ShouldKeepInsertionOrder(t *testing.T) {
 		if len(nodes) != 3 {
 			t.Fatalf("expected 3 nodes, got %d", len(nodes))
 		}
-		if nodes[0].Path != "zebra.resource" {
-			t.Fatalf("expected first node zebra.resource, got %q", nodes[0].Path)
+		if nodes[0].Address() != "zebra.resource" {
+			t.Fatalf("expected first node zebra.resource, got %q", nodes[0].Address())
 		}
-		if nodes[1].Path != "alpha.resource" {
-			t.Fatalf("expected second node alpha.resource, got %q", nodes[1].Path)
+		if nodes[1].Address() != "alpha.resource" {
+			t.Fatalf("expected second node alpha.resource, got %q", nodes[1].Address())
 		}
-		if nodes[2].Path != "middle.resource" {
-			t.Fatalf("expected third node middle.resource, got %q", nodes[2].Path)
+		if nodes[2].Address() != "middle.resource" {
+			t.Fatalf("expected third node middle.resource, got %q", nodes[2].Address())
 		}
 	})
 
@@ -1568,7 +1801,7 @@ func TestIndexOf_WhenNodeNotInFlattened_ShouldReturnNegativeOne(t *testing.T) {
 	fakeNode := &Node{
 		Kind:  KindLeaf,
 		Label: "fake",
-		Path:  "fake.path",
+		Item:  testItem{"fake.path"},
 	}
 	idx := tr.indexOf(fakeNode)
 	if idx != -1 {
@@ -1675,8 +1908,8 @@ func TestCollapseFocused_WhenOnCollapsedBranch_ShouldCollapseParent(t *testing.T
 	if parentNode == nil {
 		t.Fatal("expected cursor to be on parent after collapse")
 	}
-	if parentNode.Path != "module.a" {
-		t.Fatalf("expected cursor on parent module.a, got %q", parentNode.Path)
+	if parentNode.ModulePath != "module.a" {
+		t.Fatalf("expected cursor on parent module.a, got %q", parentNode.ModulePath)
 	}
 	if parentNode.Expanded {
 		t.Fatal("expected parent to be collapsed")
@@ -1856,8 +2089,8 @@ func TestGetAncestorContinuations_DepthLessThanDBreak(t *testing.T) {
 
 	// Inject a fake node into flattened that creates a depth gap.
 	// Insert a depth-0 node just before a depth-2 leaf to force the break.
-	fakeShallow := &Node{Kind: KindBranch, Label: "fake", Path: "fake", Depth: 0, IsLast: false}
-	deepLeaf := &Node{Kind: KindLeaf, Label: "test", Path: "test.leaf", Depth: 3, IsLast: true}
+	fakeShallow := &Node{Kind: KindBranch, Label: "fake", ModulePath: "fake", Depth: 0, IsLast: false}
+	deepLeaf := &Node{Kind: KindLeaf, Label: "test", Item: testItem{"test.leaf"}, Depth: 3, IsLast: true}
 
 	tr.flattened = append(tr.flattened, fakeShallow, deepLeaf)
 

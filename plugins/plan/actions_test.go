@@ -6,8 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
-	"github.com/lmarqs/terraform-ui/plugins/taint"
-	"github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 func newPlanPluginWithChanges(changes []sdk.PlanChange) (*Plugin, *sdktest.PluginDepsHarness) {
@@ -145,7 +143,7 @@ func TestBuildActionFrame_ShouldHaveTaintAction(t *testing.T) {
 		t.Fatal("expected non-nil cmd from taint handler")
 	}
 	msg := cmd()
-	if taintMsg, ok := msg.(taint.TaintRequestMsg); !ok {
+	if taintMsg, ok := msg.(sdk.TaintRequestMsg); !ok {
 		t.Errorf("expected TaintRequestMsg, got %T", msg)
 	} else if len(taintMsg.Addresses) != 1 || taintMsg.Addresses[0] != "aws_instance.web" {
 		t.Errorf("expected [aws_instance.web], got %v", taintMsg.Addresses)
@@ -167,7 +165,7 @@ func TestBuildActionFrame_ShouldHaveUntaintAction(t *testing.T) {
 		t.Fatal("expected non-nil cmd from untaint handler")
 	}
 	msg := cmd()
-	if untaintMsg, ok := msg.(untaint.UntaintRequestMsg); !ok {
+	if untaintMsg, ok := msg.(sdk.UntaintRequestMsg); !ok {
 		t.Errorf("expected UntaintRequestMsg, got %T", msg)
 	} else if len(untaintMsg.Addresses) != 1 || untaintMsg.Addresses[0] != "aws_instance.web" {
 		t.Errorf("expected [aws_instance.web], got %v", untaintMsg.Addresses)
@@ -201,7 +199,7 @@ func TestBuildActionFrame_WhenBatchWithPins_ShouldTargetAllPinned(t *testing.T) 
 		t.Fatal("expected non-nil cmd from batch taint")
 	}
 	msg := cmd()
-	taintMsg, ok := msg.(taint.TaintRequestMsg)
+	taintMsg, ok := msg.(sdk.TaintRequestMsg)
 	if !ok {
 		t.Fatalf("expected TaintRequestMsg, got %T", msg)
 	}

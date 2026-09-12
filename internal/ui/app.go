@@ -409,7 +409,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
-	case tfuitaint.TaintRequestMsg:
+	case sdk.TaintRequestMsg:
 		if p, ok := a.registry.ByID("taint"); ok {
 			taintPlugin := p.(*tfuitaint.Plugin)
 			a.navStack = append(a.navStack, a.activePlugin)
@@ -419,7 +419,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
-	case tfuiuntaint.UntaintRequestMsg:
+	case sdk.UntaintRequestMsg:
 		if p, ok := a.registry.ByID("untaint"); ok {
 			untaintPlugin := p.(*tfuiuntaint.Plugin)
 			a.navStack = append(a.navStack, a.activePlugin)
@@ -429,7 +429,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
-	case tfuiimport.ImportRequestMsg:
+	case sdk.ImportRequestMsg:
 		if p, ok := a.registry.ByID("import"); ok {
 			importPlugin := p.(*tfuiimport.Plugin)
 			a.navStack = append(a.navStack, a.activePlugin)

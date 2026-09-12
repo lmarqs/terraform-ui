@@ -388,8 +388,8 @@ func TestFlatMode_PinTargetsSelectedResource(t *testing.T) {
 	if node == nil {
 		t.Fatal("expected non-nil cursor node")
 	}
-	if node.Path != "module.m.aws_lambda_function.api" {
-		t.Fatalf("expected cursor at module.m.aws_lambda_function.api, got %q", node.Path)
+	if node.Address() != "module.m.aws_lambda_function.api" {
+		t.Fatalf("expected cursor at module.m.aws_lambda_function.api, got %q", node.Address())
 	}
 }
 
@@ -1197,6 +1197,67 @@ func TestListFrame_Update_WhenEditOnBranch_ShouldEditBranchPath(t *testing.T) {
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 	if cmd == nil {
 		t.Error("expected non-nil cmd for 'e' on branch node")
+	}
+}
+
+func TestListFrame_WhenEKeyOnBranchRow_ShouldRequestEditForModulePath(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.vpc.aws_subnet.private[0]", Type: "aws_subnet"},
+		{Address: "aws_instance.web", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.treeMode = true
+	p.rebuildTree()
+	f := &listFrame{plugin: p}
+
+	node := p.CursorNode()
+	if node == nil || node.Kind != tree.KindBranch {
+		t.Fatalf("cursor row = %+v, want a branch row", node)
+	}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	if cmd == nil {
+		t.Fatal("'e' on a module row: cmd = nil, want an edit request")
+	}
+	msg, ok := cmd().(StateEditMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want StateEditMsg", cmd())
+	}
+	if msg.Address != "module.vpc" {
+		t.Errorf("StateEditMsg.Address = %q, want %q", msg.Address, "module.vpc")
+	}
+	if msg.Addresses != nil {
+		t.Errorf("StateEditMsg.Addresses = %v, want nil", msg.Addresses)
+	}
+}
+
+func TestListFrame_WhenEKeyOnLeafRow_ShouldRequestEditForThatAddress(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.vpc.aws_subnet.private[0]", Type: "aws_subnet"},
+		{Address: "aws_instance.web", Type: "aws_instance"},
+	}
+	p := newTestPlugin(resources)
+	p.treeMode = true
+	p.rebuildTree()
+	p.tree.ExpandAll()
+	p.tree.MoveDown()
+	f := &listFrame{plugin: p}
+
+	node := p.CursorNode()
+	if node == nil || node.Kind != tree.KindLeaf {
+		t.Fatalf("cursor row = %+v, want a leaf row", node)
+	}
+
+	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
+	if cmd == nil {
+		t.Fatal("'e' on a leaf row: cmd = nil, want an edit request")
+	}
+	msg, ok := cmd().(StateEditMsg)
+	if !ok {
+		t.Fatalf("msg = %T, want StateEditMsg", cmd())
+	}
+	if msg.Address != "module.vpc.aws_subnet.private[0]" {
+		t.Errorf("StateEditMsg.Address = %q, want %q", msg.Address, "module.vpc.aws_subnet.private[0]")
 	}
 }
 

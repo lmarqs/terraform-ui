@@ -8,11 +8,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// ImportRequestMsg requests navigation to the import plugin with a pre-filled address.
-type ImportRequestMsg struct {
-	Address string
-}
-
 // importSubmitMsg carries the address/ID gathered by the two-step form.
 type importSubmitMsg struct {
 	Address string
