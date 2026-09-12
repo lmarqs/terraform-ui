@@ -34,6 +34,25 @@ type PinToggleRequestMsg struct {
 // Plugins emit this via PluginDeps.ClearPins.
 type PinClearRequestMsg struct{}
 
+// TaintRequestMsg asks the App to activate the taint plugin against a set of
+// addresses. The browsers emit it; only the App knows whether the plugin is
+// registered and how to push it onto the nav stack.
+type TaintRequestMsg struct {
+	Addresses []string
+}
+
+// UntaintRequestMsg asks the App to activate the untaint plugin against a set
+// of addresses.
+type UntaintRequestMsg struct {
+	Addresses []string
+}
+
+// ImportRequestMsg asks the App to activate the import plugin with the address
+// pre-filled.
+type ImportRequestMsg struct {
+	Address string
+}
+
 // ContextChangeReason records why the app replaced the Context, so plugins
 // react to the app's intent instead of inferring it from a Prev/Next diff. The
 // zero value is ContextSwitched — the conservative default that triggers a full

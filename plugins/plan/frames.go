@@ -5,8 +5,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
-	"github.com/lmarqs/terraform-ui/plugins/taint"
-	"github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 // listFrame is the root frame for the plan plugin's change list.
@@ -87,14 +85,14 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if f.plugin.status == sdk.StatusDone {
 			change := f.plugin.SelectedChange()
 			if change != nil {
-				return f, func() tea.Msg { return taint.TaintRequestMsg{Addresses: []string{change.Resource.Address}} }
+				return f, func() tea.Msg { return sdk.TaintRequestMsg{Addresses: []string{change.Resource.Address}} }
 			}
 		}
 	case "T":
 		if f.plugin.status == sdk.StatusDone {
 			change := f.plugin.SelectedChange()
 			if change != nil {
-				return f, func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: []string{change.Resource.Address}} }
+				return f, func() tea.Msg { return sdk.UntaintRequestMsg{Addresses: []string{change.Resource.Address}} }
 			}
 		}
 	case "e":
