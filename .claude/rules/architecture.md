@@ -45,10 +45,12 @@ func (c *Context) TogglePins(...string) *Context // group set semantics (see Pin
 
 Naming: Pins = UI selection (user picks resources). Targets = terraform `-target=` flags. The boundary is `PlanOptions()` where `opts.Targets = ctx.Pins`.
 
-Pins are always resource addresses. A tree row is not: a branch row's `Path` is a
-module path. Plugins resolve a row through `tree.PinAddresses(node)` — leaf → its
-own address, branch → every descendant leaf — and hand the group to `Pin(...)`,
-which applies set semantics (complete a partly-pinned group before clearing it).
+Pins are always resource addresses. A tree row is not: a branch row has a
+`ModulePath` and no address at all, while a leaf row's `Address()` comes from the
+`Item` it carries. Plugins resolve a row through `tree.PinAddresses(node)` — leaf
+→ its own address, branch → every descendant leaf — and hand the group to
+`Pin(...)`, which applies set semantics (complete a partly-pinned group before
+clearing it).
 The tree keeps no pin state: `RenderOpts.Pinned` supplies the predicate per
 render, so a row can never disagree with Context.
 

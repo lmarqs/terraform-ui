@@ -29,19 +29,31 @@ const (
 
 // Node represents a visible row in the flattened tree.
 type Node struct {
-	Kind     NodeKind
-	Label    string
-	Path     string // full module path for branches, full address for leaves
-	Depth    int
-	Expanded bool
-	Count    int  // descendant leaf count (branches only)
-	IsLast   bool // last child of its parent (for connector rendering)
-	Item     Item // non-nil for leaves only
+	Kind       NodeKind
+	Label      string
+	ModulePath string // full module path; branches only
+	Depth      int
+	Expanded   bool
+	Count      int  // descendant leaf count (branches only)
+	IsLast     bool // last child of its parent (for connector rendering)
+	Item       Item // non-nil for leaves only
 
 	// branch is the subtree this row heads. Non-nil for branches only, so a
 	// row can answer questions about its descendants without being re-located
 	// by path.
 	branch *treeNode
+}
+
+// Address returns the resource address of a leaf row, taken from the Item the
+// row already carries. A branch row heads a module rather than a resource and
+// has no address, so it returns "" — callers acting on a single resource must
+// read that as "nothing to act on", and callers wanting the module itself want
+// ModulePath.
+func (n *Node) Address() string {
+	if n.Kind == KindLeaf {
+		return n.Item.Address()
+	}
+	return ""
 }
 
 // Tree is an interactive tree navigator built from flat addressed items.
@@ -174,14 +186,14 @@ func (t *Tree) walkChildren(node *treeNode, depth int) {
 		isLast := idx == totalChildren
 		expanded := t.expanded[child.path]
 		t.flattened = append(t.flattened, &Node{
-			Kind:     KindBranch,
-			Label:    child.label,
-			Path:     child.path,
-			Depth:    depth,
-			Expanded: expanded,
-			Count:    t.countLeaves(child),
-			IsLast:   isLast,
-			branch:   child,
+			Kind:       KindBranch,
+			Label:      child.label,
+			ModulePath: child.path,
+			Depth:      depth,
+			Expanded:   expanded,
+			Count:      t.countLeaves(child),
+			IsLast:     isLast,
+			branch:     child,
 		})
 		if expanded {
 			t.walkChildren(child, depth+1)
@@ -194,7 +206,6 @@ func (t *Tree) walkChildren(node *treeNode, depth int) {
 		t.flattened = append(t.flattened, &Node{
 			Kind:   KindLeaf,
 			Label:  leafLabel(item.Address(), t.splitFunc),
-			Path:   item.Address(),
 			Depth:  depth,
 			IsLast: isLast,
 			Item:   item,
@@ -236,14 +247,14 @@ func (t *Tree) MoveToEnd() {
 
 func (t *Tree) Toggle() {
 	if n := t.CursorNode(); n != nil && n.Kind == KindBranch {
-		t.expanded[n.Path] = !t.expanded[n.Path]
+		t.expanded[n.ModulePath] = !t.expanded[n.ModulePath]
 		t.flatten()
 	}
 }
 
 func (t *Tree) ExpandFocused() {
 	if n := t.CursorNode(); n != nil && n.Kind == KindBranch {
-		t.expanded[n.Path] = true
+		t.expanded[n.ModulePath] = true
 		t.flatten()
 	}
 }
@@ -253,19 +264,26 @@ func (t *Tree) CollapseFocused() {
 	if n == nil {
 		return
 	}
-	if n.Kind == KindBranch && t.expanded[n.Path] {
-		t.expanded[n.Path] = false
+	if n.Kind == KindBranch && t.expanded[n.ModulePath] {
+		t.expanded[n.ModulePath] = false
 		t.flatten()
 		return
 	}
-	// On leaf or collapsed branch: collapse parent
-	parent := t.parentPath(n.Path)
+	// On leaf or collapsed branch: collapse parent. Both kinds sit at a dotted
+	// position in the hierarchy — a leaf's address shares every segment with
+	// the branch above it but the last — so the parent lookup takes whichever
+	// this row has.
+	position := n.ModulePath
+	if n.Kind == KindLeaf {
+		position = n.Address()
+	}
+	parent := t.parentPath(position)
 	if parent != "" {
 		t.expanded[parent] = false
 		t.flatten()
 		// Move cursor to the collapsed parent
 		for i, node := range t.flattened {
-			if node.Path == parent {
+			if node.ModulePath == parent {
 				t.cursor = i
 				break
 			}
@@ -294,8 +312,8 @@ func (t *Tree) ExpandAll() {
 	for {
 		changed := false
 		for _, n := range t.flattened {
-			if n.Kind == KindBranch && !t.expanded[n.Path] {
-				t.expanded[n.Path] = true
+			if n.Kind == KindBranch && !t.expanded[n.ModulePath] {
+				t.expanded[n.ModulePath] = true
 				changed = true
 			}
 		}
@@ -317,13 +335,13 @@ func (t *Tree) CollapseAll() {
 // PinAddresses returns the resource addresses a pin toggle on the supplied row
 // affects, in the order the rows appear. A leaf row resolves to its own
 // address. A branch row resolves to every descendant leaf, expanded or not,
-// because a branch Path is a module path — not a resource address, and never a
+// because a branch has only a ModulePath — not a resource address, and never a
 // key in the pinned set. Callers must route a row through this instead of
-// reading Node.Path, or a branch pin lands on an address no row will ever
-// report as pinned.
+// assembling addresses themselves, or a branch pin lands on an address no row
+// will ever report as pinned.
 func (t *Tree) PinAddresses(node *Node) []string {
 	if node.Kind == KindLeaf {
-		return []string{node.Path}
+		return []string{node.Address()}
 	}
 	return t.leafAddresses(node.branch, nil)
 }

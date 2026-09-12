@@ -388,8 +388,8 @@ func TestFlatMode_PinTargetsSelectedResource(t *testing.T) {
 	if node == nil {
 		t.Fatal("expected non-nil cursor node")
 	}
-	if node.Path != "module.m.aws_lambda_function.api" {
-		t.Fatalf("expected cursor at module.m.aws_lambda_function.api, got %q", node.Path)
+	if node.Address() != "module.m.aws_lambda_function.api" {
+		t.Fatalf("expected cursor at module.m.aws_lambda_function.api, got %q", node.Address())
 	}
 }
 

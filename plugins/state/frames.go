@@ -114,9 +114,11 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		if r.Address != "" {
 			return f, f.plugin.requestEdit(r.Address)
 		}
+		// No resource under the cursor means a module row: edit the module's
+		// own declaration, which SourceIndex resolves from the module path.
 		node := f.plugin.CursorNode()
 		if node != nil {
-			return f, f.plugin.requestEdit(node.Path)
+			return f, f.plugin.requestEdit(node.ModulePath)
 		}
 	case "m":
 		r := f.plugin.SelectedResource()
