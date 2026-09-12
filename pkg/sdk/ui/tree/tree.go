@@ -37,6 +37,11 @@ type Node struct {
 	Count    int  // descendant leaf count (branches only)
 	IsLast   bool // last child of its parent (for connector rendering)
 	Item     Item // non-nil for leaves only
+
+	// branch is the subtree this row heads. Non-nil for branches only, so a
+	// row can answer questions about its descendants without being re-located
+	// by path.
+	branch *treeNode
 }
 
 // Tree is an interactive tree navigator built from flat addressed items.
@@ -46,7 +51,6 @@ type Tree struct {
 	cursor        int
 	viewOffset    int
 	expanded      map[string]bool
-	pinned        map[string]bool
 	splitFunc     func(string) []string
 	preserveOrder bool
 }
@@ -76,7 +80,6 @@ func WithPreserveOrder() Option {
 func New(items []Item, opts ...Option) *Tree {
 	t := &Tree{
 		expanded:  make(map[string]bool),
-		pinned:    make(map[string]bool),
 		splitFunc: SplitTerraform,
 	}
 	for _, opt := range opts {
@@ -178,6 +181,7 @@ func (t *Tree) walkChildren(node *treeNode, depth int) {
 			Expanded: expanded,
 			Count:    t.countLeaves(child),
 			IsLast:   isLast,
+			branch:   child,
 		})
 		if expanded {
 			t.walkChildren(child, depth+1)
@@ -321,7 +325,7 @@ func (t *Tree) PinAddresses(node *Node) []string {
 	if node.Kind == KindLeaf {
 		return []string{node.Path}
 	}
-	return t.leafAddresses(t.findNode(t.root, node.Path), nil)
+	return t.leafAddresses(node.branch, nil)
 }
 
 func (t *Tree) leafAddresses(node *treeNode, acc []string) []string {
@@ -334,75 +338,32 @@ func (t *Tree) leafAddresses(node *treeNode, acc []string) []string {
 	return acc
 }
 
-func (t *Tree) findNode(parent *treeNode, path string) *treeNode {
-	if parent.path == path {
-		return parent
-	}
-	for _, c := range parent.children {
-		if found := t.findNode(c, path); found != nil {
-			return found
-		}
-	}
-	return nil
-}
-
-func (t *Tree) nodePinState(node *treeNode) PinState {
-	total := 0
-	pinned := 0
-	t.countPinState(node, &total, &pinned)
-	if total == 0 {
+// PinStateOf reports how much of a row is pinned, given the caller's pin
+// predicate. The tree holds no pin state of its own — Context owns Pins
+// (ADR-0018) and hands them in per render — so a row can never disagree with
+// the pin set the way a cached copy could go stale.
+//
+// A leaf row is None or Full. A branch row is Full only when every descendant
+// leaf is pinned, and Partial while some are.
+func (t *Tree) PinStateOf(node *Node, pinned func(address string) bool) PinState {
+	if pinned == nil {
 		return PinNone
 	}
-	if pinned == total {
+	addresses := t.PinAddresses(node)
+	count := 0
+	for _, a := range addresses {
+		if pinned(a) {
+			count++
+		}
+	}
+	switch {
+	case count == len(addresses):
 		return PinFull
-	}
-	if pinned > 0 {
+	case count > 0:
 		return PinPartial
-	}
-	return PinNone
-}
-
-func (t *Tree) countPinState(node *treeNode, total, pinned *int) {
-	for _, item := range node.items {
-		*total++
-		if t.pinned[item.Address()] {
-			*pinned++
-		}
-	}
-	for _, child := range node.children {
-		t.countPinState(child, total, pinned)
-	}
-}
-
-// NodePinState returns the pin state for a given path.
-func (t *Tree) NodePinState(path string) PinState {
-	node := t.findNode(t.root, path)
-	if node == nil {
-		if t.pinned[path] {
-			return PinFull
-		}
+	default:
 		return PinNone
 	}
-	return t.nodePinState(node)
-}
-
-func (t *Tree) IsPinned(path string) bool { return t.pinned[path] }
-
-func (t *Tree) SetPinned(paths []string) {
-	t.pinned = make(map[string]bool, len(paths))
-	for _, p := range paths {
-		t.pinned[p] = true
-	}
-	t.flatten()
-}
-
-func (t *Tree) PinnedPaths() []string {
-	result := make([]string, 0, len(t.pinned))
-	for p := range t.pinned {
-		result = append(result, p)
-	}
-	sort.Strings(result)
-	return result
 }
 
 // Query methods

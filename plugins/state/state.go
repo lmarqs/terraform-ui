@@ -143,13 +143,13 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 }
 
 // HandleContextChanged implements sdk.ContextChangedHandler. A pin toggle
-// (same chdir + workspace) must not wipe the loaded list: it only reflects the
-// new pin set in the tree (and re-filters the pinned-only view). A chdir or
-// workspace switch fully resets — the App has already reset pins on the new
-// Context, so no clear needs to be re-requested here.
+// (same chdir + workspace) must not wipe the loaded list: rows read the new pin
+// set straight from Context on the next render, so only the pinned-only view
+// needs re-filtering. A chdir or workspace switch fully resets — the App has
+// already reset pins on the new Context, so no clear needs to be re-requested
+// here.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return e.ReactToContext(ev, func() {
-		e.syncPinnedToTree()
 		if e.pinnedOnly {
 			e.SetFilter(e.filter)
 		}
@@ -469,15 +469,9 @@ func (e *Plugin) rebuildTree() {
 			return []string{addr}
 		}), tree.WithPreserveOrder())
 	}
-	e.syncPinnedToTree()
 	if e.treeMode && e.filter != "" {
 		e.tree.ExpandAll()
 	}
-}
-
-// syncPinnedToTree updates the tree's pinned set from the active Context.
-func (e *Plugin) syncPinnedToTree() {
-	e.tree.SetPinned(e.PinnedAddresses())
 }
 
 // AppendFilter adds a character to the filter.
@@ -646,6 +640,7 @@ func (e *Plugin) renderResources(width, height int) string {
 				Full:    sdk.StyleSuccess.Render("[*] "),
 				Partial: sdk.StyleUpdate.Render("[-] "),
 			},
+			Pinned: e.IsPinned,
 		})
 	} else {
 		rows = e.buildFlatRows(maxVisible)
@@ -758,7 +753,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 // brings back the new set.
 
 func (e *Plugin) clearAllPins() tea.Cmd {
-	e.tree.SetPinned(nil)
 	if e.pinnedOnly {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)

@@ -2494,7 +2494,6 @@ func TestListFrame_WhenBangPressedWithPins_ShouldPushActionFrame(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
-	p.syncPinnedToTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 

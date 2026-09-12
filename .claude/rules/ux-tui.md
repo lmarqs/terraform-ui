@@ -102,6 +102,7 @@ Full keybinding map and assignments: `docs/reference/tui-ux.md` §7 and §16
 Pin semantics:
 - PRIMARY: scoping `plan` and `apply` to specific resources
 - SECONDARY: enabling batch state actions via `!` palette
+- GRANULARITY: `space` on a leaf row toggles that resource; on a module row it toggles every resource beneath it as one group — `[*]` when all are pinned, `[-]` when some are, and a partly-pinned module completes before it clears
 - LIFECYCLE: pins are a transient targeting selection for the plan/re-plan cycle. Shared across plugins (pin in state, consume in plan) and preserved across `ctrl+r` re-plan, but cleared once the scope is spent — apply reaches a terminal state (success or error) or you leave the plan workflow to home — and reset on a chdir/workspace switch. No cross-session persistence.
 
 ## Actions Bar (inside bordered frame)

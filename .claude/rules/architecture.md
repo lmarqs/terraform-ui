@@ -16,7 +16,7 @@ type PluginDeps struct {
     Logger    *slog.Logger
     Service   Service              // unscoped; use Context().Service for chdir-scoped
     Context   func() *Context      // live getter; returns current immutable snapshot
-    Pin       func(string) tea.Cmd // toggle pin → triggers Context replacement
+    Pin       func(...string) tea.Cmd // toggle a group of pins → triggers Context replacement
     ClearPins func() tea.Cmd       // remove all pins
 }
 ```
@@ -40,10 +40,17 @@ type Context struct {
 func (c *Context) PlanOptions() PlanOptions      // Pins become PlanOptions.Targets
 func (c *Context) ApplyOptions() ApplyOptions    // never includes Targets (ADR-0019)
 func (c *Context) WithPins([]string) *Context    // returns a fresh Context
-func (c *Context) TogglePin(string) *Context     // add if absent, remove if present
+func (c *Context) TogglePins(...string) *Context // group set semantics (see Pins.Toggle)
 ```
 
 Naming: Pins = UI selection (user picks resources). Targets = terraform `-target=` flags. The boundary is `PlanOptions()` where `opts.Targets = ctx.Pins`.
+
+Pins are always resource addresses. A tree row is not: a branch row's `Path` is a
+module path. Plugins resolve a row through `tree.PinAddresses(node)` — leaf → its
+own address, branch → every descendant leaf — and hand the group to `Pin(...)`,
+which applies set semantics (complete a partly-pinned group before clearing it).
+The tree keeps no pin state: `RenderOpts.Pinned` supplies the predicate per
+render, so a row can never disagree with Context.
 
 Rule: anything that affects terraform commands lives on Context. Plugins must NEVER mutate it — they react via `ContextChangedHandler`.
 
@@ -125,7 +132,7 @@ requireIdle(reason)     // universal busy-guard: rejects with commandError if an
 - Event handler for `ContextChangedEvent` via `popIfPushed`
 - `DeactivateMsg` handler (esc cancel path)
 
-Context propagation: App stores `rootCfg` and `childCfg`. On `ContextSwitchRequestMsg` (emitted by chdir/workspace plugins): reloads `childCfg`, calls `rebuildContext(chdir, workspace)` to produce a fresh immutable `sdk.Context`, then `replaceContext(next)` swaps `a.current` and dispatches a single `ContextChangedEvent{Prev, Next}`. Plugins react via `ContextChangedHandler` — same shape for chdir, workspace, AND pin changes (pins live on `Context.Pins`, replaced by `Context.WithPins` or `Context.TogglePin`).
+Context propagation: App stores `rootCfg` and `childCfg`. On `ContextSwitchRequestMsg` (emitted by chdir/workspace plugins): reloads `childCfg`, calls `rebuildContext(chdir, workspace)` to produce a fresh immutable `sdk.Context`, then `replaceContext(next)` swaps `a.current` and dispatches a single `ContextChangedEvent{Prev, Next}`. Plugins react via `ContextChangedHandler` — same shape for chdir, workspace, AND pin changes (pins live on `Context.Pins`, replaced by `Context.WithPins` or `Context.TogglePins`).
 
 Universal busy-guard: every action that may mutate terraform inputs or start a new terraform call routes through `requireIdle(reason)`. While any registered plugin is `Busy()` (holds DirLock per ADR-0016), the action is rejected with a uniform message instructing the user to escape via `:q!`. Chokepoints: `ContextSwitchRequestMsg`, `navigateTo`, `cmdQuit`. `:q!` (`cmdForceQuit`) bypasses the guard and calls `Cancel()` on every cancellable plugin.
 

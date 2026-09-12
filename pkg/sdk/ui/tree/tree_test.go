@@ -11,6 +11,16 @@ type testItem struct{ addr string }
 
 func (t testItem) Address() string { return t.addr }
 
+// pinnedSet builds the pin predicate a caller hands to the tree per render.
+// Context owns Pins (ADR-0018); the tree keeps none of its own.
+func pinnedSet(addresses ...string) func(string) bool {
+	set := make(map[string]bool, len(addresses))
+	for _, a := range addresses {
+		set[a] = true
+	}
+	return func(address string) bool { return set[address] }
+}
+
 func TestSplitTerraform_WhenGivenVariousAddresses(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -404,55 +414,6 @@ func TestExpandFocused_WhenOnBranch_ShouldExpand(t *testing.T) {
 	})
 }
 
-func TestPinning_WhenPinnedSetIsSupplied_ShouldUpdateState(t *testing.T) {
-	items := []Item{
-		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
-		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.bedrock_input_tokens"},
-		testItem{"aws_s3_bucket.main"},
-		testItem{"aws_s3_bucket.logs"},
-	}
-	tree := New(items)
-	tree.ExpandAll()
-
-	t.Run("ShouldReturnPinnedPaths", func(t *testing.T) {
-		tree.SetPinned([]string{"aws_s3_bucket.main", "aws_s3_bucket.logs"})
-		paths := tree.PinnedPaths()
-		if len(paths) != 2 {
-			t.Fatalf("expected 2 pinned paths, got %d", len(paths))
-		}
-		if paths[0] != "aws_s3_bucket.logs" || paths[1] != "aws_s3_bucket.main" {
-			t.Fatalf("expected sorted pinned paths, got %v", paths)
-		}
-	})
-
-	t.Run("ShouldPreserveOrderOnPin", func(t *testing.T) {
-		freshTree := New(items)
-		freshTree.ExpandAll()
-		nodesBefore := freshTree.Nodes()
-		var pathsBefore []string
-		for _, n := range nodesBefore {
-			pathsBefore = append(pathsBefore, n.Path)
-		}
-		freshTree.SetPinned([]string{"aws_s3_bucket.main"})
-		nodesAfter := freshTree.Nodes()
-		for i, n := range nodesAfter {
-			if n.Path != pathsBefore[i] {
-				t.Fatalf("expected order preserved after pin, but position %d changed from %q to %q", i, pathsBefore[i], n.Path)
-			}
-		}
-	})
-
-	t.Run("ShouldSetPinnedFromExternalList", func(t *testing.T) {
-		tree.SetPinned([]string{"aws_s3_bucket.main"})
-		if !tree.IsPinned("aws_s3_bucket.main") {
-			t.Fatal("expected aws_s3_bucket.main to be pinned via SetPinned")
-		}
-		if tree.IsPinned("aws_s3_bucket.logs") {
-			t.Fatal("expected aws_s3_bucket.logs to not be pinned after SetPinned with different list")
-		}
-	})
-}
-
 func TestPinAddresses_ShouldResolveRowToResourceAddresses(t *testing.T) {
 	items := []Item{
 		testItem{"module.cloudwatch.module.alarms.aws_cloudwatch_metric_alarm.cpu_high"},
@@ -537,69 +498,99 @@ func TestPinAddresses_WhenPinnedBackFromCaller_ShouldRenderBranchAsFullyPinned(t
 	}
 	tr := New(items)
 	tr.MoveToStart()
+	branch := tr.CursorNode()
 
 	// This is the whole point of the interface: the addresses a caller pins in
 	// response to a branch row must be the addresses the tree then reports as
 	// pinned for that row.
-	tr.SetPinned(tr.PinAddresses(tr.CursorNode()))
+	pinned := pinnedSet(tr.PinAddresses(branch)...)
 
-	if got := tr.NodePinState("module.cloudwatch"); got != PinFull {
-		t.Errorf("NodePinState(branch) = %v, want PinFull", got)
+	if got := tr.PinStateOf(branch, pinned); got != PinFull {
+		t.Errorf("PinStateOf(branch) = %v, want PinFull", got)
 	}
-	if tr.IsPinned("aws_s3_bucket.main") {
+	if pinned("aws_s3_bucket.main") {
 		t.Error("unrelated leaf became pinned")
 	}
 }
-
-func TestNodePinState_ShouldReturnCorrectState(t *testing.T) {
+func TestPinStateOf_ShouldDeriveRowStateFromTheCallersPins(t *testing.T) {
 	items := []Item{
 		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"},
 		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high"},
 		testItem{"aws_s3_bucket.main"},
 	}
 	tr := New(items)
+	tr.ExpandAll()
 
-	t.Run("ShouldReturnNoneWhenNoPins", func(t *testing.T) {
-		state := tr.NodePinState("module.cloudwatch")
-		if state != PinNone {
-			t.Fatalf("expected PinNone, got %d", state)
+	byPath := func(path string) *Node {
+		for _, n := range tr.Nodes() {
+			if n.Path == path {
+				return n
+			}
 		}
-	})
+		t.Fatalf("no row with path %q", path)
+		return nil
+	}
 
-	t.Run("ShouldReturnPartialWhenSomePinned", func(t *testing.T) {
-		tr.SetPinned([]string{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"})
-		state := tr.NodePinState("module.cloudwatch")
-		if state != PinPartial {
-			t.Fatalf("expected PinPartial, got %d", state)
-		}
-	})
+	tests := []struct {
+		name   string
+		path   string
+		pinned func(string) bool
+		want   PinState
+	}{
+		{
+			name:   "branch with nothing pinned",
+			path:   "module.cloudwatch",
+			pinned: pinnedSet(),
+			want:   PinNone,
+		},
+		{
+			name:   "branch with some leaves pinned",
+			path:   "module.cloudwatch",
+			pinned: pinnedSet("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"),
+			want:   PinPartial,
+		},
+		{
+			name: "branch with every leaf pinned",
+			path: "module.cloudwatch",
+			pinned: pinnedSet(
+				"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
+				"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high",
+			),
+			want: PinFull,
+		},
+		{
+			name:   "branch pinned by its module path only",
+			path:   "module.cloudwatch",
+			pinned: pinnedSet("module.cloudwatch"),
+			want:   PinNone,
+		},
+		{
+			name:   "pinned leaf",
+			path:   "aws_s3_bucket.main",
+			pinned: pinnedSet("aws_s3_bucket.main"),
+			want:   PinFull,
+		},
+		{
+			name:   "unpinned leaf",
+			path:   "aws_s3_bucket.main",
+			pinned: pinnedSet(),
+			want:   PinNone,
+		},
+		{
+			name:   "no predicate supplied",
+			path:   "aws_s3_bucket.main",
+			pinned: nil,
+			want:   PinNone,
+		},
+	}
 
-	t.Run("ShouldReturnFullWhenAllPinned", func(t *testing.T) {
-		tr.SetPinned([]string{
-			"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
-			"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high",
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tr.PinStateOf(byPath(tt.path), tt.pinned); got != tt.want {
+				t.Errorf("PinStateOf(%q) = %v, want %v", tt.path, got, tt.want)
+			}
 		})
-		state := tr.NodePinState("module.cloudwatch")
-		if state != PinFull {
-			t.Fatalf("expected PinFull, got %d", state)
-		}
-	})
-
-	t.Run("ShouldReturnFullForPinnedLeaf", func(t *testing.T) {
-		tr.SetPinned([]string{"aws_s3_bucket.main"})
-		state := tr.NodePinState("aws_s3_bucket.main")
-		if state != PinFull {
-			t.Fatalf("expected PinFull for pinned leaf, got %d", state)
-		}
-	})
-
-	t.Run("ShouldReturnNoneForUnpinnedLeaf", func(t *testing.T) {
-		tr.SetPinned([]string{})
-		state := tr.NodePinState("aws_s3_bucket.main")
-		if state != PinNone {
-			t.Fatalf("expected PinNone for unpinned leaf, got %d", state)
-		}
-	})
+	}
 }
 
 func TestCursorItem_WhenOnDifferentNodeTypes(t *testing.T) {
@@ -744,10 +735,10 @@ func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
 	}
 	tree := New(items)
 	tree.ExpandAll()
-	tree.SetPinned([]string{"aws_s3_bucket.main"})
+	pinned := pinnedSet("aws_s3_bucket.main")
 
 	t.Run("ShouldShowDefaultPinIndicator", func(t *testing.T) {
-		opts := RenderOpts{Width: 80, Height: 30}
+		opts := RenderOpts{Width: 80, Height: 30, Pinned: pinned}
 		output := tree.Render(opts)
 		if !strings.Contains(output, "* ") {
 			t.Fatal("expected output to contain default pin indicator '* '")
@@ -759,6 +750,7 @@ func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
 			Width:        80,
 			Height:       30,
 			PinIndicator: "[P] ",
+			Pinned:       pinned,
 		}
 		output := tree.Render(opts)
 		if !strings.Contains(output, "[P] ") {
@@ -767,7 +759,7 @@ func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
 	})
 
 	t.Run("ShouldNotShowPinForUnpinnedItems", func(t *testing.T) {
-		opts := RenderOpts{Width: 80, Height: 30}
+		opts := RenderOpts{Width: 80, Height: 30, Pinned: pinned}
 		output := tree.Render(opts)
 		lines := strings.Split(output, "\n")
 		for _, line := range lines {
@@ -1326,7 +1318,6 @@ func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T
 	}
 	tr := New(items)
 	tr.ExpandAll()
-	tr.SetPinned([]string{"module.vpc.aws_subnet.a"})
 
 	indicators := &PinIndicators{
 		None:    "[ ] ",
@@ -1338,6 +1329,7 @@ func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T
 		Width:         80,
 		Height:        30,
 		PinIndicators: indicators,
+		Pinned:        pinnedSet("module.vpc.aws_subnet.a"),
 	}
 	output := tr.Render(opts)
 
@@ -1377,31 +1369,14 @@ func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T
 		}
 	})
 
-	t.Run("ShouldShowNoneForPartialStateOnLeaf", func(t *testing.T) {
-		// A leaf cannot be partially pinned, but let's ensure the code path
-		// pinIndicatorFor with PinPartial + KindLeaf returns None
-		tr2 := New(items)
-		tr2.ExpandAll()
-		tr2.SetPinned([]string{"module.vpc.aws_subnet.a"})
-		// The aws_subnet.b leaf is not pinned and cannot be partial
-		// But the branch module.vpc is partial
-		// We need to specifically test the pinIndicatorFor branch for PinPartial on leaf.
-		// Since NodePinState checks the internal tree, a leaf can only be PinNone or PinFull.
-		// The code path exists defensively. We test it by calling directly.
-		result := tr2.pinIndicatorFor(PinPartial, KindLeaf, opts)
-		if result != "[ ] " {
-			t.Fatalf("expected PinPartial on leaf to show None indicator [ ], got %q", result)
-		}
-	})
-
 	t.Run("ShouldShowFullIndicatorForFullyPinnedBranch", func(t *testing.T) {
 		tr3 := New(items)
 		tr3.ExpandAll()
-		tr3.SetPinned([]string{"module.vpc.aws_subnet.a", "module.vpc.aws_subnet.b"})
 		opts3 := RenderOpts{
 			Width:         80,
 			Height:        30,
 			PinIndicators: indicators,
+			Pinned:        pinnedSet("module.vpc.aws_subnet.a", "module.vpc.aws_subnet.b"),
 		}
 		output3 := tr3.Render(opts3)
 		lines := strings.Split(output3, "\n")
@@ -1531,19 +1506,16 @@ func TestParentPath_WhenSingleSegment_ShouldReturnEmpty(t *testing.T) {
 		t.Fatalf("expected empty parent path for single segment, got %q", result)
 	}
 }
+func TestPinStateOf_WhenBranchHasOnlySubBranches_ShouldReadThroughThem(t *testing.T) {
+	tr := New([]Item{testItem{"module.vpc.module.subnets.aws_subnet.a"}})
+	tr.MoveToStart()
+	outer := tr.CursorNode()
 
-func TestNodePinState_WhenBranchHasNoLeaves_ShouldReturnNone(t *testing.T) {
-	// Create a tree where a branch has only sub-branches but no direct leaves
-	items := []Item{
-		testItem{"module.vpc.module.subnets.aws_subnet.a"},
+	if got := tr.PinStateOf(outer, pinnedSet()); got != PinNone {
+		t.Errorf("PinStateOf(unpinned outer branch) = %v, want PinNone", got)
 	}
-	tr := New(items)
-
-	// The "module.vpc" branch has no direct items, only child "module.subnets"
-	state := tr.nodePinState(tr.root.children[0])
-	// Should be PinNone since nothing is pinned
-	if state != PinNone {
-		t.Fatalf("expected PinNone for unpinned branch, got %d", state)
+	if got := tr.PinStateOf(outer, pinnedSet("module.vpc.module.subnets.aws_subnet.a")); got != PinFull {
+		t.Errorf("PinStateOf(outer branch, nested leaf pinned) = %v, want PinFull", got)
 	}
 }
 
@@ -1708,17 +1680,6 @@ func TestCollapseFocused_WhenOnCollapsedBranch_ShouldCollapseParent(t *testing.T
 	}
 	if parentNode.Expanded {
 		t.Fatal("expected parent to be collapsed")
-	}
-}
-
-func TestNodePinState_WhenBranchHasEmptySubtree_ShouldReturnNone(t *testing.T) {
-	tr := New([]Item{testItem{"module.a.aws_instance.one"}})
-
-	// Directly test nodePinState with an empty treeNode (no items, no children)
-	emptyNode := &treeNode{path: "empty", label: "empty"}
-	state := tr.nodePinState(emptyNode)
-	if state != PinNone {
-		t.Fatalf("expected PinNone for empty branch (total=0), got %d", state)
 	}
 }
 

@@ -2361,8 +2361,10 @@ func TestHandleContextChanged_WhenOnlyPinsChanged_ShouldPreserveListAndSyncTree(
 	if len(p.resources) != 2 {
 		t.Errorf("resources = %d, want 2 preserved on pin-only change", len(p.resources))
 	}
-	if got := p.tree.PinnedPaths(); len(got) != 1 || got[0] != "aws_instance.a" {
-		t.Errorf("tree pinned paths = %v, want [aws_instance.a]", got)
+	p.treeMode = true
+	view := sdktest.StripANSI(p.View(120, 24))
+	if !strings.Contains(view, "[*] aws_instance.a") {
+		t.Errorf("pinned row not marked after a pin-only change; view:\n%s", view)
 	}
 }
 

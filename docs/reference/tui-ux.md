@@ -294,6 +294,7 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 - `ctrl+t`: toggle to **tree** (hierarchical with expand/collapse)
 - Tree builds from `SplitTerraform()` which splits on `module.X` boundaries
 - Pinned items/groups float to top within their sibling level
+- `Space` on a module row pins every resource beneath it, collapsed or not — a module path is never itself a pin target. The row shows `[*]` when all are pinned, `[-]` when some are; pressing `Space` on a `[-]` row completes the group rather than clearing it
 - Filter in tree mode auto-expands all branches to reveal matches
 
 ## 8. Modal/Overlay Pattern

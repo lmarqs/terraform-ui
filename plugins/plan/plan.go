@@ -162,10 +162,6 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return e.ReactToContext(ev, func() {
 		e.stale = true
-		// Reflect the new pin set in the tree so tree-mode indicators update
-		// immediately. The flat list reads pins live from Context, but the tree
-		// keeps its own pin map, refreshed only here and on rebuild.
-		e.syncPinnedToTree()
 		// In pinned-only view the filtered slice is derived from the pin set,
 		// so re-run the filter to drop newly-unpinned rows (and admit newly-
 		// pinned ones). Flat/full view reads pins live and needs no refilter.
@@ -552,14 +548,9 @@ func (e *Plugin) rebuildTree() {
 			return []string{addr}
 		}), tree.WithPreserveOrder())
 	}
-	e.syncPinnedToTree()
 	if e.treeMode && e.filter != "" {
 		e.tree.ExpandAll()
 	}
-}
-
-func (e *Plugin) syncPinnedToTree() {
-	e.tree.SetPinned(e.PinnedAddresses())
 }
 
 // --- Selection ---
@@ -615,7 +606,6 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 }
 
 func (e *Plugin) clearAllPins() tea.Cmd {
-	e.tree.SetPinned(nil)
 	if e.pinnedOnly {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)
@@ -805,6 +795,7 @@ func (e *Plugin) renderResults(width, height int) string {
 				Full:    sdk.StyleSuccess.Render("[*] "),
 				Partial: sdk.StyleUpdate.Render("[-] "),
 			},
+			Pinned: e.IsPinned,
 		})
 	} else {
 		rows = e.buildFlatRows(contentWidth, maxVisible)

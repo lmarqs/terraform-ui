@@ -21,6 +21,10 @@ type RenderOpts struct {
 	// PinIndicators provides state-specific pin indicators (none/partial/full).
 	// If set, overrides PinIndicator.
 	PinIndicators *PinIndicators
+	// Pinned reports whether a resource address is pinned. Supplied per render
+	// from the caller's Context, which owns Pins (ADR-0018). If nil, no row is
+	// pinned.
+	Pinned func(address string) bool
 	// SelectedStyle wraps the selected row. If nil, no highlight.
 	SelectedStyle func(s string, width int) string
 	// TruncateRow truncates a non-selected row to fit the available width.
@@ -120,8 +124,8 @@ func (t *Tree) adjustViewport(height int) {
 func (t *Tree) renderNode(node *Node, opts RenderOpts) string {
 	prefix := t.buildConnectors(node)
 
-	state := t.NodePinState(node.Path)
-	pinInd := t.pinIndicatorFor(state, node.Kind, opts)
+	state := t.PinStateOf(node, opts.Pinned)
+	pinInd := t.pinIndicatorFor(state, opts)
 	pinned := state == PinFull
 
 	var content string
@@ -146,16 +150,16 @@ func (t *Tree) renderNode(node *Node, opts RenderOpts) string {
 	return pinInd + prefix + content
 }
 
-func (t *Tree) pinIndicatorFor(state PinState, kind NodeKind, opts RenderOpts) string {
+// pinIndicatorFor maps a row's pin state to its indicator. Only a branch row
+// can be Partial — PinStateOf derives a leaf from its single address — so no
+// leaf case is needed here.
+func (t *Tree) pinIndicatorFor(state PinState, opts RenderOpts) string {
 	if opts.PinIndicators != nil {
 		switch state {
 		case PinFull:
 			return opts.PinIndicators.Full
 		case PinPartial:
-			if kind == KindBranch {
-				return opts.PinIndicators.Partial
-			}
-			return opts.PinIndicators.None
+			return opts.PinIndicators.Partial
 		default:
 			return opts.PinIndicators.None
 		}
