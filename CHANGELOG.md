@@ -1,3 +1,15 @@
+## [1.20.1](https://github.com/lmarqs/terraform-ui/compare/v1.20.0...v1.20.1) (2026-09-12)
+
+
+### Bug Fixes
+
+* **plan,state:** pin every resource under a module row ([b6892b2](https://github.com/lmarqs/terraform-ui/commit/b6892b2c2aa9d991c2463cdb23ff1fa95fe06df9)), closes [#62](https://github.com/lmarqs/terraform-ui/issues/62)
+
+
+### Performance Improvements
+
+* **sdk:** resolve pin membership through a set, not a scan ([c20e91f](https://github.com/lmarqs/terraform-ui/commit/c20e91fc854faa8a9b291ace8e557704c1f029fd)), closes [#62](https://github.com/lmarqs/terraform-ui/issues/62)
+
 # [1.20.0](https://github.com/lmarqs/terraform-ui/compare/v1.19.1...v1.20.0) (2026-07-29)
 
 
