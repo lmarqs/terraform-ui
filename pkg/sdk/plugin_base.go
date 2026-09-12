@@ -39,8 +39,8 @@ type PluginBase struct {
 	Log *slog.Logger
 	// GetCtx returns the live immutable Context snapshot. Set by InitBase.
 	GetCtx func() *Context
-	// PinFn toggles a single resource address. Set by InitBase.
-	PinFn func(string) tea.Cmd
+	// PinFn toggles a group of resource addresses. Set by InitBase.
+	PinFn func(...string) tea.Cmd
 	// ClearPinsFn removes every pin. Set by InitBase.
 	ClearPinsFn func() tea.Cmd
 }

@@ -310,27 +310,28 @@ func (t *Tree) CollapseAll() {
 
 // Pinning
 
-func (t *Tree) TogglePin() {
-	n := t.CursorNode()
-	if n == nil {
-		return
+// PinAddresses returns the resource addresses a pin toggle on the supplied row
+// affects, in the order the rows appear. A leaf row resolves to its own
+// address. A branch row resolves to every descendant leaf, expanded or not,
+// because a branch Path is a module path — not a resource address, and never a
+// key in the pinned set. Callers must route a row through this instead of
+// reading Node.Path, or a branch pin lands on an address no row will ever
+// report as pinned.
+func (t *Tree) PinAddresses(node *Node) []string {
+	if node.Kind == KindLeaf {
+		return []string{node.Path}
 	}
-	if n.Kind == KindLeaf {
-		if t.pinned[n.Path] {
-			delete(t.pinned, n.Path)
-		} else {
-			t.pinned[n.Path] = true
-		}
-	} else {
-		node := t.findNode(t.root, n.Path)
-		if node == nil {
-			return
-		}
-		state := t.nodePinState(node)
-		pin := state != PinFull
-		t.setPinRecursive(node, pin)
+	return t.leafAddresses(t.findNode(t.root, node.Path), nil)
+}
+
+func (t *Tree) leafAddresses(node *treeNode, acc []string) []string {
+	for _, child := range node.children {
+		acc = t.leafAddresses(child, acc)
 	}
-	t.flatten()
+	for _, item := range node.items {
+		acc = append(acc, item.Address())
+	}
+	return acc
 }
 
 func (t *Tree) findNode(parent *treeNode, path string) *treeNode {
@@ -343,19 +344,6 @@ func (t *Tree) findNode(parent *treeNode, path string) *treeNode {
 		}
 	}
 	return nil
-}
-
-func (t *Tree) setPinRecursive(node *treeNode, pin bool) {
-	for _, item := range node.items {
-		if pin {
-			t.pinned[item.Address()] = true
-		} else {
-			delete(t.pinned, item.Address())
-		}
-	}
-	for _, child := range node.children {
-		t.setPinRecursive(child, pin)
-	}
 }
 
 func (t *Tree) nodePinState(node *treeNode) PinState {

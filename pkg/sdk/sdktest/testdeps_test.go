@@ -1,6 +1,7 @@
 package sdktest
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -36,24 +37,38 @@ func TestNewDeps_ContextReflectsLiveSwap(t *testing.T) {
 	}
 }
 
-func TestNewDeps_PinRecordsAddressAndEmitsRequest(t *testing.T) {
-	h := NewDeps(&MockService{})
+func TestNewDeps_PinRecordsAddressesAndEmitsRequest(t *testing.T) {
+	group := []string{"module.repos.github_branch.main", "module.repos.github_repository.this"}
 
-	cmd := h.Deps.Pin("aws_s3_bucket.x")
-	if cmd == nil {
-		t.Fatal("Pin returned nil cmd")
+	tests := []struct {
+		name      string
+		addresses []string
+	}{
+		{name: "single address", addresses: []string{"aws_s3_bucket.x"}},
+		{name: "group from one gesture", addresses: group},
 	}
-	msg := cmd()
 
-	got, ok := msg.(sdk.PinToggleRequestMsg)
-	if !ok {
-		t.Fatalf("expected PinToggleRequestMsg, got %T", msg)
-	}
-	if got.Address != "aws_s3_bucket.x" {
-		t.Errorf("unexpected request: %+v", got)
-	}
-	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_s3_bucket.x" {
-		t.Errorf("PinRequests = %v", h.PinRequests)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := NewDeps(&MockService{})
+
+			cmd := h.Deps.Pin(tt.addresses...)
+			if cmd == nil {
+				t.Fatal("Pin returned nil cmd")
+			}
+			msg := cmd()
+
+			got, ok := msg.(sdk.PinToggleRequestMsg)
+			if !ok {
+				t.Fatalf("expected PinToggleRequestMsg, got %T", msg)
+			}
+			if !reflect.DeepEqual(got.Addresses, tt.addresses) {
+				t.Errorf("request Addresses = %v, want %v", got.Addresses, tt.addresses)
+			}
+			if !reflect.DeepEqual(h.PinRequests, tt.addresses) {
+				t.Errorf("PinRequests = %v, want %v", h.PinRequests, tt.addresses)
+			}
+		})
 	}
 }
 

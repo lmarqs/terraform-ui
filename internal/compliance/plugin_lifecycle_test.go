@@ -83,7 +83,7 @@ func initPlugin(p sdk.Plugin) {
 		Service:   nopSvc,
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Context:   func() *sdk.Context { return bootCtx },
-		Pin:       func(_ string) tea.Cmd { return nil },
+		Pin:       func(_ ...string) tea.Cmd { return nil },
 		ClearPins: func() tea.Cmd { return nil },
 	})
 }

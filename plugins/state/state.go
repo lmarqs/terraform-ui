@@ -767,9 +767,9 @@ func (e *Plugin) clearAllPins() tea.Cmd {
 	return e.ClearPinsFn()
 }
 
-func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.Log.Debug("state.pin.toggle.request", "address", address)
-	return e.PinFn(address)
+func (e *Plugin) togglePin(addresses ...string) tea.Cmd {
+	e.Log.Debug("state.pin.toggle.request", "addresses", addresses)
+	return e.PinFn(addresses...)
 }
 
 func (e *Plugin) isTaintedAddress(address string) bool {

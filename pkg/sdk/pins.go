@@ -23,21 +23,48 @@ func (p Pins) Contains(address string) bool {
 	return false
 }
 
-// Toggle returns a fresh Pins with address added if absent, or removed if
-// present. The receiver is never mutated.
-func (p Pins) Toggle(address string) Pins {
-	for i, a := range p {
-		if a == address {
-			out := make(Pins, 0, len(p)-1)
-			out = append(out, p[:i]...)
-			out = append(out, p[i+1:]...)
-			return out
+// Toggle returns a fresh Pins with set semantics over the supplied group: when
+// every address is already pinned the whole group is removed, otherwise the
+// missing ones are appended. A single address therefore flips, and a group
+// reached from one gesture — pinning a module row that covers many resources —
+// completes before it clears, so a partly-pinned group never inverts.
+// The receiver is never mutated.
+func (p Pins) Toggle(addresses ...string) Pins {
+	remove := true
+	for _, a := range addresses {
+		if !p.Contains(a) {
+			remove = false
+			break
 		}
 	}
-	out := make(Pins, 0, len(p)+1)
+
+	if remove {
+		out := make(Pins, 0, len(p))
+		for _, a := range p {
+			if !containsAddress(addresses, a) {
+				out = append(out, a)
+			}
+		}
+		return out
+	}
+
+	out := make(Pins, 0, len(p)+len(addresses))
 	out = append(out, p...)
-	out = append(out, address)
+	for _, a := range addresses {
+		if !out.Contains(a) {
+			out = append(out, a)
+		}
+	}
 	return out
+}
+
+func containsAddress(addresses []string, address string) bool {
+	for _, a := range addresses {
+		if a == address {
+			return true
+		}
+	}
+	return false
 }
 
 // Clone returns a defensive copy. nil input yields nil output.

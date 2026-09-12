@@ -13,7 +13,9 @@ import (
 // repeat. The Ctx pointer is the live snapshot that deps.Context() returns;
 // tests mutate Ctx (or assign a new one) to simulate a context replacement.
 //
-// PinRequests captures every address pinned via deps.Pin; ClearPinsCount
+// PinRequests captures every address pinned via deps.Pin, flattened across
+// groups in request order — one gesture on a module row appends every resource
+// address beneath it. ClearPinsCount
 // counts deps.ClearPins invocations. The harness does not auto-replay these
 // requests onto Ctx — that is the App's job. Tests that need the next
 // snapshot to reflect a pin should mutate Ctx.Pins explicitly.
@@ -38,10 +40,10 @@ func NewDeps(svc sdk.Service) *PluginDepsHarness {
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Service: svc,
 		Context: func() *sdk.Context { return h.Ctx },
-		Pin: func(address string) tea.Cmd {
+		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg {
-				h.PinRequests = append(h.PinRequests, address)
-				return sdk.PinToggleRequestMsg{Address: address}
+				h.PinRequests = append(h.PinRequests, addresses...)
+				return sdk.PinToggleRequestMsg{Addresses: addresses}
 			}
 		},
 		ClearPins: func() tea.Cmd {

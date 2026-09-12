@@ -2,6 +2,7 @@ package tree
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -403,7 +404,7 @@ func TestExpandFocused_WhenOnBranch_ShouldExpand(t *testing.T) {
 	})
 }
 
-func TestPinning_WhenTogglingPin_ShouldUpdateState(t *testing.T) {
+func TestPinning_WhenPinnedSetIsSupplied_ShouldUpdateState(t *testing.T) {
 	items := []Item{
 		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
 		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.bedrock_input_tokens"},
@@ -412,38 +413,6 @@ func TestPinning_WhenTogglingPin_ShouldUpdateState(t *testing.T) {
 	}
 	tree := New(items)
 	tree.ExpandAll()
-
-	t.Run("ShouldPinCurrentNode", func(t *testing.T) {
-		// Move to a leaf
-		for i, n := range tree.Nodes() {
-			if n.Kind == KindLeaf {
-				tree.MoveToStart()
-				for j := 0; j < i; j++ {
-					tree.MoveDown()
-				}
-				break
-			}
-		}
-		node := tree.CursorNode()
-		path := node.Path
-		tree.TogglePin()
-		if !tree.IsPinned(path) {
-			t.Fatal("expected node to be pinned after TogglePin")
-		}
-	})
-
-	t.Run("ShouldUnpinOnSecondToggle", func(t *testing.T) {
-		node := tree.CursorNode()
-		path := node.Path
-		// Pin it first (might already be pinned from previous test)
-		if !tree.IsPinned(path) {
-			tree.TogglePin()
-		}
-		tree.TogglePin()
-		if tree.IsPinned(path) {
-			t.Fatal("expected node to be unpinned after second TogglePin")
-		}
-	})
 
 	t.Run("ShouldReturnPinnedPaths", func(t *testing.T) {
 		tree.SetPinned([]string{"aws_s3_bucket.main", "aws_s3_bucket.logs"})
@@ -484,62 +453,102 @@ func TestPinning_WhenTogglingPin_ShouldUpdateState(t *testing.T) {
 	})
 }
 
-func TestTogglePin_WhenOnBranch_ShouldCascadeToChildren(t *testing.T) {
+func TestPinAddresses_ShouldResolveRowToResourceAddresses(t *testing.T) {
 	items := []Item{
-		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"},
-		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high"},
+		testItem{"module.cloudwatch.module.alarms.aws_cloudwatch_metric_alarm.cpu_high"},
 		testItem{"module.cloudwatch.aws_cloudwatch_dashboard.main"},
 		testItem{"aws_s3_bucket.main"},
 	}
 	tr := New(items)
+	tr.ExpandAll()
 
-	t.Run("ShouldPinAllChildrenWhenTogglingBranch", func(t *testing.T) {
-		tr.MoveToStart()
-		node := tr.CursorNode()
-		if node.Kind != KindBranch {
-			t.Fatal("expected first node to be a branch")
+	byPath := func(path string) *Node {
+		for _, n := range tr.Nodes() {
+			if n.Path == path {
+				return n
+			}
 		}
-		tr.TogglePin()
-		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high") {
-			t.Fatal("expected child leaf to be pinned")
-		}
-		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high") {
-			t.Fatal("expected child leaf to be pinned")
-		}
-		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_dashboard.main") {
-			t.Fatal("expected child leaf to be pinned")
-		}
-		if tr.IsPinned("aws_s3_bucket.main") {
-			t.Fatal("expected unrelated leaf to not be pinned")
-		}
-	})
+		t.Fatalf("no row with path %q; rows: %v", path, tr.Nodes())
+		return nil
+	}
 
-	t.Run("ShouldUnpinAllChildrenWhenTogglingFullyPinnedBranch", func(t *testing.T) {
-		tr.MoveToStart()
-		tr.TogglePin()
-		if tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high") {
-			t.Fatal("expected child leaf to be unpinned")
-		}
-		if tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high") {
-			t.Fatal("expected child leaf to be unpinned")
-		}
-	})
+	tests := []struct {
+		name string
+		path string
+		want []string
+	}{
+		{
+			name: "leaf row is its own address",
+			path: "aws_s3_bucket.main",
+			want: []string{"aws_s3_bucket.main"},
+		},
+		{
+			name: "branch row covers every descendant leaf, nested modules included",
+			path: "module.cloudwatch",
+			want: []string{
+				"module.cloudwatch.module.alarms.aws_cloudwatch_metric_alarm.cpu_high",
+				"module.cloudwatch.aws_cloudwatch_dashboard.main",
+			},
+		},
+		{
+			name: "nested branch row covers only its own subtree",
+			path: "module.cloudwatch.module.alarms",
+			want: []string{"module.cloudwatch.module.alarms.aws_cloudwatch_metric_alarm.cpu_high"},
+		},
+	}
 
-	t.Run("ShouldPinAllWhenPartiallyPinned", func(t *testing.T) {
-		tr.SetPinned([]string{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"})
-		tr.MoveToStart()
-		state := tr.NodePinState("module.cloudwatch")
-		if state != PinPartial {
-			t.Fatalf("expected partial pin state, got %d", state)
-		}
-		tr.TogglePin()
-		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_metric_alarm.memory_high") {
-			t.Fatal("expected all children to be pinned after toggling partially-pinned branch")
-		}
-		if !tr.IsPinned("module.cloudwatch.aws_cloudwatch_dashboard.main") {
-			t.Fatal("expected all children to be pinned after toggling partially-pinned branch")
-		}
-	})
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tr.PinAddresses(byPath(tt.path))
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PinAddresses(%q) = %v, want %v", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPinAddresses_WhenBranchIsCollapsed_ShouldStillCoverHiddenLeaves(t *testing.T) {
+	items := []Item{
+		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"},
+		testItem{"module.cloudwatch.aws_cloudwatch_dashboard.main"},
+	}
+	tr := New(items)
+
+	tr.MoveToStart()
+	node := tr.CursorNode()
+	if node.Kind != KindBranch {
+		t.Fatalf("first row kind = %v, want KindBranch", node.Kind)
+	}
+
+	want := []string{
+		"module.cloudwatch.aws_cloudwatch_dashboard.main",
+		"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high",
+	}
+	if got := tr.PinAddresses(node); !reflect.DeepEqual(got, want) {
+		t.Errorf("PinAddresses(collapsed branch) = %v, want %v", got, want)
+	}
+}
+
+func TestPinAddresses_WhenPinnedBackFromCaller_ShouldRenderBranchAsFullyPinned(t *testing.T) {
+	items := []Item{
+		testItem{"module.cloudwatch.aws_cloudwatch_metric_alarm.cpu_high"},
+		testItem{"module.cloudwatch.aws_cloudwatch_dashboard.main"},
+		testItem{"aws_s3_bucket.main"},
+	}
+	tr := New(items)
+	tr.MoveToStart()
+
+	// This is the whole point of the interface: the addresses a caller pins in
+	// response to a branch row must be the addresses the tree then reports as
+	// pinned for that row.
+	tr.SetPinned(tr.PinAddresses(tr.CursorNode()))
+
+	if got := tr.NodePinState("module.cloudwatch"); got != PinFull {
+		t.Errorf("NodePinState(branch) = %v, want PinFull", got)
+	}
+	if tr.IsPinned("aws_s3_bucket.main") {
+		t.Error("unrelated leaf became pinned")
+	}
 }
 
 func TestNodePinState_ShouldReturnCorrectState(t *testing.T) {
@@ -1523,71 +1532,6 @@ func TestParentPath_WhenSingleSegment_ShouldReturnEmpty(t *testing.T) {
 	}
 }
 
-func TestTogglePin_WhenCursorIsNil_ShouldDoNothing(t *testing.T) {
-	tr := New([]Item{})
-	tr.TogglePin()
-	paths := tr.PinnedPaths()
-	if len(paths) != 0 {
-		t.Fatalf("expected no pinned paths on empty tree, got %v", paths)
-	}
-}
-
-func TestTogglePin_WhenBranchNotFound_ShouldDoNothing(t *testing.T) {
-	items := []Item{
-		testItem{"module.vpc.aws_subnet.main"},
-	}
-	tr := New(items)
-	tr.MoveToStart()
-	node := tr.CursorNode()
-	if node.Kind != KindBranch {
-		t.Fatal("expected branch node at start")
-	}
-
-	// Corrupt the path to simulate findNode returning nil
-	originalPath := node.Path
-	node.Path = "nonexistent.path"
-	tr.TogglePin()
-	paths := tr.PinnedPaths()
-	if len(paths) != 0 {
-		t.Fatalf("expected no pinned paths when node not found, got %v", paths)
-	}
-	node.Path = originalPath
-}
-
-func TestSetPinRecursive_WhenUnpinning_ShouldRemoveAllChildren(t *testing.T) {
-	items := []Item{
-		testItem{"module.vpc.aws_subnet.a"},
-		testItem{"module.vpc.aws_subnet.b"},
-		testItem{"module.vpc.aws_subnet.c"},
-	}
-	tr := New(items)
-
-	// Pin all first
-	tr.SetPinned([]string{
-		"module.vpc.aws_subnet.a",
-		"module.vpc.aws_subnet.b",
-		"module.vpc.aws_subnet.c",
-	})
-
-	// Move to branch and toggle to unpin all
-	tr.MoveToStart()
-	node := tr.CursorNode()
-	if node.Kind != KindBranch {
-		t.Fatal("expected branch at start")
-	}
-	tr.TogglePin()
-
-	if tr.IsPinned("module.vpc.aws_subnet.a") {
-		t.Fatal("expected aws_subnet.a to be unpinned")
-	}
-	if tr.IsPinned("module.vpc.aws_subnet.b") {
-		t.Fatal("expected aws_subnet.b to be unpinned")
-	}
-	if tr.IsPinned("module.vpc.aws_subnet.c") {
-		t.Fatal("expected aws_subnet.c to be unpinned")
-	}
-}
-
 func TestNodePinState_WhenBranchHasNoLeaves_ShouldReturnNone(t *testing.T) {
 	// Create a tree where a branch has only sub-branches but no direct leaves
 	items := []Item{
@@ -1764,42 +1708,6 @@ func TestCollapseFocused_WhenOnCollapsedBranch_ShouldCollapseParent(t *testing.T
 	}
 	if parentNode.Expanded {
 		t.Fatal("expected parent to be collapsed")
-	}
-}
-
-func TestSetPinRecursive_WhenUnpinningNestedBranch_ShouldDeleteAllPins(t *testing.T) {
-	items := []Item{
-		testItem{"module.a.module.b.aws_instance.one"},
-		testItem{"module.a.module.b.aws_instance.two"},
-		testItem{"module.a.module.c.aws_instance.three"},
-	}
-	tr := New(items)
-
-	// Pin all leaves via the top-level branch
-	tr.MoveToStart()
-	node := tr.CursorNode()
-	if node.Kind != KindBranch {
-		t.Fatal("expected branch at start")
-	}
-	tr.TogglePin() // pins all
-
-	if !tr.IsPinned("module.a.module.b.aws_instance.one") {
-		t.Fatal("expected nested leaf to be pinned")
-	}
-	if !tr.IsPinned("module.a.module.c.aws_instance.three") {
-		t.Fatal("expected nested leaf to be pinned")
-	}
-
-	// Now toggle again to unpin all (goes through delete path in setPinRecursive for nested)
-	tr.TogglePin()
-	if tr.IsPinned("module.a.module.b.aws_instance.one") {
-		t.Fatal("expected nested leaf to be unpinned after toggle")
-	}
-	if tr.IsPinned("module.a.module.b.aws_instance.two") {
-		t.Fatal("expected nested leaf to be unpinned after toggle")
-	}
-	if tr.IsPinned("module.a.module.c.aws_instance.three") {
-		t.Fatal("expected nested leaf to be unpinned after toggle")
 	}
 }
 

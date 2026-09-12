@@ -64,33 +64,62 @@ func TestPins_Contains(t *testing.T) {
 	}
 }
 
-func TestPins_Toggle_AddWhenAbsent(t *testing.T) {
-	original := Pins{"a"}
-	got := original.Toggle("b")
-	if !reflect.DeepEqual(got, Pins{"a", "b"}) {
-		t.Errorf("Toggle add: got %v, want [a b]", got)
+func TestPins_Toggle_WhenGivenGroups(t *testing.T) {
+	tests := []struct {
+		name      string
+		pins      Pins
+		addresses []string
+		want      Pins
+	}{
+		{
+			name:      "single absent address is added",
+			pins:      Pins{"a"},
+			addresses: []string{"b"},
+			want:      Pins{"a", "b"},
+		},
+		{
+			name:      "single present address is removed",
+			pins:      Pins{"a", "b", "c"},
+			addresses: []string{"b"},
+			want:      Pins{"a", "c"},
+		},
+		{
+			name:      "address added to an empty set",
+			pins:      nil,
+			addresses: []string{"x"},
+			want:      Pins{"x"},
+		},
+		{
+			name:      "wholly unpinned group is added in order",
+			pins:      Pins{"a"},
+			addresses: []string{"b", "c"},
+			want:      Pins{"a", "b", "c"},
+		},
+		{
+			name:      "wholly pinned group is removed",
+			pins:      Pins{"a", "b", "c"},
+			addresses: []string{"b", "c"},
+			want:      Pins{"a"},
+		},
+		{
+			name:      "partly pinned group adds only what is missing",
+			pins:      Pins{"b"},
+			addresses: []string{"a", "b", "c"},
+			want:      Pins{"b", "a", "c"},
+		},
 	}
-	if !reflect.DeepEqual(original, Pins{"a"}) {
-		t.Errorf("receiver mutated: %v", original)
-	}
-}
 
-func TestPins_Toggle_RemoveWhenPresent(t *testing.T) {
-	original := Pins{"a", "b", "c"}
-	got := original.Toggle("b")
-	if !reflect.DeepEqual(got, Pins{"a", "c"}) {
-		t.Errorf("Toggle remove: got %v, want [a c]", got)
-	}
-	if !reflect.DeepEqual(original, Pins{"a", "b", "c"}) {
-		t.Errorf("receiver mutated: %v", original)
-	}
-}
-
-func TestPins_Toggle_OnEmpty(t *testing.T) {
-	var original Pins
-	got := original.Toggle("x")
-	if !reflect.DeepEqual(got, Pins{"x"}) {
-		t.Errorf("Toggle on empty: got %v, want [x]", got)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			before := tt.pins.Clone()
+			got := tt.pins.Toggle(tt.addresses...)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Toggle(%v) = %v, want %v", tt.addresses, got, tt.want)
+			}
+			if !reflect.DeepEqual(tt.pins, before) {
+				t.Errorf("receiver mutated: %v, want %v", tt.pins, before)
+			}
+		})
 	}
 }
 

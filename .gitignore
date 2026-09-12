@@ -38,3 +38,6 @@ demo/output/*/
 demo/output/*.gif
 terraform_ui_demo.egg-info/
 .recordings/
+
+# Claude Code worktrees
+.claude/worktrees/

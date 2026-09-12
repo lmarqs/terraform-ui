@@ -40,7 +40,7 @@ func TestPluginBase_InitBase_AssignsAllDeps(t *testing.T) {
 		Logger:    logger,
 		Service:   svc,
 		Context:   func() *sdk.Context { return ctx },
-		Pin:       func(string) tea.Cmd { pinCalls++; return nil },
+		Pin:       func(...string) tea.Cmd { pinCalls++; return nil },
 		ClearPins: func() tea.Cmd { clearCalls++; return nil },
 	}
 

@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
 func newTestPlugin(resources []sdk.Resource) *Plugin {
@@ -1298,6 +1300,35 @@ func TestListFrame_Update_WhenFilterPin_ShouldTogglePin(t *testing.T) {
 	}
 	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.a" {
 		t.Errorf("expected pin request for aws_instance.a, got %v", h.PinRequests)
+	}
+}
+
+func TestListFrame_Update_WhenSpaceOnBranchRow_ShouldPinEveryDescendantLeaf(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.repositories.github_branch.main", Type: "github_branch"},
+		{Address: "module.repositories.github_repository.this", Type: "github_repository"},
+		{Address: "aws_s3_bucket.logs", Type: "aws_s3_bucket"},
+	}
+	p, h := newTestPluginWithHarness(resources)
+	p.treeMode = true
+	p.SetFilter("")
+
+	if node := p.CursorNode(); node == nil || node.Kind != tree.KindBranch {
+		t.Fatalf("cursor row = %+v, want a branch row", node)
+	}
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd == nil {
+		t.Fatal("space on branch row: cmd = nil, want a pin request")
+	}
+	cmd()
+
+	want := []string{
+		"module.repositories.github_branch.main",
+		"module.repositories.github_repository.this",
+	}
+	if !reflect.DeepEqual(h.PinRequests, want) {
+		t.Errorf("pin requests = %v, want %v", h.PinRequests, want)
 	}
 }
 

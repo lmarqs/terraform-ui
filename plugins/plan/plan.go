@@ -584,9 +584,9 @@ func (e *Plugin) CursorNode() *tree.Node {
 // back the new pinned set. We do NOT mutate any local pin state in place —
 // that's exactly the bug class ADR-0018 closes.
 
-func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.Log.Debug("plan.pin.toggle.request", "address", address)
-	return e.PinFn(address)
+func (e *Plugin) togglePin(addresses ...string) tea.Cmd {
+	e.Log.Debug("plan.pin.toggle.request", "addresses", addresses)
+	return e.PinFn(addresses...)
 }
 
 // pruneStalePins drops pinned addresses no longer present in the latest plan
@@ -611,13 +611,7 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 		return nil
 	}
 	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", e.PinnedCount()-len(stale))
-	cmds := make([]tea.Cmd, 0, len(stale))
-	for _, addr := range stale {
-		if e.PinFn != nil {
-			cmds = append(cmds, e.PinFn(addr))
-		}
-	}
-	return tea.Batch(cmds...)
+	return e.PinFn(stale...)
 }
 
 func (e *Plugin) clearAllPins() tea.Cmd {

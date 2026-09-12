@@ -108,7 +108,7 @@ func TestContext_WithPins_ShouldReturnFreshSnapshotWithoutMutatingOriginal(t *te
 
 func TestContext_TogglePin_ShouldAddWhenAbsent(t *testing.T) {
 	ctx := &Context{WorkingDir: "/p", Pins: Pins{"a"}}
-	next := ctx.TogglePin("b")
+	next := ctx.TogglePins("b")
 	if !reflect.DeepEqual(next.Pins, Pins{"a", "b"}) {
 		t.Errorf("TogglePin add: Pins = %v, want [a b]", next.Pins)
 	}
@@ -119,7 +119,7 @@ func TestContext_TogglePin_ShouldAddWhenAbsent(t *testing.T) {
 
 func TestContext_TogglePin_ShouldRemoveWhenPresent(t *testing.T) {
 	ctx := &Context{WorkingDir: "/p", Pins: Pins{"a", "b", "c"}}
-	next := ctx.TogglePin("b")
+	next := ctx.TogglePins("b")
 	if !reflect.DeepEqual(next.Pins, Pins{"a", "c"}) {
 		t.Errorf("TogglePin remove: Pins = %v, want [a c]", next.Pins)
 	}
@@ -130,7 +130,7 @@ func TestContext_TogglePin_ShouldRemoveWhenPresent(t *testing.T) {
 
 func TestContext_TogglePin_ShouldHandleEmptyPins(t *testing.T) {
 	ctx := &Context{WorkingDir: "/p"}
-	next := ctx.TogglePin("x")
+	next := ctx.TogglePins("x")
 	if !reflect.DeepEqual(next.Pins, Pins{"x"}) {
 		t.Errorf("TogglePin on empty: Pins = %v, want [x]", next.Pins)
 	}
