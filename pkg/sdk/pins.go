@@ -12,8 +12,9 @@ func (p Pins) Count() int { return len(p) }
 // HasAny reports whether at least one address is pinned.
 func (p Pins) HasAny() bool { return len(p) > 0 }
 
-// Contains reports whether the address is currently pinned. Linear scan;
-// pin sets are small (single-digit typical).
+// Contains reports whether the address is currently pinned. Linear scan, for a
+// single question. Callers asking about many addresses in one pass should take
+// a Lookup instead.
 func (p Pins) Contains(address string) bool {
 	for _, a := range p {
 		if a == address {
@@ -23,6 +24,26 @@ func (p Pins) Contains(address string) bool {
 	return false
 }
 
+// Lookup returns a set-backed membership predicate. One gesture on a module row
+// covers every resource beneath it, so a pin set is no longer single-digit and
+// rendering asks about every descendant leaf of every visible row — a linear
+// scan per question would make a keypress quadratic in the state's size.
+func (p Pins) Lookup() func(address string) bool {
+	set := p.set()
+	return func(address string) bool {
+		_, ok := set[address]
+		return ok
+	}
+}
+
+func (p Pins) set() map[string]struct{} {
+	set := make(map[string]struct{}, len(p))
+	for _, a := range p {
+		set[a] = struct{}{}
+	}
+	return set
+}
+
 // Toggle returns a fresh Pins with set semantics over the supplied group: when
 // every address is already pinned the whole group is removed, otherwise the
 // missing ones are appended. A single address therefore flips, and a group
@@ -30,18 +51,20 @@ func (p Pins) Contains(address string) bool {
 // completes before it clears, so a partly-pinned group never inverts.
 // The receiver is never mutated.
 func (p Pins) Toggle(addresses ...string) Pins {
+	pinned := p.set()
+	group := make(map[string]struct{}, len(addresses))
 	remove := true
 	for _, a := range addresses {
-		if !p.Contains(a) {
+		group[a] = struct{}{}
+		if _, ok := pinned[a]; !ok {
 			remove = false
-			break
 		}
 	}
 
 	if remove {
 		out := make(Pins, 0, len(p))
 		for _, a := range p {
-			if !containsAddress(addresses, a) {
+			if _, dropped := group[a]; !dropped {
 				out = append(out, a)
 			}
 		}
@@ -51,20 +74,13 @@ func (p Pins) Toggle(addresses ...string) Pins {
 	out := make(Pins, 0, len(p)+len(addresses))
 	out = append(out, p...)
 	for _, a := range addresses {
-		if !out.Contains(a) {
-			out = append(out, a)
+		if _, ok := pinned[a]; ok {
+			continue
 		}
+		pinned[a] = struct{}{}
+		out = append(out, a)
 	}
 	return out
-}
-
-func containsAddress(addresses []string, address string) bool {
-	for _, a := range addresses {
-		if a == address {
-			return true
-		}
-	}
-	return false
 }
 
 // Clone returns a defensive copy. nil input yields nil output.

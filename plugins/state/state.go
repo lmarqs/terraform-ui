@@ -640,7 +640,7 @@ func (e *Plugin) renderResources(width, height int) string {
 				Full:    sdk.StyleSuccess.Render("[*] "),
 				Partial: sdk.StyleUpdate.Render("[-] "),
 			},
-			Pinned: e.IsPinned,
+			Pinned: e.PinnedLookup(),
 		})
 	} else {
 		rows = e.buildFlatRows(maxVisible)

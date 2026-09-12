@@ -156,3 +156,15 @@ func (b *PluginBase) IsPinned(address string) bool {
 	}
 	return b.GetCtx().Pins.Contains(address)
 }
+
+// PinnedLookup returns a set-backed membership predicate over the active
+// Context's pins, for callers that ask about many addresses in one pass — tree
+// rendering resolves every descendant leaf of every visible module row. Returns
+// nil when GetCtx is unset (e.g., before Init), which readers treat the same as
+// an empty pin set.
+func (b *PluginBase) PinnedLookup() func(address string) bool {
+	if b.GetCtx == nil {
+		return nil
+	}
+	return b.GetCtx().Pins.Lookup()
+}

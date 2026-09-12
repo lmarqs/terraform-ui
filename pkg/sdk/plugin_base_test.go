@@ -213,6 +213,9 @@ func TestPluginBase_PinnedAddresses_BeforeInit_IsNilSafe(t *testing.T) {
 	if b.IsPinned("anything") {
 		t.Error("IsPinned() before Init = true, want false")
 	}
+	if got := b.PinnedLookup(); got != nil {
+		t.Error("PinnedLookup() before Init != nil, want nil")
+	}
 }
 
 func TestPluginBase_HasPinsAndIsPinned(t *testing.T) {
@@ -228,5 +231,13 @@ func TestPluginBase_HasPinsAndIsPinned(t *testing.T) {
 	}
 	if b.IsPinned("aws_instance.missing") {
 		t.Error("IsPinned(missing) = true, want false")
+	}
+
+	lookup := b.PinnedLookup()
+	if !lookup("aws_instance.a") {
+		t.Error("PinnedLookup()(a) = false, want true")
+	}
+	if lookup("aws_instance.missing") {
+		t.Error("PinnedLookup()(missing) = true, want false")
 	}
 }

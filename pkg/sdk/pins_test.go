@@ -142,3 +142,20 @@ func TestPins_Clone_IsIndependent(t *testing.T) {
 		t.Errorf("mutating clone affected original: %v", original)
 	}
 }
+
+func TestPins_Lookup_AnswersFromTheSet(t *testing.T) {
+	lookup := Pins{"a", "b"}.Lookup()
+	if !lookup("a") {
+		t.Error("Lookup()(a) = false, want true")
+	}
+	if lookup("c") {
+		t.Error("Lookup()(c) = true, want false")
+	}
+}
+
+func TestPins_Lookup_WhenEmpty_ReportsNothingPinned(t *testing.T) {
+	var p Pins
+	if p.Lookup()("a") {
+		t.Error("Lookup()(a) on empty pins = true, want false")
+	}
+}
