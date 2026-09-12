@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -5324,10 +5325,46 @@ func TestApp_Update_WhenPinToggleRequest_ShouldTogglePinOnContext(t *testing.T) 
 		Service:    newMockService("default", nil),
 	}
 
-	app.Update(sdk.PinToggleRequestMsg{Address: "aws_instance.web"})
+	app.Update(sdk.PinToggleRequestMsg{Addresses: []string{"aws_instance.web"}})
 	if len(app.holder.current.Pins) != 1 || app.holder.current.Pins[0] != "aws_instance.web" {
 		t.Errorf("Pins = %v, want [aws_instance.web]", app.holder.current.Pins)
 	}
+}
+
+func TestApp_Update_WhenPinToggleRequestCarriesAGroup_ShouldApplySetSemantics(t *testing.T) {
+	group := []string{"module.repos.github_branch.main", "module.repos.github_repository.this"}
+
+	t.Run("partly pinned group is completed", func(t *testing.T) {
+		app := setupBusyGuardApp(false)
+		app.Init()
+		app.holder.current = &sdk.Context{
+			WorkingDir: "/test",
+			Service:    newMockService("default", nil),
+			Pins:       sdk.Pins{group[0]},
+		}
+
+		app.Update(sdk.PinToggleRequestMsg{Addresses: group})
+		want := sdk.Pins{group[0], group[1]}
+		if !reflect.DeepEqual(app.holder.current.Pins, want) {
+			t.Errorf("Pins = %v, want %v", app.holder.current.Pins, want)
+		}
+	})
+
+	t.Run("wholly pinned group is cleared", func(t *testing.T) {
+		app := setupBusyGuardApp(false)
+		app.Init()
+		app.holder.current = &sdk.Context{
+			WorkingDir: "/test",
+			Service:    newMockService("default", nil),
+			Pins:       sdk.Pins{group[0], group[1], "aws_s3_bucket.logs"},
+		}
+
+		app.Update(sdk.PinToggleRequestMsg{Addresses: group})
+		want := sdk.Pins{"aws_s3_bucket.logs"}
+		if !reflect.DeepEqual(app.holder.current.Pins, want) {
+			t.Errorf("Pins = %v, want %v", app.holder.current.Pins, want)
+		}
+	})
 }
 
 func TestApp_Update_WhenPinClearRequest_ShouldClearAllPins(t *testing.T) {
@@ -5353,7 +5390,7 @@ func TestApp_Update_WhenPinToggleWithBusyPlugin_ShouldReject(t *testing.T) {
 		Service:    newMockService("default", nil),
 	}
 
-	app.Update(sdk.PinToggleRequestMsg{Address: "aws_instance.web"})
+	app.Update(sdk.PinToggleRequestMsg{Addresses: []string{"aws_instance.web"}})
 	if len(app.holder.current.Pins) != 0 {
 		t.Errorf("Pins should remain unchanged when busy, got %v", app.holder.current.Pins)
 	}
@@ -5364,7 +5401,7 @@ func TestApp_Update_WhenPinToggleWithNilContext_ShouldNoOp(t *testing.T) {
 	app.Init()
 	app.holder.current = nil
 
-	_, cmd := app.Update(sdk.PinToggleRequestMsg{Address: "aws_instance.web"})
+	_, cmd := app.Update(sdk.PinToggleRequestMsg{Addresses: []string{"aws_instance.web"}})
 	if cmd != nil {
 		t.Error("PinToggleRequestMsg with nil context should return nil cmd")
 	}

@@ -77,7 +77,7 @@ Re-running `terraform plan` within the Plan plugin to incorporate changed inputs
 _Avoid_: re-plan inside apply, targeted apply
 
 **Pin**:
-A user-selected resource marked for targeted operations. Pins scope `plan` to specific resources. Plugin-derived state — scoped to the current Context, shared across plugins within it (pin in state, consume in plan). Transient by design: preserved across re-plan but cleared once the scope is spent — apply reaches a terminal state, or the user leaves the plan workflow to home — and reset on a context switch. No cross-session persistence.
+A user-selected resource marked for targeted operations. Pins scope `plan` to specific resources. Always a resource address — never a module path, so pinning a module row pins every resource beneath it, and a row reports itself pinned only when all of them are. Plugin-derived state — scoped to the current Context, shared across plugins within it (pin in state, consume in plan). Transient by design: preserved across re-plan but cleared once the scope is spent — apply reaches a terminal state, or the user leaves the plan workflow to home — and reset on a context switch. No cross-session persistence.
 _Avoid_: selection, mark, target (as noun for the set)
 
 **Macro**:
@@ -106,6 +106,7 @@ _Avoid_: store, buffer, data layer
 - A **Context** is one **Project** + one **Chdir** + one **Workspace** + their resolved execution parameters; replaced atomically on switch
 - A **Plugin** contains one or more **Frames** (via a stack)
 - A **Pin** targets a resource address; pins are shared across **Plugins** within the current **Context** and die on context switch
+- A module row is not a **Pin** target; it resolves to the resource addresses beneath it, and one gesture toggles them as a group
 - Both **ExecService** and **MacroService** read from the same **ServiceCache**
 - The **Actions Bar** lives inside the bordered frame; the **Hint Bar** lives outside it
 - The **Scroll Gutter** spans content rows only (not the actions bar)

@@ -2,6 +2,7 @@ package state
 
 import (
 	"context"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
 func newTestPlugin(resources []sdk.Resource) *Plugin {
@@ -511,7 +513,6 @@ func TestListFrame_PinnedFilter(t *testing.T) {
 
 	// Pin one resource
 	p.GetCtx().Pins = []string{"aws_instance.b"}
-	p.syncPinnedToTree()
 
 	t.Run("ShouldFilterToPinnedOnly", func(t *testing.T) {
 		f.Update(tea.KeyMsg{Type: tea.KeyCtrlP})
@@ -546,18 +547,24 @@ func TestListFrame_ClearAllPins(t *testing.T) {
 	f := &listFrame{plugin: p}
 
 	p.GetCtx().Pins = []string{"aws_instance.a", "aws_instance.b"}
-	p.syncPinnedToTree()
 
 	if p.PinnedCount() != 2 {
 		t.Fatalf("expected 2 pinned, got %d", p.PinnedCount())
 	}
 
+	p.treeMode = true
+	p.SetFilter("")
+	if view := sdktest.StripANSI(p.View(120, 24)); !strings.Contains(view, "[*] ") {
+		t.Fatalf("pinned rows not marked before ctrl+u; view:\n%s", view)
+	}
+
 	f.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
 
-	// clearAllPins clears the tree's internal pinned state immediately
-	// (getCtx().Pins is cleared asynchronously by the App via the returned cmd)
-	if len(p.tree.PinnedPaths()) != 0 {
-		t.Errorf("expected tree pinned paths=0 after ctrl+u, got %d", len(p.tree.PinnedPaths()))
+	// Rows read pins from Context, so the markers clear when the App applies
+	// the request the frame returned — never from a local copy.
+	p.GetCtx().Pins = nil
+	if view := sdktest.StripANSI(p.View(120, 24)); strings.Contains(view, "[*] ") {
+		t.Errorf("pin markers survived the clear; view:\n%s", view)
 	}
 }
 
@@ -569,7 +576,6 @@ func TestListFrame_ClearAllPins_RequestsClearFromApp(t *testing.T) {
 	f := &listFrame{plugin: p}
 
 	p.GetCtx().Pins = []string{"aws_instance.a"}
-	p.syncPinnedToTree()
 
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyCtrlU})
 	if cmd == nil {
@@ -591,7 +597,6 @@ func TestListFrame_ClearAllPins_ExitsPinnedFilter(t *testing.T) {
 	f := &listFrame{plugin: p}
 
 	p.GetCtx().Pins = []string{"aws_instance.a"}
-	p.syncPinnedToTree()
 	p.pinnedOnly = true
 	p.SetFilter("")
 
@@ -1298,6 +1303,35 @@ func TestListFrame_Update_WhenFilterPin_ShouldTogglePin(t *testing.T) {
 	}
 	if len(h.PinRequests) != 1 || h.PinRequests[0] != "aws_instance.a" {
 		t.Errorf("expected pin request for aws_instance.a, got %v", h.PinRequests)
+	}
+}
+
+func TestListFrame_Update_WhenSpaceOnBranchRow_ShouldPinEveryDescendantLeaf(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.repositories.github_branch.main", Type: "github_branch"},
+		{Address: "module.repositories.github_repository.this", Type: "github_repository"},
+		{Address: "aws_s3_bucket.logs", Type: "aws_s3_bucket"},
+	}
+	p, h := newTestPluginWithHarness(resources)
+	p.treeMode = true
+	p.SetFilter("")
+
+	if node := p.CursorNode(); node == nil || node.Kind != tree.KindBranch {
+		t.Fatalf("cursor row = %+v, want a branch row", node)
+	}
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd == nil {
+		t.Fatal("space on branch row: cmd = nil, want a pin request")
+	}
+	cmd()
+
+	want := []string{
+		"module.repositories.github_branch.main",
+		"module.repositories.github_repository.this",
+	}
+	if !reflect.DeepEqual(h.PinRequests, want) {
+		t.Errorf("pin requests = %v, want %v", h.PinRequests, want)
 	}
 }
 

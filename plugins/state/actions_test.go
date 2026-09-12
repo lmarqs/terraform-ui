@@ -362,7 +362,6 @@ func TestBuildActionFrame_WhenMultiplePinned_ShouldDisableMoveAndImport(t *testi
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, resources)
 	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
-	p.syncPinnedToTree()
 
 	t.Run("ShouldUsePinnedCountInTitle", func(t *testing.T) {
 		frame := p.buildActionFrame("aws_instance.a", true)
@@ -530,7 +529,6 @@ func TestListFrame_WhenActionKeyPressed_ShouldPushActionFrame(t *testing.T) {
 		tp.rebuildTree()
 		// Pin a resource
 		th.Ctx.Pins = []string{"module.a.aws_instance.one"}
-		tp.syncPinnedToTree()
 		// Cursor is on branch node "module.a" — SelectedResource() returns empty
 		f := &listFrame{plugin: tp}
 		f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
@@ -629,7 +627,6 @@ func TestBuildActionFrame_EditHandler_MultiTarget(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, resources)
 	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("aws_instance.a", true)
 	result, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
@@ -653,7 +650,6 @@ func TestBuildActionFrame_WhenMultiTarget_ShouldDisableMoveAndImport(t *testing.
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
 	h.Ctx.Pins = []string{"a", "b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	if frame == nil {
@@ -675,7 +671,6 @@ func TestBuildActionFrame_WhenMultiTargetEditHandler_ShouldEditMultiple(t *testi
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
 	h.Ctx.Pins = []string{"a", "b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	if frame == nil {
@@ -694,7 +689,6 @@ func TestBuildActionFrame_WhenMultiTargetDeleteHandler_ShouldBatchDelete(t *test
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
 	h.Ctx.Pins = []string{"a", "b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	p.stack.Push(frame)
@@ -804,7 +798,6 @@ func TestBuildActionFrame_WhenMultiTargetTaintHandlerExecuted_ShouldProduceTaint
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
 	h.Ctx.Pins = []string{"a", "b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	p.stack.Push(frame)
@@ -822,7 +815,6 @@ func TestBuildActionFrame_WhenMultiTargetUntaintHandlerExecuted_ShouldProduceUnt
 	svc := &sdktest.MockService{}
 	p, h := newTrackingPlugin(svc, []sdk.Resource{{Address: "a"}, {Address: "b"}})
 	h.Ctx.Pins = []string{"a", "b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame("a", true)
 	p.stack.Push(frame)

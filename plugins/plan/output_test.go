@@ -2545,7 +2545,6 @@ func TestPlugin_WhenRenderResultsTreeModeWithPins_ShouldShowPinIndicators(t *tes
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 	h.Ctx.Pins = []string{"module.vpc.aws_subnet.a"}
-	p.syncPinnedToTree()
 
 	view := p.renderResults(80, 24)
 	if view == "" {

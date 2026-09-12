@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui/tree"
 )
 
 func TestNew(t *testing.T) {
@@ -1965,6 +1967,68 @@ func TestListFrame_WhenSpacePressed_ShouldTogglePin(t *testing.T) {
 	}
 }
 
+func TestListFrame_WhenSpacePressedOnBranchRow_ShouldPinEveryDescendantLeaf(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, h := newTestPluginWithHarness(svc)
+	p.status = sdk.StatusDone
+	p.treeMode = true
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "module.repositories.github_branch.main"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "module.repositories.github_repository.this"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "aws_s3_bucket.logs"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+
+	if node := p.CursorNode(); node == nil || node.Kind != tree.KindBranch {
+		t.Fatalf("cursor row = %+v, want a branch row", node)
+	}
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	if cmd == nil {
+		t.Fatal("space on branch row: cmd = nil, want a pin request")
+	}
+	cmd()
+
+	want := []string{
+		"module.repositories.github_branch.main",
+		"module.repositories.github_repository.this",
+	}
+	if !reflect.DeepEqual(h.PinRequests, want) {
+		t.Errorf("pin requests = %v, want %v", h.PinRequests, want)
+	}
+}
+
+func TestListFrame_WhenBranchLeavesArePinned_ShouldRenderBranchAsFullyPinned(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, h := newTestPluginWithHarness(svc)
+	p.status = sdk.StatusDone
+	p.treeMode = true
+	p.summary = &sdk.PlanSummary{
+		Changes: []sdk.PlanChange{
+			{Resource: sdk.Resource{Address: "module.repositories.github_branch.main"}, Action: sdk.ActionCreate},
+			{Resource: sdk.Resource{Address: "module.repositories.github_repository.this"}, Action: sdk.ActionCreate},
+		},
+	}
+	p.filtered = p.summary.Changes
+	p.rebuildTree()
+
+	cmd := p.stack.Update(tea.KeyMsg{Type: tea.KeySpace})
+	cmd()
+
+	// The App replays the request onto the Context; the plugin sees it on the
+	// next ContextChangedEvent.
+	h.Ctx.Pins = sdk.Pins(h.PinRequests)
+	p.HandleContextChanged(sdk.ContextChangedEvent{Next: h.Ctx, Reason: sdk.ContextPinsChanged})
+
+	view := sdktest.StripANSI(p.View(120, 24))
+	if !strings.Contains(view, "[*] ▶ module.repositories") {
+		t.Errorf("branch row not rendered as fully pinned; view:\n%s", view)
+	}
+}
+
 func TestListFrame_WhenSpacePressedWithNoSelection_ShouldDoNothing(t *testing.T) {
 	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
@@ -2430,7 +2494,6 @@ func TestListFrame_WhenBangPressedWithPins_ShouldPushActionFrame(t *testing.T) {
 	p.filtered = p.summary.Changes
 	p.rebuildTree()
 	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
-	p.syncPinnedToTree()
 
 	p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'!'}})
 

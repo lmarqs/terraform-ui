@@ -158,8 +158,8 @@ func (a App) Init() tea.Cmd {
 		Logger:  logging.Logger(),
 		Service: bootSvc,
 		Context: func() *sdk.Context { return holder.current },
-		Pin: func(address string) tea.Cmd {
-			return func() tea.Msg { return sdk.PinToggleRequestMsg{Address: address} }
+		Pin: func(addresses ...string) tea.Cmd {
+			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
 		ClearPins: func() tea.Cmd {
 			return func() tea.Msg { return sdk.PinClearRequestMsg{} }
@@ -251,7 +251,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if current == nil {
 			return a, nil
 		}
-		next := current.TogglePin(msg.Address)
+		next := current.TogglePins(msg.Addresses...)
 		return a, a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
 
 	case sdk.PinClearRequestMsg:

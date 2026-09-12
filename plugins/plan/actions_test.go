@@ -194,7 +194,6 @@ func TestBuildActionFrame_WhenBatchWithPins_ShouldTargetAllPinned(t *testing.T) 
 	}
 	p, h := newPlanPluginWithChanges(changes)
 	h.Ctx.Pins = []string{"aws_instance.a", "aws_instance.b"}
-	p.syncPinnedToTree()
 
 	frame := p.buildActionFrame(true)
 	_, cmd := frame.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})

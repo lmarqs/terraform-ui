@@ -39,8 +39,8 @@ type PluginBase struct {
 	Log *slog.Logger
 	// GetCtx returns the live immutable Context snapshot. Set by InitBase.
 	GetCtx func() *Context
-	// PinFn toggles a single resource address. Set by InitBase.
-	PinFn func(string) tea.Cmd
+	// PinFn toggles a group of resource addresses. Set by InitBase.
+	PinFn func(...string) tea.Cmd
 	// ClearPinsFn removes every pin. Set by InitBase.
 	ClearPinsFn func() tea.Cmd
 }
@@ -155,4 +155,16 @@ func (b *PluginBase) IsPinned(address string) bool {
 		return false
 	}
 	return b.GetCtx().Pins.Contains(address)
+}
+
+// PinnedLookup returns a set-backed membership predicate over the active
+// Context's pins, for callers that ask about many addresses in one pass — tree
+// rendering resolves every descendant leaf of every visible module row. Returns
+// nil when GetCtx is unset (e.g., before Init), which readers treat the same as
+// an empty pin set.
+func (b *PluginBase) PinnedLookup() func(address string) bool {
+	if b.GetCtx == nil {
+		return nil
+	}
+	return b.GetCtx().Pins.Lookup()
 }

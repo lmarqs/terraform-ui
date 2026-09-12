@@ -21,12 +21,13 @@ type ContextSwitchRequestMsg struct {
 	Workspace Workspace // workspace name (required)
 }
 
-// PinToggleRequestMsg asks the App to toggle a single pinned address on the
-// active Context (added if absent, removed if present). Plugins emit this via
-// PluginDeps.Pin; the App responds by rebuilding Context.WithPins and
-// dispatching a ContextChangedEvent.
+// PinToggleRequestMsg asks the App to toggle a group of pinned addresses on the
+// active Context, with the set semantics of Pins.Toggle. One gesture carries the
+// whole group — a module row covers every resource beneath it — so the App
+// replaces the Context once and dispatches a single ContextChangedEvent.
+// Plugins emit this via PluginDeps.Pin.
 type PinToggleRequestMsg struct {
-	Address string
+	Addresses []string
 }
 
 // PinClearRequestMsg asks the App to remove every pin from the active Context.

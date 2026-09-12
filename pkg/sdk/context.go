@@ -88,8 +88,8 @@ func (c *Context) WithPins(pins Pins) *Context {
 	return &next
 }
 
-// TogglePin returns a fresh Context with the address added to Pins if absent,
-// or removed if present. The receiver is never mutated.
-func (c *Context) TogglePin(address string) *Context {
-	return c.WithPins(c.Pins.Toggle(address))
+// TogglePins returns a fresh Context with the supplied addresses toggled as one
+// group (see Pins.Toggle for the set semantics). The receiver is never mutated.
+func (c *Context) TogglePins(addresses ...string) *Context {
+	return c.WithPins(c.Pins.Toggle(addresses...))
 }

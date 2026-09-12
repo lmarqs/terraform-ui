@@ -66,7 +66,7 @@ func initP(p sdk.Plugin, svc sdk.Service) {
 		Service:   svc,
 		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Context:   func() *sdk.Context { return bootCtx },
-		Pin:       func(_ string) tea.Cmd { return nil },
+		Pin:       func(_ ...string) tea.Cmd { return nil },
 		ClearPins: func() tea.Cmd { return nil },
 	})
 }

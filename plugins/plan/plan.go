@@ -162,10 +162,6 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return e.ReactToContext(ev, func() {
 		e.stale = true
-		// Reflect the new pin set in the tree so tree-mode indicators update
-		// immediately. The flat list reads pins live from Context, but the tree
-		// keeps its own pin map, refreshed only here and on rebuild.
-		e.syncPinnedToTree()
 		// In pinned-only view the filtered slice is derived from the pin set,
 		// so re-run the filter to drop newly-unpinned rows (and admit newly-
 		// pinned ones). Flat/full view reads pins live and needs no refilter.
@@ -552,14 +548,9 @@ func (e *Plugin) rebuildTree() {
 			return []string{addr}
 		}), tree.WithPreserveOrder())
 	}
-	e.syncPinnedToTree()
 	if e.treeMode && e.filter != "" {
 		e.tree.ExpandAll()
 	}
-}
-
-func (e *Plugin) syncPinnedToTree() {
-	e.tree.SetPinned(e.PinnedAddresses())
 }
 
 // --- Selection ---
@@ -584,9 +575,9 @@ func (e *Plugin) CursorNode() *tree.Node {
 // back the new pinned set. We do NOT mutate any local pin state in place —
 // that's exactly the bug class ADR-0018 closes.
 
-func (e *Plugin) togglePin(address string) tea.Cmd {
-	e.Log.Debug("plan.pin.toggle.request", "address", address)
-	return e.PinFn(address)
+func (e *Plugin) togglePin(addresses ...string) tea.Cmd {
+	e.Log.Debug("plan.pin.toggle.request", "addresses", addresses)
+	return e.PinFn(addresses...)
 }
 
 // pruneStalePins drops pinned addresses no longer present in the latest plan
@@ -611,17 +602,10 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 		return nil
 	}
 	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", e.PinnedCount()-len(stale))
-	cmds := make([]tea.Cmd, 0, len(stale))
-	for _, addr := range stale {
-		if e.PinFn != nil {
-			cmds = append(cmds, e.PinFn(addr))
-		}
-	}
-	return tea.Batch(cmds...)
+	return e.PinFn(stale...)
 }
 
 func (e *Plugin) clearAllPins() tea.Cmd {
-	e.tree.SetPinned(nil)
 	if e.pinnedOnly {
 		e.pinnedOnly = false
 		e.SetFilter(e.filter)
@@ -811,6 +795,7 @@ func (e *Plugin) renderResults(width, height int) string {
 				Full:    sdk.StyleSuccess.Render("[*] "),
 				Partial: sdk.StyleUpdate.Render("[-] "),
 			},
+			Pinned: e.PinnedLookup(),
 		})
 	} else {
 		rows = e.buildFlatRows(contentWidth, maxVisible)

@@ -29,11 +29,11 @@ type PluginDeps struct {
 	// non-nil after the first ContextChangedEvent; before that, returns a
 	// minimal bootstrap snapshot derived from Service.
 	Context func() *Context
-	// Pin toggles a single resource address into or out of the active
-	// Context's Pins. Returns a tea.Cmd that emits the request to the
-	// App; the actual Pins change becomes visible to the plugin on the
+	// Pin toggles resource addresses into or out of the active Context's Pins
+	// as one group (see Pins.Toggle). Returns a tea.Cmd that emits the request
+	// to the App; the actual Pins change becomes visible to the plugin on the
 	// next ContextChangedEvent. Plugins must NEVER mutate Pins directly.
-	Pin func(address string) tea.Cmd
+	Pin func(addresses ...string) tea.Cmd
 	// ClearPins removes every pin from the active Context.
 	// Returns a tea.Cmd with the same semantics as Pin.
 	ClearPins func() tea.Cmd

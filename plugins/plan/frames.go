@@ -61,7 +61,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 					if node == nil {
 						return nil
 					}
-					return f.plugin.togglePin(node.Path)
+					return f.plugin.togglePin(f.plugin.tree.PinAddresses(node)...)
 				},
 				OnToggle: func() {
 					f.plugin.treeMode = !f.plugin.treeMode
@@ -73,7 +73,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case " ":
 		node := f.plugin.CursorNode()
 		if node != nil {
-			return f, f.plugin.togglePin(node.Path)
+			return f, f.plugin.togglePin(f.plugin.tree.PinAddresses(node)...)
 		}
 	case "a":
 		if f.plugin.status == sdk.StatusDone && f.plugin.summary != nil && len(f.plugin.summary.Changes) > 0 {
