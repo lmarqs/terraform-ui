@@ -3991,7 +3991,7 @@ func TestApp_Update_WhenReceivingTaintRequestMsg_ShouldActivateTaintPlugin(t *te
 	app := NewApp(cfg, svc, registry, nil)
 	app.activePlugin, _ = app.registry.ByID("state")
 
-	model, _ := app.Update(tfuitaint.TaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	model, _ := app.Update(sdk.TaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
 	updated := model.(App)
 
 	if updated.activePlugin == nil {
@@ -4009,7 +4009,7 @@ func TestApp_Update_WhenReceivingTaintRequestMsgNoTaintPlugin_ShouldReturnNil(t 
 	app := setupTestApp() // no taint plugin
 	app.activePlugin, _ = app.registry.ByID("state")
 
-	_, cmd := app.Update(tfuitaint.TaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	_, cmd := app.Update(sdk.TaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
 	if cmd != nil {
 		t.Error("TaintRequestMsg without taint plugin should return nil cmd")
 	}
@@ -4033,7 +4033,7 @@ func TestApp_Update_WhenReceivingUntaintRequestMsg_ShouldActivateUntaintPlugin(t
 	app := NewApp(cfg, svc, registry, nil)
 	app.activePlugin, _ = app.registry.ByID("state")
 
-	model, _ := app.Update(tfuiuntaint.UntaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	model, _ := app.Update(sdk.UntaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
 	updated := model.(App)
 
 	if updated.activePlugin == nil {
@@ -4051,7 +4051,7 @@ func TestApp_Update_WhenReceivingUntaintRequestMsgNoUntaintPlugin_ShouldReturnNi
 	app := setupTestApp() // no untaint plugin
 	app.activePlugin, _ = app.registry.ByID("state")
 
-	_, cmd := app.Update(tfuiuntaint.UntaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
+	_, cmd := app.Update(sdk.UntaintRequestMsg{Addresses: []string{"aws_instance.foo"}})
 	if cmd != nil {
 		t.Error("UntaintRequestMsg without untaint plugin should return nil cmd")
 	}
@@ -4075,7 +4075,7 @@ func TestApp_Update_WhenReceivingImportRequestMsg_ShouldActivateImportPlugin(t *
 	app := NewApp(cfg, svc, registry, nil)
 	app.activePlugin, _ = app.registry.ByID("state")
 
-	model, _ := app.Update(tfuiimport.ImportRequestMsg{Address: "aws_instance.foo"})
+	model, _ := app.Update(sdk.ImportRequestMsg{Address: "aws_instance.foo"})
 	updated := model.(App)
 
 	if updated.activePlugin == nil {
@@ -4093,7 +4093,7 @@ func TestApp_Update_WhenReceivingImportRequestMsgNoImportPlugin_ShouldReturnNil(
 	app := setupTestApp() // no import plugin
 	app.activePlugin, _ = app.registry.ByID("state")
 
-	_, cmd := app.Update(tfuiimport.ImportRequestMsg{Address: "aws_instance.foo"})
+	_, cmd := app.Update(sdk.ImportRequestMsg{Address: "aws_instance.foo"})
 	if cmd != nil {
 		t.Error("ImportRequestMsg without import plugin should return nil cmd")
 	}

@@ -9,11 +9,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// UntaintRequestMsg requests navigation to the untaint plugin with target addresses.
-type UntaintRequestMsg struct {
-	Addresses []string
-}
-
 // Plugin implements the standalone untaint verb. The confirm prelude is its own;
 // the run/result/render lifecycle is delegated to the embedded ActionRunner.
 type Plugin struct {

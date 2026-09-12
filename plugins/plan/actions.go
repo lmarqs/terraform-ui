@@ -4,9 +4,8 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
-	"github.com/lmarqs/terraform-ui/plugins/taint"
-	"github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 func (e *Plugin) actionTargets() []string {
@@ -55,14 +54,14 @@ func (e *Plugin) buildActionFrame(batch bool) *frames.ActionFrame {
 			Key:   "t",
 			Label: "taint",
 			Handler: func() tea.Cmd {
-				return func() tea.Msg { return taint.TaintRequestMsg{Addresses: targets} }
+				return func() tea.Msg { return sdk.TaintRequestMsg{Addresses: targets} }
 			},
 		},
 		{
 			Key:   "T",
 			Label: "untaint",
 			Handler: func() tea.Cmd {
-				return func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: targets} }
+				return func() tea.Msg { return sdk.UntaintRequestMsg{Addresses: targets} }
 			},
 		},
 	}

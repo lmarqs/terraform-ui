@@ -9,11 +9,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// TaintRequestMsg requests navigation to the taint plugin with target addresses.
-type TaintRequestMsg struct {
-	Addresses []string
-}
-
 // Plugin implements the standalone taint verb. The confirm prelude is its own;
 // the run/result/render lifecycle is delegated to the embedded ActionRunner.
 type Plugin struct {

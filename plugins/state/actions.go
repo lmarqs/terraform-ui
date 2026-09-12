@@ -7,9 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
-	tfuiimport "github.com/lmarqs/terraform-ui/plugins/import"
-	"github.com/lmarqs/terraform-ui/plugins/taint"
-	"github.com/lmarqs/terraform-ui/plugins/untaint"
 )
 
 func (e *Plugin) requestMove(address string) tea.Cmd {
@@ -124,14 +121,14 @@ func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFram
 			Key:   "t",
 			Label: "taint",
 			Handler: func() tea.Cmd {
-				return func() tea.Msg { return taint.TaintRequestMsg{Addresses: targets} }
+				return func() tea.Msg { return sdk.TaintRequestMsg{Addresses: targets} }
 			},
 		},
 		{
 			Key:   "T",
 			Label: "untaint",
 			Handler: func() tea.Cmd {
-				return func() tea.Msg { return untaint.UntaintRequestMsg{Addresses: targets} }
+				return func() tea.Msg { return sdk.UntaintRequestMsg{Addresses: targets} }
 			},
 		},
 		{
@@ -139,7 +136,7 @@ func (e *Plugin) buildActionFrame(address string, batch bool) *frames.ActionFram
 			Label:    "import",
 			Disabled: multiTarget,
 			Handler: func() tea.Cmd {
-				return func() tea.Msg { return tfuiimport.ImportRequestMsg{Address: address} }
+				return func() tea.Msg { return sdk.ImportRequestMsg{Address: address} }
 			},
 		},
 		{
