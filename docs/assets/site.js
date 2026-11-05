@@ -70,19 +70,6 @@
     });
   }
 
-  // On the landing page, a pin on the base and its legend entry light up together.
-  function basePins() {
-    document.querySelectorAll("[data-pin]").forEach(function (el) {
-      var id = el.getAttribute("data-pin");
-      var pair = document.querySelectorAll('[data-pin="' + id + '"]');
-      function set(on) { pair.forEach(function (p) { p.classList.toggle("on", on); }); }
-      el.addEventListener("mouseenter", function () { set(true); });
-      el.addEventListener("mouseleave", function () { set(false); });
-      el.addEventListener("focusin", function () { set(true); });
-      el.addEventListener("focusout", function () { set(false); });
-    });
-  }
-
   function search() {
     var el = document.getElementById("search");
     if (!el || !window.PagefindUI) return;
@@ -99,6 +86,5 @@
   anchors();
   toc();
   copyButtons();
-  basePins();
   search();
 })();

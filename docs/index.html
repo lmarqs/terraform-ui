@@ -10,100 +10,67 @@ description: >-
 {%- assign ba = site.data.before_after -%}
 {%- assign tour = site.data.tour -%}
 
-<section class="hero">
-  <div class="hero-inner">
-    <p class="eyebrow">Open source · MIT</p>
-    <h1>Terraform plans you can <em>navigate.</em></h1>
-    <p class="lede">tfui is a k9s-style terminal UI for Terraform, OpenTofu and Terragrunt. Review a plan as a tree, see
-      the risk on every change, browse state, and apply only what you pinned. When an agent runs it, it goes headless.</p>
-    <div class="install-line"><span class="prompt">$</span><code>brew install lmarqs/tap/tfui</code></div>
-    <div class="actions">
-      <a class="button primary" href="{{ '/guides/getting-started.html' | relative_url }}">Review your first plan{% include icons/arrow-right.svg %}</a>
-      <a class="button ghost" href="{{ site.source_url }}">{% include icons/github.svg %}View on GitHub</a>
+<section class="hero snap" id="top">
+  <div class="hero-grid">
+    <div class="pitch">
+      <p class="eyebrow">Open source · MIT</p>
+      <h1>Terraform plans you can <em>navigate.</em></h1>
+      <p class="lede">A k9s-style terminal UI for Terraform, OpenTofu and Terragrunt. Read the plan as a tree, see the
+        risk on every change, pin what you mean to apply. When an agent runs it, it goes headless.</p>
+      <div class="install-line"><span class="prompt">$</span><code>brew install lmarqs/tap/tfui</code></div>
+      <div class="actions">
+        <a class="button primary" href="{{ '/guides/getting-started.html' | relative_url }}">Review your first plan{% include icons/arrow-right.svg %}</a>
+        <a class="button ghost" href="{{ site.source_url }}">{% include icons/github.svg %}View on GitHub</a>
+      </div>
+      <ul class="chips runs-on" aria-label="Works with">
+        <li>{% include icons/terraform.svg %}Terraform</li>
+        <li>{% include icons/opentofu.svg %}OpenTofu</li>
+        <li>{% include icons/layers.svg %}Terragrunt</li>
+        <li>{% include icons/bot.svg %}Any coding agent</li>
+        <li>{% include icons/git-branch.svg %}Any CI</li>
+      </ul>
     </div>
-  </div>
-  <div class="tour" id="how-it-works">
-    <p class="kicker">See it work</p>
-    <h2>Read the plan. Then act on it.</h2>
-    <p class="tour-caption" aria-live="polite"><kbd>tfui plan</kbd> {{ ba.changes }} changes, sorted into modules, a risk badge on every one. Not {{ ba.before_lines }} lines.</p>
-    <figure class="terminal stage">
-      <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan</b><i class="live" hidden>live · you're driving</i></div>
-      <pre tabindex="0" aria-label="Interactive demo of tfui's plan view. Focus it and press / to filter, j and k to move, Enter to inspect, Space to pin, a to apply.">
+    <div class="tour" id="how-it-works">
+      <p class="tour-caption" aria-live="polite"><kbd>tfui plan</kbd> {{ ba.changes }} changes, sorted into modules, a risk badge on every one. Not {{ ba.before_lines }} lines.</p>
+      <figure class="terminal stage">
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan</b><i class="live" hidden>live · you're driving</i>
+          <button type="button" class="leave" hidden aria-label="Leave the demo">esc</button></div>
+        <pre tabindex="0" aria-label="Interactive demo of tfui's plan view. Focus it and press / to filter, j and k to move, Enter to inspect, Space to pin, a to apply. Escape leaves.">
 {%- for c in tour.changes %}
 <span class="ln"> [ ] <span class="{% case c.action %}{% when 'create' %}add{% when 'update' %}chg{% else %}del{% endcase %}">{% case c.action %}{% when 'create' %}+{% when 'update' %}~{% else %}-{% endcase %}</span> {{ c.address }} <span class="r-{{ c.risk | downcase }}">[{{ c.risk }}]</span></span>
 {%- endfor %}
 <span class="ln"> </span>
 <span class="ln"> <span class="ok">Plan: {{ tour.summary.add }} to add, {{ tour.summary.change }} to change, {{ tour.summary.destroy }} to destroy</span></span>
 <span class="ln"> Overall risk: <span class="r-{{ tour.risk | downcase }}">{{ tour.risk }}</span></span></pre>
-    </figure>
-    <ol class="tour-steps">
-      <li><button type="button" aria-selected="true">Plan<kbd>p</kbd></button><i class="bar"></i></li>
-      <li><button type="button" aria-selected="false">Filter<kbd>/</kbd></button><i class="bar"></i></li>
-      <li><button type="button" aria-selected="false">Inspect<kbd>enter</kbd></button><i class="bar"></i></li>
-      <li><button type="button" aria-selected="false">Pin<kbd>space</kbd></button><i class="bar"></i></li>
-      <li><button type="button" aria-selected="false">Apply<kbd>a</kbd></button><i class="bar"></i></li>
-      <li><button type="button" aria-selected="false">Agent<kbd>--ci</kbd></button><i class="bar"></i></li>
-    </ol>
-    <p class="tour-hint">Click the terminal and drive it with the same keys tfui uses. <button type="button" class="tour-replay">{% include icons/play.svg %}Replay</button></p>
+      </figure>
+      <ol class="tour-steps">
+        <li><button type="button" aria-selected="true">Plan<kbd>p</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-selected="false">Filter<kbd>/</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-selected="false">Inspect<kbd>enter</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-selected="false">Pin<kbd>space</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-selected="false">Apply<kbd>a</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-selected="false">Agent<kbd>--ci</kbd></button><i class="bar"></i></li>
+      </ol>
+      <p class="tour-hint"><span class="when-idle">Click the terminal to take the keys. It uses the same ones tfui does.</span><span class="when-live"><kbd>esc</kbd> hands the keys back. Scroll on to keep reading.</span>
+        <button type="button" class="tour-replay">{% include icons/play.svg %}Replay</button></p>
+      <template id="tour-before">{% include before-after/before.html %}</template>
+      <template id="tour-agent">{% include before-after/agent.html %}</template>
+      <script type="application/json" id="tour-data">{{ tour | jsonify }}</script>
+    </div>
+  </div>
+  <div class="proof">
     <ul class="stat">
       <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
       <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
       <li><b>{{ ba.agent_lines }}</b><span>lines for your agent</span></li>
       <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
     </ul>
-    <p class="note">Every row is from a real plan of the <a href="{{ site.source_url }}/tree/main/demo/before-after">demo/before-after</a>
-      fixture with Terraform v1.14.9, planned offline against a hand-written state. tfui reads the plan on your machine and sends it nowhere.
-      Regenerate it with <code>mise run demo:before-after</code>.</p>
-    <template id="tour-before">{% include before-after/before.html %}</template>
-    <template id="tour-agent">{% include before-after/agent.html %}</template>
-    <script type="application/json" id="tour-data">{{ tour | jsonify }}</script>
+    <p class="note">A real plan of the <a href="{{ site.source_url }}/tree/main/demo/before-after">demo/before-after</a> fixture, Terraform v1.14.9,
+      planned offline. tfui reads the plan on your machine and sends it nowhere.</p>
   </div>
 </section>
 
-<section class="trust">
-  <div class="wrap">
-    <p class="kicker">Works with what you already run</p>
-    <ul class="chips">
-      <li>{% include icons/terraform.svg %}Terraform</li>
-      <li>{% include icons/opentofu.svg %}OpenTofu</li>
-      <li>{% include icons/layers.svg %}Terragrunt</li>
-      <li>{% include icons/bot.svg %}Any coding agent</li>
-      <li>{% include icons/git-branch.svg %}Any CI</li>
-    </ul>
-  </div>
-</section>
-
-
-<section class="section" id="the-base">
-  <div class="wrap">
-    <p class="kicker">The base</p>
-    <h2>What the base watches</h2>
-    <p class="lede">Each pin on the picture marks something tfui does for you before terraform touches anything. Select
-      one to read more.</p>
-    <div class="base-map">
-      <img src="{{ '/assets/base.webp' | relative_url }}" srcset="{{ '/assets/base-768.webp' | relative_url }} 768w, {{ '/assets/base.webp' | relative_url }} 1536w" sizes="(max-width: 1000px) 100vw, 960px" width="1536" height="1024" loading="lazy"
-        alt="Flat isometric illustration of a terraforming base on a red planet at night. Inside a glass dome, two operators work beside a glowing hologram of the planet with one red sector; one pulls a lever beside a key. Outside: atmosphere processors circled by rings, a colony under construction, a canal, a floodlit crater, a rover with an empty cab and a distant dust storm. Numbered pins mark what each part stands for.">
-      {%- for pin in site.data.pins %}
-      <a class="pin" href="#pin-{{ pin.id }}" data-pin="{{ pin.id }}" style="left: {{ pin.left }}%; top: {{ pin.top }}%;" aria-label="{{ pin.id }}: {{ pin.title }}">{{ pin.id }}</a>
-      {%- endfor %}
-    </div>
-    <ol class="legend">
-      {%- for pin in site.data.pins %}
-      <li id="pin-{{ pin.id }}" data-pin="{{ pin.id }}">
-        <a href="{{ pin.href | relative_url }}">
-          <span class="num">{{ pin.id }}</span>
-          <div>
-            <h3>{% include icons/{{ pin.icon }}.svg %}{{ pin.title }}</h3>
-            <p>{{ pin.text }}</p>
-          </div>
-        </a>
-      </li>
-      {%- endfor %}
-    </ol>
-  </div>
-</section>
-
-<section class="section" id="sixty-seconds">
+<section class="section snap" id="sixty-seconds">
   <div class="wrap">
     <div class="feature">
       <div class="feature-copy">
@@ -132,7 +99,7 @@ tfui -plan /tmp/plan.json
   </div>
 </section>
 
-<section class="section" id="features">
+<section class="section snap" id="features">
   <div class="wrap">
     <div class="center">
       <p class="kicker">Features</p>
@@ -233,6 +200,7 @@ Overall risk: <b class="crit">CRITICAL</b></pre>
   </div>
 </section>
 
+<div class="flow snap">
 <section class="section" id="agents">
   <div class="wrap">
     <p class="kicker">Headless</p>
@@ -384,3 +352,4 @@ sudo mv tfui /usr/local/bin/
     </div>
   </div>
 </section>
+</div>
