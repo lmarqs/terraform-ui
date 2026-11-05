@@ -1,6 +1,6 @@
 ---
 name: exploratory-tester
-description: Explore user-facing flows end to end against a given plan/state file — confirming a fix, smoke-testing before release, or probing a scenario — and report what a user would see
+description: Explore user-facing flows end to end against plan/state files — confirming a fix, smoke-testing before release, or probing a scenario — and report what a user would see
 claude:
   tools:
     - Read
