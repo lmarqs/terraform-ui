@@ -9,7 +9,7 @@
 <div class="docs-shell">
   {% include sidebar.html %}
   <main id="main" class="content" tabindex="-1">
-    <article class="prose" data-pagefind-body>
+    <article class="prose"{% unless page.sitemap == false %} data-pagefind-body{% endunless %}>
 {%- if content contains "<h1" %}
 {{ content }}
 {%- else %}

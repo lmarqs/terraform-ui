@@ -10,7 +10,7 @@
 <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
 {%- if page.layout != "home" %}
 <link rel="stylesheet" href="{{ '/pagefind/pagefind-ui.css' | relative_url }}">
-<script src="{{ '/pagefind/pagefind-ui.js' | relative_url }}" onerror="document.documentElement.classList.add('no-search')"></script>
+<script src="{{ '/pagefind/pagefind-ui.js' | relative_url }}" defer onerror="document.documentElement.classList.add('no-search')"></script>
 {%- endif %}
 <script>window.TFUI = { base: "{{ site.baseurl }}" };</script>
 <script src="{{ '/assets/site.js' | relative_url }}" defer></script>

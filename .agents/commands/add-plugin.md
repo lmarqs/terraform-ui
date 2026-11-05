@@ -99,7 +99,6 @@ Create a new plugin that implements the `Plugin` interface from `pkg/sdk/plugin.
 
    ```yaml
    ---
-   layout: plugin
    title: <Display Name>
    id: <plugin-id>
    key: <keyboard shortcut>
@@ -110,6 +109,9 @@ Create a new plugin that implements the `Plugin` interface from `pkg/sdk/plugin.
    ```
 
    Include sections: Overview, Usage (keybindings table), Configuration (tfui.hcl example), Related.
+
+   List the page in the docs sidebar: add a `title` and `path: plugins/<name>.md` entry under the Plugins section of
+   `docs/_data/nav.yml`. A page without an entry renders but does not appear in the sidebar.
 
 6. **Update the plugin index at `docs/plugins/index.md`**
 

@@ -59,7 +59,7 @@
 
   function copyButtons() {
     if (!navigator.clipboard) return;
-    document.querySelectorAll("div.highlighter-rouge").forEach(function (block) {
+    document.querySelectorAll("div.highlighter-rouge, figure.highlight").forEach(function (block) {
       var code = block.querySelector("pre code") || block.querySelector("pre");
       if (!code) return;
       block.appendChild(copyButton(function () { return code.textContent; }));
