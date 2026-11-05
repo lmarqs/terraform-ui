@@ -1,11 +1,12 @@
 ---
 name: code-checker
 description: Audit a diff for project conventions the linter misses — naming, domain terms, speculative code, comments — before commit
-tools:
-  - Read
-  - Bash(find:*)
-  - Bash(grep:*)
-  - Bash(go vet:*)
+claude:
+  tools:
+    - Read
+    - Bash(find:*)
+    - Bash(grep:*)
+    - Bash(go vet:*)
 ---
 
 # Code Checker

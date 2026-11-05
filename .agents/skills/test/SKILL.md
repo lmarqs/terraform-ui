@@ -1,4 +1,5 @@
 ---
+name: test
 allowed-tools: Bash(mise run:*)
 description: Run Go unit tests (mise run test:unit)
 ---

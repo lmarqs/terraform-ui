@@ -1,3 +1,8 @@
+---
+name: ux-review
+description: Review the UX of the current state of the application across both surfaces, TUI and CLI
+---
+
 Review the UX of the current state of the application across BOTH surfaces (TUI and CLI). Act as a senior UX engineer who uses k9s, lazygit, ripgrep, and gh daily.
 
 ## TUI Surface

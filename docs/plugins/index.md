@@ -102,4 +102,4 @@ To create a new plugin:
 3. Register the plugin factory in `cmd/tfui/main.go` with `PluginMeta` (keybinding, menu visibility)
 4. Add documentation at `docs/plugins/<name>.md`
 
-See the `/add-plugin` slash command for a full step-by-step guide and reference implementation.
+See the `add-plugin` skill for a full step-by-step guide and reference implementation.

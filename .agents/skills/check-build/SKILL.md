@@ -1,4 +1,5 @@
 ---
+name: check-build
 allowed-tools: Bash(mise run:*)
 description: Compile check without artifacts (mise run check:build)
 ---

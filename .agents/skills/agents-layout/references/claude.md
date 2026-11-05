@@ -11,7 +11,8 @@ facts; [codex.md](codex.md) holds the same facts for Codex.
 | --- | --- |
 | `AGENTS.md` | The instructions, from 2.1.277 on, while no `CLAUDE.md`, `.claude/CLAUDE.md` or `CLAUDE.local.md` sits in its directory or one above; any of the three makes Claude read it instead (tested, `CLAUDE.local.md` included). A person can turn `AGENTS.md` support off under "Project instructions" in `/config`, as Claude Code's changelog says; not tested |
 | `.claude/settings.json`, a link to `.agents/adapters/claude/settings.json` | The project settings: the policy as `permissions`, `hooks` and every other key the team writes. Claude reads project settings only there |
-| `.claude/skills`, `.claude/commands`, links to `.agents/skills/` and `.agents/commands/` | Skills and slash commands. Claude finds them only there, and does not read `.agents/skills/` (tested) |
+| `.claude/skills`, a link to `.agents/skills/` | Skills. Claude finds them only there, and does not read `.agents/skills/` (tested) |
+| `.claude/agents`, a link to `.agents/adapters/claude/agents/` | The shared subagents, rendered from `.agents/agents/` ([subagents.md](subagents.md)); Claude reads subagents from `.claude/agents/` and ignores a front matter key it does not know, per its documentation; `/agents` lists a rendered one (tested with 2.1.318) |
 | `.claude/settings.local.json` | Each person's own settings, merged over the project's; git ignores it |
 | `.claude/rules/` | Path-scoped rules, which Codex does not read; the layout keeps none, [adopt.md](adopt.md#claude-path-scoped-rules-in-clauderules) moves them |
 

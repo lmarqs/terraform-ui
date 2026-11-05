@@ -1,14 +1,15 @@
 ---
 name: test-writer
 description: Write the failing test that opens every TDD cycle — before any implementation edit, for a new behavior or a bug reproduction
-tools:
-  - Read
-  - Write
-  - Edit
-  - Bash(go test:*)
-  - Bash(go build:*)
-  - Bash(find:*)
-  - Bash(grep:*)
+claude:
+  tools:
+    - Read
+    - Write
+    - Edit
+    - Bash(go test:*)
+    - Bash(go build:*)
+    - Bash(find:*)
+    - Bash(grep:*)
 ---
 
 # Test Writer

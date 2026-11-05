@@ -1,11 +1,12 @@
 ---
 name: architect
 description: Design the implementation plan for a new plugin, SDK addition, or cross-cutting feature before any code is written
-tools:
-  - Read
-  - Bash(find:*)
-  - Bash(grep:*)
-  - Bash(ls:*)
+claude:
+  tools:
+    - Read
+    - Bash(find:*)
+    - Bash(grep:*)
+    - Bash(ls:*)
 ---
 
 # Architect

@@ -1,10 +1,11 @@
 ---
 name: tui-checker
 description: Audit plugin views, hints, and keybindings against the TUI UX spec after edits to View(), Hints(), frames, or key handling
-tools:
-  - Read
-  - Bash(find:*)
-  - Bash(grep:*)
+claude:
+  tools:
+    - Read
+    - Bash(find:*)
+    - Bash(grep:*)
 ---
 
 # TUI Checker

@@ -7,13 +7,17 @@ investigate an agent that misbehaves, and why it is shaped this way.
 
 ## What lives where
 
+A file goes in one of [three places](skills/agents-layout/references/design.md#three-places-for-a-file): `.agents/`
+for what any harness can use, `adapters/<harness>/` for one harness's own files, and the links in `/.claude/` and
+`/.codex/`.
+
 | Path | Holds | Decided by |
 | --- | --- | --- |
 | `/AGENTS.md` | Instructions for every agent, whatever its harness or role. Each harness reads it natively | The team |
 | `skills/` | One directory per skill with its `SKILL.md`. Codex reads it natively; Claude through `/.claude/skills` | The team |
-| `commands/` | One Markdown file per slash command. Claude reads it through `/.claude/commands`; Codex does not | The team |
 | `hooks/` | Scripts that each harness's hook settings run, by their path from the repository root, and the files they load. Each `session-start.d/*.sh` prints context that every harness adds to a session as it starts, with the harness name as `$1` | The team; Cook owns the `session-start` dispatcher |
 | `memory/` | Durable facts the code and `README.md` do not show, read when `AGENTS.md` points to them; no secrets | The team |
+| `agents/` | One Markdown file per subagent. Cook renders each into `adapters/<harness>/agents/`, which `/.claude/agents` and `/.codex/agents` link to | The team |
 | `permission/policy.yaml` | What agents may run: `commands` and `tools` for every session, `roles` that narrow it | The team |
 | `adapters/<harness>/` | Each harness's settings. Cook renders the policy into `permissions` in `claude/settings.json`, `sandbox_mode`, `approval_policy` and `sandbox_workspace_write.network_access` in `codex/config.toml`, and `codex/rules/cook.rules`, and owns `hooks.SessionStart` in `claude/settings.json` and `codex/hooks.json`, which runs `hooks/session-start` | Cook |
 | `adapters/<harness>/`, every other key and file | Settings such as the other events under `hooks`, `env` and `[mcp_servers]`, written in the harness's own format | The team |

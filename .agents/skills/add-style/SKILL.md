@@ -1,4 +1,5 @@
 ---
+name: add-style
 allowed-tools: Read, Edit, Bash(mise run:*)
 description: Add or modify styles in the theme
 ---

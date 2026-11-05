@@ -1,4 +1,5 @@
 ---
+name: build
 allowed-tools: Bash(mise run:*)
 description: Build Go binary (mise run build)
 ---

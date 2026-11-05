@@ -54,7 +54,7 @@ terraform_ui_demo.egg-info/
 /.claude/*
 !/.claude/settings.json
 !/.claude/skills
-!/.claude/commands
+!/.claude/agents
 # Claude Code skips AGENTS.md while any of these exists, so they stay out of commits.
 CLAUDE.md
 CLAUDE.local.md

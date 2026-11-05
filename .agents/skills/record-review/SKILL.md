@@ -1,4 +1,5 @@
 ---
+name: record-review
 allowed-tools: Bash(ls:*), Bash(cat:*), Read
 description: Review a recorded tfui session (frames + tape)
 ---

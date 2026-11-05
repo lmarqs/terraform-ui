@@ -1,4 +1,5 @@
 ---
+name: coverage
 allowed-tools: Bash(mise run:*)
 description: Run Go coverage report (mise run test:coverage)
 ---

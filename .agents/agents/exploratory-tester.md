@@ -1,13 +1,14 @@
 ---
 name: exploratory-tester
 description: Explore user-facing flows end to end against a given plan/state file — confirming a fix, smoke-testing before release, or probing a scenario — and report what a user would see
-tools:
-  - Read
-  - Bash(go run:*)
-  - Bash(go build:*)
-  - Bash(find:*)
-  - Bash(grep:*)
-  - Bash(ls:*)
+claude:
+  tools:
+    - Read
+    - Bash(go run:*)
+    - Bash(go build:*)
+    - Bash(find:*)
+    - Bash(grep:*)
+    - Bash(ls:*)
 ---
 
 # Exploratory Tester

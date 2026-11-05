@@ -11,7 +11,7 @@ rest to each run.
 
 | Axis | Examples | Decided | Lives in |
 | --- | --- | --- | --- |
-| Knowledge | Instructions, skills, slash commands, hook scripts, durable facts | By the team, in review | `AGENTS.md`, `.agents/skills/`, `commands/`, `hooks/`, `memory/` |
+| Knowledge | Instructions, skills, hook scripts, durable facts | By the team, in review | `AGENTS.md`, `.agents/skills/`, `hooks/`, `memory/` |
 | Policy | What may run without asking, what asks, what never runs | By the team, in review | `.agents/permission/policy.yaml`, rendered to `.agents/adapters/` |
 | Harness | Claude Code, Codex | Per person, or per role in a loop runner | Which program is started |
 | Mode | Attended, unattended | Per run | Launch flags |
@@ -37,13 +37,37 @@ only for some tasks fits a skill, which both harnesses load on demand.
 (tested, including `CLAUDE.local.md`). The cost: a person cannot keep notes for this repository alone in Claude
 without hiding the team's.
 
+## Three places for a file
+
+| Place | Path | Holds |
+| --- | --- | --- |
+| Shared directory | `.agents/<directory>/` | What any harness can use: `skills/`, `hooks/`, `memory/`, `agents/` and `permission/policy.yaml` |
+| Adapter | `.agents/adapters/<harness>/` | That harness's own files, committed: the renders, which Cook writes from `.agents/`, and what the team writes in the harness's format |
+| Harness directory | `.claude/`, `.codex/` | Links into the two places above; every other file there is personal, and ignored |
+
+Who owns each file is in [the owners table](../SKILL.md#owners).
+
+A file goes in the first place that fits. Knowledge any agent can use is written once, under `.agents/`. A setting
+only one harness understands is written in that harness's format, in its adapter.
+
+The adapters exist because a harness's own files need a home that is committed and not ignored. Some are shared
+between Cook and the team: `claude/settings.json` holds the permissions Cook renders beside the hooks and `env` the
+team writes, and Cook owns only the keys it renders ([Cook owns only the keys it
+renders](#cook-owns-only-the-keys-it-renders)). Others are the team's alone, such as the settings file a loop runner
+passes its Codex worker. Writing them directly into `.claude/` and `.codex/` would mean a `!` line in `.gitignore`
+for each one, and would give up ignoring those directories by default
+([Links and adapters are committed](#links-and-adapters-are-committed)).
+
+Cook's rule stops at these places. Other files or directories a project keeps under `.agents/`, such as review notes
+or templates, are the project's, and the layout check does not report them.
+
 ## Links only where a harness reads a fixed path
 
 | Harness | Link | Because |
 | --- | --- | --- |
 | Claude | `.claude/settings.json` | Claude reads project settings only there |
-| Claude | `.claude/skills`, `.claude/commands` | Claude finds skills and commands only there; it does not read `.agents/skills` (tested) |
-| Codex | `.codex/config.toml`, `.codex/rules`, `.codex/hooks.json` | Codex reads project configuration only there |
+| Claude | `.claude/skills`, `.claude/agents` | Claude finds skills and subagents only there; it does not read `.agents/skills` (tested) |
+| Codex | `.codex/config.toml`, `.codex/rules`, `.codex/hooks.json`, `.codex/agents` | Codex reads project configuration and custom agents only there |
 
 Codex reads `AGENTS.md` and `.agents/skills/` natively, so it needs no link for them;
 [claude.md](claude.md#what-it-reads) and [codex.md](codex.md#what-it-reads) list what each harness reads. Hook scripts
@@ -100,6 +124,22 @@ Some rules need what only one harness can say, such as a flag after the branch. 
 Claude's own syntax, and Codex's rules file lists it in a comment as not enforced, so the gap is visible where Codex's
 rules are read. Tools other than the shell are named differently by each harness, so `tools` holds only these
 harness entries.
+
+## One subagent file, rendered per harness
+
+A subagent is mostly its prompt, and the prompt is the same for every harness, so it is written once, in
+`.agents/agents/<name>.md`. Only the settings around it differ: Claude Code reads Markdown with front matter and
+Codex reads TOML, and they share no field beyond a name, a description and the instructions. So the file keeps those
+three for both, and one map per harness whose keys `#connect` passes through as given
+([subagents.md](subagents.md)).
+
+The renderer translates nothing. A model or a tool has a different name in each harness, and a mapping between them
+would go stale the day either harness adds one, silently. Keeping each value in its harness's block costs a line per
+harness, and a new key a harness learns works without a new release of the layout.
+
+Claude Code could read the file in place, as it ignores keys it does not know, but it would then also ignore the
+`claude` block, whose keys only take effect at the top of its front matter. Rendering both harnesses the same way
+keeps one rule: what a harness reads under `.agents/adapters/` is generated, and the team edits `.agents/agents/`.
 
 ## Cook owns only the keys it renders
 
@@ -175,7 +215,7 @@ keeps these paths stable:
 | What | Where |
 | --- | --- |
 | Instructions | The root `AGENTS.md`, which both harnesses read natively |
-| Skills and commands | The `.claude/skills` and `.claude/commands` links for Claude; `.agents/skills/` for Codex |
+| Skills | The `.claude/skills` link for Claude; `.agents/skills/` for Codex |
 | The policy, for every run | The `.claude/settings.json` link for Claude; the `.codex/config.toml` and `.codex/rules` links for Codex |
 | A Claude role | `--settings .agents/adapters/claude/roles/<role>.json`, for each role `policy.yaml` defines |
 | A Codex role | None: every Codex run gets `commands` |

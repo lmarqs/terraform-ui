@@ -1,7 +1,8 @@
 ---
 name: roadmap
-model: sonnet
 description: Manage roadmap and backlog GitHub issues — file, scope, label, move on the board, close, or review planned work
+claude:
+  model: sonnet
 ---
 
 # Roadmap

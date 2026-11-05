@@ -1,4 +1,5 @@
 ---
+name: run
 allowed-tools: Bash(mise run:*)
 description: Run tfui TUI in development mode (mise run dev)
 ---

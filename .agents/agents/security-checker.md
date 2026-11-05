@@ -1,10 +1,11 @@
 ---
 name: security-checker
 description: Audit terraform-specific security — secret exposure, AI data leakage, argument injection, confirmation gates — after changes touching terraform calls, state display, AI, or files
-tools:
-  - Read
-  - Bash(find:*)
-  - Bash(grep:*)
+claude:
+  tools:
+    - Read
+    - Bash(find:*)
+    - Bash(grep:*)
 ---
 
 # Security Checker

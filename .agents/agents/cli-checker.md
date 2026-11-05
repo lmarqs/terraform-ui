@@ -1,10 +1,11 @@
 ---
 name: cli-checker
 description: Audit cmd/tfui/ and plugin output ports against the CLI I/O contract after CLI, flag, or exit-code changes
-tools:
-  - Read
-  - Bash(find:*)
-  - Bash(grep:*)
+claude:
+  tools:
+    - Read
+    - Bash(find:*)
+    - Bash(grep:*)
 ---
 
 # CLI Checker

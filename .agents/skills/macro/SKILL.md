@@ -1,4 +1,5 @@
 ---
+name: macro
 allowed-tools: Bash(mise run:*)
 description: Run macro tape tests to verify TUI rendering (mise run test:macro)
 ---

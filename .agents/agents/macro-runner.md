@@ -1,14 +1,15 @@
 ---
 name: macro-runner
 description: Verify rendering after a View(), Hints(), or layout change by running macro tapes against fixtures, adding a regression tape when none covers it
-tools:
-  - Read
-  - Bash(go run:*)
-  - Bash(go build:*)
-  - Bash(cat:*)
-  - Bash(find:*)
-  - Bash(grep:*)
-  - Write
+claude:
+  tools:
+    - Read
+    - Bash(go run:*)
+    - Bash(go build:*)
+    - Bash(cat:*)
+    - Bash(find:*)
+    - Bash(grep:*)
+    - Write
 ---
 
 # Macro Runner

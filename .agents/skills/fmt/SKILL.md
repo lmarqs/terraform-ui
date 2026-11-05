@@ -1,4 +1,5 @@
 ---
+name: fmt
 allowed-tools: Bash(mise run:*)
 description: Format Go source files (mise run fmt)
 ---

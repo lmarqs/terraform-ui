@@ -1,4 +1,5 @@
 ---
+name: add-plugin
 allowed-tools: Read, Write, Edit, Bash(mise run:*)
 description: Add a new plugin to the application
 ---

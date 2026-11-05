@@ -1,4 +1,5 @@
 ---
+name: add-command
 allowed-tools: Read, Write, Edit, Bash(mise run:*)
 description: Add a new CLI subcommand (cobra)
 ---

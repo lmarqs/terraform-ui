@@ -42,7 +42,7 @@ An agent has no terminal to answer Cook's prompt, so without `--batch-approve` C
    ```
 
 8. **Review.** Stage first as step 9 does: `check.sh` reads the links and the size of `AGENTS.md` from the index, so
-   before staging it fails every link. Then run the review in [SKILL.md](../SKILL.md#review) and fix what it finds.
+   before staging it fails every link. Then run the review in [review.md](review.md#review) and fix what it finds.
 9. **Commit once.** Stage every path `git status --short` lists that the adoption changed: the layout's paths below,
    and what the sections under [An existing setup](#an-existing-setup) moved, removed or rewired.
 
@@ -55,8 +55,9 @@ An agent has no terminal to answer Cook's prompt, so without `--batch-approve` C
    The links in `.claude/` and `.codex/` are committed, so a clone, a worktree, a cloud session or a CI job reads the
    layout with no cooking and no Cook installed. The `harnesses` section of `.gitignore` keeps everything else a
    harness writes there, such as `.claude/settings.local.json` or `.claude/worktrees/`, out of commits. Commit no
-   real file in either directory: a file the team shares goes under `.agents/`, which the links reach, and a file
-   for one person stays on their machine. [design.md](design.md#links-and-adapters-are-committed) gives the cost.
+   real file in either directory: a file the team shares goes in one of the
+   [three places](design.md#three-places-for-a-file), and a file for one person stays on their machine.
+   [design.md](design.md#links-and-adapters-are-committed) gives the cost.
 
    After the commit, `git ls-files .claude .codex` lists only links, and `git ls-files -s .claude .codex` shows each
    with mode `120000`. `git check-ignore --no-index $(find .claude .codex -maxdepth 1 -type l)` prints nothing; a link
@@ -77,10 +78,9 @@ before                     after
                              .agents/adapters/claude/settings.json
                              .agents/adapters/codex/config.toml
                              .agents/skills/agents-layout/
-                             .agents/commands/  hooks/  memory/
+                             .agents/hooks/  memory/
                              .claude/settings.json -> ../.agents/adapters/claude/settings.json
                              .claude/skills -> ../.agents/skills
-                             .claude/commands -> ../.agents/commands
                              .codex/config.toml -> ../.agents/adapters/codex/config.toml
 ```
 
@@ -162,6 +162,42 @@ I prefer short answers.
 ```
 
 After: the first two rules are in `AGENTS.md`, the last line is back with its author, and `CLAUDE.md` is gone.
+
+### Claude subagents in .claude/agents/
+
+Codex does not read `.claude/agents/`, and the layout keeps `.claude/` to links, so each subagent moves to the shared
+file `#connect` renders for both harnesses ([subagents.md](subagents.md)). This belongs to step 5.
+
+1. `git mv .claude/agents/<name>.md .agents/agents/<name>.md` for each file; one in a subdirectory moves up, renamed
+   after its `name`.
+2. In each file, keep `name` and `description` at the top of the front matter, and move every other key under
+   `claude:`. Add a `codex:` map for the keys Codex needs, such as its `model`.
+3. After step 7, `.claude/agents` is a link, and `.agents/adapters/claude/agents/<name>.md` holds the same keys the
+   file had before the move.
+
+Before:
+
+```markdown
+<!-- .claude/agents/bug-hunter.md -->
+---
+name: bug-hunter
+description: Reviews a staged diff for correctness bugs.
+tools: Read, Grep, Glob
+---
+You review diffs.
+```
+
+After, in `.agents/agents/bug-hunter.md`:
+
+```markdown
+---
+name: bug-hunter
+description: Reviews a staged diff for correctness bugs.
+claude:
+  tools: Read, Grep, Glob
+---
+You review diffs.
+```
 
 ### Claude path-scoped rules in .claude/rules/
 
@@ -370,24 +406,6 @@ commands:
     - [git, [status, diff]]
 ```
 
-### Files beside the shared directories
-
-Harnesses reach `.agents/` through the shared directories and the adapters only, so a file or directory the team
-keeps directly under `.agents/` is found only through a path someone wrote down. `check.sh` warns on each. This comes
-before step 8.
-
-1. List the entries that are not the layout's:
-
-   ```sh
-   git ls-files -- .agents | sed -n 's|^\.agents/\([^/]*\).*|\1|p' | sort -u |
-     grep -vxE 'README\.md|permission|adapters|skills|commands|hooks|memory'
-   ```
-
-2. Find what names each one: `git grep -n -e <entry>`.
-3. Move it beside what uses it: a file a hook script loads into `hooks/`, a file one skill reads into that skill's
-   directory, a durable fact into `memory/`, permission rules into `permission/policy.yaml`. A file no agent reads, such as a loop runner's configuration, leaves
-   `.agents/`. Then update every path step 2 found, and the relative paths inside the moved file.
-
 ## Risks a review catches
 
 Mechanical moves do not cover every existing setup. These fail loudly; each has a check to run before step 7.
@@ -395,7 +413,7 @@ Mechanical moves do not cover every existing setup. These fail loudly; each has 
 - **A file or directory where `#connect` makes a link.** Cook refuses, saying, for example, that
   `.codex/config.toml is a file, and this recipe makes it a link to ../.agents/adapters/codex/config.toml`, and writes
   nothing. Check: `find .claude .codex -mindepth 1 -maxdepth 1 ! -type l` lists what is not a link; a
-  `settings.json`, `skills`, `commands`, `config.toml`, `rules` or `hooks.json` among them stops the cook that links
+  `settings.json`, `skills`, `config.toml`, `rules` or `hooks.json` among them stops the cook that links
   it. Move a file to the adapter of the same name, as `git mv .codex/config.toml .agents/adapters/codex/config.toml`
   does, a directory's files into `.agents/`, and cook again.
 - **An ignore rule that hides a link.** Cook's `harnesses` section re-includes each harness directory, but a rule after

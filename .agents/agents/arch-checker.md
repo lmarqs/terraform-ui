@@ -1,11 +1,12 @@
 ---
 name: arch-checker
 description: Audit plugin boundaries, event-bus use, and Context immutability after edits to plugins/, pkg/sdk/, or internal/
-tools:
-  - Read
-  - Bash(find:*)
-  - Bash(grep:*)
-  - Bash(go vet:*)
+claude:
+  tools:
+    - Read
+    - Bash(find:*)
+    - Bash(grep:*)
+    - Bash(go vet:*)
 ---
 
 # Architecture Checker

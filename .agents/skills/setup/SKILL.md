@@ -1,4 +1,5 @@
 ---
+name: setup
 allowed-tools: Bash(mise run:*)
 description: Bootstrap all project dependencies (mise run setup)
 ---
