@@ -314,10 +314,8 @@ figure.highlight { margin: 0 0 18px; }
 }
 .hero.drive .proof { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
 .proof .stat { margin: 0; }
-.proof .stat span, .proof .note { color: #b39a8d; }
+.proof .stat span { color: #b39a8d; }
 .proof .stat b { color: #ffb347; }
-.proof .note { max-width: 520px; margin: 0; }
-.proof .note a { color: #ffb347; }
 .button {
   display: inline-flex; align-items: center; gap: 9px; font: 600 16px/1 var(--font-body); text-decoration: none;
   padding: 14px 22px; border-radius: 8px; border: 1px solid transparent; transition: transform .1s, background .1s, border-color .1s;
