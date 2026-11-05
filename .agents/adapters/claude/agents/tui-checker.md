@@ -25,8 +25,8 @@ Apply every class to every plugin in scope (the caller's diff, or all of `plugin
 2. **Split rule** (§13): bare keys in the actions bar, ctrl/punctuation keys in the hint bar, plugin-specific keys inline. A key in the wrong layer is a finding.
 3. **State-aware hints** (§13): `Hints()` varies with status; each status offers exactly the keys that work in it.
 4. **Content purity** (§13): state messages, errors, and guidance carry no keybinding text.
-5. **Keybinding layers** (`ux-tui.md`, §16): `enter` inspects, `space` pins, direct action keys act on the cursor, batch goes through `!`; new keys are free in §16.
-6. **Confirmation ownership** (`ux-tui.md`): the executing plugin confirms, once.
+5. **Keybinding layers** (skill § Keybinding Rules, §16): `enter` inspects, `space` pins, direct action keys act on the cursor, batch goes through `!`; a new key is unused in §16.
+6. **Confirmation ownership** (skill § Confirmation Ownership): the executing plugin confirms, once.
 
 Done when every rule class has been applied to every in-scope plugin, and each finding cites `file:line` plus the spec section it breaks.
 
