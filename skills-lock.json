@@ -7,18 +7,6 @@
       "skillPath": "skills/golang-patterns/SKILL.md",
       "computedHash": "67c25e95cec3f3166c2efefd5f4502863a1246c6f742b8cbcd2e2864d2a8182a"
     },
-    "grill-me": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/productivity/grill-me/SKILL.md",
-      "computedHash": "784f0dbb7403b0f00324bce9a112f715342777a0daee7bbb7385f9c6f0a170ea"
-    },
-    "grill-with-docs": {
-      "source": "mattpocock/skills",
-      "sourceType": "github",
-      "skillPath": "skills/engineering/grill-with-docs/SKILL.md",
-      "computedHash": "1adf321072f53cce3dcaf5357d91b8230d4aa647bb8a51756745337a6ee567b8"
-    },
     "hexagonal-architecture": {
       "source": "affaan-m/everything-claude-code",
       "sourceType": "github",
@@ -30,12 +18,6 @@
       "sourceType": "github",
       "skillPath": "skills/security-review/SKILL.md",
       "computedHash": "997a20d294003157511b86c72487c6193c524fb2977677f245e89ccdfc7202be"
-    },
-    "solid": {
-      "source": "ramziddin/solid-skills",
-      "sourceType": "github",
-      "skillPath": "skills/solid/SKILL.md",
-      "computedHash": "60de610a3c143f79f69552b7da60298bb46c9e8d80ab16c4c111b025823345d1"
     },
     "tdd": {
       "source": "mattpocock/skills",
