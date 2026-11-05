@@ -1,0 +1,16 @@
+# Written by the-cook; do not edit by hand.
+version: 1
+recipes:
+  - name: "io.github.lmarqs.cookbook:git#worktrees"
+    source: "io.github.lmarqs.cookbook:git:10.1.1#worktrees"
+    sha256: "f7213b67b20747c9597662c99d7a183fe26c65d48816e98d8b76776ac31b2895"
+    arguments:
+      "instructions": [".claude/CLAUDE.md","AGENTS.md"]
+    owns:
+      sections:
+        - file: ".claude/CLAUDE.md"
+          id: "io.github.lmarqs.cookbook:git#worktrees/worktrees"
+        - file: ".gitignore"
+          id: "io.github.lmarqs.cookbook:git#worktrees/worktrees"
+        - file: "AGENTS.md"
+          id: "io.github.lmarqs.cookbook:git#worktrees/worktrees"

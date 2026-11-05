@@ -170,3 +170,8 @@ CRITICAL: tfui is a UI layer, not a terraform validator. **Never invent behavior
 **The rule:** pass through to terraform, warn when helpful (stderr), never block. If terraform rejects it, the user sees terraform's error — that's fine. Don't duplicate terraform's validation.
 
 **Test corollary:** tests must exercise real behavior through the harness, not bypass Init to test impossible states.
+<!-- cook:begin io.github.lmarqs.cookbook:git#worktrees/worktrees -->
+<!-- io.github.lmarqs.cookbook:git#worktrees --instructions=.claude/CLAUDE.md --instructions=AGENTS.md -->
+- Worktrees: branch `<branch>` is checked out at `.worktrees/<branch>`; `.worktrees/README.md` says how to
+  create one ready to run and remove it.
+<!-- cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees -->

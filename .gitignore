@@ -41,3 +41,10 @@ terraform_ui_demo.egg-info/
 
 # Claude Code worktrees
 .claude/worktrees/
+# cook:begin io.github.lmarqs.cookbook:git#worktrees/worktrees
+# io.github.lmarqs.cookbook:git#worktrees --instructions=.claude/CLAUDE.md --instructions=AGENTS.md
+/.worktrees/*
+!/.worktrees/README.md
+!/.worktrees/setup
+!/.worktrees/teardown
+# cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees

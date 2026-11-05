@@ -1,0 +1,9 @@
+#!/bin/sh
+# Makes the worktree it runs in ready to run. It runs from the worktree's root, after `git worktree add`, by hand or
+# from a runner or hook configured with it, which stops when it exits non-zero.
+set -eu
+
+# mise refuses an untrusted config, and each worktree path is a new config to trust.
+mise trust --quiet
+mise install
+mise run setup

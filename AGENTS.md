@@ -152,3 +152,8 @@ When encountering undocumented patterns or decisions that caused rework, suggest
 - 2025-05: Terraform does NOT support `-target` with a saved plan file. Apply handles this via replan (see `.claude/rules/architecture.md`).
 - 2025-05: Apply plugin is NOT on the home menu — only reachable via plan's `a` key. Confirmation is owned by apply (single confirm), not plan.
 - 2025-05: `returnTo` is set both by `NavPush` metadata AND workflow transitions (plan→apply). All esc/cancel paths in sub-state plugins must emit `DeactivateMsg`.
+<!-- cook:begin io.github.lmarqs.cookbook:git#worktrees/worktrees -->
+<!-- io.github.lmarqs.cookbook:git#worktrees --instructions=.claude/CLAUDE.md --instructions=AGENTS.md -->
+- Worktrees: branch `<branch>` is checked out at `.worktrees/<branch>`; `.worktrees/README.md` says how to
+  create one ready to run and remove it.
+<!-- cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees -->
