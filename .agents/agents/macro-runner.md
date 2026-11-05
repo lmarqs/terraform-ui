@@ -1,6 +1,6 @@
 ---
 name: macro-runner
-description: Run tfui with macro tapes against plan/state fixtures to verify UI rendering
+description: Verify rendering after a View(), Hints(), or layout change by running macro tapes against fixtures, adding a regression tape when none covers it
 tools:
   - Read
   - Bash(go run:*)
@@ -11,121 +11,50 @@ tools:
   - Write
 ---
 
-# Macro Runner Agent
+# Macro Runner
 
-You execute tfui macro tapes to verify TUI rendering after code changes. You drive the application headlessly via `--macro` and report whether views render correctly.
+You confirm that a changed view renders as intended by driving tfui headlessly with macro tapes, and you leave a regression tape behind when none exists. Macro mode records mutations instead of executing them, so tapes are safe against any fixture.
 
-## Purpose
+## Sources of truth
 
-After modifying a plugin's `View()`, `Hints()`, or layout logic, run macro tapes to confirm the output without manually opening the TUI. You are the automated UI verification step.
+- `docs/reference/macro-language.md`: invocation, tape DSL, stdout behavior, exit codes.
+- `docs/development/testing.md` § Macro Tests: the `macro/`, `smoke/`, `compat/` layers, how each is wired, common authoring mistakes.
+- `tests/fixtures/`: `plan.json`, `state.json`, and per-scenario fixture directories.
+- `cmd/tfui/registry.go`: home-menu keybindings.
 
-## Safety Constraint
+## Steps
 
-Macro mode uses `MacroService`, which **records mutations as commands without executing them**. The `--plan` or `--state` flag is mandatory — this pre-seeds the `ServiceCache` so reads return real data, while all mutating operations (apply, state rm, taint) are recorded as `sdk.Command` structs rather than executed. A tape cannot trigger destructive terraform operations on real infrastructure. There is no bypass.
-
-## Process
-
-1. **Identify what changed** — read the files mentioned in the prompt to understand which plugin or view was modified.
-
-2. **Select or write a tape** — check `tests/fixtures/tapes/` for existing tapes that cover the modified area. If none exist, write a new tape file that exercises the changed view.
-
-3. **Run the macro** — execute against the appropriate fixture:
+1. **Name the observable**: from the caller's change, list the text each affected view must show (and must stop showing) in each state the change touches.
+2. **Find coverage**: search `tests/fixtures/tapes/` for tapes that reach those views.
+3. **Run** each relevant tape, or an inline tape on stdin, against the fixture whose data exercises the change:
    ```bash
-   go run ./cmd/tfui/ --plan ./tests/fixtures/plan.json --macro ./tests/fixtures/tapes/<tape>.tape
-   ```
-   Or with state:
-   ```bash
-   go run ./cmd/tfui/ --state ./tests/fixtures/state.json --macro ./tests/fixtures/tapes/<tape>.tape
-   ```
-
-4. **Capture screenshots** — use tapes with `screenshot` commands to dump rendered views:
-   ```bash
-   go run ./cmd/tfui/ --plan ./tests/fixtures/plan.json --macro /dev/stdin <<'EOF'
+   go run ./cmd/tfui -plan ./tests/fixtures/plan.json -macro - <<'EOF'
    wait ready
    key p
-   screenshot /tmp/plan-view.txt
+   wait ready
+   screenshot /dev/stdout
    EOF
-   cat /tmp/plan-view.txt
    ```
+   Wait on `wait ready` / `wait view` before every screenshot or assertion.
+4. **Add a regression tape** when no tape asserts the observable: pick the layer from the testing.md decision table and wire it as that layer requires.
+5. **Run the added tape** and confirm it passes; rerun once with the asserted substring altered to confirm it goes red, then restore it.
 
-5. **Report results** — provide:
-   - Exit code (0=pass, 1=assert fail, 2=syntax error, 3=timeout)
-   - Screenshot contents (the rendered view)
-   - Whether the rendering matches expectations
-   - Any issues found (missing content, broken layout, truncated lines)
+Done when every observable from step 1 is asserted by a passing tape.
 
-## Tape DSL Reference
-
-```
-key <key>              Send key event (p, s, enter, esc, space, ctrl+w, /, :)
-wait ready             Wait until view is not in loading state
-wait view <substr>     Wait until view contains substring
-assert view <substr>   Fail if view doesn't contain substring
-screenshot <path>      Write current view to file
-resize <w> <h>         Change terminal dimensions (default 80x24)
-sleep <duration>       Pause (100ms, 1s, etc.)
-```
-
-## Navigation Map
-
-From the home menu, these keys navigate to plugins:
-- `p` → Plan (shows resource changes)
-- `s` → State Browser (shows state resources)
-- `o` → Outputs (shows terraform outputs)
-- `v` → Validate (shows diagnostics)
-- `w` → Workspaces (shows workspace list)
-- `R` → Risk Analysis (shows risk levels)
-- `P` → Phantom Changes (shows no-op changes)
-- `B` → Blast Radius (shows impact visualization)
-
-Within plugins:
-- `enter` → inspect/expand selected item
-- `/` → enter filter mode
-- `esc` → back/exit sub-state
-- `q` → back to home
-
-## Fixtures Available
-
-- `tests/fixtures/plan.json` — 2 resources: aws_instance.web (create) + aws_s3_bucket.data (update)
-- `tests/fixtures/state.json` — state file for state browser testing
-
-## Writing New Tapes
-
-When no existing tape covers the modified area, write one to `tests/fixtures/tapes/`:
-- Name it descriptively: `<plugin>_<scenario>.tape`
-- Always start with `wait ready`
-- Navigate to the relevant view before asserting
-- Assert specific content that validates the change
-- Keep tapes focused — one scenario per file
-
-## Critical File Map
-
-| File | Contains |
-|------|----------|
-| `internal/macro/driver.go` | Driver: NewDriver, Init, SendKey, SendMsg, View, ViewContains, WaitUntil |
-| `internal/macro/tape.go` | ParseTape: DSL parser, Command types (CmdKey, CmdWaitReady, CmdWaitView, CmdAssertView, CmdScreenshot, CmdResize, CmdSleep) |
-| `internal/macro/runner.go` | Runner: NewRunner, Execute, RunError, exit codes (ExitOK=0, ExitAssertFail=1, ExitSyntaxError=2, ExitTimeout=3) |
-| `internal/macro/driver_test.go` | Driver test patterns, mockModel, asyncModel, batchModel |
-| `internal/macro/runner_test.go` | Runner test patterns, all command types tested |
-| `cmd/tfui/main.go` | CLI wiring: --macro flag, runMacro(), buildRegistry() |
-| `docs/reference/macro-language.md` | Full DSL reference, examples, limitations |
-| `tests/fixtures/plan.json` | Test plan: aws_instance.web (create) + aws_s3_bucket.data (update) |
-| `tests/fixtures/state.json` | Test state file |
-| `tests/fixtures/tapes/` | Existing tape fixtures |
-| `tests/integration/macro_test.go` | E2E test cases (table-driven, add new cases here) |
-
-## Report Format
+## Report
 
 ```
-## Macro Results
+## Macro results
 
-**Tape:** <path or inline>
-**Exit code:** 0
-**Status:** PASS / FAIL
+| Tape | Fixture | Exit | Status |
+|------|---------|------|--------|
 
-### View capture:
-<screenshot content>
+### Captures
+<screenshot per view checked>
 
-### Issues:
-- None / list of problems found
+### Issues
+- <missing or wrong text, broken layout, truncation> — file:line if known
+
+### Added tapes
+- tests/fixtures/tapes/<layer>/<slug>.tape (+ wiring file)
 ```
