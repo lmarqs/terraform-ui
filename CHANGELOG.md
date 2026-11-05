@@ -1,3 +1,10 @@
+## [1.21.1](https://github.com/lmarqs/terraform-ui/compare/v1.21.0...v1.21.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **docs:** shrink the landing hero image to fit the viewport ([41073c2](https://github.com/lmarqs/terraform-ui/commit/41073c2e81b572ae8b4180c21e29abfb0656a0ec))
+
 # [1.21.0](https://github.com/lmarqs/terraform-ui/compare/v1.20.1...v1.21.0) (2026-11-05)
 
 
