@@ -265,19 +265,11 @@ figure.highlight { margin: 0 0 18px; }
 .center { text-align: center; }
 .center .lede { margin-left: auto; margin-right: auto; }
 
-/* Scroll like slides on wide screens: the hero and the sections after it snap; .flow holds the rest and scrolls
-   freely, and the footer is the last stop. */
 @media (min-width: 981px) {
-  html { scroll-snap-type: y mandatory; scroll-padding-top: var(--topbar-h); }
-  .snap { scroll-snap-align: start; scroll-snap-stop: always; }
   .hero { height: calc(100svh - var(--topbar-h)); min-height: 620px; }
   .hero-grid { min-height: 0; padding-bottom: 8px; }
   .tour { min-height: 0; padding-top: 12px; }
-  .section.snap { min-height: calc(100svh - var(--topbar-h)); box-sizing: border-box; display: flex; align-items: center; }
-  .section.snap > .wrap { width: 100%; }
-  .footer { scroll-snap-align: end; }
 }
-.flow { border-top: 1px solid var(--line); }
 
 /* Hero: night on the planet, the pitch beside the stage. Focusing the stage (.drive) folds the pitch and the proof
    away and hands the stage the whole slide; esc, a click outside or a scroll folds them back. */
@@ -411,6 +403,30 @@ figure.highlight { margin: 0 0 18px; }
 .tour-replay .icon { width: 13px; height: 13px; }
 .tour:not(.js) .tour-steps, .tour:not(.js) .tour-hint { display: none; }
 .tour:not(.js) .stage .ln { display: inline; }
+/* The invitation to drive: a pill over the stage until the reader first takes the keys. */
+.stage .take {
+  position: absolute; left: 50%; bottom: 64px; z-index: 2; display: inline-flex; align-items: center; gap: 6px;
+  padding: 11px 18px 11px 16px; cursor: pointer; white-space: nowrap;
+  font: 600 14.5px/1 var(--font-body); color: #1a0f0b; background: #ffb347; border: 0; border-radius: 999px;
+  box-shadow: 0 10px 30px #000a, 0 0 40px #ffb34766; transform: translateX(-50%);
+  animation: bob 2.4s ease-in-out infinite;
+}
+.stage .take:hover { background: #ffc56e; animation-play-state: paused; }
+.stage .take:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.stage .take kbd { font-size: 11px; color: #1a0f0b; background: #ffd089; border-color: #a65f00; }
+.stage .take kbd:first-of-type { margin-left: 6px; }
+.stage .take-ring { position: absolute; inset: 0; border-radius: inherit; border: 2px solid #ffb347; animation: ring 2.4s ease-out infinite; pointer-events: none; }
+.stage .take-cursor {
+  position: absolute; right: -14px; bottom: -16px; width: 22px; height: 22px; pointer-events: none;
+  background: no-repeat center/contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5 3l14 7-6 2-2 6z' fill='%23fff' stroke='%231a0f0b' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+  filter: drop-shadow(0 2px 3px #000a); animation: tap 2.4s ease-in-out infinite;
+}
+.stage .take[hidden] { display: none; }
+@keyframes bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, -6px); } }
+@keyframes ring { 0% { opacity: .8; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.25, 1.6); } }
+@keyframes tap { 0%, 45%, 100% { transform: translate(8px, 8px); } 60% { transform: translate(0, 0); } 70% { transform: translate(0, 0) scale(.85); } 80% { transform: translate(0, 0); } }
+@media (max-width: 980px) { .stage .take { display: none; } }
+
 /* Short desktop screens: tighter spacing so the stage keeps the plan summary in view. */
 @media (min-width: 981px) and (max-height: 860px) {
   .hero-grid { padding-top: 20px; }

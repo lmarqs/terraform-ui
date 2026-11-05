@@ -14,6 +14,7 @@
   var tabs = Array.prototype.slice.call(root.querySelectorAll(".tour-steps button"));
   var replay = root.querySelector(".tour-replay");
   var leaveBtn = root.querySelector(".stage .leave");
+  var take = root.querySelector(".stage .take");
   var hero = root.closest(".hero");
   var wide = window.matchMedia ? window.matchMedia("(min-width: 981px)") : { matches: false };
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -411,6 +412,7 @@
   // Drive mode: on wide screens the focused stage takes the whole slide. Every way out keeps the scene as it is.
   var driving = false;
   function drive() {
+    take.hidden = true;
     if (driving || !hero || !wide.matches) return;
     driving = true;
     hero.classList.add("drive");
@@ -436,6 +438,8 @@
   stage.addEventListener("pointerdown", function () { stage.focus(); });
   stage.addEventListener("focus", drive);
   leaveBtn.addEventListener("click", leave);
+  take.addEventListener("click", function () { stage.focus(); });
+  take.hidden = false;
   document.addEventListener("pointerdown", function (ev) {
     if (driving && !root.querySelector(".stage").contains(ev.target) && !root.querySelector(".tour-steps").contains(ev.target)
       && !(replay && replay.contains(ev.target))) leave();

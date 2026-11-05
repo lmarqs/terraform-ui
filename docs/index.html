@@ -10,7 +10,7 @@ description: >-
 {%- assign ba = site.data.before_after -%}
 {%- assign tour = site.data.tour -%}
 
-<section class="hero snap" id="top">
+<section class="hero" id="top">
   <div class="hero-grid">
     <div class="pitch">
       <p class="eyebrow">Open source · MIT</p>
@@ -42,6 +42,7 @@ description: >-
 <span class="ln"> </span>
 <span class="ln"> <span class="ok">Plan: {{ tour.summary.add }} to add, {{ tour.summary.change }} to change, {{ tour.summary.destroy }} to destroy</span></span>
 <span class="ln"> Overall risk: <span class="r-{{ tour.risk | downcase }}">{{ tour.risk }}</span></span></pre>
+        <button type="button" class="take" hidden><span class="take-ring" aria-hidden="true"></span><span class="take-cursor" aria-hidden="true"></span>Click to take the keys<kbd>j</kbd><kbd>k</kbd><kbd>space</kbd></button>
       </figure>
       <ol class="tour-steps">
         <li><button type="button" aria-selected="true">Plan<kbd>p</kbd></button><i class="bar"></i></li>
@@ -51,7 +52,7 @@ description: >-
         <li><button type="button" aria-selected="false">Apply<kbd>a</kbd></button><i class="bar"></i></li>
         <li><button type="button" aria-selected="false">Agent<kbd>--ci</kbd></button><i class="bar"></i></li>
       </ol>
-      <p class="tour-hint"><span class="when-idle">Click the terminal to take the keys. It uses the same ones tfui does.</span><span class="when-live"><kbd>esc</kbd> or a scroll gives the page back.</span>
+      <p class="tour-hint"><span class="when-idle">Same keys as tfui itself.</span><span class="when-live"><kbd>esc</kbd> or a scroll gives the page back.</span>
         <button type="button" class="tour-replay">{% include icons/play.svg %}Replay</button></p>
       <template id="tour-before">{% include before-after/before.html %}</template>
       <template id="tour-agent">{% include before-after/agent.html %}</template>
@@ -70,7 +71,7 @@ description: >-
   </div>
 </section>
 
-<section class="section snap" id="sixty-seconds">
+<section class="section" id="sixty-seconds">
   <div class="wrap">
     <div class="feature">
       <div class="feature-copy">
@@ -99,7 +100,7 @@ tfui -plan /tmp/plan.json
   </div>
 </section>
 
-<section class="section snap" id="features">
+<section class="section" id="features">
   <div class="wrap">
     <div class="center">
       <p class="kicker">Features</p>
@@ -200,7 +201,6 @@ Overall risk: <b class="crit">CRITICAL</b></pre>
   </div>
 </section>
 
-<div class="flow snap">
 <section class="section" id="agents">
   <div class="wrap">
     <p class="kicker">Headless</p>
@@ -352,4 +352,3 @@ sudo mv tfui /usr/local/bin/
     </div>
   </div>
 </section>
-</div>
