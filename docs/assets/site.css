@@ -14,6 +14,13 @@
   font-weight: 100 800;
   font-display: swap;
 }
+/* Box drawing, blocks and arrows, so tfui's own screens render with the same glyph widths as the terminal. */
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("fonts/jetbrains-mono-symbols.woff2") format("woff2");
+  unicode-range: U+2190-21FF, U+2500-25FF;
+  font-display: swap;
+}
 
 :root {
   --bg: #140c0a;
@@ -263,7 +270,7 @@ figure.highlight { margin: 0 0 18px; }
   background: radial-gradient(ellipse 80% 60% at 50% 100%, #3a170c 0%, transparent 70%), var(--night);
   color: var(--night-text); border-bottom: 1px solid var(--night-line);
 }
-.hero-inner { max-width: 1240px; margin: 0 auto; padding: 72px 20px 40px; text-align: center; }
+.hero-inner { max-width: 1240px; margin: 0 auto; padding: 56px 20px 36px; text-align: center; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px; margin: 0 0 22px; padding: 6px 12px;
   font: 600 12px/1 var(--font-mono); letter-spacing: 1px; text-transform: uppercase; color: #ffb347;
@@ -290,16 +297,9 @@ figure.highlight { margin: 0 0 18px; }
 .button.primary:hover { color: #1a0f0b; background: #ffc56e; }
 .button.ghost { background: transparent; color: #f1e6dc; border-color: #553629; }
 .button.ghost:hover { color: #fff; border-color: #ffb347; }
-.hero-meta {
-  list-style: none; margin: 26px 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 22px;
-  font: 13px/1.4 var(--font-mono); color: #a88f82;
-}
-.hero-meta li, .hero-meta a { display: inline-flex; align-items: center; gap: 7px; }
-.hero-meta .icon { width: 16px; height: 16px; color: #d4c3b8; }
-.hero-meta a { color: #d4c3b8; }
 
 /* The base, read: the illustration with its pins. */
-.base-map { position: relative; max-width: min(960px, calc((100svh - 120px) * 1.5)); margin: 48px auto 0; border-radius: 14px; overflow: hidden; border: 1px solid #33211b; box-shadow: 0 30px 80px #000c; }
+.base-map { position: relative; max-width: min(960px, calc((100svh - 120px) * 1.5)); margin: 0 auto 36px; border-radius: 14px; overflow: hidden; border: 1px solid #33211b; box-shadow: 0 30px 80px #000c; }
 .base-map img { display: block; width: 100%; }
 .pin {
   position: absolute; transform: translate(-50%, -50%); width: 32px; height: 32px; display: grid; place-items: center;
@@ -335,26 +335,61 @@ figure.highlight { margin: 0 0 18px; }
 .trust { padding: 36px 0; border-bottom: 1px solid var(--line); }
 .trust .kicker { text-align: center; color: var(--text-muted); }
 
-/* Problem and what tfui does */
-.split { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-.panel { background: var(--bg-raised); border: 1px solid var(--line); border-radius: 12px; padding: 28px 30px; }
-.panel h3 { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font: 600 12.5px/1.2 var(--font-mono); letter-spacing: 1.5px; text-transform: uppercase; }
-.panel.problem { border-top: 3px solid var(--destroy); }
-.panel.problem h3 { color: var(--destroy); }
-.panel.goal { border-top: 3px solid var(--add); }
-.panel.goal h3 { color: var(--add); }
-.panel p { margin: 0 0 12px; }
-.panel p:last-child { margin: 0; }
-.panel ul { margin: 0; padding-left: 20px; }
-.panel li { margin: 6px 0; }
+/* How it works: one real plan flowing through tfui into a tree for you and a summary for your agent. */
+.flow { display: grid; grid-template-columns: minmax(0, .7fr) 230px minmax(0, 1.3fr); gap: 20px; margin-top: 24px; }
+.hero-flow { max-width: 1180px; margin: 0 auto; padding: 0 20px 72px; text-align: left; }
+.hero-flow > .kicker, .hero-flow > h2 { text-align: center; }
+.hero-flow .kicker { color: #e07b4e; }
+.hero-flow h2 { margin: 0; font: 700 clamp(22px, 2.6vw, 28px)/1.15 var(--font-body); letter-spacing: -1px; color: #f1e6dc; }
+.hero-flow .stat span, .hero-flow .note { color: #b39a8d; }
+.hero-flow .stat b { color: #ffb347; }
+.hero-flow .note a { color: #ffb347; }
+.hero-flow .note code { color: #f1e6dc; background: #1a100c; border-color: #33211b; }
+.flow .terminal { margin: 0; display: flex; flex-direction: column; }
+.flow-scroll { display: block; }
+.flow pre { font-variant-ligatures: none; }
+.flow .shot-bar b { display: inline-flex; align-items: center; gap: 7px; }
+.flow-in { position: relative; min-height: 420px; }
+.flow .flow-in pre { position: absolute; inset: 37px 0 0 0; overflow: hidden; container-type: size; padding: 12px 14px; font-size: 11.5px; line-height: 1.5; color: #a88f82; white-space: pre; }
+.flow-in pre::after { content: ""; position: absolute; inset: auto 0 0 0; height: 90px; background: linear-gradient(transparent, var(--night)); pointer-events: none; }
+.flow-in .hit { color: #ff5c4d; font-weight: 700; background: #ff5c4d1f; }
+.flow-out { display: flex; flex-direction: column; gap: 16px; }
+.flow-out .terminal { container-type: inline-size; }
+.flow .flow-out pre { font-size: clamp(9px, calc((100cqi - 30px) / 48.2), 13px); overflow-x: auto; line-height: 1.3; padding: 12px 15px; white-space: pre; }
+.flow .flow-out .agent pre { font-size: clamp(9px, calc((100cqi - 30px) / 28), 13px); }
+.flow-out .row { display: inline-block; }
+.terminal .crit, .stat b.crit { color: #ff5c4d; font-weight: 700; }
+.terminal .crit { background: #ff5c4d22; }
 
-/* The text wall: what raw plan output feels like. */
-.wall {
-  margin: 16px 0 0; height: 150px; overflow: hidden; white-space: nowrap; position: relative; border-radius: 8px; padding: 10px 12px;
-  font: 11px/1.45 var(--font-mono); color: var(--text-muted); background: var(--bg-code); border: 1px solid var(--line);
+.flow-core { position: relative; display: grid; place-items: center; }
+.flow-card {
+  position: relative; z-index: 1; width: 170px; padding: 18px 14px; border-radius: 14px; text-align: center;
+  background: #1f1310; border: 1px solid #553629; box-shadow: 0 0 0 6px #ffb3471a, 0 18px 40px #0008; color: #f1e6dc;
 }
-.wall::after { content: ""; position: absolute; inset: auto 0 0 0; height: 60px; background: linear-gradient(transparent, var(--bg-code)); }
-.wall .hit { color: var(--destroy); font-weight: 700; background: color-mix(in srgb, var(--destroy) 14%, transparent); }
+.flow-card > b { display: block; margin: 6px 0 12px; font: 700 18px/1 var(--font-mono); }
+.flow-card ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; text-align: left; }
+.flow-card li { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 8px; font: 600 12px/1.25 var(--font-mono); color: #b39a8d; border: 1px solid #3a2620; }
+.flow-card li .icon { flex: none; width: 15px; height: 15px; color: #ffb347; }
+.flow-wire { position: absolute; pointer-events: none; }
+.flow-wire.in { left: -20px; width: 52px; top: 50%; border-top: 2px dashed #553629; }
+.flow-wire.out { left: 198px; right: -20px; top: 29%; bottom: 19%; border: 2px dashed #553629; border-right: 0; border-radius: 10px 0 0 10px; }
+.flow-wire.in i, .flow-wire.out i:first-child { top: -1px; }
+.flow-wire i { position: absolute; width: 8px; height: 8px; margin: -5px 0 0 -4px; border-radius: 50%; background: #ffb347; box-shadow: 0 0 10px #ffb347; opacity: 0; }
+.flow-wire.out i:nth-child(2) { top: calc(100% + 1px); }
+
+.flow.play .flow-scroll { animation: flow-scroll 34s linear 1s infinite alternate; }
+.flow.play .flow-in:hover .flow-scroll { animation-play-state: paused; }
+.flow.play .flow-out .row { animation: flow-row .45s ease-out both; animation-delay: calc(1.6s + var(--i) * 70ms); }
+.flow.play .flow-card li { animation: flow-step .5s ease-out both; }
+.flow.play .flow-card li:nth-child(2) { animation-delay: .35s; }
+.flow.play .flow-card li:nth-child(3) { animation-delay: .7s; }
+.flow.play .flow-card li:nth-child(4) { animation-delay: 1.05s; }
+.flow.play .flow-wire i { animation: flow-dot 2.4s ease-in-out infinite; }
+.flow.play .flow-wire.out i { animation-delay: 1.2s; }
+@keyframes flow-scroll { 0%, 4% { transform: translateY(0); } 96%, 100% { transform: translateY(calc(-100% + 100cqh)); } }
+@keyframes flow-row { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes flow-step { from { border-color: #3a2620; } 50% { border-color: #ffb347; color: #f1e6dc; } to { border-color: #3a2620; } }
+@keyframes flow-dot { 0% { left: 0; opacity: 0; } 15%, 85% { opacity: 1; } 100% { left: 100%; opacity: 0; } }
 
 /* Feature rows: image and text, alternating. */
 .feature { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 56px; align-items: center; }
@@ -467,6 +502,16 @@ figure.highlight { margin: 0 0 18px; }
   .toc { display: none; }
   .map { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+@media (max-width: 1100px) {
+  .flow { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .flow-in { min-height: 300px; }
+  .flow-card { width: 100%; }
+  .flow-card ol { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .flow-card li { flex-direction: column; text-align: center; gap: 5px; }
+  .flow-wire { display: none; }
+  .flow-core::before, .flow-core::after { content: "↓"; display: block; color: #ffb347; font: 700 20px/1 var(--font-mono); }
+  .flow-core { gap: 8px; }
+}
 @media (max-width: 980px) {
   .cook, .feature { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .feature:nth-of-type(even) > .feature-copy { order: 0; }
@@ -489,7 +534,7 @@ figure.highlight { margin: 0 0 18px; }
   .prose h1 { font-size: 32px; }
   .prose h2 { font-size: 23px; }
   .prose .anchor { display: none; }
-  .split, .install, .shots { grid-template-columns: minmax(0, 1fr); }
+  .install, .shots { grid-template-columns: minmax(0, 1fr); }
   .search { display: none; }
 }
 @media (max-width: 640px) {
@@ -498,12 +543,16 @@ figure.highlight { margin: 0 0 18px; }
   .topnav .icon { display: none; }
   .wrap { padding: 0 16px; }
   .section { padding: 60px 0; }
-  .hero-inner { padding: 48px 16px 24px; }
+  .hero-inner { padding: 48px 16px 28px; }
+  .hero-flow { padding: 0 16px 56px; }
   .hero h1 { letter-spacing: -1px; }
   .hero .lede { font-size: 17px; }
   .install-line { font-size: 13px; max-width: 100%; }
   .legend, .cards, .map { grid-template-columns: minmax(0, 1fr); }
   .pin { width: 22px; height: 22px; font-size: 11px; border-width: 1.5px; }
+  .flow-card ol { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .how .stat { flex-wrap: wrap; row-gap: 20px; }
+  .how .stat li { flex: 1 1 40%; }
   .pin::after { display: none; }
   .base-map { border-radius: 8px; margin-top: 32px; }
   .stat { gap: 18px; }
