@@ -28,36 +28,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: ruby/setup-ruby@v1
+      - uses: jdx/mise-action@v2
         with:
-          ruby-version: "3.4"
-          bundler-cache: true
-          working-directory: docs
+          cache: true
+          install_args: ruby node
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+      - run: mise run docs:install
 
-      - run: bundle exec jekyll build --source . --destination ../_site
-        working-directory: docs
+      - run: mise run docs:build
         env:
           JEKYLL_ENV: production
 
-      - run: npx --yes pagefind@1.4.0 --site ../_site
-        working-directory: docs
-
-      - name: Check links
-        run: >-
-          bundle exec htmlproofer ../_site
-          --disable-external
-          --swap-urls '^/terraform-ui/:/'
-          --ignore-files '/pagefind/'
-        working-directory: docs
+      - run: mise run docs:check
 
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:
-          path: ./_site
+          path: docs/_site
 
   deploy:
     if: github.event_name != 'pull_request'

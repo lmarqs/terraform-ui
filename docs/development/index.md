@@ -60,6 +60,7 @@ Icons are inline SVG includes that draw in the color of the text around them: `{
 mise run docs:install   # once, and after the Gemfile changes
 mise run docs:serve     # live preview at http://localhost:4000/terraform-ui/ (no search)
 mise run docs:build     # the deployable site in docs/_site, with the Pagefind search index
+mise run docs:check     # broken internal links, images, and anchors in docs/_site
 ```
 
-Search is built by [Pagefind](https://pagefind.app) after Jekyll, so it works on `docs:build` output and on the deployed site, not under `docs:serve`. On pull requests the Pages workflow builds the site and runs `htmlproofer` over it without deploying.
+Search is built by [Pagefind](https://pagefind.app) after Jekyll, so it works on `docs:build` output and on the deployed site, not under `docs:serve`. On pull requests the Pages workflow runs `docs:build` and `docs:check` without deploying.

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+#MISE description="Check the built docs site for broken internal links, images, and anchors. Run after docs:build."
+#MISE dir="docs"
+
+exec bundle exec htmlproofer _site \
+  --disable-external \
+  --swap-urls '^/terraform-ui/:/' \
+  --ignore-files '/pagefind/'
