@@ -276,19 +276,19 @@ figure.highlight { margin: 0 0 18px; }
 
 @media (min-width: 981px) {
   .hero { height: calc(100svh - var(--topbar-h)); min-height: 620px; }
-  .hero-grid { min-height: 0; padding-bottom: 8px; }
+  .hero-grid { min-height: 0; padding-bottom: 32px; }
   .tour { min-height: 0; padding-top: 12px; }
 }
 
-/* Hero: night on the planet, the pitch beside the stage. Focusing the stage (.drive) folds the pitch and the proof
-   away and hands the stage the whole slide; esc, a click outside or a scroll folds them back. */
+/* Hero: night on the planet, the pitch beside the stage. Focusing the stage (.drive) folds the pitch
+   away and hands the stage the whole slide; esc, a click outside or a scroll folds it back. */
 .hero {
   background: radial-gradient(ellipse 80% 60% at 50% 100%, #3a170c 0%, transparent 70%), var(--night);
   color: var(--night-text); border-bottom: 1px solid var(--night-line);
   min-height: calc(100svh - var(--topbar-h)); display: flex; flex-direction: column;
 }
 .hero-grid {
-  flex: 1; width: 100%; max-width: 1320px; margin: 0 auto; padding: 36px 24px 0; box-sizing: border-box;
+  flex: 1; width: 100%; max-width: 1320px; margin: 0 auto; padding: 36px 24px 40px; box-sizing: border-box;
   display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 56px; align-items: stretch;
   transition: grid-template-columns .55s cubic-bezier(.4, 0, .2, 1), gap .55s cubic-bezier(.4, 0, .2, 1);
 }
@@ -307,15 +307,10 @@ figure.highlight { margin: 0 0 18px; }
 .hero .runs-on { justify-content: flex-start; margin-top: 30px; gap: 6px 8px; }
 .hero .runs-on li { padding: 6px 10px; font-size: 12.5px; color: #a88f82; background: #1a100c; border-color: #33211b; }
 .hero .runs-on .icon { width: 15px; height: 15px; }
-.proof {
-  width: 100%; max-width: 1320px; margin: 0 auto; padding: 26px 24px 32px; box-sizing: border-box;
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px 40px;
-  max-height: 220px; overflow: hidden; transition: max-height .55s cubic-bezier(.4, 0, .2, 1), opacity .25s, padding .55s;
-}
-.hero.drive .proof { max-height: 0; opacity: 0; padding-top: 0; padding-bottom: 0; }
-.proof .stat { margin: 0; }
-.proof .stat span { color: #b39a8d; }
-.proof .stat b { color: #ffb347; }
+.hero .hero-stat { gap: 22px; margin-top: 34px; padding-top: 26px; border-top: 1px solid #33211b; }
+.hero .hero-stat li { flex: 1 1 0; min-width: 0; }
+.hero .hero-stat b { font-size: 30px; color: #ffb347; }
+.hero .hero-stat span { color: #b39a8d; font-size: 13px; line-height: 1.35; }
 
 /* Section dots: a floating column on the right edge of the landing page, on a night capsule so they read over day
    and night sections alike. */
@@ -453,8 +448,6 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
   .tour-steps button { padding: 7px 6px 9px; gap: 4px; font-size: 12.5px; }
   .tour-hint { margin-top: 8px; }
   .terminal.stage pre { font-size: 13px; padding-top: 10px; padding-bottom: 10px; }
-  .proof { padding-top: 14px; padding-bottom: 18px; }
-  .proof .stat b { font-size: 28px; }
   .hero h1 { font-size: clamp(38px, 4vw, 54px); }
 }
 .terminal .crit, .stat b.crit { color: #ff79c6; font-weight: 700; }
@@ -579,8 +572,8 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
   .pitch { text-align: center; }
   .hero h1, .hero .lede { margin-left: auto; margin-right: auto; }
   .hero .runs-on { justify-content: center; }
+  .hero .hero-stat { max-width: 560px; margin-left: auto; margin-right: auto; }
   .terminal.stage pre { flex: none; height: calc(18 * 1.55em + 28px); }
-  .proof { max-height: none; justify-content: center; text-align: center; }
   .cook, .feature { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .feature:nth-of-type(even) > .feature-copy { order: 0; }
   .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -611,18 +604,17 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
   .topnav .icon { display: none; }
   .wrap { padding: 0 16px; }
   .section { padding: 60px 0; }
-  .hero-grid { padding: 40px 16px 0; }
-  .proof { padding: 24px 16px 32px; }
+  .hero-grid { padding: 40px 16px 40px; }
   .terminal.stage pre { font-size: 12px; padding: 12px 10px; }
   .hero h1 { letter-spacing: -1px; }
   .hero .lede { font-size: 17px; }
   .cards, .map { grid-template-columns: minmax(0, 1fr); }
   .stat { gap: 18px; }
+  .hero .hero-stat { flex-wrap: wrap; row-gap: 20px; }
+  .hero .hero-stat li { flex: 1 1 40%; }
   .tour-caption { font-size: 15.5px; min-height: 4.5em; }
   .tour-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .tour-steps button { padding: 10px 4px 12px; font-size: 13px; }
-  .proof .stat { flex-wrap: wrap; row-gap: 20px; }
-  .proof .stat li { flex: 1 1 40%; }
   .stat b { font-size: 26px; }
   .compare th, .compare td { padding: 10px 12px; font-size: 14px; }
 }

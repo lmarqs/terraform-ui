@@ -22,6 +22,12 @@ description: >-
         <li>{% include icons/opentofu.svg %}OpenTofu</li>
         <li>{% include icons/layers.svg %}Terragrunt</li>
       </ul>
+      <ul class="stat hero-stat">
+        <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
+        <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
+        <li><b>{{ ba.agent_tokens }}</b><span>tokens for your agent</span></li>
+        <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
+      </ul>
     </div>
     <div class="tour" id="how-it-works">
       <p class="tour-caption" aria-live="polite"><kbd>tfui plan</kbd> {{ ba.changes }} changes, sorted into modules, a risk badge on every one. Not {{ ba.before_lines }} lines.</p>
@@ -51,14 +57,6 @@ description: >-
       <template id="tour-agent">{% include before-after/agent.html %}</template>
       <script type="application/json" id="tour-data">{{ tour | jsonify }}</script>
     </div>
-  </div>
-  <div class="proof">
-    <ul class="stat">
-      <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
-      <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
-      <li><b>{{ ba.agent_lines }}</b><span>lines for your agent</span></li>
-      <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
-    </ul>
   </div>
 </section>
 
