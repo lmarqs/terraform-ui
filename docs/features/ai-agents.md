@@ -4,7 +4,7 @@ title: Terraform for AI Coding Agents
 parent: Features — Terraform Plan Analysis Tools
 nav_order: 4
 seo:
-  description: Run terraform through AI coding agents like Claude Code. Automatic headless mode, 38x smaller plan output, truthful errors, and meaningful exit codes — zero configuration.
+  description: Run terraform through AI coding agents like Claude Code. Automatic headless mode, plan output in a fraction of the tokens, truthful errors, and meaningful exit codes — zero configuration.
 description: "Explains how tfui behaves under an AI coding agent: headless detection, compact output, errors and exit codes."
 audience: "Users running terraform through an agent, and contributors changing headless output"
 ---
@@ -36,14 +36,15 @@ tfui addresses both:
 
 ## Benchmark: context-window footprint
 
-Measured on a 50-resource plan (all creates, `local_file` resources, Terraform v1.14.9, identical configuration for both commands):
+{% assign ba = site.data.before_after -%}
+Measured on the landing page's demo plan ({{ ba.changes }} changes: {{ ba.add }} to add, {{ ba.change }} to change, {{ ba.destroy }} to destroy; Terraform v1.14.9, identical configuration for both commands). Tokens are the input tokens Claude ({{ ba.token_model }}) counts for each output.
 
-| Command | Lines | Bytes |
-|---|---|---|
-| `terraform plan -no-color` | 763 | 34,426 |
-| `tfui plan` (headless) | 53 | 905 |
+| Command | Tokens | Lines | Bytes |
+|---|---|---|---|
+| `terraform plan -no-color` | {{ ba.before_tokens }} | {{ ba.before_lines }} | {{ ba.before_bytes }} |
+| `tfui plan` (headless) | {{ ba.agent_tokens }} | {{ ba.agent_lines }} | {{ ba.agent_bytes }} |
 
-**38× fewer bytes, 14× fewer lines** — and the agent still gets every change address, the add/change/destroy summary, and a risk verdict. Output scales with one line per resource, not with attribute count, so the gap widens as plans grow.
+**{{ ba.before_tokens | divided_by: ba.agent_tokens }}× fewer tokens, {{ ba.before_lines | divided_by: ba.agent_lines }}× fewer lines**, and the agent still gets every change address, the add/change/destroy summary, and a risk verdict. Output scales with one line per resource, not with attribute count, so the gap widens as plans grow. `mise run demo:before-after` regenerates these numbers.
 
 Success runs emit zero bytes on stderr. Nothing in the output needs post-processing: no ANSI escapes, no spinners, no progress noise.
 
