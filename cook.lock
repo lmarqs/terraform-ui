@@ -1,6 +1,52 @@
 # Written by the-cook; do not edit by hand.
 version: 1
 recipes:
+  - name: "io.github.lmarqs.cookbook:agents#connect"
+    source: "io.github.lmarqs.cookbook:agents:10.1.1#connect"
+    sha256: "3504ade2f81d7e83a4e05f98200db93250322c6d4a7c3828c8b1d0de52189836"
+    arguments:
+      "harness": ["claude"]
+      "worktree-setup": [".worktrees/setup"]
+      "worktree-teardown": [".worktrees/teardown"]
+      "worktree-base": ["head"]
+    owns:
+      sections:
+        - file: ".gitignore"
+          id: "io.github.lmarqs.cookbook:agents#connect/harnesses"
+      keys:
+        - file: ".agents/adapters/claude/settings.json"
+          path: ["hooks","SessionStart"]
+        - file: ".agents/adapters/claude/settings.json"
+          path: ["hooks","WorktreeCreate"]
+        - file: ".agents/adapters/claude/settings.json"
+          path: ["hooks","WorktreeRemove"]
+        - file: ".agents/adapters/claude/settings.json"
+          path: ["permissions"]
+      files:
+        - ".agents/hooks/session-start"
+        - ".agents/hooks/worktree"
+      links:
+        - ".claude/commands"
+        - ".claude/settings.json"
+        - ".claude/skills"
+  - name: "io.github.lmarqs.cookbook:agents#seed"
+    source: "io.github.lmarqs.cookbook:agents:10.1.1#seed"
+    sha256: "3504ade2f81d7e83a4e05f98200db93250322c6d4a7c3828c8b1d0de52189836"
+    arguments: {}
+    owns:
+      files:
+        - ".agents/skills/agents-layout/SKILL.md"
+        - ".agents/skills/agents-layout/references/adopt.md"
+        - ".agents/skills/agents-layout/references/agents-md.md"
+        - ".agents/skills/agents-layout/references/claude.md"
+        - ".agents/skills/agents-layout/references/codex.md"
+        - ".agents/skills/agents-layout/references/design.md"
+        - ".agents/skills/agents-layout/references/investigate.md"
+        - ".agents/skills/agents-layout/references/policy.md"
+        - ".agents/skills/agents-layout/scripts/check.sh"
+        - ".agents/skills/agents-layout/templates/AGENTS.template.md"
+        - ".agents/skills/agents-layout/templates/README.template.md"
+        - ".agents/skills/agents-layout/templates/policy.template.yaml"
   - name: "io.github.lmarqs.cookbook:git#worktrees"
     source: "io.github.lmarqs.cookbook:git:10.1.1#worktrees"
     sha256: "f7213b67b20747c9597662c99d7a183fe26c65d48816e98d8b76776ac31b2895"

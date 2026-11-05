@@ -1,0 +1,44 @@
+# What coding agents may do in this repository, whoever runs them, with whichever harness or model. Cooking
+# io.github.lmarqs.cookbook:agents#connect renders this file into each harness's settings under .agents/adapters/;
+# edit it, then cook again. The agents-layout skill in .agents/skills/ documents every field.
+#
+# An entry is the literal words a command starts with, with no shell syntax, wildcards or quotes: [git, push] covers
+# `git push origin main`. A nested list holds alternatives for one word: [git, [status, diff]]. {claude: "<pattern>"}
+# is a Claude-only pattern, where * matches anything; Codex cannot express it and does not enforce it.
+#
+# allow runs without asking, ask asks first and deny refuses. Precedence, in every harness and settings scope: deny,
+# then ask, then allow, so a personal allow never outranks an ask or a deny written here. When nobody can answer, in
+# an unattended run, ask refuses.
+version: 2
+
+# Whether a Claude run may start in bypass mode, which runs every command that is not denied without asking.
+# allow is for teams that run every agent in a container.
+bypass: refuse
+
+# Commands every session may run, whatever its role.
+commands:
+  allow: []
+  ask: []
+  deny: []
+
+# This starter grants nothing. An example to start from, with a tool that is not a shell command, named as the
+# harness names it, and a role, which only adds denies for one kind of run and is picked at launch:
+#
+#   commands:
+#     allow:
+#       - [git, [status, diff, log, show]]
+#       - [./gradlew, [test, check]]
+#     ask:
+#       - [git, push]
+#     deny:
+#       - [git, push, [--force, -f]]
+#       - [git, reset, --hard]
+#       - claude: "git push * --force*"
+#   tools:
+#     allow:
+#       - claude: "WebFetch(domain:docs.gradle.org)"
+#   roles:
+#     worker:
+#       deny:
+#         - [git, [commit, push]]
+#         - [gh]
