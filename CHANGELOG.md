@@ -1,3 +1,11 @@
+# [1.23.0](https://github.com/lmarqs/terraform-ui/compare/v1.22.0...v1.23.0) (2026-11-05)
+
+
+### Features
+
+* **demo:** export the before/after plan rows for the landing tour ([b21bb40](https://github.com/lmarqs/terraform-ui/commit/b21bb4050a6951054aba251fc6cc9d513ee32344)), closes [#83](https://github.com/lmarqs/terraform-ui/issues/83)
+* **docs:** replace the before/after flow with an interactive tfui tour ([6407d18](https://github.com/lmarqs/terraform-ui/commit/6407d181d9d1a52aa3dc92767efcb1b94054a2b2)), closes [#83](https://github.com/lmarqs/terraform-ui/issues/83)
+
 # [1.22.0](https://github.com/lmarqs/terraform-ui/compare/v1.21.1...v1.22.0) (2026-11-05)
 
 
