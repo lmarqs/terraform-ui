@@ -1,0 +1,65 @@
+# The numbered pins on the landing page's base illustration (assets/base.webp), placed in percent of its width and
+# height, and the legend entry each one opens. Positions follow the picture; move them when the picture changes.
+- id: 1
+  left: 39
+  top: 55
+  icon: list-tree
+  title: "The hologram: the plan as a tree"
+  text: Every change terraform will make, one row each, grouped by module. Expand a row to see its attribute diff.
+  href: /plugins/plan.html
+- id: 2
+  left: 48
+  top: 47
+  icon: shield-alert
+  title: "The red sector: risk on every change"
+  text: A database destroy is critical, a CIDR opened to the world is high, a tag is low. The badge sits on the row.
+  href: /features/risk-analysis.html
+- id: 3
+  left: 60
+  top: 56
+  icon: play
+  title: "The lever and the key: apply, confirmed"
+  text: Apply runs the plan file you reviewed, after one confirmation. Nothing runs on a stray keypress.
+  href: /plugins/apply.html
+- id: 4
+  left: 35
+  top: 41
+  icon: database
+  title: "The survey wall: state"
+  text: Browse and fuzzy-search every resource in state, inspect its JSON, and taint, move or remove it behind a prompt.
+  href: /plugins/state.html
+- id: 5
+  left: 86
+  top: 10
+  icon: ghost
+  title: "The dust storm: phantom changes"
+  text: "\"1 to change\" that changes nothing: null versus absent, a reordered list, provider normalization. tfui marks it as noise."
+  href: /features/phantom-changes.html
+- id: 6
+  left: 13
+  top: 77
+  icon: pin
+  title: "The floodlit crater: pins"
+  text: Press space to pin the resources you care about. The next plan targets only those, with no -target flags to type.
+  href: /plugins/plan.html#keybindings
+- id: 7
+  left: 82
+  top: 70
+  icon: bot
+  title: "The rover: headless for agents"
+  text: In Claude Code, CI or any agent, tfui skips the TUI and prints one line per change, a summary and a risk verdict.
+  href: /features/ai-agents.html
+- id: 8
+  left: 17
+  top: 32
+  icon: radar
+  title: "The ring: blast radius"
+  text: Changes grouped by module and scored by impact, so you see how far one change reaches before you apply it.
+  href: /features/blast-radius.html
+- id: 9
+  left: 56
+  top: 42
+  icon: folder-tree
+  title: "The other planet: context"
+  text: Switch member directory and workspace from one screen. Every plugin follows the context you pick.
+  href: /plugins/context.html
