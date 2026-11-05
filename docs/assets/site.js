@@ -64,10 +64,6 @@
       if (!code) return;
       block.appendChild(copyButton(function () { return code.textContent; }));
     });
-    document.querySelectorAll(".install-line").forEach(function (line) {
-      var cmd = line.querySelector("code");
-      line.appendChild(copyButton(function () { return cmd.textContent; }));
-    });
   }
 
   function search() {

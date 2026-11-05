@@ -227,7 +227,7 @@ figure.highlight { margin: 0 0 18px; }
   position: absolute; top: 8px; right: 8px; font: 600 12px/1 var(--font-mono); padding: 6px 8px; cursor: pointer; border-radius: 4px;
   color: var(--text-muted); background: var(--bg-raised); border: 1px solid var(--line-strong); opacity: 0;
 }
-.highlighter-rouge:hover .copy, figure.highlight:hover .copy, .copy:focus, .install-line .copy { opacity: 1; }
+.highlighter-rouge:hover .copy, figure.highlight:hover .copy, .copy:focus { opacity: 1; }
 .copy:hover { color: var(--accent-ink); background: var(--accent); border-color: var(--accent); }
 
 .prose table { display: block; overflow-x: auto; border-collapse: collapse; font-size: 14.5px; line-height: 1.5; }
@@ -260,6 +260,15 @@ figure.highlight { margin: 0 0 18px; }
 .kicker { font: 600 12.5px/1.2 var(--font-mono); letter-spacing: 2px; text-transform: uppercase; color: var(--dust); margin: 0 0 12px; }
 .section { padding: 88px 0; }
 .section + .section { border-top: 1px solid var(--line); }
+/* A section that stays at night in both schemes, lit from the horizon above. */
+.section.night {
+  --bg: #140c0a; --bg-raised: #1f1310; --bg-sunken: #0f0806; --bg-code: #180e0b; --line: #3a2620; --line-strong: #553629;
+  --text: #f1e6dc; --text-muted: #b39a8d; --accent: #ffb347; --accent-ink: #1a0f0b; --link: #ffb347; --link-hover: #ffd089;
+  --rust: #c8502e; --dust: #e07b4e; --dome: #5fb3e6; --add: #4fd18b; --change: #ffb347; --destroy: #ff5c4d; --shadow: #000;
+  color-scheme: dark; color: var(--text); border-top-color: var(--night-line);
+  background: radial-gradient(ellipse 60% 120% at 50% 0%, #4a1d0e 0%, transparent 70%), var(--night);
+}
+.section.night + .section { border-top-color: var(--night-line); }
 .section h2 { font: 700 clamp(28px, 3.4vw, 38px)/1.12 var(--font-body); margin: 0 0 14px; letter-spacing: -.8px; }
 .section .lede { max-width: 720px; color: var(--text-muted); font-size: 18px; margin: 0 0 36px; }
 .center { text-align: center; }
@@ -295,15 +304,6 @@ figure.highlight { margin: 0 0 18px; }
 .hero h1 { font: 700 clamp(38px, 4.4vw, 62px)/1.02 var(--font-body); letter-spacing: -2px; margin: 0 0 20px; max-width: 14ch; }
 .hero h1 em { font-style: normal; color: #ffb347; }
 .hero .lede { font-size: 18px; color: #d4c3b8; margin: 0 0 28px; max-width: 520px; }
-.install-line {
-  display: inline-flex; align-items: center; gap: 12px; margin: 0 0 22px; padding: 10px 10px 10px 16px;
-  font: 500 15px/1 var(--font-mono); color: #f1e6dc; background: #1a100c; border: 1px solid #33211b; border-radius: 8px;
-  position: relative;
-}
-.install-line .prompt { color: #ffb347; user-select: none; }
-.install-line .copy { position: static; opacity: 1; }
-.actions { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
-.cta-band .actions { justify-content: center; }
 .hero .runs-on { justify-content: flex-start; margin-top: 30px; gap: 6px 8px; }
 .hero .runs-on li { padding: 6px 10px; font-size: 12.5px; color: #a88f82; background: #1a100c; border-color: #33211b; }
 .hero .runs-on .icon { width: 15px; height: 15px; }
@@ -316,15 +316,6 @@ figure.highlight { margin: 0 0 18px; }
 .proof .stat { margin: 0; }
 .proof .stat span { color: #b39a8d; }
 .proof .stat b { color: #ffb347; }
-.button {
-  display: inline-flex; align-items: center; gap: 9px; font: 600 16px/1 var(--font-body); text-decoration: none;
-  padding: 14px 22px; border-radius: 8px; border: 1px solid transparent; transition: transform .1s, background .1s, border-color .1s;
-}
-.button:hover { transform: translateY(-1px); text-decoration: none; }
-.button.primary { background: #ffb347; color: #1a0f0b; }
-.button.primary:hover { color: #1a0f0b; background: #ffc56e; }
-.button.ghost { background: transparent; color: #f1e6dc; border-color: #553629; }
-.button.ghost:hover { color: #fff; border-color: #ffb347; }
 
 /* Icon chips */
 .chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
@@ -528,7 +519,10 @@ figure.highlight { margin: 0 0 18px; }
 .install .prose { max-width: none; }
 .install .prose pre { margin: 0; }
 .install .prose figure.highlight { margin: 0; }
-.install.try { grid-template-columns: minmax(0, 1fr); margin-top: 18px; }
+.install.try { grid-template-columns: minmax(0, 1fr); }
+.try-head { margin-bottom: 22px; }
+.feature.try-body { align-items: start; }
+.feature.try-body > .feature-copy { order: 0; }
 .install.try .prose + p { margin: 12px 0 10px; }
 .install.try > div > p:last-child { margin-bottom: 0; }
 
@@ -545,14 +539,6 @@ figure.highlight { margin: 0 0 18px; }
 
 .note { margin: 24px 0 0; font-size: 14.5px; color: var(--text-muted); }
 
-/* Closing band */
-.cta-band {
-  background: radial-gradient(ellipse 60% 120% at 50% 0%, #4a1d0e 0%, transparent 70%), var(--night);
-  color: var(--night-text); text-align: center; padding: 88px 0; border-top: 1px solid var(--night-line);
-}
-.cta-band h2 { font: 700 clamp(28px, 4vw, 44px)/1.1 var(--font-body); letter-spacing: -1px; margin: 0 0 16px; }
-.cta-band p { color: #d4c3b8; font-size: 18px; margin: 0 auto 28px; max-width: 600px; }
-
 /* Narrow screens */
 @media (max-width: 1180px) {
   .docs-shell { grid-template-columns: 230px minmax(0, 1fr); gap: 36px; }
@@ -564,7 +550,7 @@ figure.highlight { margin: 0 0 18px; }
   .hero-grid { grid-template-columns: minmax(0, 1fr); gap: 40px; padding-top: 48px; }
   .pitch { text-align: center; }
   .hero h1, .hero .lede { margin-left: auto; margin-right: auto; }
-  .actions, .hero .runs-on { justify-content: center; }
+  .hero .runs-on { justify-content: center; }
   .terminal.stage pre { flex: none; height: calc(18 * 1.55em + 28px); }
   .proof { max-height: none; justify-content: center; text-align: center; }
   .cook, .feature { grid-template-columns: minmax(0, 1fr); gap: 28px; }
@@ -602,7 +588,6 @@ figure.highlight { margin: 0 0 18px; }
   .terminal.stage pre { font-size: 12px; padding: 12px 10px; }
   .hero h1 { letter-spacing: -1px; }
   .hero .lede { font-size: 17px; }
-  .install-line { font-size: 13px; max-width: 100%; }
   .cards, .map { grid-template-columns: minmax(0, 1fr); }
   .stat { gap: 18px; }
   .tour-caption { font-size: 15.5px; min-height: 4.5em; }
@@ -625,7 +610,7 @@ kbd {
   font: 600 .82em/1.5 var(--font-mono); color: var(--text); background: var(--bg-raised);
   border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 5px;
 }
-.hero kbd, .cta-band kbd { color: #f1e6dc; background: #1a100c; border-color: #553629; }
+.hero kbd { color: #f1e6dc; background: #1a100c; border-color: #553629; }
 .feature-copy h3 kbd { font-size: .62em; vertical-align: .25em; }
 
 .terminal .chg { color: #ffb347; }
