@@ -311,7 +311,8 @@ figure.highlight { margin: 0 0 18px; }
 .hero .hero-stat li { flex: 1 1 0; min-width: 0; }
 .hero .hero-stat b { font-size: 30px; color: #ffb347; }
 .hero .hero-stat span { color: #b39a8d; font-size: 13px; line-height: 1.35; }
-.hero .hero-stat .raw b { color: #7d6156; text-decoration: line-through; text-decoration-color: #ff5c4d; text-decoration-thickness: 3px; }
+.hero .hero-stat .raw b { display: inline-flex; align-items: center; gap: 6px; color: #7d6156; }
+.hero .hero-stat .raw .icon { width: .7em; height: .7em; color: #ff5c4d; stroke-width: 3; }
 .hero .hero-stat .raw span { color: #8a6f63; }
 
 /* Section dots: a floating column on the right edge of the landing page, on a night capsule so they read over day

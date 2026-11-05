@@ -23,7 +23,7 @@ description: >-
         <li>{% include icons/layers.svg %}Terragrunt</li>
       </ul>
       <ul class="stat hero-stat">
-        <li class="raw"><b>{{ ba.before_lines }}</b><span>lines of raw terraform</span></li>
+        <li class="raw"><b>{% include icons/x.svg %}{{ ba.before_lines }}</b><span>lines of raw terraform</span></li>
         <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
         <li><b>{{ ba.agent_tokens }}</b><span>tokens for your agent</span></li>
         {%- assign critical = tour.changes | where: "risk", "CRITICAL" | size %}
