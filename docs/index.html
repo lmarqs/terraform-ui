@@ -254,18 +254,16 @@ Risk: low
   <div class="wrap">
     <p class="kicker">Compared</p>
     <h2>The raw CLI, and tfui</h2>
-    <table class="compare">
-      <thead><tr><th>Without tfui</th><th>With tfui</th></tr></thead>
-      <tbody>
-        <tr><td>Hundreds of lines of unstructured plan output</td><td>A navigable tree with expand and collapse</td></tr>
-        <tr><td>Scanning by eye for destructive changes</td><td>Inline risk badges, from <code>[CRITICAL]</code> to <code>[low]</code></td></tr>
-        <tr><td><code>terraform apply -target=…</code>, typed by hand</td><td>Pin with <kbd>space</kbd>, apply with <kbd>a</kbd></td></tr>
-        <tr><td><code>terraform state rm</code> with no confirmation</td><td>A state browser with a prompt before every change</td></tr>
-        <tr><td>Twenty minutes chasing a phantom diff</td><td>Phantom changes detected and marked</td></tr>
-        <tr><td>Five terminal windows</td><td>One TUI for every operation</td></tr>
-        <tr><td>Plan output flooding an agent's context</td><td>One line per change plus a risk verdict</td></tr>
-      </tbody>
-    </table>
+    <div class="pairs">
+      <p class="pairs-head" aria-hidden="true"><span>Without tfui</span><span>With tfui</span></p>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span>Hundreds of lines of unstructured plan output</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/list-tree.svg %}<span><span class="sr">With tfui: </span>A navigable tree with expand and collapse</span></p></div>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span>Scanning by eye for destructive changes</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/shield-alert.svg %}<span><span class="sr">With tfui: </span>Inline risk badges, from <code>[CRITICAL]</code> to <code>[low]</code></span></p></div>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span><code>terraform apply -target=…</code>, typed by hand</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/pin.svg %}<span><span class="sr">With tfui: </span>Pin with <kbd>space</kbd>, apply with <kbd>a</kbd></span></p></div>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span><code>terraform state rm</code> with no confirmation</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/database.svg %}<span><span class="sr">With tfui: </span>A state browser with a prompt before every change</span></p></div>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span>Twenty minutes chasing a phantom diff</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/ghost.svg %}<span><span class="sr">With tfui: </span>Phantom changes detected and marked</span></p></div>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span>Five terminal windows</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/terminal.svg %}<span><span class="sr">With tfui: </span>One TUI for every operation</span></p></div>
+      <div class="pair"><p class="was"><span class="sr">Without tfui: </span>Plan output flooding an agent's context</p><span class="to" aria-hidden="true">{% include icons/arrow-right.svg %}</span><p class="now">{% include icons/bot.svg %}<span><span class="sr">With tfui: </span>One line per change plus a risk verdict</span></p></div>
+    </div>
   </div>
 </section>
 

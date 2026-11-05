@@ -522,14 +522,27 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
 .card p { margin: 0; font-size: 15px; color: var(--text-muted); }
 
 /* Compare */
-.compare { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
-.compare th, .compare td { padding: 14px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); }
-.compare tr:last-child td { border-bottom: 0; }
-.compare th { font: 600 12.5px/1.2 var(--font-mono); letter-spacing: 1.5px; text-transform: uppercase; background: var(--bg-raised); }
-.compare td:first-child { color: var(--text-muted); }
-.compare td:last-child { color: var(--text); }
-.compare th:first-child { color: var(--text-muted); }
-.compare th:last-child { color: var(--add); }
+.pairs { display: grid; gap: 12px; }
+.pairs-head, .pair { display: grid; grid-template-columns: minmax(0, 1fr) 44px minmax(0, 1fr); align-items: stretch; }
+.pairs-head { margin: 0 0 4px; font: 600 12.5px/1.2 var(--font-mono); letter-spacing: 1.5px; text-transform: uppercase; }
+.pairs-head span:first-child { color: var(--text-muted); }
+.pairs-head span:last-child { grid-column: 3; color: var(--add); }
+.pair p { margin: 0; padding: 16px 18px; border-radius: 12px; font-size: 15px; }
+.pair .was {
+  color: var(--text-muted); border: 1px dashed var(--line-strong); background: var(--bg-sunken);
+  text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--destroy) 55%, transparent); text-decoration-thickness: 1.5px;
+}
+.pair .to { display: grid; place-items: center; color: var(--line-strong); transition: color .2s, transform .2s; }
+.pair .to .icon { width: 20px; height: 20px; }
+.pair .now {
+  display: flex; align-items: flex-start; gap: 12px; color: var(--text); font-weight: 500;
+  background: var(--bg-raised); border: 1px solid var(--line); box-shadow: inset 3px 0 0 var(--add);
+  transition: transform .2s, border-color .2s, box-shadow .2s;
+}
+.pair .now > .icon { width: 20px; height: 20px; margin-top: 1px; color: var(--add); }
+.pair:hover .now { transform: translateX(3px); border-color: color-mix(in srgb, var(--add) 45%, var(--line)); box-shadow: inset 3px 0 0 var(--add), 0 10px 24px color-mix(in srgb, var(--shadow) 18%, transparent); }
+.pair:hover .to { color: var(--add); transform: translateX(3px); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* Install */
 .install { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -616,7 +629,11 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
   .tour-steps { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .tour-steps button { padding: 10px 4px 12px; font-size: 13px; }
   .stat b { font-size: 26px; }
-  .compare th, .compare td { padding: 10px 12px; font-size: 14px; }
+  .pairs-head { display: none; }
+  .pair { grid-template-columns: minmax(0, 1fr); }
+  .pair .to { height: 30px; transform: rotate(90deg); }
+  .pair:hover .to { transform: rotate(90deg) translateX(3px); }
+  .pair p { padding: 12px 14px; font-size: 14px; }
 }
 @media (max-width: 420px) {
   .release { display: none; }
