@@ -530,10 +530,8 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
 .pairs-head span:first-child { color: var(--text-muted); }
 .pairs-head span:last-child { grid-column: 3; color: var(--add); }
 .pair p { margin: 0; padding: 16px 18px; border-radius: 12px; font-size: 15px; }
-.pair .was {
-  color: var(--text-muted); border: 1px dashed var(--line-strong); background: var(--bg-sunken);
-  text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--destroy) 55%, transparent); text-decoration-thickness: 1.5px;
-}
+.pair .was { display: flex; align-items: flex-start; gap: 12px; color: var(--text-muted); border: 1px dashed var(--line-strong); background: var(--bg-sunken); }
+.pair .was > .icon { width: 20px; height: 20px; margin-top: 1px; color: var(--destroy); }
 .pair .to { display: grid; place-items: center; color: var(--line-strong); transition: color .2s, transform .2s; }
 .pair .to .icon { width: 20px; height: 20px; }
 .pair .now {
