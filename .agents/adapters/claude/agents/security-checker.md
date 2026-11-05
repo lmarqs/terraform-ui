@@ -22,10 +22,10 @@ tfui is a local TUI. It runs terraform through `terraform-exec` (`internal/terra
 Cover every area across `internal/`, `plugins/`, `pkg/sdk/`, and `cmd/tfui/`:
 
 1. **Secret exposure**: values marked `sensitive` in plan or state stay masked in views, stdout output, logs, and recorded frames (`-record`).
-2. **AI leakage**: what reaches a prompt; attribute values and credentials are filtered out before the provider call; AI paths run only when `ctx.AI != nil`.
+2. **AI leakage**: what reaches a prompt through `sdk.AIProvider` (implemented in `internal/ai/`); attribute values and credentials are filtered out before the provider call.
 3. **Argument injection**: user-supplied addresses, workspace names, lock IDs, var-files, and `--` passthrough reach terraform as discrete arguments through the typed `terraform-exec` API, never through a shell string.
 4. **Files**: plan files and temp files are created with owner-only permissions and removed when consumed; editor handoff (`tea.ExecProcess`) receives a path, not interpolated shell.
-5. **Confirmation gates**: every destructive operation listed in `.agents/skills/tfui-tui-ux/SKILL.md` § Staleness Guard and § Confirmation Ownership confirms in the TUI. Headless runs skip the prelude through `Input.AutoConfirm` by design (`.agents/skills/tfui-cli-ux/SKILL.md`); that is intended behavior.
+5. **Confirmation gates**: every destructive operation listed in `.agents/skills/tfui-tui-ux/SKILL.md` § Staleness Guard and § Confirmation Ownership confirms in the TUI. Headless runs skip the prelude through `Input.AutoConfirm` by design (`.agents/skills/tfui-cli-ux/SKILL.md`).
 
 Rate by exploitability on a local, single-user tool. Safe use of the `terraform-exec` API is the baseline, and argument escaping is its job.
 
