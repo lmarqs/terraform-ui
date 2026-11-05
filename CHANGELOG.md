@@ -1,3 +1,11 @@
+# [1.24.0](https://github.com/lmarqs/terraform-ui/compare/v1.23.0...v1.24.0) (2026-11-05)
+
+
+### Features
+
+* **docs:** hand the tour the whole slide when the reader takes the keys ([97fd815](https://github.com/lmarqs/terraform-ui/commit/97fd8153b9edb7a6b24867fd7d4b7a2b31b50141))
+* **docs:** make the demo the hero and drop the base illustration ([bd4b2e0](https://github.com/lmarqs/terraform-ui/commit/bd4b2e0306e57d66a6e2dfe34045bcde5e4ca4da))
+
 # [1.23.0](https://github.com/lmarqs/terraform-ui/compare/v1.22.0...v1.23.0) (2026-11-05)
 
 
