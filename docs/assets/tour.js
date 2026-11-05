@@ -13,6 +13,9 @@
   var caption = root.querySelector(".tour-caption");
   var tabs = Array.prototype.slice.call(root.querySelectorAll(".tour-steps button"));
   var replay = root.querySelector(".tour-replay");
+  var leaveBtn = root.querySelector(".stage .leave");
+  var hero = root.closest(".hero");
+  var wide = window.matchMedia ? window.matchMedia("(min-width: 981px)") : { matches: false };
   var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   function lines(id) {
@@ -26,6 +29,17 @@
   var CLS = { create: "add", update: "chg", delete: "del" };
   var COLS = 56;
   var ROWS = 20;
+
+  // The stage fills the height its slide gives it, so the row count follows the pre's box.
+  function fit() {
+    var cs = getComputedStyle(stage);
+    var line = parseFloat(cs.fontSize) * 1.55;
+    var inner = stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    var rows = Math.max(12, Math.floor(inner / line));
+    if (rows === ROWS) return false;
+    ROWS = rows;
+    return true;
+  }
 
   function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
   function span(cls, text) { return '<span class="' + cls + '">' + esc(text) + "</span>"; }
@@ -194,7 +208,7 @@
       else if (key === "g" || key === "Home") state.cursor = 0;
       else if (key === "G" || key === "End") state.cursor = entries().length - 1;
       else if (key === "/") { state.typing = true; state.filter = ""; state.cursor = 0; }
-      else if (key === "Escape") { state.filter = ""; }
+      else if (key === "Escape" && state.filter) { state.filter = ""; }
       else if (key === " ") pin();
       else if (key === "^u") state.pins = {};
       else if (key === "^t") { state.tree = !state.tree; state.cursor = 0; }
@@ -394,20 +408,50 @@
     }
   }
 
+  // Drive mode: on wide screens the focused stage takes the whole slide. Every way out keeps the scene as it is.
+  var driving = false;
+  function drive() {
+    if (driving || !hero || !wide.matches) return;
+    driving = true;
+    hero.classList.add("drive");
+    leaveBtn.hidden = false;
+    if (hero.getBoundingClientRect().top !== 0) hero.scrollIntoView({ behavior: reduced ? "auto" : "smooth" });
+  }
+  function leave() {
+    if (!driving) return;
+    driving = false;
+    hero.classList.remove("drive");
+    leaveBtn.hidden = true;
+    if (document.activeElement === stage) stage.blur();
+  }
+
   stage.addEventListener("keydown", function (ev) {
     if (ev.metaKey || ev.altKey) return;
     var key = ev.ctrlKey ? (ev.key.length === 1 ? "^" + ev.key.toLowerCase() : "") : ev.key;
     if (!key || key === "Tab" || key === "Shift") return;
     takeOver();
     if (handle(key)) ev.preventDefault();
+    else if (key === "Escape") { ev.preventDefault(); leave(); }
   });
   stage.addEventListener("pointerdown", function () { stage.focus(); });
+  stage.addEventListener("focus", drive);
+  leaveBtn.addEventListener("click", leave);
+  document.addEventListener("pointerdown", function (ev) {
+    if (driving && !root.querySelector(".stage").contains(ev.target) && !root.querySelector(".tour-steps").contains(ev.target)
+      && !(replay && replay.contains(ev.target))) leave();
+  });
+  // A scroll means the reader is moving on; no preventDefault, so the snap carries them to the next slide.
+  window.addEventListener("wheel", function () { leave(); }, { passive: true });
+  window.addEventListener("touchmove", function () { leave(); }, { passive: true });
+  if (wide.addEventListener) wide.addEventListener("change", function () { if (!wide.matches) leave(); });
+  if ("ResizeObserver" in window) new ResizeObserver(function () { if (fit()) render(); }).observe(stage);
   tabs.forEach(function (t, i) { t.addEventListener("click", function () { go(i); }); });
   if (replay) replay.addEventListener("click", function () { go(0); });
 
   root.classList.add("js");
   window.tfuiTour = { go: function (n) { return go(n, false); }, handle: handle };
   reset();
+  fit();
   if (reduced) { go(0, false); return; }
   render();
   select(0);
@@ -416,6 +460,7 @@
     visible = items[0].isIntersecting;
     if (visible && !auto && live.hidden) go(current);
     if (!visible && auto) { run++; auto = false; }
+    if (!visible) leave();
   }, { threshold: 0.35 }).observe(stage);
 
 })();

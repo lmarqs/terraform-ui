@@ -83,8 +83,60 @@
     });
   }
 
+  // On the landing page's wide layout, a wheel notch or arrow key at a section's edge moves a whole section.
+  // Mandatory snap alone sends a short scroll back to the edge it started from, so the reader would never leave it.
+  function slides() {
+    var snaps = Array.prototype.slice.call(document.querySelectorAll(".snap"));
+    var footer = document.querySelector(".footer");
+    var wide = window.matchMedia("(min-width: 981px)");
+    if (!snaps.length || !footer) return;
+    snaps.push(footer);
+    var busy = false;
+
+    function line() { return document.querySelector(".topbar").getBoundingClientRect().bottom; }
+    function go(top) {
+      busy = true;
+      window.scrollTo({ top: top, behavior: "smooth" });
+      setTimeout(function () { busy = false; }, 750);
+    }
+    // The scroll offset that pages from the section at the snap line to its neighbour, or null to scroll natively.
+    function target(dir) {
+      var edge = line(), vh = window.innerHeight, y = window.scrollY;
+      var i = 0;
+      while (i < snaps.length - 1 && snaps[i + 1].getBoundingClientRect().top <= edge + 2) i++;
+      var box = snaps[i].getBoundingClientRect();
+      if (dir > 0) {
+        if (i === snaps.length - 1 || box.bottom > vh + 2) return null;
+        var next = snaps[i + 1];
+        return next === footer ? document.documentElement.scrollHeight - vh : y + next.getBoundingClientRect().top - edge;
+      }
+      if (i === 0 || box.top < edge - 2) return null;
+      var prev = snaps[i - 1].getBoundingClientRect();
+      return prev.height <= vh - edge ? y + prev.top - edge : y + prev.bottom - vh;
+    }
+    function page(ev, dir) {
+      if (!wide.matches) return;
+      if (busy) { ev.preventDefault(); return; }
+      var top = target(dir);
+      if (top === null) return;
+      ev.preventDefault();
+      go(top);
+    }
+    window.addEventListener("wheel", function (ev) {
+      if (ev.ctrlKey || Math.abs(ev.deltaY) < Math.abs(ev.deltaX)) return;
+      page(ev, ev.deltaY > 0 ? 1 : -1);
+    }, { passive: false });
+    document.addEventListener("keydown", function (ev) {
+      if (ev.defaultPrevented || ev.altKey || ev.ctrlKey || ev.metaKey) return;
+      if (ev.target.closest && ev.target.closest("input, textarea, select, pre[tabindex], [contenteditable]")) return;
+      var dir = { ArrowDown: 1, PageDown: 1, " ": ev.shiftKey ? -1 : 1, ArrowUp: -1, PageUp: -1 }[ev.key];
+      if (dir) page(ev, dir);
+    });
+  }
+
   anchors();
   toc();
   copyButtons();
   search();
+  slides();
 })();
