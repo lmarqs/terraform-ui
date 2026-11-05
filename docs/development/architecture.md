@@ -4,7 +4,8 @@ title: Architecture
 parent: Development
 nav_order: 1
 has_children: true
-seo_description: Internal architecture of terraform-ui
+seo:
+  description: Internal architecture of terraform-ui
 ---
 
 # Architecture

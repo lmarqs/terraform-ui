@@ -3,7 +3,8 @@ layout: default
 title: CLI UX Guidelines
 parent: Reference
 nav_order: 4
-seo_description: UX design guidelines for the CLI interface
+seo:
+  description: UX design guidelines for the CLI interface
 ---
 
 # CLI UX Guidelines — terraform-ui

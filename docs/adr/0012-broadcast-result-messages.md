@@ -4,7 +4,8 @@ title: "ADR-0012: Broadcast result messages to all plugins"
 grand_parent: Development
 parent: Architecture
 nav_order: 0012
-seo_description: Decision to broadcast terraform operation results to all plugins for reactive updates
+seo:
+  description: Decision to broadcast terraform operation results to all plugins for reactive updates
 ---
 
 # Broadcast result messages to all plugins

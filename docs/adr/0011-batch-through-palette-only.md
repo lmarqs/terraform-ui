@@ -4,7 +4,8 @@ title: "ADR-0011: Batch operations only through ! palette"
 grand_parent: Development
 parent: Architecture
 nav_order: 0011
-seo_description: Decision to restrict batch operations to the explicit palette, never implicit via pins
+seo:
+  description: Decision to restrict batch operations to the explicit palette, never implicit via pins
 ---
 
 # Batch operations only through ! palette

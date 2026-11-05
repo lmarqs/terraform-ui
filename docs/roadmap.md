@@ -2,7 +2,8 @@
 layout: default
 title: Roadmap
 nav_order: 7
-seo_description: Planned features and enhancements for terraform-ui
+seo:
+  description: Planned features and enhancements for terraform-ui
 ---
 
 # Roadmap

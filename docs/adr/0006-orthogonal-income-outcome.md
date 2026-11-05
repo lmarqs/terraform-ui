@@ -4,7 +4,8 @@ title: "ADR-0006: Orthogonal axes: income and outcome are independent"
 grand_parent: Development
 parent: Architecture
 nav_order: 0006
-seo_description: Decision to keep input mode and output format as independent orthogonal axes
+seo:
+  description: Decision to keep input mode and output format as independent orthogonal axes
 ---
 
 # Orthogonal axes: income and outcome are independent

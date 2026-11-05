@@ -4,7 +4,8 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Phantom Changes
 id: phantom
 key: P
-seo_description: Detect and explain phantom (no-op) changes in terraform plans
+seo:
+  description: Detect and explain phantom (no-op) changes in terraform plans
 category: analysis
 default_enabled: true
 ---

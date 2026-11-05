@@ -4,7 +4,8 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Init
 id: init
 key: i
-seo_description: Run terraform init with form-based options
+seo:
+  description: Run terraform init with form-based options
 category: operations
 default_enabled: true
 ---

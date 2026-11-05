@@ -76,7 +76,7 @@ subject lands on four pages:
 
 `description` says what the page is, in one sentence opening with a verb that names its kind, such as "Records why"
 or "Lists every flag", so a reader of a listing knows whether to open it. `audience` says who opens it and when.
-`seo_description`, when present, is what search engines and link previews show in place of `description`
+`seo.description`, when present, is what search engines and link previews show in place of `description`
 (`_plugins/seo_description.rb`). Keep `layout`, `title`, `parent`, `nav_order`, `permalink`, and on plugin pages `id`,
 `key`, `category` and `default_enabled`: the site reads them.
 

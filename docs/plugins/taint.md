@@ -6,7 +6,8 @@ id: taint
 key: t
 category: action
 default_enabled: true
-seo_description: Mark terraform resources for recreation on next apply
+seo:
+  description: Mark terraform resources for recreation on next apply
 ---
 
 # Taint

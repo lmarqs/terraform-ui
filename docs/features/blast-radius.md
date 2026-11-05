@@ -3,7 +3,8 @@ layout: default
 title: Terraform Blast Radius Visualization
 parent: Features — Terraform Plan Analysis Tools
 nav_order: 3
-seo_description: See module-grouped impact of terraform changes before applying. Understand which modules are affected and how deeply.
+seo:
+  description: See module-grouped impact of terraform changes before applying. Understand which modules are affected and how deeply.
 ---
 
 ## Overview

@@ -4,7 +4,8 @@ title: "ADR-0017: Novel flags must be orthogonal — no conditional validity"
 grand_parent: Development
 parent: Architecture
 nav_order: 0017
-seo_description: Decision to require all novel flags to combine validly with every other flag
+seo:
+  description: Decision to require all novel flags to combine validly with every other flag
 ---
 
 # Novel flags must be orthogonal — no conditional validity

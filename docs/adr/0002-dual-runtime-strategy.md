@@ -4,7 +4,8 @@ title: "ADR-0002: Dual runtime strategy: ExecService and MacroService"
 grand_parent: Development
 parent: Architecture
 nav_order: 0002
-seo_description: Decision to support both live execution and recorded macro playback runtimes
+seo:
+  description: Decision to support both live execution and recorded macro playback runtimes
 ---
 
 # Dual runtime strategy: ExecService and MacroService

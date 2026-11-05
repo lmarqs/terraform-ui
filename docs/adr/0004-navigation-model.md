@@ -4,7 +4,8 @@ title: "ADR-0004: Navigation: Replace vs Push with return destination"
 grand_parent: Development
 parent: Architecture
 nav_order: 0004
-seo_description: Decision to model plugin navigation as Replace or Push with a single return address
+seo:
+  description: Decision to model plugin navigation as Replace or Push with a single return address
 ---
 
 # Navigation: Replace vs Push with return destination

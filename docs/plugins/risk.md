@@ -4,7 +4,8 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Risk Analysis
 id: risk
 key: R
-seo_description: Analyze and group planned changes by risk level
+seo:
+  description: Analyze and group planned changes by risk level
 category: analysis
 default_enabled: true
 ---

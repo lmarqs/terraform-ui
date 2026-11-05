@@ -3,7 +3,8 @@ layout: default
 title: Development
 nav_order: 6
 has_children: true
-seo_description: Internal architecture, design decisions, and testing strategy for terraform-ui contributors
+seo:
+  description: Internal architecture, design decisions, and testing strategy for terraform-ui contributors
 ---
 
 # Development

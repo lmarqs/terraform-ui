@@ -3,7 +3,8 @@ layout: default
 title: Features — Terraform Plan Analysis Tools
 nav_order: 3
 has_children: true
-seo_description: Risk classification, phantom change detection, blast radius visualization, and AI agent integration for terraform plans. Automatic analysis with zero configuration.
+seo:
+  description: Risk classification, phantom change detection, blast radius visualization, and AI agent integration for terraform plans. Automatic analysis with zero configuration.
 ---
 
 # Features

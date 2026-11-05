@@ -4,7 +4,8 @@ title: "ADR-0003: Typed event bus for inter-plugin communication"
 grand_parent: Development
 parent: Architecture
 nav_order: 0003
-seo_description: Decision to use typed events instead of stringly-typed state sharing between plugins
+seo:
+  description: Decision to use typed events instead of stringly-typed state sharing between plugins
 ---
 
 # Typed event bus for inter-plugin communication

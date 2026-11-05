@@ -3,7 +3,8 @@ layout: default
 title: CLI Reference — tfui Commands and Flags
 parent: Reference
 nav_order: 1
-seo_description: Complete command-line reference for tfui. All commands, flags, environment variables, and exit codes.
+seo:
+  description: Complete command-line reference for tfui. All commands, flags, environment variables, and exit codes.
 ---
 
 # CLI Reference

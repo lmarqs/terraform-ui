@@ -3,7 +3,8 @@ layout: default
 title: Terraform Plan Risk Analysis
 parent: Features — Terraform Plan Analysis Tools
 nav_order: 1
-seo_description: Automatic risk classification for terraform plan changes. Every resource scored critical, high, medium, or low before you apply.
+seo:
+  description: Automatic risk classification for terraform plan changes. Every resource scored critical, high, medium, or low before you apply.
 ---
 
 ## Overview

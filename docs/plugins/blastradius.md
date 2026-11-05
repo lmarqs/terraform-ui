@@ -4,7 +4,8 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Blast Radius
 id: blastradius
 key: B
-seo_description: Visualize module-grouped changes with impact scores
+seo:
+  description: Visualize module-grouped changes with impact scores
 category: analysis
 default_enabled: true
 ---

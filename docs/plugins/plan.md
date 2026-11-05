@@ -4,7 +4,8 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Terraform Plan Viewer — Tree Navigation
 id: plan
 key: p
-seo_description: Navigate terraform plan changes as an expandable tree with inline risk badges, attribute diffs, and targeted apply.
+seo:
+  description: Navigate terraform plan changes as an expandable tree with inline risk badges, attribute diffs, and targeted apply.
 category: operations
 default_enabled: true
 ---

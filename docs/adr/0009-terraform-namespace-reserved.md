@@ -4,7 +4,8 @@ title: "ADR-0009: Terraform's command namespace is reserved"
 grand_parent: Development
 parent: Architecture
 nav_order: 0009
-seo_description: Decision to reserve terraform's CLI command names and not shadow them
+seo:
+  description: Decision to reserve terraform's CLI command names and not shadow them
 ---
 
 # Terraform's command namespace is reserved

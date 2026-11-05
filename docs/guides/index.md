@@ -3,7 +3,8 @@ layout: default
 title: Guides — Getting Started with Terraform UI
 nav_order: 2
 has_children: true
-seo_description: Install terraform-ui, configure it for your project, and start reviewing terraform plans interactively.
+seo:
+  description: Install terraform-ui, configure it for your project, and start reviewing terraform plans interactively.
 ---
 
 # Getting Started

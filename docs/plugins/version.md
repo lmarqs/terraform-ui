@@ -6,7 +6,8 @@ id: version
 key: "—"
 category: utility
 default_enabled: true
-seo_description: Display tfui version, platform info, and terraform provider selections
+seo:
+  description: Display tfui version, platform info, and terraform provider selections
 ---
 
 # Version

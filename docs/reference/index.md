@@ -3,7 +3,8 @@ layout: default
 title: Reference
 nav_order: 5
 has_children: true
-seo_description: CLI reference, I/O contracts, macro DSL, and UX specifications for terraform-ui
+seo:
+  description: CLI reference, I/O contracts, macro DSL, and UX specifications for terraform-ui
 ---
 
 # Reference
