@@ -1,3 +1,11 @@
+# [1.22.0](https://github.com/lmarqs/terraform-ui/compare/v1.21.1...v1.22.0) (2026-11-05)
+
+
+### Features
+
+* **demo:** real before/after plan fixture for the landing page ([0e4b217](https://github.com/lmarqs/terraform-ui/commit/0e4b217a1a26e6b4a67231ee464339788f8e0b8c)), closes [#81](https://github.com/lmarqs/terraform-ui/issues/81)
+* **docs:** show a real plan flowing through tfui on the first screen ([1ff5ce3](https://github.com/lmarqs/terraform-ui/commit/1ff5ce397015baf900dd888e73bdcef281221ec2)), closes [#81](https://github.com/lmarqs/terraform-ui/issues/81)
+
 ## [1.21.1](https://github.com/lmarqs/terraform-ui/compare/v1.21.0...v1.21.1) (2026-11-05)
 
 
