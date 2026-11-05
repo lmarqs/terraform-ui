@@ -1,3 +1,12 @@
+# [1.26.0](https://github.com/lmarqs/terraform-ui/compare/v1.25.0...v1.26.0) (2026-11-05)
+
+
+### Features
+
+* **demo:** count Claude tokens for the before/after outputs ([258df82](https://github.com/lmarqs/terraform-ui/commit/258df82920965c7e9994eedb152160545ab1da6f))
+* **docs:** float a dot navigation beside the landing page sections ([4eb2431](https://github.com/lmarqs/terraform-ui/commit/4eb243128c389db0e14380adfd7518dfe58eb9be))
+* **docs:** show the raw CLI and tfui as paired cards ([c01a6e7](https://github.com/lmarqs/terraform-ui/commit/c01a6e7ca316352079af7e9882df451bd7a1cf52))
+
 # [1.25.0](https://github.com/lmarqs/terraform-ui/compare/v1.24.0...v1.25.0) (2026-11-05)
 
 
