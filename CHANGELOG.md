@@ -1,3 +1,10 @@
+# [1.27.0](https://github.com/lmarqs/terraform-ui/compare/v1.26.0...v1.27.0) (2026-11-05)
+
+
+### Features
+
+* **docs:** measure the headless benchmark in Claude tokens ([2496881](https://github.com/lmarqs/terraform-ui/commit/24968810b7458c02ed937986c27da65a6416afc7))
+
 # [1.26.0](https://github.com/lmarqs/terraform-ui/compare/v1.25.0...v1.26.0) (2026-11-05)
 
 
