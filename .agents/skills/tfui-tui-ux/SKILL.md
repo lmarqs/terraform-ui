@@ -1,6 +1,6 @@
 ---
-description: "TUI UX: keybinding conventions, hint bar design, navigation, action model, and anti-patterns"
-globs: ["plugins/**", "internal/ui/**", "pkg/sdk/frames/**"]
+name: tfui-tui-ux
+description: "tfui TUI UX rules: navigation layers, NavReplace vs NavPush, frame stack, keybinding layers, cursor vs batch action model, actions bar vs hint bar, scroll indicators, inspect view, confirmation ownership, staleness guard, anti-patterns. Use before editing plugins/, internal/ui/ or pkg/sdk/frames/, or any View(), Hints() or key handling."
 ---
 
 Full spec: `docs/reference/tui-ux.md`

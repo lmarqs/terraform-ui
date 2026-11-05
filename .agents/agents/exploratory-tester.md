@@ -17,7 +17,7 @@ You play the user: drive tfui headlessly with inline macros against the plan/sta
 ## Sources of truth
 
 - `docs/reference/macro-language.md`: invocation, tape DSL, recorded-command stdout.
-- `.claude/rules/ux-tui.md` and `docs/reference/tui-ux.md`: what each screen should show (hint bar, actions bar, pin markers, confirmations).
+- `.agents/skills/tfui-tui-ux/SKILL.md` and `docs/reference/tui-ux.md`: what each screen should show (hint bar, actions bar, pin markers, confirmations).
 - `cmd/tfui/registry.go`: home-menu keybindings.
 - `tests/fixtures/plan.json`, `tests/fixtures/state.json`: the fallback inputs when the caller names none.
 

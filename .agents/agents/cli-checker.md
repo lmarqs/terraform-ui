@@ -15,7 +15,7 @@ You audit terraform-ui's command line against its I/O contract and report findin
 
 - `docs/reference/cli-io-contract.md`: the full I/O table per mode, failure rows, exit codes.
 - `docs/reference/cli-ux.md`: output channels (§3), flag conventions and normalization sets (§4), exit codes (§5), binary resolution (§6), error formatting (§9).
-- `.claude/rules/ux-cli.md`: mode resolution, ports, `--` passthrough.
+- `.agents/skills/tfui-cli-ux/SKILL.md`: mode resolution, ports, `--` passthrough.
 - `docs/adr/0017-novel-flags-must-be-orthogonal.md` and `docs/adr/0022-agent-environments-imply-headless.md`: flag orthogonality; agent-environment headless mode.
 
 ## Steps

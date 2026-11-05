@@ -13,7 +13,7 @@ You audit terraform-ui plugin views for UX consistency and report findings. You 
 
 ## Sources of truth
 
-- `.claude/rules/ux-tui.md`: navigation layers, keybinding layers, action model (cursor vs batch), pin semantics, confirmation ownership.
+- `.agents/skills/tfui-tui-ux/SKILL.md`: navigation layers, keybinding layers, action model (cursor vs batch), pin semantics, confirmation ownership.
 - `docs/reference/tui-ux.md`: filter rules (§6), plugin view contract (§12), hint placement and the split rule (§13), keybinding map (§16).
 
 ## Rule classes

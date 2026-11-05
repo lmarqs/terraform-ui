@@ -14,7 +14,7 @@ You audit terraform-ui Go code for the conventions `golangci-lint` cannot enforc
 
 ## Sources of truth
 
-- `.claude/CLAUDE.md`: naming, testing, Important Rules, No Speculative Code.
+- `AGENTS.md` and `.agents/skills/tfui-conventions/SKILL.md`: naming, testing, plugin rules, No Speculative Code.
 - `CONTEXT.md`: the domain glossary, its avoid-lists, and flagged ambiguities.
 - `.golangci.yaml`: what the linter already enforces (the `tea` and `tfui*` aliases among them). Skip anything it covers.
 
@@ -22,9 +22,9 @@ You audit terraform-ui Go code for the conventions `golangci-lint` cannot enforc
 
 Apply every class to every changed line in scope (the caller's diff, or `git diff origin/main` when no scope is given):
 
-1. **Naming**: plugin IDs, `{Subject}{Verb}Msg`, `{Subject}{Verb}Event`, as in CLAUDE.md § Naming.
+1. **Naming**: plugin IDs, `{Subject}{Verb}Msg`, `{Subject}{Verb}Event`, as in the `tfui-conventions` skill § Naming.
 2. **Domain language**: identifiers, comments, and user-facing strings use `CONTEXT.md` terms; any avoid-list word is a finding.
-3. **Speculative code**: every guard, flag, branch, abstraction, and error path serves a reachable, current case (CLAUDE.md § No Speculative Code). Trace the call graph before calling a guard unreachable.
+3. **Speculative code**: every guard, flag, branch, abstraction, and error path serves a reachable, current case (`tfui-conventions` skill § No Speculative Code). Trace the call graph before calling a guard unreachable.
 4. **Config access**: getters pass a default value.
 5. **Comments**: a comment states a non-obvious *why*; one that restates the code is a finding.
 6. **Tests**: plugin tests go through `sdktest.NewDeps` and `Init()` and use `sdktest.MockService`.

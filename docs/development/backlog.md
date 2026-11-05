@@ -64,7 +64,7 @@ a correctness-risk bug carries `bug,tech-debt`.
 
 - **Title**: imperative and specific — `State Browser: pinning a resource wipes the list`, not `pin bug`. Prefix architecture refactors with `[arch]`.
 - **Body**: Summary → Root cause / Evidence (with `file:line`) → Fix → Verification. Cross-link related issues and ADRs.
-- **No speculative issues**: file work that serves a real, current need (mirrors the *No Speculative Code* rule in [`CLAUDE.md`](https://github.com/lmarqs/terraform-ui/blob/main/.claude/CLAUDE.md)).
+- **No speculative issues**: file work that serves a real, current need (mirrors the *No Speculative Code* rule in [`tfui-conventions` skill](https://github.com/lmarqs/terraform-ui/blob/main/.agents/skills/tfui-conventions/SKILL.md)).
 - **Close via commits**: end the commit body with `Fixes #NN` so merging to `main` closes the issue automatically. Use [conventional commit](https://www.conventionalcommits.org/) prefixes (`fix:`, `feat:`, `refactor:`, …) so semantic-release versions correctly.
 
 ## Roadmap

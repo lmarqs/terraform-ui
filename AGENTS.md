@@ -1,34 +1,29 @@
-> **This file is an unfilled template.** Fill it in only when the developer asks. If they ask for other work in an
-> interactive session, say once that it is unfilled, then do that work. To fill it in:
->
-> - Replace every `[[fill: …]]`, table cells included; `grep -n '\[\[fill:' AGENTS.md` finds them all. Write `none`
->   in a row that does not apply. Delete a section only when nothing else in this file points to it.
-> - Link the README section instead of restating it, and fix the README in the same change when it is wrong.
-> - Run every command you write. Mark one you could not run `(unverified)`; the next agent to run it removes the mark.
-> - Never write a rule its source does not state: the code, a config file, the README, CI or the developer.
-> - When replacing an existing `AGENTS.md`, follow `.agents/skills/agents-layout/references/adopt.md`.
-> - `.agents/skills/agents-layout/references/agents-md.md` says why the fixed text is here; keep it unless it is
->   wrong for this repository.
-> - Run `sh .agents/skills/agents-layout/scripts/check.sh`; when this note is all it reports, delete the note.
+# terraform-ui (tfui)
 
-# [[fill: project name]]
+A k9s-style interactive TUI and headless CLI for Terraform operations: one Go binary where every feature is a
+plugin. Users and features are in the [README](README.md).
 
-[[fill: what this repository is and who uses it, in one or two sentences, with a link to the README]]
-
-Stack: [[fill: each language, framework and service with its major version and the file that pins it]]
+Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12, goreleaser 2.15 and terraform
+1.14 (`mise.toml`).
 
 ## Quick reference
 
-- Install or add a dependency: [[fill: both commands]]
-- Run: [[fill: command]]
-- Build: [[fill: command]]
-- Test one file: [[fill: command]]
-- Lint or format one file: [[fill: command]]
-- Generate code: [[fill: command, or none]]
-- Local services: [[fill: start and stop commands, or none]]
-- Worktrees: [[fill: where they go, how to create one ready to run and remove one with its data, or none]]
-- Quick check, seconds on what changed: [[fill: command]]
-- Done check, all that must pass before a change is done: [[fill: commands in order, time taken, services needed]]
+- Install or add a dependency: `mise install && mise run setup`; `go get <module>@<version>`
+- Run: `mise run dev` (accepts `--project`, `--plan`, `--state`)
+- Build: `mise run check:build` to compile; `mise run build` for the cross-platform binaries (goreleaser)
+- Test one file: `mise run test:unit ./<package>/...` (Go tests run per package)
+- Lint or format one file: `mise run fmt <file.go>`; lint runs repo-wide, `mise run check:lint`
+- Generate code: none
+- Local services: none
+<!-- cook:begin io.github.lmarqs.cookbook:git#worktrees/worktrees -->
+<!-- io.github.lmarqs.cookbook:git#worktrees --instructions=AGENTS.md -->
+- Worktrees: branch `<branch>` is checked out at `.worktrees/<branch>`; `.worktrees/README.md` says how to
+  create one ready to run and remove it.
+<!-- cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees -->
+- Quick check, seconds on what changed: `mise run check:build && mise run test:unit ./<package>/...`
+- Done check, all that must pass before a change is done: `mise run check:lint && mise run test:unit && mise run check:build`,
+  about 50 seconds, no services; for UI changes also `mise run test:macro`.
+- Every other task (coverage, integration, docs site, demo GIFs): `mise tasks` lists each with when to run it.
 
 ## Boundaries
 
@@ -39,25 +34,27 @@ Stack: [[fill: each language, framework and service with its major version and t
 - Update this file in the change that alters a command, path or rule it names.
 - Keep this file under 800 words; past 1,200, move a section into a skill or memory file before adding. All
   `AGENTS.md` files together stay under 16 KiB.
-- [[fill: another rule for every change here, or none]]
+- Write the failing test first: the `test-writer` agent produces it before any implementation code.
 
 **Never**
 
 - Commit secrets or credentials, or put personal data in logs, fixtures or commits.
-- Edit generated files by hand: [[fill: paths, or none]]
+- Edit generated files by hand: `CHANGELOG.md` and `VERSION`, which semantic-release writes.
 - Make a check pass by weakening it: skipping a test, suppressing a warning, loosening an assertion.
 
-**Stop and ask** before [[fill: such as new dependencies, schema changes, rewriting pushed history]], and when a
-check fails again after a fix, a command is refused, or a decision is left open.
+**Stop and ask** before a change spanning 3+ files or adding a new abstraction (share a brief plan first), and when
+a check fails again after a fix, a command is refused, or a decision is left open.
 
-Enforced by [[fill: the file that makes agent tools refuse these, or none]]. A refusal is the rule working.
+Enforced by none.
 
 ## Where things go
 
-- New code: [[fill: the directory for each kind of code, related repositories, and the design document]]
-- Tests: [[fill: directory and naming, with an example file]]
-- Settings: [[fill: the file a new setting goes in, where secrets live (names only), and which source wins]]
-- Decisions and domain rules: [[fill: directory or document]]
+- New code: `cmd/tfui/` CLI wiring, `pkg/sdk/` the public SDK, `internal/` app internals, `plugins/<id>/` each
+  feature; the `tfui-conventions` skill has the import rules, and `docs/development/architecture.md` the design.
+- Tests: `_test.go` beside the code, table-driven; a plugin test builds its deps with `sdktest.NewDeps(svc)` and
+  calls `Init()`, as `plugins/version/version_test.go` does; integration tests in `tests/integration/`.
+- Settings: `tfui.hcl` per project ([configuration](docs/guides/configuration.md)).
+- Decisions and domain rules: `docs/adr/` and the glossary in `CONTEXT.md`.
 - A procedure an agent repeats: a skill in `.agents/skills/`.
 - A trap in one area: `.agents/memory/`, listed under Deep dive.
 
@@ -66,16 +63,29 @@ Enforced by [[fill: the file that makes agent tools refuse these, or none]]. A r
 - A behavior change ships with a test; a bug fix with one that failed before the fix.
 - Comments record only reasons the code cannot show.
 - Change only what the task needs, matching the surrounding code.
-- [[fill: a convention review enforces, with a file that follows it, or none]]
-- Commits: [[fill: one change per commit; branch, message, pull request and tracker rules]]
-- Deploy: [[fill: what triggers a deploy, where to see it worked, and the rollback runbook, or none]]
+- Plugins import only `pkg/sdk`; `internal/` belongs to the app.
+- tfui is a pass-through layer: every line serves a current use case, terraform validates its own inputs, tfui warns
+  on stderr when helpful, and terraform's error reaches the user as is. The `tfui-conventions` skill lists what
+  speculative code looks like.
+- Commits: conventional commits (`feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `chore:`); break large
+  changes into reviewable chunks; work is tracked in GitHub issues as `docs/development/backlog.md` says.
+- Deploy: a push to `main` runs semantic-release, which tags, writes `CHANGELOG.md` and runs goreleaser; the
+  `tfui-ci` skill has the pipeline.
 
 ## Gotchas
 
-At most five traps any task can hit.
-
-- [[fill: what goes wrong when you do what, and what to do instead]]
+- "Context" is only the umbrella of Project + Chdir + Workspace; code says "chdir" for the member directory, never
+  "scope", and `ContextChangedEvent` covers chdir, workspace and pin changes (ADR-0018).
+- Terraform rejects `-target` with a saved plan file: targets go on plan, never on apply (ADR-0019).
+- CI runs `mise run test:coverage` at a 100% threshold: an untested branch outside `cmd/` and
+  `internal/terraform/exec` turns it red.
 
 ## Deep dive (read on demand)
 
-- [[fill: topic, and the document, skill or memory file that covers it]]
+The `tfui-*` skills hold the conventions, the SDK architecture, the TUI and CLI UX rules and the CI pipeline, each
+with its spec in `docs/`. Beyond them:
+
+- Choosing what to test, and at which level: `docs/development/testing.md`
+- Filing, labelling or moving an issue: `docs/development/backlog.md`
+- A plugin's behavior: `docs/plugins/index.md`; risk, phantom changes, blast radius: `docs/features/`
+- Demo fixtures, tapes or GIFs: `demo/README.md`
