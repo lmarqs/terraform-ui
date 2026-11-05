@@ -5,6 +5,8 @@ parent: Development
 nav_order: 3
 seo:
   description: How the terraform-ui backlog is tracked — project board, status workflow, and label taxonomy
+description: "Guides a contributor through filing, labelling and moving issues on the project board."
+audience: "Contributors filing or moving an issue"
 ---
 
 # Backlog Maintenance

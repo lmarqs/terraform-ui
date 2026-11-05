@@ -4,6 +4,8 @@ title: Roadmap
 nav_order: 7
 seo:
   description: Planned features and enhancements for terraform-ui
+description: "Points to where planned work is tracked: the project board and its issue labels."
+audience: "Users and contributors asking what is planned"
 ---
 
 # Roadmap

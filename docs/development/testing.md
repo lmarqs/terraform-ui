@@ -5,6 +5,8 @@ parent: Development
 nav_order: 2
 seo:
   description: Behavioral testing standard, conventions, and layered test architecture
+description: "Sets the rules for tests: what to test at which level, naming and the TDD cycle."
+audience: "Contributors writing or reviewing tests"
 ---
 
 # Testing Strategy

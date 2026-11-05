@@ -5,6 +5,8 @@ nav_order: 6
 has_children: true
 seo:
   description: Internal architecture, design decisions, and testing strategy for terraform-ui contributors
+description: "Lists the contributor pages and explains how the docs site is laid out and built."
+audience: "Contributors, and whoever changes the docs site"
 ---
 
 # Development

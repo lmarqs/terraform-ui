@@ -6,6 +6,8 @@ nav_order: 1
 has_children: true
 seo:
   description: Internal architecture of terraform-ui
+description: "Explains how the SDK, app internals and plugins fit together, and which way dependencies point."
+audience: "Contributors before a change that crosses packages"
 ---
 
 # Architecture
