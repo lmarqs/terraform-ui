@@ -12,33 +12,54 @@
 version: 2
 
 # Whether a Claude run may start in bypass mode, which runs every command that is not denied without asking.
-# allow is for teams that run every agent in a container.
 bypass: refuse
 
-# Commands every session may run, whatever its role.
 commands:
-  allow: []
-  ask: []
-  deny: []
+  allow:
+    # Git is local or reaches a branch: every step is undone through the reflog or another push. A push to main runs
+    # semantic-release, which only cuts a release for feat: and fix: commits; the irreversible act, rewriting main,
+    # is denied below.
+    - [git]
 
-# This starter grants nothing. An example to start from, with a tool that is not a shell command, named as the
-# harness names it, and a role, which only adds denies for one kind of run and is picked at launch:
-#
-#   commands:
-#     allow:
-#       - [git, [status, diff, log, show]]
-#       - [./gradlew, [test, check]]
-#     ask:
-#       - [git, push]
-#     deny:
-#       - [git, push, [--force, -f]]
-#       - [git, reset, --hard]
-#       - claude: "git push * --force*"
-#   tools:
-#     allow:
-#       - claude: "WebFetch(domain:docs.gradle.org)"
-#   roles:
-#     worker:
-#       deny:
-#         - [git, [commit, push]]
-#         - [gh]
+    # GitHub reads, and issue, PR, label and board writes a person can edit, close or reopen (docs/development/backlog.md).
+    # `gh api`, releases and repo, secret and variable changes stay unlisted: one prefix cannot tell their reads from
+    # their writes, and a release is published to users.
+    - [gh, auth, status]
+    - [gh, issue, [close, comment, create, edit, list, reopen, view]]
+    - [gh, pr, [checkout, checks, close, comment, create, diff, edit, list, merge, ready, review, status, view]]
+    - [gh, label, [create, edit, list]]
+    - [gh, project, [field-list, item-add, item-edit, item-list, list, view]]
+    - [gh, repo, view]
+    - [gh, run, [cancel, list, rerun, view, watch]]
+    - [gh, search]
+
+    # The Go toolchain and the tools the tasks call; their effects stay in this clone and its module cache.
+    - [go]
+    - [gofmt]
+    - [golangci-lint]
+    - [gotestsum]
+
+    # Tasks whose effects stay in this clone. release:* is semantic-release's, run by CI with its token, and
+    # demo:before-after spends the developer's Claude usage, so both stay unlisted.
+    - [mise, install]
+    - [mise, tasks]
+    - [mise, run, [build, dev, fmt, setup]]
+    - [mise, run, ["check:build", "check:lint"]]
+    - [mise, run, ["test:all", "test:coverage", "test:integration", "test:macro", "test:unit"]]
+    - [mise, run, ["docs:build", "docs:check", "docs:install", "docs:serve"]]
+    - [mise, run, ["demo:generate", "demo:lock"]]
+    - [./.worktrees/setup]
+
+  deny:
+    # A force push to main rewrites the history releases were built from. The prefixes catch the flag-first forms for
+    # both harnesses; the patterns catch the flag-last forms for Claude.
+    - [git, push, [--force, --force-with-lease, -f], origin, [main, "HEAD:main"]]
+    - [git, push, origin, ["+main", "+HEAD:main"]]
+    - claude: "git push origin main --force*"
+    - claude: "git push origin main -f*"
+    - claude: "git push origin HEAD:main --force*"
+    - claude: "git push origin HEAD:main -f*"
+
+    # mise's `:::` runs a second task in the same command, so an allowed task could carry an unlisted one such as
+    # release:run past every rule. Codex cannot match mid-command.
+    - claude: "mise * ::: *"
