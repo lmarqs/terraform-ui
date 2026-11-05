@@ -77,13 +77,16 @@ demo/
 
 ## Before/after on the landing page
 
-The "How it works" section of the docs landing page shows one real plan three ways: the raw `terraform plan`
-output, tfui's tree, and the headless `tfui plan --ci` summary an agent reads. All three come from the fixture in
+The "See it work" tour at the top of the docs landing page plays one real plan: the raw `terraform plan` output,
+tfui's tree, and the headless `tfui plan --ci` summary an agent reads. All of it comes from the fixture in
 `demo/before-after/`, a few AWS resources in three modules with a hand-written `terraform.tfstate`.
 
 ```bash
-mise run demo:before-after   # rewrites docs/_includes/before-after/ and docs/_data/before_after.yml
+mise run demo:before-after   # rewrites docs/_includes/before-after/, docs/_data/before_after.yml and docs/_data/tour.json
 ```
+
+`tour.json` holds the rows the tour's simulated plan view plays with: each change's address, action, the risk badge
+tfui printed for it, and up to six attributes for the inspect screen. `docs/assets/tour.js` renders them.
 
 Nothing reaches AWS. The provider has fake credentials and skips its account checks, and every plan runs with
 `-refresh=false`, so terraform only diffs the config against the state file. tfui itself always plans with

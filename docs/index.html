@@ -8,6 +8,7 @@ description: >-
 ---
 {%- assign demo = '/assets/demo/' | relative_url -%}
 {%- assign ba = site.data.before_after -%}
+{%- assign tour = site.data.tour -%}
 
 <section class="hero">
   <div class="hero-inner">
@@ -21,48 +22,41 @@ description: >-
       <a class="button ghost" href="{{ site.source_url }}">{% include icons/github.svg %}View on GitHub</a>
     </div>
   </div>
-  <div class="hero-flow" id="how-it-works">
-    <p class="kicker">How it works</p>
-    <h2>One plan in. Two reads out.</h2>
-    <div class="flow">
-      <figure class="terminal flow-in">
-        <div class="shot-bar"><span></span><span></span><span></span><b>terraform plan · {{ ba.before_lines }} lines</b></div>
-        <pre aria-label="Raw terraform plan output, {{ ba.before_lines }} lines. The destroy of module.storage.aws_db_instance.primary is buried among {{ ba.changes }} changes."><span class="flow-scroll">{% include before-after/before.html %}</span></pre>
-      </figure>
-      <div class="flow-core" aria-hidden="true">
-        <div class="flow-wire in"><i></i></div>
-        <div class="flow-card">
-          <svg class="mark" width="34" height="34" viewBox="0 0 28 28"><use href="#tfui-mark"/></svg>
-          <b>tfui</b>
-          <ol>
-            <li>{% include icons/file-json.svg %}Parse the plan</li>
-            <li>{% include icons/folder-tree.svg %}Group by module</li>
-            <li>{% include icons/shield-alert.svg %}Score every change</li>
-            <li>{% include icons/tag.svg %}Badge the risk</li>
-          </ol>
-        </div>
-        <div class="flow-wire out"><i></i><i></i></div>
-      </div>
-      <div class="flow-out">
-        <figure class="terminal">
-          <div class="shot-bar"><span></span><span></span><span></span><b>{% include icons/user.svg %}For you · tfui plan</b></div>
-          <pre aria-label="tfui's plan tree: {{ ba.changes }} changes grouped by module with a risk badge each; the database destroy is CRITICAL.">{% include before-after/human.html %}</pre>
-        </figure>
-        <figure class="terminal agent">
-          <div class="shot-bar"><span></span><span></span><span></span><b>{% include icons/bot.svg %}For your agent · tfui plan --ci</b></div>
-          <pre aria-label="Headless output for an agent: {{ ba.agent_lines }} lines, one per change, then the totals and the overall risk.">{% include before-after/agent.html %}</pre>
-        </figure>
-      </div>
-    </div>
+  <div class="tour" id="how-it-works">
+    <p class="kicker">See it work</p>
+    <h2>Read the plan. Then act on it.</h2>
+    <p class="tour-caption" aria-live="polite"><kbd>tfui plan</kbd> {{ ba.changes }} changes, sorted into modules, a risk badge on every one. Not {{ ba.before_lines }} lines.</p>
+    <figure class="terminal stage">
+      <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan</b><i class="live" hidden>live · you're driving</i></div>
+      <pre tabindex="0" aria-label="Interactive demo of tfui's plan view. Focus it and press / to filter, j and k to move, Enter to inspect, Space to pin, a to apply.">
+{%- for c in tour.changes %}
+<span class="ln"> [ ] <span class="{% case c.action %}{% when 'create' %}add{% when 'update' %}chg{% else %}del{% endcase %}">{% case c.action %}{% when 'create' %}+{% when 'update' %}~{% else %}-{% endcase %}</span> {{ c.address }} <span class="r-{{ c.risk | downcase }}">[{{ c.risk }}]</span></span>
+{%- endfor %}
+<span class="ln"> </span>
+<span class="ln"> <span class="ok">Plan: {{ tour.summary.add }} to add, {{ tour.summary.change }} to change, {{ tour.summary.destroy }} to destroy</span></span>
+<span class="ln"> Overall risk: <span class="r-{{ tour.risk | downcase }}">{{ tour.risk }}</span></span></pre>
+    </figure>
+    <ol class="tour-steps">
+      <li><button type="button" aria-selected="true">Plan<kbd>p</kbd></button><i class="bar"></i></li>
+      <li><button type="button" aria-selected="false">Filter<kbd>/</kbd></button><i class="bar"></i></li>
+      <li><button type="button" aria-selected="false">Inspect<kbd>enter</kbd></button><i class="bar"></i></li>
+      <li><button type="button" aria-selected="false">Pin<kbd>space</kbd></button><i class="bar"></i></li>
+      <li><button type="button" aria-selected="false">Apply<kbd>a</kbd></button><i class="bar"></i></li>
+      <li><button type="button" aria-selected="false">Agent<kbd>--ci</kbd></button><i class="bar"></i></li>
+    </ol>
+    <p class="tour-hint">Click the terminal and drive it with the same keys tfui uses. <button type="button" class="tour-replay">{% include icons/play.svg %}Replay</button></p>
     <ul class="stat">
       <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
       <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
       <li><b>{{ ba.agent_lines }}</b><span>lines for your agent</span></li>
       <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
     </ul>
-    <p class="note">A real plan of the <a href="{{ site.source_url }}/tree/main/demo/before-after">demo/before-after</a>
-      fixture with Terraform v1.14.9, planned offline against a hand-written state: tfui reads the plan on your machine and sends it nowhere. Regenerate it with
-      <code>mise run demo:before-after</code>.</p>
+    <p class="note">Every row is from a real plan of the <a href="{{ site.source_url }}/tree/main/demo/before-after">demo/before-after</a>
+      fixture with Terraform v1.14.9, planned offline against a hand-written state. tfui reads the plan on your machine and sends it nowhere.
+      Regenerate it with <code>mise run demo:before-after</code>.</p>
+    <template id="tour-before">{% include before-after/before.html %}</template>
+    <template id="tour-agent">{% include before-after/agent.html %}</template>
+    <script type="application/json" id="tour-data">{{ tour | jsonify }}</script>
   </div>
 </section>
 
@@ -151,8 +145,8 @@ tfui -plan /tmp/plan.json
       <div class="feature-copy">
         <p class="kicker">{% include icons/list-tree.svg %}Plan tree</p>
         <h3>Expand the diff, not the scrollback</h3>
-        <p>Navigate changes as a tree. Expand a row to see its attribute diff inline. Filter by address with
-          <code>/</code>.</p>
+        <p>Navigate changes as a tree. Press <kbd>enter</kbd> on a row to read its attribute diff. Filter by address
+          with <code>/</code>.</p>
         <a class="more" href="{{ '/plugins/plan.html' | relative_url }}">The plan plugin{% include icons/arrow-right.svg %}</a>
       </div>
       <figure class="shot">
@@ -171,8 +165,8 @@ tfui -plan /tmp/plan.json
           <li class="badge medium">[medium]</li>
           <li class="badge low">[low]</li>
         </ul>
-        <p>Rules know your resources. Destroying a database is critical. Opening a security group from
-          <code>10.0.0.0/8</code> to <code>0.0.0.0/0</code> is high. A tag change is low.</p>
+        <p>Rules know your resources. Destroying a database is critical. Changing an IAM role is high. Changing an
+          instance is low.</p>
         <a class="more" href="{{ '/features/risk-analysis.html' | relative_url }}">How risk is classified{% include icons/arrow-right.svg %}</a>
       </div>
       <figure class="terminal">
@@ -185,12 +179,12 @@ tfui -plan /tmp/plan.json
 <span class="chg">~</span> module.compute.aws_iam_role.app             <span class="badge-t high">[HIGH]</span>
 <span class="chg">~</span> module.storage.aws_s3_bucket.logs           <span class="badge-t high">[HIGH]</span>
 <span class="chg">~</span> module.storage.aws_s3_bucket_policy.logs    <span class="meta">[low]</span>
-<span class="del">- module.storage.aws_db_instance.primary      <b>[CRITICAL]</b></span>
+<span class="del">- module.storage.aws_db_instance.primary</span>      <b class="crit">[CRITICAL]</b>
 <span class="add">+</span> module.storage.aws_db_instance.primary_v2   <span class="badge-t medium">[medium]</span>
 <span class="meta">…</span>
 
 <span class="ok">Plan: 7 to add, 6 to change, 1 to destroy</span>
-Overall risk: <span class="del"><b>CRITICAL</b></span></pre>
+Overall risk: <b class="crit">CRITICAL</b></pre>
       </figure>
     </div>
 
