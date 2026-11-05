@@ -6,6 +6,8 @@ id: workspace
 key: w
 seo:
   description: Manage terraform workspace (list, switch, create, delete)
+description: "Describes how the Workspace plugin lists, switches, creates and deletes workspaces."
+audience: "Users working across terraform workspaces"
 category: navigation
 default_enabled: true
 ---

@@ -6,6 +6,8 @@ id: init
 key: i
 seo:
   description: Run terraform init with form-based options
+description: "Describes how the Init plugin runs terraform init with its options in a form."
+audience: "Users initializing or reconfiguring a project"
 category: operations
 default_enabled: true
 ---

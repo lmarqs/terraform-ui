@@ -6,6 +6,8 @@ id: state
 key: s
 seo:
   description: Browse, search, and inspect terraform state resources interactively. Taint, untaint, move, and delete with safety prompts instead of raw CLI.
+description: "Describes how the State plugin browses state and taints, untaints, moves and removes resources."
+audience: "Users inspecting or editing state"
 category: navigation
 default_enabled: true
 ---

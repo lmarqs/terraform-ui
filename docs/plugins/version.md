@@ -8,6 +8,8 @@ category: utility
 default_enabled: true
 seo:
   description: Display tfui version, platform info, and terraform provider selections
+description: "Describes what the Version plugin shows: tfui version, platform and provider selections."
+audience: "Users reporting a bug or checking versions"
 ---
 
 # Version

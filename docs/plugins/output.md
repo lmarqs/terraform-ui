@@ -8,6 +8,8 @@ category: navigation
 default_enabled: true
 seo:
   description: View terraform output values for the current workspace
+description: "Describes how the Outputs plugin shows the output values of the current workspace."
+audience: "Users reading outputs"
 ---
 
 # Outputs

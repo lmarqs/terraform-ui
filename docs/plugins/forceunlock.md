@@ -8,6 +8,8 @@ category: utility
 default_enabled: true
 seo:
   description: Remove a stale terraform state lock safely from the TUI
+description: "Describes how the Force Unlock plugin removes a stale state lock."
+audience: "Users whose state is stuck behind a lock"
 ---
 
 # Force Unlock

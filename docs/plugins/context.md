@@ -6,6 +6,8 @@ id: context
 key: C
 seo:
   description: View and manage working context (project, chdir, workspace)
+description: "Describes how the Context plugin shows and switches project, chdir and workspace."
+audience: "Users switching what tfui runs against"
 category: navigation
 default_enabled: true
 ---

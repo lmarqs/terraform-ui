@@ -8,6 +8,8 @@ category: operations
 default_enabled: true
 seo:
   description: Interactive terraform console REPL session within the TUI
+description: "Describes the Console plugin, a terraform console session inside the TUI."
+audience: "Users evaluating expressions against their state"
 ---
 
 # Console

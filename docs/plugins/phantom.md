@@ -6,6 +6,8 @@ id: phantom
 key: P
 seo:
   description: Detect and explain phantom (no-op) changes in terraform plans
+description: "Describes how the Phantom Changes plugin detects and explains no-op changes in a plan."
+audience: "Users reviewing a plan full of diffs that change nothing"
 category: analysis
 default_enabled: true
 ---

@@ -8,6 +8,8 @@ category: action
 default_enabled: true
 seo:
   description: Mark terraform resources for recreation on next apply
+description: "Describes how the Taint plugin marks resources for recreation on the next apply."
+audience: "Users forcing a resource to be replaced"
 ---
 
 # Taint

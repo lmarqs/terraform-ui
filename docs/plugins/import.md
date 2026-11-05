@@ -8,6 +8,8 @@ category: action
 default_enabled: true
 seo:
   description: Import existing infrastructure into terraform state interactively
+description: "Describes how the Import plugin brings existing infrastructure into state."
+audience: "Users adopting resources created outside terraform"
 ---
 
 # Import

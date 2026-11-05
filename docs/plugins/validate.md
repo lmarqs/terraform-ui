@@ -8,6 +8,8 @@ category: operations
 default_enabled: true
 seo:
   description: Run terraform validate and display configuration diagnostics
+description: "Describes how the Validate plugin runs terraform validate and shows its diagnostics."
+audience: "Users checking configuration before a plan"
 ---
 
 # Validate

@@ -8,6 +8,8 @@ category: action
 default_enabled: true
 seo:
   description: Remove taint mark from terraform resources to prevent forced recreation
+description: "Describes how the Untaint plugin clears a resource's taint mark."
+audience: "Users undoing a taint"
 ---
 
 # Untaint

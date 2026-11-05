@@ -6,6 +6,8 @@ has_children: true
 permalink: /plugins/
 seo:
   description: Complete catalog of terraform-ui plugins — plan review, state browser, workspaces, apply, validate, console, and more.
+description: "Lists every plugin with its key, category and what it does."
+audience: "Users looking for a feature, and contributors adding a plugin"
 ---
 
 # Plugins

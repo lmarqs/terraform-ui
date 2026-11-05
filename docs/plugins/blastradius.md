@@ -6,6 +6,8 @@ id: blastradius
 key: B
 seo:
   description: Visualize module-grouped changes with impact scores
+description: "Describes how the Blast Radius plugin groups changes by module and scores their impact."
+audience: "Users weighing a plan's reach, and contributors changing blast radius"
 category: analysis
 default_enabled: true
 ---

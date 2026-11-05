@@ -6,6 +6,8 @@ id: risk
 key: R
 seo:
   description: Analyze and group planned changes by risk level
+description: "Describes how the Risk Analysis plugin groups planned changes by risk level."
+audience: "Users triaging a plan by risk"
 category: analysis
 default_enabled: true
 ---

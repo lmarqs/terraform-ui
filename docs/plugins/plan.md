@@ -6,6 +6,8 @@ id: plan
 key: p
 seo:
   description: Navigate terraform plan changes as an expandable tree with inline risk badges, attribute diffs, and targeted apply.
+description: "Describes how the Plan plugin shows a plan as a tree with risk badges, attribute diffs and pins."
+audience: "Users reviewing a plan, and contributors changing plan"
 category: operations
 default_enabled: true
 ---

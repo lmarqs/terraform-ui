@@ -6,6 +6,8 @@ id: apply
 key: a
 seo:
   description: Apply terraform changes with confirmation, targeting, and elapsed time tracking
+description: "Describes how the Apply plugin applies changes: confirmation, pinned targets, saved plans and its settings."
+audience: "Users applying from tfui, and contributors changing apply"
 category: operations
 default_enabled: true
 ---

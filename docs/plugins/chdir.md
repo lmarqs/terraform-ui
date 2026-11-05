@@ -8,6 +8,8 @@ category: navigation
 default_enabled: true
 seo:
   description: Select a member directory within a multi-module terraform project
+description: "Describes how the Chdir picker selects a member directory in a multi-module project."
+audience: "Users with several terraform roots in one project"
 ---
 
 # Chdir Picker
