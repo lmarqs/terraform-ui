@@ -55,6 +55,7 @@ Enforced by none.
   calls `Init()`, as `plugins/version/version_test.go` does; integration tests in `tests/integration/`.
 - Settings: `tfui.hcl` per project ([configuration](docs/guides/configuration.md)).
 - Decisions and domain rules: `docs/adr/` and the glossary in `CONTEXT.md`.
+- Any other documentation: the page `docs/README.md` maps it to; the `docs-layout` skill writes and reviews pages.
 - A procedure an agent repeats: a skill in `.agents/skills/`.
 - A trap in one area: `.agents/memory/`, listed under Deep dive.
 
