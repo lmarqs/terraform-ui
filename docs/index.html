@@ -22,13 +22,16 @@ description: >-
         <li>{% include icons/opentofu.svg %}OpenTofu</li>
         <li>{% include icons/layers.svg %}Terragrunt</li>
       </ul>
-      <ul class="stat hero-stat">
-        <li class="raw"><b>{% include icons/x.svg %}{{ ba.before_lines }}</b><span>lines of raw terraform</span></li>
-        <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
-        <li><b>{{ ba.agent_tokens }}</b><span>tokens for your agent</span></li>
-        {%- assign critical = tour.changes | where: "risk", "CRITICAL" | size %}
-        <li><b class="crit">{{ critical }}</b><span>CRITICAL change flagged</span></li>
-      </ul>
+      <div class="shift">
+        <p class="shift-before"><b>{{ ba.before_lines }}</b><span>lines of raw terraform</span></p>
+        <p class="shift-via"><span>tfui</span>{% include icons/arrow-right.svg %}</p>
+        <ul class="stat shift-after">
+          <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
+          <li><b>{{ ba.agent_tokens }}</b><span>tokens for your agent</span></li>
+          {%- assign critical = tour.changes | where: "risk", "CRITICAL" | size %}
+          <li><b class="crit">{{ critical }}</b><span>CRITICAL change flagged</span></li>
+        </ul>
+      </div>
     </div>
     <div class="tour" id="how-it-works">
       <p class="tour-caption" aria-live="polite"><kbd>tfui plan</kbd> {{ ba.changes }} changes, sorted into modules, a risk badge on every one. Not {{ ba.before_lines }} lines.</p>
