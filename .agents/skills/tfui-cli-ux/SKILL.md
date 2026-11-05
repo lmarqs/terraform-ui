@@ -1,9 +1,10 @@
 ---
-description: "CLI UX: standalone/CI modes, I/O contract, flag conventions, exit codes"
-globs: ["cmd/**"]
+name: tfui-cli-ux
+description: "tfui CLI UX rules: standalone TUI vs CI mode, headless failure contract, pre-seeded -plan/-state cache, input and output ports, flag conventions and scoping, binary resolution, -- passthrough, exit codes, tfui.hcl config resolution. Use before editing cmd/ or a plugin's Input, Stdout, Stderr or ExitCode."
 ---
 
-Full spec: `docs/reference/cli-ux.md`
+Full spec: `docs/reference/cli-ux.md`. I/O contract: `docs/reference/cli-io-contract.md`. Every command and flag:
+`docs/reference/cli-reference.md`.
 
 # CLI UX Rules
 

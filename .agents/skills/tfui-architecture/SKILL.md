@@ -1,9 +1,11 @@
 ---
-description: "Core SDK abstractions, service interface, source layer, and macro engine internals"
-globs: ["pkg/sdk/**", "internal/**"]
+name: tfui-architecture
+description: "tfui's core SDK abstractions: PluginDeps and the immutable Context, pins vs targets, event bus, plugin interface and optional interfaces, routing and navigation, action mode, Service and ServiceCache, source layer, macro engine, test harness, overlays and frames. Use before editing pkg/sdk/ or internal/, or when designing a plugin, event or SDK addition."
 ---
 
 # Architecture Details
+
+Overview: `docs/development/architecture.md`. Macro DSL: `docs/reference/macro-language.md`.
 
 ## Plugin Dependencies (`pkg/sdk/plugin_deps.go`) and Context (`pkg/sdk/context.go`)
 

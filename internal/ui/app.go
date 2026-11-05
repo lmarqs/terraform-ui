@@ -938,7 +938,7 @@ var builtinCommands = []builtinCommand{
 // holding a terraform operation (DirLock per ADR-0016), the action is
 // rejected and `commandError` is set to a uniform message instructing the
 // user to escape via `:q!`. UI-only actions (scrolling, filtering, esc)
-// bypass this on purpose — see `.claude/rules/architecture.md`.
+// bypass this on purpose — see `.agents/skills/tfui-architecture/SKILL.md`.
 //
 // reason is a short label used in the rejection message ("plan", "chdir",
 // "quit", …) so the user knows which action was refused.

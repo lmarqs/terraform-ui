@@ -14,7 +14,7 @@ You audit terraform-ui against its hexagonal boundaries and report findings. You
 
 ## Sources of truth
 
-- `.claude/rules/architecture.md`: Context, event bus, plugin interface, ports, routing.
+- `.agents/skills/tfui-architecture/SKILL.md`: Context, event bus, plugin interface, ports, routing.
 - `docs/adr/0021-plugins-as-use-cases.md`: the import rule and the Input/Activate + emitter ports.
 - `docs/adr/0018-atomic-context-replacement.md`: one `ContextChangedEvent` for chdir, workspace, and pin changes.
 

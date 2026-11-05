@@ -2,7 +2,7 @@ Review the UX of the current state of the application across BOTH surfaces (TUI 
 
 ## TUI Surface
 
-Analyze using `docs/reference/tui-ux.md` and `.claude/rules/ux-tui.md`:
+Analyze using `docs/reference/tui-ux.md` and `.agents/skills/tfui-tui-ux/SKILL.md`:
 
 1. **Layout consistency** — Read `internal/ui/app.go`, `internal/ui/components/*.go`. Check header/content/footer spacing, separator usage, alignment.
 
@@ -19,7 +19,7 @@ Analyze using `docs/reference/tui-ux.md` and `.claude/rules/ux-tui.md`:
 
 ## CLI Surface
 
-Analyze using `docs/reference/cli-ux.md`, `docs/reference/cli-io-contract.md`, and `.claude/rules/ux-cli.md`:
+Analyze using `docs/reference/cli-ux.md`, `docs/reference/cli-io-contract.md`, and `.agents/skills/tfui-cli-ux/SKILL.md`:
 
 6. **Output channel compliance** — Verify data→stdout, progress→stderr separation in all command handlers.
 

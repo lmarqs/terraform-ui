@@ -1,6 +1,6 @@
 ---
-description: "CI/CD pipeline, semantic-release + goreleaser interaction, versioning, and mise task conventions"
-globs: [".github/**", ".goreleaser.yaml", ".releaserc", "mise.toml"]
+name: tfui-ci
+description: "tfui CI/CD: build, test and release workflow stages, semantic-release with goreleaser, version resolution, mise task namespaces and how to add a CI check. Use before editing .github/, .goreleaser.yaml, .releaserc, mise.toml or .mise/tasks/."
 ---
 
 # CI/CD Pipeline

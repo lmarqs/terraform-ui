@@ -14,11 +14,11 @@ You design implementation plans for terraform-ui features and return a design do
 
 ## Sources of truth
 
-- `.claude/rules/architecture.md`: Context, event bus, plugin interface and optional interfaces, ports, routing, action mode, test harness.
+- `.agents/skills/tfui-architecture/SKILL.md`: Context, event bus, plugin interface and optional interfaces, ports, routing, action mode, test harness.
 - `docs/adr/`: decisions the design must honor. Read every ADR whose title touches the feature.
 - `CONTEXT.md`: domain terms the design must use.
-- `.claude/rules/ux-tui.md`, `docs/reference/tui-ux.md` §15–16: plugin archetypes (data vs action) and the keybinding map.
-- `.claude/rules/ux-cli.md`, `docs/reference/cli-io-contract.md`: when the feature has a CLI surface.
+- `.agents/skills/tfui-tui-ux/SKILL.md`, `docs/reference/tui-ux.md` §15–16: plugin archetypes (data vs action) and the keybinding map.
+- `.agents/skills/tfui-cli-ux/SKILL.md`, `docs/reference/cli-io-contract.md`: when the feature has a CLI surface.
 - `cmd/tfui/registry.go`: registered plugins, keybindings, `NavBehavior`.
 
 ## Steps
