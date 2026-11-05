@@ -75,7 +75,7 @@ Enforced by none.
 ## Gotchas
 
 - "Context" is only the umbrella of Project + Chdir + Workspace; code says "chdir" for the member directory, never
-  "scope", and `ContextChangedEvent` covers chdir, workspace and pin changes (ADR-0018).
+  "scope" (`CONTEXT.md`), and `ContextChangedEvent` covers chdir, workspace and pin changes (`pkg/sdk/events.go`).
 - Terraform rejects `-target` with a saved plan file: targets go on plan, never on apply (ADR-0019).
 - CI runs `mise run test:coverage` at a 100% threshold: an untested branch outside `cmd/` and
   `internal/terraform/exec` turns it red.
