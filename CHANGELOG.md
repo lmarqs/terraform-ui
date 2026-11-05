@@ -1,3 +1,10 @@
+# [1.25.0](https://github.com/lmarqs/terraform-ui/compare/v1.24.0...v1.25.0) (2026-11-05)
+
+
+### Features
+
+* **docs:** page only out of the hero and invite the reader to drive ([6fd0422](https://github.com/lmarqs/terraform-ui/commit/6fd0422928f0cd3b65614823c61617ca13510630))
+
 # [1.24.0](https://github.com/lmarqs/terraform-ui/compare/v1.23.0...v1.24.0) (2026-11-05)
 
 
