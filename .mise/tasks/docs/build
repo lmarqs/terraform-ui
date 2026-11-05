@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-#MISE description="Generate the static docs site for deployment. Used by CI/CD pipeline."
+#MISE description="Generate the static docs site and its search index for deployment. Used by CI/CD pipeline."
 #MISE dir="docs"
 
-exec bundle exec jekyll build
+set -euo pipefail
+bundle exec jekyll build
+npx --yes pagefind@1.4.0 --site _site

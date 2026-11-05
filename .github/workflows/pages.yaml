@@ -7,24 +7,24 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/pages.yaml"
+  pull_request:
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yaml"
 
 permissions:
-  pages: write
-  id-token: write
+  contents: read
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -34,14 +34,43 @@ jobs:
           bundler-cache: true
           working-directory: docs
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
       - run: bundle exec jekyll build --source . --destination ../_site
         working-directory: docs
+        env:
+          JEKYLL_ENV: production
 
-      - uses: actions/configure-pages@v5
+      - run: npx --yes pagefind@1.4.0 --site ../_site
+        working-directory: docs
+
+      - name: Check links
+        run: >-
+          bundle exec htmlproofer ../_site
+          --disable-external
+          --swap-urls '^/terraform-ui/:/'
+          --ignore-files '/pagefind/'
+        working-directory: docs
 
       - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'pull_request'
         with:
           path: ./_site
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
 
       - id: deploy
         uses: actions/deploy-pages@v4
