@@ -1,0 +1,16 @@
+{%- comment -%}
+Resolves page_title and section for the layouts: the sidebar entry's title when the page is listed in _data/nav.yml,
+otherwise the page's own title. section is the nav section the page belongs to, used by the top bar and sidebar.
+{%- endcomment -%}
+{%- assign page_title = page.title | default: site.title -%}
+{%- assign section = nil -%}
+{%- for s in site.data.nav -%}
+  {%- for p in s.pages -%}
+    {%- if p.path == page.path -%}
+      {%- assign page_title = p.title -%}
+      {%- assign section = s.section -%}
+    {%- elsif p.match and page.path contains p.match -%}
+      {%- assign section = s.section -%}
+    {%- endif -%}
+  {%- endfor -%}
+{%- endfor -%}

@@ -1,0 +1,5 @@
+{%- if page.layout == "home" -%}
+<title>{{ site.title }}: {{ site.tagline }}</title>
+{%- else -%}
+<title>{{ page_title }} · {{ site.title }}</title>
+{%- endif -%}

@@ -1,37 +1,36 @@
+# The Pages site. Jekyll renders docs/ from this directory; .github/workflows/pages.yaml builds it, runs Pagefind over
+# the output and deploys. Layouts, includes, data and assets live beside this file.
 title: tfui
+tagline: Terraform plans you can navigate
 description: >-
-  A k9s-style TUI for Terraform. Review plans as a tree, analyze risk,
-  browse state, and apply — all from the terminal. Works with Terraform,
-  OpenTofu, and Terragrunt.
-url: https://lmarqs.github.io/terraform-ui
+  Interactive terminal UI for Terraform plan review, risk analysis, state browsing and targeted apply.
+  A k9s-style TUI that works with Terraform, OpenTofu and Terragrunt, and runs headless for AI coding agents.
+url: https://lmarqs.github.io
 baseurl: /terraform-ui
-
-theme: just-the-docs
-
-color_scheme: dark
-
-search_enabled: true
-search:
-  heading_level: 2
-  previews: 3
-
-heading_anchors: true
-back_to_top: true
-
-aux_links:
-  "GitHub":
-    - "//github.com/lmarqs/terraform-ui"
-aux_links_new_tab: true
-
-nav_enabled: true
-
+repository: lmarqs/terraform-ui
+source_url: https://github.com/lmarqs/terraform-ui
 ga_tracking: G-4D40875MH6
 
 plugins:
   - jekyll-seo-tag
   - jekyll-sitemap
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: false
+
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default
+      image: /assets/og.jpg
 
 exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
+  - node_modules
+  - _site
+  - README.md

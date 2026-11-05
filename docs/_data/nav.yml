@@ -1,0 +1,89 @@
+# The docs sidebar, in reading order. A page's title on the site comes from here when it has an entry, and from its
+# front matter otherwise. match names the folder whose unlisted pages belong under the entry.
+- section: Start here
+  pages:
+    - title: Getting started
+      path: guides/getting-started.md
+    - title: Configuration
+      path: guides/configuration.md
+    - title: Scaffold a project
+      path: guides/scaffold.md
+- section: Features
+  pages:
+    - title: Overview
+      path: features/index.md
+    - title: Risk analysis
+      path: features/risk-analysis.md
+    - title: Phantom changes
+      path: features/phantom-changes.md
+    - title: Blast radius
+      path: features/blast-radius.md
+    - title: AI coding agents
+      path: features/ai-agents.md
+- section: Plugins
+  pages:
+    - title: Catalog
+      path: plugins/index.md
+    - title: Plan
+      path: plugins/plan.md
+    - title: Apply
+      path: plugins/apply.md
+    - title: State
+      path: plugins/state.md
+    - title: Risk
+      path: plugins/risk.md
+    - title: Phantom
+      path: plugins/phantom.md
+    - title: Blast radius
+      path: plugins/blastradius.md
+    - title: Context
+      path: plugins/context.md
+    - title: Chdir
+      path: plugins/chdir.md
+    - title: Workspace
+      path: plugins/workspace.md
+    - title: Init
+      path: plugins/init.md
+    - title: Validate
+      path: plugins/validate.md
+    - title: Outputs
+      path: plugins/output.md
+    - title: Console
+      path: plugins/console.md
+    - title: Import
+      path: plugins/import.md
+    - title: Taint
+      path: plugins/taint.md
+    - title: Untaint
+      path: plugins/untaint.md
+    - title: Force unlock
+      path: plugins/forceunlock.md
+    - title: Version
+      path: plugins/version.md
+- section: Reference
+  pages:
+    - title: CLI reference
+      path: reference/cli-reference.md
+    - title: CLI I/O contract
+      path: reference/cli-io-contract.md
+    - title: Macro language
+      path: reference/macro-language.md
+    - title: CLI UX guidelines
+      path: reference/cli-ux.md
+    - title: TUI UX guidelines
+      path: reference/tui-ux.md
+- section: Development
+  pages:
+    - title: Contributing
+      path: development/index.md
+    - title: Architecture
+      path: development/architecture.md
+    - title: Testing strategy
+      path: development/testing.md
+    - title: Backlog
+      path: development/backlog.md
+    - title: Decisions
+      path: adr/index.md
+      match: adr/
+    - title: Roadmap
+      path: roadmap.md
