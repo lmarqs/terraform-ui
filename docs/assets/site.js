@@ -117,9 +117,43 @@
     });
   }
 
+  // A column of dots, one per landing-page section: the current one lit, each one's name on hover.
+  function dots() {
+    var sections = document.querySelectorAll("section[data-nav]");
+    if (sections.length < 2 || !("IntersectionObserver" in window)) return;
+    var nav = document.createElement("nav");
+    nav.className = "dots";
+    nav.setAttribute("aria-label", "Sections");
+    var links = [];
+    sections.forEach(function (section) {
+      var a = document.createElement("a");
+      a.href = "#" + section.id;
+      a.setAttribute("aria-label", section.dataset.nav);
+      var label = document.createElement("span");
+      label.textContent = section.dataset.nav;
+      a.appendChild(label);
+      nav.appendChild(a);
+      links.push([section, a]);
+    });
+    document.body.appendChild(nav);
+    var observer = new IntersectionObserver(function () {
+      var current = links[0];
+      links.forEach(function (pair) {
+        if (pair[0].getBoundingClientRect().top < window.innerHeight * 0.45) current = pair;
+      });
+      links.forEach(function (pair) {
+        pair[1].classList.toggle("on", pair === current);
+        if (pair === current) pair[1].setAttribute("aria-current", "true");
+        else pair[1].removeAttribute("aria-current");
+      });
+    }, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+    sections.forEach(function (section) { observer.observe(section); });
+  }
+
   anchors();
   toc();
   copyButtons();
   search();
   slides();
+  dots();
 })();

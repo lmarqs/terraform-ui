@@ -10,7 +10,7 @@ description: >-
 {%- assign ba = site.data.before_after -%}
 {%- assign tour = site.data.tour -%}
 
-<section class="hero" id="top">
+<section class="hero" id="top" data-nav="Demo">
   <div class="hero-grid">
     <div class="pitch">
       <p class="eyebrow">Open source · MIT</p>
@@ -62,7 +62,7 @@ description: >-
   </div>
 </section>
 
-<section class="section night" id="sixty-seconds">
+<section class="section night" id="sixty-seconds" data-nav="Try it">
   <div class="wrap">
     <div class="feature-copy try-head">
       <p class="kicker">{% include icons/terminal.svg %}Try it</p>
@@ -106,7 +106,7 @@ tfui -plan /tmp/plan.json
   </div>
 </section>
 
-<section class="section" id="features">
+<section class="section" id="features" data-nav="Features">
   <div class="wrap">
     <div class="center">
       <p class="kicker">Features</p>
@@ -207,7 +207,7 @@ Overall risk: <b class="crit">CRITICAL</b></pre>
   </div>
 </section>
 
-<section class="section" id="agents">
+<section class="section" id="agents" data-nav="Headless">
   <div class="wrap">
     <p class="kicker">Headless</p>
     <h2>53 lines instead of 763</h2>
@@ -252,7 +252,7 @@ Risk: low
   </div>
 </section>
 
-<section class="section" id="compare">
+<section class="section" id="compare" data-nav="Compared">
   <div class="wrap">
     <p class="kicker">Compared</p>
     <h2>The raw CLI, and tfui</h2>
@@ -271,7 +271,7 @@ Risk: low
   </div>
 </section>
 
-<section class="section" id="built-for">
+<section class="section" id="built-for" data-nav="Built for">
   <div class="wrap">
     <p class="kicker">Built for infrastructure engineers</p>
     <h2>Single binary, local only</h2>
@@ -286,7 +286,7 @@ Risk: low
   </div>
 </section>
 
-<section class="section" id="install">
+<section class="section" id="install" data-nav="Install">
   <div class="wrap">
     <p class="kicker">Install</p>
     <h2>Pick a package manager</h2>
@@ -330,7 +330,7 @@ sudo mv tfui /usr/local/bin/
   </div>
 </section>
 
-<section class="section" id="docs">
+<section class="section" id="docs" data-nav="Docs">
   <div class="wrap">
     <p class="kicker">Read next</p>
     <h2>The docs</h2>

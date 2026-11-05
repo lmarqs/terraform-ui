@@ -317,6 +317,34 @@ figure.highlight { margin: 0 0 18px; }
 .proof .stat span { color: #b39a8d; }
 .proof .stat b { color: #ffb347; }
 
+/* Section dots: a floating column on the right edge of the landing page, on a night capsule so they read over day
+   and night sections alike. */
+.dots {
+  position: fixed; right: 20px; top: 50%; z-index: 40; transform: translateY(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px;
+  background: #0b0605b3; border: 1px solid #33211b; border-radius: 999px;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 10px 30px #0006;
+  transition: opacity .3s;
+}
+.dots a { position: relative; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; }
+.dots a::before {
+  content: ""; width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid #a88f82;
+  transition: width .25s, height .25s, background .25s, border-color .25s, box-shadow .25s;
+}
+.dots a:hover::before, .dots a:focus-visible::before { border-color: #ffb347; }
+.dots a.on::before { width: 12px; height: 12px; border-color: #ffb347; background: #ffb347; box-shadow: 0 0 0 4px #ffb34726, 0 0 14px #ffb347aa; animation: float 2.6s ease-in-out infinite; }
+.dots span {
+  position: absolute; right: 32px; top: 50%; transform: translate(6px, -50%); white-space: nowrap; pointer-events: none;
+  padding: 5px 10px; font: 600 12px/1 var(--font-mono); letter-spacing: .5px; color: #f1e6dc;
+  background: #1a100c; border: 1px solid #33211b; border-radius: 999px; opacity: 0; transition: opacity .2s, transform .2s;
+}
+.dots a:hover span, .dots a:focus-visible span { opacity: 1; transform: translate(0, -50%); }
+.dots a:focus-visible { outline-offset: 0; }
+body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
+@keyframes float { 50% { transform: translateY(-2px); } }
+@media (max-width: 980px) { .dots { display: none; } }
+@media (prefers-reduced-motion: reduce) { .dots a.on::before { animation: none; } }
+
 /* Icon chips */
 .chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .chips li {
