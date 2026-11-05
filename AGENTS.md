@@ -1,159 +1,81 @@
-## Overview
+> **This file is an unfilled template.** Fill it in only when the developer asks. If they ask for other work in an
+> interactive session, say once that it is unfilled, then do that work. To fill it in:
+>
+> - Replace every `[[fill: …]]`, table cells included; `grep -n '\[\[fill:' AGENTS.md` finds them all. Write `none`
+>   in a row that does not apply. Delete a section only when nothing else in this file points to it.
+> - Link the README section instead of restating it, and fix the README in the same change when it is wrong.
+> - Run every command you write. Mark one you could not run `(unverified)`; the next agent to run it removes the mark.
+> - Never write a rule its source does not state: the code, a config file, the README, CI or the developer.
+> - When replacing an existing `AGENTS.md`, follow `.agents/skills/agents-layout/references/adopt.md`.
+> - `.agents/skills/agents-layout/references/agents-md.md` says why the fixed text is here; keep it unless it is
+>   wrong for this repository.
+> - Run `sh .agents/skills/agents-layout/scripts/check.sh`; when this note is all it reports, delete the note.
 
-terraform-ui (tfui) is a k9s-style interactive TUI for Terraform operations. Single Go binary, plugin architecture, BubbleTea framework.
+# [[fill: project name]]
 
-## Quick Reference
+[[fill: what this repository is and who uses it, in one or two sentences, with a link to the README]]
 
-```bash
-mise run dev              # Run TUI in development mode
-mise run fmt              # Format (gofmt)
-mise run check:lint       # Lint (golangci-lint v2)
-mise run test:coverage    # Coverage (100% threshold)
-mise run build            # Cross-platform binaries
-mise run test:macro       # Macro tapes against binary
-mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
-mise run docs:install     # Install Jekyll gem dependencies
-mise run docs:serve       # Serve docs site locally with live reload
-mise run docs:build       # Build docs site for production
-mise run demo:generate    # Record demo GIFs from macro tapes
-mise run demo:lock        # Lock Python deps to requirements.txt
-```
+Stack: [[fill: each language, framework and service with its major version and the file that pins it]]
 
-## Architecture
+## Quick reference
 
-```
-cmd/tfui/     — CLI entry point (cobra, plugin registration, normalizeArgs)
-pkg/sdk/      — Public SDK: Plugin, Service, types, UI primitives, frames
-internal/     — App internals (config, terraform, source, macro, ui, editor, ai, plugin, logging)
-plugins/      — All features as plugins (context, chdir, state, plan, apply, workspace, console, output, validate, risk, phantom, blastradius, forceunlock, version, taint, untaint, import, init)
-tests/        — Integration tests + fixtures
-demo/         — Demo pipeline: fixtures, macro tapes, GIF generation scripts
-```
+- Install or add a dependency: [[fill: both commands]]
+- Run: [[fill: command]]
+- Build: [[fill: command]]
+- Test one file: [[fill: command]]
+- Lint or format one file: [[fill: command]]
+- Generate code: [[fill: command, or none]]
+- Local services: [[fill: start and stop commands, or none]]
+- Worktrees: [[fill: where they go, how to create one ready to run and remove one with its data, or none]]
+- Quick check, seconds on what changed: [[fill: command]]
+- Done check, all that must pass before a change is done: [[fill: commands in order, time taken, services needed]]
 
-## Terminology
+## Boundaries
 
-| Term | Definition |
-|------|-----------|
-| **Project** | Root directory where `tfui.hcl` lives |
-| **Chdir** | Selected member directory within a project |
-| **Workspace** | Terraform workspace within a chdir |
-| **Context** | Umbrella concept: Project + Chdir + Workspace combined |
+**Always**
 
-IMPORTANT: "Context" is ONLY the umbrella concept. Code uses "chdir" for member directory selection (never "scope" in new code). Config key: `member "path" {}` (top-level blocks). Event: `ChdirChangedEvent`.
+- Run the Quick check before moving on. A change is done when the Done check passes.
+- Report each check's result, or that it did not run.
+- Update this file in the change that alters a command, path or rule it names.
+- Keep this file under 800 words; past 1,200, move a section into a skill or memory file before adding. All
+  `AGENTS.md` files together stay under 16 KiB.
+- [[fill: another rule for every change here, or none]]
 
-Full domain glossary with relationships and avoid-lists: see `CONTEXT.md`
+**Never**
 
-## Conventions
+- Commit secrets or credentials, or put personal data in logs, fixtures or commits.
+- Edit generated files by hand: [[fill: paths, or none]]
+- Make a check pass by weakening it: skipping a test, suppressing a warning, loosening an assertion.
 
-### Commits
-Conventional commits: `feat:`, `fix:`, `test:`, `ci:`, `refactor:`, `docs:`, `chore:`
+**Stop and ask** before [[fill: such as new dependencies, schema changes, rewriting pushed history]], and when a
+check fails again after a fix, a command is refused, or a decision is left open.
 
-### Go Package Layout
+Enforced by [[fill: the file that makes agent tools refuse these, or none]]. A refusal is the rule working.
 
-| Package | Import rule |
-|---------|-------------|
-| `pkg/sdk` | Plugins import ONLY this |
-| `internal/*` | Not importable by plugins |
-| `plugins/*` | Import `pkg/sdk` only |
-| `cmd/tfui` | Imports everything |
+## Where things go
 
-### Naming
+- New code: [[fill: the directory for each kind of code, related repositories, and the design document]]
+- Tests: [[fill: directory and naming, with an example file]]
+- Settings: [[fill: the file a new setting goes in, where secrets live (names only), and which source wins]]
+- Decisions and domain rules: [[fill: directory or document]]
+- A procedure an agent repeats: a skill in `.agents/skills/`.
+- A trap in one area: `.agents/memory/`, listed under Deep dive.
 
-- Plugin IDs: lowercase single word (`"state"`, `"plan"`)
-- Messages: `{Subject}{Verb}Msg` (e.g., `StateListMsg`)
-- Events: `{Subject}{Verb}Event` (e.g., `ChdirChangedEvent`)
-- Plugin imports use `tfui` prefix: `tfuistate`, `tfuiplan`, `tfuiapply`
-- BubbleTea aliased as `tea`
+## Rules
 
-### Testing
+- A behavior change ships with a test; a bug fix with one that failed before the fix.
+- Comments record only reasons the code cannot show.
+- Change only what the task needs, matching the surrounding code.
+- [[fill: a convention review enforces, with a file that follows it, or none]]
+- Commits: [[fill: one change per commit; branch, message, pull request and tracker rules]]
+- Deploy: [[fill: what triggers a deploy, where to see it worked, and the rollback runbook, or none]]
 
-- **TDD workflow**: write a failing test first, then implement
-- 100% coverage gate on all packages excluding `cmd/` and `internal/terraform/exec` (I/O boundary)
-- Table-driven tests preferred
-- Use `sdktest.MockService` from `pkg/sdk/sdktest/` — never duplicate mock boilerplate per package
-- Integration tests in `tests/integration/`
+## Gotchas
 
-### Roadmap
-- Items in `docs/_roadmap/` as individual markdown files
-- Delete immediately once completed — don't mark "done"
+At most five traps any task can hit.
 
-## Workflow
+- [[fill: what goes wrong when you do what, and what to do instead]]
 
-- For changes spanning 3+ files or new abstractions: produce a brief plan before coding
-- For single-file changes: proceed directly
-- Break large changes into reviewable chunks
+## Deep dive (read on demand)
 
-## Verification
-
-IMPORTANT: Before considering work complete, run:
-```bash
-mise run check:lint && mise run test:unit && mise run build
-```
-
-For UI changes, also run `mise run test:macro` to verify rendering.
-
-## Deep Dive (read on demand)
-
-- Architecture details: see `.claude/rules/architecture.md` (loaded automatically for `pkg/sdk/` and `internal/` edits)
-- TUI UX rules: see `.claude/rules/ux-tui.md` (loaded automatically for `plugins/` and `internal/ui/` edits)
-- CLI UX rules: see `.claude/rules/ux-cli.md` (loaded automatically for `cmd/` edits)
-- CI/CD pipeline: see `.claude/rules/ci.md` (loaded automatically for `.github/` edits)
-- TUI UX spec: `docs/reference/tui-ux.md`
-- CLI UX spec: `docs/reference/cli-ux.md`
-- Full I/O contract: `docs/reference/cli-io-contract.md`
-- CLI reference: `docs/reference/cli-reference.md`
-- Architecture overview: `docs/development/architecture.md`
-- Macro DSL reference: `docs/reference/macro-language.md`
-- Demo pipeline: `demo/README.md`
-- Configuration reference: `docs/guides/configuration.md`
-- Testing strategy: `docs/development/testing.md`
-- Plugin catalog: `docs/plugins/index.md`
-- Risk analysis methodology: `docs/features/risk-analysis.md`
-- Phantom change detection: `docs/features/phantom-changes.md`
-- Blast radius visualization: `docs/features/blast-radius.md`
-- Getting started: `docs/guides/getting-started.md`
-- Domain glossary: `CONTEXT.md`
-- Architecture Decision Records: `docs/adr/`
-
-## Key Dependencies
-
-| Package | Purpose |
-|---------|---------|
-| `github.com/charmbracelet/bubbletea` | TUI framework |
-| `github.com/charmbracelet/lipgloss` | Terminal styling |
-| `github.com/hashicorp/terraform-exec` | Terraform CLI wrapper |
-| `github.com/hashicorp/terraform-json` | Terraform JSON types |
-| `github.com/junegunn/fzf` | Fuzzy search algorithm |
-| `github.com/spf13/cobra` | CLI framework |
-
-## Important Rules
-
-CRITICAL: **TDD is non-negotiable** — spawn `test-writer` agent to produce a failing test BEFORE writing implementation code.
-
-CRITICAL: **Plugins import ONLY `pkg/sdk`** — never `internal/`. This is the architectural boundary.
-
-- Inter-plugin communication uses typed events — no stringly-typed state sharing
-- Destructive ops require staleness check + user confirmation
-- AI features check `ctx.AI != nil` before offering
-- Config getters ALWAYS take a default value — no nil panics
-- Editor integration uses `tea.ExecProcess` for proper terminal handoff
-
-## Automation
-
-PostToolUse hooks run automatically (configured in `.claude/settings.json`):
-- `gofmt` on every `.go` file edit
-- Agent checks validate UI consistency, plugin boundaries, CLI contracts, and SDK changes
-- Stop hook runs build verification before session ends
-
-## Learnings
-
-When encountering undocumented patterns or decisions that caused rework, suggest additions to this section.
-
-- 2025-05: Terraform does NOT support `-target` with a saved plan file. Apply handles this via replan (see `.claude/rules/architecture.md`).
-- 2025-05: Apply plugin is NOT on the home menu — only reachable via plan's `a` key. Confirmation is owned by apply (single confirm), not plan.
-- 2025-05: `returnTo` is set both by `NavPush` metadata AND workflow transitions (plan→apply). All esc/cancel paths in sub-state plugins must emit `DeactivateMsg`.
-<!-- cook:begin io.github.lmarqs.cookbook:git#worktrees/worktrees -->
-<!-- io.github.lmarqs.cookbook:git#worktrees --instructions=.claude/CLAUDE.md --instructions=AGENTS.md -->
-- Worktrees: branch `<branch>` is checked out at `.worktrees/<branch>`; `.worktrees/README.md` says how to
-  create one ready to run and remove it.
-<!-- cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees -->
+- [[fill: topic, and the document, skill or memory file that covers it]]
