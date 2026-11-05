@@ -5,11 +5,11 @@
 #   docs/_includes/before-after/agent.html    tfui plan --ci, the headless output an agent reads
 #   docs/_data/before_after.yml               the numbers the page quotes
 # Nothing reaches AWS: the provider has fake credentials and every plan runs with -refresh=false. The token counts come
-# from Anthropic's token counting endpoint, so the run needs ANTHROPIC_API_KEY.
+# from three short claude -p turns, so the run needs a logged-in claude CLI.
 #
-# Usage: ANTHROPIC_API_KEY=... demo/before-after/generate.sh [path/to/tfui]
+# Usage: demo/before-after/generate.sh [path/to/tfui]
 set -euo pipefail
-: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY: the page quotes Claude token counts of both outputs}"
+command -v claude >/dev/null || { echo "claude CLI not found: the page quotes Claude token counts of both outputs" >&2; exit 1; }
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"

@@ -1,15 +1,14 @@
 """Render the before/after captures into HTML includes and a data file for the landing page.
 
-Usage: ANTHROPIC_API_KEY=... python3 render.py <capture-dir> <docs-dir>
+Usage: python3 render.py <capture-dir> <docs-dir>
 The capture dir holds before.txt, human.txt, agent.txt and plan.json, written by generate.sh. Token counts come from
-Anthropic's token counting endpoint, which reads the text and generates nothing.
+Claude Code (`claude -p`), so the run needs a logged-in claude CLI.
 """
 import html
 import json
-import os
 import re
+import subprocess
 import sys
-import urllib.request
 from pathlib import Path
 
 SYMBOL = re.compile(r"^(?P<lead>[\s│├└─\[\] *-]*?)(?P<sym>[+~-]) (?P<rest>.*)$")
@@ -26,6 +25,8 @@ MAX_ATTRS = 6
 ROW = re.compile(r"(?P<sym>[+~-]) (?P<name>\S+) \[(?P<risk>\w+)\]")
 MODULE = re.compile(r"▼ (?P<module>module\.\S+) \(")
 TOKEN_MODEL = "claude-opus-5-5"
+TOKEN_SYSTEM = "Reply with the single word: ok."
+TOKEN_PROMPT = "ok?\n\n"
 
 
 def raw(body: str) -> str:
@@ -146,19 +147,23 @@ def tour(plan: dict, human_txt: str, risk: str) -> dict:
     return {"changes": changes, "summary": summary, "risk": risk.upper()}
 
 
-def tokens(text: str) -> int:
-    """Claude input tokens for text sent as one user message, as the agent's context would receive it."""
-    request = urllib.request.Request(
-        "https://api.anthropic.com/v1/messages/count_tokens",
-        data=json.dumps({"model": TOKEN_MODEL, "messages": [{"role": "user", "content": text}]}).encode(),
-        headers={
-            "x-api-key": os.environ["ANTHROPIC_API_KEY"],
-            "anthropic-version": "2023-06-01",
-            "content-type": "application/json",
-        },
+def prompt_tokens(prompt: str, cwd: Path) -> int:
+    """Every input token of one claude -p turn. A fixed system prompt, no tools, no MCP servers and no settings keep
+    Claude Code's own share of the turn identical from call to call; with its defaults it varies by thousands."""
+    run = subprocess.run(
+        ["claude", "-p", prompt, "--output-format", "json", "--model", TOKEN_MODEL, "--max-turns", "1",
+         "--system-prompt", TOKEN_SYSTEM, "--tools", "", "--strict-mcp-config", "--setting-sources", "",
+         "--no-session-persistence"],
+        cwd=cwd, capture_output=True, text=True, check=True, timeout=300,
     )
-    with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)["input_tokens"]
+    usage = json.loads(run.stdout)["usage"]
+    return usage["input_tokens"] + usage["cache_creation_input_tokens"] + usage["cache_read_input_tokens"]
+
+
+def token_counter(cwd: Path):
+    """Claude tokens of a text: a turn carrying it, minus the same turn without it, so Claude Code's overhead cancels."""
+    baseline = prompt_tokens(TOKEN_PROMPT, cwd)
+    return lambda text: prompt_tokens(TOKEN_PROMPT + text, cwd) - baseline
 
 
 def main(capture: Path, docs: Path) -> None:
@@ -167,6 +172,7 @@ def main(capture: Path, docs: Path) -> None:
     agent_txt = (capture / "agent.txt").read_text().rstrip("\n")
     plan = json.loads((capture / "plan.json").read_text())
 
+    tokens = token_counter(capture)
     actions = [c["change"]["actions"] for c in plan["resource_changes"] if c["change"]["actions"] != ["no-op"]]
     risk = re.search(r"^Risk: (\w+)$", agent_txt, re.M)[1]
 

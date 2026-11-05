@@ -25,7 +25,7 @@ description: >-
       <ul class="stat hero-stat">
         <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
         <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
-        <li><b>{{ ba.agent_lines }}</b><span>lines for your agent</span></li>
+        <li><b>{{ ba.agent_tokens }}</b><span>tokens for your agent</span></li>
         <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
       </ul>
     </div>
@@ -208,9 +208,9 @@ Overall risk: <b class="crit">CRITICAL</b></pre>
 <section class="section" id="agents" data-nav="Headless">
   <div class="wrap">
     <p class="kicker">Headless</p>
-    <h2>53 lines instead of 763</h2>
+    <h2>{{ ba.agent_tokens }} tokens instead of {{ ba.before_tokens }}</h2>
     <p class="lede">When Claude Code runs <code>tfui plan</code>, it gets every change address, the summary and a risk
-      verdict in a fraction of the bytes. Nothing to configure.</p>
+      verdict in a fraction of the tokens. Nothing to configure.</p>
     <div class="cook">
       <ol class="steps">
         <li class="step"><h3>Detects the agent</h3><p><code>CLAUDECODE</code>, <code>AI_AGENT</code> or <code>CI</code>
@@ -226,24 +226,18 @@ Overall risk: <b class="crit">CRITICAL</b></pre>
         <div class="terminal">
           <div class="shot-bar"><span></span><span></span><span></span><b>agent session</b></div>
 <pre><span class="prompt">$</span> tfui plan
-<span class="add">+ local_file.f00</span>
-<span class="add">+ local_file.f01</span>
-<span class="add">+ local_file.f02</span>
-<span class="meta">…</span>
-<span class="add">+ local_file.f49</span>
-
-<span class="ok">Plan: 50 to add, 0 to change, 0 to destroy.</span>
-Risk: low
+{% include before-after/agent.html %}
 <span class="prompt">$</span> echo $?
 2</pre>
         </div>
         <ul class="stat">
-          <li><b>38×</b><span>fewer bytes</span></li>
-          <li><b>14×</b><span>fewer lines</span></li>
+          <li><b>{{ ba.before_tokens | divided_by: ba.agent_tokens }}×</b><span>fewer tokens</span></li>
+          <li><b>{{ ba.before_lines | divided_by: ba.agent_lines }}×</b><span>fewer lines</span></li>
           <li><b>0</b><span>bytes on stderr when it succeeds</span></li>
         </ul>
-        <p class="note">Measured on a 50-resource plan with Terraform v1.14.9: 34,426 bytes from
-          <code>terraform plan -no-color</code>, 905 from <code>tfui plan</code>.
+        <p class="note">Measured on the plan in the demo above, Terraform v1.14.9: {{ ba.before_tokens }} tokens from
+          <code>terraform plan -no-color</code>, {{ ba.agent_tokens }} from <code>tfui plan</code>, as Claude counts them
+          ({{ ba.token_model }}).
           <a href="{{ '/features/ai-agents.html' | relative_url }}">How agent integration works</a>.</p>
       </div>
     </div>

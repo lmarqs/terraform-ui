@@ -3,6 +3,9 @@ before_lines: 375
 before_bytes: 17749
 agent_lines: 13
 agent_bytes: 459
+before_tokens: 5287
+agent_tokens: 220
+token_model: claude-opus-5-5
 changes: 10
 add: 6
 change: 3
