@@ -82,7 +82,7 @@ tfui's tree, and the headless `tfui plan --ci` summary an agent reads. All of it
 `demo/before-after/`, a few AWS resources in three modules with a hand-written `terraform.tfstate`.
 
 ```bash
-mise run demo:before-after   # rewrites docs/_includes/before-after/, docs/_data/before_after.yml and docs/_data/tour.json
+ANTHROPIC_API_KEY=... mise run demo:before-after   # rewrites docs/_includes/before-after/, docs/_data/before_after.yml and docs/_data/tour.json
 ```
 
 `tour.json` holds the rows the tour's simulated plan view plays with: each change's address, action, the risk badge

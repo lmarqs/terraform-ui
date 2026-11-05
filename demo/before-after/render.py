@@ -1,12 +1,15 @@
 """Render the before/after captures into HTML includes and a data file for the landing page.
 
-Usage: python3 render.py <capture-dir> <docs-dir>
-The capture dir holds before.txt, human.txt, agent.txt and plan.json, written by generate.sh.
+Usage: ANTHROPIC_API_KEY=... python3 render.py <capture-dir> <docs-dir>
+The capture dir holds before.txt, human.txt, agent.txt and plan.json, written by generate.sh. Token counts come from
+Anthropic's token counting endpoint, which reads the text and generates nothing.
 """
 import html
 import json
+import os
 import re
 import sys
+import urllib.request
 from pathlib import Path
 
 SYMBOL = re.compile(r"^(?P<lead>[\s│├└─\[\] *-]*?)(?P<sym>[+~-]) (?P<rest>.*)$")
@@ -22,6 +25,7 @@ ACTION = {("create",): "create", ("update",): "update", ("delete",): "delete"}
 MAX_ATTRS = 6
 ROW = re.compile(r"(?P<sym>[+~-]) (?P<name>\S+) \[(?P<risk>\w+)\]")
 MODULE = re.compile(r"▼ (?P<module>module\.\S+) \(")
+TOKEN_MODEL = "claude-opus-5-5"
 
 
 def raw(body: str) -> str:
@@ -142,6 +146,21 @@ def tour(plan: dict, human_txt: str, risk: str) -> dict:
     return {"changes": changes, "summary": summary, "risk": risk.upper()}
 
 
+def tokens(text: str) -> int:
+    """Claude input tokens for text sent as one user message, as the agent's context would receive it."""
+    request = urllib.request.Request(
+        "https://api.anthropic.com/v1/messages/count_tokens",
+        data=json.dumps({"model": TOKEN_MODEL, "messages": [{"role": "user", "content": text}]}).encode(),
+        headers={
+            "x-api-key": os.environ["ANTHROPIC_API_KEY"],
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+        },
+    )
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return json.load(response)["input_tokens"]
+
+
 def main(capture: Path, docs: Path) -> None:
     before_txt = (capture / "before.txt").read_text()
     human_txt = (capture / "human.txt").read_text().rstrip("\n")
@@ -164,6 +183,9 @@ def main(capture: Path, docs: Path) -> None:
         "before_bytes": len(before_txt.encode()),
         "agent_lines": agent_txt.count("\n") + 1,
         "agent_bytes": len((agent_txt + "\n").encode()),
+        "before_tokens": tokens(before_txt),
+        "agent_tokens": tokens(agent_txt + "\n"),
+        "token_model": TOKEN_MODEL,
         "changes": len(actions),
         "add": sum(a == ["create"] for a in actions),
         "change": sum(a == ["update"] for a in actions),

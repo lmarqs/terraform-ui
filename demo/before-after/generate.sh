@@ -4,10 +4,12 @@
 #   docs/_includes/before-after/human.html    tfui's plan tree (macro screenshot of the TUI)
 #   docs/_includes/before-after/agent.html    tfui plan --ci, the headless output an agent reads
 #   docs/_data/before_after.yml               the numbers the page quotes
-# Nothing reaches AWS: the provider has fake credentials and every plan runs with -refresh=false.
+# Nothing reaches AWS: the provider has fake credentials and every plan runs with -refresh=false. The token counts come
+# from Anthropic's token counting endpoint, so the run needs ANTHROPIC_API_KEY.
 #
-# Usage: demo/before-after/generate.sh [path/to/tfui]
+# Usage: ANTHROPIC_API_KEY=... demo/before-after/generate.sh [path/to/tfui]
 set -euo pipefail
+: "${ANTHROPIC_API_KEY:?set ANTHROPIC_API_KEY: the page quotes Claude token counts of both outputs}"
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
