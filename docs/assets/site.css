@@ -530,6 +530,9 @@ figure.highlight { margin: 0 0 18px; }
 .install .prose { max-width: none; }
 .install .prose pre { margin: 0; }
 .install .prose figure.highlight { margin: 0; }
+.install.try { grid-template-columns: minmax(0, 1fr); margin-top: 18px; }
+.install.try .prose + p { margin: 12px 0 10px; }
+.install.try > div > p:last-child { margin-bottom: 0; }
 
 /* Docs map */
 .map { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }

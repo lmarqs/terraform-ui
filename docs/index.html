@@ -26,8 +26,6 @@ description: >-
         <li>{% include icons/terraform.svg %}Terraform</li>
         <li>{% include icons/opentofu.svg %}OpenTofu</li>
         <li>{% include icons/layers.svg %}Terragrunt</li>
-        <li>{% include icons/bot.svg %}Any coding agent</li>
-        <li>{% include icons/git-branch.svg %}Any CI</li>
       </ul>
     </div>
     <div class="tour" id="how-it-works">
@@ -77,19 +75,32 @@ description: >-
       <div class="feature-copy">
         <p class="kicker">{% include icons/terminal.svg %}Try it</p>
         <h3>Sixty seconds, no config</h3>
-        <p>Pipe any <code>terraform show -json</code> output into tfui and start navigating. No account, no cloud
-          service, no config file.</p>
-        <div class="prose">
+        <p>No account, no cloud service, no config file. Pick a way in.</p>
+        <div class="install try">
+          <div>
+            <h3>{% include icons/docker.svg %}No install</h3>
+            <div class="prose">
+{% highlight bash %}
+docker run -it lmarqs/terraform-ui:demo
+{% endhighlight %}
+            </div>
+            <p>Opens tfui on the demo plan and state.</p>
+          </div>
+          <div>
+            <h3>{% include icons/terminal.svg %}With tfui</h3>
+            <div class="prose">
 {% highlight bash %}
 terraform show -json tfplan.out | tfui -plan -
 {% endhighlight %}
-        </div>
-        <p>No plan handy? Use the demo fixture:</p>
-        <div class="prose">
+            </div>
+            <p>No plan handy? Use the demo fixture:</p>
+            <div class="prose">
 {% highlight bash %}
 curl -sLo /tmp/plan.json https://raw.githubusercontent.com/lmarqs/terraform-ui/main/demo/fixtures/plan-large.json
 tfui -plan /tmp/plan.json
 {% endhighlight %}
+            </div>
+          </div>
         </div>
       </div>
       <figure class="shot">
@@ -320,8 +331,7 @@ sudo mv tfui /usr/local/bin/
         </div>
       </div>
     </div>
-    <p class="note">{% include icons/docker.svg %} To try it without installing, run <code>docker run -it lmarqs/terraform-ui:demo</code>.
-      <a href="{{ '/guides/getting-started.html' | relative_url }}">Getting started</a> walks through your first plan.</p>
+    <p class="note"><a href="{{ '/guides/getting-started.html' | relative_url }}">Getting started</a> walks through your first plan.</p>
   </div>
 </section>
 
