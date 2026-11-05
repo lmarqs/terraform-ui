@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0018
 seo:
   description: Decision to centralize all terraform-affecting state into an atomic Context replaced on context switch
+description: "Records why all terraform-affecting state lives in one Context that a switch replaces whole."
+audience: "Contributors changing Context or what a context switch resets"
 ---
 
 # Atomic Context replacement on context switch

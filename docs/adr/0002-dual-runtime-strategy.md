@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0002
 seo:
   description: Decision to support both live execution and recorded macro playback runtimes
+description: "Records why tfui has two runtimes: live terraform through ExecService and recorded macros through MacroService."
+audience: "Contributors changing how terraform is run or how macros replay"
 ---
 
 # Dual runtime strategy: ExecService and MacroService

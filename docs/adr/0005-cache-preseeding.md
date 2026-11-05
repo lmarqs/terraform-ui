@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0005
 seo:
   description: Decision to allow pre-seeding the service cache from local files or stdin
+description: "Records why the -plan and -state flags pre-seed the service cache from files or stdin."
+audience: "Contributors changing input flags or the service cache"
 ---
 
 # Cache pre-seeding via -plan and -state flags

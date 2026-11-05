@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0011
 seo:
   description: Decision to restrict batch operations to the explicit palette, never implicit via pins
+description: "Records why batch operations run only from the ! palette and never implicitly from pins."
+audience: "Contributors adding a batch action or changing pins"
 ---
 
 # Batch operations only through ! palette

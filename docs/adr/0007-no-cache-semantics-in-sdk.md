@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0007
 seo:
   description: Decision to hide caching behind the service implementation, not expose it in the SDK
+description: "Records why caching stays inside the service implementation and out of the SDK contract."
+audience: "Contributors changing the Service interface or its cache"
 ---
 
 # No cache semantics in the SDK contract

@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0012
 seo:
   description: Decision to broadcast terraform operation results to all plugins for reactive updates
+description: "Records why the result of a terraform operation is broadcast to every plugin."
+audience: "Contributors adding an operation or reacting to one"
 ---
 
 # Broadcast result messages to all plugins

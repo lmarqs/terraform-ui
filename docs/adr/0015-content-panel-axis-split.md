@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0015
 seo:
   description: The project's rendering paradigm — axis separation for all scrollable content surfaces
+description: "Records why every scrollable content surface splits rendering by axis."
+audience: "Contributors writing a View() or a scrollable panel"
 ---
 
 # Axis-split box model for content rendering

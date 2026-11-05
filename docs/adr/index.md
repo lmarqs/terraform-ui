@@ -2,6 +2,8 @@
 title: Decisions
 seo:
   description: The architecture decision records behind tfui, and the reasoning behind each one.
+description: "Lists every decision record behind tfui's architecture, in order."
+audience: "Contributors about to change a design and checking what was decided"
 ---
 
 # Decisions

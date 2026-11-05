@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0022
 seo:
   description: Decision to auto-detect AI agent environments via env vars and resolve them to headless mode
+description: "Records why tfui detects AI agent environments from env vars and runs headless in them."
+audience: "Contributors changing agent detection or headless mode"
 ---
 
 # Agent environments imply headless mode

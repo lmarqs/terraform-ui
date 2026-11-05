@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0001
 seo:
   description: Architecture decision to enforce plugin isolation through a public SDK boundary
+description: "Records why plugins import only pkg/sdk and never internal/."
+audience: "Contributors adding a plugin or moving code across pkg/sdk"
 ---
 
 # SDK isolation: plugins import only pkg/sdk

@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0004
 seo:
   description: Decision to model plugin navigation as Replace or Push with a single return address
+description: "Records why plugin navigation is either Replace or Push, with a single return address."
+audience: "Contributors changing navigation between plugins"
 ---
 
 # Navigation: Replace vs Push with return destination

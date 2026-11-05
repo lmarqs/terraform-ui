@@ -2,6 +2,8 @@
 title: "ADR-0021: Plugins as use cases (hexagonal architecture)"
 seo:
   description: Decision to treat plugins as use cases behind typed input and output ports, with CLI wiring outside the plugin
+description: "Records why plugins are use cases behind typed input and output ports, with CLI wiring outside them."
+audience: "Contributors adding a plugin or a CLI command"
 ---
 
 # ADR-0021: Plugins as Use Cases (Hexagonal Architecture)

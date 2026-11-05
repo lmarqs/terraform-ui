@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0019
 seo:
   description: Decision that data flows downstream and invalidation flows upstream through strict parent-child chains
+description: "Records why data flows down the plugin chain and invalidation flows up, and why apply in the TUI pipeline never passes -target."
+audience: "Contributors changing how plan and apply pass data"
 ---
 
 # Unidirectional data flow

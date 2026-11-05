@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0016
 seo:
   description: Decision to use a non-reentrant per-directory mutex in ExecService
+description: "Records why ExecService serializes terraform per directory with a non-reentrant lock."
+audience: "Contributors changing ExecService or running terraform concurrently"
 ---
 
 # Non-reentrant directory lock for terraform CLI serialization

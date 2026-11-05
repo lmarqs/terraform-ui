@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0014
 seo:
   description: Decision to split terraform action keys into a dedicated actions bar inside the plugin frame
+description: "Records why terraform action keys sit in an actions bar inside the plugin frame, apart from the hint bar."
+audience: "Contributors adding a key binding or changing the bars"
 ---
 
 # Actions bar — separate terraform mutations from UI hints

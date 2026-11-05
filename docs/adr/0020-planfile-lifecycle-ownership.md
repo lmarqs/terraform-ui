@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0020
 seo:
   description: Decision that the plan plugin owns plan file cleanup, not the exec service
+description: "Records why the plan plugin, not the exec service, owns cleanup of plan files."
+audience: "Contributors changing plan files or their cleanup"
 ---
 
 # PlanFile lifecycle ownership

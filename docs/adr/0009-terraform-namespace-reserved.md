@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0009
 seo:
   description: Decision to reserve terraform's CLI command names and not shadow them
+description: "Records why tfui never takes a command name terraform owns, and names its own features apart."
+audience: "Contributors naming a new command or plugin"
 ---
 
 # Terraform's command namespace is reserved

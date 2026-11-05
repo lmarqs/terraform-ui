@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0010
 seo:
   description: Decision to build commands transparently rather than abstracting terraform away
+description: "Records why tfui builds terraform commands in the open instead of abstracting terraform away."
+audience: "Contributors changing how a plugin calls terraform"
 ---
 
 # tfui is a command builder, not a terraform abstraction

@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0013
 seo:
   description: Decision that plugins manage their own operation lifecycle and context independently
+description: "Records why each plugin owns the lifecycle and context of its own operations."
+audience: "Contributors adding a long-running operation to a plugin"
 ---
 
 # Plugins own their operation context

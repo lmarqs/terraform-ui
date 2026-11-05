@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0006
 seo:
   description: Decision to keep input mode and output format as independent orthogonal axes
+description: "Records why input mode and output format are independent axes."
+audience: "Contributors adding a mode, an output format or a CLI flag"
 ---
 
 # Orthogonal axes: income and outcome are independent

@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0017
 seo:
   description: Decision to require all novel flags to combine validly with every other flag
+description: "Records why every flag tfui adds must combine validly with every other flag."
+audience: "Contributors adding a CLI flag"
 ---
 
 # Novel flags must be orthogonal — no conditional validity

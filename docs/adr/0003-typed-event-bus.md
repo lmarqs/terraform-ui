@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0003
 seo:
   description: Decision to use typed events instead of stringly-typed state sharing between plugins
+description: "Records why plugins talk through typed events instead of shared state."
+audience: "Contributors adding an event or wiring plugins together"
 ---
 
 # Typed event bus for inter-plugin communication

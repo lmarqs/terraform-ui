@@ -6,6 +6,8 @@ parent: Architecture
 nav_order: 0008
 seo:
   description: Decision to enforce 100% test coverage as a quality gate for behavioral completeness
+description: "Records why CI requires 100% test coverage, as a check that every behavior is tested."
+audience: "Contributors whose change fails the coverage gate"
 ---
 
 # 100% coverage as a behavioral forcing function
