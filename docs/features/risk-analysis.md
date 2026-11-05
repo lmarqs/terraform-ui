@@ -5,6 +5,8 @@ parent: Features — Terraform Plan Analysis Tools
 nav_order: 1
 seo:
   description: Automatic risk classification for terraform plan changes. Every resource scored critical, high, medium, or low before you apply.
+description: "Explains how tfui scores each planned change critical, high, medium or low."
+audience: "Users triaging a plan, and contributors changing the risk rules"
 ---
 
 ## Overview

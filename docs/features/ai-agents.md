@@ -5,6 +5,8 @@ parent: Features — Terraform Plan Analysis Tools
 nav_order: 4
 seo:
   description: Run terraform through AI coding agents like Claude Code. Automatic headless mode, 38x smaller plan output, truthful errors, and meaningful exit codes — zero configuration.
+description: "Explains how tfui behaves under an AI coding agent: headless detection, compact output, errors and exit codes."
+audience: "Users running terraform through an agent, and contributors changing headless output"
 ---
 
 ## Overview

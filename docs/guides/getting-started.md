@@ -5,6 +5,8 @@ parent: Guides — Getting Started with Terraform UI
 nav_order: 1
 seo:
   description: Install terraform-ui via Homebrew, go install, or binary download. Review your first terraform plan in under 60 seconds.
+description: "Guides a new user through installing tfui and reviewing a first plan."
+audience: "New users"
 ---
 
 # Getting Started

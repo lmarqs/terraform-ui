@@ -5,6 +5,8 @@ parent: Features — Terraform Plan Analysis Tools
 nav_order: 3
 seo:
   description: See module-grouped impact of terraform changes before applying. Understand which modules are affected and how deeply.
+description: "Explains how blast radius groups a plan's changes by module and scores how far they reach."
+audience: "Users weighing a plan's reach, and contributors changing the scoring"
 ---
 
 ## Overview

@@ -5,6 +5,8 @@ parent: Guides — Getting Started with Terraform UI
 nav_order: 2
 seo:
   description: Configure terraform-ui for your project
+description: "Guides a user through configuring tfui.hcl for a project and its members."
+audience: "Users setting tfui up on a project"
 ---
 
 # Configuration

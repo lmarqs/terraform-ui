@@ -5,6 +5,8 @@ nav_order: 3
 has_children: true
 seo:
   description: Risk classification, phantom change detection, blast radius visualization, and AI agent integration for terraform plans. Automatic analysis with zero configuration.
+description: "Lists the analyses tfui runs on a plan and the agent integration, one page each."
+audience: "Users deciding what tfui adds over raw terraform"
 ---
 
 # Features

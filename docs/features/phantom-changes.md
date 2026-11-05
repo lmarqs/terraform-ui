@@ -5,6 +5,8 @@ parent: Features — Terraform Plan Analysis Tools
 nav_order: 2
 seo:
   description: Detect false-positive terraform plan changes — null vs absent, array reorder, provider normalization. Stop chasing ghost diffs.
+description: "Explains which plan changes tfui treats as phantom, such as null versus absent or reordered arrays, and why."
+audience: "Users chasing diffs that change nothing, and contributors changing detection"
 ---
 
 ## Overview

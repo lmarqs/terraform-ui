@@ -5,6 +5,8 @@ nav_order: 2
 has_children: true
 seo:
   description: Install terraform-ui, configure it for your project, and start reviewing terraform plans interactively.
+description: "Lists the guides that take a new user from install to a configured project."
+audience: "New users"
 ---
 
 # Getting Started

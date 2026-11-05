@@ -5,6 +5,8 @@ title: Scaffold
 nav_order: 3
 seo:
   description: Generate tfui.hcl configuration by detecting project patterns
+description: "Guides a user through generating tfui.hcl with scaffold, and what it detects."
+audience: "Users setting tfui up on an existing project"
 ---
 
 ## Overview
