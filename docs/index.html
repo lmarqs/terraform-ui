@@ -23,10 +23,11 @@ description: >-
         <li>{% include icons/layers.svg %}Terragrunt</li>
       </ul>
       <ul class="stat hero-stat">
-        <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
+        <li class="raw"><b>{{ ba.before_lines }}</b><span>lines of raw terraform</span></li>
         <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
         <li><b>{{ ba.agent_tokens }}</b><span>tokens for your agent</span></li>
-        <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
+        {%- assign critical = tour.changes | where: "risk", "CRITICAL" | size %}
+        <li><b class="crit">{{ critical }}</b><span>CRITICAL change flagged</span></li>
       </ul>
     </div>
     <div class="tour" id="how-it-works">
