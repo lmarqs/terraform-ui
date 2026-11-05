@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# terraform for this fixture, offline: tfui plans with -refresh=true, and a refresh would call AWS with the fake
+# credentials. Rewrite it to -refresh=false so terraform diffs the config against terraform.tfstate only.
+set -euo pipefail
+args=()
+for a in "$@"; do
+  [ "$a" = "-refresh=true" ] && a="-refresh=false"
+  args+=("$a")
+done
+exec terraform "${args[@]}"

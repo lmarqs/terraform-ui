@@ -7,6 +7,7 @@ description: >-
   only what you pinned. Works with Terraform, OpenTofu and Terragrunt, and runs headless for AI coding agents.
 ---
 {%- assign demo = '/assets/demo/' | relative_url -%}
+{%- assign ba = site.data.before_after -%}
 
 <section class="hero">
   <div class="hero-inner">
@@ -19,21 +20,49 @@ description: >-
       <a class="button primary" href="{{ '/guides/getting-started.html' | relative_url }}">Review your first plan{% include icons/arrow-right.svg %}</a>
       <a class="button ghost" href="{{ site.source_url }}">{% include icons/github.svg %}View on GitHub</a>
     </div>
-    <ul class="hero-meta">
-      <li>{% include icons/terraform.svg %}Terraform</li>
-      <li>{% include icons/opentofu.svg %}OpenTofu</li>
-      <li>{% include icons/layers.svg %}Terragrunt</li>
-      <li>{% include icons/linux.svg %}Linux</li>
-      <li>{% include icons/apple.svg %}macOS</li>
-      <li>{% include icons/scale.svg %}MIT</li>
-    </ul>
-    <div class="base-map">
-      <img src="{{ '/assets/base.webp' | relative_url }}" srcset="{{ '/assets/base-768.webp' | relative_url }} 768w, {{ '/assets/base.webp' | relative_url }} 1536w" sizes="(max-width: 1000px) 100vw, 960px" width="1536" height="1024" fetchpriority="high"
-        alt="Flat isometric illustration of a terraforming base on a red planet at night. Inside a glass dome, two operators work beside a glowing hologram of the planet with one red sector; one pulls a lever beside a key. Outside: atmosphere processors circled by rings, a colony under construction, a canal, a floodlit crater, a rover with an empty cab and a distant dust storm. Numbered pins mark what each part stands for.">
-      {%- for pin in site.data.pins %}
-      <a class="pin" href="#pin-{{ pin.id }}" data-pin="{{ pin.id }}" style="left: {{ pin.left }}%; top: {{ pin.top }}%;" aria-label="{{ pin.id }}: {{ pin.title }}">{{ pin.id }}</a>
-      {%- endfor %}
+  </div>
+  <div class="hero-flow" id="how-it-works">
+    <p class="kicker">How it works</p>
+    <h2>One plan in. Two reads out.</h2>
+    <div class="flow">
+      <figure class="terminal flow-in">
+        <div class="shot-bar"><span></span><span></span><span></span><b>terraform plan · {{ ba.before_lines }} lines</b></div>
+        <pre aria-label="Raw terraform plan output, {{ ba.before_lines }} lines. The destroy of module.storage.aws_db_instance.primary is buried among {{ ba.changes }} changes."><span class="flow-scroll">{% include before-after/before.html %}</span></pre>
+      </figure>
+      <div class="flow-core" aria-hidden="true">
+        <div class="flow-wire in"><i></i></div>
+        <div class="flow-card">
+          <svg class="mark" width="34" height="34" viewBox="0 0 28 28"><use href="#tfui-mark"/></svg>
+          <b>tfui</b>
+          <ol>
+            <li>{% include icons/file-json.svg %}Parse the plan</li>
+            <li>{% include icons/folder-tree.svg %}Group by module</li>
+            <li>{% include icons/shield-alert.svg %}Score every change</li>
+            <li>{% include icons/tag.svg %}Badge the risk</li>
+          </ol>
+        </div>
+        <div class="flow-wire out"><i></i><i></i></div>
+      </div>
+      <div class="flow-out">
+        <figure class="terminal">
+          <div class="shot-bar"><span></span><span></span><span></span><b>{% include icons/user.svg %}For you · tfui plan</b></div>
+          <pre aria-label="tfui's plan tree: {{ ba.changes }} changes grouped by module with a risk badge each; the database destroy is CRITICAL.">{% include before-after/human.html %}</pre>
+        </figure>
+        <figure class="terminal agent">
+          <div class="shot-bar"><span></span><span></span><span></span><b>{% include icons/bot.svg %}For your agent · tfui plan --ci</b></div>
+          <pre aria-label="Headless output for an agent: {{ ba.agent_lines }} lines, one per change, then the totals and the overall risk.">{% include before-after/agent.html %}</pre>
+        </figure>
+      </div>
     </div>
+    <ul class="stat">
+      <li><b>{{ ba.before_lines }}</b><span>lines from terraform</span></li>
+      <li><b>{{ ba.changes }}</b><span>rows in the tree</span></li>
+      <li><b>{{ ba.agent_lines }}</b><span>lines for your agent</span></li>
+      <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
+    </ul>
+    <p class="note">A real plan of the <a href="{{ site.source_url }}/tree/main/demo/before-after">demo/before-after</a>
+      fixture with Terraform v1.14.9, planned offline against a hand-written state: tfui reads the plan on your machine and sends it nowhere. Regenerate it with
+      <code>mise run demo:before-after</code>.</p>
   </div>
 </section>
 
@@ -51,46 +80,6 @@ description: >-
   </div>
 </section>
 
-<section class="section" id="why">
-  <div class="wrap">
-    <p class="kicker">Why</p>
-    <h2>900 lines, one destroy</h2>
-    <p class="lede">Raw <code>terraform plan</code> output is a wall of text. The change that matters looks like every
-      change that doesn't.</p>
-    <div class="split">
-      <div class="panel problem">
-        <h3>{% include icons/terminal.svg %}Reading raw output</h3>
-        <p>Somewhere in 900 lines of plan output, a database is about to be destroyed. You scan for the word "destroy"
-          and find it on line 847, between two tag updates.</p>
-        <div class="wall" aria-hidden="true">
-          &nbsp;&nbsp;# aws_s3_bucket.logs will be updated in-place<br>
-          &nbsp;&nbsp;~ resource "aws_s3_bucket" "logs" {<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ tags = { "Owner" = "platform" -> "infra" }<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;}<br>
-          &nbsp;&nbsp;# aws_security_group.web will be updated in-place<br>
-          &nbsp;&nbsp;~ resource "aws_security_group" "web" {<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ tags = { "Env" = "prod" }<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;}<br>
-          <span class="hit">&nbsp;&nbsp;# aws_db_instance.primary will be destroyed</span><br>
-          <span class="hit">&nbsp;&nbsp;- resource "aws_db_instance" "primary" {</span><br>
-          &nbsp;&nbsp;# aws_iam_role.app will be updated in-place<br>
-          &nbsp;&nbsp;~ resource "aws_iam_role" "app" {<br>
-          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ tags = { "Team" = "core" }
-        </div>
-      </div>
-      <div class="panel goal">
-        <h3>{% include icons/list-tree.svg %}Reading it in tfui</h3>
-        <ul>
-          <li>Every change is one row in a tree, grouped by module.</li>
-          <li>The destroy carries a <strong>[CRITICAL]</strong> badge, so it finds you.</li>
-          <li>Phantom diffs are marked as noise, so you stop chasing them.</li>
-          <li>Every mutation waits for one confirmation.</li>
-          <li>An agent gets the summary instead of the flood.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
 
 <section class="section" id="the-base">
   <div class="wrap">
@@ -98,6 +87,13 @@ description: >-
     <h2>What the base watches</h2>
     <p class="lede">Each pin on the picture marks something tfui does for you before terraform touches anything. Select
       one to read more.</p>
+    <div class="base-map">
+      <img src="{{ '/assets/base.webp' | relative_url }}" srcset="{{ '/assets/base-768.webp' | relative_url }} 768w, {{ '/assets/base.webp' | relative_url }} 1536w" sizes="(max-width: 1000px) 100vw, 960px" width="1536" height="1024" loading="lazy"
+        alt="Flat isometric illustration of a terraforming base on a red planet at night. Inside a glass dome, two operators work beside a glowing hologram of the planet with one red sector; one pulls a lever beside a key. Outside: atmosphere processors circled by rings, a colony under construction, a canal, a floodlit crater, a rover with an empty cab and a distant dust storm. Numbered pins mark what each part stands for.">
+      {%- for pin in site.data.pins %}
+      <a class="pin" href="#pin-{{ pin.id }}" data-pin="{{ pin.id }}" style="left: {{ pin.left }}%; top: {{ pin.top }}%;" aria-label="{{ pin.id }}: {{ pin.title }}">{{ pin.id }}</a>
+      {%- endfor %}
+    </div>
     <ol class="legend">
       {%- for pin in site.data.pins %}
       <li id="pin-{{ pin.id }}" data-pin="{{ pin.id }}">

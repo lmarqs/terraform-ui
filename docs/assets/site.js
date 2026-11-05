@@ -83,6 +83,18 @@
     });
   }
 
+  // The how-it-works flow animates once it scrolls into view; without JS it stays a complete static picture.
+  function flow() {
+    var el = document.querySelector(".flow");
+    if (!el || !("IntersectionObserver" in window)) return;
+    var observer = new IntersectionObserver(function (entries) {
+      if (!entries[0].isIntersecting) return;
+      el.classList.add("play");
+      observer.disconnect();
+    }, { threshold: 0.25 });
+    observer.observe(el);
+  }
+
   function search() {
     var el = document.getElementById("search");
     if (!el || !window.PagefindUI) return;
@@ -100,5 +112,6 @@
   toc();
   copyButtons();
   basePins();
+  flow();
   search();
 })();

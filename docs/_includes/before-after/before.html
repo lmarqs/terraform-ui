@@ -1,0 +1,375 @@
+{% raw %}
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+  ~ update in-place
+  - destroy
+
+Terraform will perform the following actions:
+
+  # module.compute.aws_cloudwatch_log_group.app will be created
+  + resource "aws_cloudwatch_log_group" "app" {
+      + arn               = (known after apply)
+      + id                = (known after apply)
+      + log_group_class   = (known after apply)
+      + name              = "/acme/app"
+      + name_prefix       = (known after apply)
+      + retention_in_days = 30
+      + skip_destroy      = false
+      + tags_all          = (known after apply)
+    }
+
+  # module.compute.aws_iam_role.app will be updated in-place
+  ~ resource "aws_iam_role" "app" {
+        id                    = "app"
+        name                  = "app"
+      ~ tags                  = {
+          ~ "Owner" = "platform" -&gt; "infra"
+            "Team"  = "core"
+        }
+      ~ tags_all              = {
+          ~ "Owner" = "platform" -&gt; "infra"
+            # (1 unchanged element hidden)
+        }
+        # (11 unchanged attributes hidden)
+    }
+
+  # module.compute.aws_instance.app[0] will be created
+  + resource "aws_instance" "app" {
+      + ami                                  = "ami-0c55b159cbfafe1f0"
+      + arn                                  = (known after apply)
+      + associate_public_ip_address          = (known after apply)
+      + availability_zone                    = (known after apply)
+      + cpu_core_count                       = (known after apply)
+      + cpu_threads_per_core                 = (known after apply)
+      + disable_api_stop                     = (known after apply)
+      + disable_api_termination              = (known after apply)
+      + ebs_optimized                        = (known after apply)
+      + enable_primary_ipv6                  = (known after apply)
+      + get_password_data                    = false
+      + host_id                              = (known after apply)
+      + host_resource_group_arn              = (known after apply)
+      + iam_instance_profile                 = (known after apply)
+      + id                                   = (known after apply)
+      + instance_initiated_shutdown_behavior = (known after apply)
+      + instance_lifecycle                   = (known after apply)
+      + instance_state                       = (known after apply)
+      + instance_type                        = "t3.medium"
+      + ipv6_address_count                   = (known after apply)
+      + ipv6_addresses                       = (known after apply)
+      + key_name                             = (known after apply)
+      + monitoring                           = (known after apply)
+      + outpost_arn                          = (known after apply)
+      + password_data                        = (known after apply)
+      + placement_group                      = (known after apply)
+      + placement_partition_number           = (known after apply)
+      + primary_network_interface_id         = (known after apply)
+      + private_dns                          = (known after apply)
+      + private_ip                           = (known after apply)
+      + public_dns                           = (known after apply)
+      + public_ip                            = (known after apply)
+      + secondary_private_ips                = (known after apply)
+      + security_groups                      = (known after apply)
+      + source_dest_check                    = true
+      + spot_instance_request_id             = (known after apply)
+      + subnet_id                            = (known after apply)
+      + tags                                 = {
+          + "Env"  = "prod"
+          + "Name" = "app-0"
+        }
+      + tags_all                             = {
+          + "Env"  = "prod"
+          + "Name" = "app-0"
+        }
+      + tenancy                              = (known after apply)
+      + user_data                            = (known after apply)
+      + user_data_base64                     = (known after apply)
+      + user_data_replace_on_change          = false
+      + vpc_security_group_ids               = [
+          + "sg-0f1e2d3c",
+        ]
+
+      + capacity_reservation_specification (known after apply)
+
+      + cpu_options (known after apply)
+
+      + ebs_block_device (known after apply)
+
+      + enclave_options (known after apply)
+
+      + ephemeral_block_device (known after apply)
+
+      + instance_market_options (known after apply)
+
+      + maintenance_options (known after apply)
+
+      + metadata_options (known after apply)
+
+      + network_interface (known after apply)
+
+      + private_dns_name_options (known after apply)
+
+      + root_block_device (known after apply)
+    }
+
+  # module.compute.aws_instance.app[1] will be created
+  + resource "aws_instance" "app" {
+      + ami                                  = "ami-0c55b159cbfafe1f0"
+      + arn                                  = (known after apply)
+      + associate_public_ip_address          = (known after apply)
+      + availability_zone                    = (known after apply)
+      + cpu_core_count                       = (known after apply)
+      + cpu_threads_per_core                 = (known after apply)
+      + disable_api_stop                     = (known after apply)
+      + disable_api_termination              = (known after apply)
+      + ebs_optimized                        = (known after apply)
+      + enable_primary_ipv6                  = (known after apply)
+      + get_password_data                    = false
+      + host_id                              = (known after apply)
+      + host_resource_group_arn              = (known after apply)
+      + iam_instance_profile                 = (known after apply)
+      + id                                   = (known after apply)
+      + instance_initiated_shutdown_behavior = (known after apply)
+      + instance_lifecycle                   = (known after apply)
+      + instance_state                       = (known after apply)
+      + instance_type                        = "t3.medium"
+      + ipv6_address_count                   = (known after apply)
+      + ipv6_addresses                       = (known after apply)
+      + key_name                             = (known after apply)
+      + monitoring                           = (known after apply)
+      + outpost_arn                          = (known after apply)
+      + password_data                        = (known after apply)
+      + placement_group                      = (known after apply)
+      + placement_partition_number           = (known after apply)
+      + primary_network_interface_id         = (known after apply)
+      + private_dns                          = (known after apply)
+      + private_ip                           = (known after apply)
+      + public_dns                           = (known after apply)
+      + public_ip                            = (known after apply)
+      + secondary_private_ips                = (known after apply)
+      + security_groups                      = (known after apply)
+      + source_dest_check                    = true
+      + spot_instance_request_id             = (known after apply)
+      + subnet_id                            = (known after apply)
+      + tags                                 = {
+          + "Env"  = "prod"
+          + "Name" = "app-1"
+        }
+      + tags_all                             = {
+          + "Env"  = "prod"
+          + "Name" = "app-1"
+        }
+      + tenancy                              = (known after apply)
+      + user_data                            = (known after apply)
+      + user_data_base64                     = (known after apply)
+      + user_data_replace_on_change          = false
+      + vpc_security_group_ids               = [
+          + "sg-0f1e2d3c",
+        ]
+
+      + capacity_reservation_specification (known after apply)
+
+      + cpu_options (known after apply)
+
+      + ebs_block_device (known after apply)
+
+      + enclave_options (known after apply)
+
+      + ephemeral_block_device (known after apply)
+
+      + instance_market_options (known after apply)
+
+      + maintenance_options (known after apply)
+
+      + metadata_options (known after apply)
+
+      + network_interface (known after apply)
+
+      + private_dns_name_options (known after apply)
+
+      + root_block_device (known after apply)
+    }
+
+  # module.networking.aws_security_group.web will be updated in-place
+  ~ resource "aws_security_group" "web" {
+        id                     = "sg-0f1e2d3c"
+        name                   = "web"
+      ~ tags                   = {
+            "Env"   = "prod"
+          ~ "Owner" = "platform" -&gt; "infra"
+        }
+      ~ tags_all               = {
+          ~ "Owner" = "platform" -&gt; "infra"
+            # (1 unchanged element hidden)
+        }
+        # (8 unchanged attributes hidden)
+    }
+
+  # module.networking.aws_subnet.public[0] will be created
+  + resource "aws_subnet" "public" {
+      + arn                                            = (known after apply)
+      + assign_ipv6_address_on_creation                = false
+      + availability_zone                              = "us-east-1a"
+      + availability_zone_id                           = (known after apply)
+      + cidr_block                                     = "10.0.10.0/24"
+      + enable_dns64                                   = false
+      + enable_resource_name_dns_a_record_on_launch    = false
+      + enable_resource_name_dns_aaaa_record_on_launch = false
+      + id                                             = (known after apply)
+      + ipv6_cidr_block_association_id                 = (known after apply)
+      + ipv6_native                                    = false
+      + map_public_ip_on_launch                        = false
+      + owner_id                                       = (known after apply)
+      + private_dns_hostname_type_on_launch            = (known after apply)
+      + tags                                           = {
+          + "Env"  = "prod"
+          + "Name" = "public-0"
+        }
+      + tags_all                                       = {
+          + "Env"  = "prod"
+          + "Name" = "public-0"
+        }
+      + vpc_id                                         = "vpc-0a1b2c3d"
+    }
+
+  # module.networking.aws_subnet.public[1] will be created
+  + resource "aws_subnet" "public" {
+      + arn                                            = (known after apply)
+      + assign_ipv6_address_on_creation                = false
+      + availability_zone                              = "us-east-1b"
+      + availability_zone_id                           = (known after apply)
+      + cidr_block                                     = "10.0.11.0/24"
+      + enable_dns64                                   = false
+      + enable_resource_name_dns_a_record_on_launch    = false
+      + enable_resource_name_dns_aaaa_record_on_launch = false
+      + id                                             = (known after apply)
+      + ipv6_cidr_block_association_id                 = (known after apply)
+      + ipv6_native                                    = false
+      + map_public_ip_on_launch                        = false
+      + owner_id                                       = (known after apply)
+      + private_dns_hostname_type_on_launch            = (known after apply)
+      + tags                                           = {
+          + "Env"  = "prod"
+          + "Name" = "public-1"
+        }
+      + tags_all                                       = {
+          + "Env"  = "prod"
+          + "Name" = "public-1"
+        }
+      + vpc_id                                         = "vpc-0a1b2c3d"
+    }
+
+<span class="hit">  # module.storage.aws_db_instance.primary will be destroyed</span>
+<span class="hit">  # (because aws_db_instance.primary is not in configuration)</span>
+<span class="hit">  - resource "aws_db_instance" "primary" {</span>
+      - allocated_storage   = 100 -&gt; null
+      - arn                 = "arn:aws:rds:us-east-1:123456789012:db:acme-primary" -&gt; null
+      - engine              = "postgres" -&gt; null
+      - engine_version      = "14.11" -&gt; null
+      - id                  = "db-PRIMARY" -&gt; null
+      - identifier          = "acme-primary" -&gt; null
+      - instance_class      = "db.r6g.large" -&gt; null
+      - password_wo         = (write-only attribute) -&gt; null
+      - skip_final_snapshot = false -&gt; null
+      - tags                = {
+          - "Env" = "prod"
+        } -&gt; null
+      - tags_all            = {
+          - "Env" = "prod"
+        } -&gt; null
+      - username            = "acme" -&gt; null
+    }
+
+  # module.storage.aws_db_instance.primary_v2 will be created
+  + resource "aws_db_instance" "primary_v2" {
+      + address                               = (known after apply)
+      + allocated_storage                     = 100
+      + apply_immediately                     = false
+      + arn                                   = (known after apply)
+      + auto_minor_version_upgrade            = true
+      + availability_zone                     = (known after apply)
+      + backup_retention_period               = (known after apply)
+      + backup_target                         = (known after apply)
+      + backup_window                         = (known after apply)
+      + ca_cert_identifier                    = (known after apply)
+      + character_set_name                    = (known after apply)
+      + copy_tags_to_snapshot                 = false
+      + database_insights_mode                = (known after apply)
+      + db_name                               = (known after apply)
+      + db_subnet_group_name                  = (known after apply)
+      + dedicated_log_volume                  = false
+      + delete_automated_backups              = true
+      + domain_fqdn                           = (known after apply)
+      + endpoint                              = (known after apply)
+      + engine                                = "postgres"
+      + engine_lifecycle_support              = (known after apply)
+      + engine_version                        = "16.4"
+      + engine_version_actual                 = (known after apply)
+      + hosted_zone_id                        = (known after apply)
+      + id                                    = (known after apply)
+      + identifier                            = "acme-primary-v2"
+      + identifier_prefix                     = (known after apply)
+      + instance_class                        = "db.r6g.large"
+      + iops                                  = (known after apply)
+      + kms_key_id                            = (known after apply)
+      + latest_restorable_time                = (known after apply)
+      + license_model                         = (known after apply)
+      + listener_endpoint                     = (known after apply)
+      + maintenance_window                    = (known after apply)
+      + manage_master_user_password           = true
+      + master_user_secret                    = (known after apply)
+      + master_user_secret_kms_key_id         = (known after apply)
+      + monitoring_interval                   = 0
+      + monitoring_role_arn                   = (known after apply)
+      + multi_az                              = (known after apply)
+      + nchar_character_set_name              = (known after apply)
+      + network_type                          = (known after apply)
+      + option_group_name                     = (known after apply)
+      + parameter_group_name                  = (known after apply)
+      + password_wo                           = (write-only attribute)
+      + performance_insights_enabled          = false
+      + performance_insights_kms_key_id       = (known after apply)
+      + performance_insights_retention_period = (known after apply)
+      + port                                  = (known after apply)
+      + publicly_accessible                   = false
+      + replica_mode                          = (known after apply)
+      + replicas                              = (known after apply)
+      + resource_id                           = (known after apply)
+      + skip_final_snapshot                   = false
+      + snapshot_identifier                   = (known after apply)
+      + status                                = (known after apply)
+      + storage_throughput                    = (known after apply)
+      + storage_type                          = (known after apply)
+      + tags                                  = {
+          + "Env" = "prod"
+        }
+      + tags_all                              = {
+          + "Env" = "prod"
+        }
+      + timezone                              = (known after apply)
+      + username                              = "acme"
+      + vpc_security_group_ids                = (known after apply)
+    }
+
+  # module.storage.aws_s3_bucket.logs will be updated in-place
+  ~ resource "aws_s3_bucket" "logs" {
+        id                  = "acme-logs"
+      ~ tags                = {
+            "Env"   = "prod"
+          ~ "Owner" = "platform" -&gt; "infra"
+        }
+      ~ tags_all            = {
+          ~ "Owner" = "platform" -&gt; "infra"
+            # (1 unchanged element hidden)
+        }
+        # (5 unchanged attributes hidden)
+    }
+
+Plan: 6 to add, 3 to change, 1 to destroy.
+
+─────────────────────────────────────────────────────────────────────────────
+
+Saved the plan to: tfplan
+
+To perform exactly these actions, run the following command to apply:
+    terraform apply "tfplan"{% endraw %}

@@ -1,0 +1,13 @@
+{% raw %}<span class="row" style="--i: 0"><span class="add">+</span> module.compute.aws_cloudwatch_log_group.app</span>
+<span class="row" style="--i: 1"><span class="chg">~</span> module.compute.aws_iam_role.app</span>
+<span class="row" style="--i: 2"><span class="add">+</span> module.compute.aws_instance.app[0]</span>
+<span class="row" style="--i: 3"><span class="add">+</span> module.compute.aws_instance.app[1]</span>
+<span class="row" style="--i: 4"><span class="chg">~</span> module.networking.aws_security_group.web</span>
+<span class="row" style="--i: 5"><span class="add">+</span> module.networking.aws_subnet.public[0]</span>
+<span class="row" style="--i: 6"><span class="add">+</span> module.networking.aws_subnet.public[1]</span>
+<span class="row" style="--i: 7"><span class="del">-</span> module.storage.aws_db_instance.primary</span>
+<span class="row" style="--i: 8"><span class="add">+</span> module.storage.aws_db_instance.primary_v2</span>
+<span class="row" style="--i: 9"><span class="chg">~</span> module.storage.aws_s3_bucket.logs</span>
+<span class="row" style="--i: 10"></span>
+<span class="row" style="--i: 11"><span class="ok">Plan: 6 to add, 3 to change, 1 to destroy.</span></span>
+<span class="row" style="--i: 12">Risk: <b class="crit">critical</b></span>{% endraw %}

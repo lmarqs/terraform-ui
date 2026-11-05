@@ -74,3 +74,20 @@ demo/
 ├── Dockerfile         # Demo container
 └── docker-compose.yml
 ```
+
+## Before/after on the landing page
+
+The "How it works" section of the docs landing page shows one real plan three ways: the raw `terraform plan`
+output, tfui's tree, and the headless `tfui plan --ci` summary an agent reads. All three come from the fixture in
+`demo/before-after/`, a few AWS resources in three modules with a hand-written `terraform.tfstate`.
+
+```bash
+mise run demo:before-after   # rewrites docs/_includes/before-after/ and docs/_data/before_after.yml
+```
+
+Nothing reaches AWS. The provider has fake credentials and skips its account checks, and every plan runs with
+`-refresh=false`, so terraform only diffs the config against the state file. tfui itself always plans with
+`-refresh=true`, so the headless run goes through `terraform-offline`, a wrapper passed as `--terraform-bin` that
+rewrites that flag. The first run downloads the AWS provider (about 700 MB).
+
+To change the story, edit the modules or the state, rerun the task, and commit the regenerated files.

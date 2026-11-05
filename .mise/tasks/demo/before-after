@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Regenerate the landing page's before/after panels from a real, offline plan of demo/before-after."
+
+exec ./demo/before-after/generate.sh "$@"

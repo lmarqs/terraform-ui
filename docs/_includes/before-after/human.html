@@ -1,0 +1,24 @@
+{% raw %}<span class="row" style="--i: 0"> Project: before-after                                                ╔╦╗╔═╗╦ ╦╦</span>
+<span class="row" style="--i: 1"> Chdir: -                                                              ║ ╠╣ ║ ║║</span>
+<span class="row" style="--i: 2"> Workspace: default                                                    ╩ ╚  ╚═╝╩</span>
+<span class="row" style="--i: 3">┌────────────────────────────── Plan (10) [1/13] ──────────────────────────────┐</span>
+<span class="row" style="--i: 4">│[ ] ▼ module.compute (4)                                                      │</span>
+<span class="row" style="--i: 5">│[ ] ├─<span class="add">+</span> aws_cloudwatch_log_group.app <span class="meta">[low]</span>                                    │</span>
+<span class="row" style="--i: 6">│[ ] ├─<span class="chg">~</span> aws_iam_role.app <span class="badge-t high">[HIGH]</span>                                               │</span>
+<span class="row" style="--i: 7">│[ ] ├─<span class="add">+</span> aws_instance.app[0] <span class="meta">[low]</span>                                             │</span>
+<span class="row" style="--i: 8">│[ ] └─<span class="add">+</span> aws_instance.app[1] <span class="meta">[low]</span>                                             │</span>
+<span class="row" style="--i: 9">│[ ] ▼ module.networking (3)                                                   │</span>
+<span class="row" style="--i: 10">│[ ] ├─<span class="chg">~</span> aws_security_group.web <span class="badge-t medium">[medium]</span>                                       │</span>
+<span class="row" style="--i: 11">│[ ] ├─<span class="add">+</span> aws_subnet.public[0] <span class="badge-t medium">[medium]</span>                                         │</span>
+<span class="row" style="--i: 12">│[ ] └─<span class="add">+</span> aws_subnet.public[1] <span class="badge-t medium">[medium]</span>                                         │</span>
+<span class="row" style="--i: 13">│[ ] ▼ module.storage (3)                                                      │</span>
+<span class="row" style="--i: 14">│[ ] ├─<span class="del">-</span> aws_db_instance.primary <b class="crit">[CRITICAL]</b>                                    │</span>
+<span class="row" style="--i: 15">│[ ] ├─<span class="add">+</span> aws_db_instance.primary_v2 <span class="badge-t medium">[medium]</span>                                   │</span>
+<span class="row" style="--i: 16">│[ ] └─<span class="chg">~</span> aws_s3_bucket.logs <span class="badge-t high">[HIGH]</span>                                             │</span>
+<span class="row" style="--i: 17">│                                                                              │</span>
+<span class="row" style="--i: 18">│Plan: 6 to add, 3 to change, 1 to destroy                                     │</span>
+<span class="row" style="--i: 19">│Overall risk: <b class="crit">CRITICAL</b>                                                        │</span>
+<span class="row" style="--i: 20">│                                                                              │</span>
+<span class="row" style="--i: 21">│e edit t taint T untaint a apply A auto-apply                                 │</span>
+<span class="row" style="--i: 22">└──────────────────────────────────────────────────────────────────────────────┘</span>
+<span class="row" style="--i: 23">Enter inspect  / filter  Space pin  ^t flat  [ collapse  ] expand  ^r refresh  q</span>{% endraw %}
