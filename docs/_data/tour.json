@@ -1,0 +1,285 @@
+{
+ "changes": [
+  {
+   "action": "create",
+   "address": "module.compute.aws_cloudwatch_log_group.app",
+   "attrs": [
+    {
+     "after": "/acme/app",
+     "before": null,
+     "key": "name"
+    },
+    {
+     "after": "30",
+     "before": null,
+     "key": "retention_in_days"
+    }
+   ],
+   "module": "module.compute",
+   "name": "aws_cloudwatch_log_group.app",
+   "risk": "low",
+   "type": "aws_cloudwatch_log_group"
+  },
+  {
+   "action": "update",
+   "address": "module.compute.aws_iam_role.app",
+   "attrs": [
+    {
+     "after": "infra",
+     "before": "platform",
+     "key": "tags.Owner"
+    }
+   ],
+   "module": "module.compute",
+   "name": "aws_iam_role.app",
+   "risk": "HIGH",
+   "type": "aws_iam_role"
+  },
+  {
+   "action": "create",
+   "address": "module.compute.aws_instance.app[0]",
+   "attrs": [
+    {
+     "after": "ami-0c55b159cbfafe1f0",
+     "before": null,
+     "key": "ami"
+    },
+    {
+     "after": "t3.medium",
+     "before": null,
+     "key": "instance_type"
+    },
+    {
+     "after": "prod",
+     "before": null,
+     "key": "tags.Env"
+    },
+    {
+     "after": "app-0",
+     "before": null,
+     "key": "tags.Name"
+    }
+   ],
+   "module": "module.compute",
+   "name": "aws_instance.app[0]",
+   "risk": "low",
+   "type": "aws_instance"
+  },
+  {
+   "action": "create",
+   "address": "module.compute.aws_instance.app[1]",
+   "attrs": [
+    {
+     "after": "ami-0c55b159cbfafe1f0",
+     "before": null,
+     "key": "ami"
+    },
+    {
+     "after": "t3.medium",
+     "before": null,
+     "key": "instance_type"
+    },
+    {
+     "after": "prod",
+     "before": null,
+     "key": "tags.Env"
+    },
+    {
+     "after": "app-1",
+     "before": null,
+     "key": "tags.Name"
+    }
+   ],
+   "module": "module.compute",
+   "name": "aws_instance.app[1]",
+   "risk": "low",
+   "type": "aws_instance"
+  },
+  {
+   "action": "update",
+   "address": "module.networking.aws_security_group.web",
+   "attrs": [
+    {
+     "after": "infra",
+     "before": "platform",
+     "key": "tags.Owner"
+    }
+   ],
+   "module": "module.networking",
+   "name": "aws_security_group.web",
+   "risk": "medium",
+   "type": "aws_security_group"
+  },
+  {
+   "action": "create",
+   "address": "module.networking.aws_subnet.public[0]",
+   "attrs": [
+    {
+     "after": "us-east-1a",
+     "before": null,
+     "key": "availability_zone"
+    },
+    {
+     "after": "10.0.10.0/24",
+     "before": null,
+     "key": "cidr_block"
+    },
+    {
+     "after": "prod",
+     "before": null,
+     "key": "tags.Env"
+    },
+    {
+     "after": "public-0",
+     "before": null,
+     "key": "tags.Name"
+    },
+    {
+     "after": "vpc-0a1b2c3d",
+     "before": null,
+     "key": "vpc_id"
+    }
+   ],
+   "module": "module.networking",
+   "name": "aws_subnet.public[0]",
+   "risk": "medium",
+   "type": "aws_subnet"
+  },
+  {
+   "action": "create",
+   "address": "module.networking.aws_subnet.public[1]",
+   "attrs": [
+    {
+     "after": "us-east-1b",
+     "before": null,
+     "key": "availability_zone"
+    },
+    {
+     "after": "10.0.11.0/24",
+     "before": null,
+     "key": "cidr_block"
+    },
+    {
+     "after": "prod",
+     "before": null,
+     "key": "tags.Env"
+    },
+    {
+     "after": "public-1",
+     "before": null,
+     "key": "tags.Name"
+    },
+    {
+     "after": "vpc-0a1b2c3d",
+     "before": null,
+     "key": "vpc_id"
+    }
+   ],
+   "module": "module.networking",
+   "name": "aws_subnet.public[1]",
+   "risk": "medium",
+   "type": "aws_subnet"
+  },
+  {
+   "action": "delete",
+   "address": "module.storage.aws_db_instance.primary",
+   "attrs": [
+    {
+     "after": null,
+     "before": "100",
+     "key": "allocated_storage"
+    },
+    {
+     "after": null,
+     "before": "postgres",
+     "key": "engine"
+    },
+    {
+     "after": null,
+     "before": "14.11",
+     "key": "engine_version"
+    },
+    {
+     "after": null,
+     "before": "acme-primary",
+     "key": "identifier"
+    },
+    {
+     "after": null,
+     "before": "db.r6g.large",
+     "key": "instance_class"
+    },
+    {
+     "after": null,
+     "before": "prod",
+     "key": "tags.Env"
+    }
+   ],
+   "module": "module.storage",
+   "name": "aws_db_instance.primary",
+   "risk": "CRITICAL",
+   "type": "aws_db_instance"
+  },
+  {
+   "action": "create",
+   "address": "module.storage.aws_db_instance.primary_v2",
+   "attrs": [
+    {
+     "after": "100",
+     "before": null,
+     "key": "allocated_storage"
+    },
+    {
+     "after": "postgres",
+     "before": null,
+     "key": "engine"
+    },
+    {
+     "after": "16.4",
+     "before": null,
+     "key": "engine_version"
+    },
+    {
+     "after": "acme-primary-v2",
+     "before": null,
+     "key": "identifier"
+    },
+    {
+     "after": "db.r6g.large",
+     "before": null,
+     "key": "instance_class"
+    },
+    {
+     "after": "prod",
+     "before": null,
+     "key": "tags.Env"
+    }
+   ],
+   "module": "module.storage",
+   "name": "aws_db_instance.primary_v2",
+   "risk": "medium",
+   "type": "aws_db_instance"
+  },
+  {
+   "action": "update",
+   "address": "module.storage.aws_s3_bucket.logs",
+   "attrs": [
+    {
+     "after": "infra",
+     "before": "platform",
+     "key": "tags.Owner"
+    }
+   ],
+   "module": "module.storage",
+   "name": "aws_s3_bucket.logs",
+   "risk": "HIGH",
+   "type": "aws_s3_bucket"
+  }
+ ],
+ "risk": "CRITICAL",
+ "summary": {
+  "add": 6,
+  "change": 3,
+  "destroy": 1
+ }
+}
