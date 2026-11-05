@@ -4,7 +4,7 @@ title: "ADR-0018: Atomic Context replacement on context switch"
 grand_parent: Development
 parent: Architecture
 nav_order: 0018
-description: Decision to centralize all terraform-affecting state into an atomic Context replaced on context switch
+seo_description: Decision to centralize all terraform-affecting state into an atomic Context replaced on context switch
 ---
 
 # Atomic Context replacement on context switch

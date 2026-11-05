@@ -3,7 +3,7 @@ layout: default
 title: Testing Strategy
 parent: Development
 nav_order: 2
-description: Behavioral testing standard, conventions, and layered test architecture
+seo_description: Behavioral testing standard, conventions, and layered test architecture
 ---
 
 # Testing Strategy

@@ -3,7 +3,7 @@ layout: default
 title: Macro Language
 parent: Reference
 nav_order: 3
-description: Tape DSL reference for automated TUI interaction
+seo_description: Tape DSL reference for automated TUI interaction
 ---
 
 # Macro Language

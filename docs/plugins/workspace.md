@@ -4,7 +4,7 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Workspace
 id: workspace
 key: w
-description: Manage terraform workspace (list, switch, create, delete)
+seo_description: Manage terraform workspace (list, switch, create, delete)
 category: navigation
 default_enabled: true
 ---

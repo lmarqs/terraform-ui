@@ -4,7 +4,7 @@ title: "ADR-0016: Non-reentrant directory lock for terraform CLI serialization"
 grand_parent: Development
 parent: Architecture
 nav_order: 0016
-description: Decision to use a non-reentrant per-directory mutex in ExecService
+seo_description: Decision to use a non-reentrant per-directory mutex in ExecService
 ---
 
 # Non-reentrant directory lock for terraform CLI serialization

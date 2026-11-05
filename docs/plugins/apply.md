@@ -4,7 +4,7 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Apply
 id: apply
 key: a
-description: Apply terraform changes with confirmation, targeting, and elapsed time tracking
+seo_description: Apply terraform changes with confirmation, targeting, and elapsed time tracking
 category: operations
 default_enabled: true
 ---

@@ -4,7 +4,7 @@ title: Plugin Catalog — All Terraform UI Features
 nav_order: 4
 has_children: true
 permalink: /plugins/
-description: Complete catalog of terraform-ui plugins — plan review, state browser, workspaces, apply, validate, console, and more.
+seo_description: Complete catalog of terraform-ui plugins — plan review, state browser, workspaces, apply, validate, console, and more.
 ---
 
 # Plugins

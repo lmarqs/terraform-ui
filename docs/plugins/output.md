@@ -6,7 +6,7 @@ id: output
 key: o
 category: navigation
 default_enabled: true
-description: View terraform output values for the current workspace
+seo_description: View terraform output values for the current workspace
 ---
 
 # Outputs

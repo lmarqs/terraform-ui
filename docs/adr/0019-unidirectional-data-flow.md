@@ -4,7 +4,7 @@ title: "ADR-0019: Unidirectional data flow"
 grand_parent: Development
 parent: Architecture
 nav_order: 0019
-description: Decision that data flows downstream and invalidation flows upstream through strict parent-child chains
+seo_description: Decision that data flows downstream and invalidation flows upstream through strict parent-child chains
 ---
 
 # Unidirectional data flow

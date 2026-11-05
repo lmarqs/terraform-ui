@@ -3,7 +3,7 @@ layout: default
 title: Configuration
 parent: Guides — Getting Started with Terraform UI
 nav_order: 2
-description: Configure terraform-ui for your project
+seo_description: Configure terraform-ui for your project
 ---
 
 # Configuration

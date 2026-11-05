@@ -4,7 +4,7 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Terraform State Browser — Interactive Explorer
 id: state
 key: s
-description: Browse, search, and inspect terraform state resources interactively. Taint, untaint, move, and delete with safety prompts instead of raw CLI.
+seo_description: Browse, search, and inspect terraform state resources interactively. Taint, untaint, move, and delete with safety prompts instead of raw CLI.
 category: navigation
 default_enabled: true
 ---

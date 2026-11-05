@@ -6,7 +6,7 @@ id: chdir
 key: "—"
 category: navigation
 default_enabled: true
-description: Select a member directory within a multi-module terraform project
+seo_description: Select a member directory within a multi-module terraform project
 ---
 
 # Chdir Picker

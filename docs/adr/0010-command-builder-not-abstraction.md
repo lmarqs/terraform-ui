@@ -4,7 +4,7 @@ title: "ADR-0010: tfui is a command builder, not a terraform abstraction"
 grand_parent: Development
 parent: Architecture
 nav_order: 0010
-description: Decision to build commands transparently rather than abstracting terraform away
+seo_description: Decision to build commands transparently rather than abstracting terraform away
 ---
 
 # tfui is a command builder, not a terraform abstraction

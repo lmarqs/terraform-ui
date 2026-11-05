@@ -4,7 +4,7 @@ title: "ADR-0022: Agent environments imply headless mode"
 grand_parent: Development
 parent: Architecture
 nav_order: 0022
-description: Decision to auto-detect AI agent environments via env vars and resolve them to headless mode
+seo_description: Decision to auto-detect AI agent environments via env vars and resolve them to headless mode
 ---
 
 # Agent environments imply headless mode

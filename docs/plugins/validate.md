@@ -6,7 +6,7 @@ id: validate
 key: v
 category: operations
 default_enabled: true
-description: Run terraform validate and display configuration diagnostics
+seo_description: Run terraform validate and display configuration diagnostics
 ---
 
 # Validate

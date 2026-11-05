@@ -4,7 +4,7 @@ title: "ADR-0014: Actions bar — separate terraform mutations from UI hints"
 grand_parent: Development
 parent: Architecture
 nav_order: 0014
-description: Decision to split terraform action keys into a dedicated actions bar inside the plugin frame
+seo_description: Decision to split terraform action keys into a dedicated actions bar inside the plugin frame
 ---
 
 # Actions bar — separate terraform mutations from UI hints

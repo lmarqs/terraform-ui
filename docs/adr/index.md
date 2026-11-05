@@ -1,6 +1,6 @@
 ---
 title: Decisions
-description: The architecture decision records behind tfui, and the reasoning behind each one.
+seo_description: The architecture decision records behind tfui, and the reasoning behind each one.
 ---
 
 # Decisions

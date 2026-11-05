@@ -3,7 +3,7 @@ layout: default
 title: CLI I/O Contract
 parent: Reference
 nav_order: 2
-description: How tfui handles stdin, stdout, stderr across TUI and CI modes
+seo_description: How tfui handles stdin, stdout, stderr across TUI and CI modes
 ---
 
 # CLI I/O Contract

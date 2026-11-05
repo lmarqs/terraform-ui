@@ -4,7 +4,7 @@ title: "ADR-0015: Axis-split box model for content rendering"
 grand_parent: Development
 parent: Architecture
 nav_order: 0015
-description: The project's rendering paradigm — axis separation for all scrollable content surfaces
+seo_description: The project's rendering paradigm — axis separation for all scrollable content surfaces
 ---
 
 # Axis-split box model for content rendering

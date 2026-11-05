@@ -6,7 +6,7 @@ id: import
 key: n
 category: action
 default_enabled: true
-description: Import existing infrastructure into terraform state interactively
+seo_description: Import existing infrastructure into terraform state interactively
 ---
 
 # Import

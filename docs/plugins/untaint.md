@@ -6,7 +6,7 @@ id: untaint
 key: T
 category: action
 default_enabled: true
-description: Remove taint mark from terraform resources to prevent forced recreation
+seo_description: Remove taint mark from terraform resources to prevent forced recreation
 ---
 
 # Untaint

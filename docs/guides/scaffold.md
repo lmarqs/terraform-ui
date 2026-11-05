@@ -3,7 +3,7 @@ layout: default
 parent: Guides — Getting Started with Terraform UI
 title: Scaffold
 nav_order: 3
-description: Generate tfui.hcl configuration by detecting project patterns
+seo_description: Generate tfui.hcl configuration by detecting project patterns
 ---
 
 ## Overview

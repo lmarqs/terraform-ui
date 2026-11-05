@@ -4,7 +4,7 @@ title: "ADR-0020: PlanFile lifecycle ownership"
 grand_parent: Development
 parent: Architecture
 nav_order: 0020
-description: Decision that the plan plugin owns plan file cleanup, not the exec service
+seo_description: Decision that the plan plugin owns plan file cleanup, not the exec service
 ---
 
 # PlanFile lifecycle ownership

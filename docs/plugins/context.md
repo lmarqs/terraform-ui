@@ -4,7 +4,7 @@ parent: Plugin Catalog — All Terraform UI Features
 title: Context
 id: context
 key: C
-description: View and manage working context (project, chdir, workspace)
+seo_description: View and manage working context (project, chdir, workspace)
 category: navigation
 default_enabled: true
 ---

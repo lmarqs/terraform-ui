@@ -3,7 +3,7 @@ layout: default
 title: Backlog Maintenance
 parent: Development
 nav_order: 3
-description: How the terraform-ui backlog is tracked — project board, status workflow, and label taxonomy
+seo_description: How the terraform-ui backlog is tracked — project board, status workflow, and label taxonomy
 ---
 
 # Backlog Maintenance

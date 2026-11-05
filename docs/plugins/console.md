@@ -6,7 +6,7 @@ id: console
 key: "~"
 category: operations
 default_enabled: true
-description: Interactive terraform console REPL session within the TUI
+seo_description: Interactive terraform console REPL session within the TUI
 ---
 
 # Console

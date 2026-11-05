@@ -3,7 +3,7 @@ layout: default
 title: Terraform for AI Coding Agents
 parent: Features — Terraform Plan Analysis Tools
 nav_order: 4
-description: Run terraform through AI coding agents like Claude Code. Automatic headless mode, 38x smaller plan output, truthful errors, and meaningful exit codes — zero configuration.
+seo_description: Run terraform through AI coding agents like Claude Code. Automatic headless mode, 38x smaller plan output, truthful errors, and meaningful exit codes — zero configuration.
 ---
 
 ## Overview
