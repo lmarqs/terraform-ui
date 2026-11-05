@@ -24,7 +24,7 @@ Apply every rule to every file in scope (the caller's diff, or all of `plugins/`
 
 1. **Import boundary.** A plugin imports `pkg/sdk` (and its subpackages) and nothing else from this module: no `internal/`, no other `plugins/`.
 2. **Typed events.** Cross-plugin communication travels as typed events on the bus or as messages the app routes (`NavigateMsg`, `*RequestMsg`). Untyped maps carry plugin config only (`Configure`).
-3. **Handlers return work.** Every `Handle*Event` method returns a `tea.Cmd` and performs no blocking I/O inline.
+3. **Handlers return work.** Every `Handle*` method of a bus handler interface returns a `tea.Cmd` and performs no blocking I/O inline.
 4. **Context is read-only.** Plugins read `deps.Context()` and change it only through `deps.Pin` / `deps.ClearPins` or a request message the app handles. Writes to a `*sdk.Context` field inside `plugins/` are violations.
 5. **Ports.** A plugin reachable from the CLI exposes a typed `Input` and `Activate(Input) tea.Cmd`; cobra flag parsing stays in `cmd/tfui/<plugin>_command.go`. Output leaves through `StdoutEmitter` / `StderrEmitter` / `ExitCoder`.
 
