@@ -1,3 +1,16 @@
+# [1.21.0](https://github.com/lmarqs/terraform-ui/compare/v1.20.1...v1.21.0) (2026-11-05)
+
+
+### Bug Fixes
+
+* **docs:** address review findings on the new theme ([b6ec8b1](https://github.com/lmarqs/terraform-ui/commit/b6ec8b16a45fb044b51f6eef3065a6188d964590))
+
+
+### Features
+
+* **docs:** illustrated landing page ([0c77445](https://github.com/lmarqs/terraform-ui/commit/0c77445376163ebfc45d68847d415a2bb9bc68f7)), closes [#76](https://github.com/lmarqs/terraform-ui/issues/76) [#77](https://github.com/lmarqs/terraform-ui/issues/77) [#71](https://github.com/lmarqs/terraform-ui/issues/71)
+* **docs:** replace just-the-docs with a hand-written theme ([0fea2c4](https://github.com/lmarqs/terraform-ui/commit/0fea2c452b0582bdbe1a91ca121a5e9d88f42ca9)), closes [#71](https://github.com/lmarqs/terraform-ui/issues/71)
+
 ## [1.20.1](https://github.com/lmarqs/terraform-ui/compare/v1.20.0...v1.20.1) (2026-09-12)
 
 
