@@ -5,6 +5,8 @@ parent: Reference
 nav_order: 5
 seo:
   description: UX design guidelines for the TUI interface
+description: "Sets the rules every TUI view follows: layout, navigation, key bindings, hints, overlays and colors."
+audience: "Contributors adding or changing a view or a key binding"
 ---
 
 # UX Guidelines — terraform-ui

@@ -5,6 +5,8 @@ parent: Reference
 nav_order: 4
 seo:
   description: UX design guidelines for the CLI interface
+description: "Sets the rules every CLI command follows: execution modes, output channels, flags and errors."
+audience: "Contributors adding or changing a CLI command"
 ---
 
 # CLI UX Guidelines — terraform-ui

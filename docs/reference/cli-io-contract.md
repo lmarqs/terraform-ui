@@ -5,6 +5,8 @@ parent: Reference
 nav_order: 2
 seo:
   description: How tfui handles stdin, stdout, stderr across TUI and CI modes
+description: "Specifies what tfui reads from stdin and writes to stdout and stderr in each mode, with exit codes."
+audience: "Scripts and agents calling tfui, and contributors changing output"
 ---
 
 # CLI I/O Contract

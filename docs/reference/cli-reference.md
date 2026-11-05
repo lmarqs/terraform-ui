@@ -5,6 +5,8 @@ parent: Reference
 nav_order: 1
 seo:
   description: Complete command-line reference for tfui. All commands, flags, environment variables, and exit codes.
+description: "Lists every tfui command and flag, with the environment variables and exit codes that change its behavior."
+audience: "Users scripting tfui, and contributors changing the CLI"
 ---
 
 # CLI Reference

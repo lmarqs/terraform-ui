@@ -5,6 +5,8 @@ nav_order: 5
 has_children: true
 seo:
   description: CLI reference, I/O contracts, macro DSL, and UX specifications for terraform-ui
+description: "Lists the CLI, I/O and macro references and the CLI and TUI UX standards."
+audience: "Contributors and scripters looking up a contract or a rule"
 ---
 
 # Reference

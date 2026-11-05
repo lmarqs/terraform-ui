@@ -5,6 +5,8 @@ parent: Reference
 nav_order: 3
 seo:
   description: Tape DSL reference for automated TUI interaction
+description: "Specifies the tape language macros are written in, and how to record and replay them."
+audience: "Contributors writing macro tapes or tests"
 ---
 
 # Macro Language
