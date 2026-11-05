@@ -28,7 +28,7 @@ description: >-
       <li>{% include icons/scale.svg %}MIT</li>
     </ul>
     <div class="base-map">
-      <img src="{{ '/assets/base.webp' | relative_url }}" srcset="{{ '/assets/base-768.webp' | relative_url }} 768w, {{ '/assets/base.webp' | relative_url }} 1536w" sizes="(max-width: 800px) 100vw, 1240px" width="1536" height="1024" fetchpriority="high"
+      <img src="{{ '/assets/base.webp' | relative_url }}" srcset="{{ '/assets/base-768.webp' | relative_url }} 768w, {{ '/assets/base.webp' | relative_url }} 1536w" sizes="(max-width: 1000px) 100vw, 960px" width="1536" height="1024" fetchpriority="high"
         alt="Flat isometric illustration of a terraforming base on a red planet at night. Inside a glass dome, two operators work beside a glowing hologram of the planet with one red sector; one pulls a lever beside a key. Outside: atmosphere processors circled by rings, a colony under construction, a canal, a floodlit crater, a rover with an empty cab and a distant dust storm. Numbered pins mark what each part stands for.">
       {%- for pin in site.data.pins %}
       <a class="pin" href="#pin-{{ pin.id }}" data-pin="{{ pin.id }}" style="left: {{ pin.left }}%; top: {{ pin.top }}%;" aria-label="{{ pin.id }}: {{ pin.title }}">{{ pin.id }}</a>

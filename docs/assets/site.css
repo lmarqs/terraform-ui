@@ -299,7 +299,7 @@ figure.highlight { margin: 0 0 18px; }
 .hero-meta a { color: #d4c3b8; }
 
 /* The base, read: the illustration with its pins. */
-.base-map { position: relative; max-width: 1240px; margin: 48px auto 0; border-radius: 14px; overflow: hidden; border: 1px solid #33211b; box-shadow: 0 30px 80px #000c; }
+.base-map { position: relative; max-width: min(960px, calc((100svh - 120px) * 1.5)); margin: 48px auto 0; border-radius: 14px; overflow: hidden; border: 1px solid #33211b; box-shadow: 0 30px 80px #000c; }
 .base-map img { display: block; width: 100%; }
 .pin {
   position: absolute; transform: translate(-50%, -50%); width: 32px; height: 32px; display: grid; place-items: center;
