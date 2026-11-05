@@ -1,0 +1,397 @@
+---
+layout: home
+permalink: /
+title: tfui
+description: >-
+  tfui is a terminal UI for Terraform. Review a plan as a tree, see the risk on every change, browse state, and apply
+  only what you pinned. Works with Terraform, OpenTofu and Terragrunt, and runs headless for AI coding agents.
+---
+{%- assign demo = '/assets/demo/' | relative_url -%}
+
+<section class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">Open source · MIT</p>
+    <h1>Terraform plans you can <em>navigate.</em></h1>
+    <p class="lede">tfui is a k9s-style terminal UI for Terraform, OpenTofu and Terragrunt. Review a plan as a tree, see
+      the risk on every change, browse state, and apply only what you pinned. When an agent runs it, it goes headless.</p>
+    <div class="install-line"><span class="prompt">$</span><code>brew install lmarqs/tap/tfui</code></div>
+    <div class="actions">
+      <a class="button primary" href="{{ '/guides/getting-started.html' | relative_url }}">Review your first plan{% include icons/arrow-right.svg %}</a>
+      <a class="button ghost" href="{{ site.source_url }}">{% include icons/github.svg %}View on GitHub</a>
+    </div>
+    <ul class="hero-meta">
+      <li>{% include icons/terraform.svg %}Terraform</li>
+      <li>{% include icons/opentofu.svg %}OpenTofu</li>
+      <li>{% include icons/layers.svg %}Terragrunt</li>
+      <li>{% include icons/linux.svg %}Linux</li>
+      <li>{% include icons/apple.svg %}macOS</li>
+      <li>{% include icons/scale.svg %}MIT</li>
+    </ul>
+    <div class="base-map">
+      <img src="{{ '/assets/base.webp' | relative_url }}" srcset="{{ '/assets/base-768.webp' | relative_url }} 768w, {{ '/assets/base.webp' | relative_url }} 1536w" sizes="(max-width: 800px) 100vw, 1240px" width="1536" height="1024" fetchpriority="high"
+        alt="Flat isometric illustration of a terraforming base on a red planet at night. Inside a glass dome, two operators work beside a glowing hologram of the planet with one red sector; one pulls a lever beside a key. Outside: atmosphere processors circled by rings, a colony under construction, a canal, a floodlit crater, a rover with an empty cab and a distant dust storm. Numbered pins mark what each part stands for.">
+      {%- for pin in site.data.pins %}
+      <a class="pin" href="#pin-{{ pin.id }}" data-pin="{{ pin.id }}" style="left: {{ pin.left }}%; top: {{ pin.top }}%;" aria-label="{{ pin.id }}: {{ pin.title }}">{{ pin.id }}</a>
+      {%- endfor %}
+    </div>
+  </div>
+</section>
+
+<section class="trust">
+  <div class="wrap">
+    <p class="kicker">Works with what you already run</p>
+    <ul class="chips">
+      <li>{% include icons/terraform.svg %}Terraform</li>
+      <li>{% include icons/opentofu.svg %}OpenTofu</li>
+      <li>{% include icons/layers.svg %}Terragrunt</li>
+      <li>{% include icons/claude.svg %}Claude Code</li>
+      <li>{% include icons/bot.svg %}Any coding agent</li>
+      <li>{% include icons/git-branch.svg %}Any CI</li>
+    </ul>
+  </div>
+</section>
+
+<section class="section" id="why">
+  <div class="wrap">
+    <p class="kicker">Why</p>
+    <h2>900 lines, one destroy</h2>
+    <p class="lede">Raw <code>terraform plan</code> output is a wall of text. The change that matters looks like every
+      change that doesn't.</p>
+    <div class="split">
+      <div class="panel problem">
+        <h3>{% include icons/terminal.svg %}Reading raw output</h3>
+        <p>Somewhere in 900 lines of plan output, a database is about to be destroyed. You scan for the word "destroy"
+          and find it on line 847, between two tag updates.</p>
+        <div class="wall" aria-hidden="true">
+          &nbsp;&nbsp;# aws_s3_bucket.logs will be updated in-place<br>
+          &nbsp;&nbsp;~ resource "aws_s3_bucket" "logs" {<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ tags = { "Owner" = "platform" -> "infra" }<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+          &nbsp;&nbsp;# aws_security_group.web will be updated in-place<br>
+          &nbsp;&nbsp;~ resource "aws_security_group" "web" {<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ tags = { "Env" = "prod" }<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+          <span class="hit">&nbsp;&nbsp;# aws_db_instance.primary will be destroyed</span><br>
+          <span class="hit">&nbsp;&nbsp;- resource "aws_db_instance" "primary" {</span><br>
+          &nbsp;&nbsp;# aws_iam_role.app will be updated in-place<br>
+          &nbsp;&nbsp;~ resource "aws_iam_role" "app" {<br>
+          &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;~ tags = { "Team" = "core" }
+        </div>
+      </div>
+      <div class="panel goal">
+        <h3>{% include icons/list-tree.svg %}Reading it in tfui</h3>
+        <ul>
+          <li>Every change is one row in a tree, grouped by module.</li>
+          <li>The destroy carries a <strong>[CRITICAL]</strong> badge, so it finds you.</li>
+          <li>Phantom diffs are marked as noise, so you stop chasing them.</li>
+          <li>Every mutation waits for one confirmation.</li>
+          <li>An agent gets the summary instead of the flood.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="the-base">
+  <div class="wrap">
+    <p class="kicker">The base</p>
+    <h2>What the base watches</h2>
+    <p class="lede">Each pin on the picture marks something tfui does for you before terraform touches anything. Select
+      one to read more.</p>
+    <ol class="legend">
+      {%- for pin in site.data.pins %}
+      <li id="pin-{{ pin.id }}" data-pin="{{ pin.id }}">
+        <a href="{{ pin.href | relative_url }}">
+          <span class="num">{{ pin.id }}</span>
+          <div>
+            <h3>{% include icons/{{ pin.icon }}.svg %}{{ pin.title }}</h3>
+            <p>{{ pin.text }}</p>
+          </div>
+        </a>
+      </li>
+      {%- endfor %}
+    </ol>
+  </div>
+</section>
+
+<section class="section" id="sixty-seconds">
+  <div class="wrap">
+    <div class="feature">
+      <div class="feature-copy">
+        <p class="kicker">{% include icons/terminal.svg %}Try it</p>
+        <h3>Sixty seconds, no config</h3>
+        <p>Pipe any <code>terraform show -json</code> output into tfui and start navigating. No account, no cloud
+          service, no config file.</p>
+        <div class="prose">
+{% highlight bash %}
+terraform show -json tfplan.out | tfui -plan -
+{% endhighlight %}
+        </div>
+        <p>No plan handy? Use the demo fixture:</p>
+        <div class="prose">
+{% highlight bash %}
+curl -sLo /tmp/plan.json https://raw.githubusercontent.com/lmarqs/terraform-ui/main/demo/fixtures/plan-large.json
+tfui -plan /tmp/plan.json
+{% endhighlight %}
+        </div>
+      </div>
+      <figure class="shot">
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui</b></div>
+        <img src="{{ demo }}hero.gif" width="704" height="394" loading="lazy" alt="tfui home screen listing its plugins: context, state, plan, workspace, console, outputs, validate, init, risk, phantom and blast radius.">
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="features">
+  <div class="wrap">
+    <div class="center">
+      <p class="kicker">Features</p>
+      <h2>From plan to apply, in one keyboard</h2>
+      <p class="lede">Every screen below is a real recording of tfui against the demo fixtures.</p>
+    </div>
+
+    <div class="feature" id="plan">
+      <div class="feature-copy">
+        <p class="kicker">{% include icons/list-tree.svg %}Plan tree</p>
+        <h3>Expand the diff, not the scrollback</h3>
+        <p>Navigate changes as a tree. Expand a row to see its attribute diff inline. Filter by address with
+          <code>/</code>.</p>
+        <a class="more" href="{{ '/plugins/plan.html' | relative_url }}">The plan plugin{% include icons/arrow-right.svg %}</a>
+      </div>
+      <figure class="shot">
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan</b></div>
+        <img src="{{ demo }}plan-review.gif" width="704" height="394" loading="lazy" alt="The plan tree: changes grouped by module, each row with a risk badge, one row expanded to show its attribute diff.">
+      </figure>
+    </div>
+
+    <div class="feature" id="risk">
+      <div class="feature-copy">
+        <p class="kicker">{% include icons/shield-alert.svg %}Risk</p>
+        <h3>Know the blast before you apply</h3>
+        <ul class="badges">
+          <li class="badge critical">[CRITICAL]</li>
+          <li class="badge high">[HIGH]</li>
+          <li class="badge medium">[medium]</li>
+          <li class="badge low">[low]</li>
+        </ul>
+        <p>Rules know your resources. Destroying a database is critical. Opening a security group from
+          <code>10.0.0.0/8</code> to <code>0.0.0.0/0</code> is high. A tag change is low.</p>
+        <a class="more" href="{{ '/features/risk-analysis.html' | relative_url }}">How risk is classified{% include icons/arrow-right.svg %}</a>
+      </div>
+      <figure class="terminal">
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan · demo fixture</b></div>
+<pre aria-label="The plan tree for the demo fixture: fourteen changes, each with a risk badge; the destroy of module.storage.aws_db_instance.primary is critical.">Plan (14)
+<span class="add">+</span> module.networking.aws_subnet.public[0]      <span class="badge-t medium">[medium]</span>
+<span class="add">+</span> module.networking.aws_subnet.public[1]      <span class="badge-t medium">[medium]</span>
+<span class="chg">~</span> module.networking.aws_security_group.web    <span class="badge-t medium">[medium]</span>
+<span class="add">+</span> module.compute.aws_instance.app[0]          <span class="meta">[low]</span>
+<span class="chg">~</span> module.compute.aws_iam_role.app             <span class="badge-t high">[HIGH]</span>
+<span class="chg">~</span> module.storage.aws_s3_bucket.logs           <span class="badge-t high">[HIGH]</span>
+<span class="chg">~</span> module.storage.aws_s3_bucket_policy.logs    <span class="meta">[low]</span>
+<span class="del">- module.storage.aws_db_instance.primary      <b>[CRITICAL]</b></span>
+<span class="add">+</span> module.storage.aws_db_instance.primary_v2   <span class="badge-t medium">[medium]</span>
+<span class="meta">…</span>
+
+<span class="ok">Plan: 7 to add, 6 to change, 1 to destroy</span>
+Overall risk: <span class="del"><b>CRITICAL</b></span></pre>
+      </figure>
+    </div>
+
+    <div class="feature" id="apply">
+      <div class="feature-copy">
+        <p class="kicker">{% include icons/pin.svg %}Pin and apply</p>
+        <h3><kbd>space</kbd> to pin, <kbd>a</kbd> to apply</h3>
+        <p>Pin the resources you care about. tfui replans with them as targets, shows you exactly what will happen,
+          and asks once. No <code>-target</code> flags to type, no copy-paste mistakes.</p>
+        <a class="more" href="{{ '/plugins/apply.html' | relative_url }}">The apply plugin{% include icons/arrow-right.svg %}</a>
+      </div>
+      <figure class="shot">
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan</b></div>
+        <img src="{{ demo }}pin-target.gif" width="704" height="394" loading="lazy" alt="Pinning two resources in the plan tree, then a targeted re-plan that shows only those two.">
+      </figure>
+    </div>
+
+    <div class="feature" id="state">
+      <div class="feature-copy">
+        <p class="kicker">{% include icons/database.svg %}State</p>
+        <h3>Search state, change it with a prompt</h3>
+        <p>Fuzzy-search hundreds of resources and inspect their JSON. Taint, untaint, import, move and remove each
+          wait for confirmation, so a typo never runs.</p>
+        <a class="more" href="{{ '/plugins/state.html' | relative_url }}">The state plugin{% include icons/arrow-right.svg %}</a>
+      </div>
+      <figure class="shot">
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui state</b></div>
+        <img src="{{ demo }}state-browse.gif" width="704" height="394" loading="lazy" alt="The state browser: a fuzzy filter narrowing the resource list, then one resource's attributes inspected as JSON.">
+      </figure>
+    </div>
+
+    <div class="feature" id="phantom">
+      <div class="feature-copy">
+        <p class="kicker">{% include icons/ghost.svg %}Phantom changes and blast radius</p>
+        <h3>Tell noise from impact</h3>
+        <p>Terraform says "1 to change" and nothing changes: null versus absent, a reordered list, provider
+          normalization. tfui marks those as phantom. Blast radius groups the real changes by module and scores how far
+          each one reaches.</p>
+      </div>
+      <div class="shots">
+        <a class="card link-card" href="{{ '/features/phantom-changes.html' | relative_url }}">{% include icons/ghost.svg %}<h3>Phantom changes</h3>
+          <p>Null versus absent, list order, provider normalization: the causes tfui recognizes, and how it marks each one.</p></a>
+        <a class="card link-card" href="{{ '/features/blast-radius.html' | relative_url }}">{% include icons/radar.svg %}<h3>Blast radius</h3>
+          <p>Changes grouped by module, scored by how many resources each touches and how risky they are.</p></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="agents">
+  <div class="wrap">
+    <p class="kicker">Headless</p>
+    <h2>53 lines instead of 763</h2>
+    <p class="lede">When Claude Code runs <code>tfui plan</code>, it gets every change address, the summary and a risk
+      verdict in a fraction of the bytes. Nothing to configure.</p>
+    <div class="cook">
+      <ol class="steps">
+        <li class="step"><h3>Detects the agent</h3><p><code>CLAUDECODE</code>, <code>AI_AGENT</code> or <code>CI</code>
+          in the environment, or a stderr that isn't a terminal.</p></li>
+        <li class="step"><h3>Skips the TUI</h3><p>No alt-screen, no spinner, no escape codes. One line per change on
+          stdout.</p></li>
+        <li class="step"><h3>Never claims success on failure</h3><p>Terraform's error goes to stderr, stdout stays empty,
+          and the exit code is 1.</p></li>
+        <li class="step"><h3>Exits with meaning</h3><p><code>0</code> no changes, <code>2</code> changes present,
+          <code>1</code> error. The agent branches without reading a byte.</p></li>
+      </ol>
+      <div>
+        <div class="terminal">
+          <div class="shot-bar"><span></span><span></span><span></span><b>agent session</b></div>
+<pre><span class="prompt">$</span> tfui plan
+<span class="add">+ local_file.f00</span>
+<span class="add">+ local_file.f01</span>
+<span class="add">+ local_file.f02</span>
+<span class="meta">…</span>
+<span class="add">+ local_file.f49</span>
+
+<span class="ok">Plan: 50 to add, 0 to change, 0 to destroy.</span>
+Risk: low
+<span class="prompt">$</span> echo $?
+2</pre>
+        </div>
+        <ul class="stat">
+          <li><b>38×</b><span>fewer bytes</span></li>
+          <li><b>14×</b><span>fewer lines</span></li>
+          <li><b>0</b><span>bytes on stderr when it succeeds</span></li>
+        </ul>
+        <p class="note">Measured on a 50-resource plan with Terraform v1.14.9: 34,426 bytes from
+          <code>terraform plan -no-color</code>, 905 from <code>tfui plan</code>.
+          <a href="{{ '/features/ai-agents.html' | relative_url }}">How agent integration works</a>.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="compare">
+  <div class="wrap">
+    <p class="kicker">Compared</p>
+    <h2>The raw CLI, and tfui</h2>
+    <table class="compare">
+      <thead><tr><th>Without tfui</th><th>With tfui</th></tr></thead>
+      <tbody>
+        <tr><td>Hundreds of lines of unstructured plan output</td><td>A navigable tree with expand and collapse</td></tr>
+        <tr><td>Scanning by eye for destructive changes</td><td>Inline risk badges, from <code>[CRITICAL]</code> to <code>[low]</code></td></tr>
+        <tr><td><code>terraform apply -target=…</code>, typed by hand</td><td>Pin with <kbd>space</kbd>, apply with <kbd>a</kbd></td></tr>
+        <tr><td><code>terraform state rm</code> with no confirmation</td><td>A state browser with a prompt before every change</td></tr>
+        <tr><td>Twenty minutes chasing a phantom diff</td><td>Phantom changes detected and marked</td></tr>
+        <tr><td>Five terminal windows</td><td>One TUI for every operation</td></tr>
+        <tr><td>Plan output flooding an agent's context</td><td>One line per change plus a risk verdict</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="section" id="built-for">
+  <div class="wrap">
+    <p class="kicker">Built for infrastructure engineers</p>
+    <h2>Single binary, local only</h2>
+    <div class="cards">
+      <div class="card">{% include icons/package.svg %}<h3>One binary</h3><p>No runtime dependencies. Download it and run it.</p></div>
+      <div class="card">{% include icons/keyboard.svg %}<h3>Keyboard first</h3><p>Vim-style navigation. You never need the mouse.</p></div>
+      <div class="card">{% include icons/layers.svg %}<h3>Three CLIs, one tool</h3><p>Terraform, OpenTofu and Terragrunt behave the same.</p></div>
+      <div class="card">{% include icons/bot.svg %}<h3>Agent-ready</h3><p>Claude Code and CI get headless, truthful output without setup.</p></div>
+      <div class="card">{% include icons/lock.svg %}<h3>Stays on your machine</h3><p>No telemetry, no account, no cloud service.</p></div>
+      <div class="card">{% include icons/cpu.svg %}<h3>Plugins all the way down</h3><p>Every feature is a plugin you can configure or turn off.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="install">
+  <div class="wrap">
+    <p class="kicker">Install</p>
+    <h2>Pick a package manager</h2>
+    <p class="lede">Every release ships binaries for Linux, macOS and Windows.</p>
+    <div class="install">
+      <div>
+        <h3>{% include icons/homebrew.svg %}Homebrew</h3>
+        <div class="prose">
+{% highlight bash %}
+brew install lmarqs/tap/tfui
+{% endhighlight %}
+        </div>
+      </div>
+      <div>
+        <h3>{% include icons/go.svg %}Go</h3>
+        <div class="prose">
+{% highlight bash %}
+go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
+{% endhighlight %}
+        </div>
+      </div>
+      <div>
+        <h3>{% include icons/package.svg %}mise</h3>
+        <div class="prose">
+{% highlight bash %}
+mise use github:lmarqs/terraform-ui
+{% endhighlight %}
+        </div>
+      </div>
+      <div>
+        <h3>{% include icons/download.svg %}Binary</h3>
+        <div class="prose">
+{% highlight bash %}
+curl -sL https://github.com/lmarqs/terraform-ui/releases/latest/download/tfui_linux_amd64.tar.gz | tar xz
+sudo mv tfui /usr/local/bin/
+{% endhighlight %}
+        </div>
+      </div>
+    </div>
+    <p class="note">{% include icons/docker.svg %} To try it without installing, run <code>docker run -it lmarqs/terraform-ui:demo</code>.
+      <a href="{{ '/guides/getting-started.html' | relative_url }}">Getting started</a> walks through your first plan.</p>
+  </div>
+</section>
+
+<section class="section" id="docs">
+  <div class="wrap">
+    <p class="kicker">Read next</p>
+    <h2>The docs</h2>
+    <div class="map">
+      <a href="{{ '/guides/getting-started.html' | relative_url }}">{% include icons/graduation-cap.svg %}<strong>Getting started</strong><span>Install tfui and review your first plan.</span></a>
+      <a href="{{ '/guides/configuration.html' | relative_url }}">{% include icons/wrench.svg %}<strong>Configuration</strong><span>Set up tfui.hcl for a project with many modules.</span></a>
+      <a href="{{ '/plugins/' | relative_url }}">{% include icons/map.svg %}<strong>Plugins</strong><span>Every screen, its keys and its CLI form.</span></a>
+      <a href="{{ '/reference/cli-reference.html' | relative_url }}">{% include icons/terminal.svg %}<strong>CLI reference</strong><span>Commands, flags, environment and exit codes.</span></a>
+      <a href="{{ '/features/risk-analysis.html' | relative_url }}">{% include icons/shield-alert.svg %}<strong>Risk analysis</strong><span>How each change gets its level.</span></a>
+      <a href="{{ '/features/ai-agents.html' | relative_url }}">{% include icons/bot.svg %}<strong>AI agents</strong><span>Headless detection and the failure contract.</span></a>
+      <a href="{{ '/development/architecture.html' | relative_url }}">{% include icons/book.svg %}<strong>Architecture</strong><span>Plugins, the event bus and the service layer.</span></a>
+      <a href="{{ '/adr/' | relative_url }}">{% include icons/gavel.svg %}<strong>Decisions</strong><span>The records behind every design choice.</span></a>
+    </div>
+  </div>
+</section>
+
+<section class="cta-band">
+  <div class="wrap">
+    <h2>Pipe in a plan. See it in ten seconds.</h2>
+    <p>Run it on the plan you already have. Nothing to configure first.</p>
+    <div class="install-line"><span class="prompt">$</span><code>terraform show -json tfplan.out | tfui -plan -</code></div>
+    <div class="actions">
+      <a class="button primary" href="{{ '/guides/getting-started.html' | relative_url }}">Review your first plan{% include icons/arrow-right.svg %}</a>
+    </div>
+  </div>
+</section>

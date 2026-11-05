@@ -1,0 +1,28 @@
+<a class="skip" href="#main">Skip to content</a>
+<div class="horizon" aria-hidden="true"></div>
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="{{ '/' | relative_url }}">
+      <svg class="mark" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><use href="#tfui-mark"/></svg>
+      <span class="brand-name">tfui</span>
+    </a>
+    <a class="release" href="{{ site.source_url }}/releases/latest">{% include icons/tag.svg %}latest</a>
+    {%- if page.layout != "home" %}
+    <div id="search" class="search" aria-label="Search the docs"></div>
+    {%- endif %}
+    <nav class="topnav" aria-label="Site">
+      <a href="{{ '/guides/getting-started.html' | relative_url }}"{% if section and section != "Plugins" and section != "Reference" %} aria-current="page"{% endif %}>{% include icons/book-open.svg %}Docs</a>
+      <a href="{{ '/plugins/' | relative_url }}"{% if section == "Plugins" %} aria-current="page"{% endif %}>{% include icons/map.svg %}Plugins</a>
+      <a href="{{ '/reference/cli-reference.html' | relative_url }}"{% if section == "Reference" %} aria-current="page"{% endif %}>{% include icons/terminal.svg %}Reference</a>
+      <a href="{{ site.source_url }}">{% include icons/github.svg %}GitHub</a>
+    </nav>
+  </div>
+</header>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="tfui-mark" viewBox="0 0 28 28">
+    <circle cx="14" cy="16" r="10" fill="var(--rust)"/>
+    <path d="M4 16a10 10 0 0 1 20 0Z" fill="var(--dome)" opacity=".9"/>
+    <circle cx="14" cy="14" r="3.2" fill="var(--accent)"/>
+    <path d="M2 26h24" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+</svg>

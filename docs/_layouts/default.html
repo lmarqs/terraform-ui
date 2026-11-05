@@ -1,0 +1,28 @@
+<!doctype html>
+{%- include context.html %}
+<html lang="en">
+<head>
+{% include head.html %}
+</head>
+<body class="docs">
+{% include header.html %}
+<div class="docs-shell">
+  {% include sidebar.html %}
+  <main id="main" class="content" tabindex="-1">
+    <article class="prose"{% unless page.sitemap == false %} data-pagefind-body{% endunless %}>
+{%- if content contains "<h1" %}
+{{ content }}
+{%- else %}
+      <h1>{{ page_title }}</h1>
+{{ content }}
+{%- endif %}
+    </article>
+    <p class="page-source">
+      <a href="{{ site.source_url }}/blob/main/docs/{{ page.path }}">Edit this page on GitHub</a>
+    </p>
+  </main>
+  <aside class="toc" aria-label="On this page"></aside>
+</div>
+{% include footer.html %}
+</body>
+</html>
