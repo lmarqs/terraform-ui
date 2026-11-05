@@ -64,8 +64,7 @@ description: >-
       <li><b>{{ ba.agent_lines }}</b><span>lines for your agent</span></li>
       <li><b class="crit">{{ ba.destroy }}</b><span>destroy, flagged {{ ba.risk }}</span></li>
     </ul>
-    <p class="note">A real plan of the <a href="{{ site.source_url }}/tree/main/demo/before-after">demo/before-after</a> fixture, Terraform v1.14.9,
-      planned offline. tfui reads the plan on your machine and sends it nowhere.</p>
+    <p class="note">A real Terraform v1.14.9 plan, <a href="{{ site.source_url }}/tree/main/demo/before-after">made offline</a>. tfui reads the plan on your machine and sends it nowhere.</p>
   </div>
 </section>
 
@@ -84,7 +83,7 @@ description: >-
 docker run -it lmarqs/terraform-ui:demo
 {% endhighlight %}
             </div>
-            <p>Opens tfui on the demo plan and state.</p>
+            <p>Opens tfui on a sample plan and state.</p>
           </div>
           <div>
             <h3>{% include icons/terminal.svg %}With tfui</h3>
@@ -93,7 +92,7 @@ docker run -it lmarqs/terraform-ui:demo
 terraform show -json tfplan.out | tfui -plan -
 {% endhighlight %}
             </div>
-            <p>No plan handy? Use the demo fixture:</p>
+            <p>No plan handy? Use the sample plan:</p>
             <div class="prose">
 {% highlight bash %}
 curl -sLo /tmp/plan.json https://raw.githubusercontent.com/lmarqs/terraform-ui/main/demo/fixtures/plan-large.json
@@ -116,7 +115,7 @@ tfui -plan /tmp/plan.json
     <div class="center">
       <p class="kicker">Features</p>
       <h2>From plan to apply, in one keyboard</h2>
-      <p class="lede">Every screen below is a real recording of tfui against the demo fixtures.</p>
+      <p class="lede">Every screen below is a real recording of tfui on the same sample plan.</p>
     </div>
 
     <div class="feature" id="plan">
@@ -148,8 +147,8 @@ tfui -plan /tmp/plan.json
         <a class="more" href="{{ '/features/risk-analysis.html' | relative_url }}">How risk is classified{% include icons/arrow-right.svg %}</a>
       </div>
       <figure class="terminal">
-        <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan · demo fixture</b></div>
-<pre aria-label="The plan tree for the demo fixture: fourteen changes, each with a risk badge; the destroy of module.storage.aws_db_instance.primary is critical.">Plan (14)
+        <div class="shot-bar"><span></span><span></span><span></span><b>tfui plan · sample plan</b></div>
+<pre aria-label="The plan tree for the sample plan: fourteen changes, each with a risk badge; the destroy of module.storage.aws_db_instance.primary is critical.">Plan (14)
 <span class="add">+</span> module.networking.aws_subnet.public[0]      <span class="badge-t medium">[medium]</span>
 <span class="add">+</span> module.networking.aws_subnet.public[1]      <span class="badge-t medium">[medium]</span>
 <span class="chg">~</span> module.networking.aws_security_group.web    <span class="badge-t medium">[medium]</span>
