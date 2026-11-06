@@ -497,6 +497,7 @@ body:has(.hero.drive) .dots { opacity: 0; pointer-events: none; }
 .badge.high { color: var(--dust); }
 .badge.medium { color: var(--change); }
 .badge.low { color: var(--text-muted); }
+.pair .badge { display: inline-block; padding: 3px 6px; vertical-align: 1px; }
 
 /* Headless: steps and the terminal they produce. */
 .cook { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 48px; align-items: start; }
