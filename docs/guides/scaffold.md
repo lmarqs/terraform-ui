@@ -1,10 +1,10 @@
 ---
 layout: default
 parent: Guides — Getting Started with Terraform UI
-title: Scaffold
+title: "Generate tfui.hcl with tfui scaffold"
 nav_order: 3
 seo:
-  description: Generate tfui.hcl configuration by detecting project patterns
+  description: "tfui scaffold detects the terraform binary and the Terraform directories in your project, then writes a tfui.hcl configuration file for them."
 description: "Guides a user through generating tfui.hcl with scaffold, and what it detects."
 audience: "Users setting tfui up on an existing project"
 ---

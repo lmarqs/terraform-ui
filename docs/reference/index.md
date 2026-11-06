@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Reference
+title: "tfui Reference: CLI, I/O Contract and Macros"
 nav_order: 5
 has_children: true
 seo:
-  description: CLI reference, I/O contracts, macro DSL, and UX specifications for terraform-ui
+  description: "Reference documentation for tfui: every command and flag, the stdin, stdout and stderr contract, the macro language, and the TUI and CLI UX specifications."
 description: "Lists the CLI, I/O and macro references and the CLI and TUI UX standards."
 audience: "Contributors and scripters looking up a contract or a rule"
 ---

@@ -1,10 +1,10 @@
 ---
 layout: default
-title: CLI I/O Contract
+title: "tfui CLI Output: stdout, stderr and CI Mode"
 parent: Reference
 nav_order: 2
 seo:
-  description: How tfui handles stdin, stdout, stderr across TUI and CI modes
+  description: "How tfui splits its output: the interactive TUI on stderr, structured output on stdout on exit, and -ci or CI=1 for headless runs that compose in pipes."
 description: "Specifies what tfui reads from stdin and writes to stdout and stderr in each mode, with exit codes."
 audience: "Scripts and agents calling tfui, and contributors changing output"
 ---

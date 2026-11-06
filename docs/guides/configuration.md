@@ -1,10 +1,10 @@
 ---
 layout: default
-title: Configuration
+title: "Configure tfui with tfui.hcl"
 parent: Guides — Getting Started with Terraform UI
 nav_order: 2
 seo:
-  description: Configure terraform-ui for your project
+  description: "Configure tfui for a Terraform project with an optional tfui.hcl file in the project root. Configuration only adds to the defaults: tfui works with none."
 description: "Guides a user through configuring tfui.hcl for a project and its members."
 audience: "Users setting tfui up on a project"
 ---
