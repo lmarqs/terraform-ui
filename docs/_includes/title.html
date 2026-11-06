@@ -1,5 +1,14 @@
+{%- comment -%}
+The tab and search-result title is the page's front-matter title, written for search; the sidebar label in page_title
+stays short for navigation.
+{%- endcomment -%}
 {%- if page.layout == "home" -%}
 <title>{{ site.title }}: {{ site.tagline }}</title>
 {%- else -%}
-<title>{{ page_title }} · {{ site.title }}</title>
+{%- assign doc_title = page.title | default: page_title -%}
+{%- if doc_title contains site.title -%}
+<title>{{ doc_title }}</title>
+{%- else -%}
+<title>{{ doc_title }} · {{ site.title }}</title>
+{%- endif -%}
 {%- endif -%}
