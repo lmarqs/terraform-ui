@@ -24,27 +24,34 @@ plugins/*  ───→  pkg/sdk  ←───  internal/*
    └── never imports internal/ ──────┘
 ```
 
-Plugins depend exclusively on `pkg/sdk/`. Internal packages implement the interfaces defined there. This enables future extraction of plugins to separate repositories or gRPC-based external processes.
+Plugins depend exclusively on `pkg/sdk/` ([ADR-0001](../adr/0001-sdk-isolation-boundary.md)). Internal packages implement the interfaces defined there.
 
 ## Project Structure
 
 ```
-cmd/tfui/main.go           — CLI entry point, plugin registration (thin glue)
+cmd/tfui/                  — CLI entry point (thin glue)
+  main.go                  — Cobra command tree (rootCmd.AddCommand)
+  root.go                  — Root command and persistent flags
+  registry.go              — buildRegistry(): every plugin factory with its PluginMeta
+  session.go               — Session: Run (app mode) and RunPlugin (one plugin)
+  <plugin>_command.go      — One subcommand per plugin, parsing flags into the plugin's Input
+  normalize.go             — Terraform flag compatibility (normalizeArgs, splitPassthrough)
 pkg/sdk/                   — Public SDK (the only dependency for plugins; key files below)
   plugin.go                — Plugin interface + optional interfaces
-  context.go               — Shared context (service, dir, workspace)
-  types.go                 — Domain types (Action, RiskLevel, Resource, PlanChange)
+  plugin_deps.go           — PluginDeps, handed to Init()
+  context.go, pins.go      — Immutable Context snapshot and its Pins
   service.go               — Service interface (terraform operations)
-  bus.go                   — EventBus typed dispatch
-  events.go                — Event types and handler interfaces
-  options.go               — ResolvedOptions + BuildPlanOptions/BuildApplyOptions
+  command.go               — Command: one terraform invocation
+  bus.go, events.go        — EventBus typed dispatch, events and handler interfaces
+  action_runner.go         — ActionRunner: the action-mode lifecycle
   frame.go, stack.go       — Frame stack navigation primitives
   overlay.go, input.go     — Modal overlays and input system
-  action.go                — PluginAction system (CLI/REPL-callable operations)
-  app_context.go           — Root application state container
   styles.go                — Style constants for consistent rendering
+  frames/                  — Reusable frames (filter, inspect, confirm, action, form, stream)
+  ui/                      — Widgets (cursor, filter, timer, tree, actions bar, content panel)
+  sdktest/                 — Test harness, MockService, golden helpers
 internal/
-  config/config.go         — HCL config loading, project discovery
+  config/                  — HCL config loading, project discovery, Resolve
   plugin/registry.go       — Plugin registry (host-side only)
   terraform/
     exec/
@@ -54,11 +61,13 @@ internal/
       dir_lock.go          — Non-reentrant per-directory lock (ADR-0016)
     macro_service.go       — MacroService (records commands, reads from cache)
     service_cache.go       — ServiceCache (typed, source-aware data cache)
+    loader.go              — LoadPlan / LoadState from raw bytes
     plan_parser.go         — Plan JSON parsing
-  source/                  — Universal source abstraction (URI resolution, providers)
-  macro/                   — Macro engine (Driver, tape DSL parser)
+    risk.go, phantom.go, grouping.go — Analysis over plan and state
+  source/                  — Source layer (URI → bytes)
+  macro/                   — Macro engine (driver, runner, tape parser, recorder)
   ui/
-    app.go                 — Root Bubbletea model, plugin routing
+    app.go                 — Root Bubbletea model: routing, navigation, Context ownership
     components/            — Header, statusbar, AI panel, command bar, content border
   editor/                  — Editor integration ($EDITOR at file:line)
   ai/                      — AI provider (Claude via Bedrock, auto-detection)
@@ -70,7 +79,7 @@ plugins/
   chdir/                   — Chdir picker: select member from explicit list
   state/                   — State browser (list, inspect, pin, delete, move)
   plan/                    — Plan review (diff view, expand attributes, risk)
-  apply/                   — Apply executor with replan + confirmation
+  apply/                   — Apply executor for a saved plan file
   taint/                   — Standalone taint verb (mark for recreation)
   untaint/                 — Standalone untaint verb (remove taint mark)
   import/                  — Standalone import verb (bring existing infra)
@@ -91,14 +100,14 @@ tests/
 
 ## Plugin System
 
-Every feature is a plugin implementing `pkg/sdk.Plugin`:
+Every feature is a plugin implementing `sdk.Plugin` (`pkg/sdk/plugin.go`):
 
 ```go
 type Plugin interface {
     ID() string
     Name() string
     Description() string
-    Init(ctx *Context) tea.Cmd
+    Init(deps *PluginDeps) tea.Cmd
     Update(msg tea.Msg) (Plugin, tea.Cmd)
     View(width, height int) string
     Configure(cfg map[string]interface{}) error
@@ -106,58 +115,159 @@ type Plugin interface {
 }
 ```
 
-Plugins are registered with external metadata (`PluginMeta`) that controls keybinding and menu visibility — plugins themselves are invocation-agnostic.
+Optional interfaces add capabilities the app detects by type assertion: `Activatable`, `Busy`, `Cancellable`,
+`Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Positionable`, `Stackable` (`frame.go`), `StdoutEmitter`,
+`StderrEmitter`, `ExitCoder`, `Statusable`.
 
-Plugins can also implement handler interfaces (`ChdirHandler`, `WorkspaceHandler`, etc.) to receive typed events from other plugins via the EventBus. This enables reactive data loading without polling or stringly-typed session keys.
+Each plugin is a use case with two ports ([ADR-0021](../adr/0021-plugins-as-use-cases.md)):
+
+- **Input port:** a typed `Input` DTO and `Activate(input Input) tea.Cmd`. The subcommand in
+  `cmd/tfui/<plugin>_command.go` parses flags into the Input.
+- **Output port:** `StdoutEmitter.Stdout() ([]byte, error)`, `StderrEmitter.Stderr() []byte` and
+  `ExitCoder.ExitCode() int`; the framework pumps each to its sink.
 
 Plugins are:
 - **Self-contained** — own view logic, types, messages
 - **Configurable** — per-plugin options in `tfui.hcl`
-- **Independent** — import only `pkg/sdk`, never `internal/`
-- **Testable** — mock the `sdk.Service` interface
+- **Independent** — import only `pkg/sdk`, never `internal/`, and never reference each other
+- **Testable** — built with the test harness and `sdktest.MockService` ([Testing](testing.md#plugin-test-harness))
+
+### PluginDeps and Context
+
+`Init` receives `*sdk.PluginDeps` (`pkg/sdk/plugin_deps.go`), fixed for the process lifetime:
+
+| Field | Purpose |
+|-------|---------|
+| `Logger` | Structured logger |
+| `Service` | Unscoped terraform service, a fallback until the first `ContextChangedEvent` |
+| `Context` | `func() *Context` returning the current snapshot |
+| `Pin` | Toggles a group of pin addresses; triggers a Context replacement |
+| `ClearPins` | Removes every pin |
+
+`sdk.Context` (`pkg/sdk/context.go`) is an immutable snapshot of everything that shapes a terraform command: `Chdir`,
+`WorkingDir`, `Workspace`, a `Service` scoped to the working directory, `Pins`, `VarFiles`, `Vars`, `ExtraArgs`,
+`Parallelism`, `Lock` and `LockTimeout`. The app replaces it whole on every chdir, workspace or pin change
+([ADR-0018](../adr/0018-atomic-context-replacement.md)); plugins never mutate it and react through
+`ContextChangedHandler`. `WithPins` and `TogglePins` return a fresh snapshot.
+
+Pins are the UI selection; targets are terraform's `-target=` flags. The boundary is `Context.PlanOptions()`, which
+sets `Targets` from `Pins`. `Context.ApplyOptions()` carries no targets, because apply runs a saved plan file
+([ADR-0019](../adr/0019-unidirectional-data-flow.md)). Pins are always resource addresses: a tree row resolves to them
+through `Tree.PinAddresses(node)` in `pkg/sdk/ui/tree/` (a leaf gives its own address, a branch every descendant leaf), and the tree keeps no
+pin state of its own, so a row cannot disagree with the Context.
+
+### Event Bus
+
+`pkg/sdk/bus.go` dispatches typed events (`pkg/sdk/events.go`) to every plugin that implements the matching handler
+interface ([ADR-0003](../adr/0003-typed-event-bus.md)):
+
+| Event | Handler |
+|-------|---------|
+| `ContextChangedEvent` | `ContextChangedHandler` |
+| `PlanCompletedEvent` | `PlanCompletedHandler` |
+| `PlanInvalidatedEvent` | `PlanInvalidatedHandler` |
+| `LockDetectedEvent` | `LockDetectedHandler` |
+| `LockClearedEvent` | `LockClearedHandler` |
+| `StateRefreshedEvent` | `StateRefreshedHandler` |
+
+`ContextChangedEvent` carries `Prev`, `Next` and a `Reason`; `OnlyPinsChanged()` lets plan tell a pin toggle (keep UI
+state, mark stale) from a chdir or workspace switch (full reset).
 
 ## Plugin Loading
 
-Currently: built-in (compiled into the binary). Factories are registered in `cmd/tfui/main.go` and built via the registry with config.
+Plugins are compiled into the binary. `buildRegistry()` in `cmd/tfui/registry.go` registers each factory with a
+`plugin.PluginMeta` that holds its routing, so plugins stay invocation-agnostic:
 
-Future (v1.1+): hashicorp/go-plugin for external plugins over gRPC. Third-party plugins as separate binaries communicating via the same `sdk.Plugin` contract serialized over proto.
+| Field | Meaning |
+|-------|---------|
+| `Keybinding` | Key that opens it from home |
+| `MenuVisible` | Listed on the home menu |
+| `Nav` | `NavReplace` (lateral switch, history cleared) or `NavPush` (pushed onto the return stack) |
+
+## Navigation (`internal/ui/app.go`)
+
+The app keeps the active plugin and a `navStack` of plugins to return to
+([ADR-0004](../adr/0004-navigation-model.md)):
+
+- `navigateTo(p)` passes the busy-guard, cancels the active plugin if it is `Cancellable`, then pushes onto `navStack`
+  for `NavPush` or clears it for `NavReplace`.
+- `navigateBack()` pops `navStack`, or returns home when it is empty.
+- `popIfPushed(cmd)` pops a `NavPush` plugin after an event it raised, such as a context switch.
+- Workflow transitions push at runtime regardless of metadata: `ApplyRequestMsg` from plan pushes plan and activates
+  apply.
+- Plugins request navigation with `NavigateMsg{PluginID}` and leave with `DeactivateMsg`; they never hold references to
+  each other.
+
+**Busy-guard.** Every action that may start a terraform call or change its inputs goes through `requireIdle(reason)`:
+while any plugin is `Busy()` (holding the directory lock, [ADR-0016](../adr/0016-non-reentrant-dir-lock.md)), the
+action is refused with a message pointing to `:q!`. The chokepoints are `ContextSwitchRequestMsg`, `navigateTo` and
+`:q`. UI-only actions such as scrolling, filtering and esc bypass it. `:q!` skips the guard and cancels every
+cancellable plugin.
+
+**View delegation.** The app calls `plugin.View(width, height)` directly. The frame stack routes input
+(`Stack.Update()`) but not rendering, so a `Stackable` plugin's `View()` delegates to its top frame itself.
+
+### Action Mode
+
+A plugin is in action mode while it executes and reports: run, result, render, `ctrl+r` retry, success events, with a
+cancellable context and an elapsed timer. The embeddable `sdk.ActionRunner`, configured per operation with an
+`sdk.ActionSpec`, provides it ([`CONTEXT.md`](https://github.com/lmarqs/terraform-ui/blob/main/CONTEXT.md)). Taint,
+untaint, import and forceunlock use it; they are `NavPush`, hidden from the menu, and reached through contextual keys
+in state and plan (`TaintRequestMsg`, `UntaintRequestMsg`, `ImportRequestMsg`) or `:command`.
+
+| Operation | Events on success |
+|-----------|-------------------|
+| Taint, Untaint | `PlanInvalidatedEvent` |
+| Import | `StateRefreshedEvent`, `PlanInvalidatedEvent` |
+| ForceUnlock | `LockClearedEvent`, `PlanInvalidatedEvent` |
+
+### Overlays, Input and Frames
+
+`sdk.Overlay` (`pkg/sdk/overlay.go`) is a modal with its own `Update`, `View` and `Hints`. A plugin asks for input with
+`RequestInputMsg` wrapping an `InputRequest` (Text, Bool, Select or Filter mode) and receives `InputResponseMsg`; the
+helpers are `InputConfirm`, `InputText` and `InputSelect` (`pkg/sdk/input.go`). `pkg/sdk/frames/` holds the reusable
+frames: `FilterFrame`, `InspectFrame`, `ConfirmFrame`, `ActionFrame` (a running operation with cancel), `FormFrame`
+(fields with validation) and `StreamFrame` (streaming output of plan, apply and init).
 
 ## Terraform Integration
 
-Two sibling implementations of `sdk.Service` exist as a strategy pattern — selected at startup based on execution mode:
+Two sibling implementations of `sdk.Service` exist as a strategy pattern, selected at startup by execution mode.
 
 ### ExecService (live execution)
 
-`internal/terraform/service.go` — shells out to the terraform (or tofu) binary via `hashicorp/terraform-exec`:
-
-- `Plan()` — terraform plan → parse JSON → classify risk → detect phantoms
-- `Apply()` — terraform apply on saved plan file
-- `StateList(opts ...StateListOption)` — parse state JSON for resource list (supports `SkipCache()` to force re-read)
-- `Show()` — terraform state show for resource detail
-- `Workspace*()` — workspace list, select, create, delete
-- `WithDir()` — returns a new ExecService scoped to a different directory (fresh cache)
-
-Reads go through a `ServiceCache` (typed, source-aware). If the cache is pre-seeded (via `-plan`/`-state` flags), reads are served from cache without shelling out.
+`internal/terraform/exec/service.go` shells out to the terraform (or tofu) binary via `hashicorp/terraform-exec`.
+Every call is serialized per working directory by a non-reentrant `DirLock`
+([ADR-0016](../adr/0016-non-reentrant-dir-lock.md)). `WithDir()` returns a service scoped to another directory with a
+fresh cache. Reads go through the `ServiceCache`; when it is pre-seeded, reads are served without shelling out.
 
 ### MacroService (recording)
 
-`internal/terraform/macro_service.go` — records every operation as an `sdk.Command` without executing anything:
-
-- Mutating calls (`Plan`, `Apply`, `StateRm`, etc.) → record the command, return empty/cached data
-- Read calls (`StateList`, `Show`, `Workspace`) → serve from the same `ServiceCache`
-- After macro playback, all recorded commands are printed to stdout
-
-This makes macros deterministic and safe: the UI renders real data (from cache) but mutations never touch infrastructure.
+`internal/terraform/macro_service.go` records every mutation as an `sdk.Command` without executing anything and serves
+reads from the same `ServiceCache`. After macro playback the recorded commands are printed to stdout. Macros are
+deterministic and safe: the UI renders real data from the cache, and mutations never touch infrastructure.
 
 ### ServiceCache (shared state)
 
-`internal/terraform/service_cache.go` — both strategies share this typed cache:
+`internal/terraform/service_cache.go` is shared by both strategies:
 
-- Pre-seeded at startup from `-plan`/`-state` file/stdin
+- Pre-seeded at startup from `-plan`/`-state` ([ADR-0005](../adr/0005-cache-preseeding.md))
 - Three source kinds: `file` (re-reads on invalidate), `stdin` (immutable), `exec` (cleared on invalidate)
-- ExecService populates it after live calls; MacroService only reads from it
-- State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) auto-invalidate state cache
-- Plugins can bypass cache via `StateList(ctx, sdk.SkipCache())` for explicit refresh (ctrl+r)
+- State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) invalidate the state cache
+- `Refresh()` and `WorkspaceSelect()` invalidate everything
+- Plugins bypass it with `StateList(ctx, sdk.SkipCache())` for an explicit refresh (ctrl+r); the variadic option keeps
+  cache semantics out of the interface ([ADR-0007](../adr/0007-no-cache-semantics-in-sdk.md))
+
+### Source layer (`internal/source/`)
+
+Resolves a URI to raw bytes; `internal/terraform/loader.go` parses them with `LoadPlan` and `LoadState`.
+
+| URI | Resolves to |
+|-----|-------------|
+| `-` | stdin |
+| `/path`, `./path`, `../path` | local file |
+| `file://...` | local file |
+| `scheme://...` | the `Provider` registered for that scheme |
+| anything else | an error with a suggestion |
 
 ### Binary resolution
 
@@ -165,40 +275,20 @@ OpenTofu is supported via explicit `terraform.bin = "tofu"` in HCL config, or by
 
 ## Entry Point (`cmd/tfui/`)
 
-The CLI layer is split across several files:
-
-```
-cmd/tfui/
-├── main.go            — Cobra command tree, flag bindings, buildRegistry()
-├── session.go         — Session builder: orthogonal dispatch pipeline
-├── cli.go             — Imperative subcommands (workspace, force-unlock)
-├── normalize.go       — Flag normalization (terraform flag compatibility)
-└── scaffold_wizard.go — Interactive project scaffolding wizard
-```
-
-Every subcommand's `RunE` is a single fluent chain:
-
-```go
-NewSession(cfg, rootCfg).
-    ForPlugin("plan").
-    WithArgs(args).
-    WithJSON(jsonMode).
-    WithSeeds(planURI, stateURI).
-    WithMacro(macroURI).
-    WithCI(ciMode).
-    Run()
-```
+Each subcommand is `build<Plugin>Command(s *Session)` in its own file. Its `RunE` fills the plugin's Input from flags
+and calls `Session.RunPlugin(ctx, "<id>", activate)`. The bare `tfui` command calls `Session.Run()`.
 
 ### Session pipeline (`session.go`)
 
-`Session.Run()` executes: `validate → resolveAxes → loadTape → buildService → buildApp → present → emit`
+`Session.Run()` executes `validate → LoadTape → buildService → buildRegistry → buildApp → present → emitRecorded`.
+`RunPlugin` runs the same pipeline with the app in standalone mode for one plugin.
 
 Two orthogonal axes are resolved from flags:
 
 | Axis | Values | Determines |
 |------|--------|-----------|
-| **Presentation** | `Interactive` / `Headless` | Whether user sees a TUI (tea.Program) or headless driver |
-| **Backend** | `Exec` / `Recording` | Whether terraform runs live (ExecService) or commands are recorded (MacroService) |
+| **Presentation** | `Interactive` / `Headless` | A `tea.Program` on the alt screen, or the macro driver (`--macro`, or a silent stderr: `--ci`, `CI=1`, an agent environment, or a non-TTY stderr) |
+| **Backend** | `Exec` / `Recording` | Terraform runs live (`ExecService`) or commands are recorded (`MacroService`, under `--macro`) |
 
 ### Architectural decisions
 
@@ -206,37 +296,32 @@ Two orthogonal axes are resolved from flags:
 |----------|-----------|
 | Orthogonal axes (Presentation × Backend) | Any combination is valid: Interactive+Exec (TUI), Headless+Exec (CI), Headless+Recording (macro). Flags compose, not branch. |
 | `buildRegistry()` is axis-agnostic | Plugins don't know their presentation or backend. Same registry regardless of which axis combination is active |
-| ServiceCache pre-seeded before service creation | `seedCache()` runs first, then the service wraps it. Pre-seeded data serves reads without shelling out |
+| ServiceCache seeded before service creation | `PreseedSources.Seed` fills the cache, then the service wraps it. Pre-seeded data serves reads without shelling out |
 | `buildRegistry()` as single composition point | All 18 plugins registered with metadata in one place. Config injection happens here, not scattered |
 | TTY detection gates interactive mode | No TTY → Headless axis. No TTY without data → actionable error |
 | `splitPassthrough()` + `normalizeArgs()` | Terraform flag compatibility: `--` separates tfui flags from terraform extras; short flags normalized |
 | Version resolution chain | `ldflags` (CI) → `ReadBuildInfo` (go install) → `"0.0.0-SNAPSHOT"` (dev) |
-| Spinner on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr (suppressed with `-ci`) |
+| TUI on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr ([CLI I/O contract](../reference/cli-io-contract.md)) |
 
 ## Config Resolution & Propagation
 
-Config is resolved from `tfui.hcl` at three levels: root defaults → child (member dir) → workspace-specific overrides.
+Config is resolved from `tfui.hcl` at three levels: root defaults → child (member dir) → workspace-specific overrides,
+by `config.Resolve(root, child, workspace)`.
 
 ```
-Startup:
-  LoadRoot(projectDir)  → RootConfig
-  config.Resolve(root, nil, workspace) → cfg.VarFiles, cfg.Vars
-  NewApp(..., rootCfg)  → loads childCfg from workDir
-  Plugins receive *ResolvedOptions via Context.Options
-
-Runtime (workspace switch):
-  WorkspaceChangedEvent → app.resolveOptions(name)
-    → config.Resolve(rootCfg, childCfg, newWorkspace)
-    → mutates shared *ResolvedOptions in-place
-    → next plan/apply reads fresh VarFiles/Vars
-
-Runtime (chdir switch):
-  ChdirChangedEvent → app reloads childCfg from new dir
-    → app.resolveOptions(activeWorkspace)
-    → same shared-pointer mutation
+ContextSwitchRequestMsg{Chdir, Workspace}     (emitted by the chdir and workspace plugins)
+  → requireIdle("context-switch")
+  → config.LoadChild(member dir)              → childCfg
+  → rebuildContext(chdir, absChdir, workspace)
+      Service.WithDir(absChdir)
+      config.Resolve(rootCfg, childCfg, workspace)
+        → VarFiles, Vars, Parallelism, Lock, LockTimeout
+      ExtraArgs from the CLI -- passthrough
+      Pins empty: a switch ends the targeting selection
+  → replaceContext(next, reason)              → ContextChangedEvent{Prev, Next, Reason}
 ```
 
-`ExtraArgs` (from CLI `--` passthrough) is set once at boot and never overwritten by resolution.
+`ExtraArgs` (from CLI `--` passthrough) is set once at boot and carried into every snapshot.
 
 ## Bubbletea Model/Update/View
 
@@ -258,20 +343,35 @@ Runtime (chdir switch):
 └────────────────────────────────────────┘
 ```
 
+## Macro Engine (`internal/macro/`)
+
+A synchronous driver for the app model plus the tape language ([Macro language](../reference/macro-language.md)),
+used for headless runs, tests and demo recording.
+
+| File | Role |
+|------|------|
+| `driver.go` | Drives the model without a terminal: `NewDriver(app, w, h)`, `SendKey`, `WaitUntil`, `View` |
+| `runner.go` | Executes parsed tape commands against the driver |
+| `tape.go` | Tape parser |
+| `recorder.go` | Wraps a `tea.Model` to capture ANSI frames and generate a tape (`--record`); headless, the runner feeds it with `CaptureView()` |
+| `key_string.go` | Maps `tea.KeyMsg` back to tape syntax |
+
 ## Testing Strategy
 
 | Layer | Approach | Coverage Target |
 |-------|----------|-----------------|
 | `pkg/sdk` | Unit tests (bus, actions, stack, pins, options) | 100% |
 | `internal/terraform` (parsers) | Unit tests, mock data | 100% |
-| `internal/terraform` (service calls) | Integration tests (need terraform binary) | Excluded from unit coverage |
+| `internal/terraform/exec` (service calls) | Integration tests (need terraform binary) | Excluded from unit coverage |
 | `internal/plugin` | Unit tests, mock plugins | 100% |
 | `internal/ui` | Unit tests, mock registry | 100% |
 | `plugins/*` | Unit tests, mock service | 100% |
 | `cmd/tfui` | Excluded (thin glue) | N/A |
 | `tests/integration` | Integration (build tag, need terraform) | Behavioral coverage |
 
-Coverage enforcement: 100% gate on all packages except `cmd/` (glue layer) and terraform-exec I/O calls. Pipeline fails if coverage drops.
+Coverage enforcement: 100% gate on all packages except `cmd/` (glue layer) and `internal/terraform/exec`
+([ADR-0008](../adr/0008-coverage-as-behavioral-gate.md)). Pipeline fails if coverage drops. How to write each kind of
+test is in [Testing](testing.md).
 
 ## Development
 
@@ -282,7 +382,7 @@ mise run fmt              # Format source files
 mise run check:lint       # Lint (golangci-lint v2)
 mise run test:unit        # Unit tests
 mise run test:coverage    # Coverage enforcement (100%)
-mise run 'test:integration:*'  # Integration tests (terraform/tofu/terragrunt)
+mise run test:integration # Integration tests (terraform/tofu/terragrunt)
 mise run test:macro       # Macro tapes
 ```
 
@@ -292,14 +392,13 @@ mise run test:macro       # Macro tapes
 
 | Decision | Rationale |
 |----------|-----------|
-| `pkg/sdk` as public contract | Plugins never import internal/. Enables future extraction and gRPC plugins. |
+| `pkg/sdk` as public contract | Plugins never import internal/. |
 | Plugin = feature | Every capability is a plugin. Core app is just routing. |
-| Dependency injection | Service interface enables mocking. Plugins receive context, not concrete types. |
+| Dependency injection | Service interface enables mocking. Plugins receive `PluginDeps` and the Context, not concrete types. |
 | Plugins invocation-agnostic | Same plugin works via keybinding, command bar, CLI, macro. No coupling to navigation. |
-| hashicorp/go-plugin (future) | Third-party plugins as separate binaries over gRPC. Same interface, different transport. |
 | 100% coverage (excl cmd/) | Pipeline enforced. Untestable layers kept minimal via DI. |
 | OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. Test matrix includes both. |
-| `EventBus` typed pub/sub | Plugins react to state changes (chdir, workspace, plan) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
+| `EventBus` typed pub/sub | Plugins react to state changes (context, plan, lock, state) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
 | ExecService + MacroService as sibling strategies | Same interface, different behavior. ExecService shells out for live ops; MacroService records commands without executing. Selected at startup, plugins are unaware. |
 | ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `-plan`/`-state` at startup, populated by ExecService after live calls. Pre-seeding means reads never shell out when data is already available. |
 
@@ -308,8 +407,8 @@ mise run test:macro       # Macro tapes
 | Decision | Rationale |
 |----------|-----------|
 | Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. Can take 10+ minutes. |
-| Pins = targets | Visual selection (space) is the TUI equivalent of `-target`. Pin then apply = apply only pinned. |
-| `a` from Plan = apply with pins | Seamless flow: review → select → execute. No address typing. |
+| Pins = targets | Visual selection (space) is the TUI equivalent of `-target`. Pin, plan, then apply = apply only pinned. |
+| `a` from Plan = apply the reviewed plan file | Seamless flow: review → select → execute. No address typing. |
 | ExecService executes live, user waits for real results | Spinners, elapsed time, real errors — the UX communicates "this is happening now" with progress feedback and retry on failure. |
 | MacroService returns commands, not errors | Macro playback becomes a command builder. User sees the terraform commands that would run. |
 | CLI and TUI produce identical state | Testable invariant. The equivalence guarantee. |
@@ -334,26 +433,32 @@ This makes the tool's relationship to terraform explicit: **tfui is a command bu
 In macro mode, mutating operations are recorded as commands — the user sees what they'd need to run:
 ```
 terraform state rm aws_instance.old
-terraform apply -target=aws_instance.web
+terraform plan -out=<planfile> -target=aws_instance.web
 ```
 
 ### Data Flow: Plan → Pin → Apply
 
+Targets go on plan, never on apply: terraform refuses `-target` with a saved plan file
+([ADR-0019](../adr/0019-unidirectional-data-flow.md)).
+
 ```
 User presses 'p' → Plan plugin activates
-  → svc.Plan(ctx, nil) → terraform plan
-  → Shows changes with risk badges
+  → Context().Service.Plan(ctx, Context().PlanOptions())
+  → Shows changes with risk badges, plan saved to a plan file
 
-User presses 'space' on resources → pins via shared PinService
+User presses 'space' on resources → deps.Pin(...) → Context replaced with the new Pins
+  → ContextChangedEvent (OnlyPinsChanged) → plan keeps its view and marks itself stale
+  → the next plan runs with -target for each pin
 
-User presses 'a' → Plan emits ApplyRequestMsg
-  → plan emits PlanCompletedEvent
-  → App reads pins from PinService
-  → Activates Apply plugin with pins as targets
-  → Re-plans with -target (only pinned)
-  → Shows confirmation: "Apply 2 of 12 changes?"
+User presses 'a' (or 'A' to auto-approve) → Plan emits ApplyRequestMsg{PlanFile, AutoApprove}
+  → App pushes plan onto navStack and activates Apply with the plan file
+  → Apply shows the confirmation (skipped on AutoApprove)
 
-User presses 'y' → svc.Apply(ctx, targets)
-  → terraform apply (targeted plan)
+User confirms → terraform apply <planfile>
   → Shows elapsed time → success/error
+  → PlanInvalidatedEvent on success
+  → esc returns to plan through DeactivateMsg
 ```
+
+The standalone CLI `tfui apply -target=X` with no plan file passes targets straight to terraform's one-shot plan and
+apply ([CLI reference](../reference/cli-reference.md)).
