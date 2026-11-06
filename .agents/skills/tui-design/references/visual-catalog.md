@@ -6,7 +6,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Light (standard TUI borders)
 
-```
+```text
 ┌───┬───┐    Corners: ┌ ┐ └ ┘
 │   │   │    T-pieces: ├ ┤ ┬ ┴
 ├───┼───┤    Cross:    ┼
@@ -16,7 +16,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Heavy (emphasis borders)
 
-```
+```text
 ┏━━━┳━━━┓    Corners: ┏ ┓ ┗ ┛
 ┃   ┃   ┃    T-pieces: ┣ ┫ ┳ ┻
 ┣━━━╋━━━┫    Cross:    ╋
@@ -26,7 +26,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Double (classic DOS/Norton style)
 
-```
+```text
 ╔═══╦═══╗    Corners: ╔ ╗ ╚ ╝
 ║   ║   ║    T-pieces: ╠ ╣ ╦ ╩
 ╠═══╬═══╣    Cross:    ╬
@@ -36,7 +36,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Rounded (modern, friendly)
 
-```
+```text
 ╭───┬───╮    Corners: ╭ ╮ ╰ ╯
 │   │   │    (T-pieces, cross, lines
 ├───┼───┤     same as light set)
@@ -46,7 +46,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Mixed: Heavy Header + Light Body
 
-```
+```text
 ┏━━━━━━━━━━━━━━━━━━━━┓
 ┃  Panel Title        ┃
 ┡━━━━━━━━━━━━━━━━━━━━┩
@@ -72,7 +72,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Fractional Blocks (horizontal, left-to-right fill)
 
-```
+```text
 ▏ ▎ ▍ ▌ ▋ ▊ ▉ █
 ```
 
@@ -80,7 +80,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Fractional Blocks (vertical, bottom-to-top fill)
 
-```
+```text
 ▁ ▂ ▃ ▄ ▅ ▆ ▇ █
 ```
 
@@ -88,7 +88,7 @@ Pure reference material for terminal visual elements. Scan, don't read.
 
 ### Shade Blocks
 
-```
+```text
 ░ Light shade (25%)
 ▒ Medium shade (50%)
 ▓ Dark shade (75%)
@@ -99,7 +99,7 @@ Use for density visualization, heatmaps, and background patterns.
 
 ### Progress Bar Recipes
 
-```
+```text
 Simple:     [████████░░░░░░] 57%
 Gradient:   [█████▓▒░░░░░░░] 57%
 Thin:       ━━━━━━━━╸━━━━━━ 57%
@@ -109,11 +109,11 @@ Minimal:    ■■■■■■□□□□□□ 57%
 
 ---
 
-## Braille Patterns (U+2800–U+28FF)
+## Braille Patterns (U+2800-U+28FF)
 
 Each braille character is a 2-column × 4-row dot grid, encoding 8 bits:
 
-```
+```text
 Dot positions:    ⠁(1) ⠂(2) ⠄(3) ⡀(7)
                   ⠈(4) ⠐(5) ⠠(6) ⢀(8)
 
@@ -124,7 +124,7 @@ Use for high-resolution terminal graphics. Each character cell provides 2×4 = 8
 
 ### Sparkline with Braille
 
-```
+```text
 Network: ⣀⣤⣶⣿⣶⣤⣀⣀⣤⣶⣿⣿⣶⣤  Peak: 1.2 MB/s
 ```
 
@@ -134,7 +134,7 @@ Network: ⣀⣤⣶⣿⣶⣤⣀⣀⣤⣶⣿⣿⣶⣤  Peak: 1.2 MB/s
 
 ### Dots and Bullets
 
-```
+```text
 ●  Filled circle (active, online, enabled)
 ○  Empty circle (inactive, offline, disabled)
 ◉  Bullseye (selected, current)
@@ -144,7 +144,7 @@ Network: ⣀⣤⣶⣿⣶⣤⣀⣀⣤⣶⣿⣿⣶⣤  Peak: 1.2 MB/s
 
 ### Check and Cross
 
-```
+```text
 ✓  Check mark (success, done, yes)      ✔  Heavy check
 ✗  Ballot X (failure, error, no)        ✘  Heavy X
 ☐  Unchecked checkbox                   ☑  Checked checkbox
@@ -152,7 +152,7 @@ Network: ⣀⣤⣶⣿⣶⣤⣀⣀⣤⣶⣿⣿⣶⣤  Peak: 1.2 MB/s
 
 ### Severity/Priority
 
-```
+```text
 ▲  Up triangle (increase, higher, expand)
 ▼  Down triangle (decrease, lower, collapse)
 ⚠  Warning sign
@@ -162,7 +162,7 @@ Network: ⣀⣤⣶⣿⣶⣤⣀⣀⣤⣶⣿⣿⣶⣤  Peak: 1.2 MB/s
 
 ### Arrows
 
-```
+```text
 Navigation:  ← → ↑ ↓    ⇐ ⇒ ⇑ ⇓
 Triangles:   ◀ ▶ ▲ ▼    ◁ ▷ △ ▽
 Pointers:    ► ◄         ‣
@@ -175,7 +175,7 @@ Powerline:   ▏            (thin separator)
 
 ### Standard Tree
 
-```
+```text
 ├── src/
 │   ├── main.rs
 │   ├── lib.rs
@@ -191,7 +191,7 @@ Characters: `├── ` (branch), `└── ` (last branch), `│   ` (continu
 
 ### Compact Tree (for narrow panels)
 
-```
+```text
 ├ src/
 │ ├ main.rs
 │ └ utils/
@@ -205,7 +205,7 @@ Characters: `├── ` (branch), `└── ` (last branch), `│   ` (continu
 
 ### Standard Table
 
-```
+```text
 ┌──────┬────────┬───────┐
 │ Name │ Status │ CPU % │
 ├──────┼────────┼───────┤
@@ -217,7 +217,7 @@ Characters: `├── ` (branch), `└── ` (last branch), `│   ` (continu
 
 ### Minimal Table (no outer border)
 
-```
+```text
  Name   Status   CPU %
  ─────  ──────   ─────
  web    ● Run     23.4
@@ -233,7 +233,7 @@ Use `bg.surface` on even rows, `bg.base` on odd rows for scanability.
 
 ## Separator Styles
 
-```
+```text
 Light:     ────────────────────────
 Heavy:     ━━━━━━━━━━━━━━━━━━━━━━━━
 Double:    ════════════════════════
@@ -249,7 +249,7 @@ Labeled:   ──── Section Title ──────
 
 ### Inline (unified)
 
-```
+```text
   fn process(data: &str) {     (context - default color)
 -     let result = parse(data); (removed - red + dim)
 +     let result = parse_v2(data); (added - green)
@@ -259,7 +259,7 @@ Labeled:   ──── Section Title ──────
 
 ### Side-by-Side
 
-```
+```text
 │ fn process(data: &str) {     │ fn process(data: &str) {     │
 │-  let result = parse(data);  │+  let result = parse_v2(data);│
 │   result.validate()          │   result.validate()          │
@@ -271,31 +271,33 @@ Word-level diff highlighting within changed lines dramatically improves readabil
 
 ## Gauge Patterns
 
-```
+```text
 CPU:  [████████████████████░░░░░░░░░░] 67%
 Mem:  [███████████████░░░░░░░░░░░░░░░] 50%  8.0G/16.0G
 Disk: [██████████████████████████████] 99%  ← red when >90%
 Bat:  [████████░░░░░░░░░░░░░░░░░░░░░] 27%  ⚡ charging
 ```
 
-Color thresholds: green (0-60%), yellow (60-80%), red (80-100%).
+Choose thresholds from the metric: high CPU utilization may be healthy while high disk usage may require action. Label the value and units so color is never the only signal.
 
 ---
 
 ## Common Nerd Font Icons
 
-Only use when Nerd Font detection is available. Always provide a Unicode/ASCII fallback.
+Use only with an explicit user setting or a known bundled font. No portable terminal query reliably establishes Nerd Font availability. Provide a Unicode/ASCII fallback.
 
-```
-Nerd Font → Fallback
-        → >     (directory/folder)
-        → *     (file)
-        → ⚙     (settings/config)
-        → ●     (git branch)
-        → ✓     (success)
-        → ✗     (error)
-        → ⚠     (warning)
-        → ℹ     (info)
-```
+| Meaning   | Unicode fallback | ASCII fallback |
+| --------- | ---------------- | -------------- |
+| Directory | ▸                | >              |
+| File      | ·                | *              |
+| Success   | ✓                | OK             |
+| Error     | ✗                | ERR            |
+| Warning   | ⚠                | !              |
 
 **Rule:** Never assume Nerd Fonts are installed. Always define a fallback using standard Unicode or ASCII.
+
+## Width and Accessibility
+
+These glyphs are examples, not width guarantees. Use grapheme-aware truncation and the toolkit's cell-width handling; test wide text, combining marks, and emoji sequences. A braille chart needs a numeric summary or table when its pattern is not accessible. Pair status symbols with labels and offer ASCII where fonts or screen readers need it.
+
+Primary reference (checked 2026-09-04): [Unicode text segmentation](https://unicode.org/reports/tr29/). Terminal cell width is an additional rendering concern, not something grapheme segmentation alone decides.
