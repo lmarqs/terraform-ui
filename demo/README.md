@@ -16,7 +16,8 @@ mise run demo:generate
 
 1. **Tapes** (`demo/tapes/*.tape`) define scripted interactions using the macro DSL
 2. **`--record`** flag captures each frame as ANSI text with timing metadata
-3. **`stitch.sh`** renders frames as GIF using Python + Pillow
+3. **`stitch.sh`** renders frames as GIF using Python + Pillow, in the frames' ANSI colors, bold and italic mapped to
+   the docs site's terminal palette
 
 ```
 tape + fixtures → tfui --macro --record → frames/ + manifest.json → stitch.sh → .gif
@@ -43,6 +44,13 @@ tfui --plan ./demo/fixtures/plan-large.json --macro ./my-session/recording.tape
 
 - **Build**: `mise run build` (Go 1.25+)
 - **GIF rendering**: automatic via Python + Pillow (installed by mise venv from `requirements.txt`)
+- **Fonts**: DejaVu Sans Mono with its bold and oblique faces (`fonts-dejavu`); Menlo, SF Mono or Consolas render
+  every style in the regular face
+
+`generate.sh` sets `CLICOLOR_FORCE=1`, since the recorder writes stdout to `/dev/null` and Lipgloss drops colors
+without a terminal. Macro mode never runs terraform and can seed only a plan and a state, so the `output`,
+`validate` and `workspace` tapes record empty screens; their GIFs in `docs/assets/demo/` come from an earlier binary
+that could seed outputs, diagnostics and workspaces, and a full run overwrites them.
 
 ## Docker demo
 

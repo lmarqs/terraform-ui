@@ -28,9 +28,6 @@ fi
 FIXTURES="$SCRIPT_DIR/fixtures"
 PLAN="$FIXTURES/plan-large.json"
 STATE="$FIXTURES/state-large.json"
-OUTPUTS="$FIXTURES/outputs.json"
-VALIDATE_RESULT="$FIXTURES/validate.json"
-WORKSPACES="$FIXTURES/workspaces.json"
 OUTPUT="$SCRIPT_DIR/output"
 
 echo "Using binary: $TFUI"
@@ -48,12 +45,10 @@ for tape in "$SCRIPT_DIR"/tapes/*.tape; do
   echo "Recording $name..."
   rm -rf "$OUTPUT/$name"
   mkdir -p "$OUTPUT/$name"
-  "$TFUI" \
+  # Lipgloss drops colors when stdout is not a terminal; the GIFs need them.
+  CLICOLOR_FORCE=1 "$TFUI" \
     --plan "$PLAN" \
     --state "$STATE" \
-    --outputs "$OUTPUTS" \
-    --validate-result "$VALIDATE_RESULT" \
-    --workspaces "$WORKSPACES" \
     --macro "$tape" \
     --record "$OUTPUT/$name" \
     >/dev/null 2>&1 || echo "  WARNING: $name exited with error (may be expected for partial flows)"
