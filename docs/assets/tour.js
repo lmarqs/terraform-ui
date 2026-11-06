@@ -361,7 +361,7 @@
 
   function select(n) {
     tabs.forEach(function (t, i) {
-      t.setAttribute("aria-selected", i === n ? "true" : "false");
+      t.setAttribute("aria-current", i === n ? "true" : "false");
       t.parentNode.classList.toggle("done", i < n);
       var bar = t.parentNode.querySelector(".bar");
       bar.style.transition = "none";
