@@ -2,9 +2,7 @@
 layout: home
 permalink: /
 title: "tfui: Terraform plans you can navigate"
-description: >-
-  tfui is a terminal UI for Terraform. Review a plan as a tree, see the risk on every change, browse state, and apply
-  only what you pinned. Works with Terraform, OpenTofu and Terragrunt, and runs headless for AI coding agents.
+description: "Terminal UI for Terraform, OpenTofu and Terragrunt: review a plan as a tree, see each change's risk, browse state, apply what you pinned, or run headless for AI agents."
 ---
 {%- assign demo = '/assets/demo/' | relative_url -%}
 {%- assign ba = site.data.before_after -%}
@@ -48,12 +46,12 @@ description: >-
         <button type="button" class="take" hidden><span class="take-ring" aria-hidden="true"></span><span class="take-cursor" aria-hidden="true"></span>Try in your browser<kbd>j</kbd><kbd>k</kbd><kbd>space</kbd></button>
       </figure>
       <ol class="tour-steps">
-        <li><button type="button" aria-selected="true">Plan<kbd>p</kbd></button><i class="bar"></i></li>
-        <li><button type="button" aria-selected="false">Filter<kbd>/</kbd></button><i class="bar"></i></li>
-        <li><button type="button" aria-selected="false">Inspect<kbd>enter</kbd></button><i class="bar"></i></li>
-        <li><button type="button" aria-selected="false">Pin<kbd>space</kbd></button><i class="bar"></i></li>
-        <li><button type="button" aria-selected="false">Apply<kbd>a</kbd></button><i class="bar"></i></li>
-        <li><button type="button" aria-selected="false">Agent<kbd>--ci</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-current="true">Plan<kbd>p</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-current="false">Filter<kbd>/</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-current="false">Inspect<kbd>enter</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-current="false">Pin<kbd>space</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-current="false">Apply<kbd>a</kbd></button><i class="bar"></i></li>
+        <li><button type="button" aria-current="false">Agent<kbd>--ci</kbd></button><i class="bar"></i></li>
       </ol>
       <p class="tour-hint"><span class="when-idle">Same keys as tfui itself.</span><span class="when-live"><kbd>esc</kbd> or a scroll gives the page back.</span>
         <button type="button" class="tour-replay">{% include icons/play.svg %}Replay</button></p>
@@ -68,7 +66,7 @@ description: >-
   <div class="wrap">
     <div class="feature-copy try-head">
       <p class="kicker">{% include icons/terminal.svg %}Try it</p>
-      <h3>Sixty seconds, no config</h3>
+      <h2>Sixty seconds, no config</h2>
       <p>No account, no cloud service, no config file. Pick a way in.</p>
     </div>
     <div class="feature try-body">
