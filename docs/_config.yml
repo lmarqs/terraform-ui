@@ -27,6 +27,19 @@ defaults:
     values:
       layout: default
       image: /assets/og.jpg
+  # Contributor pages stay crawlable through links; the sitemap lists only the pages written for users.
+  - scope:
+      path: adr
+    values:
+      sitemap: false
+  - scope:
+      path: development
+    values:
+      sitemap: false
+  - scope:
+      path: roadmap.md
+    values:
+      sitemap: false
 
 exclude:
   - Gemfile
