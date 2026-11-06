@@ -21,7 +21,7 @@ You write the **red** test of a TDD cycle: a behavioral test that fails because 
 Read before writing:
 
 - `docs/development/testing.md`: naming (`Test{Subject}_{Given/When}_{Expected}`), behavioral vs coverage-focused tests, anti-patterns, which test layer fits.
-- `.agents/skills/tfui-architecture/SKILL.md` § Plugin Test Harness: `sdktest.NewDeps(svc)` and the `newTestPlugin` helper shape.
+- `docs/development/testing.md` § Plugin Test Harness: `sdktest.NewDeps(svc)` and the `newTestPlugin` helper shape.
 - `pkg/sdk/sdktest/`: `MockService` and the harness. Configure only the methods the test exercises.
 - The nearest sibling `*_test.go` in the target package: match its helpers and table layout.
 

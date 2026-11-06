@@ -560,6 +560,30 @@ func TestIsValidWorkspaceName(t *testing.T) {
 - Only configure the methods your test exercises
 - Use descriptive field names: `workspaceListErr`, not `err1`
 
+### Plugin Test Harness
+
+A plugin test builds its dependencies with `sdktest.NewDeps(svc)` (`pkg/sdk/sdktest/testdeps.go`) and calls `Init`.
+`Init` is where a plugin binds its service, logger, Context getter and pin functions (`PluginBase.InitBase`), so a
+plugin used without it, or with a `PluginDeps` built by hand, is not the plugin the app runs.
+
+```go
+func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
+    h := sdktest.NewDeps(svc)
+    p := New(svc)
+    p.Init(h.Deps)
+    return p, h
+}
+```
+
+| Field | Holds |
+|-------|-------|
+| `h.Ctx` | The `*sdk.Context` that `deps.Context()` returns; set `h.Ctx.Pins` to simulate existing pins |
+| `h.PinRequests` | Every address passed to `deps.Pin()` |
+| `h.ClearPinsCount` | How many times `deps.ClearPins()` ran |
+
+The harness records pin requests without replaying them onto `h.Ctx`: a test that needs the next snapshot to show a
+pin sets `h.Ctx.Pins` itself. Execute a returned `tea.Cmd` before asserting its side effects.
+
 ### Test Utilities
 
 | Utility | Location | Purpose |

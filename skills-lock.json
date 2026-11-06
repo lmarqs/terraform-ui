@@ -7,24 +7,6 @@
       "skillPath": ".claude/skills/effective-go/SKILL.md",
       "computedHash": "3bc8002e944e00d99b98511b7761cf4afd697bd3fe36be8ce427b3851742362f"
     },
-    "go": {
-      "source": "grafana/loki",
-      "sourceType": "github",
-      "skillPath": ".cursor/skills/go/SKILL.md",
-      "computedHash": "d62d67d54ae07cee328c2d749ec06a8bd73addc683a892d06103d29d5bcc49c1"
-    },
-    "go-concurrency": {
-      "source": "TheBushidoCollective/han",
-      "sourceType": "github",
-      "skillPath": "plugins/languages/go/skills/go-concurrency/SKILL.md",
-      "computedHash": "39a46396a00638baeb2f11c8284f6170014a71023d2f7fb8f4adc2a522eb015c"
-    },
-    "golang-patterns": {
-      "source": "affaan-m/everything-claude-code",
-      "sourceType": "github",
-      "skillPath": "skills/golang-patterns/SKILL.md",
-      "computedHash": "67c25e95cec3f3166c2efefd5f4502863a1246c6f742b8cbcd2e2864d2a8182a"
-    },
     "tui-design": {
       "source": "hyperb1iss/hyperskills",
       "sourceType": "github",
