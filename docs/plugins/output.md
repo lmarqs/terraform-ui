@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Outputs
+title: "Browse Terraform Outputs and Their JSON"
 id: output
 key: o
 category: navigation
 default_enabled: true
 seo:
-  description: View terraform output values for the current workspace
+  description: "View the terraform output values of the current workspace in a filterable list, with expandable JSON detail for complex values."
 description: "Describes how the Outputs plugin shows the output values of the current workspace."
 audience: "Users reading outputs"
 ---

@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Validate
+title: "Terraform Validate with Grouped Diagnostics"
 id: validate
 key: v
 category: operations
 default_enabled: true
 seo:
-  description: Run terraform validate and display configuration diagnostics
+  description: "Run terraform validate and browse its errors and warnings grouped by severity, with expandable source locations and a suggested fix for each issue."
 description: "Describes how the Validate plugin runs terraform validate and shows its diagnostics."
 audience: "Users checking configuration before a plan"
 ---

@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Blast Radius
+title: "Terraform Blast Radius by Module"
 id: blastradius
 key: B
 seo:
-  description: Visualize module-grouped changes with impact scores
+  description: "Group Terraform plan changes by module and rank each module by impact score, from its number of changes, their risk levels and any destructive operations."
 description: "Describes how the Blast Radius plugin groups changes by module and scores their impact."
 audience: "Users weighing a plan's reach, and contributors changing blast radius"
 category: analysis

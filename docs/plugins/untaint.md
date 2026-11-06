@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Untaint
+title: "Terraform Untaint: Cancel Forced Recreation"
 id: untaint
 key: T
 category: action
 default_enabled: true
 seo:
-  description: Remove taint mark from terraform resources to prevent forced recreation
+  description: "Remove the taint mark from Terraform resources so the next apply no longer forces their recreation. The Untaint screen mirrors terraform untaint."
 description: "Describes how the Untaint plugin clears a resource's taint mark."
 audience: "Users undoing a taint"
 ---

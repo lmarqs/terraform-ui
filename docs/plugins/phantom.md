@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Phantom Changes
+title: "Terraform Phantom Changes: Spot No-Op Diffs"
 id: phantom
 key: P
 seo:
-  description: Detect and explain phantom (no-op) changes in terraform plans
+  description: "Find Terraform plan changes that modify no infrastructure, such as JSON field reordering or tag order differences, and see why each one is cosmetic."
 description: "Describes how the Phantom Changes plugin detects and explains no-op changes in a plan."
 audience: "Users reviewing a plan full of diffs that change nothing"
 category: analysis

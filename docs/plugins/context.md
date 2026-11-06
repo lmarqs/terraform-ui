@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Context
+title: "Switch Terraform Project, Directory and Workspace"
 id: context
 key: C
 seo:
-  description: View and manage working context (project, chdir, workspace)
+  description: "See and change the working context in tfui: the Terraform project directory, the member directory and the workspace. Every screen reloads with fresh data."
 description: "Describes how the Context plugin shows and switches project, chdir and workspace."
 audience: "Users switching what tfui runs against"
 category: navigation

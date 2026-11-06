@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Apply
+title: "Terraform Apply with Context and Pinned Targets"
 id: apply
 key: a
 seo:
-  description: Apply terraform changes with confirmation, targeting, and elapsed time tracking
+  description: "Apply Terraform changes from a terminal UI: a confirmation that shows the resource count and targeting, apply only pinned resources, and elapsed-time tracking."
 description: "Describes how the Apply plugin applies changes: confirmation, pinned targets, saved plans and its settings."
 audience: "Users applying from tfui, and contributors changing apply"
 category: operations

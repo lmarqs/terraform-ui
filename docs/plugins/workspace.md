@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Workspace
+title: "Terraform Workspace Manager in the Terminal"
 id: workspace
 key: w
 seo:
-  description: Manage terraform workspace (list, switch, create, delete)
+  description: "List, switch, create and delete Terraform workspaces from a terminal UI, with the current workspace marked by an asterisk."
 description: "Describes how the Workspace plugin lists, switches, creates and deletes workspaces."
 audience: "Users working across terraform workspaces"
 category: navigation

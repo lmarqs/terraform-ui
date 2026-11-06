@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Init
+title: "Terraform Init with a Form for Its Options"
 id: init
 key: i
 seo:
-  description: Run terraform init with form-based options
+  description: "Run terraform init from a terminal UI form with the upgrade, migrate-state, reconfigure and backend-config options, and watch its progress in real time."
 description: "Describes how the Init plugin runs terraform init with its options in a form."
 audience: "Users initializing or reconfiguring a project"
 category: operations

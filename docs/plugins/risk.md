@@ -1,11 +1,11 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Risk Analysis
+title: "Terraform Plan Changes Grouped by Risk Level"
 id: risk
 key: R
 seo:
-  description: Analyze and group planned changes by risk level
+  description: "Group Terraform plan changes by risk level, critical, high, medium, low or none, with an overall assessment and the reason behind each classification."
 description: "Describes how the Risk Analysis plugin groups planned changes by risk level."
 audience: "Users triaging a plan by risk"
 category: analysis

@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Version
+title: "tfui Version, Terraform Version and Providers"
 id: version
 key: "—"
 category: utility
 default_enabled: true
 seo:
-  description: Display tfui version, platform info, and terraform provider selections
+  description: "Show the tfui version and platform, the resolved terraform binary version and its provider selections, to confirm which terraform is in use."
 description: "Describes what the Version plugin shows: tfui version, platform and provider selections."
 audience: "Users reporting a bug or checking versions"
 ---

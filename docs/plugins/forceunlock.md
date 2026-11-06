@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Force Unlock
+title: "Terraform Force Unlock for Stale State Locks"
 id: forceunlock
 key: "—"
 category: utility
 default_enabled: true
 seo:
-  description: Remove a stale terraform state lock safely from the TUI
+  description: "Remove a stale Terraform state lock from tfui. Press u on any screen showing a lock error and the lock ID is already filled in, no manual entry needed."
 description: "Describes how the Force Unlock plugin removes a stale state lock."
 audience: "Users whose state is stuck behind a lock"
 ---

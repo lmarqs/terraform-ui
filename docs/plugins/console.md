@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Console
+title: "Terraform Console Inside a Terminal UI"
 id: console
 key: "~"
 category: operations
 default_enabled: true
 seo:
-  description: Interactive terraform console REPL session within the TUI
+  description: "Run an interactive terraform console session inside tfui and evaluate Terraform expressions against the current state without leaving the application."
 description: "Describes the Console plugin, a terraform console session inside the TUI."
 audience: "Users evaluating expressions against their state"
 ---

@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Import
+title: "Terraform Import from a Terminal UI"
 id: import
 key: n
 category: action
 default_enabled: true
 seo:
-  description: Import existing infrastructure into terraform state interactively
+  description: "Import existing infrastructure into Terraform state from tfui. The Import screen mirrors terraform import and returns to where you started when done."
 description: "Describes how the Import plugin brings existing infrastructure into state."
 audience: "Users adopting resources created outside terraform"
 ---

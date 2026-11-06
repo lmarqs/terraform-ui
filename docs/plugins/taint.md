@@ -1,13 +1,13 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: Taint
+title: "Terraform Taint: Force Resource Recreation"
 id: taint
 key: t
 category: action
 default_enabled: true
 seo:
-  description: Mark terraform resources for recreation on next apply
+  description: "Mark Terraform resources for recreation on the next apply from tfui. The Taint screen mirrors terraform taint and returns to where you started when done."
 description: "Describes how the Taint plugin marks resources for recreation on the next apply."
 audience: "Users forcing a resource to be replaced"
 ---
