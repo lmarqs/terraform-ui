@@ -11,23 +11,23 @@ audience: "Contributors writing or reviewing tests"
 
 # Testing Strategy
 
-## Philosophy
+Every test asserts what the user sees; coverage follows. Pick the level from what you changed:
 
-Tests describe **behavior**, not implementation. A test that exercises a code path without asserting user-visible outcomes is worse than no test — it creates false confidence.
+| You changed… | Write… |
+|---|---|
+| Plugin logic: a state transition, an event, a command | A [unit test](#unit-tests-_testgo-in-same-package) built on the [harness](#plugin-test-harness) |
+| What a plugin renders in one state | A [golden test](#golden-tests-golden_testgo--testdatagolden) |
+| Routing between plugins: navigation, events reaching the header | An [app test](#app-tests-internaluiapp_testgo) in `internal/ui/app_test.go` |
+| The terraform command a key records, or a flow through the TUI | A [tape](#macro-tests-testsfixturestapes) |
+| Service code or CLI flag handling against real terraform | An [integration test](#integration-tests-testsintegration-build-tag-integration) |
 
-This project suffered bugs that passed 100% code coverage but failed behavioral correctness. The root cause: tests focused on exercising code paths (coverage-driven) rather than specifying behavior. For example, the workspace plugin had 100% coverage but tests never verified that:
+## Rules
 
-- The header preserves chdir after workspace changes
-- Operations are guarded during loading state
-- Delete requires confirmation before execution
-- Creating a workspace stays in the list (does not pop back)
-
-The standard is now clear:
-
-1. **BDD/TDD is non-negotiable** — tests describe BEHAVIOR, not implementation
-2. **Coverage is a side-effect** of good behavior tests, never the goal
-3. **Tests are the living spec** — if a test does not describe a user-visible behavior, it is wrong
-4. **One test suite** — there is no separation between "behavior tests" and "coverage tests"
+1. **Tests describe behavior, not implementation.** A test that runs a code path without asserting a user-visible
+   outcome creates false confidence.
+2. **Coverage is a side effect, never the goal:** a path run without an assertion passes while the behavior is wrong.
+3. **Tests are the living spec.** A test that does not describe a user-visible behavior is wrong.
+4. **One test suite.** There is no separation between "behavior tests" and "coverage tests".
 
 ## Test Naming Convention
 
@@ -38,7 +38,7 @@ Use `Test{Subject}_{Given/When}_{ExpectedBehavior}` format. The name should read
 func TestSwitchToSelected_GivenDifferentWorkspace_ShouldSetLoadingAndDispatch(t *testing.T)
 func TestFrame_GivenLoading_EnterKey_ShouldBeIgnored(t *testing.T)
 func TestUpdate_GivenCreateSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T)
-func TestHints_GivenDone_CursorOnDeletable_ShouldShowDeleteAndSelect(t *testing.T)
+func TestHints_GivenDone_CursorOnDefault_ShouldNotShowDelete(t *testing.T)
 func TestActivate_GivenError_ShouldRetryLoading(t *testing.T)
 
 // Bad: describes mechanics, not behavior
@@ -60,12 +60,12 @@ The format has three parts:
 This is the required workflow for every change:
 
 1. **Write a failing test** that describes the behavior
-2. **Run it** — confirm it fails for the RIGHT reason (not a compile error or wrong assertion)
+2. **Run it** — confirm it fails for the right reason (not a compile error or wrong assertion)
 3. **Implement** the minimum code to pass
 4. **Refactor** while tests stay green
 5. **Coverage should naturally be 100%** — if not, you missed a behavior
 
-The `test-writer` agent MUST be invoked before any implementation edit. This enforces the "failing test first" discipline.
+The `test-writer` agent writes the failing test before any implementation edit.
 
 ## Running Tests
 
@@ -73,18 +73,18 @@ The `test-writer` agent MUST be invoked before any implementation edit. This enf
 # Unit tests (fast, no external dependencies)
 mise run test:unit
 
-# Coverage report (100% gate, excludes cmd/ glue)
+# Coverage gate (see Coverage Target)
 mise run test:coverage
 
-# Macro tests (TUI flows against built binary)
+# smoke/ tapes against the binary in dist/ (run mise run build first)
 mise run test:macro
 
-# Integration tests (requires terraform/tofu on PATH)
-mise run 'test:integration:*'
-
-# Full verification before commit
-mise run check:lint && mise run test:unit
+# Integration tests and the macro/ and compat/ tape runners (requires terraform on PATH)
+mise run test:integration
 ```
+
+The done check, everything that must pass before a change is done, is in
+[AGENTS.md](https://github.com/lmarqs/terraform-ui/blob/main/AGENTS.md#quick-reference).
 
 ## Test Layers
 
@@ -98,9 +98,7 @@ mise run check:lint && mise run test:unit
 
 ```go
 func TestDeleteWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
-    svc := &mockService{}
-    p := New(svc).(*Plugin)
-    p.svc = svc
+    p, _ := newTestPlugin(&sdktest.MockService{})
     p.status = sdk.StatusDone
     p.workspaces = []string{"default", "temp"}
     p.current = "default"
@@ -121,14 +119,14 @@ func TestDeleteWorkspace_ShouldSetLoadingAndDispatch(t *testing.T) {
 }
 ```
 
-**Mock services:** Implement `sdk.Service` with configurable return values. Keep them minimal — only the methods your test exercises need real logic.
+**Mock services:** Use `sdktest.MockService` (`pkg/sdk/sdktest/mock_service.go`) and set only the function fields your
+test exercises; unset methods return zero values, and each call is recorded (`WorkspaceSelectCalls`,
+`PlanCalls`, …). A per-package mock duplicates it.
 
 ```go
-type mockService struct {
-    workspaceList      []string
-    workspaceListErr   error
-    workspaceSelectErr error
-    // ... only what's needed
+svc := &sdktest.MockService{
+    WorkspaceListFn: func(context.Context) ([]string, error) { return []string{"default", "staging"}, nil },
+    WorkspaceFn:     func(context.Context) (string, error) { return "staging", nil },
 }
 ```
 
@@ -167,9 +165,9 @@ go test ./plugins/workspace/ -run TestView -update
 
 Golden test names map to file paths: `TestView_Given_Loading_ShouldRender_LoadingMessage` becomes `testdata/golden/TestView_Given_Loading_ShouldRender_LoadingMessage.txt`.
 
-### App-Level Integration Tests (`internal/ui/app_test.go`)
+### App tests (`internal/ui/app_test.go`)
 
-**What they test:** Cross-cutting flows that span multiple components — navigation between plugins, event dispatch causing header updates, `returnTo` behavior after push/pop.
+**What they test:** Cross-cutting flows that span multiple components — navigation between plugins, event dispatch causing header updates, `navStack` behavior after push and pop.
 
 **When to write:** When a behavior depends on how the app routes messages between plugins (e.g., "workspace change should update header chdir display").
 
@@ -177,26 +175,24 @@ These tests verify the contract between the app shell and plugins — things no 
 
 ### Macro Tests (`tests/fixtures/tapes/`)
 
-Tape-driven TUI tests come in **three layers** with different runtime
-backends. The backend dictates what a tape can wait for and what a
-test can assert. Pick the right layer first; getting this wrong leads
-to tapes that pass against one backend and silently fail against
-another.
+Tape-driven TUI tests come in **three layers**. Every layer runs tfui with `--macro`, so every layer uses the
+`MacroService` backend: terraform never runs, reads come from plan and state fixtures, and mutations are recorded as
+commands. The layers differ in runner and in what a test asserts.
 
 ```
 tests/fixtures/tapes/
 ├── compat/   CLI compatibility scenarios (flag normalization)
-├── macro/    MacroService recording (no terraform execution)
-└── smoke/    Real terraform via the built binary
+├── macro/    Key presses and the commands they record
+└── smoke/    Flows through the release binary
 ```
 
 #### Layer comparison
 
 | Layer | Backend | What tapes can wait for | What tests assert | Runner |
 |---|---|---|---|---|
-| `macro/` | `MacroService` records commands; never executes | Plugin-rendered text only — terraform output never appears | Recorded command stream via `wantStdout` substring | `TestMacro` in `tests/integration/macro_test.go` (runs in `mise run test:integration`) |
-| `smoke/` | Real terraform via the compiled binary | Real terraform output (`Apply complete`, `Initialized`, `Plan: N to add`) and plugin views | Tape's own `assert view` lines (no Go-level assertions) | `mise run test:macro` (requires a built binary in `dist/`) |
-| `compat/` | Real terraform plus flag-normalization checks | Real terraform output | Recorded command stream via `Contains` checks in dedicated `TestCompat_*` cases | `tests/integration/compat_test.go` (runs in `mise run test:integration`) |
+| `macro/` | `MacroService`, against the fixtures each case passes | Plugin-rendered text | Recorded command stream via `wantStdout` substring | `TestMacro` in `tests/integration/macro_test.go` (runs in `mise run test:integration`) |
+| `smoke/` | `MacroService`, against `tests/fixtures/plan.json` and `state.json` | Plugin-rendered text | Tape's own `assert view` lines (no Go-level assertions) | `mise run test:macro` (requires a built binary in `dist/`) |
+| `compat/` | `MacroService`, through CLI subcommands and flags | Plugin-rendered text | Recorded command stream via `Contains` checks in dedicated `TestCompat_*` cases | `tests/integration/compat_test.go` (runs in `mise run test:integration`) |
 
 #### Decision
 
@@ -205,13 +201,13 @@ Need to test…                                  Use tapes in…
 ────────────────────────────────────────────────────────────
 "key X records command Y"                      macro/
 "key X causes plugin Y to render Z"            macro/
-"the full backend pipeline renders correctly"  smoke/
-"flag X reaches terraform with shape Y"        compat/
+"the release binary renders a flow end to end" smoke/
+"flag X is recorded with shape Y"              compat/
 ```
 
 If you're not sure: prefer `macro/`. It runs in CI on every PR,
-needs no compiled binary, and gives the strongest signal for
-key-press → command-recording behavior.
+needs no binary in `dist/` (the test builds its own), and gives the
+strongest signal for key-press → command-recording behavior.
 
 #### Adding a `macro/` test (the common case)
 
@@ -237,24 +233,12 @@ key-press → command-recording behavior.
    asserts on the recorded command stream.
 3. Run `mise run test:integration`.
 
-#### Tape DSL
-
-```tape
-wait ready                       # wait until plugin reports Ready()
-wait view <substring>            # wait until rendered view contains substring
-assert view <substring>          # fail-now if rendered view lacks substring
-key <key>                        # send a single keypress (e.g. p, enter, ctrl+t)
-sleep <duration>                 # pause (e.g. 100ms, 1s)
-resize <w> <h>                   # send a WindowSizeMsg
-screenshot <path>                # dump current view to a file
-```
-
-Full DSL reference: `docs/reference/macro-language.md`.
+The tape language is in [Macro language](../reference/macro-language.md).
 
 #### Common authoring mistakes
 
-- **Waiting for terraform output in a `macro/` tape.** MacroService
-  never executes terraform; tapes must wait for plugin views only.
+- **Waiting for terraform output in a tape.** MacroService never
+  executes terraform; tapes wait for plugin views only.
 - **Writing a screenshot to an absolute path in a Go-driven test.**
   Use a relative filename and set `cwdFunc` on the test case so the
   binary runs from `t.TempDir()`.
@@ -262,26 +246,27 @@ Full DSL reference: `docs/reference/macro-language.md`.
   for the apply case.** Apply records `terraform apply <planfile>`;
   use a substring like `"terraform apply "` instead.
 
-### Integration Tests (`tests/integration/`)
+### Integration tests (`tests/integration/`, build tag `integration`)
 
-**What they test:** Real terraform/tofu/terragrunt execution. Service layer correctness against actual CLI.
+**What they test:** Real-terraform tests of service layer and CLI correctness, plus the runners for `macro/` and
+`compat/` tapes.
 
 **When to write:** When changing service implementations, adding new terraform operations, or modifying CLI argument handling.
 
 **Location:** `tests/integration/` with fixtures in `tests/fixtures/`.
 
 ```go
-func TestPlan_CreateFixture_ShouldReport1Addition(t *testing.T) {
+func TestPlan_CreateFixture_AgentMode(t *testing.T) {
     result := runPlanAgent(t, "create")
-    if result.Summary.Add != 1 {
-        t.Errorf("expected 1 add, got %d", result.Summary.Add)
+    if s := summarize(result); s.add != 2 {
+        t.Errorf("expected add=2, got %d", s.add)
     }
 }
 ```
 
 ## What Makes a Good Behavioral Test
 
-A test should answer: **"What does the USER see or experience?"**
+A test should answer: **"What does the user see or experience?"**
 
 ### Bad: Coverage-Focused
 
@@ -301,17 +286,14 @@ This test exercises the code path but proves nothing about behavior. It passes e
 
 ```go
 func TestRefresh_ShouldResetAndStartLoading(t *testing.T) {
-    // Given a plugin with stale data and a non-zero selection
-    svc := &mockService{workspaceList: []string{"default"}, workspace: "default"}
-    p := New(svc).(*Plugin)
-    p.svc = svc
+    // Given a plugin showing loaded data
+    p, _ := newTestPlugin(&sdktest.MockService{})
     p.status = sdk.StatusDone
-    p.selected = 5
 
     // When refresh is triggered
     cmd := p.Refresh()
 
-    // Then loading begins and selection is reset
+    // Then loading begins
     if p.status != sdk.StatusLoading {
         t.Errorf("status = %v, want Loading", p.status)
     }
@@ -322,38 +304,6 @@ func TestRefresh_ShouldResetAndStartLoading(t *testing.T) {
 ```
 
 This test specifies: "After refresh, the plugin should be in loading state." If someone accidentally removes the status reset, this test catches it.
-
-### Another Example: Testing Command Results
-
-```go
-// Bad: only checks cmd is non-nil
-func TestActivate(t *testing.T) {
-    p := setup()
-    cmd := p.Activate()
-    assert(cmd != nil)
-}
-
-// Good: executes the command and verifies its result
-func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
-    svc := &mockService{workspaceList: []string{"default", "staging"}, workspace: "staging"}
-    p := New(svc).(*Plugin)
-    p.Init(&sdk.Context{Service: svc})
-
-    cmd := p.Activate()
-    msg := cmd()
-
-    result, ok := msg.(WorkspaceListMsg)
-    if !ok {
-        t.Fatalf("Activate cmd returned %T, want WorkspaceListMsg", msg)
-    }
-    if len(result.Workspaces) != 2 {
-        t.Errorf("len(Workspaces) = %d, want 2", len(result.Workspaces))
-    }
-    if result.Current != "staging" {
-        t.Errorf("Current = %q, want %q", result.Current, "staging")
-    }
-}
-```
 
 ## Test Scenarios to Always Cover
 
@@ -403,11 +353,10 @@ func TestUpdate_GivenCreateSuccess_ShouldRefreshAndEmitCreatedEvent(t *testing.T
 
 // Hints are context-sensitive
 func TestHints_GivenLoading_ShouldShowOnlyBack(t *testing.T) { ... }
-func TestHints_GivenDone_CursorOnDeletable_ShouldShowDeleteAndSelect(t *testing.T) { ... }
-func TestHints_GivenDone_CursorOnCurrent_ShouldHideDelete(t *testing.T) { ... }
+func TestHints_GivenDone_CursorOnDefault_ShouldNotShowDelete(t *testing.T) { ... }
 ```
 
-Each test name reads as a specification. Together, they form the complete behavioral contract.
+Each test name reads as a specification.
 
 ## Anti-Patterns
 
@@ -430,12 +379,28 @@ func TestActivate(t *testing.T) {
     if cmd == nil { t.Error("nil") }
 }
 
-// GOOD: executes the command and verifies behavior
+// GOOD: executes the command and verifies its result
 func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
-    cmd := p.Activate()
-    msg := cmd()
-    result := msg.(WorkspaceListMsg)
-    if len(result.Workspaces) != 2 { ... }
+    svc := &sdktest.MockService{
+        WorkspaceListFn: func(context.Context) ([]string, error) { return []string{"default", "staging"}, nil },
+        WorkspaceFn:     func(context.Context) (string, error) { return "staging", nil },
+    }
+    p, _ := newTestPlugin(svc)
+
+    batch := p.Activate()().(tea.BatchMsg)
+
+    var result WorkspaceListMsg
+    for _, cmd := range batch {
+        if msg, ok := cmd().(WorkspaceListMsg); ok {
+            result = msg
+        }
+    }
+    if len(result.Workspaces) != 2 {
+        t.Errorf("len(Workspaces) = %d, want 2", len(result.Workspaces))
+    }
+    if result.Current != "staging" {
+        t.Errorf("Current = %q, want %q", result.Current, "staging")
+    }
 }
 ```
 
@@ -445,7 +410,7 @@ func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
 // BAD: only proves the mock was called
 func TestSwitch(t *testing.T) {
     p.SwitchToSelected()
-    if !svc.selectCalled { t.Error("not called") }
+    if len(svc.WorkspaceSelectCalls) != 1 { t.Error("not called") }
 }
 
 // GOOD: verifies what the user experiences
@@ -490,7 +455,7 @@ func TestView_GivenError_ShouldShowErrorMessage(t *testing.T) {
 
 ### 6. Separate "behavior tests" and "coverage tests" files
 
-There is ONE test suite that serves both purposes. If you need a separate file to hit coverage, you missed a behavior. Never create `coverage_test.go` or `coverage_gaps_test.go` files — they signal coverage-driven testing, which this project explicitly rejects.
+There is one test suite that serves both purposes. If you need a separate file to hit coverage, you missed a behavior. Never create `coverage_test.go` or `coverage_gaps_test.go` files — they signal coverage-driven testing, which this project explicitly rejects.
 
 ## File Organization
 
@@ -509,7 +474,7 @@ Test files are organized by domain concern, not by coverage goals.
 
 - **Split** when a single test file exceeds ~1500 lines AND contains logically separable concerns (different frames, rendering vs behavior, different sub-systems within one source file)
 - **Merge** when tests for the same function/type are scattered across multiple files without clear domain separation
-- **Each test file name** describes WHAT it tests, not WHY it was written
+- **Each test file name** describes what it tests, not why it was written
 
 ### Allowed test file patterns
 
@@ -554,12 +519,6 @@ func TestIsValidWorkspaceName(t *testing.T) {
 }
 ```
 
-### Mock Services
-
-- Implement `sdk.Service` with no-op defaults
-- Only configure the methods your test exercises
-- Use descriptive field names: `workspaceListErr`, not `err1`
-
 ### Plugin Test Harness
 
 A plugin test builds its dependencies with `sdktest.NewDeps(svc)` (`pkg/sdk/sdktest/testdeps.go`) and calls `Init`.
@@ -569,7 +528,7 @@ plugin used without it, or with a `PluginDeps` built by hand, is not the plugin 
 ```go
 func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
     h := sdktest.NewDeps(svc)
-    p := New(svc)
+    p := New(svc).(*Plugin)
     p.Init(h.Deps)
     return p, h
 }
@@ -588,6 +547,7 @@ pin sets `h.Ctx.Pins` itself. Execute a returned `tea.Cmd` before asserting its 
 
 | Utility | Location | Purpose |
 |---------|----------|---------|
+| `sdktest.MockService` | `pkg/sdk/sdktest/mock_service.go` | Shared `sdk.Service` test double |
 | `sdktest.AssertGolden` | `pkg/sdk/sdktest/golden.go` | Golden file comparison |
 | `sdktest.StripANSI` | `pkg/sdk/sdktest/golden.go` | Remove terminal escape sequences |
 | `t.TempDir()` | stdlib | Isolated filesystem for tests |
@@ -595,11 +555,14 @@ pin sets `h.Ctx.Pins` itself. Execute a returned `tea.Cmd` before asserting its 
 
 ### Coverage Target
 
-100% gate on all packages excluding `cmd/` glue. This is enforced by `mise run test:coverage`. If coverage drops below 100%, it means a behavior is untested — find the behavior, write the test.
+100% gate on every package except `cmd/` and `internal/terraform/exec`, enforced by `mise run test:coverage` and in CI
+([ADR-0008](../adr/0008-coverage-as-behavioral-gate.md)). If coverage drops below 100%, it means a behavior is untested — find the behavior, write the test.
 
 ## Fixtures
 
 ### Location
+
+Each scenario is a directory under `tests/fixtures/`; for example:
 
 ```
 tests/fixtures/
@@ -644,15 +607,4 @@ terraform init && terraform apply -auto-approve
 git add terraform.tfstate
 ```
 
-## Summary
-
-| Principle | Rule |
-|-----------|------|
-| Tests describe behavior | Every test name reads as a spec |
-| Coverage is a side-effect | Never write a test "for coverage" |
-| TDD is mandatory | Failing test before implementation |
-| One suite serves all purposes | No separate "coverage" files |
-| Execute commands fully | Never stop at `cmd != nil` |
-| Assert user-visible outcomes | Status, messages, events, view content |
-| Guard all states | Loading, error, empty, boundary |
-| Confirm destructive ops | Push confirmation frame, test y/n/esc |
+Before you push, run the done check in AGENTS.md; CI runs `mise run test:coverage` at 100%.

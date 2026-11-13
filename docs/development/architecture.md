@@ -12,7 +12,11 @@ audience: "Contributors before a change that crosses packages"
 
 # Architecture
 
-terraform-ui is a Go application built with [Bubbletea](https://github.com/charmbracelet/bubbletea) (TUI framework) and [terraform-exec](https://github.com/hashicorp/terraform-exec) (terraform SDK). Features are modular plugins that depend only on a public SDK package.
+terraform-ui is a Go application built with [Bubbletea](https://github.com/charmbracelet/bubbletea) (TUI framework) and [terraform-exec](https://github.com/hashicorp/terraform-exec) (Go library that runs the terraform binary). Features are modular plugins that depend only on a public SDK package.
+
+This page maps each part to its directory and the decision behind it. How to test each part is in
+[Testing](testing.md); TUI and CLI rules are in [TUI UX](../reference/tui-ux.md) and [CLI UX](../reference/cli-ux.md);
+decisions are in [the ADRs](../adr/index.md).
 
 ## Dependency Direction
 
@@ -34,7 +38,7 @@ cmd/tfui/                  — CLI entry point (thin glue)
   root.go                  — Root command and persistent flags
   registry.go              — buildRegistry(): every plugin factory with its PluginMeta
   session.go               — Session: Run (app mode) and RunPlugin (one plugin)
-  <plugin>_command.go      — One subcommand per plugin, parsing flags into the plugin's Input
+  <name>_command.go        — One file per subcommand; most parse flags into a plugin's Input
   normalize.go             — Terraform flag compatibility (normalizeArgs, splitPassthrough)
 pkg/sdk/                   — Public SDK (the only dependency for plugins; key files below)
   plugin.go                — Plugin interface + optional interfaces
@@ -68,9 +72,8 @@ internal/
   macro/                   — Macro engine (driver, runner, tape parser, recorder)
   ui/
     app.go                 — Root Bubbletea model: routing, navigation, Context ownership
-    components/            — Header, statusbar, AI panel, command bar, content border
+    components/            — Header, statusbar, command bar, content border
   editor/                  — Editor integration ($EDITOR at file:line)
-  ai/                      — AI provider (Claude via Bedrock, auto-detection)
   logging/                 — Structured logger setup
   scaffold/                — Project scaffolding (tfui.hcl generation)
   compliance/              — Plugin lifecycle compliance tests
@@ -79,10 +82,10 @@ plugins/
   chdir/                   — Chdir picker: select member from explicit list
   state/                   — State browser (list, inspect, pin, delete, move)
   plan/                    — Plan review (diff view, expand attributes, risk)
-  apply/                   — Apply executor for a saved plan file
-  taint/                   — Standalone taint verb (mark for recreation)
-  untaint/                 — Standalone untaint verb (remove taint mark)
-  import/                  — Standalone import verb (bring existing infra)
+  apply/                   — Apply executor (the plan file from plan, or a one-shot apply)
+  taint/                   — Taint (Action Mode): mark for recreation
+  untaint/                 — Untaint (Action Mode): remove taint mark
+  import/                  — Import (Action Mode): bring existing infra
   workspace/               — Workspace management
   console/                 — Terraform console (REPL)
   output/                  — Terraform outputs viewer
@@ -94,7 +97,7 @@ plugins/
   forceunlock/             — Force unlock stale state locks
   version/                 — Version information display
 tests/
-  integration/             — CLI integration tests (require terraform/tofu/terragrunt)
+  integration/             — CLI integration tests (require terraform)
   fixtures/                — Real terraform projects and config fixtures
 ```
 
@@ -119,10 +122,11 @@ Optional interfaces add capabilities the app detects by type assertion: `Activat
 `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Positionable`, `Stackable` (`frame.go`), `StdoutEmitter`,
 `StderrEmitter`, `ExitCoder`, `Statusable`, `Shutdowner` (called on every registered plugin when the program ends).
 
-Each plugin is a use case with two ports ([ADR-0021](../adr/0021-plugins-as-use-cases.md)):
+A plugin invoked from the CLI is a use case with two ports ([ADR-0021](../adr/0021-plugins-as-use-cases.md)):
 
-- **Input port:** a typed `Input` DTO and `Activate(input Input) tea.Cmd`. The subcommand in
-  `cmd/tfui/<plugin>_command.go` parses flags into the Input.
+- **Input port:** a typed `Input` DTO and the plugin's own `Activate(input Input) tea.Cmd` method, distinct from
+  `sdk.Activatable`, whose `Activate()` takes no input. The subcommand in `cmd/tfui/<name>_command.go` parses flags
+  into the Input.
 - **Output port:** `StdoutEmitter.Stdout() ([]byte, error)`, `StderrEmitter.Stderr() []byte` and
   `ExitCoder.ExitCode() int`; the framework pumps each to its sink.
 
@@ -232,6 +236,7 @@ frames: `FilterFrame`, `InspectFrame`, `ConfirmFrame`, `ActionFrame` (a running 
 ## Terraform Integration
 
 Two sibling implementations of `sdk.Service` exist as a strategy pattern, selected at startup by execution mode.
+A new `Service` method is implemented on `ExecService`, `MacroService` and `sdktest.MockService`.
 
 ### ExecService (live execution)
 
@@ -253,7 +258,7 @@ deterministic and safe: the UI renders real data from the cache, and mutations n
 - Pre-seeded at startup from `-plan`/`-state` ([ADR-0005](../adr/0005-cache-preseeding.md))
 - Three source kinds: `file` (re-reads on invalidate), `stdin` (immutable), `exec` (cleared on invalidate)
 - State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) invalidate the state cache
-- `Refresh()` and `WorkspaceSelect()` invalidate everything
+- `Refresh()`, `Init()` and `WorkspaceSelect()` invalidate everything
 - Plugins bypass it with `StateList(ctx, sdk.SkipCache())` for an explicit refresh (ctrl+r); the variadic option keeps
   cache semantics out of the interface ([ADR-0007](../adr/0007-no-cache-semantics-in-sdk.md))
 
@@ -275,8 +280,9 @@ OpenTofu is supported via explicit `terraform.bin = "tofu"` in HCL config, or by
 
 ## Entry Point (`cmd/tfui/`)
 
-Each subcommand is `build<Plugin>Command(s *Session)` in its own file. Its `RunE` fills the plugin's Input from flags
-and calls `Session.RunPlugin(ctx, "<id>", activate)`. The bare `tfui` command calls `Session.Run()`.
+Most subcommands are `build<Plugin>Command(s *Session)` in their own file. Their `RunE` fills the plugin's Input from
+flags and calls `Session.RunPlugin(ctx, "<id>", activate)`. `workspace` and `force-unlock` take the config instead and
+run terraform directly through `imperativeService(cfg)`. The bare `tfui` command calls `Session.Run()`.
 
 ### Session pipeline (`session.go`)
 
@@ -305,7 +311,7 @@ Two orthogonal axes are resolved from flags:
 
 ## Config Resolution & Propagation
 
-Config is resolved from `tfui.hcl` at three levels: root defaults → child (member dir) → workspace-specific overrides,
+Config is resolved from `tfui.hcl` at three levels: root defaults → member (`config.LoadChild`) → workspace-specific overrides,
 by `config.Resolve(root, child, workspace)`.
 
 ```
@@ -382,7 +388,7 @@ mise run fmt              # Format source files
 mise run check:lint       # Lint (golangci-lint v2)
 mise run test:unit        # Unit tests
 mise run test:coverage    # Coverage enforcement (100%)
-mise run test:integration # Integration tests (terraform/tofu/terragrunt)
+mise run test:integration # Integration tests (real terraform)
 mise run test:macro       # Macro tapes
 ```
 
@@ -396,8 +402,8 @@ mise run test:macro       # Macro tapes
 | Plugin = feature | Every capability is a plugin. Core app is just routing. |
 | Dependency injection | Service interface enables mocking. Plugins receive `PluginDeps` and the Context, not concrete types. |
 | Plugins invocation-agnostic | Same plugin works via keybinding, command bar, CLI, macro. No coupling to navigation. |
-| 100% coverage (excl cmd/) | Pipeline enforced. Untestable layers kept minimal via DI. |
-| OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. Test matrix includes both. |
+| 100% coverage (excl `cmd/`, `internal/terraform/exec`) | Pipeline enforced. Untestable layers kept minimal via DI. |
+| OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. |
 | `EventBus` typed pub/sub | Plugins react to state changes (context, plan, lock, state) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
 | ExecService + MacroService as sibling strategies | Same interface, different behavior. ExecService shells out for live ops; MacroService records commands without executing. Selected at startup, plugins are unaware. |
 | ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `-plan`/`-state` at startup, populated by ExecService after live calls. Pre-seeding means reads never shell out when data is already available. |
@@ -406,15 +412,15 @@ mise run test:macro       # Macro tapes
 
 | Decision | Rationale |
 |----------|-----------|
-| Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. Can take 10+ minutes. |
-| Pins = targets | Visual selection (space) is the TUI equivalent of `-target`. Pin, plan, then apply = apply only pinned. |
+| Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. |
+| Pins become targets on plan | Space pins a resource; `Context.PlanOptions()` turns pins into `-target`. Pin, plan, then apply = apply only the pinned resources. |
 | `a` from Plan = apply the reviewed plan file | Seamless flow: review → select → execute. No address typing. |
 | ExecService executes live, user waits for real results | Spinners, elapsed time, real errors — the UX communicates "this is happening now" with progress feedback and retry on failure. |
 | MacroService returns commands, not errors | Macro playback becomes a command builder. User sees the terraform commands that would run. |
 | CLI and TUI produce identical state | Testable invariant. The equivalence guarantee. |
 | Macros test UI, integration tests outcomes | Different concerns, different tools. Macros are fast/deterministic. Integration tests are authoritative. |
 
-### Command Type (`pkg/sdk/command.go`)
+## Command Type (`pkg/sdk/command.go`)
 
 Every service operation maps to a `sdk.Command`:
 
@@ -428,7 +434,7 @@ type Command struct {
 }
 ```
 
-This makes the tool's relationship to terraform explicit: **tfui is a command builder with a visual interface**. The TUI helps you construct the right terraform command. The CLI gives you a concise alternative. Both produce the same command, same outcome.
+Every operation is one terraform command: **tfui is a command builder with a visual interface**. The TUI helps you construct the right terraform command. The CLI gives you a concise alternative. Both produce the same command, same outcome.
 
 In macro mode, mutating operations are recorded as commands — the user sees what they'd need to run:
 ```
@@ -436,9 +442,9 @@ terraform state rm aws_instance.old
 terraform plan -out=<planfile> -target=aws_instance.web
 ```
 
-### Data Flow: Plan → Pin → Apply
+## Data Flow: Plan → Pin → Apply
 
-Targets go on plan, never on apply: terraform refuses `-target` with a saved plan file
+Targets go on plan, never on apply: terraform ignores `-target` on a saved plan file and applies the whole plan
 ([ADR-0019](../adr/0019-unidirectional-data-flow.md)).
 
 ```
@@ -459,6 +465,3 @@ User confirms → terraform apply <planfile>
   → PlanInvalidatedEvent on success
   → esc returns to plan through DeactivateMsg
 ```
-
-The standalone CLI `tfui apply -target=X` with no plan file passes targets straight to terraform's one-shot plan and
-apply ([CLI reference](../reference/cli-reference.md)).

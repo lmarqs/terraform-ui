@@ -13,8 +13,6 @@ audience: "Contributors filing or moving an issue"
 
 All planned work — features, bugs, refactors, and roadmap items — is tracked as
 **GitHub issues** organized on the **[terraform-ui project board](https://github.com/users/lmarqs/projects/2)**.
-There is no in-repo backlog file: `docs/_roadmap/` was retired and its contents
-migrated to issues (see [Roadmap](#roadmap) below).
 
 ## Where things live
 
@@ -36,31 +34,31 @@ strictly left-to-right; issues move one column at a time.
 | **Todo** | Ready to work — scoped well enough to start. |
 | **In Progress** | Actively being worked (branch/commits in flight). |
 | **In Review** | Committed and pushed; awaiting verification / review. |
-| **Done** | Merged to `main` and verified. |
+| **Done** | On `main` and verified. |
 
 Guidelines:
 
 - Pull from **Todo**, not **Backlog** — if something isn't Todo-ready, scope it first.
 - Keep **In Progress** small (ideally one item at a time; this repo ships small commits directly to `main`).
-- An issue reaches **Done** only after `mise run check:lint && mise run test:unit && mise run check:build` pass (plus `mise run test:macro` for UI changes).
+- An issue reaches **Done** only after the done check in [AGENTS.md](https://github.com/lmarqs/terraform-ui/blob/main/AGENTS.md#quick-reference) passes.
 
 ## Label taxonomy
 
 GitHub's native *Issue Types* are org-only, so **types are expressed as labels**.
-Every issue gets exactly one **type** label; **area/status** are carried by the
-board, not by labels.
+Every issue gets one or more labels from the table below, and they compose. Status
+is a board field, not a label.
 
 | Label | Use for |
 |-------|---------|
 | `bug` | Incorrect behavior in shipped code. |
 | `enhancement` | New user-facing feature or capability. |
-| `refactor` | Internal restructuring, no behavior change (see the architecture deep-dives). |
+| `refactor` | Internal restructuring, no behavior change (see [Architecture](architecture.md)). |
 | `ux` | TUI/CLI experience polish (hints, keybindings, output). |
 | `tech-debt` | Known correctness risk or debt to pay down. |
 | `documentation` | Docs-only changes. |
-| `roadmap` | A planned feature migrated from the old `docs/_roadmap/`. |
+| `roadmap` | A planned user-facing feature. |
 
-Labels compose: a roadmap feature that is also a refactor carries `roadmap,refactor`;
+For example, a roadmap feature that is also a refactor carries `roadmap,refactor`;
 a correctness-risk bug carries `bug,tech-debt`.
 
 ## Issue conventions
@@ -68,14 +66,13 @@ a correctness-risk bug carries `bug,tech-debt`.
 - **Title**: imperative and specific — `State Browser: pinning a resource wipes the list`, not `pin bug`. Prefix architecture refactors with `[arch]`.
 - **Body**: Summary → Root cause / Evidence (with `file:line`) → Fix → Verification. Cross-link related issues and ADRs.
 - **No speculative issues**: file work that serves a real, current need (mirrors the *No Speculative Code* rule in [`tfui-conventions` skill](https://github.com/lmarqs/terraform-ui/blob/main/.agents/skills/tfui-conventions/SKILL.md)).
-- **Close via commits**: end the commit body with `Fixes #NN` so merging to `main` closes the issue automatically. Use [conventional commit](https://www.conventionalcommits.org/) prefixes (`fix:`, `feat:`, `refactor:`, …) so semantic-release versions correctly.
+- **Close via commits**: end the commit body with `Fixes #NN` so the commit reaching `main` closes the issue automatically. Use [conventional commit](https://www.conventionalcommits.org/) prefixes (`fix:`, `feat:`, `refactor:`, …) so semantic-release versions correctly.
 
 ## Roadmap
 
 The roadmap is the set of open issues labelled
 [`roadmap`](https://github.com/lmarqs/terraform-ui/issues?q=is%3Aissue+is%3Aopen+label%3Aroadmap).
-Completed roadmap items are **closed**, never marked "done" in place — the same
-delete-on-completion discipline the old `docs/_roadmap/` collection used.
+Completed roadmap items are **closed**, never marked "done" in place.
 
 ## Common operations (`gh` CLI)
 

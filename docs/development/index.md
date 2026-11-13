@@ -6,12 +6,14 @@ has_children: true
 seo:
   description: Internal architecture, design decisions, and testing strategy for terraform-ui contributors
 description: "Lists the contributor pages and explains how the docs site is laid out and built."
-audience: "Contributors, and whoever changes the docs site"
+audience: "Contributors choosing a development page, and anyone changing the docs site's layout, theme or build"
 ---
 
 # Development
 
-Internal architecture, design decisions, and testing strategy for contributors.
+The pages below explain how tfui is built and tested and how work is tracked. The rest of this page is for changing
+the docs site: its layout, the sidebar, icons, and how to build and preview it. What goes on which page is in
+[the docs map](https://github.com/lmarqs/terraform-ui/blob/main/docs/README.md).
 
 - [Architecture](architecture.md) — Plugin system, event bus, navigation model
 - [Testing](testing.md) — Behavioral testing standard and layered test architecture
@@ -31,6 +33,8 @@ docs/
 ├── _layouts/
 │   ├── default.html          # Every Markdown page: top bar, sidebar, content, "On this page"
 │   └── home.html             # The landing page
+├── _plugins/
+│   └── seo_description.rb    # Puts seo.description into the meta tags
 ├── _includes/
 │   ├── context.html          # Resolves page_title and section from _data/nav.yml
 │   ├── head.html, title.html, header.html, sidebar.html, footer.html
@@ -46,10 +50,9 @@ docs/
 
 ### Pages and the sidebar
 
-- A Markdown page renders with the `default` layout. Its `description` front matter becomes the search-engine and link-preview description.
+- A Markdown page renders with the `default` layout. Its `description` says what the page is for a reader of `docs/`; `seo.description`, when present, is what search engines and link previews show (`_plugins/seo_description.rb`). The rules for both are in [the docs map](https://github.com/lmarqs/terraform-ui/blob/main/docs/README.md#front-matter).
 - To list a page in the sidebar, add its `path` and `title` to `_data/nav.yml`. A `match` folder marks the entry current for every page under it, as `adr/` does for the decision records.
 - Link between pages with relative `.md` paths, such as `[Apply](../plugins/apply.md)`. `jekyll-relative-links` turns them into site URLs.
-- Plugin pages carry `id`, `key`, `category` and `default_enabled` front matter.
 
 ### Icons
 
