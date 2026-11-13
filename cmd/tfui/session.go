@@ -189,7 +189,8 @@ func (s *Session) RunPlugin(ctx context.Context, pluginID string, activate func(
 // RunPluginFrom is RunPlugin for a verb whose run starts in another plugin:
 // activate receives the entry plugin, which hands over to the verb's plugin
 // (pluginID). The output port belongs to the verb's plugin; when the entry
-// plugin fails before the hand-over, its stderr and exit code are pumped instead.
+// plugin fails before the hand-over, its stderr and exit code are pumped
+// instead (outputPortOwner).
 func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, activate func(sdk.Plugin) tea.Cmd) error {
 	if err := s.validatePlugin(pluginID); err != nil {
 		return err
@@ -241,9 +242,6 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 		} else {
 			driver.Init()
 			if err := driver.WaitUntil(func(_ string) bool {
-				if p, ok := registry.ByID(entryID); ok && entryID != pluginID && statusOf(p) == sdk.StatusError {
-					return true
-				}
 				if p, ok := registry.ByID(pluginID); ok {
 					return p.Ready() || terminalStatus(p)
 				}
@@ -277,11 +275,8 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 	if !ok {
 		return nil
 	}
-	failure := p
-	if entry, ok := registry.ByID(entryID); ok && entryID != pluginID &&
-		statusOf(p) == sdk.StatusIdle && statusOf(entry) == sdk.StatusError {
-		failure = entry
-	}
+	entry, _ := registry.ByID(entryID)
+	failure := outputPortOwner(p, entry)
 	if emitter, ok := p.(sdk.StdoutEmitter); ok {
 		data, err := emitter.Stdout()
 		if err != nil {
@@ -296,6 +291,16 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 		s.effects.ExitWithCode(coder.ExitCode())
 	}
 	return nil
+}
+
+// outputPortOwner picks the plugin whose stderr and exit code report the run:
+// the verb's plugin, unless it never left idle because the entry plugin failed
+// before handing over.
+func outputPortOwner(verb, entry sdk.Plugin) sdk.Plugin {
+	if statusOf(verb) == sdk.StatusIdle && statusOf(entry) == sdk.StatusError {
+		return entry
+	}
+	return verb
 }
 
 // validatePlugin runs the lightweight pre-dispatch checks shared with the

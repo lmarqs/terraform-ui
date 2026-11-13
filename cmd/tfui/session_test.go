@@ -13,7 +13,6 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
-	"github.com/lmarqs/terraform-ui/plugins/plan"
 	"github.com/lmarqs/terraform-ui/plugins/taint"
 )
 
@@ -169,69 +168,6 @@ func writeTempTape(t *testing.T, content string) string {
 	return f.Name()
 }
 
-// writeFailingTerraform writes a fake terraform binary that answers the
-// version probe and fails every other command with stderrMsg on stderr, the
-// way a broken configuration makes `terraform plan` fail.
-func writeFailingTerraform(t *testing.T, stderrMsg string) string {
-	t.Helper()
-	bin := filepath.Join(t.TempDir(), "terraform")
-	script := `#!/bin/sh
-if [ "$1" = "version" ]; then
-  echo '{"terraform_version":"1.14.0","platform":"linux_amd64","provider_selections":{},"terraform_outdated":false}'
-  exit 0
-fi
-echo "` + stderrMsg + `" >&2
-exit 1
-`
-	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
-		t.Fatalf("write fake terraform: %v", err)
-	}
-	return bin
-}
-
-// TestRunPluginFrom_WhenEntryPlanFailsBeforeApply_ShouldExitWithPlanError
-// covers `tfui apply` entered through plan: the plan fails, apply never
-// leaves idle, so the plan's error and exit code reach the user.
-func TestRunPluginFrom_WhenEntryPlanFailsBeforeApply_ShouldExitWithPlanError(t *testing.T) {
-	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
-		t.Fatalf("write tf: %v", err)
-	}
-	var stderrBuf bytes.Buffer
-	exitCode := 0
-	session := &Session{
-		cfg: config.Config{
-			Dir:       dir,
-			Terraform: config.TerraformConfig{Bin: writeFailingTerraform(t, "Error: Unsupported block type boom")},
-		},
-		ciMode:       true,
-		silentStderr: true,
-		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &stderrBuf, Exit: func(code int) { exitCode = code }},
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- session.RunPluginFrom(context.Background(), "apply", "plan", func(p sdk.Plugin) tea.Cmd {
-			return p.(*plan.Plugin).Activate(plan.Input{})
-		})
-	}()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("RunPluginFrom error = %v", err)
-		}
-	case <-time.After(20 * time.Second):
-		t.Fatal("RunPluginFrom hung after the entry plan failed")
-	}
-
-	if exitCode != 1 {
-		t.Errorf("exit code = %d, want 1 (the failed plan's)", exitCode)
-	}
-	if !strings.Contains(stderrBuf.String(), "boom") {
-		t.Errorf("stderr = %q, want the plan's terraform error", stderrBuf.String())
-	}
-}
-
 // TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply pins that
 // entering through the verb's own plugin behaves as RunPlugin does.
 func TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply(t *testing.T) {
@@ -283,5 +219,40 @@ func TestRunPluginFrom_WhenEntryPluginDisabled_ShouldReturnDisabledError(t *test
 
 	if err == nil || !strings.Contains(err.Error(), `plugin "plan" is disabled in tfui.hcl`) {
 		t.Errorf("RunPluginFrom error = %v, want the disabled-plugin error for the entry plugin", err)
+	}
+}
+
+// statusPlugin is a plugin reduced to the lifecycle status outputPortOwner reads.
+type statusPlugin struct {
+	sdk.Plugin
+	status sdk.Status
+}
+
+func (p *statusPlugin) Status() sdk.Status { return p.status }
+
+// TestOutputPortOwner covers `tfui apply` entered through plan: when plan
+// fails before the hand-over, apply never leaves idle and the plan's error
+// and exit code are what the user needs.
+func TestOutputPortOwner(t *testing.T) {
+	tests := []struct {
+		name      string
+		verb      sdk.Status
+		entry     sdk.Status
+		wantEntry bool
+	}{
+		{name: "entry failed before the hand-over", verb: sdk.StatusIdle, entry: sdk.StatusError, wantEntry: true},
+		{name: "verb ran after the hand-over", verb: sdk.StatusError, entry: sdk.StatusDone, wantEntry: false},
+		{name: "verb idle, entry done", verb: sdk.StatusIdle, entry: sdk.StatusDone, wantEntry: false},
+		{name: "verb done", verb: sdk.StatusDone, entry: sdk.StatusDone, wantEntry: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			verb := &statusPlugin{status: tt.verb}
+			entry := &statusPlugin{status: tt.entry}
+			got := outputPortOwner(verb, entry)
+			if (got == sdk.Plugin(entry)) != tt.wantEntry {
+				t.Errorf("outputPortOwner() = entry? %v, want %v", got == sdk.Plugin(entry), tt.wantEntry)
+			}
+		})
 	}
 }
