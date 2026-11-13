@@ -1,3 +1,12 @@
+## [1.27.2](https://github.com/lmarqs/terraform-ui/compare/v1.27.1...v1.27.2) (2026-11-13)
+
+
+### Bug Fixes
+
+* **apply:** review the plan's diff before a standalone apply ([b2fd484](https://github.com/lmarqs/terraform-ui/commit/b2fd48499350e84e1292afd3efeb24fbfad8350f)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **apply:** validate the entry plugin and correct stale comments ([634f954](https://github.com/lmarqs/terraform-ui/commit/634f954d2860c0e6a70eaff6e0ac1446cf78b3db)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **ui:** show a plugin's own hints when its frame stack is empty ([44f0d79](https://github.com/lmarqs/terraform-ui/commit/44f0d79217807fe6ca90792a69161be0d9d782d5)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+
 ## [1.27.1](https://github.com/lmarqs/terraform-ui/compare/v1.27.0...v1.27.1) (2026-11-13)
 
 
