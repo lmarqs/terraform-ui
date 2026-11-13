@@ -1093,6 +1093,20 @@ func usableDimension(reported, fallback int) int {
 	return reported
 }
 
+// activeHints returns the frame stack's hints, falling back to the plugin's own
+// when the stack has none (an empty stack, as on apply's confirmation screen).
+func activeHints(p sdk.Plugin) []sdk.KeyHint {
+	if stackable, ok := p.(sdk.Stackable); ok {
+		if hints := stackable.Stack().Hints(); hints != nil {
+			return hints
+		}
+	}
+	if hintable, ok := p.(sdk.Hintable); ok {
+		return hintable.Hints()
+	}
+	return nil
+}
+
 func (a App) View() string {
 	// Only before the first WindowSizeMsg arrives: an unusable size reported by
 	// the terminal is substituted, never left at zero.
@@ -1158,18 +1172,8 @@ func (a App) View() string {
 			Width(a.width)
 		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
 	} else if a.activePlugin != nil {
-		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
-			if hints := stackable.Stack().Hints(); hints != nil {
-				statusBar = a.statusBar.RenderHints(hints, a.width)
-			} else {
-				statusBar = a.statusBar.Render(a.width)
-			}
-		} else if hintable, ok := a.activePlugin.(sdk.Hintable); ok {
-			if hints := hintable.Hints(); hints != nil {
-				statusBar = a.statusBar.RenderHints(hints, a.width)
-			} else {
-				statusBar = a.statusBar.Render(a.width)
-			}
+		if hints := activeHints(a.activePlugin); hints != nil {
+			statusBar = a.statusBar.RenderHints(hints, a.width)
 		} else {
 			statusBar = a.statusBar.Render(a.width)
 		}
@@ -1264,18 +1268,8 @@ func (a App) viewStandalone() string {
 			Width(a.width)
 		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
 	} else if a.activePlugin != nil {
-		if stackable, ok := a.activePlugin.(sdk.Stackable); ok {
-			if hints := stackable.Stack().Hints(); hints != nil {
-				statusBar = a.statusBar.RenderHints(hints, a.width)
-			} else {
-				statusBar = a.statusBar.Render(a.width)
-			}
-		} else if hintable, ok := a.activePlugin.(sdk.Hintable); ok {
-			if hints := hintable.Hints(); hints != nil {
-				statusBar = a.statusBar.RenderHints(hints, a.width)
-			} else {
-				statusBar = a.statusBar.Render(a.width)
-			}
+		if hints := activeHints(a.activePlugin); hints != nil {
+			statusBar = a.statusBar.RenderHints(hints, a.width)
 		} else {
 			statusBar = a.statusBar.Render(a.width)
 		}

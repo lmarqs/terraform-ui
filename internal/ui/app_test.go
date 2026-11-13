@@ -5758,3 +5758,143 @@ func TestApp_Activate_TypedSwitch_DispatchesPerPluginType(t *testing.T) {
 		})
 	}
 }
+
+// mockStackableHintablePlugin is stackable and hintable, like apply: its
+// frame stack is empty while the plugin's own screen is showing.
+type mockStackableHintablePlugin struct {
+	mockPlugin
+	stack *sdk.Stack
+	hints []sdk.KeyHint
+}
+
+func (m *mockStackableHintablePlugin) Stack() *sdk.Stack    { return m.stack }
+func (m *mockStackableHintablePlugin) Hints() []sdk.KeyHint { return m.hints }
+
+const defaultBarMarker = "^w wrap"
+
+func TestApp_View_WhenStackablePluginEmptyStackAndHintable_ShouldShowPluginHints(t *testing.T) {
+	tests := []struct {
+		name       string
+		standalone bool
+	}{
+		{name: "TUI", standalone: false},
+		{name: "Standalone", standalone: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := setupTestApp()
+			if tt.standalone {
+				registry := plugin.NewRegistry()
+				registry.Build(nil, nil)
+				app = NewApp(config.Config{
+					Dir:       "/test/dir",
+					Terraform: config.TerraformConfig{Bin: "terraform"},
+				}, &sdktest.MockService{}, registry, nil, &StandaloneConfig{PluginID: "state"})
+			}
+			app.width = 80
+			app.height = 24
+			app.activePlugin = &mockStackableHintablePlugin{
+				mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+				stack:      sdk.NewStack(),
+				hints:      []sdk.KeyHint{{Key: "y/n", Description: "confirm"}},
+			}
+
+			output := app.View()
+
+			if !strings.Contains(output, "confirm") {
+				t.Errorf("View() should show the plugin's own hints when the frame stack is empty, got:\n%s", output)
+			}
+			if strings.Contains(output, defaultBarMarker) {
+				t.Errorf("View() should not fall back to the default bar when the plugin has hints, got:\n%s", output)
+			}
+		})
+	}
+}
+
+func TestApp_View_WhenStackablePluginEmptyStackAndNilHints_ShouldShowDefaultBar(t *testing.T) {
+	tests := []struct {
+		name       string
+		standalone bool
+	}{
+		{name: "TUI", standalone: false},
+		{name: "Standalone", standalone: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := setupTestApp()
+			if tt.standalone {
+				registry := plugin.NewRegistry()
+				registry.Build(nil, nil)
+				app = NewApp(config.Config{
+					Dir:       "/test/dir",
+					Terraform: config.TerraformConfig{Bin: "terraform"},
+				}, &sdktest.MockService{}, registry, nil, &StandaloneConfig{PluginID: "state"})
+			}
+			app.width = 80
+			app.height = 24
+			app.activePlugin = &mockStackableHintablePlugin{
+				mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+				stack:      sdk.NewStack(),
+			}
+
+			output := app.View()
+
+			if !strings.Contains(output, defaultBarMarker) {
+				t.Errorf("View() should show the default bar when stack and plugin have no hints, got:\n%s", output)
+			}
+		})
+	}
+}
+
+func TestApp_View_WhenApplyAwaitsConfirmation_ShouldShowApplyHints(t *testing.T) {
+	tests := []struct {
+		name       string
+		standalone bool
+	}{
+		{name: "TUI", standalone: false},
+		{name: "Standalone", standalone: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var app App
+			if tt.standalone {
+				app = newStandaloneApplyViaPlanApp(t, &sdktest.MockService{}, func(sdk.Plugin) tea.Cmd { return nil })
+			} else {
+				svc := &sdktest.MockService{}
+				registry := plugin.NewRegistry()
+				registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+					return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+				}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+				registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
+					return tfuiapply.New(s)
+				}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
+				registry.Build(svc, nil)
+				app = NewApp(config.Config{
+					Dir:       "/test/dir",
+					Terraform: config.TerraformConfig{Bin: "terraform"},
+				}, svc, registry, nil)
+				model, _ := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+				app = model.(App)
+			}
+			model, _ := app.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+			app = model.(App)
+			model, _ = app.Update(tfuiplan.ApplyRequestMsg{PlanFile: "x.tfplan"})
+			app = model.(App)
+			if got := app.ActivePlugin(); got == nil || got.ID() != "apply" {
+				t.Fatalf("ApplyRequestMsg should hand over to apply, ActivePlugin() = %v", got)
+			}
+
+			output := app.View()
+
+			if !strings.Contains(output, "confirm") {
+				t.Errorf("apply's confirmation screen should show apply's own hints, got:\n%s", output)
+			}
+			if strings.Contains(output, defaultBarMarker) {
+				t.Errorf("apply's confirmation screen should not show the default bar, got:\n%s", output)
+			}
+		})
+	}
+}
