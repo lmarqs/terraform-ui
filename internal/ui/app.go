@@ -1121,6 +1121,61 @@ func activeHints(p sdk.Plugin) []sdk.KeyHint {
 	return nil
 }
 
+// homeHints are the status bar's hints on the home screen.
+var homeHints = []sdk.KeyHint{
+	{Key: "Enter", Description: "select"},
+	{Key: ":", Description: "command"},
+	{Key: "q", Description: "quit"},
+}
+
+// renderStatusBar renders the bottom row: a command error, the input prompt,
+// the active plugin's hints, or idleHints when no plugin is active (nothing
+// when idleHints is nil).
+func (a App) renderStatusBar(idleHints []sdk.KeyHint) string {
+	switch {
+	case a.commandError != "":
+		return lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorDanger).
+			Padding(0, 1).
+			Width(a.width).
+			Render(a.commandError)
+	case a.inputActive:
+		return lipgloss.NewStyle().
+			Background(sdk.ColorBg).
+			Foreground(sdk.ColorText).
+			Bold(true).
+			Padding(0, 1).
+			Width(a.width).
+			Render(a.inputPrompt + " " + a.inputAnswer + "█")
+	case a.activePlugin != nil:
+		if hints := activeHints(a.activePlugin); hints != nil {
+			return a.statusBar.RenderHints(hints, a.width)
+		}
+		return a.statusBar.Render(a.width)
+	case idleHints != nil:
+		return a.statusBar.RenderHints(idleHints, a.width)
+	}
+	return ""
+}
+
+// renderOverlay renders the active overlay centered over the screen, above
+// statusBar or the overlay's own hints.
+func (a App) renderOverlay(statusBar string) string {
+	box := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(sdk.ColorPrimary).
+		Padding(1, 2).
+		Width(a.width / 2).
+		MaxHeight(a.height - 4).
+		Render(a.activeOverlay.View(a.width, a.height))
+	overlayView := lipgloss.Place(a.width, a.height-1, lipgloss.Center, lipgloss.Center, box)
+	if hints := a.activeOverlay.Hints(); hints != nil {
+		statusBar = a.statusBar.RenderHints(hints, a.width)
+	}
+	return overlayView + "\n" + statusBar
+}
+
 func (a App) View() string {
 	// Only before the first WindowSizeMsg arrives: an unusable size reported by
 	// the terminal is substituted, never left at zero.
@@ -1169,51 +1224,10 @@ func (a App) View() string {
 	header := a.header.Render(a.width)
 	bordered := a.contentBorder.Render(content, title, filtered, total, pinned, cursor, navigable, a.width, contentHeight+borderChrome)
 
-	var statusBar string
-	if a.commandError != "" {
-		errorStyle := lipgloss.NewStyle().
-			Background(sdk.ColorBg).
-			Foreground(sdk.ColorDanger).
-			Padding(0, 1).
-			Width(a.width)
-		statusBar = errorStyle.Render(a.commandError)
-	} else if a.inputActive {
-		promptStyle := lipgloss.NewStyle().
-			Background(sdk.ColorBg).
-			Foreground(sdk.ColorText).
-			Bold(true).
-			Padding(0, 1).
-			Width(a.width)
-		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
-	} else if a.activePlugin != nil {
-		if hints := activeHints(a.activePlugin); hints != nil {
-			statusBar = a.statusBar.RenderHints(hints, a.width)
-		} else {
-			statusBar = a.statusBar.Render(a.width)
-		}
-	} else {
-		homeHints := []sdk.KeyHint{
-			{Key: "Enter", Description: "select"},
-			{Key: ":", Description: "command"},
-			{Key: "q", Description: "quit"},
-		}
-		statusBar = a.statusBar.RenderHints(homeHints, a.width)
-	}
+	statusBar := a.renderStatusBar(homeHints)
 
 	if a.activeOverlay != nil {
-		overlayContent := a.activeOverlay.View(a.width, a.height)
-		boxStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(sdk.ColorPrimary).
-			Padding(1, 2).
-			Width(a.width / 2).
-			MaxHeight(a.height - 4)
-		box := boxStyle.Render(overlayContent)
-		overlayView := lipgloss.Place(a.width, a.height-1, lipgloss.Center, lipgloss.Center, box)
-		if hints := a.activeOverlay.Hints(); hints != nil {
-			statusBar = a.statusBar.RenderHints(hints, a.width)
-		}
-		return overlayView + "\n" + statusBar
+		return a.renderOverlay(statusBar)
 	}
 
 	var parts []string
@@ -1264,46 +1278,9 @@ func (a App) viewStandalone() string {
 		content = a.activePlugin.View(a.width, contentHeight)
 	}
 
-	// Status bar / input prompt
-	var statusBar string
-	if a.commandError != "" {
-		errorStyle := lipgloss.NewStyle().
-			Background(sdk.ColorBg).
-			Foreground(sdk.ColorDanger).
-			Padding(0, 1).
-			Width(a.width)
-		statusBar = errorStyle.Render(a.commandError)
-	} else if a.inputActive {
-		promptStyle := lipgloss.NewStyle().
-			Background(sdk.ColorBg).
-			Foreground(sdk.ColorText).
-			Bold(true).
-			Padding(0, 1).
-			Width(a.width)
-		statusBar = promptStyle.Render(a.inputPrompt + " " + a.inputAnswer + "█")
-	} else if a.activePlugin != nil {
-		if hints := activeHints(a.activePlugin); hints != nil {
-			statusBar = a.statusBar.RenderHints(hints, a.width)
-		} else {
-			statusBar = a.statusBar.Render(a.width)
-		}
-	}
-
-	// Overlay handling
+	statusBar := a.renderStatusBar(nil)
 	if a.activeOverlay != nil {
-		overlayContent := a.activeOverlay.View(a.width, a.height)
-		boxStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(sdk.ColorPrimary).
-			Padding(1, 2).
-			Width(a.width / 2).
-			MaxHeight(a.height - 4)
-		box := boxStyle.Render(overlayContent)
-		overlayView := lipgloss.Place(a.width, a.height-1, lipgloss.Center, lipgloss.Center, box)
-		if hints := a.activeOverlay.Hints(); hints != nil {
-			statusBar = a.statusBar.RenderHints(hints, a.width)
-		}
-		return overlayView + "\n" + statusBar
+		return a.renderOverlay(statusBar)
 	}
 
 	return header + "\n\n" + content + "\n\n" + statusBar
