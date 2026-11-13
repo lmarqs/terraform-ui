@@ -297,8 +297,8 @@ func (s *Session) pumpOutputPort(registry *plugin.Registry, pluginID, entryID st
 		s.effects.WriteStderr(emitter.Stderr())
 	}
 	if coder, ok := failure.(sdk.ExitCoder); ok {
-		// A non-zero exit ends the process and skips RunPluginFrom's deferred
-		// Shutdown, so plugins shut down here first.
+		// ExitWithCode ends the process on a non-zero code, skipping
+		// RunPluginFrom's deferred Shutdown, so plugins shut down here first.
 		registry.Shutdown()
 		s.effects.ExitWithCode(coder.ExitCode())
 	}
