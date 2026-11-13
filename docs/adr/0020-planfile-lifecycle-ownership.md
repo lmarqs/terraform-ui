@@ -19,14 +19,17 @@ We decided that **cleanup belongs to whoever knows when the data becomes useless
 ## Consequences
 
 - The exec service's `Apply()` no longer calls `os.Remove()` on the plan file. It only reads from `PlanFile.Path()`.
-- The plan plugin calls `PlanFile.Cleanup()` in its `reset()` path — triggered by context switch, or by
-  `PlanInvalidatedEvent` while plan is not showing results.
+- The plan plugin calls `PlanFile.Cleanup()` in its `reset()` path, triggered by a chdir or workspace change
+  (`ContextChangedEvent` beyond a pin toggle), by `LockClearedEvent`, or by `PlanInvalidatedEvent` while plan is not
+  showing results.
 - A successful apply marks plan stale: the plan file stays until plan resets or the program ends.
 - A failed apply leaves the plan file alive while the program runs. Only when plan decides the data is stale does
   cleanup happen.
-- The plan plugin implements `sdk.Shutdowner`: when the program ends, the session calls `Shutdown()` on every
-  registered plugin, and plan calls `PlanFile.Cleanup()`. A temp plan file holds variable values in plaintext, so it
-  does not outlive the TUI, `tfui plan` or `tfui apply` run that wrote it. A user-provided plan file is kept.
+- The plan plugin implements `sdk.Shutdowner`, and its `Shutdown()` calls `PlanFile.Cleanup()`. The session calls
+  `Shutdown()` once on every registered plugin after the BubbleTea program or macro driver stops: in the TUI when
+  `Session.Run` returns; in a verb run (`RunPluginFrom`) after stdout and stderr are written and before a non-zero exit
+  code ends the process, or on return when the run exits 0, returns an error or records macro commands. A process
+  killed by a signal skips it. A user-provided plan file is kept.
 
 ## Considered Options
 
