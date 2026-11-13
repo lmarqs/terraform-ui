@@ -61,8 +61,8 @@ recipes:
         - ".agents/skills/agents-layout/templates/README.template.md"
         - ".agents/skills/agents-layout/templates/policy.template.yaml"
   - name: "io.github.lmarqs.cookbook:docs#layout"
-    source: "io.github.lmarqs.cookbook:docs:10.2.0#layout"
-    sha256: "9232ae0d9bb381d9bd4c8a5654816df9571871bff0734bc7142ee390716d3893"
+    source: "io.github.lmarqs.cookbook:docs:12.1.0#layout"
+    sha256: "82acf206dbb9a160cc03cb6807fe887eab8d7ff0f9549b02c8c92ab376316f94"
     arguments:
       "skills-root": [".agents/skills"]
     owns:
