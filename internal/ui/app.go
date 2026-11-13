@@ -442,17 +442,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tfuiplan.ApplyRequestMsg:
 		if p, ok := a.registry.ByID("apply"); ok {
-			applyPlugin := p.(*tfuiapply.Plugin)
-			applyPlugin.SetPlanFile(msg.PlanFile)
-			applyPlugin.SetLockOverrides(msg.Lock, msg.LockTimeout)
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
-			var cmd tea.Cmd
-			if msg.AutoApprove {
-				cmd = applyPlugin.AutoApply()
-			} else {
-				cmd = applyPlugin.RequestApply()
-			}
+			cmd := p.(*tfuiapply.Plugin).ApplyPlan(msg.PlanFile, tfuiapply.Input{
+				AutoApprove: msg.AutoApprove,
+				Lock:        msg.Lock,
+				LockTimeout: msg.LockTimeout,
+			})
 			logging.Logger().Debug("view.transition", "from", "plan", "to", "apply",
 				"plan", msg.PlanFile, "auto_approve", msg.AutoApprove)
 			return a, cmd

@@ -83,15 +83,14 @@ func (e *Plugin) IsConfirming() bool     { return e.status == StatusConfirming }
 func (e *Plugin) Busy() bool             { return e.status == sdk.StatusLoading }
 
 // SetPlanFile stages the plan artifact that the next RequestApply / AutoApply
-// will consume. Called by the app when routing ApplyRequestMsg from plan.
+// will consume.
 func (e *Plugin) SetPlanFile(path string) { e.planFile = path }
 
-// SetLockOverrides stages the per-run --lock / --lock-timeout overrides the
-// plan ran with, so the apply of that plan locks state the same way. Called by
-// the app when routing ApplyRequestMsg from plan.
-func (e *Plugin) SetLockOverrides(mode sdk.LockMode, timeout sdk.LockTimeout) {
-	e.input.Lock = mode
-	e.input.LockTimeout = timeout
+// ApplyPlan stages the plan file the plan plugin handed over and activates
+// apply with input. Called by the app when routing ApplyRequestMsg from plan.
+func (e *Plugin) ApplyPlan(planFile string, input Input) tea.Cmd {
+	e.planFile = planFile
+	return e.Activate(input)
 }
 
 // PlanFile returns the staged plan artifact path (used by app for logging).
@@ -187,8 +186,7 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 	return e.RequestApply()
 }
 
-// RequestApply transitions to confirmation of the plan file staged via
-// SetPlanFile. With none staged there is no reviewed plan to confirm, so apply
+// RequestApply transitions to confirmation of the staged plan file. With none staged there is no reviewed plan to confirm, so apply
 // stays Idle.
 func (e *Plugin) RequestApply() tea.Cmd {
 	if e.planFile == "" {

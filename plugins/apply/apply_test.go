@@ -881,10 +881,10 @@ func TestActivate_WhenNoAutoApproveAndNoPlanFile_ShouldStayIdleWithoutPlanning(t
 	}
 }
 
-// TestSetLockOverrides_WhenApplyConfirmed_ShouldOverrideTheResolvedMode covers
+// TestApplyPlan_WhenApplyConfirmed_ShouldOverrideTheResolvedMode covers
 // the CLI's --lock/--lock-timeout reaching apply through the plan handoff
 // (ADR-0019: data flows Plan → Apply).
-func TestSetLockOverrides_WhenApplyConfirmed_ShouldOverrideTheResolvedMode(t *testing.T) {
+func TestApplyPlan_WhenApplyConfirmed_ShouldOverrideTheResolvedMode(t *testing.T) {
 	tests := []struct {
 		name        string
 		ctxLock     sdk.LockMode
@@ -933,9 +933,7 @@ func TestSetLockOverrides_WhenApplyConfirmed_ShouldOverrideTheResolvedMode(t *te
 			h.Ctx.LockTimeout = tt.ctxTimeout
 			p.Init(h.Deps)
 
-			p.SetPlanFile("/tmp/staged.tfplan")
-			p.SetLockOverrides(tt.lock, tt.timeout)
-			p.RequestApply()
+			p.ApplyPlan("/tmp/staged.tfplan", Input{Lock: tt.lock, LockTimeout: tt.timeout})
 			collectApplyResult(t, p.Confirm())
 
 			if got.Lock != tt.wantLock {
@@ -943,6 +941,72 @@ func TestSetLockOverrides_WhenApplyConfirmed_ShouldOverrideTheResolvedMode(t *te
 			}
 			if got.LockTimeout != tt.wantTimeout {
 				t.Errorf("ApplyOptions.LockTimeout = %q, want %q", got.LockTimeout, tt.wantTimeout)
+			}
+		})
+	}
+}
+
+// TestApplyPlan_WhenPlanHandedOver_ShouldStageThePlanAndActivate covers the
+// plan plugin's handoff: staging the plan file and activating apply is one step
+// (ADR-0019: data flows Plan → Apply).
+func TestApplyPlan_WhenPlanHandedOver_ShouldStageThePlanAndActivate(t *testing.T) {
+	tests := []struct {
+		name         string
+		planFile     string
+		input        Input
+		wantStatus   sdk.Status
+		wantPlanFile string
+		wantApplied  bool
+	}{
+		{
+			name:         "without auto-approve it asks for confirmation",
+			planFile:     "/tmp/handed.tfplan",
+			input:        Input{},
+			wantStatus:   StatusConfirming,
+			wantPlanFile: "/tmp/handed.tfplan",
+		},
+		{
+			name:         "with auto-approve it applies the plan file",
+			planFile:     "/tmp/handed.tfplan",
+			input:        Input{AutoApprove: true},
+			wantStatus:   sdk.StatusLoading,
+			wantPlanFile: "/tmp/handed.tfplan",
+			wantApplied:  true,
+		},
+		{
+			name:         "without a plan file and auto-approve it stays idle",
+			planFile:     "",
+			input:        Input{},
+			wantStatus:   sdk.StatusIdle,
+			wantPlanFile: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var applyOpts sdk.ApplyOptions
+			svc := &sdktest.MockService{
+				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+					applyOpts = opts
+					return nil
+				},
+			}
+			p := New(svc).(*Plugin)
+			p.Init(sdktest.NewDeps(svc).Deps)
+
+			cmd := p.ApplyPlan(tt.planFile, tt.input)
+
+			if p.Status() != tt.wantStatus {
+				t.Errorf("status = %v, want %v", p.Status(), tt.wantStatus)
+			}
+			if p.PlanFile() != tt.wantPlanFile {
+				t.Errorf("PlanFile() = %q, want %q", p.PlanFile(), tt.wantPlanFile)
+			}
+			if tt.wantApplied {
+				collectApplyResult(t, cmd)
+				if applyOpts.PlanFile != tt.wantPlanFile {
+					t.Errorf("ApplyOptions.PlanFile = %q, want %q", applyOpts.PlanFile, tt.wantPlanFile)
+				}
 			}
 		})
 	}
