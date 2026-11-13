@@ -80,8 +80,8 @@ recipes:
         - ".agents/skills/docs-layout/references/runbooks.md"
         - ".agents/skills/docs-layout/references/standards.md"
   - name: "io.github.lmarqs.cookbook:git#worktrees"
-    source: "io.github.lmarqs.cookbook:git:10.2.0#worktrees"
-    sha256: "10ba004bd051863c231d41321446bc45409714c9dae6155148ee5a1ce657fd64"
+    source: "io.github.lmarqs.cookbook:git:12.1.0#worktrees"
+    sha256: "f7423fc4a23e095201def4311c844448e8038c33a269028eff185c9a19d86130"
     arguments:
       "instructions": ["AGENTS.md"]
     owns:
