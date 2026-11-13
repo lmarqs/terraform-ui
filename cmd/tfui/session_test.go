@@ -3,14 +3,17 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
 	"github.com/lmarqs/terraform-ui/plugins/taint"
@@ -254,5 +257,40 @@ func TestOutputPortOwner(t *testing.T) {
 				t.Errorf("outputPortOwner() = entry? %v, want %v", got == sdk.Plugin(entry), tt.wantEntry)
 			}
 		})
+	}
+}
+
+// exitingPlugin reports a non-zero exit code and records its Shutdown, so a
+// test can see whether Shutdown ran before the process exit.
+type exitingPlugin struct {
+	sdk.Plugin
+	events *[]string
+}
+
+func (p *exitingPlugin) ID() string    { return "plan" }
+func (p *exitingPlugin) ExitCode() int { return 2 }
+func (p *exitingPlugin) Shutdown()     { *p.events = append(*p.events, "shutdown") }
+
+// The exit ends the process, so deferred work never runs after it: a plugin's
+// Shutdown (plan removing its temp plan file) must happen first.
+func TestPumpOutputPort_WhenExitCodeNonZero_ShouldShutDownPluginsBeforeExit(t *testing.T) {
+	var events []string
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ sdk.Service) sdk.Plugin {
+		return &exitingPlugin{events: &events}
+	}, plugin.PluginMeta{})
+	registry.Build(nil, nil)
+	session := &Session{effects: Effects{
+		Stdout: &bytes.Buffer{},
+		Stderr: &bytes.Buffer{},
+		Exit:   func(code int) { events = append(events, fmt.Sprintf("exit %d", code)) },
+	}}
+
+	if err := session.pumpOutputPort(registry, "plan", "plan"); err != nil {
+		t.Fatalf("pumpOutputPort error = %v", err)
+	}
+
+	if want := []string{"shutdown", "exit 2"}; !slices.Equal(events, want) {
+		t.Errorf("events = %v, want %v", events, want)
 	}
 }

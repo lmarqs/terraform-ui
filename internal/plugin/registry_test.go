@@ -363,3 +363,19 @@ func TestShutdown_ShouldShutDownEveryPluginThatImplementsIt(t *testing.T) {
 		t.Errorf("Shutdown calls = %d, %d, want 1, 1", first.shutdowns, second.shutdowns)
 	}
 }
+
+// The session shuts plugins down before a non-zero exit and again on return,
+// so a second Shutdown must not reach the plugins again.
+func TestShutdown_WhenCalledTwice_ShouldShutDownPluginsOnce(t *testing.T) {
+	p := &shutdownPlugin{mockPlugin: mockPlugin{id: "p"}}
+	r := NewRegistry()
+	r.RegisterFactory("p", func(_ terraform.Service) Plugin { return p }, PluginMeta{})
+	r.Build(nil, nil)
+
+	r.Shutdown()
+	r.Shutdown()
+
+	if p.shutdowns != 1 {
+		t.Errorf("Shutdown calls = %d, want 1", p.shutdowns)
+	}
+}

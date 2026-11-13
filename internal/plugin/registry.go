@@ -39,6 +39,7 @@ type Registry struct {
 	factories map[string]PluginFactory
 	meta      map[string]PluginMeta
 	order     []string
+	shutDown  bool
 }
 
 // NewRegistry creates a new empty Registry with no registered factories or plugins.
@@ -90,8 +91,13 @@ func (r *Registry) All() []Plugin {
 	return r.plugins
 }
 
-// Shutdown calls Shutdown on every plugin that implements sdk.Shutdowner.
+// Shutdown calls Shutdown on every plugin that implements sdk.Shutdowner. Only
+// the first call reaches the plugins.
 func (r *Registry) Shutdown() {
+	if r.shutDown {
+		return
+	}
+	r.shutDown = true
 	for _, plg := range r.plugins {
 		if s, ok := plg.(sdk.Shutdowner); ok {
 			s.Shutdown()
