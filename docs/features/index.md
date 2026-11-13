@@ -11,7 +11,7 @@ audience: "Users deciding what tfui adds over raw terraform"
 
 # Features
 
-Deep dives into terraform-ui's analysis and detection capabilities.
+tfui reads each plan and adds what raw terraform output leaves to you: a risk level per change, which diffs change nothing, and which modules a plan touches. It also gives agents a compact headless output.
 
 - [Risk Analysis](risk-analysis.md) — Automatic classification of plan changes by risk level
 - [Phantom Changes](phantom-changes.md) — Detect false-positive no-op changes

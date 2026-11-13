@@ -6,73 +6,74 @@ nav_order: 3
 seo:
   description: "tfui scaffold detects the terraform binary and the Terraform directories in your project, then writes a tfui.hcl configuration file for them."
 description: "Guides a user through generating tfui.hcl with scaffold, and what it detects."
-audience: "Users setting tfui up on an existing project"
+audience: "Users with an existing Terraform project of several root modules who have not written a tfui.hcl"
 ---
 
-## Overview
+# Generate tfui.hcl with scaffold
 
-The `tfui scaffold` command generates a `tfui.hcl` configuration file by detecting terraform project patterns in the working directory. It detects the terraform binary, scans for terraform directories, and writes a config file.
+Run `tfui scaffold` in the project root. It finds the directories that hold Terraform files, lets you untick any,
+and writes `tfui.hcl` with one `member` block for each.
 
-## Usage
+## What it finds
+
+Scaffold looks for `.tf` files in these places, relative to the project directory:
+
+- `modules/*`
+- `envs/*`
+- `infra/*`
+- `services/*/terraform`
+- `.`, the project directory itself
+
+Directories elsewhere are not detected; add them to `tfui.hcl` by hand as `member` blocks.
+
+The `bin` value is the first of `terraform`, `tofu` and `terragrunt` found on your `PATH`, or `terraform` if none
+is.
+
+## Run it
 
 ```bash
-tfui scaffold              # Interactive (prompts for member selection)
-tfui scaffold -yes        # Non-interactive (use detected defaults)
-tfui scaffold -force      # Overwrite existing tfui.hcl
-tfui scaffold -yes -force
+cd my-project
+tfui scaffold
 ```
 
-By default, `tfui scaffold` is interactive when run in a TTY -- it shows detected members and lets you toggle them on/off before writing. Use `-yes` to skip prompts and accept all detected defaults.
+In a terminal, scaffold asks three things in turn:
 
-| Flag | Description |
-|------|-------------|
-| `-yes` | Skip prompts, accept all detected defaults |
-| `-force` | Overwrite existing tfui.hcl |
+1. **Select terraform binary:** the detected binary is preselected; move with `j`/`k`, confirm with `Enter`.
+2. **Detected members:** every detected directory starts ticked; `Space` toggles the one under the cursor,
+   `Enter` confirms.
+3. **Preview:** shows the file; `y` or `Enter` writes it, `n` or `Esc` goes back to the members.
 
-| Code | Meaning |
-|------|---------|
-| 0 | Config generated successfully |
-| 1 | Error (no terraform files found, write failed) |
+`Esc` in the first two steps, or `q` in any, aborts without writing. With `-yes`, or when stdin is not a terminal, scaffold skips the questions and keeps
+everything it detected.
 
-## Detection Logic
-
-The scanner checks for these common monorepo layouts:
-
-- `modules/*` -- each subdirectory containing .tf files
-- `envs/*` -- environment directories containing .tf files
-- `infra/*` -- infrastructure directories containing .tf files
-- `services/*/terraform` -- service-specific terraform directories
-- `.` -- root directory .tf files
-
-Binary detection order: `terraform` → `tofu` → `terragrunt`.
-
-## Output
-
-Scaffold generates a `tfui.hcl` in the current directory:
+Scaffold writes `tfui.hcl` to the project directory (`-project`, default the current directory) and prints it.
+For a project with `envs/prod` and `modules/vpc`:
 
 ```hcl
 terraform {
   bin = "terraform"
 }
 
-member "modules/vpc" {}
 member "envs/prod" {}
+
+member "modules/vpc" {}
 ```
 
-## Example
+When it finds no directories, it writes a file with only the `terraform` block.
 
-```
-$ tfui scaffold
-Detected terraform binary: terraform
-Found 3 terraform directories:
-  [x] modules/vpc
-  [x] modules/ecs
-  [ ] modules/deprecated
+## Flags and exit codes
 
-Toggle with space, confirm with enter.
-```
+| Flag | Description |
+|------|-------------|
+| `-yes` | Skip the questions and keep every detected directory |
+| `-force` | Overwrite an existing `tfui.hcl` |
 
-## Related
+| Code | Meaning |
+|------|---------|
+| 0 | `tfui.hcl` written, or the wizard aborted |
+| 1 | `tfui.hcl` already exists (without `-force`), or the write failed |
 
-- [Quick Start](getting-started.md) -- getting started with tfui
-- [Configuration](configuration.md) -- full config reference
+## Next
+
+Run `tfui` in the same directory: it opens the member picker. Pick a member with `Enter`. To add var-files,
+variables or workspace settings, see [Configuration](configuration.md).

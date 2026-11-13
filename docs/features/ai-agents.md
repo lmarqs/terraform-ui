@@ -11,7 +11,7 @@ audience: "Users running terraform through an agent, and contributors changing h
 
 ## Overview
 
-AI coding agents (any harness that sets `CLAUDECODE`, `AI_AGENT` or `CI`) run `tfui` commands as if they were terraform — and get output designed for a context window instead of a scrollback buffer.
+AI coding agents (any harness that sets `CLAUDECODE` or `AI_AGENT`) run `tfui` commands as if they were terraform — and get output designed for a context window instead of a scrollback buffer. CI runs with `CI=1`, and any run whose stderr is not a terminal, get the same output.
 
 ```
 agent runs:  tfui plan
@@ -80,7 +80,7 @@ $ echo $?
 1
 ```
 
-stderr (terraform's own diagnostics, verbatim):
+stderr (tfui's one-line prefix, then terraform's diagnostics verbatim):
 
 ```
 running terraform plan: exit status 1
@@ -156,9 +156,3 @@ machine-readable output.
 
 The same binary serves the humans on the team as a full [interactive TUI](../guides/getting-started.md) — one tool, reviewed by people, driven by agents.
 
-## See also
-
-- [CLI I/O Contract](../reference/cli-io-contract.md) — the full stdin/stdout/stderr specification
-- [CLI Reference](../reference/cli-reference.md) — all commands and flags
-- [Risk Analysis](risk-analysis.md) — the classification behind the `Risk:` line
-- [ADR-0022](../adr/0022-agent-environments-imply-headless.md) — why agent environments imply headless

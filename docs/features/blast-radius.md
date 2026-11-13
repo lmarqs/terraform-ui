@@ -11,7 +11,7 @@ audience: "Users weighing a plan's reach, and contributors changing the scoring"
 
 ## Overview
 
-The blast radius view shows the scope of your planned changes -- how many resources are affected, which modules are involved, and the potential impact on your infrastructure. Modules are sorted highest-impact first.
+The blast radius view shows the scope of your planned changes -- how many resources are affected, which modules are involved, and an impact score per module from its changes' risk levels, their count and whether any deletes or replaces. Modules are sorted highest-impact first.
 
 ## How It Works
 
@@ -34,7 +34,7 @@ root (1 to add)
 
 ### Module Path Extraction
 
-terraform-ui extracts module paths from resource addresses:
+tfui extracts module paths from resource addresses:
 
 | Address | Module |
 |---------|--------|
@@ -47,25 +47,29 @@ terraform-ui extracts module paths from resource addresses:
 | Score | Criteria |
 |-------|----------|
 | **critical** | Any change with critical risk |
-| **high** | High risk or 3+ destructive operations |
-| **moderate** | 3+ changes or medium risk |
-| **minimal** | 1-2 changes, all low risk |
+| **high** | Any change with high risk, or 3+ changes in the module with at least one delete or replace |
+| **moderate** | 3+ changes, or any change with medium risk |
+| **minimal** | Fewer than 3 changes, none above low risk |
 
 ## In the TUI
 
-Press `b` from the home screen after running a plan. The blast radius view shows:
+Press `B` from the home screen after running a plan. The blast radius view shows:
 
-1. **Summary bar** -- total changes, overall risk level
-2. **Module tree** -- expandable tree grouped by module
-3. **Per-module stats** -- add/change/destroy counts with risk indicators
+1. **Summary line** -- the highest module impact, the number of modules affected and the total changes
+2. **Module rows** -- one per module, each with its change count, impact badge and add/change/destroy/replace counts
+3. **Expanded module** -- `Enter` lists the module's changes with their risk badges
 
 ## Configuration
 
 ```hcl
-# tfui.hcl
-plugin "blastradius" {
-  enabled = true
+# tfui.hcl (project root)
+defaults {
+  plugin "blastradius" {
+    enabled = false
+  }
 }
 ```
+
+`enabled` is the plugin's only setting.
 
 See the [Blast Radius plugin](../plugins/blastradius.md) for the full TUI reference.

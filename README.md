@@ -5,26 +5,11 @@ A k9s-style interactive terminal UI for Terraform. Plan, analyze risk, inspect b
 **Type:** Go CLI + interactive TUI (BubbleTea)
 **Invocation:** `tfui` (TUI), `tfui plan`, `tfui apply` (non-interactive)
 **Input:** Terraform root module or monorepo with `tfui.hcl`
-**Dependencies:** Go 1.25+, terraform (or tofu/terragrunt)
+**Dependencies:** terraform on `PATH` (another binary via `-terraform-bin`); Go 1.25+ to build from source
 
 ## What It Looks Like
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  terraform-ui                        workspace: default │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│   [p] Plan          [R] Risk Analysis                   │
-│   [s] State         [P] Phantom Changes                 │
-│   [w] Workspaces    [B] Blast Radius                    │
-│   [v] Validate      [o] Outputs                         │
-│   [i] Init          [~] Console                         │
-│   [C] Context                                           │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│  q quit  / filter  : command                            │
-└─────────────────────────────────────────────────────────┘
-```
+![tfui home screen, then a plan review with risk badges and a targeted apply](docs/assets/demo/hero.gif)
 
 ## Why
 
@@ -34,7 +19,8 @@ Running `terraform plan` on large modules produces verbose output with no struct
 
 ```bash
 # Install
-brew install lmarqs/tap/tfui
+brew tap lmarqs/terraform-ui https://github.com/lmarqs/terraform-ui
+brew install --cask tfui
 
 # Or via go install
 go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
@@ -56,7 +42,8 @@ tfui apply --project ./infra
 ### Homebrew (recommended)
 
 ```bash
-brew install lmarqs/tap/tfui
+brew tap lmarqs/terraform-ui https://github.com/lmarqs/terraform-ui
+brew install --cask tfui
 ```
 
 ### Go install
@@ -67,11 +54,12 @@ go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 
 ### Binary download
 
-Download the latest release from [GitHub Releases](https://github.com/lmarqs/terraform-ui/releases). Extract the binary and place it on your `PATH`.
+Download `tfui_<version>_<os>_<arch>.tar.gz` (Linux or macOS, amd64 or arm64) from [GitHub Releases](https://github.com/lmarqs/terraform-ui/releases). Extract the binary and place it on your `PATH`.
 
 ```bash
-# Example: Linux amd64
-curl -sL https://github.com/lmarqs/terraform-ui/releases/latest/download/tfui_linux_amd64.tar.gz | tar xz
+# Example: Linux amd64; set VERSION to the release you want, without the leading v
+VERSION=1.27.2
+curl -sL "https://github.com/lmarqs/terraform-ui/releases/download/v${VERSION}/tfui_${VERSION}_linux_amd64.tar.gz" | tar xz tfui
 sudo mv tfui /usr/local/bin/
 ```
 
@@ -87,14 +75,14 @@ This adds the tool to your `mise.toml` and installs it. To pin a specific versio
 
 - **Interactive Plan Review** — Navigate changes as a tree, expand attribute diffs, see risk badges
 - **Risk Analysis** — Automatic classification of changes as critical/high/medium/low
-- **Blast Radius** — Visualize affected modules and resource dependencies
+- **Blast Radius** — See which modules a plan touches, with an impact score for each
 - **Phantom Change Detection** — Identify no-op changes that terraform incorrectly reports
 - **Live Apply** — Per-resource progress tracking with real-time status
 - **State Browser** — Navigate, inspect, taint, untaint, move, and remove state resources
 - **Workspace Management** — List, switch, create, and delete workspaces
 - **Monorepo Support** — Discover and select chdir members via `tfui.hcl`
-- **Pin & Target** — Pin resources with `Space`, then plan/apply only those targets
-- **Non-Interactive Mode** — `tfui plan` and `tfui apply` for CI pipelines and scripts
+- **Pin & Target** — Pin resources with `Space`; the next plan targets only them, and apply applies that plan
+- **Non-Interactive Mode** — every subcommand runs headless for CI pipelines, scripts and AI agents
 
 ## Usage
 
@@ -110,20 +98,19 @@ tfui --state ./terraform.tfstate  # TUI with pre-loaded state
 ### Non-Interactive CLI
 
 ```bash
-# Plan with tree view on stdout
-tfui plan
-tfui plan -target=aws_instance.web
-tfui plan -json                     # NDJSON (terraform-compatible)
-tfui plan --ci                      # suppress spinner for CI
+# Plan: change list, summary and Risk line on stdout (headless with --ci, or when stderr is not a terminal)
+tfui plan --ci
+tfui plan --ci -target=aws_instance.web
+tfui plan --ci -json                # the plan as JSON (terraform show -json)
 
-# Apply
-tfui apply tfplan.out
-tfui apply --ci
+# Apply: plans and applies in one run; headless apply needs --auto-approve
+tfui apply --ci --auto-approve
+tfui apply --ci --auto-approve -target=aws_instance.web
 
 # State operations
 tfui state rm aws_instance.old
 tfui state mv aws_instance.old aws_instance.new
-tfui state import aws_instance.web i-1234567890
+tfui import aws_instance.web i-1234567890
 
 # Workspaces
 tfui workspace list
@@ -150,7 +137,7 @@ Exit codes: `0` success, `1` error, `2` changes present (plan).
 | `/` | Filter |
 | `:` | Command mode |
 | `q` | Quit / back |
-| `Space` | Pin (target for plan/apply) |
+| `Space` | Pin a resource (later plans target only pinned resources) |
 | `Enter` | Inspect / expand |
 
 ## Configuration
@@ -168,20 +155,19 @@ member "environments/prod" {}
 
 defaults {
   parallelism = 10
-  var_file "common/tags.tfvars" {}
 }
 ```
 
-Two modes:
-- **Standalone** (no config): TUI skin over terraform, CWD = working dir
-- **Project** (`tfui.hcl` present): full config resolution, member directories, workspace overrides
+Without `tfui.hcl`, tfui runs terraform in the project directory with terraform's own defaults. With it, you pick a
+member directory, and var-files, variables and lock settings come from the root file, the member's `tfui.hcl` and
+the selected workspace.
 
 See [docs/guides/configuration.md](docs/guides/configuration.md) for all options.
 
 ## Requirements
 
 - Go 1.25+ (for building from source)
-- terraform, tofu, or terragrunt on `PATH`
+- terraform on `PATH`, or another binary set with `-terraform-bin` or `terraform { bin }` in `tfui.hcl`
 
 ## Development
 
@@ -195,12 +181,12 @@ mise run test:coverage    # Coverage report
 mise run build            # Cross-platform binaries (goreleaser snapshot)
 ```
 
-See [docs/guides/getting-started.md](docs/guides/getting-started.md) for contributor setup and [docs/development/testing.md](docs/development/testing.md) for test strategy.
+See [docs/development/testing.md](docs/development/testing.md) for test strategy.
 
 ## Documentation
 
 - [Getting Started](docs/guides/getting-started.md) — Installation and first run
-- [Configuration](docs/guides/configuration.md) — `tfui.hcl` reference
+- [Configuration](docs/guides/configuration.md) — `tfui.hcl` setup and settings
 - [CLI Reference](docs/reference/cli-reference.md) — All commands and flags
 - [Architecture](docs/development/architecture.md) — Internal design
 - [Plugins](docs/plugins/) — Plugin catalog

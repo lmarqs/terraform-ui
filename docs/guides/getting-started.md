@@ -4,147 +4,94 @@ title: Install tfui — Terraform TUI Quick Start
 parent: Guides — Getting Started with Terraform UI
 nav_order: 1
 seo:
-  description: Install terraform-ui via Homebrew, go install, or binary download. Review your first terraform plan in under 60 seconds.
+  description: Install terraform-ui via Homebrew, go install, mise or a release binary, then review your first terraform plan in it.
 description: "Guides a new user through installing tfui and reviewing a first plan."
-audience: "New users"
+audience: "New users who know Terraform and have not run tfui yet"
 ---
 
-# Getting Started
+# Getting started
 
-## Installation
+Install tfui, run `tfui` in a Terraform root module, and press `p`: tfui runs `terraform plan` and shows each
+change as a row with a risk badge. This page takes you there, then shows the same plan run from a script.
 
-Pick one:
+## Install
+
+Install with one of:
 
 ```bash
 # Homebrew
-brew install lmarqs/tap/tfui
+brew tap lmarqs/terraform-ui https://github.com/lmarqs/terraform-ui
+brew install --cask tfui
 
-# Go install
+# Go
 go install github.com/lmarqs/terraform-ui/cmd/tfui@latest
 
 # mise
 mise use github:lmarqs/terraform-ui
-
-# Or download binary from GitHub Releases
 ```
 
-Requires terraform (or tofu) on your `PATH`.
+Or download `tfui_<version>_<os>_<arch>.tar.gz` from
+[GitHub Releases](https://github.com/lmarqs/terraform-ui/releases), extract it and put `tfui` on your `PATH`.
+Builds exist for Linux and macOS, on amd64 and arm64.
 
-### For contributors
+tfui runs the `terraform` binary on your `PATH`. To use OpenTofu instead, pass `-terraform-bin tofu`, or set
+`terraform { bin = "tofu" }` in [`tfui.hcl`](configuration.md).
 
-```bash
-git clone https://github.com/lmarqs/terraform-ui.git
-cd terraform-ui
-mise install
-mise run build
-./dist/tfui_darwin_amd64_v1/tfui version
-./dist/tfui_darwin_arm64_v8.0/tfui version
-./dist/tfui_linux_amd64_v1/tfui version
-./dist/tfui_linux_arm64_v8.0/tfui version
-```
+## Run tfui on your project
 
-## First Run
-
-Navigate to any directory containing `.tf` files and run:
+In a directory where `terraform init` has run, start tfui:
 
 ```bash
+cd my-terraform-project
 tfui
 ```
 
-This opens the interactive TUI. You'll see the home screen with keybindings for each operation.
+tfui opens on the Chdir screen, which lists the member directories of a project configured with
+[`tfui.hcl`](#projects-with-several-root-modules); without one it is empty. Press `q` to go to the home screen: one
+row per screen, each with the key that opens it. Press a key, or move with `j`/`k` and press `Enter`.
 
-## Running a Plan Interactively
+![tfui home screen, then a plan review]({{ site.baseurl }}/assets/demo/hero.gif)
 
-1. Press `p` from the home screen
-2. terraform-ui runs `terraform plan` and parses the output
-3. Results appear as a navigable tree — expand resources with `Enter`
-4. Risk badges show next to each change (critical/high/medium/low)
-5. Press `q` to return to the home screen
+## Review a plan
 
-## Non-Interactive Mode for CI
+1. Press `p`. tfui runs `terraform plan` and lists the changes as a tree, grouped by module.
+2. Each change carries a risk badge: critical, high, medium or low. [Risk analysis](../features/risk-analysis.md)
+   gives the rules.
+3. Move to a change and press `Enter` to expand its attribute diff.
+4. Press `Space` on a change to pin it: the next plan targets only pinned resources.
+5. Press `q` to return to the home screen.
 
-Use subcommands for scripts and CI pipelines:
+Every screen and its keys are in the [plugin catalog](../plugins/index.md).
+
+## Run the same plan from a script
+
+The subcommands run without the TUI when you pass `-ci`, and in CI runners, where stderr is not a terminal:
 
 ```bash
-# Plan with progress bar
-tfui plan -project ./infra
-
-# Plan with JSON output (terraform-compatible NDJSON)
-tfui plan -project ./infra -json | jq .
-
-# Apply (suppress spinner for CI)
-tfui apply -project ./infra -ci
-
-# Silent (no UI, just exit code)
+# Change list, plan summary and Risk line on stdout
 tfui plan -project ./infra -ci
+
+# The plan as JSON (terraform show -json) on stdout
+tfui plan -project ./infra -ci -json | jq .
+
+# Apply without a prompt needs explicit approval, as with terraform
+tfui apply -project ./infra -ci -auto-approve
 ```
 
-Exit code `2` means "changes detected" — useful for CI gates.
+`tfui plan` exits `2` when the plan has changes, `0` when it has none and `1` on error, so a CI gate can branch on
+the exit code. The [CLI I/O contract](../reference/cli-io-contract.md) lists what each command writes and when.
 
-## Configuring a Monorepo
+## Projects with several root modules
 
-Create a `tfui.hcl` in your repository root:
+When one repository holds several root modules, list them in a `tfui.hcl` at the repository root. `tfui scaffold`
+writes it for you ([Scaffold](scaffold.md)); written by hand, it is one `member` block per directory:
 
 ```hcl
 member "envs/prod" {}
 member "envs/staging" {}
-member "modules/vpc" {}
 member "services/api/terraform" {}
 ```
 
-With this config, pressing `C` in the TUI opens the context manager where you can select a chdir member. Each directory listed must contain `.tf` files.
-
-See [Configuration](configuration.md) for all options.
-
-## Home Screen
-
-```
-┌─────────────────────────────────────────────────────────┐
-│  terraform-ui                        workspace: default │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│   [p] Plan          [R] Risk Analysis                   │
-│   [s] State         [P] Phantom Changes                 │
-│   [w] Workspaces    [B] Blast Radius                    │
-│   [o] Outputs       [~] Console                         │
-│   [v] Validate      [i] Init                            │
-│   [C] Context                                           │
-│                                                         │
-├─────────────────────────────────────────────────────────┤
-│  q quit  / filter  : command                            │
-└─────────────────────────────────────────────────────────┘
-```
-
-## Navigation
-
-| Key | Action |
-|-----|--------|
-| `p` | Plan |
-| `a` | Apply |
-| `s` | State browser |
-| `w` | Workspaces |
-| `o` | Outputs |
-| `v` | Validate |
-| `~` | Console (REPL) |
-| `i` | Init |
-| `R` | Risk analysis |
-| `P` | Phantom changes |
-| `B` | Blast radius |
-| `C` | Context (project/chdir/workspace) |
-| `/` | Filter |
-| `:` | Command mode (`:q` quit — guarded during ops, `:q!` force quit) |
-| `q` | Quit / back |
-| `↑↓` or `jk` | Navigate |
-| `Enter` | Inspect / expand |
-| `Space` | Pin (target for plan/apply) |
-
-## Features
-
-- **Interactive Plan Review** — Navigate changes, expand attribute diffs, see risk badges
-- **[Risk Analysis](../features/risk-analysis.md)** — Automatic classification of changes as critical/high/medium/low
-- **[Blast Radius](../features/blast-radius.md)** — Visualize affected modules and resource dependencies
-- **Live Apply** — Per-resource progress tracking with real-time status
-- **State Browser** — Navigate and inspect terraform state resources
-- **Workspace Management** — List, switch, and manage workspaces
-- **Monorepo Support** — Discover and select chdir members via `tfui.hcl`
-- **[Phantom Change Detection](../features/phantom-changes.md)** — Identify no-op changes that terraform incorrectly reports
+Run `tfui` in the repository root. It opens a picker of these member directories first; pick one with `Enter`,
+and tfui runs terraform in it. Press `C` at any time to switch member or workspace.
+[Configuration](configuration.md) covers workspaces, var-files and the other settings.
