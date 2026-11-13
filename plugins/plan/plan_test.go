@@ -1798,6 +1798,58 @@ func TestPlugin_WhenRequestAutoApply_WhileStale_ShouldPropagateAutoApprove(t *te
 	}
 }
 
+// TestPlugin_WhenApplyRequested_ShouldCarryInputLockOverrides covers ADR-0019's
+// Plan → Apply data flow: the CLI's --lock/--lock-timeout reach apply only
+// through the handoff message.
+func TestPlugin_WhenApplyRequested_ShouldCarryInputLockOverrides(t *testing.T) {
+	overrides := Input{Lock: sdk.LockDisabled, LockTimeout: sdk.LockTimeout("30s")}
+	tests := []struct {
+		name        string
+		input       Input
+		stale       bool
+		autoApprove bool
+	}{
+		{name: "fresh plan with overrides", input: overrides},
+		{name: "fresh plan auto-approve with overrides", input: overrides, autoApprove: true},
+		{name: "deferred replan with overrides", input: overrides, stale: true},
+		{name: "deferred replan auto-approve with overrides", input: overrides, stale: true, autoApprove: true},
+		{name: "fresh plan without overrides", input: Input{}},
+		{name: "deferred replan without overrides", input: Input{}, stale: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			changes := []sdk.PlanChange{
+				{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate},
+			}
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					return &sdk.PlanSummary{Changes: changes, ToCreate: 1}, nil
+				},
+			}
+			p := drainActivate(t, newTestPlugin(svc), tt.input)
+			p.stale = tt.stale
+
+			cmd := p.applyOrReplan(tt.autoApprove)
+			if tt.stale {
+				drainAndAssertNoApply(t, cmd)
+				_, cmd = p.Update(PlanResultMsg{Summary: &sdk.PlanSummary{Changes: changes, ToCreate: 1}})
+			}
+
+			req := findApplyRequest(cmd)
+			if req == nil {
+				t.Fatal("ApplyRequestMsg not emitted")
+			}
+			if req.Lock != tt.input.Lock {
+				t.Errorf("ApplyRequestMsg.Lock = %v, want %v", req.Lock, tt.input.Lock)
+			}
+			if req.LockTimeout != tt.input.LockTimeout {
+				t.Errorf("ApplyRequestMsg.LockTimeout = %q, want %q", req.LockTimeout, tt.input.LockTimeout)
+			}
+		})
+	}
+}
+
 func TestPlugin_WhenStaleReplanFails_ShouldNotEmitApplyRequest(t *testing.T) {
 	svc := &sdktest.MockService{
 		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {

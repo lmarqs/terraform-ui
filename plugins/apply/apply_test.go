@@ -822,26 +822,6 @@ func TestActivate_WhenAutoApprove_ShouldStartApplyImmediately(t *testing.T) {
 	}
 }
 
-// Standalone CLI apply (no plan file staged, no auto-approve) must show the
-// changes before confirming: it enters StatusPlanning and runs a plan first,
-// mirroring terraform's own `terraform apply` flow.
-func TestActivate_WhenNoAutoApproveAndNoPlanFile_ShouldPreviewPlanFirst(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-
-	cmd := p.Activate(Input{})
-	if cmd == nil {
-		t.Fatal("Activate(empty) cmd = nil, want non-nil (plan preview)")
-	}
-	if p.status != StatusPlanning {
-		t.Errorf("status = %v, want StatusPlanning", p.status)
-	}
-	if p.IsConfirming() {
-		t.Error("IsConfirming() = true before changes are shown, want false")
-	}
-}
-
 // TUI pipeline path: the plan plugin already showed the diff and staged a plan
 // file, so apply goes straight to the confirmation.
 func TestActivate_WhenPlanFileStaged_ShouldEnterConfirming(t *testing.T) {
@@ -857,90 +837,87 @@ func TestActivate_WhenPlanFileStaged_ShouldEnterConfirming(t *testing.T) {
 	}
 }
 
-func TestPreviewPlan_WhenChangesPresent_ShouldEnterConfirmingWithSummary(t *testing.T) {
-	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{{}}, ToCreate: 1}
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return summary, nil
-		},
-	}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-
-	p.PreviewPlan()
-	result, _ := p.Update(planPreviewMsg{Summary: summary})
-	updated := result.(*Plugin)
-
-	if updated.status != StatusConfirming {
-		t.Errorf("status = %v, want StatusConfirming after preview with changes", updated.status)
-	}
-	if updated.summary != summary {
-		t.Error("summary not stored after preview")
-	}
-	view := updated.View(80, 24)
-	if !strings.Contains(view, "1 to add") {
-		t.Errorf("confirmation view should show the plan summary, got %q", view)
-	}
-}
-
-func TestPreviewPlan_WhenNoChanges_ShouldFinishWithoutConfirming(t *testing.T) {
+// Plan owns all planning (ADR-0019): standalone apply enters through the plan
+// plugin, so apply activated without a staged plan file runs no plan of its own.
+func TestActivate_WhenNoAutoApproveAndNoPlanFile_ShouldEnterConfirmingWithoutPlanning(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Init(sdktest.NewDeps(svc).Deps)
 
-	p.PreviewPlan()
-	result, _ := p.Update(planPreviewMsg{Summary: &sdk.PlanSummary{}})
-	updated := result.(*Plugin)
+	flattenCmd(p.Activate(Input{}))
 
-	if updated.status != sdk.StatusDone {
-		t.Errorf("status = %v, want StatusDone when plan has no changes", updated.status)
+	if !p.IsConfirming() {
+		t.Errorf("IsConfirming() = false (status %v), want true", p.status)
 	}
-	view := updated.View(80, 24)
-	if !strings.Contains(view, "No changes") {
-		t.Errorf("view should report no changes, got %q", view)
-	}
-	if updated.ExitCode() != 0 {
-		t.Errorf("ExitCode() = %d, want 0 for no-changes apply", updated.ExitCode())
+	if len(svc.PlanCalls) != 0 {
+		t.Errorf("Service.Plan called %d times, want 0", len(svc.PlanCalls))
 	}
 }
 
-func TestPreviewPlan_WhenPlanFails_ShouldTransitionToError(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-
-	p.PreviewPlan()
-	result, _ := p.Update(planPreviewMsg{Err: errors.New("plan boom")})
-	updated := result.(*Plugin)
-
-	if updated.status != sdk.StatusError {
-		t.Errorf("status = %v, want StatusError when preview plan fails", updated.status)
-	}
-	if updated.errMsg != "plan boom" {
-		t.Errorf("errMsg = %q, want %q", updated.errMsg, "plan boom")
-	}
-}
-
-func TestRunPlanPreview_WhenTargetsProvided_ShouldPassThroughToPlan(t *testing.T) {
-	var got sdk.PlanOptions
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			got = opts
-			return &sdk.PlanSummary{}, nil
+// TestSetLockOverrides_WhenApplyConfirmed_ShouldOverrideTheResolvedMode covers
+// the CLI's --lock/--lock-timeout reaching apply through the plan handoff
+// (ADR-0019: data flows Plan → Apply).
+func TestSetLockOverrides_WhenApplyConfirmed_ShouldOverrideTheResolvedMode(t *testing.T) {
+	tests := []struct {
+		name        string
+		ctxLock     sdk.LockMode
+		ctxTimeout  sdk.LockTimeout
+		lock        sdk.LockMode
+		timeout     sdk.LockTimeout
+		wantLock    sdk.LockMode
+		wantTimeout sdk.LockTimeout
+	}{
+		{
+			name:        "overrides replace an enabled default",
+			ctxLock:     sdk.LockEnabled,
+			ctxTimeout:  sdk.LockTimeout("5s"),
+			lock:        sdk.LockDisabled,
+			timeout:     sdk.LockTimeout("30s"),
+			wantLock:    sdk.LockDisabled,
+			wantTimeout: sdk.LockTimeout("30s"),
+		},
+		{
+			name:     "lock override enables against a disabled default",
+			ctxLock:  sdk.LockDisabled,
+			lock:     sdk.LockEnabled,
+			wantLock: sdk.LockEnabled,
+		},
+		{
+			name:        "zero overrides keep the resolved default",
+			ctxLock:     sdk.LockDisabled,
+			ctxTimeout:  sdk.LockTimeout("5s"),
+			wantLock:    sdk.LockDisabled,
+			wantTimeout: sdk.LockTimeout("5s"),
 		},
 	}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-	p.input = Input{Targets: []string{"aws_instance.web"}}
 
-	cmd := p.runPlanPreview()
-	collectPlanPreview(t, cmd)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got sdk.ApplyOptions
+			svc := &sdktest.MockService{
+				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
+					got = opts
+					return nil
+				},
+			}
+			p := New(svc).(*Plugin)
+			h := sdktest.NewDeps(svc)
+			h.Ctx.Lock = tt.ctxLock
+			h.Ctx.LockTimeout = tt.ctxTimeout
+			p.Init(h.Deps)
 
-	if len(got.Targets) != 1 || got.Targets[0] != "aws_instance.web" {
-		t.Errorf("PlanOptions.Targets = %v, want [aws_instance.web]", got.Targets)
-	}
-	if got.PlanFile == "" {
-		t.Error("preview plan should write to a temp plan file, got empty PlanFile")
+			p.SetPlanFile("/tmp/staged.tfplan")
+			p.SetLockOverrides(tt.lock, tt.timeout)
+			p.RequestApply()
+			collectApplyResult(t, p.Confirm())
+
+			if got.Lock != tt.wantLock {
+				t.Errorf("ApplyOptions.Lock = %v, want %v", got.Lock, tt.wantLock)
+			}
+			if got.LockTimeout != tt.wantTimeout {
+				t.Errorf("ApplyOptions.LockTimeout = %q, want %q", got.LockTimeout, tt.wantTimeout)
+			}
+		})
 	}
 }
 
@@ -1061,27 +1038,6 @@ func TestRunApply_WhenRerun_ShouldDropThePreviousTally(t *testing.T) {
 	}
 }
 
-func TestBusy_WhenPlanning_ShouldReturnTrue(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusPlanning
-	if !p.Busy() {
-		t.Error("Busy() = false while planning, want true (terraform plan in flight)")
-	}
-}
-
-func TestHints_WhenPlanning_ShouldReturnCancel(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusPlanning
-
-	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() returned empty slice while planning")
-	}
-	if hints[0].Key != "Esc" {
-		t.Errorf("Hints()[0].Key = %q, want Esc", hints[0].Key)
-	}
-}
-
 func TestHints_WhenConfirmingWithLastStream_ShouldIncludeLHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = StatusConfirming
@@ -1128,48 +1084,6 @@ func TestHandleKey_WhenConfirmingAndLKey_NoLastStream_ShouldDoNothing(t *testing
 	}
 }
 
-func TestView_WhenPlanning_ShouldShowPlanningState(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusPlanning
-	p.timer.Start()
-
-	view := p.View(80, 24)
-	if !strings.Contains(view, "Planning") {
-		t.Errorf("view should indicate planning changes, got %q", view)
-	}
-}
-
-func collectPlanPreview(t *testing.T, cmd tea.Cmd) planPreviewMsg {
-	t.Helper()
-	done := make(chan planPreviewMsg, 1)
-	var run func(c tea.Cmd)
-	run = func(c tea.Cmd) {
-		go func() {
-			msg := c()
-			if r, ok := msg.(planPreviewMsg); ok {
-				select {
-				case done <- r:
-				default:
-				}
-				return
-			}
-			if batch, ok := msg.(tea.BatchMsg); ok {
-				for _, sub := range batch {
-					run(sub)
-				}
-			}
-		}()
-	}
-	run(cmd)
-	select {
-	case r := <-done:
-		return r
-	case <-time.After(2 * time.Second):
-		t.Fatal("runPlanPreview did not produce planPreviewMsg")
-		return planPreviewMsg{}
-	}
-}
-
 func TestActivate_WhenTargetsProvided_ShouldPassThroughToApply(t *testing.T) {
 	var got sdk.ApplyOptions
 	svc := &sdktest.MockService{
@@ -1190,8 +1104,7 @@ func TestActivate_WhenTargetsProvided_ShouldPassThroughToApply(t *testing.T) {
 }
 
 // TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode covers the
-// per-invocation lock flags on both terraform runs apply makes: the preview
-// plan and the apply itself (lmarqs/terraform-ui#58).
+// per-invocation lock flags on a one-shot apply (lmarqs/terraform-ui#58).
 func TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1223,13 +1136,8 @@ func TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T) 
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var planOpts sdk.PlanOptions
 			var applyOpts sdk.ApplyOptions
 			svc := &sdktest.MockService{
-				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
-					planOpts = opts
-					return &sdk.PlanSummary{}, nil
-				},
 				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
 					applyOpts = opts
 					return nil
@@ -1241,16 +1149,8 @@ func TestApply_WhenInputCarriesLock_ShouldOverrideTheResolvedMode(t *testing.T) 
 			h.Ctx.LockTimeout = tt.ctxTimeout
 			p.Init(h.Deps)
 
-			p.input = tt.input
-			collectPlanPreview(t, p.runPlanPreview())
 			collectApplyResult(t, p.Activate(withAutoApprove(tt.input)))
 
-			if planOpts.Lock != tt.wantLock {
-				t.Errorf("PlanOptions.Lock = %v, want %v", planOpts.Lock, tt.wantLock)
-			}
-			if planOpts.LockTimeout != tt.wantTimeout {
-				t.Errorf("PlanOptions.LockTimeout = %q, want %q", planOpts.LockTimeout, tt.wantTimeout)
-			}
 			if applyOpts.Lock != tt.wantLock {
 				t.Errorf("ApplyOptions.Lock = %v, want %v", applyOpts.Lock, tt.wantLock)
 			}
@@ -1286,13 +1186,8 @@ func TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var planOpts sdk.PlanOptions
 			var applyOpts sdk.ApplyOptions
 			svc := &sdktest.MockService{
-				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
-					planOpts = opts
-					return &sdk.PlanSummary{}, nil
-				},
 				ApplyFn: func(_ context.Context, opts sdk.ApplyOptions) error {
 					applyOpts = opts
 					return nil
@@ -1304,11 +1199,8 @@ func TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
 				t.Fatalf("Configure() error = %v", err)
 			}
 
-			p.input = tt.input
-			collectPlanPreview(t, p.runPlanPreview())
 			collectApplyResult(t, p.Activate(withAutoApprove(tt.input)))
 
-			assertStrings(t, "PlanOptions.Targets", planOpts.Targets, tt.want)
 			assertStrings(t, "ApplyOptions.Targets", applyOpts.Targets, tt.want)
 		})
 	}
@@ -1483,20 +1375,6 @@ func TestStderr_WhenApplySucceeded_ShouldEmitApplyComplete(t *testing.T) {
 
 	if got := string(updated.Stderr()); got != "Apply complete.\n" {
 		t.Errorf("Stderr() = %q, want %q", got, "Apply complete.\n")
-	}
-}
-
-func TestStderr_WhenNoChanges_ShouldEmitNoChanges(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.Init(sdktest.NewDeps(svc).Deps)
-
-	p.PreviewPlan()
-	result, _ := p.Update(planPreviewMsg{Summary: &sdk.PlanSummary{}})
-	updated := result.(*Plugin)
-
-	if got := string(updated.Stderr()); got != "No changes.\n" {
-		t.Errorf("Stderr() = %q, want %q", got, "No changes.\n")
 	}
 }
 

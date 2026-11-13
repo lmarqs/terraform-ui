@@ -434,9 +434,8 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			// it ended up clean (zero changes), there is nothing to apply.
 			if e.pendingApply && changes > 0 && planFilePath != "" {
 				autoApprove := e.pendingAutoApprove
-				cmds = append(cmds, func() tea.Msg {
-					return ApplyRequestMsg{PlanFile: planFilePath, AutoApprove: autoApprove}
-				})
+				req := e.applyRequest(planFilePath, autoApprove)
+				cmds = append(cmds, func() tea.Msg { return req })
 			}
 			e.clearPendingApply()
 			return e, tea.Batch(cmds...)
@@ -935,10 +934,22 @@ type PlanEditMsg struct {
 
 // ApplyRequestMsg signals the app to apply the plan artifact produced by the
 // most recent plan run. PlanFile is the path to the saved plan; AutoApprove
-// short-circuits the confirmation prompt when true.
+// short-circuits the confirmation prompt when true. Lock and LockTimeout are
+// the per-run overrides the plan ran with, so the apply locks state the same way.
 type ApplyRequestMsg struct {
 	PlanFile    string
 	AutoApprove bool
+	Lock        sdk.LockMode
+	LockTimeout sdk.LockTimeout
+}
+
+func (e *Plugin) applyRequest(planFile string, autoApprove bool) ApplyRequestMsg {
+	return ApplyRequestMsg{
+		PlanFile:    planFile,
+		AutoApprove: autoApprove,
+		Lock:        e.input.Lock,
+		LockTimeout: e.input.LockTimeout,
+	}
 }
 
 // Stdout produces stdout content for standalone/CI mode.
@@ -1030,7 +1041,8 @@ func (e *Plugin) requestAutoApply() tea.Cmd {
 func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
 	if !e.stale && !e.planFile.IsZero() {
 		path := e.planFile.Path()
-		return func() tea.Msg { return ApplyRequestMsg{PlanFile: path, AutoApprove: autoApprove} }
+		req := e.applyRequest(path, autoApprove)
+		return func() tea.Msg { return req }
 	}
 	e.pendingApply = true
 	e.pendingAutoApprove = autoApprove

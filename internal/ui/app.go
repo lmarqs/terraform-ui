@@ -445,6 +445,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if p, ok := a.registry.ByID("apply"); ok {
 			applyPlugin := p.(*tfuiapply.Plugin)
 			applyPlugin.SetPlanFile(msg.PlanFile)
+			applyPlugin.SetLockOverrides(msg.Lock, msg.LockTimeout)
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			var cmd tea.Cmd
