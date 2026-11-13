@@ -1,3 +1,17 @@
+## [1.27.3](https://github.com/lmarqs/terraform-ui/compare/v1.27.2...v1.27.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **apply:** confirm only a staged plan file ([ee2b92f](https://github.com/lmarqs/terraform-ui/commit/ee2b92f7537b3efb5ac1b34ee5cd7d76e9b3d5da)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **apply:** drop a previous apply's log from the confirmation ([718c31b](https://github.com/lmarqs/terraform-ui/commit/718c31b7a782e3d45e6b8d68745c6d36a64fb738)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **apply:** offer no retry after a failed plan-file apply ([60e6e65](https://github.com/lmarqs/terraform-ui/commit/60e6e659c7ac0a577249adffe90e6db39ac203e4)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **cli:** drop the headless wait on the entry plugin's error ([9140faa](https://github.com/lmarqs/terraform-ui/commit/9140faaf85d4d16afe851e30f071404adf791cf3)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **cli:** scope interactive apply's plan by apply's configured targets ([b02d524](https://github.com/lmarqs/terraform-ui/commit/b02d524c578348c874081d0195056d1740f84ffa)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **cli:** shut plugins down before a non-zero exit ([6e5643a](https://github.com/lmarqs/terraform-ui/commit/6e5643a3d7d119910f7cfe84a10e9433549319ad)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **plan:** remove the temp plan file when the program ends ([3f3d6a5](https://github.com/lmarqs/terraform-ui/commit/3f3d6a5496d4379da8d6478386f9a61bf2161386)), closes [#89](https://github.com/lmarqs/terraform-ui/issues/89)
+* **ui:** resolve a standalone verb's settings for the selected workspace ([42a6876](https://github.com/lmarqs/terraform-ui/commit/42a6876ca5039544c05f676639c9bd19a314cb06)), closes [#65](https://github.com/lmarqs/terraform-ui/issues/65)
+
 ## [1.27.2](https://github.com/lmarqs/terraform-ui/compare/v1.27.1...v1.27.2) (2026-11-13)
 
 
