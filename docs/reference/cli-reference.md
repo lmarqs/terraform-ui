@@ -73,10 +73,10 @@ Exit code 2 = changes present (terraform-compatible).
 
 ### `tfui apply`
 
-Run terraform apply. Opens the apply plugin TUI.
+Run terraform apply. Opens the plan view, where `a` applies the reviewed plan.
 
 ```bash
-tfui apply                          # TUI: shows the plan, then confirmation, then progress
+tfui apply                          # TUI: plan view, then confirmation, then progress
 tfui apply -auto-approve           # TUI: skips plan review + confirmation, shows progress
 tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
@@ -86,14 +86,15 @@ tfui apply -lock=false              # Skip state locking for this run
 tfui apply -lock-timeout=30s        # Retry a held lock for 30s
 ```
 
-`-lock` and `-lock-timeout` apply to the preview plan and the apply alike, and
+`-lock` and `-lock-timeout` apply to the plan and the apply alike, and
 override `defaults { lock }` / `defaults { lock_timeout }` from `tfui.hcl` for
 that run only. Omitting them keeps whatever the config resolved.
 
-Standalone `tfui apply` runs a plan and streams the pending changes first, then
-asks for confirmation — the same review-then-approve flow as `terraform apply`.
-`-auto-approve` skips both the review and the prompt. (In the TUI pipeline the
-plan plugin already showed the diff, so `a` goes straight to the confirmation.)
+Standalone `tfui apply` is the TUI's plan → apply flow without the header: it
+runs a plan and opens the plan view with the full diff. `a` applies that saved
+plan after a confirmation; the session ends when apply finishes or the
+confirmation is declined. `-auto-approve` skips the review and the prompt, and
+terraform plans and applies in one run.
 
 Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires
 `-auto-approve` — exactly as `terraform apply` does. With no plan file and no
@@ -102,8 +103,8 @@ for non-interactive use" (exit 1), rather than applying unconfirmed.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
-| Standalone | — | TUI; "Apply complete. Resources: …" / "No changes." on exit | 0/1 |
-| CI (`-auto-approve`, success) | — | "Apply complete. Resources: …" / "No changes." | 0 |
+| Standalone | — | TUI; "Apply complete. Resources: …" on exit; a failed plan's terraform error | 0/1 |
+| CI (`-auto-approve`, success) | — | "Apply complete. Resources: …" | 0 |
 | CI (`-auto-approve`, failure) | — | terraform error | 1 |
 | CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
 

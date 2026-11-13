@@ -182,7 +182,15 @@ func resolveSilentStderrFrom(ciMode bool, getenv func(string) string, stderrIsTT
 //  5. Pumps the output port: MacroService recorder → stdout (cmd-formatted per
 //     --json); else StdoutEmitter.Stdout() → stdout, StderrEmitter.Stderr() →
 //     stderr; ExitCoder.ExitCode() → process exit code.
-func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sdk.Plugin) tea.Cmd) error {
+func (s *Session) RunPlugin(ctx context.Context, pluginID string, activate func(sdk.Plugin) tea.Cmd) error {
+	return s.RunPluginFrom(ctx, pluginID, pluginID, activate)
+}
+
+// RunPluginFrom is RunPlugin for a verb whose run starts in another plugin:
+// activate receives the entry plugin, which hands over to the verb's plugin
+// (pluginID). The output port belongs to the verb's plugin; when the entry
+// plugin fails before the hand-over, its stderr and exit code are pumped instead.
+func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, activate func(sdk.Plugin) tea.Cmd) error {
 	if err := s.validatePlugin(pluginID); err != nil {
 		return err
 	}
@@ -209,6 +217,7 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	standalone := &ui.StandaloneConfig{
 		PluginID: pluginID,
+		EntryID:  entryID,
 		Activate: activate,
 	}
 	app := ui.NewApp(s.cfg, svc, registry, s.rootCfg, standalone)
@@ -227,6 +236,9 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 		} else {
 			driver.Init()
 			if err := driver.WaitUntil(func(_ string) bool {
+				if p, ok := registry.ByID(entryID); ok && entryID != pluginID && statusOf(p) == sdk.StatusError {
+					return true
+				}
 				if p, ok := registry.ByID(pluginID); ok {
 					return p.Ready() || terminalStatus(p)
 				}
@@ -260,6 +272,11 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 	if !ok {
 		return nil
 	}
+	failure := p
+	if entry, ok := registry.ByID(entryID); ok && entryID != pluginID &&
+		statusOf(p) == sdk.StatusIdle && statusOf(entry) == sdk.StatusError {
+		failure = entry
+	}
 	if emitter, ok := p.(sdk.StdoutEmitter); ok {
 		data, err := emitter.Stdout()
 		if err != nil {
@@ -267,10 +284,10 @@ func (s *Session) RunPlugin(_ context.Context, pluginID string, activate func(sd
 		}
 		s.effects.WriteStdout(data)
 	}
-	if emitter, ok := p.(sdk.StderrEmitter); ok {
+	if emitter, ok := failure.(sdk.StderrEmitter); ok {
 		s.effects.WriteStderr(emitter.Stderr())
 	}
-	if coder, ok := p.(sdk.ExitCoder); ok {
+	if coder, ok := failure.(sdk.ExitCoder); ok {
 		s.effects.ExitWithCode(coder.ExitCode())
 	}
 	return nil
@@ -297,9 +314,15 @@ func (s *Session) validatePlugin(pluginID string) error {
 // state — used to short-circuit the macro driver's WaitUntil when the plugin
 // has no Ready() bridge for terminal Done/Error states.
 func terminalStatus(p sdk.Plugin) bool {
+	st := statusOf(p)
+	return st == sdk.StatusDone || st == sdk.StatusError
+}
+
+// statusOf returns the plugin's lifecycle status, or StatusIdle when it does
+// not report one.
+func statusOf(p sdk.Plugin) sdk.Status {
 	if sr, ok := p.(sdk.Statusable); ok {
-		st := sr.Status()
-		return st == sdk.StatusDone || st == sdk.StatusError
+		return sr.Status()
 	}
-	return false
+	return sdk.StatusIdle
 }

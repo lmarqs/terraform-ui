@@ -18,9 +18,9 @@ This applies universally: any layered relationship in the system follows these r
 
 ## Scope
 
-This ADR governs the **TUI pipeline** where plugins form a strict parent→child chain: Context → Plan → Apply. In this flow, targets are baked into the plan file at plan time; apply consumes only the plan artifact and never passes `-target` to terraform.
+This ADR governs every path that reviews a plan before applying it: the TUI and the interactive `tfui apply`, which enters the same chain at the plan plugin. Plugins form a strict parent→child chain: Context → Plan → Apply. Targets are baked into the plan file at plan time; apply consumes only the plan artifact and never passes `-target` to terraform. Per-run settings the plan ran with, such as `--lock` and `--lock-timeout`, travel downstream with the plan file.
 
-The **standalone CLI path** (`tfui apply --target=X`) is not subject to this constraint. It invokes terraform's native plan-and-apply-in-one-shot mode — no intermediate plan artifact exists, no parent-child violation occurs. Independent paths for achieving the same result have independent constraints.
+`tfui apply --auto-approve` has no review step. It invokes terraform's native plan-and-apply-in-one-shot mode, so no intermediate plan artifact exists and `-target` goes to the apply.
 
 We chose strict layering over flat shared state because shared mutable state between siblings is structurally unsound. When any node can independently read from a grandparent or a shared pool, it creates parallel data paths with no consistency enforcement. Strict layering makes inconsistency impossible by construction.
 

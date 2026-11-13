@@ -6,6 +6,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
+	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	"github.com/spf13/cobra"
 )
 
@@ -25,8 +26,14 @@ func buildApplyCommand(s *Session) *cobra.Command {
 			if err := requireApplyConfirmable(s, input.AutoApprove); err != nil {
 				return err
 			}
-			return s.RunPlugin(cmd.Context(), "apply", func(p sdk.Plugin) tea.Cmd {
-				return p.(*apply.Plugin).Activate(input)
+			if input.AutoApprove {
+				return s.RunPlugin(cmd.Context(), "apply", func(p sdk.Plugin) tea.Cmd {
+					return p.(*apply.Plugin).Activate(input)
+				})
+			}
+			planInput := tfuiplan.Input{Targets: input.Targets, Lock: input.Lock, LockTimeout: input.LockTimeout}
+			return s.RunPluginFrom(cmd.Context(), "apply", "plan", func(p sdk.Plugin) tea.Cmd {
+				return p.(*tfuiplan.Plugin).Activate(planInput)
 			})
 		},
 	}

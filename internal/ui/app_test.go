@@ -4081,6 +4081,102 @@ func TestApp_Update_WhenStandaloneDeactivateMsg_ShouldQuit(t *testing.T) {
 	}
 }
 
+// newStandaloneApplyViaPlanApp builds the app `tfui apply` runs: the verb is
+// apply, entered through the plan plugin, with the real apply plugin
+// registered so plan's ApplyRequestMsg hands over to it.
+func newStandaloneApplyViaPlanApp(t *testing.T, svc *sdktest.MockService, activate func(sdk.Plugin) tea.Cmd) App {
+	t.Helper()
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+	}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+	registry.RegisterFactory("apply", func(s terraform.Service) plugin.Plugin {
+		return tfuiapply.New(s)
+	}, plugin.PluginMeta{Keybinding: "a", MenuVisible: true})
+	registry.Build(svc, nil)
+
+	sc := &StandaloneConfig{PluginID: "apply", EntryID: "plan", Activate: activate}
+	app := NewApp(cfg, svc, registry, nil, sc)
+	app.Init()
+	model, _ := app.Update(openContextOnStartupMsg{})
+	return model.(App)
+}
+
+func TestApp_Update_WhenStandaloneEntryIDSet_ShouldActivateEntryPlugin(t *testing.T) {
+	var activated sdk.Plugin
+	app := newStandaloneApplyViaPlanApp(t, &sdktest.MockService{}, func(p sdk.Plugin) tea.Cmd {
+		activated = p
+		return nil
+	})
+
+	if activated == nil || activated.ID() != "plan" {
+		t.Fatalf("Activate closure received %v, want the entry plugin %q", activated, "plan")
+	}
+	if got := app.ActivePlugin(); got == nil || got.ID() != "plan" {
+		t.Errorf("ActivePlugin() = %v, want %q", got, "plan")
+	}
+}
+
+func TestApp_Update_WhenStandaloneDeactivateMsg_ShouldQuitPerActivePlugin(t *testing.T) {
+	tests := []struct {
+		name           string
+		handOffToApply bool
+	}{
+		// The verb's plugin ends the program even with plan underneath it.
+		{name: "WhenVerbPluginOverEntry", handOffToApply: true},
+		{name: "WhenEntryPluginAtRoot", handOffToApply: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := newStandaloneApplyViaPlanApp(t, &sdktest.MockService{}, func(sdk.Plugin) tea.Cmd { return nil })
+			if tt.handOffToApply {
+				model, _ := app.Update(tfuiplan.ApplyRequestMsg{PlanFile: "x.tfplan"})
+				app = model.(App)
+				if got := app.ActivePlugin(); got == nil || got.ID() != "apply" {
+					t.Fatalf("ApplyRequestMsg should hand over to apply, ActivePlugin() = %v", got)
+				}
+			}
+
+			model, cmd := app.Update(sdk.DeactivateMsg{})
+
+			if !appCmdEmits[tea.QuitMsg](cmd) {
+				t.Errorf("DeactivateMsg should quit the standalone program, ActivePlugin() = %v",
+					model.(App).ActivePlugin())
+			}
+		})
+	}
+}
+
+func TestApp_Update_WhenApplyRequestMsgCarriesLockOverrides_ShouldApplyWithThem(t *testing.T) {
+	svc := &sdktest.MockService{}
+	app := newStandaloneApplyViaPlanApp(t, svc, func(sdk.Plugin) tea.Cmd { return nil })
+
+	model, _ := app.Update(tfuiplan.ApplyRequestMsg{
+		PlanFile:    "x.tfplan",
+		Lock:        sdk.LockDisabled,
+		LockTimeout: sdk.LockTimeout("30s"),
+	})
+	app = model.(App)
+	_, cmd := app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+
+	if !appCmdEmits[tfuiapply.ApplyResultMsg](cmd) {
+		t.Fatal("confirming the apply should run terraform apply")
+	}
+	if len(svc.ApplyCalls) != 1 {
+		t.Fatalf("Apply called %d times, want 1", len(svc.ApplyCalls))
+	}
+	got := svc.ApplyCalls[0]
+	if got.Lock != sdk.LockDisabled || got.LockTimeout != sdk.LockTimeout("30s") {
+		t.Errorf("ApplyOptions Lock = %v, LockTimeout = %q, want LockDisabled, \"30s\" (the plan's overrides)",
+			got.Lock, got.LockTimeout)
+	}
+}
+
 // --- Tests for TaintRequestMsg, UntaintRequestMsg, ImportRequestMsg ---
 
 func TestApp_Update_WhenReceivingTaintRequestMsg_ShouldActivateTaintPlugin(t *testing.T) {

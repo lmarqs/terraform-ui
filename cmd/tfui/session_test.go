@@ -13,6 +13,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
+	"github.com/lmarqs/terraform-ui/plugins/plan"
 	"github.com/lmarqs/terraform-ui/plugins/taint"
 )
 
@@ -166,4 +167,103 @@ func writeTempTape(t *testing.T, content string) string {
 		t.Fatalf("close tape: %v", err)
 	}
 	return f.Name()
+}
+
+// writeFailingTerraform writes a fake terraform binary that answers the
+// version probe and fails every other command with stderrMsg on stderr, the
+// way a broken configuration makes `terraform plan` fail.
+func writeFailingTerraform(t *testing.T, stderrMsg string) string {
+	t.Helper()
+	bin := filepath.Join(t.TempDir(), "terraform")
+	script := `#!/bin/sh
+if [ "$1" = "version" ]; then
+  echo '{"terraform_version":"1.14.0","platform":"linux_amd64","provider_selections":{},"terraform_outdated":false}'
+  exit 0
+fi
+echo "` + stderrMsg + `" >&2
+exit 1
+`
+	if err := os.WriteFile(bin, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake terraform: %v", err)
+	}
+	return bin
+}
+
+// TestRunPluginFrom_WhenEntryPlanFailsBeforeApply_ShouldExitWithPlanError
+// covers `tfui apply` entered through plan: the plan fails, apply never
+// leaves idle, so the plan's error and exit code reach the user.
+func TestRunPluginFrom_WhenEntryPlanFailsBeforeApply_ShouldExitWithPlanError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
+		t.Fatalf("write tf: %v", err)
+	}
+	var stderrBuf bytes.Buffer
+	exitCode := 0
+	session := &Session{
+		cfg: config.Config{
+			Dir:       dir,
+			Terraform: config.TerraformConfig{Bin: writeFailingTerraform(t, "Error: Unsupported block type boom")},
+		},
+		ciMode:       true,
+		silentStderr: true,
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &stderrBuf, Exit: func(code int) { exitCode = code }},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- session.RunPluginFrom(context.Background(), "apply", "plan", func(p sdk.Plugin) tea.Cmd {
+			return p.(*plan.Plugin).Activate(plan.Input{})
+		})
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("RunPluginFrom error = %v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("RunPluginFrom hung after the entry plan failed")
+	}
+
+	if exitCode != 1 {
+		t.Errorf("exit code = %d, want 1 (the failed plan's)", exitCode)
+	}
+	if !strings.Contains(stderrBuf.String(), "boom") {
+		t.Errorf("stderr = %q, want the plan's terraform error", stderrBuf.String())
+	}
+}
+
+// TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply pins that
+// entering through the verb's own plugin behaves as RunPlugin does.
+func TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
+		t.Fatalf("write tf: %v", err)
+	}
+	var stdoutBuf bytes.Buffer
+	session := &Session{
+		cfg:          config.Config{Dir: dir},
+		ciMode:       true,
+		silentStderr: true,
+		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
+		effects:      Effects{Stdout: &stdoutBuf, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		done <- session.RunPluginFrom(context.Background(), "apply", "apply", func(p sdk.Plugin) tea.Cmd {
+			return p.(*apply.Plugin).Activate(apply.Input{AutoApprove: true})
+		})
+	}()
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatalf("RunPluginFrom error = %v", err)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("RunPluginFrom hung")
+	}
+
+	if !strings.Contains(stdoutBuf.String(), "terraform apply") {
+		t.Errorf("stdout missing recorded `terraform apply`, got: %q", stdoutBuf.String())
+	}
 }

@@ -34,8 +34,16 @@ import (
 // StandaloneConfig configures the app to run a single plugin without
 // home screen or inter-plugin navigation (the fzf model).
 type StandaloneConfig struct {
-	PluginID string // which plugin is the app
+	PluginID string // the verb's plugin: ending it ends the program
+	EntryID  string // the plugin activated at startup; empty means PluginID
 	Activate func(sdk.Plugin) tea.Cmd
+}
+
+func (c StandaloneConfig) entryID() string {
+	if c.EntryID != "" {
+		return c.EntryID
+	}
+	return c.PluginID
 }
 
 // contextHolder is a heap-allocated indirection so that plugin closures
@@ -215,7 +223,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Standalone mode: activate the target plugin directly
 		if a.standalone != nil {
 			a.activeChdir = a.startupChdir()
-			if p, ok := a.registry.ByID(a.standalone.PluginID); ok {
+			if p, ok := a.registry.ByID(a.standalone.entryID()); ok {
 				a.activePlugin = p
 				var cmd tea.Cmd
 				if a.standalone.Activate != nil {
@@ -348,6 +356,9 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if a.activePlugin != nil {
 			if c, ok := a.activePlugin.(sdk.Cancellable); ok {
 				c.Cancel()
+			}
+			if a.standalone != nil && a.activePlugin.ID() == a.standalone.PluginID {
+				return a, tea.Quit
 			}
 			if len(a.navStack) > 0 {
 				a.navigateBack()
