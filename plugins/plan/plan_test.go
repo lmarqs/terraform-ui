@@ -2924,3 +2924,37 @@ func TestExitCode_WhenPlanFailedInJSONMode_ShouldReturnOne(t *testing.T) {
 		t.Errorf("ExitCode() on JSON-mode failure = %d, want 1", got)
 	}
 }
+
+// A saved plan holds variable values in plaintext, so the temp plan file a run
+// wrote must not outlive the program (ADR-0020).
+func TestShutdown_GivenATempPlanFile_ShouldRemoveItFromDisk(t *testing.T) {
+	t.Setenv("TMPDIR", t.TempDir())
+	svc := &sdktest.MockService{}
+	p := newTestPlugin(svc)
+	p.Activate(Input{JSON: true})
+	planPath := p.planFile.Path()
+	if err := os.WriteFile(planPath, []byte("plan-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	sdk.Plugin(p).(sdk.Shutdowner).Shutdown()
+
+	if _, err := os.Stat(planPath); !os.IsNotExist(err) {
+		t.Errorf("plan file still exists at %q after Shutdown; err=%v", planPath, err)
+	}
+}
+
+func TestShutdown_GivenAUserPlanFile_ShouldKeepIt(t *testing.T) {
+	p := newTestPlugin(&sdktest.MockService{})
+	planPath := filepath.Join(t.TempDir(), "user.tfplan")
+	if err := os.WriteFile(planPath, []byte("plan-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p.planFile = sdk.NewUserPlanFile(planPath)
+
+	p.Shutdown()
+
+	if _, err := os.Stat(planPath); err != nil {
+		t.Errorf("user plan file removed by Shutdown; err=%v", err)
+	}
+}

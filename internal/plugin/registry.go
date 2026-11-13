@@ -90,6 +90,15 @@ func (r *Registry) All() []Plugin {
 	return r.plugins
 }
 
+// Shutdown calls Shutdown on every plugin that implements sdk.Shutdowner.
+func (r *Registry) Shutdown() {
+	for _, plg := range r.plugins {
+		if s, ok := plg.(sdk.Shutdowner); ok {
+			s.Shutdown()
+		}
+	}
+}
+
 // ByKey looks up a plugin by its key binding string and reports whether it was found.
 func (r *Registry) ByKey(key string) (Plugin, bool) {
 	plg, ok := r.byKey[key]

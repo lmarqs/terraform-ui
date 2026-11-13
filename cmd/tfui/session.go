@@ -43,6 +43,7 @@ func (s *Session) Run() error {
 		return err
 	}
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
+	defer registry.Shutdown()
 	app := s.buildApp(svc, registry)
 	_, err = s.present(app, tape)
 	if err != nil {
@@ -221,6 +222,7 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 	}
 
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
+	defer registry.Shutdown()
 	standalone := &ui.StandaloneConfig{
 		PluginID: pluginID,
 		EntryID:  entryID,

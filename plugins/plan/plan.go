@@ -329,6 +329,12 @@ func mergeTargets(pinned, cli []string) []string {
 	return merged
 }
 
+// Shutdown implements sdk.Shutdowner: the temp plan file holds variable values
+// in plaintext and must not outlive the program (ADR-0020).
+func (e *Plugin) Shutdown() {
+	e.planFile.Cleanup()
+}
+
 // allocPlanFile reserves a unique path for the plan artifact and stores it on
 // the plugin so PlanCompletedEvent can hand it off to apply.
 func (e *Plugin) allocPlanFile() string {

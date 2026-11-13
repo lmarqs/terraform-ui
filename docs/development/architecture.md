@@ -117,7 +117,7 @@ type Plugin interface {
 
 Optional interfaces add capabilities the app detects by type assertion: `Activatable`, `Busy`, `Cancellable`,
 `Countable`, `Hintable`, `KeyCapturer`, `Pinnable`, `Positionable`, `Stackable` (`frame.go`), `StdoutEmitter`,
-`StderrEmitter`, `ExitCoder`, `Statusable`.
+`StderrEmitter`, `ExitCoder`, `Statusable`, `Shutdowner` (called on every registered plugin when the program ends).
 
 Each plugin is a use case with two ports ([ADR-0021](../adr/0021-plugins-as-use-cases.md)):
 

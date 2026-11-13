@@ -19,8 +19,14 @@ We decided that **cleanup belongs to whoever knows when the data becomes useless
 ## Consequences
 
 - The exec service's `Apply()` no longer calls `os.Remove()` on the plan file. It only reads from `PlanFile.Path()`.
-- The plan plugin calls `PlanFile.Cleanup()` in its `reset()` path — triggered by replan, context switch, or apply success (`PlanInvalidatedEvent`).
-- A failed apply leaves the plan file alive. The user can retry. Only when plan decides the data is stale does cleanup happen.
+- The plan plugin calls `PlanFile.Cleanup()` in its `reset()` path — triggered by context switch, or by
+  `PlanInvalidatedEvent` while plan is not showing results.
+- A successful apply marks plan stale: the plan file stays until plan resets or the program ends.
+- A failed apply leaves the plan file alive while the program runs. Only when plan decides the data is stale does
+  cleanup happen.
+- The plan plugin implements `sdk.Shutdowner`: when the program ends, the session calls `Shutdown()` on every
+  registered plugin, and plan calls `PlanFile.Cleanup()`. A temp plan file holds variable values in plaintext, so it
+  does not outlive the TUI, `tfui plan` or `tfui apply` run that wrote it. A user-provided plan file is kept.
 
 ## Considered Options
 

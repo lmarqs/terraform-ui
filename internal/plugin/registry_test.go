@@ -341,3 +341,25 @@ func TestBuild_PreservesRegistrationOrder(t *testing.T) {
 		t.Errorf("All()[2].ID() = %q, want %q", all[2].ID(), "gamma")
 	}
 }
+
+type shutdownPlugin struct {
+	mockPlugin
+	shutdowns int
+}
+
+func (m *shutdownPlugin) Shutdown() { m.shutdowns++ }
+
+func TestShutdown_ShouldShutDownEveryPluginThatImplementsIt(t *testing.T) {
+	first, second := &shutdownPlugin{mockPlugin: mockPlugin{id: "first"}}, &shutdownPlugin{mockPlugin: mockPlugin{id: "second"}}
+	r := NewRegistry()
+	r.RegisterFactory("first", func(_ terraform.Service) Plugin { return first }, PluginMeta{})
+	r.RegisterFactory("plain", newMockFactory("plain", "Plain"), PluginMeta{})
+	r.RegisterFactory("second", func(_ terraform.Service) Plugin { return second }, PluginMeta{})
+	r.Build(nil, nil)
+
+	r.Shutdown()
+
+	if first.shutdowns != 1 || second.shutdowns != 1 {
+		t.Errorf("Shutdown calls = %d, %d, want 1, 1", first.shutdowns, second.shutdowns)
+	}
+}

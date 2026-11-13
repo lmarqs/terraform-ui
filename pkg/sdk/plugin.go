@@ -124,6 +124,14 @@ type Statusable interface {
 	Status() Status
 }
 
+// Shutdowner is an optional interface plugins implement to release what they
+// leave on disk when the program ends (e.g., plan removes its temp plan file,
+// which holds variable values in plaintext). The session calls Shutdown on
+// every registered plugin after the program exits and its output is written.
+type Shutdowner interface {
+	Shutdown()
+}
+
 // PluginFactory is a constructor function that creates a new plugin instance
 // bound to the given terraform service.
 type PluginFactory func(svc Service) Plugin
