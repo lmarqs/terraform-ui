@@ -3754,7 +3754,7 @@ func TestApp_WhenStandalone_ShouldReturnTrue(t *testing.T) {
 
 // --- Tests for standalone mode Update branches ---
 
-func TestApp_Update_WhenStandaloneOpenContextOnStartup_ShouldActivateTargetPlugin(t *testing.T) {
+func TestApp_Update_WhenStandaloneWorkspaceLoaded_ShouldActivateTargetPlugin(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -3771,18 +3771,18 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartup_ShouldActivateTargetPlugi
 	sc := &StandaloneConfig{PluginID: "state"}
 	app := NewApp(cfg, svc, registry, nil, sc)
 
-	model, _ := app.Update(openContextOnStartupMsg{})
+	model, _ := app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 	updated := model.(App)
 
 	if updated.activePlugin == nil {
-		t.Fatal("standalone openContextOnStartupMsg should activate target plugin")
+		t.Fatal("standalone workspaceLoadedMsg should activate target plugin")
 	}
 	if updated.activePlugin.ID() != "state" {
 		t.Errorf("activePlugin = %q, want %q", updated.activePlugin.ID(), "state")
 	}
 }
 
-func TestApp_Update_WhenStandaloneOpenContextOnStartupWithBaseDir_ShouldSetChdir(t *testing.T) {
+func TestApp_Update_WhenStandaloneWorkspaceLoadedWithBaseDir_ShouldSetChdir(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		BaseDir:   "modules/vpc",
@@ -3800,7 +3800,7 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartupWithBaseDir_ShouldSetChdir
 	sc := &StandaloneConfig{PluginID: "state"}
 	app := NewApp(cfg, svc, registry, nil, sc)
 
-	model, _ := app.Update(openContextOnStartupMsg{})
+	model, _ := app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 	updated := model.(App)
 
 	if updated.activeChdir != "modules/vpc" {
@@ -3808,7 +3808,7 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartupWithBaseDir_ShouldSetChdir
 	}
 }
 
-func TestApp_Update_WhenStandaloneOpenContextOnStartupWithChdir_ShouldPreferChdir(t *testing.T) {
+func TestApp_Update_WhenStandaloneWorkspaceLoadedWithChdir_ShouldPreferChdir(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Chdir:     "modules/ecs",
@@ -3827,7 +3827,7 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartupWithChdir_ShouldPreferChdi
 	sc := &StandaloneConfig{PluginID: "state"}
 	app := NewApp(cfg, svc, registry, nil, sc)
 
-	model, _ := app.Update(openContextOnStartupMsg{})
+	model, _ := app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 	updated := model.(App)
 
 	if updated.activeChdir != "modules/ecs" {
@@ -3859,7 +3859,7 @@ func TestApp_Update_WhenStandaloneActivateClosureSet_ShouldUseClosure(t *testing
 	}
 	app := NewApp(cfg, svc, registry, nil, sc)
 
-	_, cmd := app.Update(openContextOnStartupMsg{})
+	_, cmd := app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 	if called != 1 {
 		t.Errorf("Activate closure called %d times, want 1", called)
 	}
@@ -3959,7 +3959,7 @@ workspace "default" {
 			}
 			app := NewApp(cfg, svc, registry, rootCfg, sc)
 			app.Init()
-			app.Update(openContextOnStartupMsg{})
+			app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 
 			if target.ctxAtActivate == nil {
 				t.Fatal("standalone startup should activate the plugin with a Context")
@@ -3978,7 +3978,76 @@ workspace "default" {
 	}
 }
 
-func TestApp_Update_WhenStandaloneOpenContextOnStartupUnknownPlugin_ShouldReturnNil(t *testing.T) {
+// A standalone verb runs in the selected workspace, so its Context carries
+// that workspace's tfui.hcl block. When the workspace cannot be read, the verb
+// still runs, on the default workspace's settings.
+func TestApp_Update_WhenStandaloneStartsInSelectedWorkspace_ShouldActivateWithItsSettings(t *testing.T) {
+	tests := []struct {
+		name          string
+		workspaceErr  error
+		wantWorkspace sdk.Workspace
+		wantVarFiles  []string
+		wantTimeout   sdk.LockTimeout
+	}{
+		{name: "SelectedWorkspace", wantWorkspace: "prod", wantVarFiles: []string{"prod.tfvars"}, wantTimeout: "9m"},
+		{name: "WorkspaceUnreadable", workspaceErr: fmt.Errorf("boom"), wantWorkspace: sdk.WorkspaceDefault, wantVarFiles: nil, wantTimeout: "1m"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			projectDir := t.TempDir()
+			writeTfuiHCL(t, projectDir, `
+member "app" {}
+`)
+			writeTfuiHCL(t, filepath.Join(projectDir, "app"), `
+workspace "default" {
+  lock_timeout = "1m"
+}
+
+workspace "prod" {
+  lock_timeout = "9m"
+  var_file "prod.tfvars" {}
+}
+`)
+			rootCfg, err := config.LoadRoot(projectDir)
+			if err != nil {
+				t.Fatalf("LoadRoot: %v", err)
+			}
+			cfg := config.Config{Dir: projectDir, Chdir: "app", Terraform: config.TerraformConfig{Bin: "terraform"}}
+			svc := newMockService("prod", tt.workspaceErr)
+			registry := plugin.NewRegistry()
+			target := &contextCapturingPlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan"}}
+			registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+				return target
+			}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+			registry.Build(nil, nil)
+
+			app := NewApp(cfg, svc, registry, rootCfg, &StandaloneConfig{PluginID: "plan"})
+			app.Init()
+			model, _ := app.Update(openContextOnStartupMsg{})
+			app = model.(App)
+			if target.ctxAtActivate != nil {
+				t.Fatal("standalone verb activated before its workspace was known")
+			}
+			app.Update(app.loadWorkspace())
+
+			if target.ctxAtActivate == nil {
+				t.Fatal("standalone verb not activated once its workspace was known")
+			}
+			got := target.ctxAtActivate
+			if got.Workspace != tt.wantWorkspace {
+				t.Errorf("Workspace = %q, want %q", got.Workspace, tt.wantWorkspace)
+			}
+			if !reflect.DeepEqual(got.VarFiles, tt.wantVarFiles) {
+				t.Errorf("VarFiles = %v, want %v", got.VarFiles, tt.wantVarFiles)
+			}
+			if got.LockTimeout != tt.wantTimeout {
+				t.Errorf("LockTimeout = %q, want %q", got.LockTimeout, tt.wantTimeout)
+			}
+		})
+	}
+}
+
+func TestApp_Update_WhenStandaloneWorkspaceLoadedUnknownPlugin_ShouldReturnNil(t *testing.T) {
 	cfg := config.Config{
 		Dir:       "/test/dir",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
@@ -3990,7 +4059,7 @@ func TestApp_Update_WhenStandaloneOpenContextOnStartupUnknownPlugin_ShouldReturn
 	sc := &StandaloneConfig{PluginID: "nonexistent"}
 	app := NewApp(cfg, svc, registry, nil, sc)
 
-	model, cmd := app.Update(openContextOnStartupMsg{})
+	model, cmd := app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 	updated := model.(App)
 
 	if updated.activePlugin != nil {
@@ -4102,7 +4171,7 @@ func newStandaloneApplyViaPlanApp(t *testing.T, svc *sdktest.MockService, activa
 	sc := &StandaloneConfig{PluginID: "apply", EntryID: "plan", Activate: activate}
 	app := NewApp(cfg, svc, registry, nil, sc)
 	app.Init()
-	model, _ := app.Update(openContextOnStartupMsg{})
+	model, _ := app.Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
 	return model.(App)
 }
 

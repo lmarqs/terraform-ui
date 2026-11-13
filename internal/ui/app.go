@@ -147,25 +147,14 @@ func (a App) Init() tea.Cmd {
 
 	// Seed holder with a bootstrap Context so plugins that read deps.Context()
 	// during Init never see a nil pointer. In the TUI the first
-	// ContextChangedEvent replaces it; a standalone verb runs on it, so it
-	// carries the tfui.hcl settings a context switch would resolve.
-	bootSvc := a.svc
-	bootDir := startupDir(a.cfg)
-	if a.cfg.Chdir != "" {
-		bootSvc = a.svc.WithDir(bootDir)
-	}
-	a.holder.current = a.withResolvedConfig(&sdk.Context{
-		Chdir:      a.startupChdir(),
-		WorkingDir: bootDir,
-		Workspace:  sdk.WorkspaceDefault,
-		Service:    bootSvc,
-		ExtraArgs:  a.cfg.ExtraArgs,
-	})
+	// ContextChangedEvent replaces it; a standalone verb runs on the startup
+	// Context rebuilt for the selected workspace once it is known.
+	a.holder.current = a.startupContext(sdk.WorkspaceDefault)
 
 	holder := a.holder
 	deps := &plugin.PluginDeps{
 		Logger:  logging.Logger(),
-		Service: bootSvc,
+		Service: a.holder.current.Service,
 		Context: func() *sdk.Context { return holder.current },
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
@@ -212,11 +201,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case workspaceLoadedMsg:
 		a.activeWorkspace = msg.workspace
 		a.header = a.header.WithWorkspace(msg.workspace.String())
-		return a, nil
-
-	case openContextOnStartupMsg:
-		// Standalone mode: activate the entry plugin directly
+		// Standalone mode: activate the entry plugin directly, on the
+		// selected workspace's tfui.hcl settings.
 		if a.standalone != nil {
+			a.holder.current = a.startupContext(msg.workspace)
 			a.activeChdir = a.startupChdir()
 			if p, ok := a.registry.ByID(a.standalone.entryID()); ok {
 				a.activePlugin = p
@@ -228,6 +216,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return a, cmd
 			}
+		}
+		return a, nil
+
+	case openContextOnStartupMsg:
+		if a.standalone != nil {
 			return a, nil
 		}
 		// Skip chdir picker if scope is pre-set or data is loaded externally
@@ -852,6 +845,23 @@ func (a *App) withResolvedConfig(next *sdk.Context) *sdk.Context {
 	next.Lock = sdk.LockModeFromPtr(resolved.Lock())
 	next.LockTimeout = sdk.LockTimeout(resolved.LockTimeout())
 	return next
+}
+
+// startupContext is the Context the session starts in: the startup chdir in
+// workspace, with that workspace's tfui.hcl settings.
+func (a *App) startupContext(workspace sdk.Workspace) *sdk.Context {
+	svc := a.svc
+	dir := startupDir(a.cfg)
+	if a.cfg.Chdir != "" {
+		svc = a.svc.WithDir(dir)
+	}
+	return a.withResolvedConfig(&sdk.Context{
+		Chdir:      a.startupChdir(),
+		WorkingDir: dir,
+		Workspace:  workspace,
+		Service:    svc,
+		ExtraArgs:  a.cfg.ExtraArgs,
+	})
 }
 
 // startupDir is the directory the session starts in: the --chdir member, else
