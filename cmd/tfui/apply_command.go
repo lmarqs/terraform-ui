@@ -10,9 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// buildApplyCommand wires `tfui apply` to the apply plugin's typed Input.
-// cobra binds --auto-approve and --target directly into apply.Input fields;
-// the root-persistent --json value is copied into Input.JSON at RunE time.
+// buildApplyCommand wires `tfui apply`. With --auto-approve it activates the
+// apply plugin with its typed Input (cobra binds --auto-approve and --target;
+// the root-persistent --json value is copied into Input.JSON at RunE time).
+// Without it, the run enters through the plan plugin, which receives the
+// targets and lock overrides and hands the saved plan over to apply.
 func buildApplyCommand(s *Session) *cobra.Command {
 	var input apply.Input
 	var lock bool

@@ -92,8 +92,8 @@ that run only. Omitting them keeps whatever the config resolved.
 
 Standalone `tfui apply` is the TUI's plan → apply flow without the header: it
 runs a plan and opens the plan view with the full diff. `a` applies that saved
-plan after a confirmation; the session ends when apply finishes or the
-confirmation is declined. `-auto-approve` skips the review and the prompt, and
+plan after a confirmation; the session ends when the user leaves apply, after
+it finishes or by declining the confirmation. `-auto-approve` skips the review and the prompt, and
 terraform plans and applies in one run.
 
 Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires

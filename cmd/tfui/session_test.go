@@ -267,3 +267,21 @@ func TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply(t *testing.
 		t.Errorf("stdout missing recorded `terraform apply`, got: %q", stdoutBuf.String())
 	}
 }
+
+func TestRunPluginFrom_WhenEntryPluginDisabled_ShouldReturnDisabledError(t *testing.T) {
+	disabled := false
+	session := &Session{
+		cfg: config.Config{
+			Dir:     t.TempDir(),
+			Plugins: map[string]config.PluginConfig{"plan": {Enabled: &disabled}},
+		},
+		silentStderr: true,
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+	}
+
+	err := session.RunPluginFrom(context.Background(), "apply", "plan", func(sdk.Plugin) tea.Cmd { return nil })
+
+	if err == nil || !strings.Contains(err.Error(), `plugin "plan" is disabled in tfui.hcl`) {
+		t.Errorf("RunPluginFrom error = %v, want the disabled-plugin error for the entry plugin", err)
+	}
+}

@@ -220,7 +220,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case openContextOnStartupMsg:
-		// Standalone mode: activate the target plugin directly
+		// Standalone mode: activate the entry plugin directly
 		if a.standalone != nil {
 			a.activeChdir = a.startupChdir()
 			if p, ok := a.registry.ByID(a.standalone.entryID()); ok {

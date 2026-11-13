@@ -194,6 +194,11 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 	if err := s.validatePlugin(pluginID); err != nil {
 		return err
 	}
+	if entryID != pluginID {
+		if err := s.validatePlugin(entryID); err != nil {
+			return err
+		}
+	}
 	tape, err := s.macro.LoadTape()
 	if err != nil {
 		return err
