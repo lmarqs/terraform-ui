@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
@@ -33,7 +34,7 @@ func buildApplyCommand(s *Session) *cobra.Command {
 					return p.(*apply.Plugin).Activate(input)
 				})
 			}
-			planInput := tfuiplan.Input{Targets: input.Targets, Lock: input.Lock, LockTimeout: input.LockTimeout}
+			planInput := planInputForApply(input, s.cfg)
 			return s.RunPluginFrom(cmd.Context(), "apply", "plan", func(p sdk.Plugin) tea.Cmd {
 				return p.(*tfuiplan.Plugin).Activate(planInput)
 			})
@@ -43,6 +44,18 @@ func buildApplyCommand(s *Session) *cobra.Command {
 	c.Flags().StringArrayVar(&input.Targets, "target", nil, "Resource target, repeatable and taken verbatim (plans+applies in one shot)")
 	bindLockFlags(c, &lock, (*string)(&input.LockTimeout))
 	return c
+}
+
+// planInputForApply maps the interactive `tfui apply` flags onto the plan run
+// that produces the plan file apply consumes. Without --target, the plan takes
+// apply's configured `targets`, so the reviewed plan has the scope a one-shot
+// apply would have.
+func planInputForApply(input apply.Input, cfg config.Config) tfuiplan.Input {
+	targets := input.Targets
+	if len(targets) == 0 {
+		targets = sdk.ConfigStrings(cfg.Plugins["apply"].Options, "targets", nil)
+	}
+	return tfuiplan.Input{Targets: targets, Lock: input.Lock, LockTimeout: input.LockTimeout}
 }
 
 // requireApplyConfirmable mirrors terraform's own behavior: `terraform apply`

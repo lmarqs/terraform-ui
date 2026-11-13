@@ -1,9 +1,11 @@
 package main
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
 	"github.com/spf13/cobra"
 )
@@ -114,4 +116,37 @@ func mustStringArray(c *cobra.Command, name string) []string {
 		panic(err)
 	}
 	return v
+}
+
+// TestPlanInputForApply covers the interactive `tfui apply` handoff: plan
+// produces the plan file apply consumes, so plan runs with apply's scope.
+func TestPlanInputForApply(t *testing.T) {
+	configured := config.Config{Plugins: map[string]config.PluginConfig{
+		"apply": {Options: map[string]interface{}{"targets": []interface{}{"module.cfg"}}},
+	}}
+	tests := []struct {
+		name        string
+		input       apply.Input
+		cfg         config.Config
+		wantTargets []string
+	}{
+		{name: "--target wins over configured targets", input: apply.Input{Targets: []string{"aws_instance.web"}}, cfg: configured, wantTargets: []string{"aws_instance.web"}},
+		{name: "no --target uses apply's configured targets", cfg: configured, wantTargets: []string{"module.cfg"}},
+		{name: "no --target and no config plans everything", cfg: config.Config{}, wantTargets: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := planInputForApply(tt.input, tt.cfg)
+			if !slices.Equal(got.Targets, tt.wantTargets) {
+				t.Errorf("Targets = %v, want %v", got.Targets, tt.wantTargets)
+			}
+		})
+	}
+
+	t.Run("lock flags carried", func(t *testing.T) {
+		got := planInputForApply(apply.Input{Lock: sdk.LockDisabled, LockTimeout: "30s"}, config.Config{})
+		if got.Lock != sdk.LockDisabled || got.LockTimeout != "30s" {
+			t.Errorf("Lock, LockTimeout = %v, %q, want LockDisabled, 30s", got.Lock, got.LockTimeout)
+		}
+	})
 }
