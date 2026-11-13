@@ -23,3 +23,26 @@ release:
 
 changelog:
   disable: true
+
+homebrew_casks:
+  - name: tfui
+    binaries:
+      - tfui
+    description: Keyboard-driven terminal UI for Terraform
+    homepage: https://lmarqs.github.io/terraform-ui
+    license: MIT
+    repository:
+      owner: lmarqs
+      name: terraform-ui
+      token: "{{ .Env.GITHUB_TOKEN }}"
+    commit_author:
+      name: github-actions[bot]
+      email: 41898282+github-actions[bot]@users.noreply.github.com
+    commit_msg_template: "chore(brew): update {{ .ProjectName }} cask to {{ .Tag }}"
+    hooks:
+      post:
+        # The binaries are not signed or notarized; without this, macOS Gatekeeper refuses to run them.
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/tfui"]
+          end
