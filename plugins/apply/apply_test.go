@@ -1533,3 +1533,66 @@ func TestView_WhenStackHasFrame_ShouldDelegateToTopFrame(t *testing.T) {
 	p.stack.Push(frames.NewStreamFrame("test", ch, nil))
 	_ = p.View(80, 24)
 }
+
+// failPlanFileApply runs a reviewed plan-file apply that terraform rejects and
+// feeds the result back, leaving the plugin in StatusError.
+func failPlanFileApply(t *testing.T, svc *sdktest.MockService) *Plugin {
+	t.Helper()
+	svc.ApplyFn = func(_ context.Context, _ sdk.ApplyOptions) error { return errors.New("apply failed") }
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.SetPlanFile("/tmp/reviewed.tfplan")
+	p.RequestApply()
+	drainBatchUntilApplyResult(t, p.Confirm())
+	p.Update(ApplyResultMsg{Err: errors.New("apply failed")})
+	if p.status != sdk.StatusError {
+		t.Fatalf("status = %v, want StatusError", p.status)
+	}
+	return p
+}
+
+// A retry after a failed plan-file apply would run a one-shot apply of
+// everything nobody reviewed; the user re-plans instead.
+func TestUpdate_WhenCtrlRAfterFailedPlanFileApply_ShouldNotRetry(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := failPlanFileApply(t, svc)
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+
+	if cmd != nil {
+		t.Errorf("ctrl+r after failed plan-file apply: cmd = %v, want nil", cmd)
+	}
+	if p.status != sdk.StatusError {
+		t.Errorf("status = %v, want StatusError", p.status)
+	}
+	if len(svc.ApplyCalls) != 1 {
+		t.Errorf("Service.Apply called %d times, want 1", len(svc.ApplyCalls))
+	}
+}
+
+func TestHints_WhenPlanFileApplyFailed_ShouldNotOfferRetry(t *testing.T) {
+	p := failPlanFileApply(t, &sdktest.MockService{})
+
+	for _, h := range p.Hints() {
+		if h.Key == "^r" {
+			t.Errorf("Hints() = %v, want no ^r after a failed plan-file apply", p.Hints())
+		}
+	}
+}
+
+func TestUpdate_WhenCtrlRAfterFailedOneShotApply_ShouldRetry(t *testing.T) {
+	svc := &sdktest.MockService{ApplyFn: func(_ context.Context, _ sdk.ApplyOptions) error { return errors.New("apply failed") }}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	drainBatchUntilApplyResult(t, p.Activate(Input{AutoApprove: true}))
+	p.Update(ApplyResultMsg{Err: errors.New("apply failed")})
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+
+	if cmd == nil {
+		t.Fatal("ctrl+r after failed one-shot apply: cmd = nil, want retry")
+	}
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+}

@@ -43,6 +43,10 @@ type Plugin struct {
 	confirmed  bool
 	input      Input
 	planFile   string
+	// appliedPlanFile records whether the latest run consumed a plan file. A
+	// failed plan-file run offers no retry: with the plan file spent, a retry
+	// would apply everything unreviewed.
+	appliedPlanFile bool
 	cancelFn   context.CancelFunc
 	stack      *sdk.Stack
 	lastStream *frames.StreamFrame
@@ -120,7 +124,11 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 		}
 		return hints
 	case sdk.StatusError:
-		hints := (sdk.HintSetRetry | sdk.HintSetCancel).Hints()
+		set := sdk.HintSetCancel
+		if !e.appliedPlanFile {
+			set |= sdk.HintSetRetry
+		}
+		hints := set.Hints()
 		if e.lastStream != nil {
 			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
 		}
@@ -237,7 +245,8 @@ func (e *Plugin) runApply() tea.Cmd {
 	if e.GetCtx != nil {
 		opts = e.GetCtx().ApplyOptions()
 	}
-	if e.planFile != "" {
+	e.appliedPlanFile = e.planFile != ""
+	if e.appliedPlanFile {
 		opts.PlanFile = e.planFile
 	} else {
 		opts.Targets = e.targets()
@@ -344,6 +353,9 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	case sdk.StatusError:
 		switch msg.String() {
 		case "ctrl+r":
+			if e.appliedPlanFile {
+				return nil
+			}
 			return e.Confirm()
 		case "esc":
 			return func() tea.Msg { return sdk.DeactivateMsg{} }

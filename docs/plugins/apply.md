@@ -23,7 +23,7 @@ The Apply screen adds:
 - **Context-aware confirmation** — shows resource count and whether targeting is active
 - **Elapsed time tracking** — long applies (10+ minutes) need progress feedback
 - **Pin-scoped execution** — apply only pinned resources without typing `-target` addresses
-- **Error recovery** — retry from same session without re-running the full command
+- **Error recovery** — retry a failed one-shot apply from the same session; a failed plan-file apply goes back to plan for a fresh, reviewed plan
 
 ## Screenshot
 
@@ -43,7 +43,7 @@ The Apply screen adds:
 | `Enter` | Start apply (shows confirmation) | Idle |
 | `y` / `Y` / `Enter` | Confirm and execute | Confirming |
 | `n` / `N` / `Esc` | Cancel | Confirming |
-| `r` | Retry after failure | Error |
+| `Ctrl+r` | Retry a failed one-shot apply (no plan file) | Error |
 | `Esc` / `q` | Back to home | Always |
 
 Enter/Esc parity: `Enter` confirms (yes), `Esc` cancels (no).
@@ -56,7 +56,7 @@ Plan ──a──→ Apply (with targets → replanning → confirming)
 Plan ──A──→ Apply (auto-approve: skip confirmation)
                │
                ├── y → Apply (running) → Apply (success)
-               │                       → Apply (error) ──r──→ retry
+               │                       → Apply (error) ──Esc──→ plan, re-plan
                └── n/Esc → DeactivateMsg → return to plan
 ```
 
