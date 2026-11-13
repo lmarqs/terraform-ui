@@ -26,6 +26,20 @@ _Avoid_: environment, stage
 The complete operating environment: Project + Chdir + Workspace + resolved execution parameters (var-files, vars, parallelism, lock settings, scoped service). Represents "where am I operating and with what parameters." Replaced atomically on context switch — never patched field-by-field.
 _Avoid_: session, scope, state (when meaning location), execution context, resolved options
 
+### Run Modes
+
+**Standalone**:
+One plugin's TUI, opened by `tfui <verb>` and rendered on stderr; the plugin's output goes to stdout on exit.
+_Avoid_: single-plugin mode; standalone (when meaning no `tfui.hcl` — that is **Zero-config**)
+
+**Headless**:
+A run with no TUI: data on stdout, diagnostics on stderr. `-ci` forces it; `CI=1`, an AI coding agent environment (`CLAUDECODE` or `AI_AGENT`) or a stderr that is not a terminal also selects it.
+_Avoid_: CI mode, silent mode
+
+**Zero-config**:
+A run with no `tfui.hcl` and no `-project`: there is no **Project**, and the current directory is the only **Chdir**.
+_Avoid_: standalone (when meaning no config)
+
 ### Plugin System
 
 **Plugin**:
@@ -69,7 +83,7 @@ Preparation of terraform changes. Owns all planning, including targeted replans.
 _Avoid_: preview, dry-run
 
 **Apply**:
-Confirmation and execution of a prepared plan. Receives a plan file and executes it — never re-derives, re-plans, or reads targets independently. In TUI flow: confirms and runs `terraform apply planfile.out`. In CLI flow (`tfui apply --target=X`): maps to terraform's own plan+apply-in-one-shot mode.
+Confirmation and execution of a prepared plan. Receives the plan file the user reviewed and executes it, so the applied scope is always the reviewed scope; it never re-plans or chooses **Targets** of its own. Both the TUI and the interactive `tfui apply` reach Apply this way. `tfui apply -auto-approve` has no review and no plan file: it maps to terraform's own plan-and-apply in one run, scoped by that command's **Targets**.
 _Avoid_: deploy, execute (as standalone term)
 
 **Replan**:
@@ -79,6 +93,10 @@ _Avoid_: re-plan inside apply, targeted apply
 **Pin**:
 A user-selected resource marked for targeted operations. Pins scope `plan` to specific resources. Always a resource address — never a module path, so pinning a module row pins every resource beneath it, and a row reports itself pinned only when all of them are. Plugin-derived state — scoped to the current Context, shared across plugins within it (pin in state, consume in plan). Transient by design: preserved across re-plan but cleared once the scope is spent — apply reaches a terminal state, or the user leaves the plan workflow to home — and reset on a context switch. No cross-session persistence.
 _Avoid_: selection, mark, target (as noun for the set)
+
+**Target**:
+A resource address passed to terraform's `-target`. A plan's targets are the union of its **Pins** and its `-target` flags; when both are empty, the plugin's `targets` default from `tfui.hcl` applies.
+_Avoid_: pins (for the set of **Pins**), selection
 
 **Macro**:
 A recorded sequence of TUI interactions for deterministic replay. Used for automated testing.
@@ -105,7 +123,7 @@ _Avoid_: store, buffer, data layer
 - A **Workspace** exists within a **Chdir**
 - A **Context** is one **Project** + one **Chdir** + one **Workspace** + their resolved execution parameters; replaced atomically on switch
 - A **Plugin** contains one or more **Frames** (via a stack)
-- A **Pin** targets a resource address; pins are shared across **Plugins** within the current **Context** and die on context switch
+- A **Pin** becomes a **Target** when Plan runs; a **Pin** targets a resource address; pins are shared across **Plugins** within the current **Context** and die on context switch
 - A module row is not a **Pin** target; it resolves to the resource addresses beneath it, and one gesture toggles them as a group
 - Both **ExecService** and **MacroService** read from the same **ServiceCache**
 - The **Actions Bar** lives inside the bordered frame; the **Hint Bar** lives outside it
@@ -142,10 +160,12 @@ Architectural enforcement: see ADR-0019 (unidirectional data flow).
 > **Domain expert:** "**Plan** does. Plan checks: do my pins match the current plan file? If not, it **Replans** with targets, then hands the plan file to **Apply**. Apply just confirms and runs."
 
 > **Dev:** "Can Apply ever run `terraform plan` internally?"
-> **Domain expert:** "Only in CLI mode (`tfui apply --target=X`) — that maps directly to terraform's own plan+apply-in-one-shot. In TUI flow, Apply receives a plan file and that's it. All planning belongs to Plan."
+> **Domain expert:** "Only in `tfui apply -auto-approve`, which has no review step — it maps directly to terraform's own plan-and-apply in one run. Everywhere a user reviews the plan, Apply receives that plan file and nothing else, so what runs is what was shown. All planning belongs to Plan."
 
 ## Flagged ambiguities
 
-- "context" — Resolved: **Context** is the complete operating environment (Project+Chdir+Workspace+resolved parameters). In code, the init-time DI container currently named `sdk.Context` will be renamed to avoid collision with this domain concept.
+- "context" — Resolved: **Context** is the complete operating environment (Project+Chdir+Workspace+resolved parameters); `sdk.Context` in code is this concept.
+- "standalone" — Resolved: **Standalone** is one plugin's TUI opened by a verb; running without `tfui.hcl` is **Zero-config**.
+- "CI mode" — Resolved: the behavior is **Headless**; `-ci` is the flag that forces it.
 - "scope" — Deprecated. Was previously used for what is now **Chdir**. Do not use in new code or documentation.
 - "module" — Ambiguous: could mean a Go module, a Terraform module, or a feature. Use **Plugin** for features, **Member** for terraform root modules.
