@@ -67,8 +67,8 @@ subject lands on four pages:
   [ADR-0019](adr/0019-unidirectional-data-flow.md), a decision.
 - What apply does when resources are pinned (it replans with `-target`, shows the plan, then applies it):
   [the Apply plugin](plugins/apply.md), a feature.
-- That `tfui apply -target=X` with no plan file plans and applies in one shot: [the CLI reference](reference/cli-reference.md),
-  an interface.
+- That `tfui apply -target=X` opens a targeted plan for review before applying it, and only `-auto-approve` plans and
+  applies in one shot: [the CLI reference](reference/cli-reference.md), an interface.
 - That a destructive operation such as apply opens a confirmation summarizing what will change:
   [TUI UX](reference/tui-ux.md), a standard.
 
