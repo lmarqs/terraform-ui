@@ -2,8 +2,8 @@
 version: 1
 recipes:
   - name: "io.github.lmarqs.cookbook:agents#connect"
-    source: "io.github.lmarqs.cookbook:agents:10.2.0#connect"
-    sha256: "2539a2f10d68034b13bfa89d96a43825cb5208c86fcd612b42ec0a0017bf072e"
+    source: "io.github.lmarqs.cookbook:agents:12.1.0#connect"
+    sha256: "3dce6e93e88bbb4e4ade7ec51067760e74308134d46296b9fb0aeca0470b916b"
     arguments:
       "harness": ["claude"]
       "worktree-setup": [".worktrees/setup"]
@@ -40,8 +40,8 @@ recipes:
         - ".claude/settings.json"
         - ".claude/skills"
   - name: "io.github.lmarqs.cookbook:agents#seed"
-    source: "io.github.lmarqs.cookbook:agents:10.2.0#seed"
-    sha256: "2539a2f10d68034b13bfa89d96a43825cb5208c86fcd612b42ec0a0017bf072e"
+    source: "io.github.lmarqs.cookbook:agents:12.1.0#seed"
+    sha256: "3dce6e93e88bbb4e4ade7ec51067760e74308134d46296b9fb0aeca0470b916b"
     arguments: {}
     owns:
       files:

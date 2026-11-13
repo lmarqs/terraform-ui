@@ -29,10 +29,10 @@ After editing `permission/policy.yaml`, cook the adapters again with every harne
 `cook.lock`:
 
 ```sh
-./cook io.github.lmarqs.cookbook:agents:<version>#connect --harness=claude --harness=codex
+cook io.github.lmarqs.cookbook:agents:<version>#connect --harness=claude --harness=codex
 ```
 
-`./cook help io.github.lmarqs.cookbook:agents:<version>#connect` lists its other parameters, and `./cook --help`
+`cook help io.github.lmarqs.cookbook:agents:<version>#connect` lists its other parameters, and `cook --help`
 Cook's own options.
 
 ## Ways of working

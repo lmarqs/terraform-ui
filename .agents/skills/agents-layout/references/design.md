@@ -85,7 +85,7 @@ nothing else: Claude Code and Codex read only their own directories, so the link
 committed either way. Every clone, worktree, loop runner's worker, cloud session and CI job would then need Cook and a
 setup step before its first session. One that skips it runs the harness with none of the team's permissions, hooks
 or skills, and with Claude's bypass mode allowed, and nothing warns. `cook.lock` would record links that a clean
-checkout lacks, so `./cook check` fails in CI.
+checkout lacks, so `cook check` fails in CI.
 
 The cost: generated files can drift from the policy and can conflict in a merge. Both are fixed the same way: resolve
 `policy.yaml`, then cook `#connect` again. Windows checks links out as text files unless `core.symlinks` is on.

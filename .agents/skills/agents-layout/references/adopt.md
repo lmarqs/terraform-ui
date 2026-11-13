@@ -9,9 +9,9 @@ An agent has no terminal to answer Cook's prompt, so without `--batch-approve` C
 
 ## A new repository
 
-1. **Find Cook.** Use the first that prints a version: `./cook --version`, then `mise exec -- cook --version` when
+1. **Find Cook.** Use the first that prints a version: `cook --version`, then `mise exec -- cook --version` when
    `mise.toml` pins the-cook, then `cook --version`. If none does, stop and ask the developer how Cook is installed
-   here. The commands below write it as `./cook`.
+   here. The commands below write it as `cook`.
 2. **Find the version.** `grep 'source: "io.github.lmarqs.cookbook:agents:' cook.lock` shows it when the repository
    already cooks the artifact. Otherwise use the latest release:
    `gh release view -R lmarqs/the-cook --json tagName -q .tagName`, without its `v`. The commands below write it as
@@ -23,8 +23,8 @@ An agent has no terminal to answer Cook's prompt, so without `--batch-approve` C
 4. **Seed.**
 
    ```sh
-   ./cook --dry-run io.github.lmarqs.cookbook:agents:<version>#seed
-   ./cook --batch-approve io.github.lmarqs.cookbook:agents:<version>#seed
+   cook --dry-run io.github.lmarqs.cookbook:agents:<version>#seed
+   cook --batch-approve io.github.lmarqs.cookbook:agents:<version>#seed
    ```
 
    It writes `AGENTS.md`, `.agents/README.md`, `.agents/permission/policy.yaml`, the shared directories and this
@@ -37,8 +37,8 @@ An agent has no terminal to answer Cook's prompt, so without `--batch-approve` C
 7. **Connect.**
 
    ```sh
-   ./cook --dry-run io.github.lmarqs.cookbook:agents:<version>#connect --harness=claude --harness=codex
-   ./cook --batch-approve io.github.lmarqs.cookbook:agents:<version>#connect --harness=claude --harness=codex
+   cook --dry-run io.github.lmarqs.cookbook:agents:<version>#connect --harness=claude --harness=codex
+   cook --batch-approve io.github.lmarqs.cookbook:agents:<version>#connect --harness=claude --harness=codex
    ```
 
 8. **Review.** Stage first as step 9 does: `check.sh` reads the links and the size of `AGENTS.md` from the index, so
@@ -88,12 +88,12 @@ before                     after
 
 ### A drift check in CI
 
-A CI step fails when someone edits the policy and commits without cooking. In a repository that commits the `./cook`
+A CI step fails when someone edits the policy and commits without cooking. In a repository that commits the `cook`
 launcher:
 
 ```yaml
 - name: The agents layout matches its policy
-  run: ./cook check io.github.lmarqs.cookbook:agents#connect
+  run: cook check io.github.lmarqs.cookbook:agents#connect
 ```
 
 `check` cooks `#connect` again with the version and arguments `cook.lock` records, so the step stays as it is when
@@ -111,8 +111,8 @@ This replaces steps 4 and 5.
 1. Seed with `--skip` before the recipe, which keeps the old `AGENTS.md` and writes the rest:
 
    ```sh
-   ./cook --dry-run --skip io.github.lmarqs.cookbook:agents:<version>#seed
-   ./cook --batch-approve --skip io.github.lmarqs.cookbook:agents:<version>#seed
+   cook --dry-run --skip io.github.lmarqs.cookbook:agents:<version>#seed
+   cook --batch-approve --skip io.github.lmarqs.cookbook:agents:<version>#seed
    ```
 
 2. Read the template, `.agents/skills/agents-layout/templates/AGENTS.template.md`, and number the old file's lines:
@@ -368,8 +368,8 @@ step 4.
 
    ```sh
    grep 'name:' cook.lock
-   ./cook discard --dry-run io.github.lmarqs:agents#connect io.github.lmarqs:agents#instructions
-   ./cook discard --batch-approve io.github.lmarqs:agents#connect io.github.lmarqs:agents#instructions
+   cook discard --dry-run io.github.lmarqs:agents#connect io.github.lmarqs:agents#instructions
+   cook discard --batch-approve io.github.lmarqs:agents#connect io.github.lmarqs:agents#instructions
    ```
 
    Discard reads only `cook.lock`, so it works although those coordinates no longer resolve, and it ignores the

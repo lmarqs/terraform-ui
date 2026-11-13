@@ -20,7 +20,7 @@ Then make the checks a script cannot:
 3. `AGENTS.md` links the README instead of restating it, and Gotchas holds at most five traps any task can hit.
 4. `.agents/README.md` and `.agents/permission/policy.yaml` differ from `.agents/skills/agents-layout/templates/` only
    where the team chose to. Seeded files are written once, so a later release's template changes reach them by hand.
-5. `./cook check io.github.lmarqs.cookbook:agents#connect` exits 0 with `Already cooked.`, and `cook.lock` records every
+5. `cook check io.github.lmarqs.cookbook:agents#connect` exits 0 with `Already cooked.`, and `cook.lock` records every
    harness the team uses; exit 1 and a diff mean the adapters or links no longer match `policy.yaml`.
 
 The review is done when every line `check.sh` printed and each of the five checks above has a verdict: `ok`, or a
