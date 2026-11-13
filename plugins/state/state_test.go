@@ -2662,3 +2662,56 @@ func equalStrings(a, b []string) bool {
 	}
 	return true
 }
+
+func TestUpdate_WhenVimOrArrowKeys_ShouldMoveSelectionAlike(t *testing.T) {
+	down := tea.KeyMsg{Type: tea.KeyDown}
+	up := tea.KeyMsg{Type: tea.KeyUp}
+	j := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	k := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}
+
+	tests := []struct {
+		name string
+		keys []tea.KeyMsg
+		want int
+	}{
+		{name: "down arrow", keys: []tea.KeyMsg{down}, want: 1},
+		{name: "j", keys: []tea.KeyMsg{j}, want: 1},
+		{name: "j stops at last row", keys: []tea.KeyMsg{j, j, j}, want: 2},
+		{name: "up arrow", keys: []tea.KeyMsg{down, down, up}, want: 1},
+		{name: "k", keys: []tea.KeyMsg{j, j, k}, want: 1},
+		{name: "k stops at first row", keys: []tea.KeyMsg{k}, want: 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestPlugin([]sdk.Resource{
+				{Address: "a", Type: "t1"},
+				{Address: "b", Type: "t2"},
+				{Address: "c", Type: "t3"},
+			})
+			for _, key := range tt.keys {
+				p.Update(key)
+			}
+			if p.Selected() != tt.want {
+				t.Errorf("selected = %d, want %d", p.Selected(), tt.want)
+			}
+		})
+	}
+}
+
+func TestUpdate_WhenJOrKInFilter_ShouldTypeIntoFilter(t *testing.T) {
+	p := newTestPlugin([]sdk.Resource{
+		{Address: "jk_one.a", Type: "jk_one"},
+		{Address: "jk_two.b", Type: "jk_two"},
+	})
+
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}})
+
+	if p.filter != "jk" {
+		t.Errorf("filter = %q, want %q", p.filter, "jk")
+	}
+	if p.Selected() != 0 {
+		t.Errorf("selected = %d, want 0", p.Selected())
+	}
+}

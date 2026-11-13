@@ -24,9 +24,9 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	switch keyMsg.String() {
 	case "esc":
 		return f, func() tea.Msg { return sdk.DeactivateMsg{} }
-	case "down":
+	case "j", "down":
 		f.plugin.MoveDown()
-	case "up":
+	case "k", "up":
 		f.plugin.MoveUp()
 	case "enter", "i":
 		if f.plugin.treeMode {
