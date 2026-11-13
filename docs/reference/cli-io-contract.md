@@ -78,7 +78,7 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly.
 | `tfui plan -ci` | Tree view | — | 0/2 |
 | `tfui plan -ci -json` | Plan JSON | — | 0/2 |
 | `tfui apply -ci -auto-approve` | — | "Apply complete. Resources: …" | 0 |
-| `tfui apply -ci` (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" (mirrors terraform) | 1 |
+| `tfui apply -ci` (no `-auto-approve`) | — | "apply not allowed for non-interactive use" (mirrors terraform) | 1 |
 | `tfui state -ci` | Addresses (one/line) | — | 0 |
 | `tfui validate -ci` | Diagnostics text | — | 0/1 |
 | `tfui validate -ci -json` | Diagnostics JSON | — | 0/1 |
@@ -88,7 +88,8 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly.
 | `tfui version -ci` | Version text | — | 0 |
 | `tfui taint addr -ci` | — | "✓ Tainted addr" | 0 |
 | `tfui untaint addr -ci` | — | "✓ Untainted addr" | 0 |
-| `tfui import addr id -ci` | — | "✓ Imported addr" | 0 |
+| `tfui import addr id -ci` | — | "✓ Imported id as addr" | 0 |
+| `tfui state rm\|mv\|taint\|untaint ... -ci` | — | — | 0 |
 
 Action verbs (taint, untaint, import) skip their interactive confirmation in
 CI mode — CLI arguments are declared intent, mirroring terraform's own
@@ -118,13 +119,13 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 
 ### Pre-seeded data on subcommands
 
-`-plan` and `-state` work on any command. The plugin reads from cache instead of executing terraform:
+`-plan` and `-state` work on any command. Pre-seeded state answers the state reads instead of terraform; pre-seeded plan data is read only under `-macro` ([CLI Reference](cli-reference.md)):
 
 | Command | stdout (on exit) | stderr | Exit |
 |---------|-----------------|--------|------|
-| `tfui plan -plan file` | Tree view (from pre-seeded data) | TUI (alt-screen) | 0/2 |
 | `tfui state -state file` | Addresses (from pre-seeded data) | TUI (alt-screen) | 0 |
-| `tfui plan -ci -plan file` | Tree view (from pre-seeded data) | — | 0/2 |
+| `tfui state -ci -state file` | Addresses (from pre-seeded data) | — | 0 |
+| `tfui plan -plan file` | Tree view (terraform still plans) | TUI (alt-screen) | 0/2 |
 
 ### Imperative commands (direct execution, no TUI)
 
@@ -168,7 +169,7 @@ tfui plan | grep "aws_"
 
 # TUI renders on stderr, user reviews plan interactively.
 # On quit, JSON flows to jq via stdout.
-tfui plan -json | jq '.changes[].address'
+tfui plan -json | jq '.resource_changes[].address'
 
 # TUI renders on stderr for state browsing.
 # On quit, addresses flow to wc.
@@ -181,7 +182,7 @@ In pipe scenarios, the TUI blocks the downstream process until the user quits. T
 
 ```bash
 # No TUI, immediate output:
-CI=1 tfui plan -json | jq '.summary'
+CI=1 tfui plan -json | jq '.resource_changes[].address'
 
 # Explicit -ci flag:
 tfui validate -ci -json | jq '.valid'
@@ -195,16 +196,11 @@ tfui plan
 tfui validate
 ```
 
-### Novel command chains
+### Macro recording
 
 ```bash
-# Plan → risk analysis (stdin filter, no TUI)
-tfui show -json tfplan.out | tfui risk
-# stdout: risk report
-
-# Macro recording (headless)
-tfui -macro deploy.tape -plan ./tfplan.out
-# stdout: terraform commands
+# Headless; stdout: the terraform commands the tape would run
+tfui -macro deploy.tape -plan ./plan.json
 ```
 
 ## Decisions and Tradeoffs
@@ -224,7 +220,7 @@ The user reviews the plan interactively (expand/collapse, filter, inspect attrib
 
 When stdout is piped (`tfui plan | jq`), we still show the TUI on stderr. The user wants both: interactive review AND piped output. Auto-disabling TUI on pipe would break this.
 
-`-ci` is the explicit "I don't want any TUI at all" signal. It's also auto-detected via the `CI=1` env var (set by GitHub Actions, GitLab CI, Jenkins, etc.), via agent environment variables (`CLAUDECODE`, `AI_AGENT` — see ADR-0022), and when stderr is not a TTY.
+`-ci` is the explicit "I don't want any TUI at all" signal. CI mode also triggers on `CI=1`; runners that set `CI=true`, such as GitHub Actions, reach it because their stderr is not a TTY. It also triggers via agent environment variables (`CLAUDECODE`, `AI_AGENT` — see ADR-0022), and when stderr is not a TTY.
 
 ### Why agent environments force headless (ADR-0022)?
 

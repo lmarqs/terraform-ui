@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "tfui Reference: CLI, I/O Contract and Macros"
+title: "tfui Reference: CLI, I/O Contract, Macros and UX Rules"
 nav_order: 5
 has_children: true
 seo:
@@ -10,8 +10,6 @@ audience: "Contributors and scripters looking up a contract or a rule"
 ---
 
 # Reference
-
-Complete reference documentation for the CLI interface, I/O contracts, macro DSL, and UX specifications.
 
 - [CLI Reference](cli-reference.md) — All commands and flags
 - [CLI I/O Contract](cli-io-contract.md) — stdin/stdout/stderr specification

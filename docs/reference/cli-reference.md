@@ -39,8 +39,8 @@ Launches the full interactive TUI with all plugins, home screen, and inter-plugi
 
 ```bash
 tfui                           # Full TUI in current directory
-tfui -project ./infra         # Full TUI scoped to specific directory
-tfui -plan ./tfplan.out       # Full TUI with pre-computed plan
+tfui -project ./infra         # Full TUI rooted at ./infra
+tfui -plan ./plan.json        # Full TUI with a pre-seeded plan (see Pre-seeded data)
 tfui -state ./terraform.tfstate  # Full TUI with pre-loaded state
 ```
 
@@ -57,7 +57,6 @@ tfui plan -target=aws_instance.web  # Targeted plan
 tfui plan -target=a -target=b        # Repeat the flag per address
 tfui plan -lock=false               # Skip state locking for this run
 tfui plan -lock-timeout=30s         # Retry a held lock for 30s
-tfui plan -out=tfplan.out           # Save binary plan file
 ```
 
 `-target` is repeatable and each value reaches terraform verbatim, so quoted
@@ -80,7 +79,7 @@ tfui apply                          # TUI: plan view, then confirmation, then pr
 tfui apply -auto-approve           # TUI: skips plan review + confirmation, shows progress
 tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
-tfui apply -target=aws_instance.web # Targeted apply
+tfui apply -target=aws_instance.web # Plans and applies only this address, in one run
 tfui apply -target=a -target=b      # Repeat the flag per address
 tfui apply -lock=false              # Skip state locking for this run
 tfui apply -lock-timeout=30s        # Retry a held lock for 30s
@@ -96,17 +95,18 @@ plan after a confirmation; the session ends when the user leaves apply, after
 it finishes or by declining the confirmation. `-auto-approve` skips the review and the prompt, and
 terraform plans and applies in one run.
 
-Non-interactive apply (`-ci`, piped, or no TTY on stderr) requires
-`-auto-approve` — exactly as `terraform apply` does. With no plan file and no
-TTY to approve from, tfui reproduces terraform's own error, "Apply not allowed
-for non-interactive use" (exit 1), rather than applying unconfirmed.
+Non-interactive apply (`-ci`, `CI=1`, an agent environment, or stderr not a
+TTY) requires `-auto-approve`, as `terraform apply` does. With no TTY to
+approve from, tfui reproduces terraform's own error, "apply not allowed for
+non-interactive use" (exit 1), rather than applying unconfirmed. Under
+`-macro` the guard does not apply, because nothing runs.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
 | Standalone | — | TUI; "Apply complete. Resources: …" on exit; a failed plan's terraform error | 0/1 |
 | CI (`-auto-approve`, success) | — | "Apply complete. Resources: …" | 0 |
 | CI (`-auto-approve`, failure) | — | terraform error | 1 |
-| CI (no `-auto-approve`) | — | "Apply not allowed for non-interactive use" | 1 |
+| CI (no `-auto-approve`) | — | "apply not allowed for non-interactive use" | 1 |
 
 Apply deliberately emits nothing on stdout — exit code 0 is the machine
 signal; the outcome summary goes to stderr (the status channel).
@@ -119,12 +119,45 @@ State browser and operations. Opens the state plugin TUI.
 tfui state                          # TUI: browse resources interactively
 tfui state -ci                     # No TUI: addresses to stdout
 tfui state -json                    # TUI: JSON output on exit
+tfui state rm <address>...          # No TUI: terraform state rm, per address
+tfui state mv <source> <dest>       # No TUI: terraform state mv
+tfui state taint <address>...       # No TUI: terraform taint, per address
+tfui state untaint <address>...     # No TUI: terraform untaint, per address
 ```
+
+The `rm`, `mv`, `taint` and `untaint` subcommands run at once, print nothing
+on success and exit 0; on failure terraform's error goes to stderr with exit 1.
 
 | Mode | stdout (on exit) | stderr | Exit |
 |------|-----------------|--------|------|
 | Standalone | Addresses (one/line) or JSON | TUI (alt-screen) | 0 |
 | CI | Addresses (one/line) or JSON | — | 0 |
+
+### `tfui taint`, `tfui untaint`
+
+Mark resources for replacement, or clear the mark. Opens the taint or untaint
+plugin TUI, which asks for confirmation.
+
+```bash
+tfui taint <address>...            # TUI: confirm, then terraform taint
+tfui taint aws_instance.web -ci    # No TUI: taints at once
+tfui untaint <address>...          # TUI: confirm, then terraform untaint
+```
+
+In CI mode they skip the confirmation and print "✓ Tainted …" or
+"✓ Untainted …" on stderr ([CLI I/O Contract](cli-io-contract.md)).
+
+### `tfui import`
+
+Import existing infrastructure into state. Opens the import plugin TUI, which
+asks for confirmation.
+
+```bash
+tfui import <address> <id>         # TUI: confirm, then terraform import
+tfui import <address> <id> -ci     # No TUI: imports at once
+```
+
+In CI mode it skips the confirmation and prints `✓ Imported <id> as <address>` on stderr ([CLI I/O Contract](cli-io-contract.md)).
 
 ### `tfui validate`
 
@@ -203,9 +236,9 @@ tfui workspace delete <name> -force    # delete non-empty workspace
 |------|-----------|-------------|
 | `-lock` | `new`, `delete` | Lock state during operation (default: true) |
 | `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
-
-`plan` and `apply` accept the same two flags — see their sections above.
 | `-force` | `delete` | Force deletion of a non-empty workspace |
+
+`plan` and `apply` accept `-lock` and `-lock-timeout` too — see their sections above.
 
 ### `tfui force-unlock`
 
@@ -229,68 +262,40 @@ tfui scaffold -force      # overwrite existing
 
 ## Global Flags
 
-Available on all commands:
+Every command accepts these flags:
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-project` | `.` | Project root directory (where tfui.hcl lives) |
-| `-terraform-bin` | `terraform` | Path to terraform/tofu/terragrunt binary |
-| `-chdir` | | Select chdir member (validated in project mode) |
+| `-terraform-bin` | `terraform` | Path to the terraform or tofu binary; `-config terraform.bin=X` takes precedence, and `tfui.hcl` `terraform { bin }` applies when neither is set |
+| `-chdir` | | Select a member directory (validated in project mode) |
 | `-config` | | Override config values (repeatable, `key=value`) |
-
-## Mode Flags
-
-| Flag | Default | Description |
-|------|---------|-------------|
 | `-ci` | `false` | Disable TUI, output directly to stdout |
 | `-json` | `false` | Output in JSON format |
+| `-plan` | | Pre-seed plan data from a file or stdin |
+| `-state` | | Pre-seed state data from a file or stdin |
+| `-macro` | | Run a tape file (headless TUI recording) |
+| `-record` | | Capture session frames to a directory |
 
-`-ci` is also triggered by the `CI=1` environment variable, an AI agent environment (non-empty `CLAUDECODE` or `AI_AGENT` — see ADR-0022 and [Terraform for AI Coding Agents](../features/ai-agents.md)), or stderr not being a TTY. In CI mode the action verbs (`taint`, `untaint`, `import`) skip their interactive confirmation, mirroring terraform's own prompt-free behavior.
+`-ci` is also triggered by the `CI=1` environment variable (`CI=true` does not match), an AI agent environment (non-empty `CLAUDECODE` or `AI_AGENT` — see ADR-0022 and [Terraform for AI Coding Agents](../features/ai-agents.md)), or stderr not being a TTY. In CI mode the action verbs (`taint`, `untaint`, `import`) skip their interactive confirmation, mirroring terraform's own prompt-free behavior.
 
-## Data Flags (available on all commands)
+### Pre-seeded data (`-plan`, `-state`)
 
-| Flag | Description |
-|------|-------------|
-| `-plan` | Pre-seed plan data from file or stdin |
-| `-state` | Pre-seed state data from file or stdin |
+`-plan` takes plan JSON, the output of `terraform show -json <planfile>`; a
+binary plan file is rejected with a hint to convert it. `-state` takes the
+output of `terraform show -json` or `terraform state pull`.
 
-These flags work on any command. When provided, the plugin reads from the pre-seeded cache instead of executing terraform:
-
-```bash
-tfui -plan ./tfplan.out            # full TUI with pre-seeded plan
-tfui plan -plan ./tfplan.out       # standalone plan TUI, reviews existing data
-tfui state -state ./state.json     # standalone state TUI, browses pre-loaded state
-tfui plan -ci -plan ./tfplan.out  # CI mode, outputs tree from pre-seeded plan
-```
-
-## Macro Flag
-
-| Flag | Description |
-|------|-------------|
-| `-macro` | Run tape file (headless TUI recording) |
-| `-record` | Capture session frames to directory |
-
-`-macro` is available on all commands. On the root command it drives the full multi-plugin TUI headlessly; on subcommands it drives the standalone plugin headlessly and outputs recorded commands to stdout.
-
-`-record` is orthogonal to `-macro`. It captures ANSI frames + timing metadata to a directory, and enables debug logging (written as `session.log` in the same directory). Combined with `-macro`, it enables deterministic GIF generation from tapes. Without `-macro`, it records interactive sessions and generates a replayable tape.
-
-### `-plan` behavior
-
-Accepts binary plan files (output of `terraform plan -out=`):
+Pre-seeded state answers the state reads (resource list and inspect) instead
+of terraform. Pre-seeded plan data is read only under `-macro`; without it,
+`tfui plan` and the full TUI's plan view still run `terraform plan`.
 
 ```bash
-tfui -plan ./tfplan.out            # review AND apply
-terraform show -json tfplan.out | tfui -plan -   # stdin: view-only (can't apply)
+tfui state -state ./state.json                 # standalone state TUI, browses pre-loaded state
+terraform state pull | tfui state -state - -ci # addresses from piped state
+tfui -plan ./plan.json -macro ./review.tape    # macro over a pre-seeded plan
 ```
 
-### `-state` behavior
-
-Accepts state files:
-
-```bash
-tfui -state ./terraform.tfstate    # view and mutate
-terraform state pull | tfui -state -   # stdin: view-only
-```
+A file is re-read when a mutation invalidates the data; stdin is read once.
 
 ### URI Resolution Rules
 
@@ -301,31 +306,24 @@ terraform state pull | tfui -state -   # stdin: view-only
 | `./relative/path` | relative to CWD |
 | `../parent/path` | relative to CWD |
 | `file:///path` | local path (scheme stripped) |
-| `bare-name` | **ERROR** — suggests `./bare-name` |
+| `bare-name` | `-plan`, `-state`: relative to CWD; `-macro`: **ERROR** — suggests `./bare-name` |
 
 Constraint: only one flag can use `-` (stdin) per invocation.
 
-## Macro Mode (`-macro`)
+### Macros (`-macro`, `-record`)
 
 Macros are command generators, never executors. They record what terraform would run and output commands to stdout.
 
 `-macro` works on both the root command and subcommands. On root, it drives the full TUI headlessly for multi-plugin recording. On subcommands, it drives the standalone plugin headlessly with the macro service (recording commands without execution).
 
 ```bash
-tfui -macro deploy.tape -plan ./tfplan.out            # inspect commands
-tfui -macro deploy.tape -plan ./tfplan.out | sh       # user opts in to execute
+tfui -macro deploy.tape -plan ./plan.json            # inspect commands
+tfui -macro deploy.tape -plan ./plan.json | sh       # user opts in to execute
 ```
 
-See [Macro Language](macro-language.md) for the DSL reference.
+`-record` is orthogonal to `-macro`. It captures ANSI frames + timing metadata to a directory, and enables debug logging (written as `session.log` in the same directory). Combined with `-macro`, it enables deterministic GIF generation from tapes. Without `-macro`, it records interactive sessions and generates a replayable tape.
 
-### Macro Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | All assertions passed |
-| 1 | Assertion failure |
-| 2 | Syntax error in tape file |
-| 3 | Timeout waiting for condition |
+See [Macro Language](macro-language.md) for the DSL reference and the macro [exit codes](macro-language.md#exit-codes).
 
 ## Exit Codes
 

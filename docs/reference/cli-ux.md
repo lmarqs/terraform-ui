@@ -9,7 +9,7 @@ description: "Sets the rules every CLI command follows: execution modes, output 
 audience: "Contributors adding or changing a CLI command"
 ---
 
-# CLI UX Guidelines — terraform-ui
+# CLI UX Guidelines
 
 ## 1. Design Principle
 
@@ -22,7 +22,7 @@ This follows the fzf model: interactive UI on one fd, structured output on anoth
 | Mode | TUI | stdout | Trigger |
 |------|-----|--------|---------|
 | **Standalone** | Alt-screen on stderr | Plugin output on exit | Default (stderr is TTY) |
-| **CI** | None | Plugin output immediately | `-ci`, `CI=1`, agent env, stderr not TTY |
+| **CI** | None | Plugin output immediately | `-ci`, `CI=1`, agent environment, stderr not TTY |
 
 Mode resolution:
 ```go
@@ -49,30 +49,30 @@ otherwise:                      → Standalone TUI
 ## 4. Flag Conventions
 
 ### Terraform compatibility
-- All terraform flags work with single dash (`-json`, `-target`) or double dash (`-json`, `-target`)
-- `normalizeArgs()` converts single-dash terraform flags to double-dash for cobra
-- Unknown flags are left unchanged (future terraform flags don't break)
+- All terraform flags work with a single dash (`-json`, `-target`) or a double dash (`--json`, `--target`)
+- `normalizeArgs()` converts single-dash flags to double-dash for cobra
+- Unknown multi-letter flags are double-dashed too, so a future terraform flag reaches cobra as `--name`; single-letter flags pass through unchanged
 
 ### Novel flags (tfui-only)
-- Always double-dash: `-ci`, `-project`, `-macro`, `-plan`, `-state`, `-terraform-bin`, `-config`, `-chdir`
+- Registered in cobra with a double dash (`--ci`); `normalizeArgs()` also accepts the single-dash spelling used throughout these docs (`-ci`, `-project`, `-macro`, `-record`, `-plan`, `-state`, `-terraform-bin`, `-config`, `-chdir`)
 - Use names terraform hasn't claimed — no collision risk
-- `-plan` and `-state` are available on ALL commands (pre-seed data, skip terraform execution)
+- `-plan` and `-state` are available on ALL commands (pre-seed data; [CLI Reference](cli-reference.md) says which reads use it)
 - `-macro` is available on ALL commands (on root: drives full TUI headlessly; on subcommands: drives standalone plugin headlessly, outputs recorded commands)
 - Every novel flag must combine validly with every other flag (see ADR-0017)
 
 ### Passthrough (`--`)
 - Everything after `--` is stored as ExtraArgs
 - `splitPassthrough()` runs BEFORE `normalizeArgs()`
-- ExtraArgs passed to Plan/Apply via sdk options
+- ExtraArgs are appended to the `terraform plan` and `terraform apply` commands via sdk options
 - ExecService does NOT forward ExtraArgs directly (uses typed API)
 
 ### Flag normalization sets
 
 **Value flags** (consume next arg when no `=`):
-`target`, `var`, `var-file`, `replace`, `out`, `parallelism`, `lock`, `lock-timeout`, `chdir`, `workspace`, `input`, `backend-config`, `plugin-dir`, `get`
+`target`, `var`, `var-file`, `replace`, `out`, `parallelism`, `lock-timeout`, `chdir`, `workspace`, `input`, `backend-config`, `plugin-dir`, `get`
 
 **Bool flags** (never consume next arg):
-`json`, `destroy`, `refresh-only`, `compact-warnings`, `upgrade`, `reconfigure`, `force-copy`, `backend`
+`json`, `lock`, `destroy`, `refresh-only`, `compact-warnings`, `upgrade`, `reconfigure`, `force-copy`, `backend`
 
 ## 5. Exit Codes
 
@@ -90,7 +90,7 @@ Rules:
 ## 6. Binary Resolution Priority
 
 ```
--terraform-bin flag  >  -config terraform.bin=X  >  tfui.hcl terraform { bin }  >  "terraform"
+-config terraform.bin=X  >  -terraform-bin flag  >  tfui.hcl terraform { bin }  >  "terraform"
 ```
 
 ## 7. Pipe Ergonomics
@@ -102,7 +102,7 @@ Rules:
 tfui plan | grep "aws_"
 
 # User reviews plan in TUI, quits, then JSON flows to jq:
-tfui plan -json | jq '.changes[].address'
+tfui plan -json | jq '.resource_changes[].address'
 
 # User browses state in TUI, quits, then addresses flow to wc:
 tfui state | wc -l
@@ -112,18 +112,11 @@ tfui state | wc -l
 
 ```bash
 # No TUI, immediate output:
-CI=1 tfui plan -json | jq '.summary'
+CI=1 tfui plan -json | jq '.resource_changes[].address'
 tfui validate -ci -json | jq '.valid'
 
 # Auto-detected (stderr not TTY):
 tfui plan -json > plan-output.json
-```
-
-### Novel command chains (pure stdin filters, no TUI)
-
-```bash
-tfui show -json tfplan.out | tfui risk          # plan JSON → risk report
-tfui show -json tfplan.out | tfui risk -json | jq '.high_risk[]'
 ```
 
 ## 8. Tree View Format
@@ -136,11 +129,11 @@ Default human-readable output for `tfui plan`:
 - aws_security_group.old
 -/+ aws_instance.web
 
-Plan: 1 to add, 1 to change, 1 to destroy.
+Plan: 1 to add, 2 to change, 1 to destroy.
 Risk: high
 ```
 
-Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read
+Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read. A replace counts as a change. `Risk:` appears only when a change carries risk.
 
 ## 9. Error Message Formatting
 
@@ -156,8 +149,9 @@ Purpose: disable TUI entirely for headless/scripted use.
 
 Detection:
 1. `-ci` flag on the command
-2. `CI=1` environment variable
-3. stderr is not a TTY (auto-detected)
+2. `CI=1` environment variable (`CI=true` does not match)
+3. `CLAUDECODE` or `AI_AGENT` set to a non-empty value (agent environment, ADR-0022)
+4. stderr is not a TTY (auto-detected)
 
 Effects:
 - No TUI rendering (no alt-screen, no keyboard input)
@@ -165,14 +159,9 @@ Effects:
 - Output written directly to stdout when plugin reaches Ready state
 - Exit codes unchanged
 
-## 11. Novel Commands
+## 11. Analysis plugins
 
-Commands with no terraform equivalent (`risk`, `phantom`, `blast-radius`):
-- Read plan JSON from stdin (terraform-compatible input)
-- Default output: human-readable report on stdout
-- `-json` output: our schema (not terraform's) on stdout
-- No TUI (pure stdin→stdout filter)
-- Exit 0 on success, 1 on error
+Risk, phantom and blast radius are TUI plugins (`R`, `P`, `B`); they have no CLI command.
 
 ## 12. Imperative Commands (no TUI)
 

@@ -9,35 +9,37 @@ description: "Sets the rules every TUI view follows: layout, navigation, key bin
 audience: "Contributors adding or changing a view or a key binding"
 ---
 
-# UX Guidelines — terraform-ui
+# TUI UX Guidelines
+
+Three rules decide most cases: a terraform mutation is a letter key in the actions bar and everything else goes in the hint bar (§13); the user sees every state the app enters (§5); and the app does no work the user did not ask for (§9). §16 maps every key.
 
 ## 1. Layout Structure
 
 ```
- Project: ../medprev-cloud-iac                                     ╔╦╗╔═╗╦ ╦╦
+ Project: ../my-infra                                              ╔╦╗╔═╗╦ ╦╦
  Chdir: modules/sa-east-1                                           ║ ╠╣ ║ ║║
  Workspace: default                                                 ╩ ╚  ╚═╝╩
 ┌────────────────────────────────────────────────────────────────────────────┐
 │ :context                                                                   │
 └────────────────────────────────────────────────────────────────────────────┘
-┌──────────────── State Browser (30/1549) [3/30] ────────────────────────────┐
+┌──────────────── State Browser (30/412) [3/30] ─────────────────────────────┐
 │ module.networking.aws_vpc.main                                           ▲ │
 │ module.networking.aws_security_group.web                                  ┃ │
 │ module.compute.aws_launch_template.app                                   ┃ │
 │ module.compute.aws_iam_role.app                                          │ │
 │ module.storage.aws_s3_bucket.logs                                        ▼ │
 │                                                                            │
-│ d delete  e edit  t taint  T untaint  ! batch                              │
+│ d delete  e edit  t taint  T untaint                                       │
 └────────────────────────────────────────────────────────────────────────────┘
- Enter inspect  / filter  Space pin  ^t flat  ^r refresh  q back    terraform
+ Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit    terraform
 ```
 
 - **Header** (3 lines): left=Project/Chdir/Workspace, right=ASCII logo. Always visible.
 - **Command bar**: bordered `:` input, visible only when active.
 - **Content**: bordered box, view title + count embedded in top border.
-- **Footer**: single hint line (left), binary name right-aligned faint. Shows only UI/navigation keys.
+- **Hint bar**: single hint line (left), binary name right-aligned faint. Shows only UI/navigation keys.
 - **Actions bar**: inside the bordered frame, pinned to bottom. Shows terraform mutation keys as button chips.
-- **Scroll indicators**: scrollbar gutter (right edge) + `[cursor/navigable]` counter in title bar.
+- **Scroll indicators**: scroll gutter (right edge) + `[cursor/navigable]` counter in title bar.
 - **No separators** — borders handle visual separation.
 
 ## 1b. Standalone Mode Layout
@@ -45,16 +47,15 @@ audience: "Contributors adding or changing a view or a key binding"
 When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs in standalone mode with minimal chrome:
 
 ```
- my-infra │ modules/sa-east-1 │ production                              tfui
-┌─────────────────────────────────────────────────────────────────────────────┐
-│ plugin content fills the screen                                           ▲ │
-│ ...                                                                       ┃ │
-│ ...                                                                       │ │
-│ ...                                                                       ▼ │
-│                                                                             │
-│ d delete  e edit  t taint  T untaint                                        │
-└─────────────────────────────────────────────────────────────────────────────┘
- Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit    terraform
+my-infra › modules/sa-east-1 › production                                  tfui
+
+plugin content fills the screen
+...
+...
+
+d delete  e edit  t taint  T untaint
+
+Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit        terraform
 ```
 
 ### Differences from full TUI
@@ -73,7 +74,7 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 
 - TUI renders on **stderr** (via `tea.WithOutput(os.Stderr)`)
 - stdout stays clean for pipe output
-- On quit: plugin's `Output(json)` is written to stdout
+- On quit: the plugin's `Stdout()` (`StdoutEmitter`) is written to stdout
 - Alt-screen on stderr: terminal restores on exit
 
 ### Standalone navigation rules
@@ -92,9 +93,9 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 | Header left | Project (+ pinned count), Chdir, Workspace |
 | Header right | ASCII logo (brand identity) |
 | Content border title | View name + `(filtered/total)` count + `[cursor/navigable]` position |
-| Actions bar (inside frame) | Terraform mutation keys as button chips (cyan bg, black text) |
-| Scroll gutter (inside frame) | `▲` top cap, `┃` thumb, `│` track, `▼` bottom cap |
-| Footer (hint bar) | UI/navigation keys only (from frame's Hints()) |
+| Actions bar (inside frame) | Terraform mutation keys as button chips (purple, §13) |
+| Scroll gutter (inside frame) | Scroll position (§4) |
+| Hint bar | UI/navigation keys only (from frame's Hints()) |
 | Command bar | `:` input with autocomplete matches |
 
 ## 3. Keybinding Conventions
@@ -110,32 +111,7 @@ When invoked as `tfui <command>` (e.g., `tfui plan`, `tfui state`), the TUI runs
 | `ctrl+c` | Force quit |
 | `ctrl+s` | Screen capture to debug log (hidden) |
 
-### ctrl+char for action shortcuts
-| Key | Action |
-|-----|--------|
-| `ctrl+t` | Toggle tree/flat view |
-| `ctrl+w` | Toggle line wrap |
-
-### Navigation
-| Key | Action |
-|-----|--------|
-| `j` / `↓` | Move down |
-| `k` / `↑` | Move up |
-| `g` | Jump to start |
-| `G` | Jump to end |
-| `Enter` | Inspect (leaf) / expand (branch) |
-| `Space` | Pin/unpin |
-
-### Tree-specific
-| Key | Action |
-|-----|--------|
-| `[` | Collapse all |
-| `]` | Expand all |
-| `Enter` on branch | Toggle expand/collapse |
-| `Enter` on leaf | Inspect |
-
-### Plugin activation (home screen only)
-Single plain letter: `s` (state), `p` (plan), `a` (apply), `w` (workspace), `o` (outputs), `v` (validate), `~` (console), `i` (init)
+Every other key, and the layer it belongs to: §16.
 
 ## 4. Visual Patterns
 
@@ -175,14 +151,17 @@ Gutter rules:
 | `█` | Cursor in input field |
 
 ### Text styles
+
+Colors are the §11 palette.
+
 | Style | Usage |
 |-------|-------|
-| Bold + primary (`#bd93f9`) | Titles, active keys |
-| Faint (`#6272a4`) | Secondary info (types, counts, hints) |
-| Italic + faint | Placeholder text, loading messages |
-| Error (`#ff5555`) | Error messages |
-| Success (`#50fa7b`) | Pin indicators, confirmations |
-| Background (`#44475a`) | Selected row highlight, header/footer bg |
+| Bold + Primary | Titles, active keys |
+| Faint | Secondary info (types, counts, hints) |
+| Italic + Faint | Placeholder text, loading messages |
+| Error | Error messages |
+| Success | Pin indicators, confirmations |
+| Background | Selected row highlight, header and hint bar background |
 
 ## 5. State Transitions & Loading
 
@@ -200,13 +179,13 @@ When the user triggers an async operation (opens a plugin, selects a field that 
 User Action → Loading → Done (or Error)
 ```
 
-The user sees every step. There is no shortcut.
+The user sees every step.
 
 #### Visual Treatment
 
 | Operation | What the user sees |
 |-----------|-------------------|
-| Streaming terraform command | `StreamFrame` — real-time log output with auto-scroll, scrollbar gutter |
+| Streaming terraform command | `StreamFrame` — real-time log output with auto-scroll, scroll gutter |
 | Non-streaming async (workspace list, etc.) | Faint italic text with elapsed time: `"Loading workspaces... 4s"` |
 
 #### Terminal size
@@ -263,7 +242,7 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 ### Error States
 
 - Floating modal overlay with error detail (not inline text that might be missed)
-- Hints: `r retry` + `esc back` (+ `u force-unlock` if applicable)
+- Hints: `^r retry` + `Esc back` (+ `u force-unlock` if applicable)
 - Error message is the raw terraform output — don't sanitize or summarize
 
 ### Other Transitions
@@ -288,7 +267,7 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 - Brackets, special chars pass through to action handlers
 - `Esc` exits filter mode
 - `Enter` inspects (leaf) or expands (branch)
-- Backspace on empty ᗊ: stays in filter mode (doesn't exit)
+- Backspace on empty: stays in filter mode (doesn't exit)
 - Filter bar renders at the **top** of the list (above items, below any header)
 
 ## 7. Tree Navigation
@@ -306,7 +285,7 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 - Full screen replacement while active (content not visible behind)
 - Captures ALL input — nothing passes through to plugins
 - `Esc` or completion action dismisses
-- Status bar shows overlay-specific hints
+- Hint bar shows overlay-specific hints
 - Used for: chdir picker, error display, confirmations
 
 ## 9. Picker Frame Pattern
@@ -328,7 +307,7 @@ Every action the app takes must be a direct, visible result of something the use
 - User presses `ctrl+r` → app refreshes data
 - User opens a plugin → app loads that plugin's data (because they asked for it)
 
-This means a picker with async items shows a loading state — that is honest UX. The user triggered the action, they see the consequence. A brief "Loading..." is infinitely better than hidden background magic that may silently fail, waste resources, or produce stale data the user never asked for.
+This means a picker with async items shows a loading state — that is honest UX. The user triggered the action, they see the consequence. A brief "Loading..." is better than hidden background magic that may silently fail, waste resources, or produce stale data the user never asked for.
 
 ### Two Picker Flavors
 
@@ -341,9 +320,9 @@ Both share the same picker frame once items are available. The difference is onl
 
 For async pickers, the loading state follows §5 exactly:
 - Form field value changes to faint italic loading text (e.g., `"Loading workspaces..."`)
-- Hint bar reduces to `esc back` only
+- Hint bar reduces to `Esc back` only
 - Picker frame pushes when data arrives
-- On error: field shows error, `r` retries
+- On error: field shows error, `^r` retries
 
 ### Behavior Contract
 
@@ -421,7 +400,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 ## 10. Home Screen
 
 - Shows after chdir selection (or when no plugin active)
-- Plugin list sorted by workflow: State, Plan, Apply, Workspaces, Outputs, Validate, Console, then decorators (Risk, Phantom, Blast Radius, Scaffold)
+- Plugin list: Context, State Browser, Plan, Workspace, Console, Outputs, Validate, Init, then the analysis plugins that read a plan without changing it (Risk Analysis, Phantom Changes, Blast Radius). Apply is not listed; `a` activates it
 - Current chdir visible in header
 - Direct key activation (press letter) or j/k + Enter
 - Context plugin in the list (accessed via `C` or `:context`) — manages Project + Chdir + Workspace
@@ -433,7 +412,7 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 | Primary | `#bd93f9` (purple) | Borders, keys, active elements |
 | Text | `#f8f8f2` (foreground) | Main content |
 | Faint | `#6272a4` (comment) | Secondary info |
-| Background | `#44475a` (selection) | Header/footer bg, selected rows |
+| Background | `#44475a` (selection) | Header and hint bar background, selected rows |
 | Success | `#50fa7b` (green) | Pins, confirmations |
 | Error | `#ff5555` (red) | Error text |
 | Warning | `#f1fa8c` (yellow) | Risk indicators |
@@ -459,12 +438,12 @@ Every plugin's `View(width, height)` must:
 | Layer | Location | Content | Source |
 |-------|----------|---------|--------|
 | **Actions bar** | Inside bordered frame (bottom, pinned) | Terraform mutation keys as button chips | Plugin's `View()` using SDK `ActionsBar` primitive |
-| **Hint bar** | Footer (status bar, outside border) | UI/navigation keys only | `Frame.Hints()` (Stackable) or `Plugin.Hints()` (Hintable) |
+| **Hint bar** | Bottom line, outside the border | UI/navigation keys only | `Frame.Hints()` (Stackable) or `Plugin.Hints()` (Hintable) |
 | **Inline hints** | Inside plugin view | Plugin-specific contextual keys not in standard vocabulary | Hardcoded in `View()` near relevant content |
 
 ### The split rule
 
-**Bare key = actions bar. Ctrl+key or punctuation = hint bar.**
+**A letter key is a terraform action and goes in the actions bar; every other key (ctrl+key, punctuation, `Space`, `Enter`, `Esc`) goes in the hint bar. `q` is the one letter in the hint bar.**
 
 The modifier (`^`) is the visual signal. Users don't need to memorize categories — they just look at whether there's a `^` prefix or not.
 
@@ -479,7 +458,7 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 | `m` move | `^p` pinned filter |
 | `n` import | `^u` clear pins |
 | `u` force-unlock | `:` command |
-| `!` batch | `q` back |
+| `!` batch | `q` quit |
 | | `Esc` cancel |
 
 ### Actions bar rules
@@ -497,8 +476,8 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 - Shows only UI/navigation keys from `HintSet` vocabulary
 - Does NOT show `↑↓ navigate` (scroll indicators teach this implicitly)
 - MUST be state-aware: return different hints per plugin status
-- Loading state: only `q back`
-- Error state: `^r retry` + `q back` (+ contextual unlock hint)
+- Loading state: only `Esc back`
+- Error state: `^r retry` + `Esc back` (+ contextual unlock hint)
 - Done state: full UI navigation set for that plugin
 - Never show keys that don't work in the current state
 
@@ -524,7 +503,7 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 
 - Virtual scrolling: only render visible rows (viewport window)
 - Tree flatten: O(visible nodes), not O(all nodes)
-- Filter: debounce unnecessary on keystroke (fzf is fast enough for 1549 items)
+- Filter: runs on every keystroke, with no debounce
 - State load: show elapsed time indicator after 2s
 - Context discovery: cache results, don't re-discover on every overlay open
 
@@ -600,9 +579,9 @@ Activate → Form (home state)
 
 | Layer | Keys | Scope | Shown in | Examples |
 |-------|------|-------|----------|---------|
-| Terraform verbs | bare lowercase | cursor resource | **Actions bar** | `d` delete, `t` taint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `A` auto-approve |
+| Terraform verbs | bare letter (lowercase, or uppercase for the inverse/auto variant) | cursor resource | **Actions bar** | `d` delete, `t` taint, `T` untaint, `e` edit, `m` move, `n` import, `u` force-unlock, `a` apply, `A` auto-apply |
 | Batch | `!` | pinned set | **Actions bar** | `!` batch palette |
-| Plugin switches (home) | bare lowercase | home screen only | — (home menu) | `s` state, `p` plan, `w` workspace, `o` output, `v` validate, `~` console, `i` init |
+| Plugin switches (home) | bare lowercase | home screen only | — (home menu) | `s` state, `p` plan, `a` apply, `w` workspace, `o` output, `v` validate, `~` console, `i` init |
 | Plugin switches (global) | bare uppercase | anywhere | — | `C` context, `R` risk, `P` phantom, `B` blast radius |
 | Interface controls | ctrl+key | view modes, reload | **Hint bar** | `ctrl+t` tree, `ctrl+w` wrap, `ctrl+r` refresh, `ctrl+p` pinned, `ctrl+u` unpin all |
 | Navigation & modes | non-alpha / punctuation | navigation, mode triggers | **Hint bar** | `/` filter, `[` collapse, `]` expand, `:` command, `Space` pin, `Enter` inspect |
@@ -623,7 +602,7 @@ Activate → Form (home state)
 | `i` | init | terraform verb / plugin switch | home: activate init |
 | `j` | move down | navigation (vim alias) | ↓ is primary |
 | `k` | move up | navigation (vim alias) | ↑ is primary |
-| `l` | — | **free** | |
+| `l` | log | navigation | plan, apply: reopen the run's streamed log |
 | `m` | move (rename) | terraform verb | state |
 | `n` | new / import | terraform verb | state: import (navigates to import plugin); workspace: new |
 | `o` | output | plugin switch | home |
@@ -643,12 +622,12 @@ Activate → Form (home state)
 
 | Key | Assignment | Category | Context |
 |-----|-----------|----------|---------|
-| `B` | blast radius | plugin switch (global) | decorator |
+| `B` | blast radius | plugin switch (global) | analysis plugin |
 | `C` | context | plugin switch (global) | always available |
 | `G` | jump to end | navigation | lists, trees |
-| `P` | phantom | plugin switch (global) | decorator |
-| `R` | risk | plugin switch (global) | decorator |
-| `A` | auto-approve | terraform verb | plan: apply without confirmation |
+| `P` | phantom | plugin switch (global) | analysis plugin |
+| `R` | risk | plugin switch (global) | analysis plugin |
+| `A` | auto-apply | terraform verb | plan: apply without confirmation |
 | `T` | untaint | terraform verb | state/plan: navigates to untaint plugin |
 | `Y` | confirm (yes) | confirmation | confirmation frames only |
 | All others | — | **free** | |
