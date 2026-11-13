@@ -1065,52 +1065,6 @@ func TestRunApply_WhenRerun_ShouldDropThePreviousTally(t *testing.T) {
 	}
 }
 
-func TestHints_WhenConfirmingWithLastStream_ShouldIncludeLHint(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusConfirming
-	lw, ch := frames.NewLineWriter()
-	lw.Close()
-	p.lastStream = frames.NewStreamFrame("test", ch, nil)
-
-	hints := p.Hints()
-	hasL := false
-	for _, h := range hints {
-		if h.Key == "l" {
-			hasL = true
-		}
-	}
-	if !hasL {
-		t.Error("Hints() when confirming with lastStream should include 'l' hint")
-	}
-}
-
-func TestHandleKey_WhenConfirmingAndLKey_ShouldPushLastStream(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusConfirming
-	lw, ch := frames.NewLineWriter()
-	lw.Close()
-	p.lastStream = frames.NewStreamFrame("test", ch, nil)
-	depthBefore := p.stack.Depth()
-
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
-
-	if p.stack.Depth() != depthBefore+1 {
-		t.Errorf("stack depth = %d, want %d after l key in confirming", p.stack.Depth(), depthBefore+1)
-	}
-}
-
-func TestHandleKey_WhenConfirmingAndLKey_NoLastStream_ShouldDoNothing(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = StatusConfirming
-	depthBefore := p.stack.Depth()
-
-	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
-
-	if p.stack.Depth() != depthBefore {
-		t.Errorf("stack depth changed without lastStream; got %d, want %d", p.stack.Depth(), depthBefore)
-	}
-}
-
 func TestActivate_WhenTargetsProvided_ShouldPassThroughToApply(t *testing.T) {
 	var got sdk.ApplyOptions
 	svc := &sdktest.MockService{
@@ -1621,5 +1575,31 @@ func TestUpdate_WhenCtrlRAfterFailedOneShotApply_ShouldRetry(t *testing.T) {
 	}
 	if p.status != sdk.StatusLoading {
 		t.Errorf("status = %v, want StatusLoading", p.status)
+	}
+}
+
+// The confirmation is for the plan just reviewed; a previous apply's log is
+// not part of it.
+func TestRequestApply_WhenAPreviousApplyStreamed_ShouldNotOfferItsLog(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.SetPlanFile("/tmp/first.tfplan")
+	p.RequestApply()
+	drainBatchUntilApplyResult(t, p.Confirm())
+	p.Update(ApplyResultMsg{})
+
+	p.SetPlanFile("/tmp/second.tfplan")
+	p.RequestApply()
+	depthBefore := p.stack.Depth()
+	p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'l'}})
+
+	if p.stack.Depth() != depthBefore {
+		t.Errorf("stack depth = %d after l on confirmation, want %d (no previous log)", p.stack.Depth(), depthBefore)
+	}
+	for _, h := range p.Hints() {
+		if h.Key == "l" {
+			t.Errorf("Hints() = %v, want no l on confirmation", p.Hints())
+		}
 	}
 }

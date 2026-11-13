@@ -112,14 +112,10 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	case sdk.StatusLoading:
 		return sdk.HintSetCancel.Hints()
 	case StatusConfirming:
-		hints := []sdk.KeyHint{
+		return []sdk.KeyHint{
 			{Key: "y/n", Description: "confirm"},
 			sdk.HintCancel,
 		}
-		if e.lastStream != nil {
-			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
-		}
-		return hints
 	case sdk.StatusDone:
 		hints := (sdk.HintSetRefresh | sdk.HintSetCancel).Hints()
 		if e.lastStream != nil {
@@ -198,6 +194,7 @@ func (e *Plugin) RequestApply() tea.Cmd {
 	if e.planFile == "" {
 		return nil
 	}
+	e.lastStream = nil
 	e.confirmed = false
 	e.errMsg = ""
 	e.status = StatusConfirming
@@ -340,11 +337,6 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		case "n", "N", "esc":
 			e.Abort()
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
-		case "l":
-			// Re-open the streamed plan to review the full diff before deciding.
-			if e.lastStream != nil {
-				e.stack.Push(e.lastStream)
-			}
 		}
 	case sdk.StatusDone:
 		switch msg.String() {
