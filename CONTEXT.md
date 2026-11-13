@@ -51,7 +51,7 @@ _Avoid_: operation, task, command (for the runner); verb (for the spec — it is
 ### UI Zones
 
 **Actions Bar**:
-A row of button chips (cyan background, black text) inside the bordered plugin frame, pinned to the bottom. Shows terraform mutation keys only. Owned and rendered by the plugin.
+A row of button chips (purple background, white text) inside the bordered plugin frame, pinned to the bottom. Shows terraform mutation keys only. Owned and rendered by the plugin.
 _Avoid_: toolbar, action palette, command bar
 
 **Hint Bar**:
