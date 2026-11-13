@@ -176,6 +176,5 @@ When a plugin is navigated to as a sub-state (has `returnTo`):
 ## Staleness Guard
 
 Before destructive operations (apply, state rm, state mv, import):
-- Threshold: `cache.staleness_threshold` config (default 5m)
 - If stale: prompt "State is Xm old. Refresh first? (y/n)"
 - If nil: prompt "No state loaded. Load first?"

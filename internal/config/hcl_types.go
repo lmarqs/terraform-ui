@@ -8,17 +8,6 @@ type MemberConfig struct {
 	Path string
 }
 
-type CacheConfig struct {
-	StalenessThreshold string
-}
-
-type AIConfig struct {
-	Enabled  bool
-	Provider string
-	Model    string
-	Region   string
-}
-
 type PluginSettings struct {
 	Enabled bool
 	Options map[string]interface{}
@@ -46,8 +35,6 @@ func (d *DefaultsConfig) PluginConfig(id string) PluginSettings {
 type RootConfig struct {
 	Terraform RootTerraformConfig
 	Members   []MemberConfig
-	Cache     CacheConfig
-	AI        AIConfig
 	Defaults  DefaultsConfig
 }
 

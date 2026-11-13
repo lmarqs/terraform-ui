@@ -92,8 +92,6 @@ HCL format. Everything optional. No config file = standalone mode.
 terraform { bin = "terraform" }
 member "modules/vpc" {}
 member "modules/ecs" {}
-cache { staleness_threshold = "5m" }
-ai { enabled = true; provider = "bedrock"; region = "us-east-1" }
 defaults {
   parallelism = 10
   lock = true

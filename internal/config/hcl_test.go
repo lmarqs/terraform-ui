@@ -28,16 +28,6 @@ terraform {
 member "modules/vpc" {}
 member "modules/ecs" {}
 
-cache {
-  staleness_threshold = "5m"
-}
-
-ai {
-  enabled  = true
-  provider = "bedrock"
-  model    = "claude-sonnet-4-6-20250514"
-  region   = "us-east-1"
-}
 
 defaults {
   parallelism = 10
@@ -69,23 +59,6 @@ defaults {
 	}
 	if cfg.Members[1].Path != "modules/ecs" {
 		t.Errorf("Members[1].Path = %q, want %q", cfg.Members[1].Path, "modules/ecs")
-	}
-
-	if cfg.Cache.StalenessThreshold != "5m" {
-		t.Errorf("Cache.StalenessThreshold = %q, want %q", cfg.Cache.StalenessThreshold, "5m")
-	}
-
-	if !cfg.AI.Enabled {
-		t.Error("AI.Enabled = false, want true")
-	}
-	if cfg.AI.Provider != "bedrock" {
-		t.Errorf("AI.Provider = %q, want %q", cfg.AI.Provider, "bedrock")
-	}
-	if cfg.AI.Model != "claude-sonnet-4-6-20250514" {
-		t.Errorf("AI.Model = %q, want %q", cfg.AI.Model, "claude-sonnet-4-6-20250514")
-	}
-	if cfg.AI.Region != "us-east-1" {
-		t.Errorf("AI.Region = %q, want %q", cfg.AI.Region, "us-east-1")
 	}
 
 	if cfg.Defaults.Parallelism != 10 {
@@ -583,24 +556,6 @@ terraform {
 member "modules/vpc" {}
 `,
 			keyword: "member",
-		},
-		{
-			name: "ShouldRejectCacheBlock",
-			hcl: `
-cache {
-  staleness_threshold = "5m"
-}
-`,
-			keyword: "cache",
-		},
-		{
-			name: "ShouldRejectAIBlock",
-			hcl: `
-ai {
-  enabled = true
-}
-`,
-			keyword: "ai",
 		},
 		{
 			name: "ShouldRejectDefaultsBlock",

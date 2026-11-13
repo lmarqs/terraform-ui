@@ -43,8 +43,6 @@ func LoadRoot(dir string) (*RootConfig, error) {
 type hclRootFile struct {
 	Terraform *hclTerraformBlock `hcl:"terraform,block"`
 	Members   []hclMemberBlock   `hcl:"member,block"`
-	Cache     *hclCacheBlock     `hcl:"cache,block"`
-	AI        *hclAIBlock        `hcl:"ai,block"`
 	Defaults  *hclDefaultsBlock  `hcl:"defaults,block"`
 	Remain    hcl.Body           `hcl:",remain"`
 }
@@ -56,17 +54,6 @@ type hclTerraformBlock struct {
 type hclMemberBlock struct {
 	Path   string   `hcl:"path,label"`
 	Remain hcl.Body `hcl:",remain"`
-}
-
-type hclCacheBlock struct {
-	StalenessThreshold string `hcl:"staleness_threshold"`
-}
-
-type hclAIBlock struct {
-	Enabled  bool   `hcl:"enabled,optional"`
-	Provider string `hcl:"provider,optional"`
-	Model    string `hcl:"model,optional"`
-	Region   string `hcl:"region,optional"`
 }
 
 type hclDefaultsBlock struct {
@@ -99,17 +86,6 @@ func convertRootFile(raw *hclRootFile) *RootConfig {
 	}
 	if len(cfg.Members) == 0 {
 		cfg.Members = []MemberConfig{{Path: DefaultMemberPath}}
-	}
-
-	if raw.Cache != nil {
-		cfg.Cache.StalenessThreshold = raw.Cache.StalenessThreshold
-	}
-
-	if raw.AI != nil {
-		cfg.AI.Enabled = raw.AI.Enabled
-		cfg.AI.Provider = raw.AI.Provider
-		cfg.AI.Model = raw.AI.Model
-		cfg.AI.Region = raw.AI.Region
 	}
 
 	if raw.Defaults != nil {

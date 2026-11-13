@@ -46,10 +46,6 @@ layers:
     threshold: 0
     note: "terraform-exec I/O boundary. Tested by integration tests."
 
-  internal/ai:
-    threshold: 0
-    note: "HTTP/streaming boundary. Tested manually + integration."
-
   internal/logging:
     threshold: 0
     note: "slog setup. Trivial glue."

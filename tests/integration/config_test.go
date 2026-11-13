@@ -67,9 +67,6 @@ func TestConfig_Monorepo_ShouldParseFullConfig(t *testing.T) {
 	if cfg.Members[0].Path != "modules/vpc" {
 		t.Errorf("Members[0].Path = %q, want %q", cfg.Members[0].Path, "modules/vpc")
 	}
-	if cfg.Cache.StalenessThreshold != "5m" {
-		t.Errorf("Cache.StalenessThreshold = %q, want %q", cfg.Cache.StalenessThreshold, "5m")
-	}
 	if cfg.Defaults.Parallelism != 10 {
 		t.Errorf("Defaults.Parallelism = %d, want 10", cfg.Defaults.Parallelism)
 	}
