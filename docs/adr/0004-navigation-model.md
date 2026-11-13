@@ -14,9 +14,12 @@ audience: "Contributors changing navigation between plugins"
 
 Navigation between plugins uses two declared behaviors -- Replace (lateral switch, no history) and Push (subtask with a return destination). The return destination is explicit ("go here when done"), not implicit history ("go back one level").
 
-This distinction exists because navigation isn't linear. Replace means "I'm somewhere else now" (state → plan). Push means "do this subtask, then bring me back" (state → workspace picker → back to state). Workflows can also set return destinations programmatically (plan → apply sets returnTo=plan even though apply wasn't user-pushed).
+This distinction exists because navigation isn't linear. Replace means "I'm somewhere else now" (state → plan). Push means "do this subtask, then bring me back" (state → workspace picker → back to state). Workflows can also set return destinations programmatically (plan → apply pushes plan as the return destination even though the user did not push apply).
 
-Each frame within a plugin maintains its own stack (unlimited depth: list → inspect → confirm → ...). Cross-plugin navigation uses Push with a return destination. The return destination should stack -- if plugin A pushes B which pushes C, completing C returns to B, completing B returns to A.
+## Consequences
+
+- Each plugin keeps its frames on a stack (unlimited depth: list → inspect → confirm → ...). Cross-plugin navigation uses Push with a return destination.
+- Return destinations stack: the app keeps one LIFO stack of them. If plugin A pushes B which pushes C, completing C returns to B, completing B returns to A. A Replace clears the stack.
 
 ## Considered Options
 

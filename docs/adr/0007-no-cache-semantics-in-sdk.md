@@ -16,6 +16,10 @@ The `Service` interface exposes no cache-related methods. Plugins request fresh 
 
 Caching is an infrastructure concern that belongs in the adapter (ExecService), not the port (sdk.Service). Plugin authors shouldn't know or care how data is stored between calls. The SDK is a thin layer helping users operate terraform -- terraform itself is the source of truth.
 
+## Consequences
+
+- Plugins cannot warm, inspect or clear the cache; their one lever is the `SkipCache()` option on `StateList`.
+
 ## Considered Options
 
 ### `InvalidateState()` on the Service interface

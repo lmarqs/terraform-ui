@@ -14,13 +14,18 @@ audience: "Contributors changing how terraform is run or how macros replay"
 
 The system selects its execution mode once at startup -- either live execution (ExecService) or command recording (MacroService). Every call flows through a single adapter for the entire session. Plugins are unaware of which runtime they're operating under.
 
-This is a system-wide invariant, not a per-call decision. Mixing execution modes within a session would be both confusing (user can't tell which calls are real) and dangerous (accidental mutation during dry-run). The core declares the port (`sdk.Service`); the runtime adapter fulfills it entirely. Implementation details like caching are internal to the adapter -- invisible to plugins.
+This is a system-wide invariant, not a per-call decision. Mixing execution modes within a session would be both confusing (user can't tell which calls are real) and dangerous (accidental mutation during a macro recording). The core declares the port (`sdk.Service`); the runtime adapter fulfills it entirely. Implementation details like caching are internal to the adapter -- invisible to plugins.
+
+## Consequences
+
+- `cmd/tfui` builds the service once per session: MacroService when `-macro` is given, ExecService otherwise. Changing runtime means starting a new session.
+- Plugins never branch on the runtime; anything runtime-specific lives in the adapter.
 
 ## Considered Options
 
 ### Single composed service
 
-Previously existed as `CompositeService`, eliminated. Rejected -- there is no call-level routing decision to make. The execution mode defines the whole system's behavior for UX and safety reasons. Composition adds indirection without purpose when the choice is binary and session-global.
+Previously existed as `CompositeService`, which routed each call either to a pre-seeded plan or state file or to live terraform; eliminated. Rejected -- there is no call-level routing decision to make. The execution mode defines the whole system's behavior for UX and safety reasons. Composition adds indirection without purpose when the choice is binary and session-global.
 
 ### Decorator/wrapper pattern
 

@@ -16,16 +16,16 @@ Each plugin creates and cancels its own `context.WithCancel` for terraform opera
 
 ## Consequences
 
-- **Plugins that start async terraform operations must implement `sdk.Cancellable`.** The compliance suite (Rules 5-7) enforces this at test time.
+- **Plugins that start async terraform operations must implement `sdk.Cancellable`.** The compliance suite (Rules 5-7, `internal/compliance/cancellation_test.go`) enforces this at test time.
 - **Every async operation must cancel its predecessor.** Before creating a new context, the plugin calls `Cancel()` to kill any in-flight process from a prior activation or refresh.
 - **The app respects `sdk.Busy` as a cancel guard.** If a plugin reports `Busy()` (holding a terraform state lock during apply), the app skips cancellation on navigation to avoid leaving a stale lock.
 - **`Cancel()` is idempotent.** Calling it with no in-flight operation is a no-op (nil check on `cancelFn`). No sync primitives needed -- BubbleTea's Update loop is single-threaded.
 
 ## Considered Options
 
-### App-owned context via `sdk.Context`
+### App-owned cancellable `context.Context`
 
-The app creates a cancellable context at Init/Activate and passes it through to the plugin. Simpler API, but couples operation lifetime to navigation state. Breaks when a plugin runs sequential operations or when one operation should survive while another starts.
+The app creates a cancellable `context.Context` at Init/Activate and passes it through to the plugin. Simpler API, but couples operation lifetime to navigation state. Breaks when a plugin runs sequential operations or when one operation should survive while another starts.
 
 ### No explicit cancellation (rely on terraform lock timeout)
 

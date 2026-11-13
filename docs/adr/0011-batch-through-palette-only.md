@@ -16,6 +16,11 @@ Direct keys (`d`, `t`, `m`, etc.) always act on the cursor item -- never on the 
 
 A single keystroke on a single resource is low-stakes and recoverable. Acting on multiple resources at once is a different cognitive mode -- the user should consciously enter it. The `!` gate is that conscious transition.
 
+## Consequences
+
+- Acting on the pinned set always takes one keystroke more than acting on the cursor item: `!`, then the action.
+- A direct key's meaning never depends on whether pins exist.
+
 ## Considered Options
 
 ### Shift+letter for batch

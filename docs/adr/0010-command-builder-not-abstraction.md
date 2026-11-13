@@ -22,5 +22,11 @@ A user who learns tfui also learns terraform. The TUI is a better interface to t
 
 - Every `sdk.Command` records the exact terraform invocation (binary, verb, args, flags, dir)
 - Novel features (risk, phantom, blast-radius) are analysis layers on top of terraform output -- they don't invoke terraform differently
-- Error messages should surface terraform's errors, not reinterpret them
+- Error messages surface terraform's errors as is, never reinterpreted
 - When terraform's behavior is surprising, tfui makes it visible rather than hiding it
+
+## Considered Options
+
+### A terraform abstraction
+
+Rejected -- tfui concepts that map to no terraform operation would hide which command runs, and a user who learned tfui would not have learned terraform.

@@ -12,9 +12,14 @@ audience: "Contributors changing Context or what a context switch resets"
 
 # Atomic Context replacement on context switch
 
-All terraform-affecting state (targets, var-files, vars, parallelism, lock, lock-timeout) is centralized into a single Context owned by the app. On context switch, the entire Context is replaced — never patched field-by-field. Plugins read from it but never store local copies.
+All terraform-affecting state (chdir, workspace, pins, var-files, vars, extra args, parallelism, lock, lock-timeout, scoped service) is centralized into a single Context owned by the app. On context switch, and on a pin change, the entire Context is replaced — never patched field-by-field. Plugins read from it but never store local copies.
 
 We chose atomic replacement over field-by-field mutation because the patch approach is structurally unsound: any new field that forgets to clear on context switch silently leaks into the next terraform command. Atomic replacement eliminates the category of bug entirely.
+
+## Consequences
+
+- Plugins read the Context fresh at the top of every terraform-affecting operation and keep no copy of its fields.
+- A field added to the Context is cleared on every switch with no handler code, because the switch builds a new Context.
 
 ## Considered Options
 

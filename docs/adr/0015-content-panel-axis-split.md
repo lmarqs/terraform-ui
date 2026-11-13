@@ -12,11 +12,11 @@ audience: "Contributors writing a View() or a scrollable panel"
 
 # Axis-split box model for content rendering
 
-This project separates rendering of scrollable content into axis-specific concerns. **Horizontal formatting** (truncation, scrolling, wrapping, gutter alignment) is mechanical and identical across all views. **Vertical navigation** (cursor position, viewport windowing, collapse-aware traversal) requires domain semantics that vary per component. No single abstraction may own both axes.
+**The component that decides WHICH rows are visible must not also decide HOW those rows are formatted for display.** These are always separate responsibilities.
+
+This project separates rendering of scrollable content into axis-specific concerns. **Horizontal formatting** (truncation, scrolling, wrapping, gutter alignment) is mechanical and identical across all views; a shared formatting layer, `ui.ContentPanel` (`pkg/sdk/ui/content_panel.go`), owns it. **Vertical navigation** (cursor position, viewport windowing, collapse-aware traversal) requires domain semantics that vary per component; the domain component owns it.
 
 This paradigm applies to all components that render scrollable content: list views, tree views, detail/inspect views, and any future scrollable surface.
-
-## Box Model
 
 ```
 ┌──────────────────── Border (app) ─────────────────────┐
@@ -35,9 +35,16 @@ This paradigm applies to all components that render scrollable content: list vie
 
 Layers are composed vertically. Each layer's boundaries are fixed — components never reach into a sibling's or parent's rendering space.
 
-## Contracts
+## Consequences
 
-### Horizontal formatting layer promises
+- All scrollable content surfaces use the same horizontal formatting layer
+- The rendering pipeline is fixed once (ANSI safety, gutter alignment, truncation) and benefits all components
+- New plugins or view types only implement vertical navigation — horizontal formatting is inherited
+- The formatting layer can evolve independently of domain components (new truncation strategies, gutter styles, etc.) without touching plugin code
+
+### Contracts
+
+#### Horizontal formatting layer promises
 
 - ANSI-safe truncation — never breaks escape sequences mid-stream
 - ANSI-safe horizontal scrolling (pan left/right)
@@ -46,25 +53,21 @@ Layers are composed vertically. Each layer's boundaries are fixed — components
 - Cursor row highlighting via caller-provided style
 - Consistent width math: content width = total width minus gutter budget
 
-### Horizontal formatting layer requires
+#### Horizontal formatting layer requires
 
 - **Pre-windowed visible rows** — the caller decides WHAT is visible
 - **Total item count** — for gutter thumb proportionality
 - **Cursor index** — relative to the visible window, or absent
 - **Scroll offset** — where this window sits in the full list (gutter positioning)
 
-### Vertical layer (caller) owns
+#### Vertical layer (caller) owns
 
 - Domain-aware traversal (collapse state, pin filtering, fuzzy scoring)
 - Viewport windowing (which subset of items to show based on cursor and data structure)
 - Cursor management (position, bounds, collapse-aware movement)
 - Height budgeting (computing available space by deducting sibling elements)
 
-## The Rule
-
-**The component that decides WHICH rows are visible must not also decide HOW those rows are formatted for display.** These are always separate responsibilities.
-
-## Design Principles
+### Design principles
 
 **No lifecycle, no autonomy.** The formatting layer has no Init/Update/View cycle. It acts only when called — rendering on demand and handling input when delegated. This makes it composable: callers combine its output with sibling elements in whatever layout they need.
 
@@ -74,7 +77,7 @@ Layers are composed vertically. Each layer's boundaries are fixed — components
 
 **Stateful only where universal.** The layer holds horizontal scroll offset and wrap-mode toggle — state that is identical across all callers. Vertical state remains external because its semantics vary (tree offset vs. flat cursor vs. detail scroll).
 
-## Anti-patterns (do NOT introduce)
+### Anti-patterns (do NOT introduce)
 
 - Byte-level width math on styled content (`len(line)` instead of visual width)
 - A single "viewport" owning both scroll axes
@@ -82,9 +85,15 @@ Layers are composed vertically. Each layer's boundaries are fixed — components
 - Domain-specific rendering (e.g., tree connectors) inside the formatting layer
 - Components reaching into a sibling's rendering space
 
-## Considered Options
+### Applicability
 
-The core question is: **why can't a single component own both axes?**
+**Always applies** when a component renders scrollable content — whether it's a tree, a flat list, a detail/inspect view, or a future log-tail.
+
+**Does not apply** to static views (e.g., a status message or a 3-line summary). If content doesn't scroll, there is no axis to split.
+
+**For new vertical paradigms** (virtual scroll, paginated views, auto-scrolling logs): the vertical logic lives in the domain component. The formatting layer doesn't change — it still receives pre-windowed rows and formats them.
+
+## Considered Options
 
 ### A shared component owns both axes
 
@@ -101,18 +110,3 @@ Vertical to the domain component (who knows what's visible), horizontal to a sha
 ### Stateless formatting functions (no shared state)
 
 A variant of the split approach where horizontal formatting has no state. Works for output but forces every caller to declare horizontal scroll and wrap-mode fields and duplicate the pan/toggle logic identically. Making the formatting layer stateful for horizontal concerns only eliminates this duplication without taking ownership from the domain.
-
-## Consequences
-
-- All scrollable content surfaces use the same horizontal formatting layer
-- The rendering pipeline is fixed once (ANSI safety, gutter alignment, truncation) and benefits all components
-- New plugins or view types only implement vertical navigation — horizontal formatting is inherited
-- The formatting layer can evolve independently of domain components (new truncation strategies, gutter styles, etc.) without touching plugin code
-
-## Applicability
-
-**Always applies** when a component renders scrollable content — whether it's a tree, a flat list, a detail/inspect view, or a future log-tail.
-
-**Does not apply** to static views (e.g., a status message or a 3-line summary). If content doesn't scroll, there is no axis to split.
-
-**For new vertical paradigms** (virtual scroll, paginated views, auto-scrolling logs): the vertical logic lives in the domain component. The formatting layer doesn't change — it still receives pre-windowed rows and formats them.
