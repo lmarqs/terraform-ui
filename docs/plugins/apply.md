@@ -83,8 +83,7 @@ tfui apply -project ./infra -ci -auto-approve
 tfui apply -project ./infra -json
 
 # Targeted: apply only specific resources
-tfui plan -project ./infra -target aws_instance.web
-tfui apply -project ./infra
+tfui apply -project ./infra -target aws_instance.web
 
 # With chdir (monorepo)
 tfui apply -project ./infra -chdir modules/networking
@@ -122,18 +121,16 @@ Applied before the failure: 1 added, 0 changed, 0 destroyed.
 
 ### Targeting
 
-**CLI:** Pass `-target` to the `plan` command. The saved plan file already contains only targeted changes. Apply then applies that plan.
+**CLI:** Pass `-target` to `tfui apply`. Apply plans and applies in one run and never reads a plan an earlier `tfui plan` saved, so a `-target` given only to `tfui plan` does not reach the apply: `tfui plan -target X && tfui apply` applies every pending change.
 
 **TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
-
-**Standalone CLI:** `tfui apply -target=X` also works on its own. With no saved plan file, apply plans and applies in one shot, so the targets go on that command — terraform's own constraint is only that `-target` cannot be combined with a *saved plan file*, which the TUI pipeline uses.
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
 | Apply all changes | `tfui plan && tfui apply` | `p` → `a` → `y` |
-| Apply specific resources | `tfui plan -target X && tfui apply` | `p` → pin X → `a` → `y` |
+| Apply specific resources | `tfui apply -target X` | `p` → pin X → `a` → `y` |
 | Check apply result | Exit code + stdout | Success/error screen |
 
 ## Configuration
