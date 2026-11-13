@@ -49,8 +49,6 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 					cfg.Terraform.Bin = rootCfg.Terraform.Bin
 				}
 				resolved := config.Resolve(rootCfg, nil, cfg.Workspace)
-				cfg.VarFiles = resolved.VarFiles()
-				cfg.Vars = resolved.Vars()
 				// Without this the registry builds from an empty map, and every
 				// `plugin` block in tfui.hcl parses without changing anything.
 				cfg.Plugins = resolved.PluginConfigs()

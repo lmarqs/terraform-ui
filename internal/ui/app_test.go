@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -1573,7 +1574,6 @@ func TestApp_Update_WhenWorkspaceChangedWithNilRootCfg_ShouldNotChangeOptions(t 
 	cfg := config.Config{
 		Dir:       "/test",
 		Terraform: config.TerraformConfig{Bin: "terraform"},
-		VarFiles:  []string{"original.tfvars"},
 	}
 	svc := newMockService("default", nil)
 	registry := plugin.NewRegistry()
@@ -3865,6 +3865,116 @@ func TestApp_Update_WhenStandaloneActivateClosureSet_ShouldUseClosure(t *testing
 	}
 	if cmd == nil {
 		t.Error("standalone with Activate closure should return its cmd")
+	}
+}
+
+// contextCapturingPlugin records the Context its deps expose at the moment
+// Activate runs, which is what a standalone `tfui <verb>` executes against.
+type contextCapturingPlugin struct {
+	mockPlugin
+	deps          *plugin.PluginDeps
+	ctxAtActivate *sdk.Context
+}
+
+func (m *contextCapturingPlugin) Init(deps *plugin.PluginDeps) tea.Cmd {
+	m.deps = deps
+	return nil
+}
+
+func (m *contextCapturingPlugin) Activate() tea.Cmd {
+	m.ctxAtActivate = m.deps.Context()
+	return nil
+}
+
+func writeTfuiHCL(t *testing.T, dir, content string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, config.HCLConfigFileName), []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestApp_Update_WhenStandaloneStartsWithTfuiHCL_ShouldActivateWithResolvedContext(t *testing.T) {
+	tests := []struct {
+		name        string
+		useActivate bool
+		viaChdir    bool
+	}{
+		{name: "WithActivateClosure", useActivate: true},
+		{name: "WithActivatablePlugin", useActivate: false},
+		{name: "WithChdirFlag", useActivate: true, viaChdir: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			projectDir := t.TempDir()
+			writeTfuiHCL(t, projectDir, `
+member "app" {}
+
+defaults {
+  parallelism = 7
+  lock        = false
+  var_file "common.tfvars" {}
+}
+`)
+			writeTfuiHCL(t, filepath.Join(projectDir, "app"), `
+var_file "app.tfvars" {}
+
+var "region" {
+  value = "us-east-1"
+}
+
+workspace "default" {
+  lock_timeout = "5m"
+}
+`)
+			rootCfg, err := config.LoadRoot(projectDir)
+			if err != nil {
+				t.Fatalf("LoadRoot: %v", err)
+			}
+
+			cfg := config.Config{
+				Dir:       projectDir,
+				BaseDir:   "app",
+				Terraform: config.TerraformConfig{Bin: "terraform"},
+			}
+			if tt.viaChdir {
+				cfg.BaseDir, cfg.Chdir = "", "app"
+			}
+			svc := &sdktest.MockService{}
+			registry := plugin.NewRegistry()
+			target := &contextCapturingPlugin{mockPlugin: mockPlugin{id: "plan", name: "Plan"}}
+			registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+				return target
+			}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+			registry.Build(nil, nil)
+
+			sc := &StandaloneConfig{PluginID: "plan"}
+			if tt.useActivate {
+				sc.Activate = func(p sdk.Plugin) tea.Cmd {
+					return p.(*contextCapturingPlugin).Activate()
+				}
+			}
+			app := NewApp(cfg, svc, registry, rootCfg, sc)
+			app.Init()
+			app.Update(openContextOnStartupMsg{})
+
+			if target.ctxAtActivate == nil {
+				t.Fatal("standalone startup should activate the plugin with a Context")
+			}
+			want := sdk.PlanOptions{
+				VarFiles:    []string{"common.tfvars", "app.tfvars"},
+				Vars:        map[string]string{"region": "us-east-1"},
+				Parallelism: 7,
+				Lock:        sdk.LockDisabled,
+				LockTimeout: sdk.LockTimeout("5m"),
+			}
+			if got := target.ctxAtActivate.PlanOptions(); !reflect.DeepEqual(got, want) {
+				t.Errorf("PlanOptions() at Activate = %+v, want %+v (tfui.hcl settings)", got, want)
+			}
+		})
 	}
 }
 

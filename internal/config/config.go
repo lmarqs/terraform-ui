@@ -18,8 +18,6 @@ type Config struct {
 	Plugins       map[string]PluginConfig
 	Overrides     map[string]string
 	ExtraArgs     []string
-	VarFiles      []string
-	Vars          map[string]string
 }
 
 type LoggerConfig struct {

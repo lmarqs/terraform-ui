@@ -98,7 +98,11 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 
 	var childCfg *config.ChildConfig
 	if rootCfg != nil {
-		childCfg, _ = config.LoadChild(workDir)
+		childDir := workDir
+		if cfg.Chdir != "" {
+			childDir = filepath.Join(cfg.Dir, cfg.Chdir)
+		}
+		childCfg, _ = config.LoadChild(childDir)
 	}
 
 	var sc *StandaloneConfig
@@ -138,20 +142,22 @@ func (a App) Init() tea.Cmd {
 	cmds := []tea.Cmd{a.loadWorkspace}
 
 	// Seed holder with a bootstrap Context so plugins that read deps.Context()
-	// during Init never see a nil pointer. The first ContextChangedEvent
-	// (dispatched once the user picks a chdir / workspace) replaces it.
+	// during Init never see a nil pointer. In the TUI the first
+	// ContextChangedEvent replaces it; a standalone verb runs on it, so it
+	// carries the tfui.hcl settings a context switch would resolve.
 	bootSvc := a.svc
 	bootDir := a.cfg.WorkingDir()
 	if a.cfg.Chdir != "" {
 		bootDir = filepath.Join(a.cfg.Dir, a.cfg.Chdir)
 		bootSvc = a.svc.WithDir(bootDir)
 	}
-	a.holder.current = &sdk.Context{
+	a.holder.current = a.withResolvedConfig(&sdk.Context{
+		Chdir:      a.startupChdir(),
 		WorkingDir: bootDir,
 		Workspace:  sdk.WorkspaceDefault,
 		Service:    bootSvc,
 		ExtraArgs:  a.cfg.ExtraArgs,
-	}
+	})
 
 	holder := a.holder
 	deps := &plugin.PluginDeps{
@@ -208,11 +214,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case openContextOnStartupMsg:
 		// Standalone mode: activate the target plugin directly
 		if a.standalone != nil {
-			if a.cfg.Chdir != "" {
-				a.activeChdir = sdk.Chdir(a.cfg.Chdir)
-			} else if a.cfg.BaseDir != "" {
-				a.activeChdir = sdk.Chdir(a.cfg.BaseDir)
-			}
+			a.activeChdir = a.startupChdir()
 			if p, ok := a.registry.ByID(a.standalone.PluginID); ok {
 				a.activePlugin = p
 				var cmd tea.Cmd
@@ -820,14 +822,7 @@ func (a *App) rebuildContext(chdir sdk.Chdir, absChdir string, workspace sdk.Wor
 		Service:    scopedSvc,
 		ExtraArgs:  a.cfg.ExtraArgs,
 	}
-	if a.rootCfg != nil {
-		resolved := config.Resolve(a.rootCfg, a.childCfg, workspace.String())
-		next.VarFiles = resolved.VarFiles()
-		next.Vars = resolved.Vars()
-		next.Parallelism = resolved.Parallelism()
-		next.Lock = sdk.LockModeFromPtr(resolved.Lock())
-		next.LockTimeout = sdk.LockTimeout(resolved.LockTimeout())
-	}
+	next = a.withResolvedConfig(next)
 	logging.Logger().Debug("context.rebuilt",
 		"chdir", chdir,
 		"workspace", workspace,
@@ -835,6 +830,29 @@ func (a *App) rebuildContext(chdir sdk.Chdir, absChdir string, workspace sdk.Wor
 		"parallelism", next.Parallelism,
 	)
 	return next
+}
+
+// withResolvedConfig fills next's terraform-affecting exec settings (var-files,
+// vars, parallelism, lock, lock-timeout) from tfui.hcl for next's workspace.
+func (a *App) withResolvedConfig(next *sdk.Context) *sdk.Context {
+	if a.rootCfg == nil {
+		return next
+	}
+	resolved := config.Resolve(a.rootCfg, a.childCfg, next.Workspace.String())
+	next.VarFiles = resolved.VarFiles()
+	next.Vars = resolved.Vars()
+	next.Parallelism = resolved.Parallelism()
+	next.Lock = sdk.LockModeFromPtr(resolved.Lock())
+	next.LockTimeout = sdk.LockTimeout(resolved.LockTimeout())
+	return next
+}
+
+// startupChdir is the member the session starts in: --chdir, else --basedir.
+func (a *App) startupChdir() sdk.Chdir {
+	if a.cfg.Chdir != "" {
+		return sdk.Chdir(a.cfg.Chdir)
+	}
+	return sdk.Chdir(a.cfg.BaseDir)
 }
 
 // replaceContext atomically swaps the active Context and returns a Cmd that
