@@ -121,7 +121,7 @@ Applied before the failure: 1 added, 0 changed, 0 destroyed.
 
 ### Targeting
 
-**CLI:** Pass `-target` to `tfui apply`. Apply plans and applies in one run and never reads a plan an earlier `tfui plan` saved, so a `-target` given only to `tfui plan` does not reach the apply: `tfui plan -target X && tfui apply` applies every pending change.
+**CLI:** Pass `-target` to `tfui apply`. `tfui apply -target=X` opens the plan view with those targets, so the saved plan holds only the targeted changes and `a` applies that plan. `tfui apply -auto-approve -target=X` has no saved plan: terraform plans and applies in one shot, with the targets on that command. Apply never reads a plan an earlier `tfui plan` saved, so a `-target` given only to `tfui plan` does not reach the apply: `tfui plan -target X && tfui apply` plans every pending change.
 
 **TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
 
@@ -129,7 +129,7 @@ Applied before the failure: 1 added, 0 changed, 0 destroyed.
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Apply all changes | `tfui plan && tfui apply` | `p` → `a` → `y` |
+| Apply all changes | `tfui apply` | `p` → `a` → `y` |
 | Apply specific resources | `tfui apply -target X` | `p` → pin X → `a` → `y` |
 | Check apply result | Exit code + stdout | Success/error screen |
 

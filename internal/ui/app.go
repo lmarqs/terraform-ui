@@ -106,11 +106,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 
 	var childCfg *config.ChildConfig
 	if rootCfg != nil {
-		childDir := workDir
-		if cfg.Chdir != "" {
-			childDir = filepath.Join(cfg.Dir, cfg.Chdir)
-		}
-		childCfg, _ = config.LoadChild(childDir)
+		childCfg, _ = config.LoadChild(startupDir(cfg))
 	}
 
 	var sc *StandaloneConfig
@@ -154,9 +150,8 @@ func (a App) Init() tea.Cmd {
 	// ContextChangedEvent replaces it; a standalone verb runs on it, so it
 	// carries the tfui.hcl settings a context switch would resolve.
 	bootSvc := a.svc
-	bootDir := a.cfg.WorkingDir()
+	bootDir := startupDir(a.cfg)
 	if a.cfg.Chdir != "" {
-		bootDir = filepath.Join(a.cfg.Dir, a.cfg.Chdir)
 		bootSvc = a.svc.WithDir(bootDir)
 	}
 	a.holder.current = a.withResolvedConfig(&sdk.Context{
@@ -857,6 +852,15 @@ func (a *App) withResolvedConfig(next *sdk.Context) *sdk.Context {
 	next.Lock = sdk.LockModeFromPtr(resolved.Lock())
 	next.LockTimeout = sdk.LockTimeout(resolved.LockTimeout())
 	return next
+}
+
+// startupDir is the directory the session starts in: the --chdir member, else
+// the working directory.
+func startupDir(cfg config.Config) string {
+	if cfg.Chdir != "" {
+		return filepath.Join(cfg.Dir, cfg.Chdir)
+	}
+	return cfg.WorkingDir()
 }
 
 // startupChdir is the member the session starts in: --chdir, else --basedir.
