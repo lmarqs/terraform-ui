@@ -37,19 +37,19 @@ type ApplyResultMsg struct {
 // Plugin implements the terraform apply feature.
 type Plugin struct {
 	sdk.PluginBase
-	status     sdk.Status
-	errMsg     string
-	timer      ui.Timer
-	confirmed  bool
-	input      Input
-	planFile   string
+	status    sdk.Status
+	errMsg    string
+	timer     ui.Timer
+	confirmed bool
+	input     Input
+	planFile  string
 	// appliedPlanFile records whether the latest run consumed a plan file. A
 	// failed plan-file run offers no retry: with the plan file spent, a retry
 	// would apply everything unreviewed.
 	appliedPlanFile bool
-	cancelFn   context.CancelFunc
-	stack      *sdk.Stack
-	lastStream *frames.StreamFrame
+	cancelFn        context.CancelFunc
+	stack           *sdk.Stack
+	lastStream      *frames.StreamFrame
 	// counts is terraform's own post-apply tally, read off the output stream.
 	// nil until terraform reports one — an unreported tally is unknown, which is
 	// not the same answer as zeros.
