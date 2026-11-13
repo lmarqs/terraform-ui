@@ -247,13 +247,24 @@ func TestUpdate_WhenTimerTickWhileStopped_ShouldReturnNilCmd(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenEnterInIdle_ShouldTransitionToConfirming(t *testing.T) {
+func TestUpdate_WhenEnterInIdleWithPlanFile_ShouldTransitionToConfirming(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
+	p.SetPlanFile("/tmp/staged.tfplan")
 	p.status = sdk.StatusIdle
 
 	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if p.status != StatusConfirming {
 		t.Errorf("after enter in idle: status = %v, want StatusConfirming", p.status)
+	}
+}
+
+func TestUpdate_WhenEnterInIdleWithoutPlanFile_ShouldStayIdle(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	if p.status != sdk.StatusIdle {
+		t.Errorf("after enter in idle without a plan file: status = %v, want StatusIdle", p.status)
 	}
 }
 
@@ -639,8 +650,9 @@ func TestBusy_GivenStatus_ShouldReturnTrueOnlyWhenLoading(t *testing.T) {
 	}
 }
 
-func TestHints_WhenIdle_ShouldReturnConfirmAndQuit(t *testing.T) {
+func TestHints_WhenIdleWithPlanFile_ShouldReturnConfirmAndQuit(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
+	p.SetPlanFile("/tmp/staged.tfplan")
 	p.status = sdk.StatusIdle
 
 	hints := p.Hints()
@@ -658,6 +670,17 @@ func TestHints_WhenIdle_ShouldReturnConfirmAndQuit(t *testing.T) {
 	}
 	if !hasEnter {
 		t.Error("Hints() in idle missing 'Enter confirm'")
+	}
+}
+
+func TestHints_WhenIdleWithoutPlanFile_ShouldNotOfferConfirm(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+	p.status = sdk.StatusIdle
+
+	for _, h := range p.Hints() {
+		if h.Key == "Enter" {
+			t.Errorf("Hints() = %v, want no Enter without a staged plan file", p.Hints())
+		}
 	}
 }
 
@@ -837,17 +860,21 @@ func TestActivate_WhenPlanFileStaged_ShouldEnterConfirming(t *testing.T) {
 	}
 }
 
-// Plan owns all planning (ADR-0019): standalone apply enters through the plan
-// plugin, so apply activated without a staged plan file runs no plan of its own.
-func TestActivate_WhenNoAutoApproveAndNoPlanFile_ShouldEnterConfirmingWithoutPlanning(t *testing.T) {
+// Plan owns all planning (ADR-0019): with no reviewed plan file staged there is
+// nothing to confirm, so apply neither plans nor asks — `y` would otherwise run
+// an unreviewed one-shot apply.
+func TestActivate_WhenNoAutoApproveAndNoPlanFile_ShouldStayIdleWithoutPlanning(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Init(sdktest.NewDeps(svc).Deps)
 
 	flattenCmd(p.Activate(Input{}))
 
-	if !p.IsConfirming() {
-		t.Errorf("IsConfirming() = false (status %v), want true", p.status)
+	if p.IsConfirming() {
+		t.Error("IsConfirming() = true, want false without a staged plan file")
+	}
+	if p.status != sdk.StatusIdle {
+		t.Errorf("status = %v, want StatusIdle", p.status)
 	}
 	if len(svc.PlanCalls) != 0 {
 		t.Errorf("Service.Plan called %d times, want 0", len(svc.PlanCalls))

@@ -105,6 +105,9 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 
 	switch e.status {
 	case sdk.StatusIdle:
+		if e.planFile == "" {
+			return sdk.HintSetQuit.Hints()
+		}
 		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
 	case sdk.StatusLoading:
 		return sdk.HintSetCancel.Hints()
@@ -188,9 +191,13 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 	return e.RequestApply()
 }
 
-// RequestApply transitions to confirmation. The plan file must be staged via
-// SetPlanFile before this is called.
+// RequestApply transitions to confirmation of the plan file staged via
+// SetPlanFile. With none staged there is no reviewed plan to confirm, so apply
+// stays Idle.
 func (e *Plugin) RequestApply() tea.Cmd {
+	if e.planFile == "" {
+		return nil
+	}
 	e.confirmed = false
 	e.errMsg = ""
 	e.status = StatusConfirming

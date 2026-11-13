@@ -34,13 +34,13 @@ The Apply screen adds:
 ### Entry Points
 
 - **From Plan:** Press `a` after reviewing changes. If resources are pinned, apply targets only those.
-- **From Home:** Press `a` directly. Shows idle state until you confirm.
+- **From Home:** Press `a` directly. Apply stays idle until plan stages a reviewed plan file.
 
 ### Keybindings
 
 | Key | Action | Context |
 |-----|--------|---------|
-| `Enter` | Start apply (shows confirmation) | Idle |
+| `Enter` | Confirm the staged plan file again (after `n`) | Idle, plan file staged |
 | `y` / `Y` / `Enter` | Confirm and execute | Confirming |
 | `n` / `N` / `Esc` | Cancel | Confirming |
 | `Ctrl+r` | Retry a failed one-shot apply (no plan file) | Error |
