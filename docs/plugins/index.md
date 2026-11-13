@@ -7,12 +7,12 @@ permalink: /plugins/
 seo:
   description: Complete catalog of terraform-ui plugins — plan review, state browser, workspaces, apply, validate, console, and more.
 description: "Lists every plugin with its key, category and what it does."
-audience: "Users looking for a feature, and contributors adding a plugin"
+audience: "Users looking for the screen that does a task, or turning a plugin off"
 ---
 
 # Plugins
 
-tfui is built around a modular plugin system. Each plugin provides a focused view accessible via a single key press.
+Every tfui screen is a plugin. Most plugins open with one key from Home. The rest open from another plugin or from command mode (`:`).
 
 ## Available Plugins
 
@@ -24,10 +24,10 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 | [workspace](workspace.md) | Workspace | `w` | navigation | Manage terraform workspaces (list, switch, create, delete) |
 | [output](output.md) | Outputs | `o` | navigation | View terraform output values |
 | [validate](validate.md) | Validate | `v` | operations | Run terraform validate and show diagnostics |
-| [taint](taint.md) | Taint | `t` | action | Mark resources for recreation on next apply |
-| [untaint](untaint.md) | Untaint | `T` | action | Remove taint mark from resources |
-| [import](import.md) | Import | `n` | action | Import existing infrastructure into terraform state |
-| [console](console.md) | Console | `~` | operations | Interactive terraform console (REPL) |
+| [taint](taint.md) | Taint | — (`t` in State/Plan) | action | Mark resources for recreation on next apply |
+| [untaint](untaint.md) | Untaint | — (`T` in State/Plan) | action | Remove taint mark from resources |
+| [import](import.md) | Import | — (`n` in State) | action | Import existing infrastructure into terraform state |
+| [console](console.md) | Console | `~` | operations | Evaluate terraform console expressions |
 | [risk](risk.md) | Risk Analysis | `R` | analysis | Analyze and group planned changes by risk level |
 | [phantom](phantom.md) | Phantom Changes | `P` | analysis | Detect and explain phantom (no-op) changes in terraform plans |
 | [blastradius](blastradius.md) | Blast Radius | `B` | analysis | Visualize module-grouped changes with impact scores |
@@ -39,51 +39,15 @@ tfui is built around a modular plugin system. Each plugin provides a focused vie
 
 ## Categories
 
-### Action (Verb Plugins)
-
-Transient plugins for terraform top-level verbs. Arrive with context, confirm, execute, return.
-
-- **[Taint](taint.md)** — mark resources for recreation (`terraform taint`)
-- **[Untaint](untaint.md)** — remove taint mark (`terraform untaint`)
-- **[Import](import.md)** — import existing infrastructure (`terraform import`)
-
-### Operations
-
-Plugins that execute terraform commands or modify infrastructure.
-
-- **[Plan](plan.md)** — run and review `terraform plan`
-- **[Apply](apply.md)** — execute `terraform apply` with replan + confirmation
-- **[Init](init.md)** — run `terraform init` with form-based options
-- **[Validate](validate.md)** — run `terraform validate`
-- **[Console](console.md)** — interactive `terraform console`
-
-### Analysis
-
-Plugins that analyze plan output without modifying infrastructure.
-
-- **[Risk Analysis](risk.md)** — risk-level grouping and assessment
-- **[Phantom Changes](phantom.md)** — detect cosmetic-only changes
-- **[Blast Radius](blastradius.md)** — module-level impact scoring
-
-### Navigation
-
-Plugins for navigating terraform state, workspaces, and project context.
-
-- **[State Browser](state.md)** — inspect managed resources
-- **[Workspace](workspace.md)** — switch and manage workspace
-- **[Outputs](output.md)** — view output values
-- **[Context](context.md)** — project/chdir/workspace selector
-
-### Utility
-
-Informational and recovery plugins.
-
-- **[Force Unlock](forceunlock.md)** — remove stale state locks
-- **[Version](version.md)** — show tfui and terraform version info
+- **Action**: open from State or Plan on the selected resources, ask for confirmation, run one terraform command; `Esc` then returns you to the screen you came from.
+- **Operations**: run a terraform command against the current context.
+- **Analysis**: read the last plan and change nothing.
+- **Navigation**: browse state, outputs and workspaces, and switch the context.
+- **Utility**: show version information or recover from a stale lock.
 
 ## Enabling/Disabling Plugins
 
-All plugins are enabled by default. To disable one, configure it in `tfui.hcl`:
+All plugins are enabled by default. To disable one, add a `plugin` block under `defaults` in the project's root `tfui.hcl`:
 
 ```hcl
 defaults {
@@ -96,13 +60,8 @@ defaults {
 }
 ```
 
-## Creating a Custom Plugin
+Plan and Apply take one more setting, `targets`; their pages describe it.
 
-To create a new plugin:
+## Adding a Plugin
 
-1. Create a new directory `plugins/<name>/` with a Go file implementing the `Plugin` interface from `pkg/sdk/plugin.go`
-2. Implement the required methods: `ID()`, `Name()`, `Description()`, `Init()`, `Update()`, `View()`, `Configure()`, `Ready()`
-3. Register the plugin factory in `cmd/tfui/main.go` with `PluginMeta` (keybinding, menu visibility)
-4. Add documentation at `docs/plugins/<name>.md`
-
-See the `add-plugin` skill for a full step-by-step guide and reference implementation.
+To add a plugin, use the `add-plugin` skill; [architecture](../development/architecture.md) explains the SDK.

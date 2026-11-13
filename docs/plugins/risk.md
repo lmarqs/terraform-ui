@@ -7,7 +7,7 @@ key: R
 seo:
   description: "Group Terraform plan changes by risk level, critical, high, medium, low or none, with an overall assessment and the reason behind each classification."
 description: "Describes how the Risk Analysis plugin groups planned changes by risk level."
-audience: "Users triaging a plan by risk"
+audience: "Users who have run a plan and want its riskiest changes first"
 category: analysis
 default_enabled: true
 ---
@@ -24,14 +24,14 @@ The Risk Analysis plugin groups plan changes by risk level (critical, high, medi
 
 ## Interactive (TUI)
 
-Press `R` (uppercase) to open the Risk Analysis view. It requires a completed plan -- if no plan has been run, it will prompt you to run one first.
+Press `R` (uppercase) to open the Risk Analysis view. It requires a completed plan; without one, it shows "Run a plan first".
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `j` / `k` | Navigate up/down through groups and changes | List |
-| `Esc` | Go back | Always |
+| `q` | Back to Home | Always |
 
 ### Flow
 
@@ -39,41 +39,21 @@ Press `R` (uppercase) to open the Risk Analysis view. It requires a completed pl
 Home ──R──→ Risk Analysis (loading) ──→ Risk Analysis (grouped list)
                                            │
                                            ├── j/k → Navigate groups and changes
-                                           └── Esc → Home
+                                           └── q → Home
 ```
 
 ## Command Line (CLI)
 
 Risk Analysis is an analysis view within the TUI. It does not have a standalone CLI command.
 
-Plan data with risk classifications is available in structured form via:
-
-```bash
-tfui plan -project ./infra -json
-```
-
-The JSON output includes a `risk` field on each change and an overall `risk` summary.
+Risk is not in `-json` output. `tfui plan -ci` prints the overall level as its last line, for example `Risk: critical`.
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| See risk breakdown | `tfui plan -json` (parse `risk` field) | Press `R` |
-| Find critical changes | `tfui plan -json \| jq '.changes[] \| select(.risk=="critical")'` | `R` → navigate to critical group |
-| Get overall risk level | `tfui plan -ci` (shows `Risk: CRITICAL`) | Risk badge in header |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "risk" {
-  enabled = true
-}
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | bool | `true` | Enable/disable the plugin |
+| See risk breakdown | — | Press `R` |
+| Get overall risk level | `tfui plan -ci` (last line, e.g. `Risk: critical`) | Overall risk line in Plan |
 
 ## Related
 

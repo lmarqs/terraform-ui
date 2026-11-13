@@ -7,16 +7,16 @@ key: "~"
 category: operations
 default_enabled: true
 seo:
-  description: "Run an interactive terraform console session inside tfui and evaluate Terraform expressions against the current state without leaving the application."
-description: "Describes the Console plugin, a terraform console session inside the TUI."
-audience: "Users evaluating expressions against their state"
+  description: "Evaluate Terraform expressions with terraform console inside tfui, against the current chdir, without leaving the application."
+description: "Describes the Console plugin, which evaluates terraform console expressions inside the TUI."
+audience: "Users who want to check an expression's value against their state without leaving tfui"
 ---
 
 # Console
 
 ## Overview
 
-Interactive terraform console session within the TUI. Evaluate terraform expressions against the current state without leaving the application.
+Evaluate terraform expressions inside the TUI. Each expression you enter runs in its own `terraform console` call against the current chdir, so each `Enter` pays terraform's startup time.
 
 ## Screenshot
 
@@ -24,16 +24,16 @@ Interactive terraform console session within the TUI. Evaluate terraform express
 
 ## Interactive (TUI)
 
-Press `~` from the home menu. The plugin launches an embedded `terraform console` session where you can evaluate expressions interactively.
+Press `~` from the home menu, type an expression and press `Enter`.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `Enter` | Evaluate expression | Input |
 | `↑` / `↓` | Navigate history | Input |
 | `Ctrl+U` | Clear current input | Input |
-| `Esc` | Back to home | Always |
+| `Esc` | Back to home | Not while evaluating |
 | `q` | Back to home (when input empty) | Empty input |
 
 ### Flow
@@ -48,34 +48,13 @@ Home ──~──→ Console (REPL)
 
 ## Command Line (CLI)
 
-```bash
-tfui console -project ./infra
-```
-
-The CLI mode hands off to `terraform console` directly with proper terminal handling.
-
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Console session ended normally |
-| 1 | Error launching console |
+Console has no tfui command. Run `terraform console` directly.
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Open terraform console | `tfui console` | Press `~` |
-| Evaluate expression | Type in console REPL | `~` → type → `Enter` |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "console" {
-  enabled = true
-}
-```
+| Evaluate expression | `terraform console` | `~` → type → `Enter` |
 
 ## Related
 

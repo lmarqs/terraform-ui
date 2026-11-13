@@ -8,15 +8,15 @@ category: navigation
 default_enabled: true
 seo:
   description: "Select the member directory tfui runs terraform in, within a multi-module Terraform project. Opened from the Context screen; Esc returns to where you were."
-description: "Describes how the Chdir picker selects a member directory in a multi-module project."
-audience: "Users with several terraform roots in one project"
+description: "Describes how the Chdir picker selects which member of a project tfui runs terraform in."
+audience: "Users of a project with several members, switching which one tfui runs terraform in"
 ---
 
 # Chdir Picker
 
 ## Overview
 
-Select a member directory within a multi-module project. This is an internal plugin activated by the Context plugin (not directly accessible from the home menu). It uses NavPush behavior -- selecting a member or pressing `Esc` returns to the origin plugin.
+Select the chdir: the member of the project that tfui runs terraform in. Selecting a member switches the chdir, resets the workspace to `default`, and returns you to Context.
 
 ## Screenshot
 
@@ -24,57 +24,40 @@ Select a member directory within a multi-module project. This is an internal plu
 
 ## Interactive (TUI)
 
+The picker has no key on Home: press `Enter` on the Chdir field of [Context](context.md). With a single member, tfui switches to it without showing the list.
+
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
-| `Enter` | Select member directory | List |
-| `/` | Filter members | List |
-| `Esc` | Cancel and return to origin | Always |
+| Key | Action | When |
+|-----|--------|------|
+| `j` / `k` / `↑` / `↓` | Navigate up/down | List |
+| `Enter` | Select member | List |
+| `Esc` | Cancel and return to Context | Always |
 
 ### Flow
 
 ```
 Context ──→ Chdir Picker (list)
                │
-               ├── Enter → ChdirChangedEvent → pop back to origin
-               ├── / → Filter members
-               └── Esc → Cancel → pop back to origin
+               ├── Enter → switch to that member, with workspace `default` → back to Context
+               └── Esc → Cancel → back to Context
 ```
 
 ## Command Line (CLI)
 
-Not available as a standalone command. Use `-chdir` flag:
+Not available as a standalone command. Use the `-chdir` flag:
 
 ```bash
 tfui plan -project ./infra -chdir modules/networking
 ```
 
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Command with `-chdir` succeeded |
-| 1 | Invalid or non-existent member path |
-
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Select member directory | `-chdir <member>` flag | Context → Chdir → select |
-| Filter members | Specify exact path | `/` → type filter |
-
-## Configuration
-
-Members are declared in `tfui.hcl`:
-
-```hcl
-member "modules/vpc" {}
-member "modules/ecs" {}
-member "modules/networking" {}
-```
+| Select member | `-chdir <member>` flag | Context → Chdir → select |
 
 ## Related
 
-- [Context](context.md) -- parent plugin that activates chdir picker
+- [Context](context.md) -- opens the picker, and shows how members are declared
 - [Configuration](../guides/configuration.md) -- declaring members in tfui.hcl

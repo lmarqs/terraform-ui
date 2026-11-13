@@ -9,7 +9,7 @@ default_enabled: true
 seo:
   description: "Show the tfui version and platform, the resolved terraform binary version and its provider selections, to confirm which terraform is in use."
 description: "Describes what the Version plugin shows: tfui version, platform and provider selections."
-audience: "Users reporting a bug or checking versions"
+audience: "Users filing a bug report, or checking which terraform binary tfui runs"
 ---
 
 # Version
@@ -24,12 +24,12 @@ Display tfui version, platform, and the resolved terraform binary version with p
 
 ## Interactive (TUI)
 
-Type `:version` in command mode. The plugin is NavPush -- pressing `Esc` or `q` returns to the previous view.
+Type `:version` in command mode. `Esc` or `q` returns to where you were.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `q` / `Esc` | Back to previous view | Always |
 
 ### Flow
@@ -45,11 +45,7 @@ tfui version          # Text output
 tfui version -json    # Structured JSON
 ```
 
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Always succeeds |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
@@ -57,15 +53,6 @@ tfui version -json    # Structured JSON
 |------|-----|-----|
 | Show version info | `tfui version` | `:version` in command mode |
 | Get version as JSON | `tfui version -json` | N/A (TUI is visual) |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "version" {
-  enabled = true
-}
-```
 
 ## Related
 

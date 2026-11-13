@@ -3,20 +3,20 @@ layout: default
 parent: Plugin Catalog — All Terraform UI Features
 title: "Terraform Import from a Terminal UI"
 id: import
-key: n
+key: "—"
 category: action
 default_enabled: true
 seo:
   description: "Import existing infrastructure into Terraform state from tfui. The Import screen mirrors terraform import and returns to where you started when done."
 description: "Describes how the Import plugin brings existing infrastructure into state."
-audience: "Users adopting resources created outside terraform"
+audience: "Users adopting a resource created outside terraform into state"
 ---
 
 # Import
 
 ## Overview
 
-Import existing infrastructure into terraform state. Standalone verb plugin -- mirrors `terraform import` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
+Imports existing infrastructure into terraform state, like `terraform import`. When it finishes or you cancel, `Esc` returns you to the screen you came from.
 
 ## Screenshot
 
@@ -24,64 +24,45 @@ Import existing infrastructure into terraform state. Standalone verb plugin -- m
 
 ## Interactive (TUI)
 
-### Entry Points
-
-| Context | Key | Behavior |
-|---------|-----|----------|
-| State list/detail | `n` | Navigate to import with cursor address pre-filled |
-| Command mode | `:import` | Navigate to import (empty form) |
+Import has no key on Home. Press `n` in State to import with the address under the cursor filled in.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
-| `Enter` | Submit form | Form |
-| `Tab` | Next field | Form |
+| Key | Action | When |
+|-----|--------|------|
+| `Enter` | Submit the address, then the ID; an empty answer cancels | Prompt |
 | `y` / `Y` / `Enter` | Confirm import | Confirming |
-| `n` / `N` / `Esc` | Cancel and return | Confirming |
-| `Esc` | Cancel and return | Any |
+| `n` / `N` / `Esc` | Cancel | Confirming |
 | `p` | Navigate to plan | Done |
 | `ctrl+r` | Retry | Error |
+| `Esc` | Back to the screen you came from | Idle, Done, Error |
 
 ### Flow
 
 ```
-Form → Confirming → Loading → Done/Error
+Prompts → Confirming → Loading → Done/Error
 ```
 
-1. Plugin shows form: prompts for resource address (pre-filled if from state), then resource ID
-2. Shows confirmation: "Import \<id\> as \<address\>?"
-3. On confirmation, executes `terraform import <address> <id>`
-4. On success, emits `StateRefreshedEvent` + `PlanInvalidatedEvent`
-5. NavPush returns user to origin plugin
+1. tfui asks "Resource address:" (filled in when you came from State), then "Resource ID:".
+2. It asks "Import \<id\> as \<address\>?"
+3. On `y`, it runs `terraform import <address> <id>`.
+4. When it finishes, the plan is marked stale: Plan re-plans the next time you open it. `Esc` returns you to where you started; `p` opens Plan instead.
 
 ## Command Line (CLI)
 
 ```bash
-tfui import <address> <id>     # Direct import, no TUI
+tfui import <address> <id>
 ```
 
-### Exit Codes
+With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-reference.md#execution-model) imports without asking.
 
-| Code | Meaning |
-|------|---------|
-| 0 | Import succeeded |
-| 1 | Import failed |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Import a resource | `tfui import <address> <id>` | From state: `n` → fill form → `y` |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "import" {
-  enabled = true
-}
-```
+| Import a resource | `tfui import <address> <id>` | From state: `n` → `Enter` → type ID → `Enter` → `y` |
 
 ## Related
 

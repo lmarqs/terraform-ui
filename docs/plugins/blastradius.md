@@ -7,7 +7,7 @@ key: B
 seo:
   description: "Group Terraform plan changes by module and rank each module by impact score, from its number of changes, their risk levels and any destructive operations."
 description: "Describes how the Blast Radius plugin groups changes by module and scores their impact."
-audience: "Users weighing a plan's reach, and contributors changing blast radius"
+audience: "Users who have run a plan and want to see which modules it touches most, and contributors changing blast radius"
 category: analysis
 default_enabled: true
 ---
@@ -22,68 +22,52 @@ The Blast Radius plugin groups plan changes by terraform module and calculates a
 
 ![Blast Radius]({{ site.baseurl }}/assets/demo/blastradius.gif)
 
+## Impact score
+
+| Score | Criteria |
+|-------|----------|
+| **critical** | Any change with critical risk |
+| **high** | A change with high risk, or 3+ changes including at least one delete or replace |
+| **moderate** | 3+ changes or medium risk |
+| **minimal** | 1-2 changes, all low risk |
+
 ## Interactive (TUI)
 
 Press `B` to open the Blast Radius view. It requires a completed plan to analyze.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
-| `Enter` / `Space` | Expand/collapse module changes | List |
-| `Esc` | Go back | Always |
+| `Enter` / `i` | Expand/collapse module changes | List |
+| `q` | Back to Home | Always |
 
 ### Flow
 
 ```
 Home ──B──→ Blast Radius (loading) ──→ Blast Radius (list)
                                           │
-                                          ├── Enter/Space → Expand module changes
-                                          └── Esc → Home
+                                          ├── Enter/i → Expand module changes
+                                          └── q → Home
 ```
-
-### Impact Score Calculation
-
-| Score | Criteria |
-|-------|----------|
-| **critical** | Any change with critical risk |
-| **high** | High risk or 3+ destructive operations |
-| **moderate** | 3+ changes or medium risk |
-| **minimal** | 1-2 changes, all low risk |
 
 ## Command Line (CLI)
 
 Blast Radius is an analysis view within the TUI. It does not have a standalone CLI command.
 
-Plan data with module groupings is available in structured form via:
+terraform's `-json` document carries a `module_address` on each resource change inside a module; root-module changes have none. Group by it to rebuild the view:
 
 ```bash
 tfui plan -project ./infra -json
 ```
 
-The JSON output includes module information on each change for downstream grouping.
-
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| See module-level impact | `tfui plan -json` (group by module) | Press `B` |
-| Identify highest-risk module | Parse JSON output by module | Sorted by impact score |
+| See module-level impact | `tfui plan -json` (group by `module_address`) | Press `B` |
 | Drill into module changes | `tfui plan -json \| jq` | `B` → expand module |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "blastradius" {
-  enabled = true
-}
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | bool | `true` | Enable/disable the plugin |
 
 ## Related
 

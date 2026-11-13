@@ -7,7 +7,7 @@ key: v
 category: operations
 default_enabled: true
 seo:
-  description: "Run terraform validate and browse its errors and warnings grouped by severity, with expandable source locations and a suggested fix for each issue."
+  description: "Run terraform validate and browse its errors and warnings, errors first, each with its file and line and terraform's detail."
 description: "Describes how the Validate plugin runs terraform validate and shows its diagnostics."
 audience: "Users checking configuration before a plan"
 ---
@@ -16,7 +16,7 @@ audience: "Users checking configuration before a plan"
 
 ## Overview
 
-Run `terraform validate` and display diagnostics. The plugin groups errors and warnings by severity, with expandable source locations and suggestions for fixing each issue.
+Run `terraform validate` and display diagnostics. Lists errors first, then warnings, each with its file and line. Expand a row to read terraform's detail.
 
 ## Screenshot
 
@@ -28,11 +28,12 @@ Press `v` from the home menu. The plugin runs validation and shows errors/warnin
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
-| `Enter` | Expand diagnostic detail | List |
-| `e` | Open file at error location in $EDITOR | List |
-| `ctrl+r` | Re-run validation | Always |
+| Key | Action | When |
+|-----|--------|------|
+| `j` / `k` / `↑` / `↓` | Navigate up/down | List |
+| `g` / `G` | Jump to first/last | List |
+| `Enter` / `i` | Expand diagnostic detail | List |
+| `ctrl+r` | Re-run validation | Validation finished or failed |
 | `q` | Back to home | Always |
 
 ### Flow
@@ -41,7 +42,6 @@ Press `v` from the home menu. The plugin runs validation and shows errors/warnin
 Home ──v──→ Validate (loading) ──→ Validate (results)
                                       │
                                       ├── Enter → Expand diagnostic detail
-                                      ├── e → Open $EDITOR at source location
                                       ├── ctrl+r → Re-run validation
                                       └── q → Home
 ```
@@ -54,12 +54,7 @@ tfui validate -project ./infra -ci
 tfui validate -project ./infra -json
 ```
 
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Configuration valid |
-| 1 | Validation errors found |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
@@ -68,15 +63,6 @@ tfui validate -project ./infra -json
 | Validate configuration | `tfui validate -ci` | Press `v` |
 | Get diagnostics as JSON | `tfui validate -json` | N/A (TUI is visual) |
 | Re-validate after fix | `tfui validate -ci` | `v` → `ctrl+r` |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "validate" {
-  enabled = true
-}
-```
 
 ## Related
 

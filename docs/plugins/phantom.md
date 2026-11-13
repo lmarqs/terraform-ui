@@ -16,7 +16,7 @@ default_enabled: true
 
 ## Overview
 
-The Phantom Changes plugin identifies plan changes that are cosmetic only -- they appear in the plan output but result in no actual infrastructure modification. Common causes include JSON field reordering, tag ordering differences, and semantically equivalent value serialization. Each phantom change includes an explanation of why it is a no-op.
+The Phantom Changes plugin identifies plan changes that are cosmetic only -- they appear in the plan output but result in no actual infrastructure modification. Each phantom change includes an explanation of why it is a no-op. [What counts as phantom](../features/phantom-changes.md) lists the causes tfui detects.
 
 ## Screenshot
 
@@ -28,53 +28,32 @@ Press `P` (uppercase) to open the Phantom Changes view. It requires a completed 
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
-| `Enter` / `Space` | Expand/collapse phantom details | List |
-| `Esc` | Go back | Always |
+| `Enter` / `i` | Expand/collapse phantom details | List |
+| `q` | Back to Home | Always |
 
 ### Flow
 
 ```
 Home ──P──→ Phantom Changes (loading) ──→ Phantom Changes (list)
                                              │
-                                             ├── Enter/Space → Expand phantom details
-                                             └── Esc → Home
+                                             ├── Enter/i → Expand phantom details
+                                             └── q → Home
 ```
 
 ## Command Line (CLI)
 
-Phantom Changes is an analysis view within the TUI. It does not have a standalone CLI command.
-
-Phantom detection data is available in structured form via:
-
-```bash
-tfui plan -project ./infra -json
-```
-
-The JSON output includes a `phantom` boolean on each change and a `phantom_resources` array.
+Phantom Changes is an analysis view within the TUI. It does not have a standalone CLI command, and phantom analysis is available only in the TUI.
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Identify phantom changes | `tfui plan -json` (filter `phantom: true`) | Press `P` |
-| Count phantoms | `tfui plan -ci` (shows phantom count) | Phantom badge in plan header |
-| See phantom explanations | `tfui plan -json` (parse phantom reasons) | `P` → expand change |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "phantom" {
-  enabled = true
-}
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `enabled` | bool | `true` | Enable/disable the plugin |
+| Identify phantom changes | — | Press `P` |
+| Spot phantoms while reviewing | — | `(phantom)` mark on the change in Plan |
+| See phantom explanations | — | `P` → expand change |
 
 ## Related
 

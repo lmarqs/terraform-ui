@@ -3,20 +3,20 @@ layout: default
 parent: Plugin Catalog — All Terraform UI Features
 title: "Terraform Taint: Force Resource Recreation"
 id: taint
-key: t
+key: "—"
 category: action
 default_enabled: true
 seo:
   description: "Mark Terraform resources for recreation on the next apply from tfui. The Taint screen mirrors terraform taint and returns to where you started when done."
 description: "Describes how the Taint plugin marks resources for recreation on the next apply."
-audience: "Users forcing a resource to be replaced"
+audience: "Users who need a resource replaced on the next apply"
 ---
 
 # Taint
 
 ## Overview
 
-Mark resources for recreation on next apply. Standalone verb plugin -- mirrors `terraform taint` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
+Marks resources for recreation on the next apply, like `terraform taint`. When it finishes or you cancel, `Esc` returns you to the screen you came from.
 
 ## Screenshot
 
@@ -24,24 +24,17 @@ Mark resources for recreation on next apply. Standalone verb plugin -- mirrors `
 
 ## Interactive (TUI)
 
-### Entry Points
-
-| Context | Key | Behavior |
-|---------|-----|----------|
-| State list/detail | `t` | Navigate to taint with cursor address |
-| Plan list | `t` | Navigate to taint with cursor address |
-| Batch palette (`!`) | `t` | Navigate to taint with all pinned addresses |
-| Command mode | `:taint` | Navigate to taint |
+Taint has no key on Home. Press `t` in State or Plan to taint the resource under the cursor, or press `!` → `t` to taint every pinned resource.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `y` / `Y` / `Enter` | Confirm taint | Confirming |
-| `n` / `N` / `Esc` | Cancel and return | Confirming |
+| `n` / `N` / `Esc` | Cancel | Confirming |
 | `p` | Navigate to plan | Done |
-| `Esc` | Back to previous plugin | Any |
 | `ctrl+r` | Retry | Error |
+| `Esc` | Back to the screen you came from | Idle, Done, Error |
 
 ### Flow
 
@@ -49,12 +42,9 @@ Mark resources for recreation on next apply. Standalone verb plugin -- mirrors `
 Idle → Confirming → Loading → Done/Error
 ```
 
-1. Plugin receives target address(es) via `SetTargets()`
-2. Shows confirmation: "Taint \<address\>? (will recreate on next apply)"
-3. For batch: shows count and lists all addresses
-4. On confirmation, executes `terraform taint` for each address sequentially
-5. On success, emits `PlanInvalidatedEvent` (plan auto-replans)
-6. NavPush returns user to origin plugin
+1. tfui asks "Taint \<address\>? (will recreate on next apply)", or lists every address for a batch.
+2. On `y`, it runs `terraform taint` for each address in turn.
+3. When it finishes, the plan is marked stale: Plan re-plans the next time you open it. `Esc` returns you to where you started; `p` opens Plan instead.
 
 ## Command Line (CLI)
 
@@ -63,12 +53,9 @@ tfui taint <address>           # Taint single resource
 tfui taint <addr1> <addr2>     # Batch taint
 ```
 
-### Exit Codes
+With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-reference.md#execution-model) taints without asking.
 
-| Code | Meaning |
-|------|---------|
-| 0 | Taint succeeded |
-| 1 | Taint failed |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
@@ -76,15 +63,6 @@ tfui taint <addr1> <addr2>     # Batch taint
 |------|-----|-----|
 | Taint a resource | `tfui taint <address>` | From state/plan: `t` → `y` |
 | Batch taint | `tfui taint <addr1> <addr2>` | Pin multiple → `!` → `t` → `y` |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "taint" {
-  enabled = true
-}
-```
 
 ## Related
 

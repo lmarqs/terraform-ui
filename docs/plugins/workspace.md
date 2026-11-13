@@ -7,7 +7,7 @@ key: w
 seo:
   description: "List, switch, create and delete Terraform workspaces from a terminal UI, with the current workspace marked by an asterisk."
 description: "Describes how the Workspace plugin lists, switches, creates and deletes workspaces."
-audience: "Users working across terraform workspaces"
+audience: "Users switching, creating or deleting terraform workspaces"
 category: navigation
 default_enabled: true
 ---
@@ -16,7 +16,7 @@ default_enabled: true
 
 ## Overview
 
-The Workspaces plugin lists all terraform workspaces, highlights the current one, and lets you switch between them, create new workspaces, or delete unused ones. The current workspace is marked with an asterisk.
+The Workspace plugin lists all terraform workspaces, highlights the current one, and lets you switch between them, create new workspaces, or delete unused ones. The current workspace is marked with an asterisk.
 
 ## Screenshot
 
@@ -24,31 +24,31 @@ The Workspaces plugin lists all terraform workspaces, highlights the current one
 
 ## Interactive (TUI)
 
-Press `w` to open the Workspaces view. It loads the workspace list from the current terraform configuration.
+Press `w`, or pick Workspace in [Context](context.md), to open the Workspace view. It loads the workspace list from the current terraform configuration.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
-| `Enter` | Switch to selected workspace | List |
+| `Enter` | Switch to selected workspace and go back | List |
+| `s` | Switch to selected workspace and stay in the list | List |
 | `n` | Create a new workspace | List |
-| `d` | Delete selected workspace | List |
-| `r` | Refresh workspace list | List |
+| `d` | Delete selected workspace (not the current or `default` workspace) | List |
+| `ctrl+r` | Refresh workspace list | List |
 | `Esc` | Go back / cancel create | Always |
 
 ### Flow
 
 ```
-Home ──w──→ Workspaces (list)
+Home ──w──→ Workspace (list)
                │
-               ├── Enter → WorkspaceChangedEvent → pop back to origin
-               ├── n → Input name → Enter → WorkspaceCreatedEvent
+               ├── Enter → workspace switches → back to where you came from
+               ├── s → workspace switches → stay in the list
+               ├── n → Input name → Enter → workspace created
                ├── d → Confirm delete → deleted, refresh
-               └── Esc → Cancel → pop back to origin
+               └── Esc → Cancel → back to where you came from
 ```
-
-When creating a new workspace, type the name and press `Enter` to confirm or `Esc` to cancel.
 
 ## Command Line (CLI)
 
@@ -60,18 +60,8 @@ tfui workspace new <name>              # Create and switch to workspace
 tfui workspace delete <name>           # Delete workspace
 ```
 
-| Flag | Applies to | Description |
-|------|-----------|-------------|
-| `-lock` | `new`, `delete` | Lock state during operation (default: true) |
-| `-lock-timeout` | `new`, `delete` | Duration to wait for a state lock |
-| `-force` | `delete` | Force deletion of a non-empty workspace |
-
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Operation succeeded |
-| 1 | Operation failed |
+Flags (`-lock`, `-lock-timeout`, `-force`): see [`tfui workspace`](../reference/cli-reference.md#tfui-workspace).
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
@@ -81,15 +71,6 @@ tfui workspace delete <name>           # Delete workspace
 | Switch workspace | `tfui workspace select <name>` | `w` → navigate → `Enter` |
 | Create workspace | `tfui workspace new <name>` | `w` → `n` → type name → `Enter` |
 | Delete workspace | `tfui workspace delete <name>` | `w` → navigate → `d` → confirm |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "workspace" {
-  enabled = true
-}
-```
 
 ## Related
 

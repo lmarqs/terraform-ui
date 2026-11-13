@@ -7,7 +7,7 @@ key: C
 seo:
   description: "See and change the working context in tfui: the Terraform project directory, the member directory and the workspace. Every screen reloads with fresh data."
 description: "Describes how the Context plugin shows and switches project, chdir and workspace."
-audience: "Users switching what tfui runs against"
+audience: "Users who want to see or switch the project member and workspace tfui runs against"
 category: navigation
 default_enabled: true
 ---
@@ -18,7 +18,7 @@ default_enabled: true
 
 The Context plugin displays the current working context as a form dashboard -- Project directory, Chdir member, and Workspace. Selectable fields navigate to their respective picker plugins (chdir, workspace) for selection.
 
-Changing context invalidates all plugin state. This is a full view switch (`NavReplace`), not a push -- after a context change, plugins reload with fresh data.
+Changing context invalidates all plugin state. After a switch, every screen reloads for the new context.
 
 ## Screenshot
 
@@ -30,8 +30,8 @@ Press `C` from any screen or type `:context` to open the Context dashboard.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `j` / `k` / `↑` / `↓` | Navigate between fields | Dashboard |
 | `Enter` | Open picker for selected field | Dashboard |
 | `Esc` | Go back | Always |
@@ -42,15 +42,15 @@ Press `C` from any screen or type `:context` to open the Context dashboard.
 | Field | Selectable | Action |
 |-------|-----------|--------|
 | Project | No | Displays the project root directory (read-only) |
-| Chdir | Only if members configured | Opens the chdir picker |
+| Chdir | Only when the project has a `tfui.hcl` | Opens the chdir picker |
 | Workspace | Yes | Opens the workspace picker |
 
 ### Flow
 
 ```
-C (from any screen) → Context (NavReplace)
-  ├── Enter on Chdir → Chdir picker (NavPush) → select → ChdirChangedEvent → return
-  ├── Enter on Workspace → Workspace picker (NavPush) → select → WorkspaceChangedEvent → return
+C (from any screen) → Context
+  ├── Enter on Chdir → Chdir picker → select → chdir switches (workspace resets to `default`) → back here
+  ├── Enter on Workspace → Workspace picker → select → workspace switches → back here
   └── Esc / q → Home
 ```
 
@@ -66,20 +66,22 @@ tfui plan -project ./infra -chdir modules/networking
 
 | Goal | CLI | TUI |
 |------|-----|-----|
-| Set working directory | `-chdir <member>` flag | `C` → Chdir → select |
+| Select chdir | `-chdir <member>` flag | `C` → Chdir → select |
 | Set workspace | `tfui workspace select <name>` | `C` → Workspace → select |
 | View current context | Implicit from flags | `C` (dashboard) |
 
-## Configuration
+## Members
 
-Members are declared as top-level `member "path" {}` blocks in `tfui.hcl`. When no members are configured, the Chdir field is non-selectable.
+Members are declared as top-level `member "path" {}` blocks in the project's root `tfui.hcl`, one block per path; each label is used as written. A `tfui.hcl` without `member` blocks has one member, the project root (`.`), and selecting Chdir switches to it without showing a list. Without a `tfui.hcl`, the Chdir field is not selectable.
 
 ```hcl
 # tfui.hcl
-member "modules/*" {}
-member "envs/**" {}
+member "modules/vpc" {}
+member "envs/prod" {}
 member "stacks/networking" {}
 ```
+
+The [configuration guide](../guides/configuration.md) covers the rest of `tfui.hcl`.
 
 ## Related
 

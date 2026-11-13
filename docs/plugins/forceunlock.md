@@ -16,7 +16,7 @@ audience: "Users whose state is stuck behind a lock"
 
 ## Overview
 
-Remove a stale terraform state lock. Access via `:forceunlock` from the command bar, or press `u` from any plugin showing a lock error. The plugin subscribes to `LockDetectedEvent` -- when any plugin encounters a lock error, the lock ID is already known (no manual entry needed).
+Remove a stale terraform state lock. When a plugin hits a lock error, tfui keeps the lock ID, so `u` opens this screen with it filled in.
 
 ## Screenshot
 
@@ -24,12 +24,14 @@ Remove a stale terraform state lock. Access via `:forceunlock` from the command 
 
 ## Interactive (TUI)
 
+Press `u` on a lock error in State or Plan, or type `:forceunlock` in command mode.
+
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `y` / `Y` / `Enter` | Confirm unlock | Confirming |
-| `n` / `N` / `Esc` | Cancel and return | Confirming |
+| `n` / `N` / `Esc` | Cancel | Confirming |
 | `ctrl+r` | Retry | Error |
 | `q` / `Esc` | Back to previous plugin | Always |
 
@@ -39,25 +41,20 @@ Remove a stale terraform state lock. Access via `:forceunlock` from the command 
 Idle → Confirming → Loading → Done/Error
 ```
 
-1. If a lock was detected (via state/plan error), shows lock details and prompts for confirmation
-2. If no lock is detected, offers manual lock ID entry
+1. If tfui knows the lock from an earlier lock error, it asks to confirm unlocking that lock ID
+2. Otherwise it asks whether to enter a lock ID by hand, then asks for it
 3. On confirmation, executes `terraform force-unlock`
-4. On success, emits `LockClearedEvent` (clears header badge) + `PlanInvalidatedEvent` (triggers refresh)
-5. NavPush returns user to previous plugin
+4. On success the lock badge clears and the plan is marked stale
+5. `q` or `Esc` returns you to the previous plugin
 
 ## Command Line (CLI)
 
 ```bash
-tfui force-unlock <lock-id>          # Interactive confirmation
+tfui force-unlock <lock-id>          # Asks y/n on the terminal
 tfui force-unlock -force <lock-id>  # Skip confirmation (CI)
 ```
 
-### Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| 0 | Unlock succeeded |
-| 1 | Unlock failed |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
@@ -65,15 +62,6 @@ tfui force-unlock -force <lock-id>  # Skip confirmation (CI)
 |------|-----|-----|
 | Remove stale lock | `tfui force-unlock <lock-id>` | `u` from lock error |
 | Skip confirmation | `tfui force-unlock -force <lock-id>` | N/A (TUI always confirms) |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "forceunlock" {
-  enabled = true
-}
-```
 
 ## Related
 

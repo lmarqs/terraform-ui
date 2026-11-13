@@ -5,9 +5,9 @@ title: "Terraform Init with a Form for Its Options"
 id: init
 key: i
 seo:
-  description: "Run terraform init from a terminal UI form with the upgrade, migrate-state, reconfigure and backend-config options, and watch its progress in real time."
+  description: "Run terraform init from a terminal UI form with options such as upgrade, reconfigure and backend-config, and watch its progress in real time."
 description: "Describes how the Init plugin runs terraform init with its options in a form."
-audience: "Users initializing or reconfiguring a project"
+audience: "Users initializing a project, or upgrading or reconfiguring one after a change"
 category: operations
 default_enabled: true
 ---
@@ -16,7 +16,7 @@ default_enabled: true
 
 ## Overview
 
-The Init plugin provides a TUI interface for `terraform init`. It presents a form for common init options (upgrade, migrate-state, reconfigure, backend-config) and shows real-time progress. Form values are preserved across runs within a session for convenient re-initialization.
+The Init plugin provides a TUI interface for `terraform init`. It presents a form for the init options and shows real-time progress. The form starts from its defaults each time you open it.
 
 ## Screenshot
 
@@ -28,21 +28,25 @@ Press `i` from the home menu to open the Init plugin.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
-| `Enter` | Submit form / confirm | Form |
-| `Tab` | Next field | Form |
-| `Shift+Tab` | Previous field | Form |
+| Key | Action | When |
+|-----|--------|------|
+| `j` / `k` / `↑` / `↓` | Move between fields | Form |
+| `Space` | Toggle the focused checkbox, or edit the focused text field | Form |
+| `Enter` | Run init | Form |
 | `Esc` | Cancel and return home | Always |
 
 ### Form Options
 
 | Field | Flag | Default |
 |-------|------|---------|
-| Upgrade | `-upgrade` | false |
-| Migrate State | `-migrate-state` | false |
-| Reconfigure | `-reconfigure` | false |
-| Backend Config | `-backend-config=...` | (empty) |
+| upgrade | `-upgrade` | off |
+| reconfigure | `-reconfigure` | off |
+| backend | `-backend` | on |
+| get | `-get` | on |
+| force-copy | `-force-copy` | off |
+| from-module | `-from-module=...` | (empty) |
+| plugin-dir | `-plugin-dir=...` | (empty) |
+| backend-config | `-backend-config=...` | (empty) |
 
 ### Flow
 
@@ -59,29 +63,17 @@ tfui init -project ./infra
 tfui init -project ./infra -upgrade
 ```
 
-### Exit Codes
+`tfui init` with no init flag opens the form. Any of `-upgrade`, `-reconfigure`, `-backend` or `-backend-config`, or a [headless run](../reference/cli-reference.md#execution-model), starts init at once.
 
-| Code | Meaning |
-|------|---------|
-| 0 | Init succeeded |
-| 1 | Init failed |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
 | Goal | CLI | TUI |
 |------|-----|-----|
 | Initialize terraform | `tfui init` | Press `i` → `Enter` |
-| Init with upgrade | `tfui init -upgrade` | `i` → check Upgrade → `Enter` |
-| Reconfigure backend | `tfui init -reconfigure` | `i` → check Reconfigure → `Enter` |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "init" {
-  enabled = true
-}
-```
+| Init with upgrade | `tfui init -upgrade` | `i` → `Space` on upgrade → `Enter` |
+| Reconfigure backend | `tfui init -reconfigure` | `i` → `Space` on reconfigure → `Enter` |
 
 ## Related
 

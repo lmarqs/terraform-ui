@@ -3,20 +3,20 @@ layout: default
 parent: Plugin Catalog — All Terraform UI Features
 title: "Terraform Untaint: Cancel Forced Recreation"
 id: untaint
-key: T
+key: "—"
 category: action
 default_enabled: true
 seo:
   description: "Remove the taint mark from Terraform resources so the next apply no longer forces their recreation. The Untaint screen mirrors terraform untaint."
 description: "Describes how the Untaint plugin clears a resource's taint mark."
-audience: "Users undoing a taint"
+audience: "Users who tainted a resource and no longer want it replaced"
 ---
 
 # Untaint
 
 ## Overview
 
-Remove taint mark from resources to prevent forced recreation. Standalone verb plugin -- mirrors `terraform untaint` as a top-level command. NavPush behavior: returns to the origin plugin on completion or cancel.
+Removes the taint mark from resources so the next apply no longer recreates them, like `terraform untaint`. When it finishes or you cancel, `Esc` returns you to the screen you came from.
 
 ## Screenshot
 
@@ -24,24 +24,17 @@ Remove taint mark from resources to prevent forced recreation. Standalone verb p
 
 ## Interactive (TUI)
 
-### Entry Points
-
-| Context | Key | Behavior |
-|---------|-----|----------|
-| State list/detail | `T` | Navigate to untaint with cursor address |
-| Plan list | `T` | Navigate to untaint with cursor address |
-| Batch palette (`!`) | `T` | Navigate to untaint with all pinned addresses |
-| Command mode | `:untaint` | Navigate to untaint |
+Untaint has no key on Home. Press `T` in State or Plan to untaint the resource under the cursor, or press `!` → `T` to untaint every pinned resource.
 
 ### Keybindings
 
-| Key | Action | Context |
-|-----|--------|---------|
+| Key | Action | When |
+|-----|--------|------|
 | `y` / `Y` / `Enter` | Confirm untaint | Confirming |
-| `n` / `N` / `Esc` | Cancel and return | Confirming |
+| `n` / `N` / `Esc` | Cancel | Confirming |
 | `p` | Navigate to plan | Done |
-| `Esc` | Back to previous plugin | Any |
 | `ctrl+r` | Retry | Error |
+| `Esc` | Back to the screen you came from | Idle, Done, Error |
 
 ### Flow
 
@@ -49,12 +42,9 @@ Remove taint mark from resources to prevent forced recreation. Standalone verb p
 Idle → Confirming → Loading → Done/Error
 ```
 
-1. Plugin receives target address(es) via `SetTargets()`
-2. Shows confirmation: "Untaint \<address\>?"
-3. For batch: shows count and lists all addresses
-4. On confirmation, executes `terraform untaint` for each address sequentially
-5. On success, emits `PlanInvalidatedEvent` (plan auto-replans)
-6. NavPush returns user to origin plugin
+1. tfui asks "Untaint \<address\>?", or lists every address for a batch.
+2. On `y`, it runs `terraform untaint` for each address in turn.
+3. When it finishes, the plan is marked stale: Plan re-plans the next time you open it. `Esc` returns you to where you started; `p` opens Plan instead.
 
 ## Command Line (CLI)
 
@@ -63,12 +53,9 @@ tfui untaint <address>           # Untaint single resource
 tfui untaint <addr1> <addr2>     # Batch untaint
 ```
 
-### Exit Codes
+With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-reference.md#execution-model) untaints without asking.
 
-| Code | Meaning |
-|------|---------|
-| 0 | Untaint succeeded |
-| 1 | Untaint failed |
+Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
 
 ## Equivalence
 
@@ -76,15 +63,6 @@ tfui untaint <addr1> <addr2>     # Batch untaint
 |------|-----|-----|
 | Untaint a resource | `tfui untaint <address>` | From state/plan: `T` → `y` |
 | Batch untaint | `tfui untaint <addr1> <addr2>` | Pin multiple → `!` → `T` → `y` |
-
-## Configuration
-
-```hcl
-# tfui.hcl
-plugin "untaint" {
-  enabled = true
-}
-```
 
 ## Related
 
