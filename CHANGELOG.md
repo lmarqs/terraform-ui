@@ -1,3 +1,10 @@
+## [1.27.1](https://github.com/lmarqs/terraform-ui/compare/v1.27.0...v1.27.1) (2026-11-13)
+
+
+### Bug Fixes
+
+* **cli:** apply tfui.hcl settings to every standalone verb ([a1e89b4](https://github.com/lmarqs/terraform-ui/commit/a1e89b49d1e85bd977da88e0ea3e3fda16bd16cc)), closes [#65](https://github.com/lmarqs/terraform-ui/issues/65)
+
 # [1.27.0](https://github.com/lmarqs/terraform-ui/compare/v1.26.0...v1.27.0) (2026-11-05)
 
 
