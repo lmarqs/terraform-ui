@@ -65,9 +65,13 @@ func buildRegistry(svc sdk.Service, cfg config.Config, rootCfg *config.RootConfi
 	}
 	if chdirPlugin, ok := registry.ByID("chdir"); ok {
 		if cp, ok := chdirPlugin.(*tfuichdir.Plugin); ok {
-			if len(memberPaths) > 0 {
-				cp.SetMembers(memberPaths)
+			// Zero-config has no members: the implicit "." lets chdir
+			// auto-select the current directory instead of an empty picker.
+			chdirMembers := memberPaths
+			if len(chdirMembers) == 0 {
+				chdirMembers = []string{config.DefaultMemberPath}
 			}
+			cp.SetMembers(chdirMembers)
 		}
 	}
 	if versionPlugin, ok := registry.ByID("version"); ok {
