@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"runtime/debug"
+	"strings"
 
 	"github.com/lmarqs/terraform-ui/internal/macro"
 )
@@ -11,15 +12,21 @@ import (
 var version string
 
 func init() {
-	if version == "" {
-		if info, ok := debug.ReadBuildInfo(); ok {
-			if info.Main.Version != "" && info.Main.Version != "(devel)" {
-				version = info.Main.Version
-				return
-			}
-		}
-		version = "0.0.0-SNAPSHOT"
+	info, ok := debug.ReadBuildInfo()
+	version = resolveVersion(version, info, ok)
+}
+
+// resolveVersion returns the version without a leading "v": the ldflag one a
+// release build sets, else the module version `go install` records, else a
+// snapshot marker. The version plugin prints its own "v" prefix.
+func resolveVersion(ldflagVersion string, info *debug.BuildInfo, ok bool) string {
+	if ldflagVersion != "" {
+		return ldflagVersion
 	}
+	if ok && info.Main.Version != "" && info.Main.Version != "(devel)" {
+		return strings.TrimPrefix(info.Main.Version, "v")
+	}
+	return "0.0.0-SNAPSHOT"
 }
 
 func main() {
