@@ -155,15 +155,17 @@ A flag or argument error that stops the command before its plugin runs exits 1. 
 
 ### Interrupts
 
-tfui owns SIGINT and SIGTERM in every mode. The first signal stops terraform gracefully: tfui interrupts each running
-terraform process once, ends the run, and waits for terraform to exit, with no timeout, so terraform can release the
-state lock and write its state. tfui then runs plugin cleanup and exits 130 for SIGINT or 143 for SIGTERM, whatever the
-plugin would have returned. It writes nothing to stdout after a signal. A second signal, or any signal while tfui
-waits, ends tfui at once: it writes `terraform was stopped without finishing` to stderr, runs plugin cleanup, and exits
-with the code of that signal. A signal after terraform has finished, while tfui writes output or runs plugin cleanup,
-ends tfui once cleanup has run, with the code of that signal and without the note. On a system where terraform does
-not run in its own process group (anything but Linux), terraform already receives the terminal's Ctrl+C, and tfui
-does not forward the signal again ([ADR-0023](../adr/0023-interrupts-reach-terraform-once.md)).
+tfui owns SIGINT and SIGTERM in the TUI and in every plugin verb run, headless or not. `force-unlock` and the
+`workspace` commands leave them to their default action: the signal ends tfui, and the shell reports 130 or 143. In the
+runs tfui owns, the first signal stops terraform gracefully: tfui interrupts each running terraform process once, ends
+the run, and waits for terraform to exit, with no timeout, so terraform can release the state lock and write its state.
+tfui then runs plugin cleanup and exits 130 for SIGINT or 143 for SIGTERM, whatever the plugin would have returned. It
+writes nothing to stdout after a signal. A second signal, or any signal while tfui waits, ends tfui at once: it writes
+`terraform was stopped without finishing` to stderr, runs plugin cleanup, and exits with the code of that signal. A
+signal after terraform has finished, while tfui writes output or runs plugin cleanup, ends tfui once cleanup has run,
+with the code of that signal and without the note. On a system where terraform does not run in its own process group
+(anything but Linux), terraform already receives the terminal's Ctrl+C, and tfui does not forward the signal again
+([ADR-0023](../adr/0023-interrupts-reach-terraform-once.md)).
 
 Quitting the TUI while terraform runs interrupts terraform the same way and writes
 `Waiting for terraform to stop… (Ctrl+C again to force)` to stderr while tfui waits. A key quit is not a signal, so the

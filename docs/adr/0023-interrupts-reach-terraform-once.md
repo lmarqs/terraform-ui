@@ -12,11 +12,12 @@ audience: "Contributors changing signal handling, the exec service or exit codes
 
 # Interrupts reach terraform once, and tfui waits for it
 
-tfui owns SIGINT and SIGTERM for every run, in the TUI and in headless and standalone verb runs. The first signal
-interrupts each running terraform process exactly once and ends the program; tfui then waits, with no timeout, until
-terraform has exited, runs plugin cleanup, writes no stdout and exits 130 for SIGINT or 143 for SIGTERM. A second
-signal, or any signal while tfui waits, ends tfui at once with the stderr note `terraform was stopped without
-finishing`, after plugin cleanup. Quitting the TUI while terraform runs interrupts it the same way, and prints
+tfui owns SIGINT and SIGTERM in the TUI and in headless and standalone plugin verb runs; `force-unlock` and the
+`workspace` commands, which run terraform without a plugin, end by the signal itself. The first signal interrupts each
+running terraform process exactly once and ends the program; tfui then waits, with no timeout, until terraform has
+exited, runs plugin cleanup, writes no stdout and exits 130 for SIGINT or 143 for SIGTERM. A second signal, or any
+signal while tfui waits, ends tfui at once with the stderr note `terraform was stopped without finishing`, after plugin
+cleanup. Quitting the TUI while terraform runs interrupts it the same way, and prints
 `Waiting for terraform to stop… (Ctrl+C again to force)` while tfui waits.
 
 Before this decision, bubbletea's own signal handler turned a SIGINT into an ordinary quit. A headless `tfui plan`
