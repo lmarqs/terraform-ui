@@ -253,7 +253,7 @@ argument: `json`, `lock`, `destroy`, `refresh-only`, `compact-warnings`, `upgrad
 `backend`.
 
 Everything after `--` is passed through to terraform: under `-macro` it is appended to the recorded `terraform plan`
-and `terraform apply` commands. A live run does not forward it.
+and `terraform apply` commands. A live run does not forward it and says so on stderr.
 
 ### Pre-seeded data (`-plan`, `-state`)
 

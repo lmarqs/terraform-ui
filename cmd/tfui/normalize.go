@@ -95,3 +95,12 @@ func splitPassthrough(args []string) (before, after []string) {
 	}
 	return args, nil
 }
+
+// passthroughWarning tells a live run that its `--` arguments go nowhere: only
+// MacroService records them, and ExecService has no way to forward them.
+func passthroughWarning(extraArgs []string, macroActive bool) string {
+	if len(extraArgs) == 0 || macroActive {
+		return ""
+	}
+	return "warning: ignoring arguments after --: " + strings.Join(extraArgs, " ") + "; only a -macro run records them\n"
+}

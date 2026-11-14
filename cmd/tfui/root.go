@@ -58,6 +58,7 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			logging.Init(macroSpec.RecordDir != "", version, cfg.Dir, binary, macroSpec.RecordDir)
 
 			cfg.ExtraArgs = extraArgs
+			fmt.Fprint(os.Stderr, passthroughWarning(extraArgs, macroSpec.Active()))
 			cfg.PreloadedData = !sources.Empty()
 			session.cfg = cfg
 			session.rootCfg = rootCfg
