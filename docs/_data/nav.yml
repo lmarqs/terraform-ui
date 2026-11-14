@@ -66,6 +66,8 @@
       path: reference/cli-reference.md
     - title: CLI I/O contract
       path: reference/cli-io-contract.md
+    - title: Risk policy contract
+      path: reference/risk-policy-contract.md
     - title: Macro language
       path: reference/macro-language.md
     - title: CLI UX guidelines
@@ -78,6 +80,10 @@
       path: development/index.md
     - title: Architecture
       path: development/architecture.md
+    - title: Risk policy design
+      path: development/risk-policy-design.md
+    - title: Risk runtime evidence
+      path: development/risk-policy-runtime-research.md
     - title: Testing strategy
       path: development/testing.md
     - title: Backlog

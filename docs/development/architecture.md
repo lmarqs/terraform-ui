@@ -91,7 +91,7 @@ plugins/
   output/                  — Terraform outputs viewer
   validate/                — Terraform validate with diagnostics
   init/                    — Terraform init with form-based options
-  risk/                    — Risk classification (decorates plan)
+  risk/                    — Groups supplied plan classifications for review
   phantom/                 — Phantom change detection (decorates plan)
   blastradius/             — Blast radius visualization
   forceunlock/             — Force unlock stale state locks

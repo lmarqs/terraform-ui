@@ -11,10 +11,14 @@ audience: "Users triaging a plan, and contributors changing the risk rules"
 
 ## Overview
 
+This page describes the current fixed classifier. The accepted design for custom policies is documented in the
+[policy contract](../reference/risk-policy-contract.md); it is not yet implemented. The [Risk plugin guide](../plugins/risk.md)
+explains the current view-wiring limitation and command availability.
+
 tfui scores each planned change from two inputs: the action (delete or replace, update, create) and the category of
 the resource type. Deleting a data-bearing, encryption or access resource is critical; creating a resource outside
-the lists below is low. The score appears as a badge on each plan row, on the headless `Risk:` line and in the Risk
-view, and feeds the blast radius impact score.
+the lists below is low. The score appears as a badge on each plan row, on the headless `Risk:` line and in a supplied Risk
+summary, and feeds the blast radius impact score.
 
 ## How It Works
 
@@ -91,3 +95,17 @@ Every view that shows a level uses the same colors:
 The rules above are fixed. The [Risk Analysis plugin](../plugins/risk.md) groups a plan's changes by level, and the
 [Plan plugin](../plugins/plan.md) puts a badge on each change and, in headless text output (without `-json`), the
 overall level on its last line.
+
+## Limits of the current classifier
+
+These are heuristic levels, not a guarantee that a change is safe. All updates of `aws_lambda_function` currently
+receive `high`, irrespective of which attribute changes. The [Lambda field report](https://github.com/lmarqs/terraform-ui/issues/106)
+explains why attribute-specific classification is needed.
+
+Current plan loading classifies first, then marks phantom changes; it does not clear their risk. The planned
+policy contract likewise requires eligible mutations to be assessed even when marked phantom, but classification
+will be owned by the selected policy. Do not interpret a phantom label as an automatic risk exemption.
+
+The current classifier returns `none` for unhandled actions, while the plan parser excludes reads and no-ops from
+its change list. The planned contract distinguishes **not assessed**, an explicit `none` classification and an
+**unavailable** assessment; see the [definitions](../reference/risk-policy-contract.md#terms).

@@ -4,7 +4,8 @@ The documentation of tfui that its code, its issues and its history do not hold.
 page, listed below; put a fact on the kind of page whose reader relies on it. Read this map before adding or moving a
 page.
 
-Plans and their state live in GitHub issues and the project board ([backlog](development/backlog.md)); the glossary
+Work tracking lives in GitHub issues and the project board ([backlog](development/backlog.md)); the risk
+implementation plan lives in `tasks/prd-risk.md`. Definitions and architecture stay under `docs/`. The general glossary
 is [`CONTEXT.md`](../CONTEXT.md) at the repository root.
 
 Every page except this map is published to [the site](https://lmarqs.github.io/terraform-ui) by
@@ -29,10 +30,11 @@ relies on it and the code is the only other place it shows. A good page states t
 user meets, in the order the user meets them, with a worked example where a rule is arithmetic. A rule one plugin
 owns is stated on its plugin page and linked from the feature page.
 
-### Interfaces: `reference/cli-reference.md`, `reference/cli-io-contract.md`, `reference/macro-language.md`
+### Interfaces: `reference/`
 
-What a caller of tfui depends on: every command and flag, what goes to stdout and stderr in each mode with the exit
-codes, and the tape language macros are written in. A fact belongs here when a script, an agent or a tape breaks if
+The [risk policy contract](reference/risk-policy-contract.md) owns risk terminology and accepted semantic boundaries;
+it distinguishes planned interfaces from implemented ones. Other references describe what a caller of tfui depends
+on: every command and flag, what goes to stdout and stderr in each mode with the exit codes, and the tape language macros are written in. A fact belongs here when a script, an agent or a tape breaks if
 it changes. A good page is complete for its interface and says, for each item, what it accepts and what it returns.
 
 ### Standards: `reference/cli-ux.md`, `reference/tui-ux.md`, `development/testing.md`
@@ -43,11 +45,16 @@ which level a test runs at. A good standard gives each rule its reason, so a cas
 by its intent. The `tfui-cli-ux`, `tfui-tui-ux` and `tfui-conventions` skills summarize these pages for agents and
 link them; the page owns the rule.
 
-### Architecture: `development/architecture.md`
+### Architecture: `development/architecture.md` and feature designs
 
 How the parts fit together: the SDK, the app internals, the plugins, the event bus and the runtimes, with the
 directory each lives in. A fact belongs here when it is about the whole and no single file shows it. A good page
 lets a reader go from a box on the diagram to the code, and links the decision behind each shape.
+
+The [risk policy design](development/risk-policy-design.md) owns its requirements, alternatives and intended
+component boundaries; [runtime evidence](development/risk-policy-runtime-research.md) records versioned research.
+A design labels accepted decisions and unresolved choices; it does not present them as shipped functionality or
+store implementation checklists. The PRD owns implementation sequencing; issues own progress.
 
 ### Guides: `guides/`
 

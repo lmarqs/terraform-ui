@@ -1,220 +1,243 @@
 [PRD]
-# PRD: Finish the Risk plugin (run first of three)
+# Finish Risk analysis and project policy evaluation
 
-## Overview
+## Status and source of truth
 
-`plugins/risk` (key `R`) groups a plan's changes by risk level, but it has never shown a result
-outside its tests. Its `Analyze(*sdk.PlanSummary)` has no production caller. The plan plugin
-publishes `sdk.PlanCompletedEvent` (`plugins/plan/plan.go:421-428`), and no plugin implements
-`sdk.PlanCompletedHandler`. `app.activate()` (`internal/ui/app.go:897-923`) has no case for risk.
-So `R` always shows the idle "Run a plan first" text. GitHub issue #76 records this.
+This is the implementation plan, not the definition of risk. The accepted language, responsibilities and
+eligibility are documented; the remaining public contract choices and embedding experiments still block
+production implementation. Do not execute dependent stories by choosing unspecified semantics in code.
 
-Risk also lacks the headless side other read plugins have: `Input`, `Activate(Input)`, `Stdout`,
-`Stderr`, `ExitCode` and a `cmd/tfui/<id>_command.go`. `Configure` ignores the
-`plugin "risk" { level = ... }` option that `tests/integration/config_test.go:140` expects. Its docs
-promise `risk` fields in `tfui plan -json` that do not exist, and they state rules that differ from
-`internal/terraform/risk.go`.
+Definitions and architecture live under `docs/`:
 
-This is the first of three PRDs, run in this order: risk, phantom, blast radius. It also carries the
-groundwork the other two depend on:
-- the exec service serves a pre-seeded `-plan`
-- plugin `Configure` errors stop tfui
-- one engine function annotates a plan
-- the ADR for tfui-native JSON
+- [Policy contract](../docs/reference/risk-policy-contract.md): purpose, philosophy, terms, eligibility, ownership,
+  failure behavior and review presentation.
+- [Architecture design](../docs/development/risk-policy-design.md): goals, requirements R1–R8, alternatives,
+  component boundaries, evidence and remaining decisions.
+- [Runtime research](../docs/development/risk-policy-runtime-research.md): pinned OPA API facts and their limits.
+- [ADR-0024](../docs/adr/0024-embed-rego-for-risk-policies.md) and
+  [ADR-0025](../docs/adr/0025-classify-resource-mutations-explicitly.md): accepted decisions.
+- [Risk plugin guide](../docs/plugins/risk.md) and [fixed classifier](../docs/features/risk-analysis.md): current behavior.
 
-## Goals
+The [architecture map](https://github.com/lmarqs/terraform-ui/issues/107) owns decision progress. This PRD owns
+implementation sequencing and verification. Requirements below reference the docs rather than inventing another
+policy definition. The architecture map ends at design acceptance; implementing this PRD is subsequent work.
 
-- `R` shows a filled risk view after `p`, or with a pre-seeded `-plan`, without a second terraform run when a plan was already shared.
-- `tfui risk` follows the CLI I/O contract, and `tfui risk -ci` exits 2 when overall risk is at or above `level`, which defaults to `high`.
-- `tfui <cmd> -plan file` reads the seeded plan without running terraform.
-- Phantom changes carry risk `none`, so a no-op never trips the gate.
-- Risk docs match the code.
+## Delivery boundary
 
-## Quality Gates
+Deliver the policy contract through the Risk view, shared Plan classifications and a dedicated `tfui risk`
+command. Preserve the existing Terraform pass-through output and saved-plan lifecycle. Apply behavior is outside
+this work. Cross-resource policy analysis, remote distribution, parent-rule mixing, runtime presets, unrelated
+plugin repairs and binary-plan support through `-plan` are not part of this delivery.
 
-These commands must pass for every user story:
-- `mise run check:lint` - golangci-lint, repo-wide
-- `mise run test:unit` - Go unit tests
-- `mise run check:build` - compile check
-- `mise run test:coverage` - CI enforces 100% coverage outside `cmd/` and `internal/terraform/exec`
+The working browser mockups are visual references only. Their older Apply interactions are not requirements.
+The contract reference owns the intended inline-diff presentation; existing TUI standards own icons and colors.
 
-For UI stories (US-006, US-008, US-009), also include:
-- `mise run test:macro` - macro tape tests verifying TUI rendering
+## Working and verification rules
 
-## Working rules for every story
+- Follow `AGENTS.md` and the tfui conventions, architecture, CLI UX and TUI UX skills. Use an isolated worktree
+  following `.worktrees/README.md`; do not assume the old `fix/analysis-plugins` worktree still exists or is appropriate.
+- Before implementation, the `test-writer` agent writes the failing behavior test. Fixes must have a test that
+  fails before the fix. Do not add tests that merely mirror implementation details.
+- Plugins import only `pkg/sdk`. OPA and source-loading internals stay behind SDK-facing domain values.
+- Check current code before each story. Preserve working cache and event behavior instead of reimplementing it.
+- Quick check: `mise run check:build` and `mise run test:unit ./<affected-package>/...`.
+- Done check: `mise run check:lint`, `mise run test:unit`, `mise run check:build`.
+- CI coverage: `mise run test:coverage`; the repository enforces 100% outside `cmd/` and `internal/terraform/exec`.
+- UI stories additionally run `mise run test:macro` against a freshly built binary. `check:build` alone does not
+  produce that binary; use `mise run build` or pass the task an explicitly built binary.
+- Documentation changes run `mise run docs:build` followed by `mise run docs:check`.
+- Report checks individually; never weaken a check. Use conventional commits and follow the active session's
+  branch/push authorization. No story grants permission to change Apply behavior.
 
-- Work in the worktree `.worktrees/fix/analysis-plugins` on branch `fix/analysis-plugins`.
-- Follow `AGENTS.md` and the `tfui-conventions`, `tfui-architecture`, `tfui-cli-ux` and `tfui-tui-ux` skills in `.agents/skills/`.
-- Write the failing test first, then the implementation. A bug fix ships with a test that failed before the fix.
-- Plugins import only `pkg/sdk`. Plugin tests build deps with `sdktest.NewDeps(svc)` and call `Init()`, as `plugins/version/version_test.go` does.
-- Tests are table-driven and sit beside the code. Golden files live in `testdata/golden/` and are refreshed through `sdktest.AssertGolden`'s update flag.
-- Commit each story as a conventional commit and push it to `origin fix/analysis-plugins`.
-- Never weaken a check to make it pass.
+## Phase 0: resolve architecture and prove feasibility
 
-## User Stories
+### D-01: Complete the public contract decisions
 
-### US-001: Parse a risk level from text
-**Description:** As the risk plugin, I want to turn a config string into an `sdk.RiskLevel` so that `level` can set the CI threshold.
+**Depends on:** accepted purpose and ownership in ADR-0025; evidence from D-02 and D-03 as needed.
 
-**Acceptance Criteria:**
-- [ ] `pkg/sdk/risk.go` exports `ParseRiskLevel(s string) (RiskLevel, error)` next to `RiskLevel.String()`.
-- [ ] `"none"`, `"low"`, `"medium"`, `"high"` and `"critical"` each map to their constant and round-trip through `String()`.
-- [ ] Any other value, including `""` and `"HIGH"`, returns an error that quotes the value and lists the accepted ones.
-- [ ] A table test in `pkg/sdk/risk_test.go` covers each accepted value and at least two rejected ones.
+- [ ] Resolve the remaining decisions listed in the architecture design: input/entrypoint/result representation,
+  unknown/sensitive handling, trust and capabilities, source selection/reload, multiple-rule resolution,
+  tfui aggregation, thresholds and report/version compatibility.
+- [ ] Narrow older decision tickets to their remaining questions. Per-resource scope, complete results, custom
+  replacement, eligibility and failure behavior are already accepted; do not reintroduce rejected alternatives
+  as implementation defaults.
+- [ ] Specify the user-facing result for no eligible mutations, incomplete input and partial evaluation failure.
+  These cases must preserve the distinctions defined in the contract reference.
+- [ ] Decide how the existing Blast Radius consumer of `PlanChange.Risk` handles custom classifications and
+  unavailable/partial assessments. Do not silently alter impact semantics or turn failed assessment into a zero level.
+- [ ] Decide explicit helper reuse, template testing and built-in-policy upgrade behavior. Review particular
+  Lambda classifications without assuming the field report's suggested severities are accepted.
+- [ ] Review the architecture with the owner, including the alternatives table and residual risks; update docs
+  and the decision map with the accepted outcomes.
+- [ ] Specify the approved interface under `docs/reference/`, with exact examples and compatibility behavior,
+  before implementing consumers. Replace this phase's gates with links to accepted definitions.
 
-### US-002: Annotate a plan in one place, with phantom changes carrying no risk
-**Description:** As a user, I want a phantom change to carry risk `none` so that a no-op never raises the overall risk or trips the CI gate.
+### D-02: Prove input fidelity and Context/source identity
 
-**Acceptance Criteria:**
-- [ ] `internal/terraform` exports `AnnotatePlan(summary *PlanSummary)`. It runs `ClassifyRisk` on every change, then `DetectPhantomChanges`, then sets `Risk = RiskNone` on every change with `IsPhantom`.
-- [ ] `LoadPlan` (`internal/terraform/loader.go`) and `ExecService.Plan` (`internal/terraform/exec/service.go`, around lines 121-127) call `AnnotatePlan` instead of their inline loops.
-- [ ] A test proves a phantom update of a critical type, such as `aws_db_instance`, ends with `RiskNone`, and a real update of the same type keeps its classified risk.
-- [ ] `internal/terraform/loader_test.go` asserts the exact risk for a phantom change instead of `Risk >= 0`.
-- [ ] Plan plugin tests and golden files that pair a phantom update with a risk badge other than `none` are updated.
+**Dependencies:** can gather code evidence now; final behavior follows D-01. Use disposable prototypes.
 
-### US-003: Serve a pre-seeded plan from the exec service
-**Description:** As a user running `tfui plan -ci -plan plan.json`, I want tfui to read my file instead of running terraform, as `docs/reference/cli-io-contract.md` promises.
+- [ ] Compare source plan JSON with candidate per-resource input: large numbers, ordered lists, absent/null,
+  nested/whole-object unknowns and sensitivity, resource identity, and both replacement orders.
+- [ ] Demonstrate that adding/removing neighboring resources cannot affect a resource's policy input or result.
+- [ ] Exercise live and seeded acquisition with call counting. Preserve evidence from the reviewed plan without
+  generating a second plan solely for policy data.
+- [ ] Exercise phantom counterexamples for array order/null normalization. Document advisory-data limitations;
+  this experiment does not override the accepted requirement to assess eligible phantom mutations.
+- [ ] Trace real root/Member/workspace source selection, relative path origin, zero-config, absent/empty source,
+  invalid/deleted source, source edits, startup Chdir, and switching A to B while A evaluates.
+- [ ] Record pass/falsification criteria before execution: silent data loss rejects an input candidate; mixed
+  source or stale A results reject a lifecycle candidate. Link reproducible assets and obtain owner review.
 
-**Acceptance Criteria:**
-- [ ] `ExecService.Plan` returns `cache.GetPlan()` when the cache holds a plan, without running terraform or taking the dir lock. This mirrors `loadState` (`internal/terraform/exec/service.go:55-58`).
-- [ ] `ExecService.PlanJSON` is unchanged.
-- [ ] A test in `internal/terraform/exec` seeds a `ServiceCache` with `SeedPlan` and sets a terraform binary path that does not exist. `Plan` must return the seeded summary with no error.
-- [ ] Without a seeded plan, `Plan` behaves as before.
-- [ ] The commit message says it restores the pre-seed short-circuit that commit `c1c92df` removed.
+### D-03: Validate embedded evaluation and measure costs
 
-### US-004: Surface plugin Configure errors
-**Description:** As a user with `level = "hgih"` in `tfui.hcl`, I want tfui to fail and name the plugin so that a broken gate never passes silently.
+**Dependencies:** versioned research is complete; trust/result candidates from D-01 are needed for acceptance.
 
-**Acceptance Criteria:**
-- [ ] `internal/plugin/registry.go` `Build` returns `error`, wrapping a non-nil `Configure` error as `plugin %q: %w`. Today it discards that error at line 76.
-- [ ] `buildRegistry` (`cmd/tfui/registry.go`) returns `(*plugin.Registry, error)`.
-- [ ] `Session.Run` and `Session.RunPlugin` (`cmd/tfui/session.go`) return the error before starting any UI.
-- [ ] `internal/plugin/registry_test.go` has a failing-`Configure` test that asserts the message names the plugin ID.
-- [ ] Existing `Build` call sites in tests still compile.
+- [ ] Select and pin a candidate version after reviewing current maintenance. The research pin is evidence, not
+  an automatic production dependency choice.
+- [ ] Declare fixtures, toolchain, baseline, target matrix and measurement method before running. Use bounded
+  workloads and an external harness limit; cooperative context cancellation is not a hard memory/termination bound.
+- [ ] Distinguish undefined entrypoint, defined empty value, malformed result, competing complete-rule values,
+  compilation failure and evaluated builtin failure. Checking only a returned Go error must not pass undefined output.
+- [ ] Compare strict builtin behavior for executed versus unreachable expressions and document the limit.
+- [ ] Attempt HTTP, DNS, time, randomness, print, trace and secret interpolation under the candidate capability
+  boundary. Capture output/error channels; test against the chosen trust promise rather than claiming generic sandboxing.
+- [ ] Build every supported release target and measure baseline/candidate binary size, compilation time,
+  cold/warm evaluation and peak memory. Obtain owner judgment on costs; no numerical budget is yet accepted.
+- [ ] Record outcomes in docs evidence and the decision ticket. Unsupported builds or failed controls reopen
+  the affected architecture choice before production integration.
 
-### US-005: Risk plugin input and threshold
-**Description:** As a CI author, I want to set the risk gate with `plugin "risk" { level = "critical" }` so that I choose what blocks a pipeline.
+## Phase 1: implement the accepted contract
 
-**Acceptance Criteria:**
-- [ ] `plugins/risk/input.go` defines `Input{JSON bool}`.
-- [ ] `New` sets the threshold to `sdk.RiskHigh`. `Registry.Build` skips `Configure` when a block has no options, so the default must live in `New`.
-- [ ] `Configure` reads `level` with `sdk.ParseRiskLevel` and returns its error unchanged.
-- [ ] A missing `level` keeps the default.
-- [ ] Tests cover the default, each valid level and an invalid level.
+### US-001: Preserve policy evidence through plan acquisition
 
-### US-006: Risk view receives the plan
-**Description:** As a user, I want `R` to show my plan grouped by risk, whether I ran `p` first or opened tfui with `-plan`.
+**Dependencies:** D-01, D-02. **Trace:** R1,R2,R5,R6.
 
-**Acceptance Criteria:**
-- [ ] `Activate(Input) tea.Cmd` runs a plan only when no summary has been analyzed. It follows `plugins/apply/apply.go:214-263`:
-  - options come from `GetCtx().PlanOptions()`
-  - the plan file is `sdk.NewTempPlanFile` under `os.TempDir()` with prefix `tfui-risk-`, removed once the summary is read
-  - no `Writer` is set
-- [ ] When a summary is already analyzed, `Activate` returns nil.
-- [ ] While the plan runs, the view shows `Loading plan…` and status is `sdk.StatusLoading`. The word `Loading` is what macro `wait ready` blocks on.
-- [ ] A successful result calls `Analyze` and sets `StatusDone`. An error sets `StatusError` and keeps the message.
-- [ ] `HandlePlanCompleted` calls `Analyze(ev.Summary)` and sets `StatusDone`.
-- [ ] `HandlePlanInvalidated` resets to idle.
-- [ ] `HandleContextChanged` calls `ReactToContext(ev, nil, e.reset)`, as `plugins/apply/apply.go:171-181` does.
-- [ ] `Busy()` reports `StatusLoading`. `Cancel()` aborts the in-flight plan's context.
-- [ ] The plugin never emits `sdk.PlanCompletedEvent`. The plan plugin owns the shared plan file (ADR-0020).
-- [ ] The idle view reads `No plan yet. Press p to run one.` The golden file `plugins/risk/testdata/golden/TestView_Given_Idle_ShouldRender_NoPlanMessage.txt` and the idle test near `plugins/risk/risk_test.go:255` match it.
-- [ ] `Hints()` has no dead branch.
-- [ ] `internal/ui/app.go` `activate()` gains `case *tfuirisk.Plugin: return tp.Activate(tfuirisk.Input{})`.
-- [ ] `TestApp_Activate_TypedSwitch_DispatchesPerPluginType` (`internal/ui/app_test.go`, near line 5527) has a `risk` row.
-- [ ] Tests drive `Activate`, the result message, each handler, `Busy` and `Cancel` through `sdktest.NewDeps` with a `MockService`.
+- [ ] Retain the approved per-resource evidence separately from display-string diffs in both live and seeded paths.
+- [ ] Implement eligibility from the contract reference, including import/move with accompanying mutation and
+  explicit treatment of non-assessed changes. Do not map unsupported input silently to `none`.
+- [ ] Preserve `ExecService.Plan`'s existing cache short-circuit and its regression tests.
+- [ ] Verify seeded analysis through `Session.RunPlugin` with a nonexistent Terraform binary, including the
+  initial selected Chdir. Do not rely solely on direct service tests; `WithDir` creates a fresh cache today.
+- [ ] Verify no second plan for Risk when the current plan evidence is available. `-plan` remains Terraform show
+  JSON input for analysis, not an executable artifact or Apply authorization; preserve `PlanJSON` pass-through.
 
-### US-007: Risk command output and CI gate
-**Description:** As a CI pipeline, I want `tfui risk -ci` to print a risk report and exit 2 at or above my threshold.
+### US-002: Resolve and load the selected complete policy
 
-**Acceptance Criteria:**
-- [ ] `ExitCode()` returns 1 on `StatusError`, 2 when `sdk.OverallRisk` is at or above the threshold, and 0 otherwise.
-- [ ] Text `Stdout()` prints one line per change as `<level>  <address>  <reason>`, groups highest first, then `Risk: <overall>`. Levels use lowercase `RiskLevel.String()`, the same word `tfui plan -ci` prints.
-- [ ] JSON `Stdout()` prints `{"overall": "...", "threshold": "...", "counts": {"<level>": n}, "changes": [{"address", "action", "risk", "reason", "phantom"}]}`. `action` is the `sdk.Action` string, and `counts` lists only levels that are present.
-- [ ] `Stderr()` returns the plan error plus newline on `StatusError`, and nil otherwise. `Stdout()` returns nothing on error.
-- [ ] `cmd/tfui/risk_command.go` follows `cmd/tfui/output_command.go` (`Use: "risk"`) and is registered in `rootCmd.AddCommand` (`cmd/tfui/main.go:28`).
-- [ ] `cmd/tfui/risk_command_test.go` copies `cmd/tfui/output_command_test.go`.
-- [ ] Golden or table tests cover text and JSON output and each exit code.
+**Dependencies:** US-001 and accepted source/trust contracts. **Trace:** R3,R7.
 
-### US-008: End-to-end proof without terraform
-**Description:** As a maintainer, I want tests that run `tfui risk` and `tfui plan` headlessly from a seeded plan so that the pre-seed path and the gate cannot regress silently.
+- [ ] Implement approved HCL source selection and path resolution, including built-in selection when no custom
+  source is selected. Do not implement a custom HCL matcher or independently inherited rule fragments.
+- [ ] Exercise actual configuration parsing/resolution, not just manually built option maps; account for the
+  reported ignored member plugin block and per-key merge behavior.
+- [ ] Identify the loaded source snapshot consistently for compilation, evaluation, reload and reporting.
+- [ ] Report invalid source/configuration explicitly. Design propagation so risk-policy failures preserve Plan
+  review with unavailable risk; do not blindly make every Risk Configure error abort the whole application.
+- [ ] Cover absent/empty selectors, malformed configuration, unreadable source, Member/workspace changes and
+  same-path content edits according to the accepted lifecycle.
 
-**Acceptance Criteria:**
-- [ ] A new test file `cmd/tfui/analysis_session_test.go` drives `Session.RunPlugin`, following `cmd/tfui/session_test.go:26-121`. It uses `PreseedSources{Plan: ...}`, `silentStderr: true`, a captured `Effects` and a terraform binary path that does not exist.
-- [ ] `demo/fixtures/plan-large.json` deletes an `aws_db_instance`, so its overall risk is `critical`. The test asserts the default threshold exits 2 and asserts the text and JSON stdout.
-- [ ] `tests/fixtures/plan.json` holds an `aws_instance` create and an `aws_s3_bucket` update. The test first asserts its overall risk, `high` unless the update is phantom, then asserts threshold `critical` exits 0.
-- [ ] The same file asserts `tfui plan -ci` from a seeded file prints the tree with no terraform run.
-- [ ] `tests/fixtures/tapes/smoke/risk.tape` presses `R` after `wait ready` and asserts text that appears only in a filled view.
-- [ ] `mise run test:macro` passes.
+### US-003: Evaluate and validate independent classifications
 
-### US-009: Risk docs, CLI reference and the JSON ADR
-**Description:** As a reader or script author, I want the risk pages and CLI reference to describe what `R` and `tfui risk` actually do.
+**Dependencies:** US-001, US-002, D-03. **Trace:** R1–R6.
 
-**Acceptance Criteria:**
-- [ ] `docs/plugins/risk.md` is rewritten on the existing plugin template, covering:
-  - keys as bound: `j`/`k`/arrows, `esc`/`q`
-  - a CLI section with `tfui risk`, `-ci`, `-json` and `-plan -`
-  - the equivalence table
-  - the JSON schema field by field
-  - the `level` option with its default and the exit codes
-- [ ] No page claims `tfui plan -json` carries a `risk` field.
-- [ ] `docs/features/risk-analysis.md` states the rules in `internal/terraform/risk.go` exactly:
-  - delete of an unlisted type is medium
-  - update of an unlisted type is low
-  - the full type sets from the code
-  - phantom changes carry risk `none`
-- [ ] `docs/reference/cli-reference.md` gains a `tfui risk` section. Its exit-code table says `2` means plan has changes (`plan`) or risk at or above the threshold (`risk`).
-- [ ] `docs/reference/cli-io-contract.md` changes:
-  - it gains `tfui risk` rows in the Standalone, CI, Failure and Pre-seeded tables
-  - `risk` joins the `-json` flag scope
-  - `tfui show -json tfplan.out | tfui risk` becomes `terraform show -json tfplan.out | tfui risk -plan -`
-  - the pre-seeded rows say no terraform runs
-- [ ] `docs/reference/cli-ux.md` (around lines 122-126 and 165-171) no longer describes stdin-only analysis filters with no TUI.
-- [ ] New `docs/adr/0023-analysis-commands-emit-tfui-json.md` follows the format of the other ADRs and is listed in `docs/adr/index.md`. It records the decision: analysis commands emit tfui's own JSON because terraform has no equivalent, while `plan`, `validate`, `output` and `version` `-json` stay terraform pass-through (ADR-0006).
-- [ ] `.agents/skills/tfui-cli-ux/SKILL.md` lists exit code 2 for risk. `AGENTS.md` changes only if a command, path or rule it names changed, and it stays under 800 words.
+- [ ] Embed the approved evaluator version and capabilities in app internals; expose only the accepted domain
+  result through the SDK boundary.
+- [ ] Evaluate each eligible mutation against its own permitted data; validate explicit result shape and
+  completeness. Cover undefined/missing output, malformed levels/reasons and rule conflicts as specified.
+- [ ] Preserve explicit built-in/custom ownership. A custom Lambda rule without a database default cannot obtain
+  a hidden built-in database classification.
+- [ ] Keep unknown/null/absent distinctions and sensitive-data behavior consistent with the accepted contract.
+- [ ] Classify eligible phantom mutations normally. Remove no risk merely because `IsPhantom` is true.
+- [ ] Centralize shared assessment use across acquisition/consumers as justified by the accepted design; do not
+  create separate policy engines in Plan and Risk or copy the old classification loops into new paths.
+- [ ] Verify that policy compilation/evaluation/validation failure never becomes a neutral or successful assessment.
 
-## Functional Requirements
+### US-004: Integrate assessment lifecycle and failures
 
-- FR-1: When the plan plugin finishes a plan, the risk plugin must analyze the summary carried by `sdk.PlanCompletedEvent`.
-- FR-2: Activating the risk plugin with no analyzed summary must obtain one through `Service.Plan` with the active Context's plan options and a temporary plan file it deletes afterwards.
-- FR-3: Activating it with an analyzed summary must not run terraform.
-- FR-4: `sdk.PlanInvalidatedEvent` and a chdir or workspace change must return it to idle.
-- FR-5: `ExecService.Plan` must return a pre-seeded plan from the cache without running terraform.
-- FR-6: One engine function must classify risk, detect phantoms and set risk `none` on phantom changes, for both plan entry points.
-- FR-7: `tfui risk` must exit 1 when the plan fails, 2 when overall risk is at or above `level`, and 0 otherwise.
-- FR-8: On failure `tfui risk` must write terraform's error to stderr and nothing to stdout.
-- FR-9: An invalid plugin option value must stop tfui with an error naming the plugin.
+**Dependencies:** US-003. **Trace:** R4,R5,R7.
 
-## Non-Goals
+- [ ] Connect plan completion, invalidation, Context changes and Risk activation to the accepted assessment lifecycle.
+- [ ] Reset derived assessment on invalidation and reject late results from a previous Context or policy snapshot.
+- [ ] Keep Plan review available on policy failure with unavailable risk and visible error. Preserve the existing
+  behavior for actual Terraform planning failures; do not confuse the two failure classes.
+- [ ] Verify the accepted compatibility behavior for Blast Radius's shared risk input, including custom results
+  and unavailable/partial assessment. Limit changes to this integration boundary; no unrelated plugin redesign.
+- [ ] Implement cancellation and terminal statuses using existing operation lifecycle conventions so headless
+  sessions terminate rather than hang waiting for `Ready()`.
+- [ ] When Risk needs to acquire a plan, use active Context options and a temporary artifact with explicit cleanup;
+  an empty plan-file option currently writes `tfplan.out` in the working directory.
+- [ ] Preserve Plan's artifact/event ownership under ADR-0020. Risk must not publish itself as the owner of Plan's
+  executable saved artifact or alter Apply handoff/confirmation.
 
-- Phantom reasons and the phantom plugin belong to the phantom PRD.
-- Blast radius belongs to the blast radius PRD.
-- No change to the risk type lists or the classification rules.
-- No `risk` field in `tfui plan -json`, which stays terraform's schema.
-- No `PlanJSON` cache support.
-- No fix for `ExecService.WithDir` dropping the seeded cache, binary plan files in `-plan`, or apply from idle without a plan file. Each is filed as its own issue outside this run.
-- No GIF regeneration. That is blocked on #77.
+### US-005: Render mutations and classifications consistently
 
-## Technical Considerations
+**Dependencies:** US-004. **Trace:** R5,R8.
 
-- The event bus binds handlers once when the app is built (`pkg/sdk/bus.go:14-37`), after `Configure`. Adding handler methods is enough wiring.
-- In CI mode `Session.RunPlugin` waits for `Ready()` or a terminal status (`cmd/tfui/session.go:229-234`). A failed plan must reach `StatusError`, or the command hangs for 10 minutes.
-- An empty `PlanOptions.PlanFile` makes the exec service write `tfplan.out` into the working directory. Always pass a temp path.
-- `tests/integration` exits early without terraform (`tests/integration/main_test.go:19-22`). Terraform-free proof belongs in `cmd/tfui`.
-- Standalone mode builds the bus too, so `tfui plan` will feed the risk plugin in memory. Its output must not change.
+- [ ] Implement the presentation defined in the contract reference using `sdk.ActionSymbol`, shared risk styles
+  and a shared attribute-diff renderer extracted from Plan as needed. No plugin-to-plugin imports or copied tables.
+- [ ] Show compact attribute changes directly with the resource row, overflow count and full inspection; no
+  repeated `Change` label. Keep group headings out of the resource cursor sequence.
+- [ ] Preserve action/replacement semantics, unknown notation and sensitive masking in narrow layouts and inspection.
+- [ ] Use the standard scroll gutter and cursor/count title; test navigating beyond the first viewport and resizing.
+- [ ] Distinguish no eligible mutations, explicit `none`, and unavailable assessment according to the approved
+  presentation contract. Phantom-only mutation plans are not automatically neutral.
+- [ ] Replace safety claims such as "changes look safe" with the classification and its basis. Add no Apply flow.
+- [ ] Run shared renderer tests and macro coverage for actions, both replacement orders, nested unknown/sensitive
+  values, long plans, inspection and policy failure.
 
-## Success Metrics
+### US-006: Add risk command reporting and threshold evaluation
 
-- `tfui -plan demo/fixtures/plan-large.json` followed by `R` shows a filled view, proven by `risk.tape`.
-- `tfui risk -ci -plan demo/fixtures/plan-large.json` exits 2 with no terraform binary present.
-- A live session where the user runs `p` then `R` logs one `terraform.exec` plan.
-- `mise run test:coverage` stays at 100%.
+**Dependencies:** US-004 and approved report/threshold contract. **Trace:** R2,R4,R5.
 
-## Open Questions
+- [ ] Register `tfui risk` using existing Standalone/Headless command conventions and cancellation handling.
+- [ ] Implement the accepted tfui aggregation and threshold comparison outside policy evaluation.
+- [ ] Implement approved text/JSON report, provenance, versioning and exit results. Do not adopt the old PRD's
+  `level`, default `high`, exit-code table or JSON fields without the contract decision.
+- [ ] Cover threshold boundary equality, explicit overrides, old ignored `level`, empty eligibility, excluded
+  changes, explicit defaults and all evaluation failures.
+- [ ] Keep `tfui plan -json` Terraform pass-through. Do not add a risk field or change Apply flags/auto-approval.
+- [ ] Validate stdout/stderr behavior against the approved CLI contract, including failures and sensitive diagnostics.
 
-- None blocking. The reviewer can revisit these planning calls on the pull request:
-  - a view runs its own plan when none was shared
-  - phantom changes carry risk `none`
-  - the JSON field names
-  - the default threshold `high`
+### US-007: Provide explicit policy templates and author tests
+
+**Dependencies:** US-003 and approved template/helper decisions. **Trace:** R1–R3,R6.
+
+- [ ] Supply complete, copyable source with an explicit default and no runtime preset selector.
+- [ ] Demonstrate the approved author-testing workflow on isolated resource fixtures.
+- [ ] Include Lambda code-source versus memory-only examples, unchanged/null/unknown hashes and unknown source
+  values. Reasons describe evidence rather than inventing placeholder or external ownership.
+- [ ] Apply only reviewed classifications; neither layer severities nor blanket lowering of non-code updates is
+  implied by the field report. Verify custom policies never gain built-in fallback through template tooling.
+
+## Phase 2: prove integration and publish implemented interfaces
+
+### US-008: Exercise the real user paths
+
+**Dependencies:** US-005, US-006, US-007.
+
+- [ ] Run seeded Plan and Risk through real session/config wiring with no Terraform binary. Compare classification
+  and explanation consistency, not only counts or a summary badge.
+- [ ] Exercise current `tests/fixtures/plan.json` and `demo/fixtures/plan-large.json` under the selected policy;
+  derive expected outcomes from that policy rather than stale hard-coded default-threshold assumptions.
+- [ ] Verify one live plan acquisition for Plan followed by Risk; cover Context/source changes, race rejection,
+  policy errors, cancellation, and explicit non-assessed cases.
+- [ ] Verify existing Apply behavior and Terraform JSON output remain unchanged using appropriate existing
+  regression checks. This is preservation verification, not permission to redesign Apply.
+- [ ] Run required unit, coverage, build, lint and UI macro checks. Document actual commands and outcomes.
+
+### US-009: Publish the implemented behavior and complete the PRD
+
+**Dependencies:** US-008.
+
+- [ ] Update the Risk guide's availability, keys, input modes and settings to match verified implementation.
+- [ ] Update CLI reference and I/O contract with approved flags, schemas and exit results. Keep one canonical
+  definition per interface; link from guides rather than duplicating tables.
+- [ ] Update the feature page's built-in rules if their implementation changes; distinguish them from custom policy.
+- [ ] Publish only accepted architecture records in the existing format. ADR-0025 is already assigned; discover
+  the next free number if report-schema decisions require a separate record.
+- [ ] Update relevant skill summaries only when their authoritative docs change. Update AGENTS.md only if a named
+  command, path or rule changes. Do not mark design intent as implemented until behavior tests prove it.
+- [ ] Build and check the docs site. Refresh demo media only if explicitly included in the implementation scope;
+  the existing demo-generation issue does not justify false availability claims.
+- [ ] Close implementation tracking only after the required checks pass. Architecture acceptance and documentation
+  completion alone do not mean the feature is implemented.
 [/PRD]
