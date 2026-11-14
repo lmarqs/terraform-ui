@@ -1,3 +1,10 @@
+# [1.30.0](https://github.com/lmarqs/terraform-ui/compare/v1.29.0...v1.30.0) (2026-11-14)
+
+
+### Features
+
+* **cli:** interrupt terraform once on SIGINT/SIGTERM and wait for it to stop ([f5a4c68](https://github.com/lmarqs/terraform-ui/commit/f5a4c68bb3d7cb9b1c0fbb51b6e6c0c0f834cdcb)), closes [#100](https://github.com/lmarqs/terraform-ui/issues/100)
+
 # [1.29.0](https://github.com/lmarqs/terraform-ui/compare/v1.28.1...v1.29.0) (2026-11-14)
 
 
