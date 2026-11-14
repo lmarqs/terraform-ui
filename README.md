@@ -93,7 +93,7 @@ This adds the tool to your `mise.toml` and installs it. To pin a specific versio
 ```bash
 tfui                           # TUI in current directory
 tfui --project ./infra         # TUI scoped to project directory
-tfui --plan ./tfplan.out       # TUI with pre-computed plan
+tfui --plan ./plan.json        # TUI with a plan from terraform show -json
 tfui --state ./terraform.tfstate  # TUI with pre-loaded state
 ```
 
