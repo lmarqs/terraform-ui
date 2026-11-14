@@ -45,6 +45,8 @@ func (s *ExecService) Show(ctx context.Context, address string) (string, error) 
 
 // StateRm removes a resource from state.
 func (s *ExecService) StateRm(ctx context.Context, address string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "state rm", "dir", s.workingDir, "address", address)
@@ -71,6 +73,8 @@ func (s *ExecService) StateRm(ctx context.Context, address string) error {
 
 // StateMove moves a resource in state.
 func (s *ExecService) StateMove(ctx context.Context, source, dest string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "state mv", "dir", s.workingDir, "source", source, "dest", dest)
@@ -97,6 +101,8 @@ func (s *ExecService) StateMove(ctx context.Context, source, dest string) error 
 
 // Import imports an existing resource into state.
 func (s *ExecService) Import(ctx context.Context, address, id string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "import", "dir", s.workingDir, "address", address, "id", id)
@@ -125,6 +131,8 @@ func (s *ExecService) Import(ctx context.Context, address, id string) error {
 // Note: terraform taint is deprecated in newer versions of Terraform in favor of
 // using -replace with plan/apply. terraform-exec still supports the command.
 func (s *ExecService) Taint(ctx context.Context, address string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "taint", "dir", s.workingDir, "address", address)
@@ -152,6 +160,8 @@ func (s *ExecService) Taint(ctx context.Context, address string) error {
 // Untaint removes taint from a resource.
 // Note: terraform untaint is deprecated in newer versions of Terraform.
 func (s *ExecService) Untaint(ctx context.Context, address string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "untaint", "dir", s.workingDir, "address", address)

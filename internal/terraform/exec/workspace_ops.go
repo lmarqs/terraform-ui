@@ -10,6 +10,8 @@ import (
 
 // Workspace returns the current workspace name.
 func (s *ExecService) Workspace(ctx context.Context) (string, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
@@ -27,6 +29,8 @@ func (s *ExecService) Workspace(ctx context.Context) (string, error) {
 
 // WorkspaceList returns all workspace names.
 func (s *ExecService) WorkspaceList(ctx context.Context) ([]string, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
@@ -56,6 +60,8 @@ func (s *ExecService) WorkspaceList(ctx context.Context) ([]string, error) {
 
 // WorkspaceSelect switches to the specified workspace.
 func (s *ExecService) WorkspaceSelect(ctx context.Context, name string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
@@ -72,6 +78,8 @@ func (s *ExecService) WorkspaceSelect(ctx context.Context, name string) error {
 
 // WorkspaceNew creates a new workspace and switches to it.
 func (s *ExecService) WorkspaceNew(ctx context.Context, name string, opts sdk.WorkspaceNewOptions) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
@@ -99,6 +107,8 @@ func (s *ExecService) WorkspaceNew(ctx context.Context, name string, opts sdk.Wo
 
 // WorkspaceDelete deletes the specified workspace.
 func (s *ExecService) WorkspaceDelete(ctx context.Context, name string, opts sdk.WorkspaceDeleteOptions) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()

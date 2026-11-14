@@ -26,6 +26,7 @@ type ExecService struct {
 	statePath  string
 	cache      *terraform.ServiceCache
 	dirLock    *DirLock
+	runs       *Runs
 }
 
 // NewExecService creates an ExecService with the given cache.
@@ -38,6 +39,7 @@ func NewExecService(workingDir, binaryPath string, cache *terraform.ServiceCache
 		binaryPath: binaryPath,
 		cache:      cache,
 		dirLock:    NewDirLock(),
+		runs:       NewRuns(),
 	}
 }
 
@@ -49,13 +51,19 @@ func (s *ExecService) WithDir(dir string) sdk.Service {
 		statePath:  s.statePath,
 		cache:      terraform.NewServiceCache(),
 		dirLock:    s.dirLock,
+		runs:       s.runs,
 	}
 }
+
+// Runs returns the tracker shared by this service and every WithDir copy.
+func (s *ExecService) Runs() *Runs { return s.runs }
 
 func (s *ExecService) loadState(ctx context.Context) (*tfjson.State, error) {
 	if state, ok := s.cache.GetState(); ok {
 		return state, nil
 	}
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
@@ -79,6 +87,11 @@ func (s *ExecService) newTerraform() (*tfexec.Terraform, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating terraform instance: %w", err)
 	}
+	// With the default 60s WaitDelay terraform-exec SIGKILLs terraform after an
+	// interrupt; tfui waits for terraform to stop on its own instead.
+	if err := tf.SetWaitDelay(0); err != nil {
+		return nil, fmt.Errorf("creating terraform instance: %w", err)
+	}
 	return tf, nil
 }
 
@@ -89,6 +102,8 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 	if plan, ok := s.cache.GetPlan(); ok {
 		return plan, nil
 	}
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir)
@@ -137,6 +152,8 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 
 // Apply runs terraform apply. All options are passed through to terraform as-is.
 func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "apply", "dir", s.workingDir, "plan", opts.PlanFile, "targets", opts.Targets)
@@ -179,6 +196,8 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 
 // Validate runs terraform validate.
 func (s *ExecService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "validate", "dir", s.workingDir)
@@ -217,6 +236,8 @@ func (s *ExecService) Validate(ctx context.Context) ([]sdk.Diagnostic, error) {
 
 // Output returns all terraform outputs.
 func (s *ExecService) Output(ctx context.Context) (map[string]sdk.OutputValue, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "output", "dir", s.workingDir)
@@ -253,6 +274,8 @@ func (s *ExecService) Output(ctx context.Context) (map[string]sdk.OutputValue, e
 
 // Refresh refreshes terraform state.
 func (s *ExecService) Refresh(ctx context.Context) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "refresh", "dir", s.workingDir)
@@ -275,6 +298,8 @@ func (s *ExecService) Refresh(ctx context.Context) error {
 
 // Init runs terraform init.
 func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "init", "dir", s.workingDir)
@@ -331,6 +356,8 @@ func (s *ExecService) Init(ctx context.Context, opts sdk.InitOptions) error {
 
 // Version returns the terraform binary version and provider selections.
 func (s *ExecService) Version(ctx context.Context) (*sdk.VersionInfo, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	tf, err := s.newTerraform()
@@ -357,6 +384,8 @@ func (s *ExecService) Version(ctx context.Context) (*sdk.VersionInfo, error) {
 
 // ForceUnlock removes a state lock by ID.
 func (s *ExecService) ForceUnlock(ctx context.Context, lockID string) error {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "force-unlock", "dir", s.workingDir, "lockID", lockID)
@@ -378,6 +407,7 @@ func (s *ExecService) ForceUnlock(ctx context.Context, lockID string) error {
 
 // runRawJSON invokes the terraform binary directly to capture raw `-json` byte
 // output. tfexec's typed wrappers parse responses; we want the bytes verbatim.
+// Callers must pass a context from Runs.Track.
 func (s *ExecService) runRawJSON(ctx context.Context, args ...string) ([]byte, error) {
 	cmd := exec.CommandContext(ctx, s.binaryPath, args...)
 	cmd.Dir = s.workingDir
@@ -438,6 +468,8 @@ func buildTfexecPlanOptions(opts sdk.PlanOptions, planFilePath string) []tfexec.
 // PlanJSON runs terraform plan, then `terraform show -json <planfile>`
 // and returns the raw bytes terraform produced.
 func (s *ExecService) PlanJSON(ctx context.Context, opts sdk.PlanOptions) ([]byte, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "plan-json", "dir", s.workingDir)
@@ -469,6 +501,8 @@ func (s *ExecService) PlanJSON(ctx context.Context, opts sdk.PlanOptions) ([]byt
 
 // ValidateJSON runs `terraform validate -json` and returns the raw bytes.
 func (s *ExecService) ValidateJSON(ctx context.Context) ([]byte, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	return s.runRawJSON(ctx, "validate", "-json")
@@ -476,6 +510,8 @@ func (s *ExecService) ValidateJSON(ctx context.Context) ([]byte, error) {
 
 // OutputJSON runs `terraform output -json` and returns the raw bytes.
 func (s *ExecService) OutputJSON(ctx context.Context) ([]byte, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	return s.runRawJSON(ctx, "output", "-json")
@@ -483,6 +519,8 @@ func (s *ExecService) OutputJSON(ctx context.Context) ([]byte, error) {
 
 // VersionJSON runs `terraform version -json` and returns the raw bytes.
 func (s *ExecService) VersionJSON(ctx context.Context) ([]byte, error) {
+	ctx, done := s.runs.Track(ctx)
+	defer done()
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	return s.runRawJSON(ctx, "version", "-json")
