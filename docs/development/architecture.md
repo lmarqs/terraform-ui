@@ -179,8 +179,9 @@ state, mark stale) from a chdir or workspace switch (full reset).
 
 ## Plugin Loading
 
-Plugins are compiled into the binary. `buildRegistry()` in `cmd/tfui/registry.go` registers each factory with a
-`plugin.PluginMeta` that holds its routing, so plugins stay invocation-agnostic:
+Plugins are compiled into the binary. `buildRegistry()` in `cmd/tfui/registry.go` is the one place every plugin is
+registered and handed its `tfui.hcl` settings. It registers each factory with a `plugin.PluginMeta` that holds its
+routing, so plugins stay invocation-agnostic ([ADR-0006](../adr/0006-orthogonal-income-outcome.md)):
 
 | Field | Meaning |
 |-------|---------|
@@ -235,7 +236,8 @@ frames: `FilterFrame`, `InspectFrame`, `ConfirmFrame`, `ActionFrame` (a running 
 
 ## Terraform Integration
 
-Two sibling implementations of `sdk.Service` exist as a strategy pattern, selected at startup by execution mode.
+Two sibling implementations of `sdk.Service` exist as a strategy pattern, selected once at startup; plugins never know
+which one runs ([ADR-0002](../adr/0002-dual-runtime-strategy.md)).
 A new `Service` method is implemented on `ExecService`, `MacroService` and `sdktest.MockService`.
 
 ### ExecService (live execution)
@@ -255,7 +257,8 @@ deterministic and safe: the UI renders real data from the cache, and mutations n
 
 `internal/terraform/service_cache.go` is shared by both strategies:
 
-- Pre-seeded at startup from `-plan`/`-state` ([ADR-0005](../adr/0005-cache-preseeding.md))
+- Pre-seeded at startup from `-plan`/`-state` ([ADR-0005](../adr/0005-cache-preseeding.md)): `PreseedSources.Seed`
+  (`cmd/tfui/sources.go`) fills the cache before the service that wraps it is built
 - Three source kinds: `file` (re-reads on invalidate), `stdin` (immutable), `exec` (cleared on invalidate)
 - State-mutating operations (`StateRm`, `StateMove`, `Import`, `Taint`, `Untaint`) invalidate the state cache
 - `Refresh()`, `Init()` and `WorkspaceSelect()` invalidate everything
@@ -289,25 +292,18 @@ run terraform directly through `imperativeService(cfg)`. The bare `tfui` command
 `Session.Run()` executes `validate → LoadTape → buildService → buildRegistry → buildApp → present → emitRecorded`.
 `RunPlugin` runs the same pipeline with the app in standalone mode for one plugin.
 
-Two orthogonal axes are resolved from flags:
+Two orthogonal axes are resolved from flags, and every combination is valid
+([ADR-0006](../adr/0006-orthogonal-income-outcome.md)):
 
 | Axis | Values | Determines |
 |------|--------|-----------|
-| **Presentation** | `Interactive` / `Headless` | A `tea.Program` on the alt screen, or the macro driver (`--macro`, or a silent stderr: `--ci`, `CI=1`, an agent environment, or a non-TTY stderr) |
+| **Presentation** | `Interactive` / `Headless` | A `tea.Program` on the alt screen, or the macro driver: for bare `tfui` under `--macro`; for a command when the [mode resolution](../reference/cli-io-contract.md#mode-resolution) picks headless |
 | **Backend** | `Exec` / `Recording` | Terraform runs live (`ExecService`) or commands are recorded (`MacroService`, under `--macro`) |
 
-### Architectural decisions
+### Version
 
-| Decision | Rationale |
-|----------|-----------|
-| Orthogonal axes (Presentation × Backend) | Any combination is valid: Interactive+Exec (TUI), Headless+Exec (CI), Headless+Recording (macro). Flags compose, not branch. |
-| `buildRegistry()` is axis-agnostic | Plugins don't know their presentation or backend. Same registry regardless of which axis combination is active |
-| ServiceCache seeded before service creation | `PreseedSources.Seed` fills the cache, then the service wraps it. Pre-seeded data serves reads without shelling out |
-| `buildRegistry()` as single composition point | All 18 plugins registered with metadata in one place. Config injection happens here, not scattered |
-| TTY detection gates interactive mode | No TTY → Headless axis. No TTY without data → actionable error |
-| `splitPassthrough()` + `normalizeArgs()` | Terraform flag compatibility: `--` separates tfui flags from terraform extras; short flags normalized |
-| Version resolution chain | `ldflags` (CI) → `ReadBuildInfo` (go install) → `"0.0.0-SNAPSHOT"` (dev) |
-| TUI on stderr, data on stdout | CLI commands respect Unix conventions: pipe-safe stdout, human feedback on stderr ([CLI I/O contract](../reference/cli-io-contract.md)) |
+`main.version` comes from the release build's `-ldflags -X main.version=…` (goreleaser), else from
+`debug.ReadBuildInfo()` for `go install`, else `0.0.0-SNAPSHOT`.
 
 ## Config Resolution & Propagation
 
@@ -362,63 +358,9 @@ used for headless runs, tests and demo recording.
 | `recorder.go` | Wraps a `tea.Model` to capture ANSI frames and generate a tape (`--record`); headless, the runner feeds it with `CaptureView()` |
 | `key_string.go` | Maps `tea.KeyMsg` back to tape syntax |
 
-## Testing Strategy
+## Testing
 
-| Layer | Approach | Coverage Target |
-|-------|----------|-----------------|
-| `pkg/sdk` | Unit tests (bus, actions, stack, pins, options) | 100% |
-| `internal/terraform` (parsers) | Unit tests, mock data | 100% |
-| `internal/terraform/exec` (service calls) | Integration tests (need terraform binary) | Excluded from unit coverage |
-| `internal/plugin` | Unit tests, mock plugins | 100% |
-| `internal/ui` | Unit tests, mock registry | 100% |
-| `plugins/*` | Unit tests, mock service | 100% |
-| `cmd/tfui` | Excluded (thin glue) | N/A |
-| `tests/integration` | Integration (build tag, need terraform) | Behavioral coverage |
-
-Coverage enforcement: 100% gate on all packages except `cmd/` (glue layer) and `internal/terraform/exec`
-([ADR-0008](../adr/0008-coverage-as-behavioral-gate.md)). Pipeline fails if coverage drops. How to write each kind of
-test is in [Testing](testing.md).
-
-## Development
-
-```bash
-mise run dev              # Launch TUI in dev mode
-mise run build            # Cross-platform binaries
-mise run fmt              # Format source files
-mise run check:lint       # Lint (golangci-lint v2)
-mise run test:unit        # Unit tests
-mise run test:coverage    # Coverage enforcement (100%)
-mise run test:integration # Integration tests (real terraform)
-mise run test:macro       # Macro tapes
-```
-
-## Key Design Decisions
-
-### Architecture
-
-| Decision | Rationale |
-|----------|-----------|
-| `pkg/sdk` as public contract | Plugins never import internal/. |
-| Plugin = feature | Every capability is a plugin. Core app is just routing. |
-| Dependency injection | Service interface enables mocking. Plugins receive `PluginDeps` and the Context, not concrete types. |
-| Plugins invocation-agnostic | Same plugin works via keybinding, command bar, CLI, macro. No coupling to navigation. |
-| 100% coverage (excl `cmd/`, `internal/terraform/exec`) | Pipeline enforced. Untestable layers kept minimal via DI. |
-| OpenTofu first-class | Configurable via `terraform.bin` in HCL config, or let terraform-exec resolve. No auto-detection. |
-| `EventBus` typed pub/sub | Plugins react to state changes (context, plan, lock, state) via handler interfaces. No polling, no stringly-typed keys. Compile-time safe. |
-| ExecService + MacroService as sibling strategies | Same interface, different behavior. ExecService shells out for live ops; MacroService records commands without executing. Selected at startup, plugins are unaware. |
-| ServiceCache as shared read layer | Both strategies read from the same cache. Pre-seeded from `-plan`/`-state` at startup, populated by ExecService after live calls. Pre-seeding means reads never shell out when data is already available. |
-
-### UX
-
-| Decision | Rationale |
-|----------|-----------|
-| Plan and Apply are separate screens | Different cognitive purposes (review vs execute). Apply can run standalone. |
-| Pins become targets on plan | Space pins a resource; `Context.PlanOptions()` turns pins into `-target`. Pin, plan, then apply = apply only the pinned resources. |
-| `a` from Plan = apply the reviewed plan file | Seamless flow: review → select → execute. No address typing. |
-| ExecService executes live, user waits for real results | Spinners, elapsed time, real errors — the UX communicates "this is happening now" with progress feedback and retry on failure. |
-| MacroService returns commands, not errors | Macro playback becomes a command builder. User sees the terraform commands that would run. |
-| CLI and TUI produce identical state | Testable invariant. The equivalence guarantee. |
-| Macros test UI, integration tests outcomes | Different concerns, different tools. Macros are fast/deterministic. Integration tests are authoritative. |
+How each layer is tested, and the coverage gate, are in [Testing](testing.md).
 
 ## Command Type (`pkg/sdk/command.go`)
 

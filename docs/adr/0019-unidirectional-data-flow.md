@@ -18,7 +18,7 @@ This applies universally: any layered relationship in the system follows these r
 
 We chose strict layering over flat shared state because shared mutable state between siblings is structurally unsound. When any node can independently read from a grandparent or a shared pool, it creates parallel data paths with no consistency enforcement. Strict layering makes inconsistency impossible by construction.
 
-The target-leak bug forced the choice. Apply kept its own target list, pushed to it apart from the plan, and re-planned with those targets on its own. Pinned targets from one context survived a context switch and reached terraform in another: the user applied with stale targets the TUI did not show, and terraform modified the wrong resources in the wrong module.
+The target-leak bug forced the choice. Apply kept its own target list, pushed to it apart from the plan, and re-planned with those targets on its own. Pins from one context survived a context switch and reached terraform in another: the user applied with stale targets the TUI did not show, and terraform modified the wrong resources in the wrong module.
 
 ## Consequences
 
