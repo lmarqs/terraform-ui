@@ -1,3 +1,16 @@
+## [1.28.1](https://github.com/lmarqs/terraform-ui/compare/v1.28.0...v1.28.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **apply:** take a one-shot apply's default scope from plan's targets ([fedbea3](https://github.com/lmarqs/terraform-ui/commit/fedbea3e75f0dd374d9707dac9cf28706a36c11d))
+* **chdir:** open the current directory when tfui.hcl is absent ([a9f27cc](https://github.com/lmarqs/terraform-ui/commit/a9f27cc1220c09bf02ae60669a617e6f00a21d02))
+* **cli:** print one v in the version of a go install build ([40688e5](https://github.com/lmarqs/terraform-ui/commit/40688e5720f478cb8a734281e27443f757c809e8))
+* **cli:** warn when a live run drops the arguments after -- ([f613d8b](https://github.com/lmarqs/terraform-ui/commit/f613d8b3c53d00c29e2bc7e006bab4a4c82b47fb))
+* **plan:** show the plan seeded with -plan instead of running terraform ([2569ed2](https://github.com/lmarqs/terraform-ui/commit/2569ed20e618db04f872a9dae170a0b102aebac7))
+* **ui:** label q as home in the full TUI's hint bar ([4c6ae73](https://github.com/lmarqs/terraform-ui/commit/4c6ae73e359a1bb7627d2d849fd2b479940c94aa))
+* **version:** end a headless run when the terraform call fails ([5b58237](https://github.com/lmarqs/terraform-ui/commit/5b582374673a30bd58164f7528ac2fdcc91301a1))
+
 # [1.28.0](https://github.com/lmarqs/terraform-ui/compare/v1.27.3...v1.28.0) (2026-11-14)
 
 
