@@ -13,15 +13,16 @@ Its explanations are guesses from the attribute name. `explainPhantom`
 a `tfui phantom` stdin filter, a `tfui show` command and `phantom` fields in `tfui plan -json`.
 None of those exists.
 
-This PRD depends on the risk PRD (`tasks/prd-risk.md`), which must be complete first. The risk PRD
-delivers:
-- `AnnotatePlan`
-- phantom changes carrying risk `none`
-- the exec service serving a pre-seeded `-plan`
-- plugin `Configure` errors
-- `cmd/tfui/analysis_session_test.go`
-- ADR-0023 for tfui-native JSON
-- the risk plugin, whose lifecycle this PRD copies
+This PRD depends on the [Risk implementation plan](prd-risk.md), which must be complete first. Reuse its
+verified same-plan acquisition, seeded-session support and Context invalidation behavior. Preserve the existing
+exec-service cache; the dependency is working behavior through real session wiring, not a new annotation helper
+or a prescribed test filename.
+
+The [risk policy contract](../docs/reference/risk-policy-contract.md) owns classification and failure semantics.
+Phantom labels do not suppress eligible mutations or force risk to `none`; this plugin records normalization
+reasons without changing classifications. Risk-policy failure must not be mistaken for Terraform planning failure.
+Use the accepted [CLI I/O contract](../docs/reference/cli-io-contract.md) for command conventions; this PRD does
+not assume a shared tfui-native JSON ADR or copy Risk's threshold/exit semantics.
 
 ## Goals
 
@@ -73,7 +74,7 @@ For UI stories (US-002, US-004), also include:
 
 **Acceptance Criteria:**
 - [ ] `plugins/phantom/input.go` defines `Input{JSON bool}`.
-- [ ] `Activate(Input)`, `HandlePlanCompleted`, `HandlePlanInvalidated`, `HandleContextChanged`, `Busy` and `Cancel` behave exactly as the risk plugin's do, with temp plan file prefix `tfui-phantom-`.
+- [ ] Activation, plan completion/invalidation, Context changes and cancellation reuse the verified acquisition lifecycle from Risk, with temp plan file prefix `tfui-phantom-`. Preserve Phantom's own result and failure semantics rather than copying policy evaluation or threshold handling.
 - [ ] While the plan runs, the view shows `Loading plan…`.
 - [ ] The idle view reads `No plan yet. Press p to run one.`, and the idle test near `plugins/phantom/phantom_test.go:283` matches.
 - [ ] `explainPhantom` and `PhantomChange.Explanation` are removed. The expanded row shows `change.PhantomReason`.
@@ -96,7 +97,7 @@ For UI stories (US-002, US-004), also include:
 **Description:** As a maintainer, I want `tfui phantom` exercised headlessly from a seeded plan so that the path cannot regress.
 
 **Acceptance Criteria:**
-- [ ] `cmd/tfui/analysis_session_test.go` gains phantom cases against `demo/fixtures/plan-large.json` with a terraform binary path that does not exist. They assert text stdout, the JSON shape and exit code 0.
+- [ ] Real session tests under `cmd/tfui/` cover phantom cases against `demo/fixtures/plan-large.json` with a terraform binary path that does not exist. They assert text stdout, the JSON shape and exit code 0.
 - [ ] `tests/fixtures/tapes/smoke/phantom.tape` presses `P` after `wait ready` and asserts text seen only in a filled view. On `tests/fixtures/plan.json` that may be `No phantom changes detected.`.
 - [ ] `mise run test:macro` passes.
 
@@ -112,7 +113,7 @@ For UI stories (US-002, US-004), also include:
 - [ ] No page claims `tfui plan -json` carries a `phantom` field or `phantom_resources`, or that `tfui plan -ci` shows a phantom count.
 - [ ] `docs/features/phantom-changes.md`:
   - lists the four reasons with an example each
-  - says phantom changes carry risk `none`
+  - links to the risk contract and explains that phantom labels neither bypass classification nor force `none`
   - drops `tfui show` and the stdin-only example
   - drops the dimming and filter claims about the plan view
 - [ ] `docs/reference/cli-reference.md` gains a `tfui phantom` section.

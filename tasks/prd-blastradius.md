@@ -13,13 +13,16 @@ It has no headless side, and its docs disagree with the code:
 - The README promises "resource dependencies", but no dependency graph exists.
 - The pages list `Space` to expand, but only `enter` and `i` are bound.
 
-This PRD depends on the risk PRD (`tasks/prd-risk.md`) and the phantom PRD (`tasks/prd-phantom.md`),
-which must be complete first. They deliver:
-- the exec service serving a pre-seeded `-plan`
-- `AnnotatePlan`
-- `cmd/tfui/analysis_session_test.go`
-- ADR-0023 for tfui-native JSON
-- the lifecycle pattern this PRD copies
+This PRD depends on the [Risk](prd-risk.md) and [Phantom](prd-phantom.md) implementation plans,
+which must be complete first. Reuse their verified same-plan acquisition, seeded-session support and Context
+invalidation behavior. These are behavioral dependencies, not promises of a new annotation helper, a prescribed
+test filename or a shared tfui-native JSON ADR. Command conventions belong to the
+[CLI I/O contract](../docs/reference/cli-io-contract.md).
+
+**Blocked on risk-consumer compatibility:** the [risk architecture design](../docs/development/risk-policy-design.md#remaining-decisions)
+and Risk PRD D-01 must settle how custom classifications and unavailable/partial assessments affect Blast Radius.
+Before implementing dependent stories, update the scoring, report and exit requirements below to match that
+accepted decision. Their current shapes describe completed assessments; they do not define failure behavior.
 
 ## Goals
 
@@ -55,10 +58,10 @@ For UI stories (US-001, US-003), also include:
 
 **Acceptance Criteria:**
 - [ ] `plugins/blastradius/input.go` defines `Input{JSON bool}`.
-- [ ] `Activate(Input)`, `HandlePlanCompleted`, `HandlePlanInvalidated`, `HandleContextChanged`, `Busy` and `Cancel` behave exactly as the risk plugin's do, with temp plan file prefix `tfui-blastradius-`.
+- [ ] Activation, plan completion/invalidation, Context changes and cancellation reuse the verified acquisition lifecycle from Risk, with temp plan file prefix `tfui-blastradius-`. Apply the accepted consumer compatibility decision rather than copying Risk's policy-error or threshold handling.
 - [ ] While the plan runs, the view shows `Loading plan…`.
 - [ ] The idle view reads `No plan yet. Press p to run one.`, and the idle test near `plugins/blastradius/blastradius_test.go:328` matches.
-- [ ] Scoring in `calculateImpact` is unchanged.
+- [ ] Preserve the existing impact formula for completed assessments except for changes explicitly required by the accepted risk-consumer compatibility decision. Test custom classifications and unavailable/partial assessments against that decision.
 - [ ] Keys stay `j`/`k`/arrows, `enter`/`i`, `esc`/`q`.
 - [ ] `internal/ui/app.go` `activate()` gains a blast radius case, and `TestApp_Activate_TypedSwitch_DispatchesPerPluginType` gains a `blastradius` row.
 
@@ -69,7 +72,7 @@ For UI stories (US-001, US-003), also include:
 - [ ] Text `Stdout()` prints one line per module, highest impact first, as `<module>  <impact>  +<add> ~<change> -<destroy> ±<replace>`, then `Modules: <n>, changes: <m>`.
 - [ ] JSON `Stdout()` prints `{"total_changes": m, "modules": [{"module", "impact", "add", "change", "destroy", "replace", "changes": [{"address", "action", "risk", "phantom"}]}]}`. `impact` is `ImpactScore.String()` and `action` is the `sdk.Action` string.
 - [ ] `Stderr()` returns the plan error plus newline on `StatusError`, and nil otherwise. `Stdout()` returns nothing on error.
-- [ ] `ExitCode()` is 1 on `StatusError` and 0 otherwise.
+- [ ] Planning failure exits 1; a completed report exits 0. Assessment unavailability/partial failure follows the accepted consumer compatibility decision; specify and test its stdout, stderr and exit behavior before implementation.
 - [ ] `cmd/tfui/blastradius_command.go` (`Use: "blastradius"`) follows `cmd/tfui/risk_command.go`, is registered in `cmd/tfui/main.go`, and has `blastradius_command_test.go`.
 - [ ] Golden or table tests cover text and JSON output, a root-only plan, and each exit code.
 
@@ -77,7 +80,7 @@ For UI stories (US-001, US-003), also include:
 **Description:** As a maintainer, I want `tfui blastradius` exercised headlessly from a seeded plan so that the path cannot regress.
 
 **Acceptance Criteria:**
-- [ ] `cmd/tfui/analysis_session_test.go` gains blast radius cases against `demo/fixtures/plan-large.json` with a terraform binary path that does not exist. They assert text stdout, the JSON shape, the first module's impact and exit code 0.
+- [ ] Real session tests under `cmd/tfui/` cover blast radius cases against `demo/fixtures/plan-large.json` with a terraform binary path that does not exist. They assert text stdout, the JSON shape, the first module's impact and exit code 0.
 - [ ] `tests/fixtures/tapes/smoke/blastradius.tape` presses `B` after `wait ready` and asserts text seen only in a filled view, such as `module(s) affected`.
 - [ ] `mise run test:macro` passes.
 
@@ -102,13 +105,13 @@ For UI stories (US-001, US-003), also include:
 
 - FR-1: When the plan plugin finishes a plan, the blast radius plugin must analyze the summary carried by `sdk.PlanCompletedEvent`.
 - FR-2: Activating it with no analyzed summary must obtain one through `Service.Plan` with a temporary plan file. With one already analyzed, it must not run terraform.
-- FR-3: `tfui blastradius` must exit 1 when the plan fails and 0 otherwise. On failure it must write terraform's error to stderr and nothing to stdout.
+- FR-3: `tfui blastradius` must exit 1 when Terraform planning fails, with Terraform's error on stderr and nothing on stdout. A completed report exits 0. Risk assessment failures follow the accepted consumer compatibility decision; they must not silently become minimal impact.
 - FR-4: `-json` must switch stdout to the documented schema.
 
 ## Non-Goals
 
 - No dependency graph and no resource-level blast radius. Blast radius stays module grouping.
-- No change to the impact scoring rule.
+- No impact scoring redesign beyond the accepted risk-consumer compatibility decision.
 - No exit-code gate on impact.
 - Risk and phantom work belong to their own PRDs.
 - No GIF regeneration. That is blocked on #77.
@@ -116,7 +119,7 @@ For UI stories (US-001, US-003), also include:
 ## Technical Considerations
 
 - Module grouping comes from `sdk.GroupByModule` (`pkg/sdk/grouping.go`), which sorts alphabetically and names changes without a module `root`. The plugin then sorts by impact.
-- Phantom changes already carry risk `none` from the risk PRD's `AnnotatePlan`, which lowers some module scores. Tests should reflect that.
+- Phantom mutations retain classification under the selected policy, as defined by the [risk contract](../docs/reference/risk-policy-contract.md#which-changes-are-assessed). Do not lower module scores solely because a change is marked phantom.
 
 ## Success Metrics
 
@@ -127,5 +130,5 @@ For UI stories (US-001, US-003), also include:
 
 ## Open Questions
 
-- None blocking.
+- How do custom classifications and unavailable/partial risk assessments affect impact scoring, reports and command outcomes? Resolve this through Risk PRD D-01 and the architecture design before implementing dependent stories; do not choose defaults here.
 [/PRD]
