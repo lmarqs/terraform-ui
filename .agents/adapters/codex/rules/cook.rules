@@ -1,0 +1,32 @@
+# cook:begin io.github.lmarqs.cookbook:agents#connect/commands
+# io.github.lmarqs.cookbook:agents#connect --harness=claude --harness=codex --worktree-setup=.worktrees/setup --worktree-teardown=.worktrees/teardown --worktree-base=head
+# bypass: refuse reaches Claude only: --ignore-rules or an untrusted project skips these rules, --approve-for-me approves prompts
+prefix_rule(pattern = ["git"], decision = "allow")
+prefix_rule(pattern = ["gh", "auth", "status"], decision = "allow")
+prefix_rule(pattern = ["gh", "issue", ["close", "comment", "create", "edit", "list", "reopen", "view"]], decision = "allow")
+prefix_rule(pattern = ["gh", "pr", ["checkout", "checks", "close", "comment", "create", "diff", "edit", "list", "merge", "ready", "review", "status", "view"]], decision = "allow")
+prefix_rule(pattern = ["gh", "label", ["create", "edit", "list"]], decision = "allow")
+prefix_rule(pattern = ["gh", "project", ["field-list", "item-add", "item-edit", "item-list", "list", "view"]], decision = "allow")
+prefix_rule(pattern = ["gh", "repo", "view"], decision = "allow")
+prefix_rule(pattern = ["gh", "run", ["cancel", "list", "rerun", "view", "watch"]], decision = "allow")
+prefix_rule(pattern = ["gh", "search"], decision = "allow")
+prefix_rule(pattern = ["go"], decision = "allow")
+prefix_rule(pattern = ["gofmt"], decision = "allow")
+prefix_rule(pattern = ["golangci-lint"], decision = "allow")
+prefix_rule(pattern = ["gotestsum"], decision = "allow")
+prefix_rule(pattern = ["mise", "install"], decision = "allow")
+prefix_rule(pattern = ["mise", "tasks"], decision = "allow")
+prefix_rule(pattern = ["mise", "run", ["build", "dev", "fmt", "setup"]], decision = "allow")
+prefix_rule(pattern = ["mise", "run", ["check:build", "check:lint"]], decision = "allow")
+prefix_rule(pattern = ["mise", "run", ["test:all", "test:coverage", "test:integration", "test:macro", "test:unit"]], decision = "allow")
+prefix_rule(pattern = ["mise", "run", ["docs:build", "docs:check", "docs:install", "docs:serve"]], decision = "allow")
+prefix_rule(pattern = ["mise", "run", ["demo:generate", "demo:lock"]], decision = "allow")
+prefix_rule(pattern = ["./.worktrees/setup"], decision = "allow")
+prefix_rule(pattern = ["git", "push", ["--force", "--force-with-lease", "-f"], "origin", ["main", "HEAD:main"]], decision = "forbidden")
+prefix_rule(pattern = ["git", "push", "origin", ["+main", "+HEAD:main"]], decision = "forbidden")
+# Not enforced by Codex, Claude-only: git push origin main --force*
+# Not enforced by Codex, Claude-only: git push origin main -f*
+# Not enforced by Codex, Claude-only: git push origin HEAD:main --force*
+# Not enforced by Codex, Claude-only: git push origin HEAD:main -f*
+# Not enforced by Codex, Claude-only: mise * ::: *
+# cook:end io.github.lmarqs.cookbook:agents#connect/commands

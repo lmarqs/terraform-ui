@@ -5,12 +5,14 @@ recipes:
     source: "io.github.lmarqs.cookbook:agents:12.1.0#connect"
     sha256: "3dce6e93e88bbb4e4ade7ec51067760e74308134d46296b9fb0aeca0470b916b"
     arguments:
-      "harness": ["claude"]
+      "harness": ["claude","codex"]
       "worktree-setup": [".worktrees/setup"]
       "worktree-teardown": [".worktrees/teardown"]
       "worktree-base": ["head"]
     owns:
       sections:
+        - file: ".agents/adapters/codex/rules/cook.rules"
+          id: "io.github.lmarqs.cookbook:agents#connect/commands"
         - file: ".gitignore"
           id: "io.github.lmarqs.cookbook:agents#connect/harnesses"
       keys:
@@ -22,6 +24,14 @@ recipes:
           path: ["hooks","WorktreeRemove"]
         - file: ".agents/adapters/claude/settings.json"
           path: ["permissions"]
+        - file: ".agents/adapters/codex/config.toml"
+          path: ["approval_policy"]
+        - file: ".agents/adapters/codex/config.toml"
+          path: ["sandbox_mode"]
+        - file: ".agents/adapters/codex/config.toml"
+          path: ["sandbox_workspace_write","network_access"]
+        - file: ".agents/adapters/codex/hooks.json"
+          path: ["hooks","SessionStart"]
       files:
         - ".agents/adapters/claude/agents/arch-checker.md"
         - ".agents/adapters/claude/agents/architect.md"
@@ -33,12 +43,26 @@ recipes:
         - ".agents/adapters/claude/agents/security-checker.md"
         - ".agents/adapters/claude/agents/test-writer.md"
         - ".agents/adapters/claude/agents/tui-checker.md"
+        - ".agents/adapters/codex/agents/arch-checker.toml"
+        - ".agents/adapters/codex/agents/architect.toml"
+        - ".agents/adapters/codex/agents/cli-checker.toml"
+        - ".agents/adapters/codex/agents/code-checker.toml"
+        - ".agents/adapters/codex/agents/exploratory-tester.toml"
+        - ".agents/adapters/codex/agents/macro-runner.toml"
+        - ".agents/adapters/codex/agents/roadmap.toml"
+        - ".agents/adapters/codex/agents/security-checker.toml"
+        - ".agents/adapters/codex/agents/test-writer.toml"
+        - ".agents/adapters/codex/agents/tui-checker.toml"
         - ".agents/hooks/session-start"
         - ".agents/hooks/worktree"
       links:
         - ".claude/agents"
         - ".claude/settings.json"
         - ".claude/skills"
+        - ".codex/agents"
+        - ".codex/config.toml"
+        - ".codex/hooks.json"
+        - ".codex/rules"
   - name: "io.github.lmarqs.cookbook:agents#seed"
     source: "io.github.lmarqs.cookbook:agents:12.1.0#seed"
     sha256: "3dce6e93e88bbb4e4ade7ec51067760e74308134d46296b9fb0aeca0470b916b"

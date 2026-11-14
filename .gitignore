@@ -49,12 +49,18 @@ terraform_ui_demo.egg-info/
 !/.worktrees/teardown
 # cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees
 # cook:begin io.github.lmarqs.cookbook:agents#connect/harnesses
-# io.github.lmarqs.cookbook:agents#connect --harness=claude --worktree-setup=.worktrees/setup --worktree-teardown=.worktrees/teardown --worktree-base=head
+# io.github.lmarqs.cookbook:agents#connect --harness=claude --harness=codex --worktree-setup=.worktrees/setup --worktree-teardown=.worktrees/teardown --worktree-base=head
 !/.claude/
 /.claude/*
 !/.claude/settings.json
 !/.claude/skills
 !/.claude/agents
+!/.codex/
+/.codex/*
+!/.codex/config.toml
+!/.codex/hooks.json
+!/.codex/rules
+!/.codex/agents
 # Claude Code skips AGENTS.md while any of these exists, so they stay out of commits.
 CLAUDE.md
 CLAUDE.local.md
