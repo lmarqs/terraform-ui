@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -291,7 +292,7 @@ func TestPumpOutputPort_WhenOwnerExitCodeVaries_ShouldReturnExitError(t *testing
 			registry.Build(nil, nil)
 			session := &Session{effects: Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}}
 
-			err := session.pumpOutputPort(registry, "plan", "plan")
+			err := session.pumpOutputPort(registry, "plan", "plan", nil)
 
 			if !tt.wantErr {
 				if err != nil {
@@ -308,6 +309,55 @@ func TestPumpOutputPort_WhenOwnerExitCodeVaries_ShouldReturnExitError(t *testing
 			}
 			if len(events) != 0 {
 				t.Errorf("pumpOutputPort shut plugins down itself: events = %v", events)
+			}
+		})
+	}
+}
+
+// reportingPlugin fills every output port, so a test can see which of them
+// reach the user.
+type reportingPlugin struct {
+	sdk.Plugin
+	code int
+}
+
+func (p *reportingPlugin) ID() string              { return "plan" }
+func (p *reportingPlugin) Stdout() ([]byte, error) { return []byte("Plan: 1 to add\n"), nil }
+func (p *reportingPlugin) Stderr() []byte          { return []byte("terraform said why\n") }
+func (p *reportingPlugin) ExitCode() int           { return p.code }
+
+func TestPumpOutputPort_WhenInterrupted_ShouldSkipStdoutKeepStderrAndExitWithSignalCode(t *testing.T) {
+	tests := []struct {
+		name     string
+		sig      os.Signal
+		exitCode int
+		wantCode int
+	}{
+		{name: "SIGINT overrides a zero exit code", sig: syscall.SIGINT, exitCode: 0, wantCode: 130},
+		{name: "SIGINT overrides the plugin's exit code", sig: syscall.SIGINT, exitCode: 1, wantCode: 130},
+		{name: "SIGTERM overrides the plugin's exit code", sig: syscall.SIGTERM, exitCode: 1, wantCode: 143},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			registry := plugin.NewRegistry()
+			registry.RegisterFactory("plan", func(_ sdk.Service) sdk.Plugin {
+				return &reportingPlugin{code: tt.exitCode}
+			}, plugin.PluginMeta{})
+			registry.Build(nil, nil)
+			var stdout, stderr bytes.Buffer
+			session := &Session{effects: Effects{Stdout: &stdout, Stderr: &stderr}}
+
+			err := session.pumpOutputPort(registry, "plan", "plan", tt.sig)
+
+			var exitErr *exitError
+			if !errors.As(err, &exitErr) || exitErr.code != tt.wantCode {
+				t.Fatalf("pumpOutputPort error = %v, want exitError with code %d", err, tt.wantCode)
+			}
+			if stdout.Len() != 0 {
+				t.Errorf("stdout = %q, want empty after a signal", stdout.String())
+			}
+			if got := stderr.String(); got != "terraform said why\n" {
+				t.Errorf("stderr = %q, want the plugin's stderr as is", got)
 			}
 		})
 	}

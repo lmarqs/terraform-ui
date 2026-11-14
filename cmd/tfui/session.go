@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -44,8 +45,15 @@ func (s *Session) Run() error {
 	}
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	defer registry.Shutdown()
+	guard, stopSignals := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
+	defer stopSignals()
 	app := s.buildApp(svc, registry)
-	_, err = s.present(app, tape)
+	_, err = s.present(app, tape, guard)
+	sig := guard.Finish()
+	stopSignals()
+	if sig != nil {
+		return &exitError{code: interruptExitCode(sig)}
+	}
 	if err != nil {
 		return err
 	}
@@ -85,8 +93,11 @@ func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
 	return ui.NewApp(s.cfg, svc, registry, s.rootCfg)
 }
 
-func (s *Session) present(app ui.App, tape []macro.Command) (ui.App, error) {
+func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuard) (ui.App, error) {
 	if s.macro.Active() {
+		// A tape runs against MacroService, which starts no terraform and
+		// whose steps time out on their own, so the run ends by itself.
+		guard.Watch(func() {})
 		driver := macro.NewDriver(app, 80, 24)
 		if tape != nil {
 			runner := macro.NewRunner(driver)
@@ -99,11 +110,11 @@ func (s *Session) present(app ui.App, tape []macro.Command) (ui.App, error) {
 		return app, nil
 	}
 
-	opts := []tea.ProgramOption{tea.WithAltScreen()}
+	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithoutSignalHandler()}
 
 	if s.macro.RecordDir != "" {
 		rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
-		_, err := tea.NewProgram(rec, opts...).Run()
+		_, err := runGuarded(tea.NewProgram(rec, opts...), guard)
 		_ = rec.Finalize()
 		if err != nil {
 			return app, err
@@ -114,7 +125,7 @@ func (s *Session) present(app ui.App, tape []macro.Command) (ui.App, error) {
 		return app, nil
 	}
 
-	model, err := tea.NewProgram(app, opts...).Run()
+	model, err := runGuarded(tea.NewProgram(app, opts...), guard)
 	if err != nil {
 		return app, err
 	}
@@ -122,6 +133,12 @@ func (s *Session) present(app ui.App, tape []macro.Command) (ui.App, error) {
 		return a, nil
 	}
 	return app, nil
+}
+
+// runGuarded runs program with the first signal quitting it.
+func runGuarded(program *tea.Program, guard *interruptGuard) (tea.Model, error) {
+	guard.Watch(program.Quit)
+	return program.Run()
 }
 
 func (s *Session) emitRecorded(recorder *terraform.MacroService) error {
@@ -223,6 +240,8 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	defer registry.Shutdown()
+	guard, stopSignals := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
+	defer stopSignals()
 	standalone := &ui.StandaloneConfig{
 		PluginID: pluginID,
 		EntryID:  entryID,
@@ -230,62 +249,76 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 	}
 	app := ui.NewApp(s.cfg, svc, registry, s.rootCfg, standalone)
 
-	if s.silentStderr {
-		driver := macro.NewDriver(app, 80, 24)
-		if tape != nil {
-			runner := macro.NewRunner(driver)
-			if s.macro.RecordDir != "" {
-				rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
-				runner.WithRecorder(rec)
-			}
-			if err := runner.Execute(tape); err != nil {
-				return err
-			}
-		} else {
-			driver.Init()
-			if err := driver.WaitUntil(func(_ string) bool {
-				if p, ok := registry.ByID(pluginID); ok {
-					return p.Ready() || terminalStatus(p)
-				}
-				return false
-			}, 10*time.Minute); err != nil {
-				return err
-			}
-		}
-	} else {
-		opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithOutput(s.effects.Stderr)}
-		if s.macro.RecordDir != "" {
-			rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
-			_, runErr := tea.NewProgram(rec, opts...).Run()
-			_ = rec.Finalize()
-			if runErr != nil {
-				return runErr
-			}
-		} else {
-			if _, err := tea.NewProgram(app, opts...).Run(); err != nil {
-				return err
-			}
-		}
+	runErr := s.runStandalone(app, registry, pluginID, tape, guard)
+	sig := guard.Finish()
+	stopSignals()
+	if sig == nil && runErr != nil {
+		return runErr
 	}
 
-	// Pump output port.
-	if recorder != nil {
+	if recorder != nil && sig == nil {
 		s.effects.WriteRecordedCommands(recorder.Commands(), s.jsonStdout)
 		return nil
 	}
-	return s.pumpOutputPort(registry, pluginID, entryID)
+	return s.pumpOutputPort(registry, pluginID, entryID, sig)
+}
+
+// runStandalone runs the verb's App headlessly (silent stderr) or under a
+// BubbleTea program on stderr, until the verb finishes or a signal ends it.
+func (s *Session) runStandalone(app ui.App, registry *plugin.Registry, pluginID string,
+	tape []macro.Command, guard *interruptGuard) error {
+	if !s.silentStderr {
+		opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithOutput(s.effects.Stderr), tea.WithoutSignalHandler()}
+		if s.macro.RecordDir != "" {
+			rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
+			_, err := runGuarded(tea.NewProgram(rec, opts...), guard)
+			_ = rec.Finalize()
+			return err
+		}
+		_, err := runGuarded(tea.NewProgram(app, opts...), guard)
+		return err
+	}
+
+	var interrupted atomic.Bool
+	guard.Watch(func() { interrupted.Store(true) })
+	driver := macro.NewDriver(app, 80, 24)
+	if tape != nil {
+		runner := macro.NewRunner(driver)
+		if s.macro.RecordDir != "" {
+			rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
+			runner.WithRecorder(rec)
+		}
+		return runner.Execute(tape)
+	}
+	driver.Init()
+	return driver.WaitUntil(func(_ string) bool {
+		if interrupted.Load() {
+			return true
+		}
+		if p, ok := registry.ByID(pluginID); ok {
+			return p.Ready() || terminalStatus(p)
+		}
+		return false
+	}, 10*time.Minute)
 }
 
 // pumpOutputPort writes the verb's stdout, then the stderr and exit code of
 // the plugin outputPortOwner picks; a non-zero exit code comes back as an
-// exitError.
-func (s *Session) pumpOutputPort(registry *plugin.Registry, pluginID, entryID string) error {
+// exitError. After a signal (interrupted non-nil) it writes no stdout and the
+// signal's exit code replaces the plugin's.
+func (s *Session) pumpOutputPort(registry *plugin.Registry, pluginID, entryID string, interrupted os.Signal) error {
 	p, ok := registry.ByID(pluginID)
 	if !ok {
 		return nil
 	}
 	entry, _ := registry.ByID(entryID)
 	failure := outputPortOwner(p, entry)
+	if interrupted != nil {
+		if emitter, ok := failure.(sdk.StderrEmitter); ok {
+			s.effects.WriteStderr(emitter.Stderr())
+		}
+		return &exitError{code: interruptExitCode(interrupted)}
+	}
 	if emitter, ok := p.(sdk.StdoutEmitter); ok {
 		data, err := emitter.Stdout()
 		if err != nil {
