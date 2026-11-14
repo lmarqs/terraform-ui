@@ -1,3 +1,11 @@
+## [1.30.1](https://github.com/lmarqs/terraform-ui/compare/v1.30.0...v1.30.1) (2026-11-14)
+
+
+### Bug Fixes
+
+* **cli:** ignore signals while the terminal is handed to the editor ([3025f94](https://github.com/lmarqs/terraform-ui/commit/3025f9426f615b42f8d3462a8e9220b707ed133d)), closes [#100](https://github.com/lmarqs/terraform-ui/issues/100)
+* **cli:** keep owning signals until plugin cleanup has run ([6380043](https://github.com/lmarqs/terraform-ui/commit/6380043ee9a8dc326d852d6a6370244e4c2b4530)), closes [#100](https://github.com/lmarqs/terraform-ui/issues/100)
+
 # [1.30.0](https://github.com/lmarqs/terraform-ui/compare/v1.29.0...v1.30.0) (2026-11-14)
 
 
