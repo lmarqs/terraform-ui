@@ -44,6 +44,9 @@ func New(svc sdk.Service) sdk.Plugin {
 
 func (p *Plugin) Ready() bool { return p.status == sdk.StatusDone }
 
+// Status reports the lifecycle status, so a headless run ends on an error too.
+func (p *Plugin) Status() sdk.Status { return p.status }
+
 // Configure applies plugin-specific options from config.
 func (p *Plugin) Configure(cfg map[string]interface{}) error {
 	if v, ok := cfg["tfui_version"].(string); ok {
@@ -142,6 +145,9 @@ func (p *Plugin) View(width, height int) string {
 // bytes captured during the version fetch. The schema is terraform's, not
 // tfui's. Human-readable mode renders tfui + terraform version info.
 func (p *Plugin) Stdout() ([]byte, error) {
+	if p.status == sdk.StatusError {
+		return nil, nil
+	}
 	if p.input.JSON {
 		return p.jsonBytes, nil
 	}
@@ -168,6 +174,22 @@ func (p *Plugin) Stdout() ([]byte, error) {
 		}
 	}
 	return []byte(b.String()), nil
+}
+
+// Stderr returns the terraform error after a failed version call.
+func (p *Plugin) Stderr() []byte {
+	if p.status != sdk.StatusError {
+		return nil
+	}
+	return []byte(p.errMsg + "\n")
+}
+
+// ExitCode returns 1 when the version call failed, 0 otherwise.
+func (p *Plugin) ExitCode() int {
+	if p.status == sdk.StatusError {
+		return 1
+	}
+	return 0
 }
 
 func (p *Plugin) renderWithTfuiVersion() string {

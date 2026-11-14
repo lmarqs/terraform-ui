@@ -448,3 +448,135 @@ func TestOutput_WhenTextWithEmptyTerraformVersion_ShouldOmitTerraformLine(t *tes
 		t.Errorf("text should not include terraform version when empty, got %q", string(data))
 	}
 }
+
+func TestStatus_WhenTerraformCallFails_ShouldReturnStatusError(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  tea.Msg
+	}{
+		{name: "text", msg: VersionResultMsg{Err: errors.New("terraform: executable not found")}},
+		{name: "json", msg: versionJSONMsg{Err: errors.New("terraform: executable not found")}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p, _ := newTestPlugin(&sdktest.MockService{})
+			p.Update(tt.msg)
+
+			var plugin sdk.Plugin = p
+			statusable, ok := plugin.(sdk.Statusable)
+			if !ok {
+				t.Fatal("version plugin does not implement sdk.Statusable; headless wait cannot see StatusError")
+			}
+			if got := statusable.Status(); got != sdk.StatusError {
+				t.Errorf("Status() = %v, want StatusError", got)
+			}
+		})
+	}
+}
+
+func TestHeadlessOutput_WhenTerraformCallFails_ShouldReportErrorOnStderrWithExitCode1(t *testing.T) {
+	tests := []struct {
+		name  string
+		input Input
+		run   func(svc *sdktest.MockService)
+	}{
+		{
+			name:  "text",
+			input: Input{},
+			run: func(svc *sdktest.MockService) {
+				svc.VersionFn = func(_ context.Context) (*sdk.VersionInfo, error) {
+					return nil, errors.New("terraform: executable not found")
+				}
+			},
+		},
+		{
+			name:  "json",
+			input: Input{JSON: true},
+			run: func(svc *sdktest.MockService) {
+				svc.VersionJSONFn = func(_ context.Context) ([]byte, error) {
+					return nil, errors.New("terraform: executable not found")
+				}
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{}
+			tt.run(svc)
+			p, _ := newTestPlugin(svc)
+			_ = p.Configure(map[string]interface{}{"tfui_version": "1.0.0"})
+			p.Update(p.Activate(tt.input)())
+
+			var plugin sdk.Plugin = p
+			stdout, err := p.Stdout()
+			if err != nil {
+				t.Fatalf("Stdout() error = %v", err)
+			}
+			if stdout != nil {
+				t.Errorf("Stdout() = %q, want nil on terraform failure", stdout)
+			}
+			emitter, ok := plugin.(sdk.StderrEmitter)
+			if !ok {
+				t.Fatal("version plugin does not implement sdk.StderrEmitter")
+			}
+			if got, want := string(emitter.Stderr()), "terraform: executable not found\n"; got != want {
+				t.Errorf("Stderr() = %q, want %q", got, want)
+			}
+			coder, ok := plugin.(sdk.ExitCoder)
+			if !ok {
+				t.Fatal("version plugin does not implement sdk.ExitCoder")
+			}
+			if got := coder.ExitCode(); got != 1 {
+				t.Errorf("ExitCode() = %d, want 1", got)
+			}
+		})
+	}
+}
+
+func TestHeadlessOutput_WhenTerraformCallSucceeds_ShouldHaveNoStderrAndExitCode0(t *testing.T) {
+	tests := []struct {
+		name       string
+		input      Input
+		wantStdout string
+	}{
+		{name: "text", input: Input{}, wantStdout: "terraform v1.5.0"},
+		{name: "json", input: Input{JSON: true}, wantStdout: `{"terraform_version":"1.5.0"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{
+				VersionFn: func(_ context.Context) (*sdk.VersionInfo, error) {
+					return &sdk.VersionInfo{TerraformVersion: "1.5.0"}, nil
+				},
+				VersionJSONFn: func(_ context.Context) ([]byte, error) {
+					return []byte(`{"terraform_version":"1.5.0"}`), nil
+				},
+			}
+			p, _ := newTestPlugin(svc)
+			p.Update(p.Activate(tt.input)())
+
+			var plugin sdk.Plugin = p
+			stdout, err := p.Stdout()
+			if err != nil {
+				t.Fatalf("Stdout() error = %v", err)
+			}
+			if !contains(string(stdout), tt.wantStdout) {
+				t.Errorf("Stdout() = %q, want to contain %q", stdout, tt.wantStdout)
+			}
+			emitter, ok := plugin.(sdk.StderrEmitter)
+			if !ok {
+				t.Fatal("version plugin does not implement sdk.StderrEmitter")
+			}
+			if got := emitter.Stderr(); got != nil {
+				t.Errorf("Stderr() = %q, want nil", got)
+			}
+			coder, ok := plugin.(sdk.ExitCoder)
+			if !ok {
+				t.Fatal("version plugin does not implement sdk.ExitCoder")
+			}
+			if got := coder.ExitCode(); got != 0 {
+				t.Errorf("ExitCode() = %d, want 0", got)
+			}
+		})
+	}
+}
