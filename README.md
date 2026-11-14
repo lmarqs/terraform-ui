@@ -20,6 +20,7 @@ Running `terraform plan` on large modules produces verbose output with no struct
 ```bash
 # Install
 brew tap lmarqs/terraform-ui https://github.com/lmarqs/terraform-ui
+brew trust --cask lmarqs/terraform-ui/tfui   # Homebrew 7+ only loads trusted third-party casks
 brew install --cask tfui
 
 # Or via go install
@@ -43,6 +44,7 @@ tfui apply --project ./infra
 
 ```bash
 brew tap lmarqs/terraform-ui https://github.com/lmarqs/terraform-ui
+brew trust --cask lmarqs/terraform-ui/tfui   # Homebrew 7+ only loads trusted third-party casks
 brew install --cask tfui
 ```
 

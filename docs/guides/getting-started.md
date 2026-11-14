@@ -21,6 +21,7 @@ Install with one of:
 ```bash
 # Homebrew
 brew tap lmarqs/terraform-ui https://github.com/lmarqs/terraform-ui
+brew trust --cask lmarqs/terraform-ui/tfui   # Homebrew 7+ only loads trusted third-party casks
 brew install --cask tfui
 
 # Go
