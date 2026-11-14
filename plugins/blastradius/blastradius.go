@@ -13,10 +13,10 @@ import (
 type ImpactScore int
 
 const (
-	ImpactMinimal  ImpactScore = iota // 1-2 changes, all low risk
-	ImpactModerate                    // 3-5 changes or medium risk
-	ImpactHigh                        // 6+ changes or high/critical risk
-	ImpactCritical                    // destructive operations on critical infra
+	ImpactMinimal  ImpactScore = iota // fewer than 3 changes, none above low risk
+	ImpactModerate                    // 3+ changes or a medium-risk change
+	ImpactHigh                        // a high-risk change, or 3+ changes with a destructive one
+	ImpactCritical                    // a critical-risk change
 )
 
 func (s ImpactScore) String() string {
