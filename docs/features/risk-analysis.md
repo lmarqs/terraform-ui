@@ -79,26 +79,15 @@ These are every type in each category; the source is `internal/terraform/risk.go
 - GCP: `google_compute_firewall`, `google_dns_record_set`
 - Azure: `azurerm_network_security_group`, `azurerm_dns_zone`
 
-## In the TUI
+## How a level renders
 
-Press `R` from the home screen after running a plan to see the risk analysis view. Changes are grouped by risk level
-with color coding:
+Every view that shows a level uses the same colors:
 
 - Critical -- bold magenta
 - High -- bold red
 - Medium -- amber
 - Low -- green
 
-## Configuration
-
-```hcl
-# tfui.hcl (project root)
-defaults {
-  plugin "risk" {
-    enabled = false
-  }
-}
-```
-
-The rules above are fixed; `enabled` is the plugin's only setting. See the [Risk Analysis plugin](../plugins/risk.md)
-for the full TUI reference.
+The rules above are fixed. The [Risk Analysis plugin](../plugins/risk.md) groups a plan's changes by level, and the
+[Plan plugin](../plugins/plan.md) puts a badge on each change and, in headless text output (without `-json`), the
+overall level on its last line.

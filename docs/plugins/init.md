@@ -63,9 +63,9 @@ tfui init -project ./infra
 tfui init -project ./infra -upgrade
 ```
 
-`tfui init` with no init flag opens the form. Any of `-upgrade`, `-reconfigure`, `-backend` or `-backend-config`, or a [headless run](../reference/cli-reference.md#execution-model), starts init at once.
+`tfui init` with no init flag opens the form. Any of `-upgrade`, `-reconfigure`, `-backend` or `-backend-config`, or a [headless run](../reference/cli-io-contract.md#mode-resolution), starts init at once.
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

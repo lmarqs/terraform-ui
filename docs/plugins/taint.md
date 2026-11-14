@@ -53,9 +53,9 @@ tfui taint <address>           # Taint single resource
 tfui taint <addr1> <addr2>     # Batch taint
 ```
 
-With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-reference.md#execution-model) taints without asking.
+With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-io-contract.md#mode-resolution) taints without asking.
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

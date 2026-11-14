@@ -53,9 +53,9 @@ tfui untaint <address>           # Untaint single resource
 tfui untaint <addr1> <addr2>     # Batch untaint
 ```
 
-With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-reference.md#execution-model) untaints without asking.
+With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-io-contract.md#mode-resolution) untaints without asking.
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

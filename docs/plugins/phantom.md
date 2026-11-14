@@ -45,7 +45,7 @@ Home ──P──→ Phantom Changes (loading) ──→ Phantom Changes (list)
 
 ## Command Line (CLI)
 
-Phantom Changes is an analysis view within the TUI. It does not have a standalone CLI command, and phantom analysis is available only in the TUI.
+Phantom Changes is an analysis view within the TUI. It has no CLI command of its own, and phantom analysis is available only in the TUI.
 
 ## Equivalence
 

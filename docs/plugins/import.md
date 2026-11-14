@@ -54,9 +54,9 @@ Prompts → Confirming → Loading → Done/Error
 tfui import <address> <id>
 ```
 
-With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-reference.md#execution-model) imports without asking.
+With a terminal attached, tfui asks for confirmation; a [headless run](../reference/cli-io-contract.md#mode-resolution) imports without asking.
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

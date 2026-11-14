@@ -104,7 +104,7 @@ tfui state untaint aws_instance.web -project ./infra
 To import a resource, use [`tfui import`](import.md). To browse a state file instead of the live state, pass
 `-state`; the [CLI reference](../reference/cli-reference.md) describes it.
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

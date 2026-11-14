@@ -54,7 +54,7 @@ tfui force-unlock <lock-id>          # Asks y/n on the terminal
 tfui force-unlock -force <lock-id>  # Skip confirmation (CI)
 ```
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

@@ -23,7 +23,7 @@ Running `terraform plan` on a module with 30+ resources produces a wall of text.
 - **Risk badges** surface dangerous changes immediately (no scanning required)
 - **Expand/collapse** lets you focus on relevant diffs (attention management)
 - **Phantom detection** separates real changes from computed-attribute noise
-- **Pin resources** to build a selective apply target list visually
+- **Pin resources** to scope the next plan, and the apply after it, to them
 
 ## Screenshot
 
@@ -66,7 +66,7 @@ Home ──p──→ Plan (loading) ──→ Plan (results)
                                   │
                                   ├── Enter → expand diffs
                                   ├── Space → pin for apply
-                                  ├── a → Apply (pinned targets or all)
+                                  ├── a → Apply (pinned resources or all)
                                   └── q → Home
 ```
 
@@ -76,7 +76,7 @@ Home ──p──→ Plan (loading) ──→ Plan (results)
 # Default: spinner with elapsed time
 tfui plan -project ./infra
 
-# Silent: tree-view text output (no animation)
+# Headless: tree-view text output (no animation)
 tfui plan -project ./infra -ci
 
 # JSON: terraform's own plan document
@@ -91,7 +91,7 @@ tfui plan -project ./infra -chdir modules/networking
 
 ### Output Examples
 
-**Silent mode:**
+**Headless:**
 ```
 + aws_instance.web
 ~ aws_security_group.main
@@ -106,7 +106,7 @@ Replacements count under "change". The `Risk:` line shows the highest risk among
 
 **`-json`:** the output is terraform's own `terraform show -json` document, passed through unchanged. Risk and phantom analysis are not in it.
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes). Plan exits `2` when the plan has changes.
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes). Plan exits `2` when the plan has changes.
 
 ## Equivalence
 

@@ -32,24 +32,11 @@ tfui normalizes both sides of each changed attribute before comparing:
 If every changed attribute is equal after normalization, the change is marked as phantom. Deletes, creates and
 replaces are never phantom, and neither is an update with no attribute diff.
 
-## In the TUI
+## Where phantoms show
 
-- In the plan review, a phantom change is marked `(phantom)` in faint italic text, and its inspect view says
-  `Phantom: yes`.
-- In the Risk view, a phantom change keeps the risk level of its action and resource type.
+- In the [Plan](../plugins/plan.md) review, a phantom change is marked `(phantom)` in faint italic text, and its
+  inspect view says `Phantom:  yes (no real change detected)`.
+- In the [Risk](../plugins/risk.md) view, a phantom change keeps the risk level of its action and resource type.
+- The [Phantom Changes plugin](../plugins/phantom.md) lists only the phantom changes, each with its explanation.
 
-Press `P` from the home screen after running a plan to see only phantom changes with explanations.
-
-## Configuration
-
-```hcl
-# tfui.hcl (project root)
-defaults {
-  plugin "phantom" {
-    enabled = false
-  }
-}
-```
-
-The detection rules are fixed; `enabled` is the plugin's only setting. See the
-[Phantom Changes plugin](../plugins/phantom.md) for the full TUI reference.
+The detection rules are fixed.

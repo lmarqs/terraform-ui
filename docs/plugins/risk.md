@@ -44,7 +44,7 @@ Home ──R──→ Risk Analysis (loading) ──→ Risk Analysis (grouped l
 
 ## Command Line (CLI)
 
-Risk Analysis is an analysis view within the TUI. It does not have a standalone CLI command.
+Risk Analysis is an analysis view within the TUI. It has no CLI command of its own.
 
 Risk is not in `-json` output. `tfui plan -ci` prints the overall level as its last line, for example `Risk: critical`.
 

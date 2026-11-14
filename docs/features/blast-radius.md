@@ -17,7 +17,7 @@ The blast radius view shows the scope of your planned changes -- how many resour
 
 ### Module Grouping
 
-Changes are grouped by their terraform module path. Each group shows add/change/destroy counts and an impact score derived from risk levels.
+Changes are grouped by their terraform module path. Each group shows add/change/destroy/replace counts and its impact score.
 
 ```
 module.vpc (1 to add, 1 to change)
@@ -44,32 +44,5 @@ tfui extracts module paths from resource addresses:
 
 ### Impact Score
 
-| Score | Criteria |
-|-------|----------|
-| **critical** | Any change with critical risk |
-| **high** | Any change with high risk, or 3+ changes in the module with at least one delete or replace |
-| **moderate** | 3+ changes, or any change with medium risk |
-| **minimal** | Fewer than 3 changes, none above low risk |
-
-## In the TUI
-
-Press `B` from the home screen after running a plan. The blast radius view shows:
-
-1. **Summary line** -- the highest module impact, the number of modules affected and the total changes
-2. **Module rows** -- one per module, each with its change count, impact badge and add/change/destroy/replace counts
-3. **Expanded module** -- `Enter` lists the module's changes with their risk badges
-
-## Configuration
-
-```hcl
-# tfui.hcl (project root)
-defaults {
-  plugin "blastradius" {
-    enabled = false
-  }
-}
-```
-
-`enabled` is the plugin's only setting.
-
-See the [Blast Radius plugin](../plugins/blastradius.md) for the full TUI reference.
+The [Blast Radius plugin](../plugins/blastradius.md#impact-score) scores each module group from its changes'
+[risk levels](risk-analysis.md) and states the thresholds.

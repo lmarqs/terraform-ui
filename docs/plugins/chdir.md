@@ -45,7 +45,7 @@ Context ──→ Chdir Picker (list)
 
 ## Command Line (CLI)
 
-Not available as a standalone command. Use the `-chdir` flag:
+Has no command of its own. Use the `-chdir` flag:
 
 ```bash
 tfui plan -project ./infra -chdir modules/networking

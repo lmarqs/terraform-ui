@@ -1,12 +1,12 @@
 ---
 layout: default
 parent: Plugin Catalog — All Terraform UI Features
-title: "Terraform Apply with Context and Pinned Targets"
+title: "Terraform Apply with Context and Pinned Resources"
 id: apply
 key: a
 seo:
   description: "Apply Terraform changes from a terminal UI: review the plan, confirm, apply only pinned resources, and track elapsed time."
-description: "Describes how the Apply plugin applies changes: confirmation, pinned targets and its settings."
+description: "Describes how the Apply plugin applies changes: confirmation, pins and its settings."
 audience: "Users applying changes after reviewing a plan, and contributors changing apply"
 category: operations
 default_enabled: true
@@ -73,8 +73,8 @@ tfui apply -project ./infra
 # Auto-approve: skip review and confirmation (required for non-interactive apply)
 tfui apply -project ./infra -auto-approve
 
-# Silent: no animation. Mirrors terraform — non-interactive apply without a
-# plan file requires -auto-approve, else "Apply not allowed for non-interactive
+# Headless: no animation. Mirrors terraform — non-interactive apply without a
+# plan file requires -auto-approve, else "apply not allowed for non-interactive
 # use" (exit 1), exactly as `terraform apply` behaves with no TTY.
 tfui apply -project ./infra -ci -auto-approve
 
@@ -91,7 +91,7 @@ Without `-auto-approve`, `tfui apply` opens Plan first with any `-target` you pa
 
 Apply writes nothing to stdout. The outcome line goes to stderr, and the exit code is the signal.
 
-**Silent mode:**
+**Headless:**
 ```
 Apply complete. Resources: 1 added, 0 changed, 0 destroyed.
 ```
@@ -105,7 +105,7 @@ Error: creating local_file: ...
 Applied before the failure: 1 added, 0 changed, 0 destroyed.
 ```
 
-Exit codes: see [CLI reference](../reference/cli-reference.md#exit-codes).
+Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Equivalence
 

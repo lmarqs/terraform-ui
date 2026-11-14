@@ -56,7 +56,7 @@ C (from any screen) → Context
 
 ## Command Line (CLI)
 
-Not available as a standalone command. Context is set via flags:
+Has no command of its own. Context is set via flags:
 
 ```bash
 tfui plan -project ./infra -chdir modules/networking

@@ -27,13 +27,17 @@ The Blast Radius plugin groups plan changes by terraform module and calculates a
 | Score | Criteria |
 |-------|----------|
 | **critical** | Any change with critical risk |
-| **high** | A change with high risk, or 3+ changes including at least one delete or replace |
-| **moderate** | 3+ changes or medium risk |
-| **minimal** | 1-2 changes, all low risk |
+| **high** | Any change with high risk, or 3+ changes in the module with at least one delete or replace |
+| **moderate** | 3+ changes, or any change with medium risk |
+| **minimal** | Fewer than 3 changes, none above low risk |
 
 ## Interactive (TUI)
 
-Press `B` to open the Blast Radius view. It requires a completed plan to analyze.
+Press `B` to open the Blast Radius view. It requires a completed plan to analyze. The view shows:
+
+1. **Summary line** -- the highest module impact, the number of modules affected and the total changes
+2. **Module rows** -- one per module, each with its change count, impact badge and add/change/destroy/replace counts
+3. **Expanded module** -- `Enter` lists the module's changes with their risk badges
 
 ### Keybindings
 
@@ -54,7 +58,7 @@ Home ──B──→ Blast Radius (loading) ──→ Blast Radius (list)
 
 ## Command Line (CLI)
 
-Blast Radius is an analysis view within the TUI. It does not have a standalone CLI command.
+Blast Radius is an analysis view within the TUI. It has no CLI command of its own.
 
 terraform's `-json` document carries a `module_address` on each resource change inside a module; root-module changes have none. Group by it to rebuild the view:
 
