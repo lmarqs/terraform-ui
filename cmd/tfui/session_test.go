@@ -3,10 +3,9 @@ package main
 import (
 	"bytes"
 	"context"
-	"fmt"
+	"errors"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -36,7 +35,7 @@ func TestRunPlugin_WhenApplyAutoApproveCI_ShouldTerminateWithoutKeystrokes(t *te
 		ciMode:       true,
 		silentStderr: true,
 		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
-		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
 	}
 	done := make(chan error, 1)
 	go func() {
@@ -68,7 +67,7 @@ func TestRunPlugin_WhenApplyMacroBackend_ShouldRecordTerraformApply(t *testing.T
 		ciMode:       true,
 		silentStderr: true,
 		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
-		effects:      Effects{Stdout: &stdoutBuf, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+		effects:      Effects{Stdout: &stdoutBuf, Stderr: &bytes.Buffer{}},
 	}
 	err := runPluginWithCapturedStdout(session, "apply", apply.Input{AutoApprove: true})
 	if err != nil {
@@ -101,7 +100,7 @@ func TestRunPlugin_WhenTaintAutoConfirmCI_ShouldTerminateWithoutKeystrokes(t *te
 		ciMode:       true,
 		silentStderr: true,
 		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
-		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
 	}
 	done := make(chan error, 1)
 	go func() {
@@ -184,7 +183,7 @@ func TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply(t *testing.
 		ciMode:       true,
 		silentStderr: true,
 		macro:        MacroSpec{TapeURI: writeTempTape(t, "")},
-		effects:      Effects{Stdout: &stdoutBuf, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+		effects:      Effects{Stdout: &stdoutBuf, Stderr: &bytes.Buffer{}},
 	}
 
 	done := make(chan error, 1)
@@ -215,7 +214,7 @@ func TestRunPluginFrom_WhenEntryPluginDisabled_ShouldReturnDisabledError(t *test
 			Plugins: map[string]config.PluginConfig{"plan": {Enabled: &disabled}},
 		},
 		silentStderr: true,
-		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}, Exit: func(int) {}},
+		effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
 	}
 
 	err := session.RunPluginFrom(context.Background(), "apply", "plan", func(sdk.Plugin) tea.Cmd { return nil })
@@ -265,32 +264,51 @@ func TestOutputPortOwner(t *testing.T) {
 type exitingPlugin struct {
 	sdk.Plugin
 	events *[]string
+	code   int
 }
 
 func (p *exitingPlugin) ID() string    { return "plan" }
-func (p *exitingPlugin) ExitCode() int { return 2 }
+func (p *exitingPlugin) ExitCode() int { return p.code }
 func (p *exitingPlugin) Shutdown()     { *p.events = append(*p.events, "shutdown") }
 
-// The exit ends the process, so deferred work never runs after it: a plugin's
-// Shutdown (plan removing its temp plan file) must happen first.
-func TestPumpOutputPort_WhenExitCodeNonZero_ShouldShutDownPluginsBeforeExit(t *testing.T) {
-	var events []string
-	registry := plugin.NewRegistry()
-	registry.RegisterFactory("plan", func(_ sdk.Service) sdk.Plugin {
-		return &exitingPlugin{events: &events}
-	}, plugin.PluginMeta{})
-	registry.Build(nil, nil)
-	session := &Session{effects: Effects{
-		Stdout: &bytes.Buffer{},
-		Stderr: &bytes.Buffer{},
-		Exit:   func(code int) { events = append(events, fmt.Sprintf("exit %d", code)) },
-	}}
-
-	if err := session.pumpOutputPort(registry, "plan", "plan"); err != nil {
-		t.Fatalf("pumpOutputPort error = %v", err)
+func TestPumpOutputPort_WhenOwnerExitCodeVaries_ShouldReturnExitError(t *testing.T) {
+	tests := []struct {
+		name     string
+		exitCode int
+		wantCode int
+		wantErr  bool
+	}{
+		{name: "non-zero exit code returns exitError", exitCode: 2, wantCode: 2, wantErr: true},
+		{name: "zero exit code returns nil", exitCode: 0},
 	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var events []string
+			registry := plugin.NewRegistry()
+			registry.RegisterFactory("plan", func(_ sdk.Service) sdk.Plugin {
+				return &exitingPlugin{events: &events, code: tt.exitCode}
+			}, plugin.PluginMeta{})
+			registry.Build(nil, nil)
+			session := &Session{effects: Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}}}
 
-	if want := []string{"shutdown", "exit 2"}; !slices.Equal(events, want) {
-		t.Errorf("events = %v, want %v", events, want)
+			err := session.pumpOutputPort(registry, "plan", "plan")
+
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("pumpOutputPort error = %v, want nil", err)
+				}
+			} else {
+				var exitErr *exitError
+				if !errors.As(err, &exitErr) {
+					t.Fatalf("pumpOutputPort error = %v (%T), want *exitError", err, err)
+				}
+				if exitErr.code != tt.wantCode {
+					t.Errorf("exitError.code = %d, want %d", exitErr.code, tt.wantCode)
+				}
+			}
+			if len(events) != 0 {
+				t.Errorf("pumpOutputPort shut plugins down itself: events = %v", events)
+			}
+		})
 	}
 }

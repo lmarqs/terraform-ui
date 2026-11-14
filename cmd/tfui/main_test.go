@@ -1,8 +1,12 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"runtime/debug"
 	"testing"
+
+	"github.com/lmarqs/terraform-ui/internal/macro"
 )
 
 func TestResolveVersion_WhenSourcesVary_ShouldReturnVersionWithoutLeadingV(t *testing.T) {
@@ -30,6 +34,32 @@ func TestResolveVersion_WhenSourcesVary_ShouldReturnVersionWithoutLeadingV(t *te
 		t.Run(tt.name, func(t *testing.T) {
 			if got := resolveVersion(tt.ldflagVersion, tt.info, tt.ok); got != tt.want {
 				t.Errorf("resolveVersion(%q, %v, %v) = %q, want %q", tt.ldflagVersion, tt.info, tt.ok, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExitStatus_WhenErrorVaries_ShouldMapToExitCodeAndStderr(t *testing.T) {
+	tests := []struct {
+		name       string
+		err        error
+		wantCode   int
+		wantStderr string
+	}{
+		{name: "nil exits zero silently", err: nil, wantCode: 0, wantStderr: ""},
+		{name: "exitError carries its code without a message", err: &exitError{code: 2}, wantCode: 2, wantStderr: ""},
+		{name: "wrapped exitError still carries its code", err: fmt.Errorf("run: %w", &exitError{code: 2}), wantCode: 2, wantStderr: ""},
+		{name: "macro run error uses its code and prints both lines", err: &macro.RunError{Code: 3, Message: "boom"}, wantCode: 3, wantStderr: "Error: boom\nmacro: boom\n"},
+		{name: "other error exits one with Error prefix", err: errors.New("bad"), wantCode: 1, wantStderr: "Error: bad\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			code, stderr := exitStatus(tt.err)
+			if code != tt.wantCode {
+				t.Errorf("exitStatus(%v) code = %d, want %d", tt.err, code, tt.wantCode)
+			}
+			if stderr != tt.wantStderr {
+				t.Errorf("exitStatus(%v) stderr = %q, want %q", tt.err, stderr, tt.wantStderr)
 			}
 		})
 	}

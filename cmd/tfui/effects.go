@@ -8,18 +8,16 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Effects owns process I/O sinks and exit. The struct is a test seam: prod
-// code uses DefaultEffects(); tests construct with custom writers and exit
-// recorder.
+// Effects owns the process I/O sinks. The struct is a test seam: prod code
+// uses DefaultEffects(); tests construct it with custom writers.
 type Effects struct {
 	Stdout io.Writer
 	Stderr io.Writer
-	Exit   func(int)
 }
 
-// DefaultEffects returns the production Effects wired to os.Stdout/Stderr/Exit.
+// DefaultEffects returns the production Effects wired to os.Stdout/Stderr.
 func DefaultEffects() Effects {
-	return Effects{Stdout: os.Stdout, Stderr: os.Stderr, Exit: os.Exit}
+	return Effects{Stdout: os.Stdout, Stderr: os.Stderr}
 }
 
 // WriteStdout writes raw bytes to the stdout sink.
@@ -30,13 +28,6 @@ func (e Effects) WriteStdout(data []byte) {
 // WriteStderr writes raw bytes to the stderr sink.
 func (e Effects) WriteStderr(data []byte) {
 	_, _ = e.Stderr.Write(data)
-}
-
-// ExitWithCode calls the exit function if code is non-zero.
-func (e Effects) ExitWithCode(code int) {
-	if code != 0 {
-		e.Exit(code)
-	}
 }
 
 // WriteRecordedCommands prints MacroService's recorded terraform calls in the

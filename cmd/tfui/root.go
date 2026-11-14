@@ -26,6 +26,8 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 		Short:        "Terminal UI for Terraform operations",
 		Long:         "terraform-ui provides animated terminal feedback for terraform plan and apply operations.",
 		SilenceUsage: true,
+		// main prints the error, so an exitError ends the run without a message.
+		SilenceErrors: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			cfg.Dir = resolveProjectDir(cfg.Dir)
 			if info, err := os.Stat(cfg.Dir); err != nil {

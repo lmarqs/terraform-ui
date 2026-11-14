@@ -128,9 +128,8 @@ type Statusable interface {
 // leave on disk when the program ends (e.g., plan removes its temp plan file,
 // which holds variable values in plaintext). The session calls Shutdown once
 // on every registered plugin after the BubbleTea program or macro driver
-// stops: in the TUI when Session.Run returns; in a verb run after stdout and
-// stderr are written and before a non-zero exit code ends the process, or on
-// return otherwise. A process killed by a signal skips it.
+// stops, when Session.Run or the verb run returns, before the process exits.
+// A process killed by a signal skips it.
 type Shutdowner interface {
 	Shutdown()
 }

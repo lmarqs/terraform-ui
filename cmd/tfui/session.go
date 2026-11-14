@@ -277,8 +277,8 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 }
 
 // pumpOutputPort writes the verb's stdout, then the stderr and exit code of
-// the plugin outputPortOwner picks. Plugins shut down before the exit code is
-// applied.
+// the plugin outputPortOwner picks; a non-zero exit code comes back as an
+// exitError.
 func (s *Session) pumpOutputPort(registry *plugin.Registry, pluginID, entryID string) error {
 	p, ok := registry.ByID(pluginID)
 	if !ok {
@@ -296,11 +296,8 @@ func (s *Session) pumpOutputPort(registry *plugin.Registry, pluginID, entryID st
 	if emitter, ok := failure.(sdk.StderrEmitter); ok {
 		s.effects.WriteStderr(emitter.Stderr())
 	}
-	if coder, ok := failure.(sdk.ExitCoder); ok {
-		// ExitWithCode ends the process on a non-zero code, skipping
-		// RunPluginFrom's deferred Shutdown, so plugins shut down here first.
-		registry.Shutdown()
-		s.effects.ExitWithCode(coder.ExitCode())
+	if coder, ok := failure.(sdk.ExitCoder); ok && coder.ExitCode() != 0 {
+		return &exitError{code: coder.ExitCode()}
 	}
 	return nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"runtime/debug"
@@ -51,11 +52,31 @@ func main() {
 	os.Args, *extraArgsDst = splitPassthrough(os.Args)
 	os.Args = normalizeArgs(os.Args)
 
-	if err := rootCmd.Execute(); err != nil {
-		if runErr, ok := err.(*macro.RunError); ok {
-			fmt.Fprintf(os.Stderr, "macro: %s\n", runErr.Error())
-			os.Exit(runErr.Code)
-		}
-		os.Exit(1)
+	code, stderr := exitStatus(rootCmd.Execute())
+	fmt.Fprint(os.Stderr, stderr)
+	os.Exit(code)
+}
+
+// exitError ends a verb run with a non-zero exit code. The run already wrote
+// its stderr, so the error has nothing more to print.
+type exitError struct{ code int }
+
+func (e *exitError) Error() string { return fmt.Sprintf("exit status %d", e.code) }
+
+// exitStatus maps the root command's error to the process exit code and the
+// text written to stderr before exiting.
+func exitStatus(err error) (int, string) {
+	if err == nil {
+		return 0, ""
 	}
+	var exitErr *exitError
+	if errors.As(err, &exitErr) {
+		return exitErr.code, ""
+	}
+	stderr := "Error: " + err.Error() + "\n"
+	var runErr *macro.RunError
+	if errors.As(err, &runErr) {
+		return runErr.Code, stderr + "macro: " + runErr.Error() + "\n"
+	}
+	return 1, stderr
 }
