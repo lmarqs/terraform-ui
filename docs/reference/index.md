@@ -14,5 +14,5 @@ audience: "Contributors and scripters looking up a contract or a rule"
 - [CLI Reference](cli-reference.md) — All commands and flags
 - [CLI I/O Contract](cli-io-contract.md) — stdin/stdout/stderr specification
 - [Macro Language](macro-language.md) — Tape DSL for automated TUI interaction
-- [CLI UX Guidelines](cli-ux.md) — Non-interactive command design spec
+- [CLI UX Guidelines](cli-ux.md) — Rules every new command follows, with their reasons
 - [TUI UX Guidelines](tui-ux.md) — Layout, navigation, and interaction patterns

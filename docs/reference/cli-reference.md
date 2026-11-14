@@ -18,20 +18,13 @@ tfui [flags]
 tfui [command] [flags]
 ```
 
-## Execution Model
-
-Every `tfui <command>` launches the plugin in a standalone TUI (rendered on stderr). On exit, structured output goes to stdout. Use `-ci` or `CI=1` for headless mode.
-
-```
-tfui plan           → Standalone TUI on stderr, tree view to stdout on exit
-tfui plan -ci      → No TUI, tree view to stdout immediately
-tfui plan -json     → Standalone TUI on stderr, JSON to stdout on exit
-tfui                → Full multi-plugin TUI (alt-screen on stdout, no output)
-```
-
-See [CLI I/O Contract](cli-io-contract.md) for the full stdin/stdout/stderr specification.
+Each command opens its plugin standalone, with the TUI on stderr, or runs headless. The
+[CLI I/O contract](cli-io-contract.md) says which mode a run takes, what each command writes to stdout and stderr,
+and the exit codes.
 
 ## Commands
+
+Risk, phantom and blast radius are TUI plugins (`R`, `P`, `B`) with no command of their own.
 
 ### `tfui` (no command)
 
@@ -63,13 +56,6 @@ tfui plan -lock-timeout=30s         # Retry a held lock for 30s
 index keys work as typed: `-target='module.a["x y"]'`. There is no
 comma-separated form — a comma is part of an address, not a separator.
 
-| Mode | stdout (on exit) | stderr | Exit |
-|------|-----------------|--------|------|
-| Standalone | Tree view or JSON | TUI (alt-screen) | 0/2 |
-| CI | Tree view or JSON | — | 0/2 |
-
-Exit code 2 = changes present (terraform-compatible).
-
 ### `tfui apply`
 
 Run terraform apply. Opens the plan view, where `a` applies the reviewed plan.
@@ -95,21 +81,11 @@ plan after a confirmation; the session ends when the user leaves apply, after
 it finishes or by declining the confirmation. `-auto-approve` skips the review and the prompt, and
 terraform plans and applies in one run.
 
-Non-interactive apply (`-ci`, `CI=1`, an agent environment, or stderr not a
-TTY) requires `-auto-approve`, as `terraform apply` does. With no TTY to
+A [headless](cli-io-contract.md#mode-resolution) apply requires `-auto-approve`,
+as `terraform apply` does. With no TTY to
 approve from, tfui reproduces terraform's own error, "apply not allowed for
 non-interactive use" (exit 1), rather than applying unconfirmed. Under
 `-macro` the guard does not apply, because nothing runs.
-
-| Mode | stdout (on exit) | stderr | Exit |
-|------|-----------------|--------|------|
-| Standalone | — | TUI; "Apply complete. Resources: …" on exit; a failed plan's terraform error | 0/1 |
-| CI (`-auto-approve`, success) | — | "Apply complete. Resources: …" | 0 |
-| CI (`-auto-approve`, failure) | — | terraform error | 1 |
-| CI (no `-auto-approve`) | — | "apply not allowed for non-interactive use" | 1 |
-
-Apply deliberately emits nothing on stdout — exit code 0 is the machine
-signal; the outcome summary goes to stderr (the status channel).
 
 ### `tfui state`
 
@@ -125,13 +101,7 @@ tfui state taint <address>...       # No TUI: terraform taint, per address
 tfui state untaint <address>...     # No TUI: terraform untaint, per address
 ```
 
-The `rm`, `mv`, `taint` and `untaint` subcommands run at once, print nothing
-on success and exit 0; on failure terraform's error goes to stderr with exit 1.
-
-| Mode | stdout (on exit) | stderr | Exit |
-|------|-----------------|--------|------|
-| Standalone | Addresses (one/line) or JSON | TUI (alt-screen) | 0 |
-| CI | Addresses (one/line) or JSON | — | 0 |
+The `rm`, `mv`, `taint` and `untaint` subcommands run at once, with no TUI.
 
 ### `tfui taint`, `tfui untaint`
 
@@ -144,8 +114,7 @@ tfui taint aws_instance.web -ci    # No TUI: taints at once
 tfui untaint <address>...          # TUI: confirm, then terraform untaint
 ```
 
-In CI mode they skip the confirmation and print "✓ Tainted …" or
-"✓ Untainted …" on stderr ([CLI I/O Contract](cli-io-contract.md)).
+Headless, they skip the confirmation ([what headless changes](cli-io-contract.md#what-headless-changes)).
 
 ### `tfui import`
 
@@ -157,7 +126,7 @@ tfui import <address> <id>         # TUI: confirm, then terraform import
 tfui import <address> <id> -ci     # No TUI: imports at once
 ```
 
-In CI mode it skips the confirmation and prints `✓ Imported <id> as <address>` on stderr ([CLI I/O Contract](cli-io-contract.md)).
+Headless, it skips the confirmation ([what headless changes](cli-io-contract.md#what-headless-changes)).
 
 ### `tfui validate`
 
@@ -168,13 +137,6 @@ tfui validate                       # TUI: review diagnostics interactively
 tfui validate -ci                  # No TUI: diagnostics to stdout
 tfui validate -ci -json            # No TUI: JSON diagnostics to stdout
 ```
-
-| Mode | stdout (on exit) | stderr | Exit |
-|------|-----------------|--------|------|
-| Standalone | Diagnostics text or JSON | TUI (alt-screen) | 0/1 |
-| CI | Diagnostics text or JSON | — | 0/1 |
-
-Exit code 1 = validation errors present.
 
 ### `tfui output`
 
@@ -206,7 +168,6 @@ tfui init -ci                       # Headless execution (no TUI)
 | `-reconfigure` | `false` | Reconfigure backend |
 | `-backend` | `true` | Configure backend (`-backend=false` to skip) |
 | `-backend-config` | — | Backend configuration values (repeatable) |
-| `-ci` | `false` | Suppress TUI (CI-friendly output) |
 
 ### `tfui version`
 
@@ -270,14 +231,29 @@ Every command accepts these flags:
 | `-terraform-bin` | `terraform` | Path to the terraform or tofu binary; `-config terraform.bin=X` takes precedence, and `tfui.hcl` `terraform { bin }` applies when neither is set |
 | `-chdir` | | Select a member directory (validated in project mode) |
 | `-config` | | Override config values (repeatable, `key=value`) |
-| `-ci` | `false` | Disable TUI, output directly to stdout |
-| `-json` | `false` | Output in JSON format |
+| `-ci` | `false` | Run [headless](cli-io-contract.md#mode-resolution): no TUI, output as soon as the plugin is done |
+| `-json` | `false` | JSON on stdout, for `plan`, `state`, `validate`, `output` and `version` |
 | `-plan` | | Pre-seed plan data from a file or stdin |
 | `-state` | | Pre-seed state data from a file or stdin |
 | `-macro` | | Run a tape file (headless TUI recording) |
 | `-record` | | Capture session frames to a directory |
 
-`-ci` is also triggered by the `CI=1` environment variable (`CI=true` does not match), an AI agent environment (non-empty `CLAUDECODE` or `AI_AGENT` — see ADR-0022 and [Terraform for AI Coding Agents](../features/ai-agents.md)), or stderr not being a TTY. In CI mode the action verbs (`taint`, `untaint`, `import`) skip their interactive confirmation, mirroring terraform's own prompt-free behavior.
+`-ci` is one of the headless triggers; the others are in [Mode resolution](cli-io-contract.md#mode-resolution).
+
+### Flag syntax
+
+Every flag works with one dash or two: `-json` and `--json`, `-target=X` and `--target=X`. A multi-letter flag tfui
+does not know is double-dashed too, so a terraform flag reaches cobra as `--name`; a single-letter flag passes
+through unchanged.
+
+These terraform flags take their value as the next argument when it is not joined with `=` (`-target X`):
+`target`, `var`, `var-file`, `replace`, `out`, `parallelism`, `lock-timeout`, `chdir`, `workspace`, `input`,
+`backend-config`, `plugin-dir`, `get`. These carry their value in the flag (`-lock=false`) and never take the next
+argument: `json`, `lock`, `destroy`, `refresh-only`, `compact-warnings`, `upgrade`, `reconfigure`, `force-copy`,
+`backend`.
+
+Everything after `--` is passed through to terraform: under `-macro` it is appended to the recorded `terraform plan`
+and `terraform apply` commands. A live run does not forward it.
 
 ### Pre-seeded data (`-plan`, `-state`)
 
@@ -327,8 +303,5 @@ See [Macro Language](macro-language.md) for the DSL reference and the macro [exi
 
 ## Exit Codes
 
-| Code | Meaning | Scope |
-|------|---------|-------|
-| 0 | Success (no changes for plan, or operation completed) | All |
-| 1 | Error / validation failure | All |
-| 2 | Plan has changes (terraform-compatible) | `plan` only |
+The exit codes are in the [CLI I/O contract](cli-io-contract.md#exit-codes); a macro run's are in the
+[macro language](macro-language.md#exit-codes).

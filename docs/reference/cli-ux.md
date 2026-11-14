@@ -5,170 +5,78 @@ parent: Reference
 nav_order: 4
 seo:
   description: UX design guidelines for the CLI interface
-description: "Sets the rules every CLI command follows: execution modes, output channels, flags and errors."
+description: "Sets the rules every CLI command follows: output channels, flags, exit codes, errors and headless runs."
 audience: "Contributors adding or changing a CLI command"
 ---
 
 # CLI UX Guidelines
 
-## 1. Design Principle
+A command parses its flags into its plugin's `Input` and lets the plugin produce the output; the plugin runs the same
+code standalone and headless. The modes, channels and exit codes a caller relies on are the
+[CLI I/O contract](cli-io-contract.md); every command and flag is in the [CLI reference](cli-reference.md). This page
+holds the rules a contributor follows when writing a command, each with its reason.
 
-Every `tfui <command>` launches the actual plugin in a standalone TUI. The TUI renders on stderr, output goes to stdout on exit. `-ci` or `CI=1` disables the TUI for headless use.
+## 1. Output channels
 
-This follows the fzf model: interactive UI on one fd, structured output on another.
+- **Data goes to stdout, through the plugin's `StdoutEmitter`; status and summaries go to stderr, through its
+  `StderrEmitter`; the TUI renders only on stderr.** A script can pipe stdout while the user reviews in the TUI, and
+  stdout never carries ANSI sequences ([why TUI on stderr](cli-io-contract.md#why-tui-on-stderr)).
+- **A plugin produces its output through the emitter interfaces (`StdoutEmitter`, `StderrEmitter`, `ExitCoder`) and
+  never asks which mode it runs in.** The mode is chosen in `cmd/tfui/`; a plugin that branched on it would couple the
+  core to its adapters ([ADR-0006](../adr/0006-orthogonal-income-outcome.md)). `-json` reaches the plugin as
+  `Input.JSON` at `Activate` time, and the plugin decides what `Stdout()` returns.
+- **A piped stdout keeps the TUI.** The user wants the review and the piped output at once
+  ([why `-ci` instead of detecting a pipe](cli-io-contract.md#why--ci-instead-of-auto-detecting-stdout-pipe)).
 
-## 2. Two Execution Modes
+## 2. Flags
 
-| Mode | TUI | stdout | Trigger |
-|------|-----|--------|---------|
-| **Standalone** | Alt-screen on stderr | Plugin output on exit | Default (stderr is TTY) |
-| **CI** | None | Plugin output immediately | `-ci`, `CI=1`, agent environment, stderr not TTY |
+- **`-json` changes the format and `-ci` the mode; neither depends on the other.** `tfui plan -ci -json` is headless
+  with JSON output, and every pairing stays valid ([ADR-0017](../adr/0017-novel-flags-must-be-orthogonal.md)).
+- **A terraform flag keeps terraform's name and works with one dash or two.** Terraform users type `-target`; cobra
+  parses `--target`, so `normalizeArgs()` (`cmd/tfui/normalize.go`) double-dashes multi-letter flags before cobra
+  sees them.
+- **A terraform flag that takes a separate value goes in `knownValueFlags`; a boolean one in `knownBoolFlags`.** The
+  normalizer must know whether the next argument belongs to the flag: `-target X` consumes `X`, `-lock false` must
+  not. The sets are listed in the [CLI reference](cli-reference.md#flag-syntax).
+- **A tfui-only flag takes a name terraform has not claimed and is registered with a double dash.** A name terraform
+  owns would change meaning for terraform users ([ADR-0009](../adr/0009-terraform-namespace-reserved.md)).
+- **A tfui-only flag combines validly with every other flag.** A flag whose meaning depends on another flag's absence
+  hides a dependency between axes ([ADR-0017](../adr/0017-novel-flags-must-be-orthogonal.md)).
 
-Mode resolution:
-```go
-if -ci OR CI=1:                → CI mode
-if CLAUDECODE or AI_AGENT set:  → CI mode (agent environment, ADR-0022)
-if stderr not TTY:              → CI mode
-otherwise:                      → Standalone TUI
-```
+## 3. Exit codes
 
-## 3. Output Channel Rules
+- **Exit 2 comes only from the plan plugin's `ExitCode()`.** Scripts read 2 as "plan has changes", as with terraform's
+  `-detailed-exitcode`; a second source would make it ambiguous.
+- **Every other failure exits 1.** A plugin's `ExitCode()` returns 1 on failure; a cobra error exits 1 through
+  `SilenceUsage: true` and `os.Exit(1)` in `main.go`.
 
-| Channel | Content | Never |
-|---------|---------|-------|
-| **stdout** | Data output: tree view, JSON, resource lists, summaries (written on TUI exit) | TUI rendering, ANSI sequences |
-| **stderr** | TUI rendering (alt-screen in standalone mode) | Data output |
+## 4. Error messages
 
-### Critical invariants
+- Errors go to stderr through cobra's error handling or `fmt.Errorf`.
+- Error messages start lowercase, because a wrapped error continues another sentence (Go convention).
+- Wrap errors with the step that failed, `fmt.Errorf("plan failed: %w", err)`, so the user sees where it broke.
+- An actionable hint follows the error after `\n\nhint:`, so the error line stays terraform's or Go's own.
+- No "Press X to Y" in CLI output: a headless run has no keys to press.
 
-- `-json` flag: changes output FORMAT (JSON vs human-readable), not mode
-- `-ci` flag: changes execution MODE (headless vs TUI), not format
-- Both flags are orthogonal: `tfui plan -ci -json` = headless + JSON output
-- Piped stdout: TUI still renders on stderr (fzf model)
+## 5. Headless runs
 
-## 4. Flag Conventions
+- **A confirmation is skipped headless only when the command's arguments declare the intent.** The action verbs
+  (`taint`, `untaint`, `import`) set `Input.AutoConfirm` from `SilentStderr() || macro.Active()`, as terraform's own
+  commands never prompt; nothing could answer the prompt, and the run would block until the driver timed out
+  ([ADR-0022](../adr/0022-agent-environments-imply-headless.md)).
+- **A command that would change infrastructure without a review fails headless unless the user opted out of the
+  review**, as `terraform apply` does without `-auto-approve` ([`tfui apply`](cli-reference.md#tfui-apply)). Applying
+  unconfirmed is the one failure a user cannot take back.
+- **A failed run never claims success.** It reports failure the way the contract's
+  [failure rows](cli-io-contract.md#headless-failures) say, because a script or an agent acts on the exit code
+  alone.
 
-### Terraform compatibility
-- All terraform flags work with a single dash (`-json`, `-target`) or a double dash (`--json`, `--target`)
-- `normalizeArgs()` converts single-dash flags to double-dash for cobra
-- Unknown multi-letter flags are double-dashed too, so a future terraform flag reaches cobra as `--name`; single-letter flags pass through unchanged
+## 6. Imperative commands
 
-### Novel flags (tfui-only)
-- Registered in cobra with a double dash (`--ci`); `normalizeArgs()` also accepts the single-dash spelling used throughout these docs (`-ci`, `-project`, `-macro`, `-record`, `-plan`, `-state`, `-terraform-bin`, `-config`, `-chdir`)
-- Use names terraform hasn't claimed — no collision risk
-- `-plan` and `-state` are available on ALL commands (pre-seed data; [CLI Reference](cli-reference.md) says which reads use it)
-- `-macro` is available on ALL commands (on root: drives full TUI headlessly; on subcommands: drives standalone plugin headlessly, outputs recorded commands)
-- Every novel flag must combine validly with every other flag (see ADR-0017)
-
-### Passthrough (`--`)
-- Everything after `--` is stored as ExtraArgs
-- `splitPassthrough()` runs BEFORE `normalizeArgs()`
-- ExtraArgs are appended to the `terraform plan` and `terraform apply` commands via sdk options
-- ExecService does NOT forward ExtraArgs directly (uses typed API)
-
-### Flag normalization sets
-
-**Value flags** (consume next arg when no `=`):
-`target`, `var`, `var-file`, `replace`, `out`, `parallelism`, `lock-timeout`, `chdir`, `workspace`, `input`, `backend-config`, `plugin-dir`, `get`
-
-**Bool flags** (never consume next arg):
-`json`, `lock`, `destroy`, `refresh-only`, `compact-warnings`, `upgrade`, `reconfigure`, `force-copy`, `backend`
-
-## 5. Exit Codes
-
-| Code | Meaning | Commands |
-|------|---------|----------|
-| `0` | Success (no changes, or operation completed) | All |
-| `1` | Error / validation failure | All |
-| `2` | Changes present | `plan` only |
-
-Rules:
-- Exit 2 must ONLY come from plan plugin's `ExitCode()` method
-- cobra errors → exit 1 (handled by `SilenceUsage: true` + `os.Exit(1)`)
-- Macro errors → exit code from `macro.RunError.Code`
-
-## 6. Binary Resolution Priority
-
-```
--config terraform.bin=X  >  -terraform-bin flag  >  tfui.hcl terraform { bin }  >  "terraform"
-```
-
-## 7. Pipe Ergonomics
-
-### Standalone TUI + pipe (fzf model)
-
-```bash
-# User reviews plan in TUI, quits, then output flows to grep:
-tfui plan | grep "aws_"
-
-# User reviews plan in TUI, quits, then JSON flows to jq:
-tfui plan -json | jq '.resource_changes[].address'
-
-# User browses state in TUI, quits, then addresses flow to wc:
-tfui state | wc -l
-```
-
-### CI mode in scripts
-
-```bash
-# No TUI, immediate output:
-CI=1 tfui plan -json | jq '.resource_changes[].address'
-tfui validate -ci -json | jq '.valid'
-
-# Auto-detected (stderr not TTY):
-tfui plan -json > plan-output.json
-```
-
-## 8. Tree View Format
-
-Default human-readable output for `tfui plan`:
-
-```
-+ aws_s3_bucket.logs
-~ aws_iam_role.api
-- aws_security_group.old
--/+ aws_instance.web
-
-Plan: 1 to add, 2 to change, 1 to destroy.
-Risk: high
-```
-
-Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read. A replace counts as a change. `Risk:` appears only when a change carries risk.
-
-## 9. Error Message Formatting
-
-- Errors go to stderr via cobra's error handling or `fmt.Errorf`
-- Error messages start with lowercase (Go convention)
-- No "Press X to Y" patterns in CLI output
-- Wrap errors with context: `fmt.Errorf("plan failed: %w", err)`
-- Hints use `\n\nhint:` suffix for actionable guidance
-
-## 10. `-ci` Mode
-
-Purpose: disable TUI entirely for headless/scripted use.
-
-Detection:
-1. `-ci` flag on the command
-2. `CI=1` environment variable (`CI=true` does not match)
-3. `CLAUDECODE` or `AI_AGENT` set to a non-empty value (agent environment, ADR-0022)
-4. stderr is not a TTY (auto-detected)
-
-Effects:
-- No TUI rendering (no alt-screen, no keyboard input)
-- Plugin runs headlessly via macro driver
-- Output written directly to stdout when plugin reaches Ready state
-- Exit codes unchanged
-
-## 11. Analysis plugins
-
-Risk, phantom and blast radius are TUI plugins (`R`, `P`, `B`); they have no CLI command.
-
-## 12. Imperative Commands (no TUI)
-
-Workspace operations and force-unlock are direct CLI commands — they execute immediately without TUI because they are one-shot imperative actions:
+Workspace operations and force-unlock run at once, with no TUI, and print a status message to stderr. They are
+one-shot operations: the operation is the entire interaction, so a TUI would add nothing.
 
 ```bash
 tfui workspace select prod     # switches, prints status to stderr
-tfui workspace new staging     # creates, prints status to stderr
 tfui force-unlock abc123       # unlocks, prints status to stderr
 ```

@@ -57,22 +57,16 @@ tfui validate -json # structured diagnostics
 
 ## How detection works
 
-Headless mode resolves before anything renders:
-
-```
-if -ci flag or CI=1:               → headless
-if CLAUDECODE or AI_AGENT set:     → headless (agent environment)
-if stderr is not a TTY:            → headless
-otherwise:                         → interactive TUI
-```
-
-Claude Code sets `CLAUDECODE` and `AI_AGENT` in every shell it spawns, so both bare `tfui <command>` invocations and PTY-attached ones resolve to headless automatically. Other agents are covered by whichever signal they provide: `AI_AGENT`, `CI=1`, or a non-TTY stderr. The full rationale is in [ADR-0022](../adr/0022-agent-environments-imply-headless.md).
-
-There is no `--agent` flag — the explicit spelling already exists (`-ci` for mode, `-json` for format), and detection makes it unnecessary.
+Headless mode resolves before anything renders. Claude Code sets `CLAUDECODE` and `AI_AGENT` in every shell it
+spawns, so both bare `tfui <command>` invocations and PTY-attached ones run headless. Other agents are covered by
+whichever signal they provide: `AI_AGENT`, `CI=1`, or a non-TTY stderr. The full order is the contract's
+[mode resolution](../reference/cli-io-contract.md#mode-resolution), and why agents are detected from the environment
+rather than a flag is in [ADR-0022](../adr/0022-agent-environments-imply-headless.md).
 
 ## The failure contract
 
-The most expensive output an agent can receive is a lie. tfui's headless contract is: **terraform's error on stderr, empty stdout, exit 1 — always.**
+The most expensive output an agent can receive is a lie, so a failed run never claims success: it follows the
+contract's [failure rows](../reference/cli-io-contract.md#headless-failures).
 
 ```console
 $ tfui plan        # inside an agent session, broken configuration
@@ -105,17 +99,13 @@ $ echo $?
 
 ## Exit codes the agent can branch on
 
-| Code | Meaning |
-|---|---|
-| `0` | Success — or no changes, for `plan` |
-| `1` | Error / invalid configuration |
-| `2` | Plan has changes (terraform `-detailed-exitcode` convention) |
-
-An agent can run `tfui plan`, branch on the exit code alone, and only read output when it needs the detail.
+`tfui plan` exits 2 when the plan has changes, as terraform's `-detailed-exitcode` does, so an agent can run it,
+branch on the exit code alone, and read the output only when it needs the detail. Every code is in the
+[contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Every verb, one contract
 
-All commands follow the same rules headlessly — including the state-mutating ones, which skip their interactive confirmation exactly as `terraform taint` does:
+All commands follow the same rules headlessly, including the state-mutating ones, which skip their interactive confirmation as `terraform taint` does:
 
 ```console
 $ tfui taint local_file.alpha
@@ -124,17 +114,8 @@ $ tfui apply -auto-approve
 Apply complete. Resources: 1 added, 0 changed, 0 destroyed.   # stderr; exit 0
 ```
 
-| Command | stdout | stderr | Exit |
-|---|---|---|---|
-| `tfui plan` | tree view or JSON | — | 0/2 |
-| `tfui validate` | diagnostics | — | 0/1 |
-| `tfui state` | one address per line | — | 0 |
-| `tfui output` | key=value or JSON | — | 0 |
-| `tfui apply -auto-approve` | — | outcome summary | 0/1 |
-| `tfui taint` / `untaint` / `import` | — | ✓ confirmation | 0/1 |
-| any command, terraform fails | — | terraform's error | 1 |
-
-The complete specification is the [CLI I/O Contract](../reference/cli-io-contract.md).
+What each command writes headless is in the contract's
+[headless table](../reference/cli-io-contract.md#headless-mode).
 
 ## Teach your agent to use it
 

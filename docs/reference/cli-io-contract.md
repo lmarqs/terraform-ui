@@ -1,6 +1,6 @@
 ---
 layout: default
-title: "tfui CLI Output: stdout, stderr and CI Mode"
+title: "tfui CLI Output: stdout, stderr and Headless Mode"
 parent: Reference
 nav_order: 2
 seo:
@@ -11,49 +11,51 @@ audience: "Scripts and agents calling tfui, and contributors changing output"
 
 # CLI I/O Contract
 
-## Design Principle
+**Every `tfui <command>` opens its plugin standalone, with the TUI on stderr, and writes its output to stdout on exit.
+A headless run has no TUI and writes the output as soon as the plugin is done.**
 
-**Every `tfui <command>` launches a standalone TUI on stderr. Output goes to stdout on exit. `-ci` or `CI=1` disables the TUI for headless use.**
+This follows the fzf model: interactive UI on stderr, structured output on stdout, so a user gets full interactivity
+and pipe composability at once.
 
-This follows the fzf model: interactive UI on stderr (or /dev/tty), structured output on stdout. Users get full interactivity AND pipe composability simultaneously.
+## Modes
 
-### Two Modes
+| Mode | TUI | stdout | Selected by |
+|------|-----|--------|-------------|
+| **Standalone** | Alt-screen on stderr; the user reviews and confirms | Plugin output on exit | Default: `tfui <command>` with a TTY on stderr |
+| **Headless** | None, no keyboard input | Plugin output as soon as it is done | `-ci`, `CI=1`, an AI agent environment, or a stderr that is not a TTY |
+| **Full TUI** | Alt-screen on stdout, all plugins | Nothing | `tfui` with no command |
 
-```
-Mode 1: Standalone TUI (default)
-  TUI renders on stderr (alt-screen)
-  User interacts, reviews, confirms
-  On exit: structured output → stdout
-  Pipe-friendly: tfui plan | jq works (TUI on stderr, JSON to jq after quit)
-
-Mode 2: CI (headless)
-  No TUI, no interactivity
-  Output goes directly to stdout
-  Triggered by: -ci flag, CI=1 env var, agent environment, or stderr not a TTY
-```
-
-### Mode Resolution
+### Mode resolution
 
 ```
-if -ci OR CI=1:                    → CI mode
-if CLAUDECODE or AI_AGENT set:      → CI mode (AI agent environment, see ADR-0022)
-if stderr not TTY:                  → CI mode (nowhere to render)
-otherwise:                          → Standalone TUI mode
+if -ci OR CI=1:                    → headless
+if CLAUDECODE or AI_AGENT set:     → headless (AI agent environment, see ADR-0022)
+if stderr not TTY:                 → headless (nowhere to render)
+otherwise:                         → standalone TUI
 ```
 
-Agent environment variables match on non-empty. `CI` matches `1` exactly.
+Agent environment variables match on non-empty. `CI` matches `1` exactly; `CI=true` does not match.
 
-### Rules
+### What headless changes
+
+- The macro driver runs the plugin in place of a terminal: no alt-screen, no keyboard input.
+- Output is written when the plugin is ready or reaches a terminal state.
+- The action verbs (`taint`, `untaint`, `import`) skip their confirmation: CLI arguments are declared intent, as in
+  terraform's own prompt-free commands ([ADR-0022](../adr/0022-agent-environments-imply-headless.md)).
+- `tfui apply` requires `-auto-approve`, as `terraform apply` does (see the table below).
+- Exit codes are the same as in standalone mode.
+
+## Rules
 
 1. **stdout = data.** Tree views, JSON, resource lists, summaries. Never TUI rendering.
-2. **stderr = TUI.** Alt-screen rendering in standalone mode. Never data.
-3. **`-json` controls format, not mode.** Both TUI and CI modes respect `-json` — it changes what's written to stdout, not whether the TUI appears.
+2. **stderr = TUI.** Alt-screen rendering in standalone mode, and status messages. Never data.
+3. **`-json` controls format, not mode.** Both standalone and headless runs respect `-json` — it changes what's written to stdout, not whether the TUI appears.
 4. **`-ci` controls mode, not format.** Disables TUI entirely. Output format determined by `-json` flag independently.
-5. **Plugins produce output.** Each plugin implements optional emitter interfaces (`StdoutEmitter`, `StderrEmitter`, `ExitCoder`) — the same code runs in both modes. `--json` is an `Input.JSON` field handed to the plugin at Activate time; the plugin decides what `Stdout()` returns.
+5. **A piped stdout keeps the TUI.** `tfui plan | jq` renders the TUI on stderr and sends the output to `jq` on exit.
 
 ## Full I/O Table
 
-### Standalone TUI mode (default when stderr is TTY)
+### Standalone mode
 
 | Command | stdout (on exit) | stderr | Exit |
 |---------|-----------------|--------|------|
@@ -71,7 +73,7 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly.
 | `tfui version` | Version text | TUI (alt-screen) | 0 |
 | `tfui version -json` | Version JSON | TUI (alt-screen) | 0 |
 
-### CI mode (`-ci`, `CI=1`, agent environment, or stderr not TTY)
+### Headless mode
 
 | Command | stdout | stderr | Exit |
 |---------|--------|--------|------|
@@ -91,11 +93,10 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly.
 | `tfui import addr id -ci` | — | "✓ Imported id as addr" | 0 |
 | `tfui state rm\|mv\|taint\|untaint ... -ci` | — | — | 0 |
 
-Action verbs (taint, untaint, import) skip their interactive confirmation in
-CI mode — CLI arguments are declared intent, mirroring terraform's own
-prompt-free behavior for these commands (ADR-0022).
+Apply writes nothing on stdout: the exit code is the machine signal, and the outcome summary goes to stderr, the
+status channel.
 
-### Failure rows (CI mode)
+### Headless failures
 
 Every plugin command reports failure the same way: terraform's error message
 on stderr, empty stdout, exit 1. A failed run never claims success.
@@ -139,28 +140,37 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 | `tfui force-unlock id` | — | Status/prompt | 0/1 |
 | `tfui scaffold -yes` | HCL content | Status message | 0/1 |
 
-### Additive flags
-
-| Flag | Effect | Scope |
-|------|--------|-------|
-| `-ci` | Disable TUI, direct output | All plugin commands |
-| `-json` | JSON output format | plan, state, validate, output, version |
-| `-project dir` | Set project root | All commands |
-| `-terraform-bin path` | Override binary | All commands |
-| `-chdir member` | Select chdir member | All commands |
-| `-config key=val` | Override config | All commands |
-
 ## Exit Codes
 
 | Code | Meaning | Scope |
 |------|---------|-------|
 | `0` | Success / no changes | All commands |
 | `1` | Error / validation failure | All commands |
-| `2` | Plan has changes | `plan` command only |
+| `2` | Plan has changes, as terraform's `-detailed-exitcode` | `plan` command only |
+
+A flag or argument error that stops the command before its plugin runs exits 1. A macro run's codes are in the
+[macro language](macro-language.md#exit-codes).
+
+## Plan tree view
+
+`tfui plan` writes this to stdout unless `-json` is given:
+
+```
++ aws_s3_bucket.logs
+~ aws_iam_role.api
+- aws_security_group.old
+-/+ aws_instance.web
+
+Plan: 1 to add, 2 to change, 1 to destroy.
+Risk: high
+```
+
+Symbols: `+` create, `~` update, `-` delete, `-/+` replace, `<=` read. A replace counts as a change. `Risk:` appears
+only when a change carries risk.
 
 ## Pipe Scenarios
 
-### Standalone TUI + pipe (fzf model)
+### Standalone + pipe (fzf model)
 
 ```bash
 # TUI renders on stderr, user reviews plan interactively.
@@ -178,7 +188,7 @@ tfui state | wc -l
 
 In pipe scenarios, the TUI blocks the downstream process until the user quits. This is intentional — the user reviews interactively, then the result flows.
 
-### CI mode in scripts
+### Headless in scripts
 
 ```bash
 # No TUI, immediate output:
@@ -220,18 +230,12 @@ The user reviews the plan interactively (expand/collapse, filter, inspect attrib
 
 When stdout is piped (`tfui plan | jq`), we still show the TUI on stderr. The user wants both: interactive review AND piped output. Auto-disabling TUI on pipe would break this.
 
-`-ci` is the explicit "I don't want any TUI at all" signal. CI mode also triggers on `CI=1`; runners that set `CI=true`, such as GitHub Actions, reach it because their stderr is not a TTY. It also triggers via agent environment variables (`CLAUDECODE`, `AI_AGENT` — see ADR-0022), and when stderr is not a TTY.
+`-ci` is the explicit "I don't want any TUI at all" signal; the other triggers are in [Mode resolution](#mode-resolution). Runners that set `CI=true`, such as GitHub Actions, run headless because their stderr is not a TTY.
 
-### Why agent environments force headless (ADR-0022)?
+### Why agent environments force headless
 
-AI coding agents may attach a PTY to the commands they spawn, so TTY detection alone would launch the alt-screen TUI into a session no human can drive: the agent sees ANSI noise and the process blocks. Their env vars are the reliable signal that no human is present. There is no `--agent` flag — the explicit spelling is `-ci` + `-json`; only implicit detection needed a new signal.
-
-See [Terraform for AI Coding Agents](../features/ai-agents.md) for the agent-facing overview, including measured context-window savings.
+Recorded in [ADR-0022](../adr/0022-agent-environments-imply-headless.md). [Terraform for AI Coding Agents](../features/ai-agents.md) is the agent-facing overview.
 
 ### Why full TUI (`tfui` no args) uses stdout?
 
 The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split.
-
-### Why workspace/force-unlock stay as direct CLI?
-
-These are imperative one-shot operations (select, create, delete, unlock). They don't benefit from a TUI — the operation is the entire interaction. They complete immediately and print a status message.
