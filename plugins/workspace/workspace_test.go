@@ -35,7 +35,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 	if err := p.(*Plugin).Configure(map[string]interface{}{}); err != nil {
 		t.Errorf("Configure() = %v, want nil", err)
 	}
-	if cmd := p.Init(&sdk.PluginDeps{Service: svc}); cmd != nil {
+	if cmd := p.Init(sdktest.NewDeps(svc).Deps); cmd != nil {
 		t.Error("Init() should return nil cmd")
 	}
 	if p.(*Plugin).Ready() {
@@ -58,7 +58,7 @@ func TestStack_ShouldReturn_NonNilStack(t *testing.T) {
 func TestActivate_GivenIdle_ShouldStartLoading(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	cmd := p.Activate()
 	if cmd == nil {
@@ -72,7 +72,7 @@ func TestActivate_GivenIdle_ShouldStartLoading(t *testing.T) {
 func TestActivate_GivenError_ShouldRetryLoading(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusError
 
 	cmd := p.Activate()
@@ -87,7 +87,7 @@ func TestActivate_GivenError_ShouldRetryLoading(t *testing.T) {
 func TestActivate_GivenDone_ShouldNotReload(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 
 	cmd := p.Activate()
@@ -99,7 +99,7 @@ func TestActivate_GivenDone_ShouldNotReload(t *testing.T) {
 func TestActivate_ShouldFetchWorkspaceList(t *testing.T) {
 	svc := mockSvc([]string{"default", "staging"}, "staging")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	cmd := p.Activate()
 	msg := cmd()
@@ -136,7 +136,7 @@ func TestActivate_GivenListError_ShouldReturnErrorMsg(t *testing.T) {
 		},
 	}
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	cmd := p.Activate()
 	msg := cmd()
@@ -164,7 +164,7 @@ func TestActivate_GivenWorkspaceError_ShouldReturnErrorMsg(t *testing.T) {
 		WorkspaceFn:     func(_ context.Context) (string, error) { return "", errors.New("fail") },
 	}
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 
 	cmd := p.Activate()
 	msg := cmd()
@@ -1138,7 +1138,7 @@ func TestView_GivenUnknownStatus_ShouldReturnEmpty(t *testing.T) {
 func TestHandleContextChanged_ShouldResetAndUpdateService(t *testing.T) {
 	svc := mockSvc([]string{"default"}, "default")
 	p := New(svc).(*Plugin)
-	p.Init(&sdk.PluginDeps{Service: svc})
+	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusDone
 	p.HandleContextChanged(sdk.ContextChangedEvent{Next: &sdk.Context{Service: svc, WorkingDir: "/new"}})
 
