@@ -1,3 +1,10 @@
+# [1.29.0](https://github.com/lmarqs/terraform-ui/compare/v1.28.1...v1.29.0) (2026-11-14)
+
+
+### Features
+
+* **exec:** track running terraform calls so they can be interrupted and awaited ([732b635](https://github.com/lmarqs/terraform-ui/commit/732b63583e21324fa99c032e1c377c964f431dba)), closes [#100](https://github.com/lmarqs/terraform-ui/issues/100)
+
 ## [1.28.1](https://github.com/lmarqs/terraform-ui/compare/v1.28.0...v1.28.1) (2026-11-14)
 
 
