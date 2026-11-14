@@ -22,7 +22,8 @@ We decided that **cleanup belongs to whoever knows when the data becomes useless
 - The plan plugin calls `PlanFile.Cleanup()` in its `reset()` path, triggered by a chdir or workspace change
   (`ContextChangedEvent` beyond a pin toggle), by `LockClearedEvent`, or by `PlanInvalidatedEvent` while plan is not
   showing results.
-- A successful apply marks plan stale: the plan file stays until plan resets or the program ends.
+- A new plan run removes the temp plan file it supersedes, since that plan can no longer be applied.
+- A successful apply marks plan stale: the plan file stays until plan runs again, plan resets or the program ends.
 - A failed apply leaves the plan file alive while the program runs. Only when plan decides the data is stale does
   cleanup happen.
 - A temp plan file holds variable values in plaintext, so the plan plugin implements `sdk.Shutdowner` and its

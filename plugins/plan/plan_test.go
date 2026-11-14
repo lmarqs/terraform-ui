@@ -2958,3 +2958,49 @@ func TestShutdown_GivenAUserPlanFile_ShouldKeepIt(t *testing.T) {
 		t.Errorf("user plan file removed by Shutdown; err=%v", err)
 	}
 }
+
+// Each re-plan allocates a new plan file; the superseded temp file holds
+// variable values in plaintext and must not linger in $TMPDIR (issue #95).
+func TestActivate_GivenAPriorPlanFile_WhenReplanning_ShouldRemoveOnlySupersededTempFile(t *testing.T) {
+	tests := []struct {
+		name          string
+		prior         func(path string) sdk.PlanFile
+		wantPriorGone bool
+	}{
+		{"temp plan file is removed", sdk.NewTempPlanFile, true},
+		{"user plan file is kept", sdk.NewUserPlanFile, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("TMPDIR", t.TempDir())
+			svc := &sdktest.MockService{
+				PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+					if err := os.WriteFile(opts.PlanFile, []byte("plan-bytes"), 0o600); err != nil {
+						return nil, err
+					}
+					return &sdk.PlanSummary{}, nil
+				},
+			}
+			p := newTestPlugin(svc)
+			priorPath := filepath.Join(t.TempDir(), "prior.tfplan")
+			if err := os.WriteFile(priorPath, []byte("plan-bytes"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			p.planFile = tt.prior(priorPath)
+
+			p = drainActivate(t, p, Input{})
+
+			newPath := p.planFile.Path()
+			if newPath == priorPath {
+				t.Fatalf("re-plan reused plan file path %q, want a new one", newPath)
+			}
+			_, priorErr := os.Stat(priorPath)
+			if gone := os.IsNotExist(priorErr); gone != tt.wantPriorGone {
+				t.Errorf("prior plan file removed = %v, want %v (err=%v)", gone, tt.wantPriorGone, priorErr)
+			}
+			if _, err := os.Stat(newPath); err != nil {
+				t.Errorf("new plan file missing after re-plan; err=%v", err)
+			}
+		})
+	}
+}

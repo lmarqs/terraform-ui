@@ -336,8 +336,10 @@ func (e *Plugin) Shutdown() {
 }
 
 // allocPlanFile reserves a unique path for the plan artifact and stores it on
-// the plugin so PlanCompletedEvent can hand it off to apply.
+// the plugin so PlanCompletedEvent can hand it off to apply. The plan it
+// supersedes can no longer be applied, so its temp file is removed.
 func (e *Plugin) allocPlanFile() string {
+	e.planFile.Cleanup()
 	path := filepath.Join(os.TempDir(), fmt.Sprintf("tfui-%d-%d.tfplan", os.Getpid(), time.Now().UnixNano()))
 	e.planFile = sdk.NewTempPlanFile(path)
 	return path
