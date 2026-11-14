@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -24,15 +25,17 @@ type interruptHarness struct {
 	events []string
 	stderr bytes.Buffer
 
-	running     bool
-	waitBlock   chan struct{}
-	releaseOnce sync.Once
-	waitStarted chan struct{}
-	waitOnce    sync.Once
-	endRunCalls chan struct{}
-	exitCalls   chan int
-	signals     chan os.Signal
-	guard       *interruptGuard
+	running      bool
+	terminalHeld atomic.Bool
+	heldChecks   chan struct{}
+	waitBlock    chan struct{}
+	releaseOnce  sync.Once
+	waitStarted  chan struct{}
+	waitOnce     sync.Once
+	endRunCalls  chan struct{}
+	exitCalls    chan int
+	signals      chan os.Signal
+	guard        *interruptGuard
 }
 
 func (h *interruptHarness) record(event string) {
@@ -81,6 +84,16 @@ func (h *interruptHarness) endRun() {
 	h.endRunCalls <- struct{}{}
 }
 
+// held reports terminalHeld and, while it is set, tells the test that a
+// signal was checked against it.
+func (h *interruptHarness) held() bool {
+	if !h.terminalHeld.Load() {
+		return false
+	}
+	h.heldChecks <- struct{}{}
+	return true
+}
+
 func (h *interruptHarness) shutdown() { h.record("shutdown") }
 
 func (h *interruptHarness) exit(code int) {
@@ -95,13 +108,14 @@ func newInterruptHarness(t *testing.T, ownProcessGroup, running, blockWait bool)
 		waitStarted: make(chan struct{}),
 		endRunCalls: make(chan struct{}, 4),
 		exitCalls:   make(chan int, 4),
+		heldChecks:  make(chan struct{}, 4),
 		signals:     make(chan os.Signal, 4),
 	}
 	if blockWait {
 		h.waitBlock = make(chan struct{})
 		t.Cleanup(h.releaseWait)
 	}
-	h.guard = newInterruptGuard(h, h.signals, ownProcessGroup, h, h.shutdown, h.exit)
+	h.guard = newInterruptGuard(h, h.signals, ownProcessGroup, h.held, h, h.shutdown, h.exit)
 	h.guard.Watch(h.endRun)
 	return h
 }
@@ -144,6 +158,34 @@ func TestInterruptGuard_FirstSignal_ShouldInterruptOnlyWithOwnProcessGroupAndEnd
 
 			if got := h.snapshot(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("events = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInterruptGuard_SignalWhileTerminalHeldByEditor_ShouldHaveNoEffect(t *testing.T) {
+	tests := []struct {
+		name string
+		sig  os.Signal
+	}{
+		{"SIGINT", syscall.SIGINT},
+		{"SIGTERM", syscall.SIGTERM},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newInterruptHarness(t, true, true, false)
+			h.terminalHeld.Store(true)
+			h.signals <- tt.sig
+			h.signals <- tt.sig
+			awaitInterrupt(t, h.heldChecks, "first signal checked while held")
+			awaitInterrupt(t, h.heldChecks, "second signal checked while held")
+			h.terminalHeld.Store(false)
+
+			h.firstSignal(t, tt.sig)
+
+			want := []string{"interrupt", "endRun"}
+			if got := h.snapshot(); !reflect.DeepEqual(got, want) {
+				t.Errorf("events = %v, want %v", got, want)
 			}
 		})
 	}

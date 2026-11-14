@@ -7,6 +7,7 @@ import (
 	"sync"
 	"syscall"
 
+	"github.com/lmarqs/terraform-ui/internal/editor"
 	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -29,6 +30,7 @@ type interruptGuard struct {
 	runs            terraformRuns
 	signals         <-chan os.Signal
 	ownProcessGroup bool
+	terminalHeld    func() bool
 	stderr          io.Writer
 	shutdown        func()
 	exit            func(int)
@@ -40,27 +42,33 @@ type interruptGuard struct {
 
 // newInterruptGuard builds a guard. runs may be a no-op tracker (macro runs);
 // signals is the channel signal.Notify feeds; ownProcessGroup is
-// exec.TerraformHasOwnProcessGroup; shutdown is registry.Shutdown; exit is
-// os.Exit in production.
+// exec.TerraformHasOwnProcessGroup; terminalHeld is editor.HoldsTerminal;
+// shutdown is registry.Shutdown; exit is os.Exit in production.
 func newInterruptGuard(runs terraformRuns, signals <-chan os.Signal, ownProcessGroup bool,
-	stderr io.Writer, shutdown func(), exit func(int)) *interruptGuard {
+	terminalHeld func() bool, stderr io.Writer, shutdown func(), exit func(int)) *interruptGuard {
 	return &interruptGuard{
 		runs:            runs,
 		signals:         signals,
 		ownProcessGroup: ownProcessGroup,
+		terminalHeld:    terminalHeld,
 		stderr:          stderr,
 		shutdown:        shutdown,
 		exit:            exit,
 	}
 }
 
-// Watch reads signals until the channel closes. The first signal is recorded,
-// interrupts terraform when it has its own process group (otherwise the
-// terminal already signalled it), and calls endRun. A later signal, or any
-// signal once Finish has started, forces the exit.
+// Watch reads signals until the channel closes. A signal while an editor
+// holds the terminal is dropped: it is the user's Ctrl+C for the editor. The
+// first other signal is recorded, interrupts terraform when it has its own
+// process group (otherwise the terminal already signalled it), and calls
+// endRun. A later signal, or any signal once Finish has started, forces the
+// exit.
 func (g *interruptGuard) Watch(endRun func()) {
 	go func() {
 		for sig := range g.signals {
+			if g.terminalHeld() {
+				continue
+			}
 			if !g.recordFirst(sig) {
 				g.forceExit(sig)
 				return
@@ -137,7 +145,7 @@ func startInterruptGuard(svc sdk.Service, stderr io.Writer, shutdown func()) (*i
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	guard := newInterruptGuard(terraformRunsOf(svc), signals, tfexec.TerraformHasOwnProcessGroup,
-		stderr, shutdown, os.Exit)
+		editor.HoldsTerminal, stderr, shutdown, os.Exit)
 	var once sync.Once
 	return guard, func() {
 		once.Do(func() {

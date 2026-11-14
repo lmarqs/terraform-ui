@@ -26,7 +26,7 @@ type EditorClosedMsg struct {
 }
 
 // Open suspends the TUI and opens the user's editor at the given location.
-// Uses tea.ExecProcess for proper terminal handoff.
+// The editor holds the terminal until it exits (HoldsTerminal).
 func Open(loc SourceLocation) tea.Cmd {
 	editor := detectEditor()
 	bin, editorArgs := splitCommand(editor)
@@ -40,7 +40,7 @@ func Open(loc SourceLocation) tea.Cmd {
 	}
 
 	c := exec.Command(bin, args...)
-	return tea.ExecProcess(c, makeEditorCallback(loc.File, mtimeBefore))
+	return execEditor(c, makeEditorCallback(loc.File, mtimeBefore))
 }
 
 // makeEditorCallback returns a callback function that checks whether the file
@@ -107,7 +107,7 @@ func OpenMultiple(locs []SourceLocation) tea.Cmd {
 		}
 
 		c := exec.Command(bin, args...)
-		return tea.ExecProcess(c, makeMultiFileCallback(locs[0].File))
+		return execEditor(c, makeMultiFileCallback(locs[0].File))
 	}
 
 	// Fallback: open first file only
