@@ -1,3 +1,10 @@
+## [1.30.2](https://github.com/lmarqs/terraform-ui/compare/v1.30.1...v1.30.2) (2026-11-14)
+
+
+### Bug Fixes
+
+* **cli:** exit 130 when a quit cuts terraform off ([394a60a](https://github.com/lmarqs/terraform-ui/commit/394a60ae46ee9d6fbb6efeffe5947fce3ac0980a)), closes [#103](https://github.com/lmarqs/terraform-ui/issues/103) [#100](https://github.com/lmarqs/terraform-ui/issues/100)
+
 ## [1.30.1](https://github.com/lmarqs/terraform-ui/compare/v1.30.0...v1.30.1) (2026-11-14)
 
 
