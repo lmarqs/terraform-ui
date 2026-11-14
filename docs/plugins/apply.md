@@ -31,7 +31,7 @@ Terraform's `apply` prompt says "Do you want to perform these actions?" with no 
 
 ## Targeting
 
-**CLI:** Pass `-target` to `tfui apply`. `tfui apply -target=X` opens the plan view with those targets, so the saved plan holds only the targeted changes and `a` applies that plan. Without `-target`, that plan takes the `targets` set in `plugin "apply"`. `tfui apply -auto-approve -target=X` has no saved plan: terraform plans and applies in one shot, with the targets on that command. Apply never reads a plan an earlier `tfui plan` saved, so a `-target` given only to `tfui plan` does not reach the apply: `tfui plan -target X && tfui apply` plans every pending change.
+**CLI:** Pass `-target` to `tfui apply`. `tfui apply -target=X` opens the plan view with those targets, so the saved plan holds only the targeted changes and `a` applies that plan. Without `-target`, that plan takes the `targets` set in `plugin "plan"`. `tfui apply -auto-approve -target=X` has no saved plan: terraform plans and applies in one shot, with the targets on that command, or plan's `targets` when the command has none. Apply never reads a plan an earlier `tfui plan` saved, so a `-target` given only to `tfui plan` does not reach the apply: `tfui plan -target X && tfui apply` plans every pending change.
 
 **TUI:** Pin resources with `Space` in the Plan view. When you press `a`, tfui re-plans with only pinned resources as targets, then applies that targeted plan.
 
@@ -117,21 +117,9 @@ Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 ## Configuration
 
-```hcl
-# tfui.hcl (project root)
-defaults {
-  plugin "apply" {
-    targets = ["module.networking"]
-  }
-}
-```
-
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `targets` | list | `[]` | Default resource targets for `tfui apply`: the plan it opens, or the one-shot run with `-auto-approve` |
-
-An explicit `-target` replaces the list rather than adding to it, the same way it
-does for `plugin "plan"`. To turn the plugin off, see
+Apply has no options. Its default scope is the `targets` list of
+[`plugin "plan"`](plan.md#configuration), so a reviewed apply and a one-shot
+`-auto-approve` apply cover the same resources. To turn the plugin off, see
 [Enabling/Disabling Plugins](index.md#enablingdisabling-plugins).
 
 ## Related

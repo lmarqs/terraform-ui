@@ -83,7 +83,7 @@ Preparation of terraform changes. Owns all planning, including targeted replans.
 _Avoid_: preview, dry-run
 
 **Apply**:
-Confirmation and execution of a prepared plan. Receives the plan file the user reviewed and executes it, so the applied scope is always the reviewed scope; it never re-plans or chooses **Targets** of its own. Both the TUI and the interactive `tfui apply` reach Apply this way. `tfui apply -auto-approve` has no review and no plan file: it maps to terraform's own plan-and-apply in one run, scoped by that command's **Targets**.
+Confirmation and execution of a prepared plan. Receives the plan file the user reviewed and executes it, so the applied scope is always the reviewed scope; it never re-plans or chooses **Targets** of its own. Both the TUI and the interactive `tfui apply` reach Apply this way. `tfui apply -auto-approve` has no review and no plan file: it maps to terraform's own plan-and-apply in one run, scoped by that command's **Targets**, or by Plan's default **Targets** when it has none, so one list sets a project's default scope.
 _Avoid_: deploy, execute (as standalone term)
 
 **Replan**:
@@ -95,7 +95,7 @@ A user-selected resource marked for targeted operations. Pins scope `plan` to sp
 _Avoid_: selection, mark, target (as noun for the set)
 
 **Target**:
-A resource address passed to terraform's `-target`. A plan's targets are the union of its **Pins** and its `-target` flags; when both are empty, the plugin's `targets` default from `tfui.hcl` applies.
+A resource address passed to terraform's `-target`. A plan's targets are the union of its **Pins** and its `-target` flags; when both are empty, Plan's `targets` default from `tfui.hcl` applies.
 _Avoid_: pins (for the set of **Pins**), selection
 
 **Macro**:

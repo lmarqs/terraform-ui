@@ -31,10 +31,10 @@ func buildApplyCommand(s *Session) *cobra.Command {
 			}
 			if input.AutoApprove {
 				return s.RunPlugin(cmd.Context(), "apply", func(p sdk.Plugin) tea.Cmd {
-					return p.(*apply.Plugin).Activate(input)
+					return p.(*apply.Plugin).Activate(applyInputForAutoApprove(input, s.cfg))
 				})
 			}
-			planInput := planInputForApply(input, s.cfg)
+			planInput := planInputForApply(input)
 			return s.RunPluginFrom(cmd.Context(), "apply", "plan", func(p sdk.Plugin) tea.Cmd {
 				return p.(*tfuiplan.Plugin).Activate(planInput)
 			})
@@ -47,15 +47,20 @@ func buildApplyCommand(s *Session) *cobra.Command {
 }
 
 // planInputForApply maps the interactive `tfui apply` flags onto the plan run
-// that produces the plan file apply consumes. Without --target, the plan takes
-// apply's configured `targets`, so the reviewed plan has the scope a one-shot
-// apply would have.
-func planInputForApply(input apply.Input, cfg config.Config) tfuiplan.Input {
-	targets := input.Targets
-	if len(targets) == 0 {
-		targets = sdk.ConfigStrings(cfg.Plugins["apply"].Options, "targets", nil)
+// that produces the plan file apply consumes. Without --target, plan applies
+// its own configured `targets`.
+func planInputForApply(input apply.Input) tfuiplan.Input {
+	return tfuiplan.Input{Targets: input.Targets, Lock: input.Lock, LockTimeout: input.LockTimeout}
+}
+
+// applyInputForAutoApprove gives a one-shot apply, which has no plan to
+// review, the scope a reviewed apply would have: --target, else plan's
+// configured `targets`. One list sets the default scope (ADR-0019).
+func applyInputForAutoApprove(input apply.Input, cfg config.Config) apply.Input {
+	if len(input.Targets) == 0 {
+		input.Targets = sdk.ConfigStrings(cfg.Plugins["plan"].Options, "targets", nil)
 	}
-	return tfuiplan.Input{Targets: targets, Lock: input.Lock, LockTimeout: input.LockTimeout}
+	return input
 }
 
 // requireApplyConfirmable mirrors terraform's own behavior: `terraform apply`

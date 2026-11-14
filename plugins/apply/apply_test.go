@@ -1211,19 +1211,19 @@ func withAutoApprove(in Input) Input {
 	return in
 }
 
-// TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault keeps apply scoped
-// the same way plan is when both read `targets` from config: a default that no
-// --target overrode would otherwise apply more than the plan showed
-// (lmarqs/terraform-ui#57).
-func TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
+// TestApply_WhenConfigDeclaresTargets_ShouldIgnoreThem keeps one source for a
+// project's default scope: `plugin "plan" { targets }`, which the cmd boundary
+// resolves into Input.Targets. Apply reading a second list could drift from the
+// reviewed scope (ADR-0019, lmarqs/terraform-ui#96).
+func TestApply_WhenConfigDeclaresTargets_ShouldIgnoreThem(t *testing.T) {
 	tests := []struct {
 		name  string
 		input Input
 		want  []string
 	}{
-		{name: "no --target uses the config default", input: Input{}, want: []string{"module.networking"}},
+		{name: "no --target applies without targets", input: Input{}, want: nil},
 		{
-			name:  "an explicit --target replaces the default",
+			name:  "an explicit --target is applied as given",
 			input: Input{Targets: []string{"aws_instance.web"}},
 			want:  []string{"aws_instance.web"},
 		},
@@ -1240,7 +1240,7 @@ func TestApply_WhenConfigDeclaresTargets_ShouldUseThemAsADefault(t *testing.T) {
 			}
 			p := New(svc).(*Plugin)
 			p.Init(sdktest.NewDeps(svc).Deps)
-			if err := p.Configure(map[string]interface{}{"targets": []string{"module.networking"}}); err != nil {
+			if err := p.Configure(map[string]interface{}{"targets": []interface{}{"module.networking"}}); err != nil {
 				t.Fatalf("Configure() error = %v", err)
 			}
 

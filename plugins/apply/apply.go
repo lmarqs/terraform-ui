@@ -58,10 +58,6 @@ type Plugin struct {
 	// no tally when a run fails, so this is the only account of what a partial
 	// apply managed to do before it stopped.
 	applied sdk.ApplyCounts
-	// cfgTargets is the project-level default target list from
-	// `plugin "apply" { targets = [...] }`, used only when the caller passed no
-	// --target. It keeps apply scoped like plan when both read the same config.
-	cfgTargets []string
 }
 
 // New creates a new apply plugin.
@@ -136,20 +132,9 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	}
 }
 
-// Configure applies plugin-specific options from config.
-func (e *Plugin) Configure(cfg map[string]interface{}) error {
-	e.cfgTargets = sdk.ConfigStrings(cfg, "targets", nil)
-	return nil
-}
-
-// targets resolves the target list for a run: the explicit --target selection
-// when there is one, the project default otherwise.
-func (e *Plugin) targets() []string {
-	if len(e.input.Targets) > 0 {
-		return e.input.Targets
-	}
-	return e.cfgTargets
-}
+// Configure accepts no options: a one-shot apply's default scope is plan's
+// `targets`, which cmd/tfui fills into Input (ADR-0019).
+func (e *Plugin) Configure(map[string]interface{}) error { return nil }
 
 // Init wires the plugin to its shared dependencies. Apply rebinds its
 // Service via HandleContextChanged on every chdir/workspace switch and
@@ -251,7 +236,7 @@ func (e *Plugin) runApply() tea.Cmd {
 	if e.appliedPlanFile {
 		opts.PlanFile = e.planFile
 	} else {
-		opts.Targets = e.targets()
+		opts.Targets = e.input.Targets
 	}
 	opts.AutoApprove = e.input.AutoApprove
 	opts.Lock = e.input.Lock.Or(opts.Lock)

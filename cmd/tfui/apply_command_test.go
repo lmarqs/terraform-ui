@@ -119,24 +119,21 @@ func mustStringArray(c *cobra.Command, name string) []string {
 }
 
 // TestPlanInputForApply covers the interactive `tfui apply` handoff: plan
-// produces the plan file apply consumes, so plan runs with apply's scope.
+// produces the plan file apply consumes. Only --target crosses over; plan
+// applies its own configured `targets` default in Configure, so the reviewed
+// scope has one source (ADR-0019, lmarqs/terraform-ui#96).
 func TestPlanInputForApply(t *testing.T) {
-	configured := config.Config{Plugins: map[string]config.PluginConfig{
-		"apply": {Options: map[string]interface{}{"targets": []interface{}{"module.cfg"}}},
-	}}
 	tests := []struct {
 		name        string
 		input       apply.Input
-		cfg         config.Config
 		wantTargets []string
 	}{
-		{name: "--target wins over configured targets", input: apply.Input{Targets: []string{"aws_instance.web"}}, cfg: configured, wantTargets: []string{"aws_instance.web"}},
-		{name: "no --target uses apply's configured targets", cfg: configured, wantTargets: []string{"module.cfg"}},
-		{name: "no --target and no config plans everything", cfg: config.Config{}, wantTargets: nil},
+		{name: "--target is passed to plan", input: apply.Input{Targets: []string{"aws_instance.web"}}, wantTargets: []string{"aws_instance.web"}},
+		{name: "no --target leaves the default to plan's configured targets", wantTargets: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := planInputForApply(tt.input, tt.cfg)
+			got := planInputForApply(tt.input)
 			if !slices.Equal(got.Targets, tt.wantTargets) {
 				t.Errorf("Targets = %v, want %v", got.Targets, tt.wantTargets)
 			}
@@ -144,9 +141,49 @@ func TestPlanInputForApply(t *testing.T) {
 	}
 
 	t.Run("lock flags carried", func(t *testing.T) {
-		got := planInputForApply(apply.Input{Lock: sdk.LockDisabled, LockTimeout: "30s"}, config.Config{})
+		got := planInputForApply(apply.Input{Lock: sdk.LockDisabled, LockTimeout: "30s"})
 		if got.Lock != sdk.LockDisabled || got.LockTimeout != "30s" {
 			t.Errorf("Lock, LockTimeout = %v, %q, want LockDisabled, 30s", got.Lock, got.LockTimeout)
+		}
+	})
+}
+
+// TestApplyInputForAutoApprove covers the one-shot `tfui apply -auto-approve`
+// scope: with no review step, it takes plan's configured `targets` so it
+// applies what a reviewed run would have planned (ADR-0019,
+// lmarqs/terraform-ui#96).
+func TestApplyInputForAutoApprove(t *testing.T) {
+	planConfigured := config.Config{Plugins: map[string]config.PluginConfig{
+		"plan": {Options: map[string]interface{}{"targets": []interface{}{"module.plan_cfg"}}},
+	}}
+	applyConfigured := config.Config{Plugins: map[string]config.PluginConfig{
+		"apply": {Options: map[string]interface{}{"targets": []interface{}{"module.apply_cfg"}}},
+	}}
+	tests := []struct {
+		name        string
+		input       apply.Input
+		cfg         config.Config
+		wantTargets []string
+	}{
+		{name: "no --target uses plan's configured targets", input: apply.Input{AutoApprove: true}, cfg: planConfigured, wantTargets: []string{"module.plan_cfg"}},
+		{name: "--target replaces plan's configured targets", input: apply.Input{AutoApprove: true, Targets: []string{"aws_instance.web"}}, cfg: planConfigured, wantTargets: []string{"aws_instance.web"}},
+		{name: "apply's configured targets are ignored", input: apply.Input{AutoApprove: true}, cfg: applyConfigured, wantTargets: nil},
+		{name: "no --target and no config applies everything", input: apply.Input{AutoApprove: true}, cfg: config.Config{}, wantTargets: nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := applyInputForAutoApprove(tt.input, tt.cfg)
+			if !slices.Equal(got.Targets, tt.wantTargets) {
+				t.Errorf("Targets = %v, want %v", got.Targets, tt.wantTargets)
+			}
+		})
+	}
+
+	t.Run("other fields carried", func(t *testing.T) {
+		in := apply.Input{AutoApprove: true, JSON: true, Lock: sdk.LockDisabled, LockTimeout: "30s"}
+		got := applyInputForAutoApprove(in, planConfigured)
+		if !got.AutoApprove || !got.JSON || got.Lock != sdk.LockDisabled || got.LockTimeout != "30s" {
+			t.Errorf("got %+v, want AutoApprove, JSON, LockDisabled, 30s carried", got)
 		}
 	})
 }

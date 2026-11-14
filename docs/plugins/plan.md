@@ -130,12 +130,12 @@ defaults {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `targets` | list | `[]` | Default resource targets for plan |
+| `targets` | list | `[]` | Default resource targets for plan, and for a one-shot `tfui apply -auto-approve` |
 
 `targets` is a project default, used only when the run carries no explicit
-selection. An explicit `-target` flag or a TUI pin **replaces** it. Declare the
-same list under `plugin "apply"` to keep a scoped apply in step with the scoped
-plan. To turn the plugin off, see
+selection. An explicit `-target` flag or a TUI pin **replaces** it. A one-shot
+apply has no plan to review, so it takes the same list: the default scope is set
+in one place. To turn the plugin off, see
 [Enabling/Disabling Plugins](index.md#enablingdisabling-plugins).
 
 ## Related
