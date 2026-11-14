@@ -49,6 +49,8 @@ holds the rules a contributor follows when writing a command, each with its reas
   `-detailed-exitcode`; a second source would make it ambiguous.
 - **Every other failure exits 1.** A plugin's `ExitCode()` returns 1 on failure; a cobra error exits 1 through
   `SilenceUsage: true` and `os.Exit(1)` in `main.go`.
+- **A signal exits 130 or 143.** SIGINT exits 130 and SIGTERM exits 143, replacing the plugin's code, so a script
+  tells a cancelled run from a failed one ([contract](cli-io-contract.md#interrupts)).
 
 ## 4. Error messages
 

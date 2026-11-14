@@ -147,9 +147,26 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 | `0` | Success / no changes | All commands |
 | `1` | Error / validation failure | All commands |
 | `2` | Plan has changes, as terraform's `-detailed-exitcode` | `plan` command only |
+| `130` | Interrupted by SIGINT | All commands |
+| `143` | Terminated by SIGTERM | All commands |
 
 A flag or argument error that stops the command before its plugin runs exits 1. A macro run's codes are in the
 [macro language](macro-language.md#exit-codes).
+
+### Interrupts
+
+tfui owns SIGINT and SIGTERM in every mode. The first signal stops terraform gracefully: tfui interrupts each running
+terraform process once, ends the run, and waits for terraform to exit, with no timeout, so terraform can release the
+state lock and write its state. tfui then runs plugin cleanup and exits 130 for SIGINT or 143 for SIGTERM, whatever the
+plugin would have returned. It writes nothing to stdout after a signal. A second signal, or any signal while tfui
+waits, ends tfui at once: it writes `terraform was stopped without finishing` to stderr, runs plugin cleanup, and exits
+with the code of that signal. On a system where terraform does not run in its own process group (anything but Linux),
+terraform already receives the terminal's Ctrl+C, and tfui does not forward the signal again
+([ADR-0023](../adr/0023-interrupts-reach-terraform-once.md)).
+
+Quitting the TUI while terraform runs interrupts terraform the same way and writes
+`Waiting for terraform to stop… (Ctrl+C again to force)` to stderr while tfui waits. A key quit is not a signal, so the
+run's own output and exit code apply. A macro run starts no terraform process and never waits.
 
 ## Plan tree view
 

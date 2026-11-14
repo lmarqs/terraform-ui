@@ -108,7 +108,7 @@ Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit        terraform
 | `/` | Filter mode |
 | `C` | Context dashboard (plugin switch) |
 | `Esc` | Exit sub-state (filter, detail, overlay) |
-| `ctrl+c` | Force quit |
+| `ctrl+c` | Force quit; a running terraform is interrupted and tfui waits for it to stop (`ctrl+c` again forces) |
 | `ctrl+s` | Screen capture to debug log (hidden) |
 
 Every other key, and the layer it belongs to: §16.

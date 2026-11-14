@@ -120,7 +120,7 @@ tfui workspace select production
 tfui workspace new staging
 ```
 
-Exit codes: `0` success, `1` error, `2` changes present (plan).
+Exit codes: `0` success, `1` error, `2` changes present (plan), `130` interrupted (SIGINT), `143` terminated (SIGTERM).
 
 ### Navigation
 

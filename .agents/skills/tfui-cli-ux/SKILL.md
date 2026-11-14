@@ -82,7 +82,12 @@ Binary resolution:
 - ExtraArgs stored for `MacroService` (recorded in command flags)
 - `ExecService` does NOT forward ExtraArgs (terraform-exec typed API)
 
-Exit codes: `0` = success, `1` = error, `2` = changes present (plan only)
+Exit codes: `0` = success, `1` = error, `2` = changes present (plan only), `130` = interrupted by SIGINT,
+`143` = terminated by SIGTERM (all commands)
+
+Interrupts: tfui owns SIGINT/SIGTERM (`cmd/tfui/interrupt.go`). The first signal interrupts terraform once, waits for
+it with no timeout, runs plugin `Shutdown`, writes no stdout and exits 130/143; a second signal exits at once with
+`terraform was stopped without finishing` on stderr, still running `Shutdown` (ADR-0023).
 
 ## Config (`tfui.hcl`)
 

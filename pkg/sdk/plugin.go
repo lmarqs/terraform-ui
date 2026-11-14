@@ -129,7 +129,9 @@ type Statusable interface {
 // which holds variable values in plaintext). The session calls Shutdown once
 // on every registered plugin after the BubbleTea program or macro driver
 // stops, when Session.Run or the verb run returns, before the process exits.
-// A process killed by a signal skips it.
+// On a SIGINT, a SIGTERM or a TUI quit, Shutdown runs after every terraform
+// process has exited. A forced exit (a second signal, or a signal while tfui
+// waits for terraform) skips the wait and still runs Shutdown.
 type Shutdowner interface {
 	Shutdown()
 }
