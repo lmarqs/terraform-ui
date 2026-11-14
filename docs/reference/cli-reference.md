@@ -65,7 +65,7 @@ tfui apply                          # TUI: plan view, then confirmation, then pr
 tfui apply -auto-approve           # TUI: skips plan review + confirmation, shows progress
 tfui apply -ci -auto-approve       # No TUI: apply immediately
 tfui apply -json                    # TUI: JSON output on exit
-tfui apply -target=aws_instance.web # Plans and applies only this address, in one run
+tfui apply -target=aws_instance.web # Plan view scoped to this address, then apply that plan
 tfui apply -target=a -target=b      # Repeat the flag per address
 tfui apply -lock=false              # Skip state locking for this run
 tfui apply -lock-timeout=30s        # Retry a held lock for 30s

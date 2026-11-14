@@ -103,7 +103,7 @@ tfui plan --ci
 tfui plan --ci -target=aws_instance.web
 tfui plan --ci -json                # the plan as JSON (terraform show -json)
 
-# Apply: plans and applies in one run; headless apply needs --auto-approve
+# Apply: headless apply needs --auto-approve, which plans and applies in one run
 tfui apply --ci --auto-approve
 tfui apply --ci --auto-approve -target=aws_instance.web
 
