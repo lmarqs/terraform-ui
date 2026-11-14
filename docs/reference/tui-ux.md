@@ -431,6 +431,73 @@ Every plugin's `View(width, height)` must:
 - MAY render an actions bar at the bottom (see §13) using the SDK `ActionsBar` primitive
 - MAY include plugin-specific contextual hints (see §13)
 
+### Scrollable content: split by axis
+
+A view that scrolls splits its rendering by axis: the plugin decides which rows are visible, and `ui.ContentPanel`
+(`pkg/sdk/ui/content_panel.go`) formats them. Vertical navigation needs domain semantics that differ per plugin;
+horizontal formatting is the same everywhere ([ADR-0015](../adr/0015-content-panel-axis-split.md)).
+
+```
+┌──────────────────── Border (app) ─────────────────────┐
+│  ┌──── ContentPanel (horizontal) ──────────────────┐  │
+│  │  Row content (truncated/wrapped/scrolled)  │ G  │  │
+│  │  Row content                               │ u  │  │
+│  │  Row content [cursor highlighted]          │ t  │  │
+│  │  Row content                               │ t  │  │
+│  │  Row content                               │ e  │  │
+│  │                                            │ r  │  │
+│  └─────────────────────────────────────────────────┘  │
+│  Actions bar (sibling — not owned by the panel)       │
+└───────────────────────────────────────────────────────┘
+  Hint bar (footer — outside border)
+```
+
+Layers stack vertically, and each keeps to its own rows: a component never draws into a sibling's or a parent's space.
+
+**When it applies.** Every component that renders scrollable content: a tree, a flat list, a detail or inspect view,
+a log tail. A static view, such as a status message or a 3-line summary, has no axis to split. A new vertical
+paradigm (virtual scroll, pagination, an auto-scrolling log) puts its logic in the plugin; the panel still receives
+pre-windowed rows.
+
+**The panel promises:**
+
+- ANSI-safe truncation, horizontal scrolling (pan left/right) and wrapping, never breaking an escape sequence
+- the scroll gutter when content overflows the viewport
+- cursor row highlighting with the caller's style
+- content width = total width minus the gutter budget
+
+**The panel requires** (`ui.RenderParams`):
+
+- the visible rows, already windowed: the caller decides what is visible
+- the total item count, for the gutter thumb's proportion
+- the cursor index within the visible window, or none
+- the scroll offset of that window in the full list, for the gutter's position
+
+**The plugin owns:**
+
+- domain-aware traversal: collapse state, pin filtering, fuzzy scoring
+- viewport windowing: which items show, given the cursor and the data
+- the cursor: position, bounds, collapse-aware movement
+- the height budget: the space left after its sibling elements
+
+**Rules for the panel**, each keeping it composable:
+
+- No lifecycle. It has no Init/Update/View cycle; it renders when called and handles keys only when delegated, so a
+  caller can place its output beside any sibling.
+- One input path. It takes pre-windowed rows only.
+- State only where every caller agrees. It holds the horizontal offset and the wrap toggle, which mean the same for
+  every caller; vertical state stays with the plugin because its meaning varies (tree offset, flat cursor, detail
+  scroll).
+
+**Anti-patterns:**
+
+- byte-level width math on styled content (`len(line)` instead of visual width)
+- one viewport or component owning both scroll axes, which leaves plugins fighting its lifecycle for domain-specific
+  vertical behavior
+- making callers replicate horizontal state and pan or wrap toggling
+- domain-specific rendering, such as tree connectors, inside the panel
+- a component reaching into a sibling's rendering space
+
 ## 13. Hint Placement Rules
 
 ### Three layers
