@@ -131,7 +131,8 @@ type Statusable interface {
 // stops, when Session.Run or the verb run returns, before the process exits.
 // On a SIGINT, a SIGTERM or a TUI quit, Shutdown runs after every terraform
 // process has exited. A forced exit (a second signal, or a signal while tfui
-// waits for terraform) skips the wait and still runs Shutdown.
+// waits for terraform) skips the wait and still runs Shutdown. A signal after
+// terraform has finished ends the process once Shutdown has run.
 type Shutdowner interface {
 	Shutdown()
 }

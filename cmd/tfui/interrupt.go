@@ -35,9 +35,11 @@ type interruptGuard struct {
 	shutdown        func()
 	exit            func(int)
 
-	mu        sync.Mutex
-	received  os.Signal
-	finishing bool
+	mu           sync.Mutex
+	received     os.Signal
+	finishing    bool
+	finished     bool
+	shutdownDone sync.Once
 }
 
 // newInterruptGuard builds a guard. runs may be a no-op tracker (macro runs);
@@ -61,40 +63,63 @@ func newInterruptGuard(runs terraformRuns, signals <-chan os.Signal, ownProcessG
 // holds the terminal is dropped: it is the user's Ctrl+C for the editor. The
 // first other signal is recorded, interrupts terraform when it has its own
 // process group (otherwise the terminal already signalled it), and calls
-// endRun. A later signal, or any signal once Finish has started, forces the
-// exit.
+// endRun. A later signal, or any signal while Finish runs, forces the exit.
+// A signal after Finish returned, when terraform has finished, exits after
+// plugin cleanup without the forced-exit note.
 func (g *interruptGuard) Watch(endRun func()) {
 	go func() {
 		for sig := range g.signals {
 			if g.terminalHeld() {
 				continue
 			}
-			if !g.recordFirst(sig) {
-				g.forceExit(sig)
+			switch g.record(sig) {
+			case firstSignal:
+				if g.ownProcessGroup {
+					g.runs.Interrupt()
+				}
+				endRun()
+			case signalWhileTerraformMayRun:
+				_, _ = io.WriteString(g.stderr, forcedExitMessage)
+				g.exitBy(sig)
+				return
+			case signalAfterTerraform:
+				g.exitBy(sig)
 				return
 			}
-			if g.ownProcessGroup {
-				g.runs.Interrupt()
-			}
-			endRun()
 		}
 	}()
 }
 
-func (g *interruptGuard) recordFirst(sig os.Signal) bool {
+type signalState int
+
+const (
+	firstSignal signalState = iota
+	signalWhileTerraformMayRun
+	signalAfterTerraform
+)
+
+func (g *interruptGuard) record(sig os.Signal) signalState {
 	g.mu.Lock()
 	defer g.mu.Unlock()
-	if g.received != nil || g.finishing {
-		return false
+	switch {
+	case g.finished:
+		return signalAfterTerraform
+	case g.received != nil || g.finishing:
+		return signalWhileTerraformMayRun
 	}
 	g.received = sig
-	return true
+	return firstSignal
 }
 
-func (g *interruptGuard) forceExit(sig os.Signal) {
-	_, _ = io.WriteString(g.stderr, forcedExitMessage)
-	g.shutdown()
+func (g *interruptGuard) exitBy(sig os.Signal) {
+	g.shutdownOnce()
 	g.exit(interruptExitCode(sig))
+}
+
+// shutdownOnce runs plugin cleanup the first time it is called; a concurrent
+// call waits for that run to end.
+func (g *interruptGuard) shutdownOnce() {
+	g.shutdownDone.Do(g.shutdown)
 }
 
 // Finish runs once the program or headless driver returned. Without a prior
@@ -113,6 +138,10 @@ func (g *interruptGuard) Finish() os.Signal {
 		_, _ = io.WriteString(g.stderr, waitingMessage)
 		g.runs.Wait()
 	}
+
+	g.mu.Lock()
+	g.finished = true
+	g.mu.Unlock()
 	return received
 }
 
@@ -139,18 +168,17 @@ func terraformRunsOf(svc sdk.Service) terraformRuns {
 }
 
 // startInterruptGuard makes tfui the owner of SIGINT and SIGTERM for one run.
-// The returned stop restores the default handling; calls after the first do
-// nothing.
-func startInterruptGuard(svc sdk.Service, stderr io.Writer, shutdown func()) (*interruptGuard, func()) {
+// The returned shutdown runs plugin cleanup unless a signal already ran it,
+// then gives the signals back their default action; a run defers it so tfui
+// owns the signals until cleanup has run.
+func startInterruptGuard(svc sdk.Service, stderr io.Writer, cleanup func()) (*interruptGuard, func()) {
 	signals := make(chan os.Signal, 2)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	guard := newInterruptGuard(terraformRunsOf(svc), signals, tfexec.TerraformHasOwnProcessGroup,
-		editor.HoldsTerminal, stderr, shutdown, os.Exit)
-	var once sync.Once
+		editor.HoldsTerminal, stderr, cleanup, os.Exit)
 	return guard, func() {
-		once.Do(func() {
-			signal.Stop(signals)
-			close(signals)
-		})
+		guard.shutdownOnce()
+		signal.Stop(signals)
+		close(signals)
 	}
 }

@@ -44,13 +44,11 @@ func (s *Session) Run() error {
 		return err
 	}
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
-	defer registry.Shutdown()
-	guard, stopSignals := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
-	defer stopSignals()
+	guard, shutdown := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
+	defer shutdown()
 	app := s.buildApp(svc, registry)
 	_, err = s.present(app, tape, guard)
 	sig := guard.Finish()
-	stopSignals()
 	if sig != nil {
 		return &exitError{code: interruptExitCode(sig)}
 	}
@@ -239,9 +237,8 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 	}
 
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
-	defer registry.Shutdown()
-	guard, stopSignals := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
-	defer stopSignals()
+	guard, shutdown := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
+	defer shutdown()
 	standalone := &ui.StandaloneConfig{
 		PluginID: pluginID,
 		EntryID:  entryID,
@@ -251,7 +248,6 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 
 	runErr := s.runStandalone(app, registry, pluginID, tape, guard)
 	sig := guard.Finish()
-	stopSignals()
 	if sig == nil && runErr != nil {
 		return runErr
 	}

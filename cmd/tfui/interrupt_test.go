@@ -10,8 +10,6 @@ import (
 	"syscall"
 	"testing"
 	"time"
-
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 const (
@@ -28,14 +26,17 @@ type interruptHarness struct {
 	running      bool
 	terminalHeld atomic.Bool
 	heldChecks   chan struct{}
-	waitBlock    chan struct{}
-	releaseOnce  sync.Once
-	waitStarted  chan struct{}
-	waitOnce     sync.Once
-	endRunCalls  chan struct{}
-	exitCalls    chan int
-	signals      chan os.Signal
-	guard        *interruptGuard
+
+	shutdownBlock   chan struct{}
+	shutdownStarted chan struct{}
+	waitBlock       chan struct{}
+	releaseOnce     sync.Once
+	waitStarted     chan struct{}
+	waitOnce        sync.Once
+	endRunCalls     chan struct{}
+	exitCalls       chan int
+	signals         chan os.Signal
+	guard           *interruptGuard
 }
 
 func (h *interruptHarness) record(event string) {
@@ -94,7 +95,13 @@ func (h *interruptHarness) held() bool {
 	return true
 }
 
-func (h *interruptHarness) shutdown() { h.record("shutdown") }
+func (h *interruptHarness) shutdown() {
+	h.record("shutdown")
+	if h.shutdownBlock != nil {
+		close(h.shutdownStarted)
+		<-h.shutdownBlock
+	}
+}
 
 func (h *interruptHarness) exit(code int) {
 	h.record("exit:" + strconv.Itoa(code))
@@ -344,9 +351,85 @@ func TestInterruptExitCode_ShouldMapSignalToConventionalCode(t *testing.T) {
 	}
 }
 
-func TestStartInterruptGuard_Stop_ShouldBeSafeToCallTwice(t *testing.T) {
-	_, stop := startInterruptGuard(&sdktest.MockService{}, &bytes.Buffer{}, func() {})
+func TestInterruptGuard_SignalAfterFinish_ShouldShutdownThenExitWithoutNote(t *testing.T) {
+	tests := []struct {
+		name     string
+		first    os.Signal
+		sig      os.Signal
+		wantCode int
+		want     []string
+	}{
+		{"SIGINT, no prior signal", nil, syscall.SIGINT, 130, []string{"interrupt", "shutdown", "exit:130"}},
+		{"SIGTERM, no prior signal", nil, syscall.SIGTERM, 143, []string{"interrupt", "shutdown", "exit:143"}},
+		{
+			"SIGTERM after a first SIGINT",
+			syscall.SIGINT, syscall.SIGTERM, 143,
+			[]string{"interrupt", "endRun", "shutdown", "exit:143"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newInterruptHarness(t, true, false, false)
+			if tt.first != nil {
+				h.firstSignal(t, tt.first)
+			}
+			h.guard.Finish()
 
-	stop()
-	stop()
+			h.signals <- tt.sig
+
+			if got := awaitInterrupt(t, h.exitCalls, "exit"); got != tt.wantCode {
+				t.Errorf("exit code = %d, want %d", got, tt.wantCode)
+			}
+			if got := h.snapshot(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("events = %v, want %v", got, tt.want)
+			}
+			if got := h.stderrText(); got != "" {
+				t.Errorf("stderr = %q, want empty", got)
+			}
+		})
+	}
+}
+
+func TestInterruptGuard_SignalDuringShutdown_ShouldExitAfterShutdownWithoutRunningItAgain(t *testing.T) {
+	h := newInterruptHarness(t, true, false, false)
+	h.shutdownBlock = make(chan struct{})
+	h.shutdownStarted = make(chan struct{})
+	h.guard.Finish()
+	shutdownDone := make(chan struct{})
+	go func() {
+		defer close(shutdownDone)
+		h.guard.shutdownOnce()
+	}()
+	awaitInterrupt(t, h.shutdownStarted, "shutdown to start")
+
+	h.signals <- syscall.SIGINT
+	select {
+	case code := <-h.exitCalls:
+		t.Fatalf("exit(%d) before shutdown returned", code)
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(h.shutdownBlock)
+
+	if got := awaitInterrupt(t, h.exitCalls, "exit"); got != 130 {
+		t.Errorf("exit code = %d, want 130", got)
+	}
+	awaitInterrupt(t, shutdownDone, "shutdown to return")
+	want := []string{"interrupt", "shutdown", "exit:130"}
+	if got := h.snapshot(); !reflect.DeepEqual(got, want) {
+		t.Errorf("events = %v, want %v", got, want)
+	}
+}
+
+func TestInterruptGuard_ShutdownAfterForcedExit_ShouldNotRunShutdownAgain(t *testing.T) {
+	h := newInterruptHarness(t, true, true, false)
+	h.firstSignal(t, syscall.SIGINT)
+	h.signals <- syscall.SIGINT
+	awaitInterrupt(t, h.exitCalls, "forced exit")
+
+	h.guard.shutdownOnce()
+
+	want := []string{"interrupt", "endRun", "stderr:" + forcedExitNote, "shutdown", "exit:130"}
+	if got := h.snapshot(); !reflect.DeepEqual(got, want) {
+		t.Errorf("events = %v, want %v", got, want)
+	}
 }
