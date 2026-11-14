@@ -42,7 +42,8 @@ The full analysis, with the measurements, requirements and every option weighed,
 - tfui forwards the first signal only when terraform runs in its own process group, which terraform-exec arranges on
   Linux only. Elsewhere terraform shares tfui's process group and already receives the terminal's Ctrl+C; forwarding
   it as well would be terraform's second interrupt, which exits it immediately. A CI cancel on macOS that signals
-  tfui alone therefore leaves terraform uninterrupted until a second signal.
+  tfui alone therefore leaves terraform uninterrupted until a second signal, and that forced exit leaves terraform
+  running, since only Linux has `Pdeathsig`: terraform can still write its `-out` plan file after cleanup removed it.
 - A forced exit on Linux lets the kernel SIGKILL terraform, as every exit did before this decision. terraform-exec
   offers no way to send a second interrupt, so terraform's own "exiting immediately" path is not reached.
 - 130 and 143 are the POSIX shell's codes for a process ended by SIGINT and SIGTERM. They join the exit codes in the
