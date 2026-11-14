@@ -84,6 +84,11 @@ func (s *ExecService) newTerraform() (*tfexec.Terraform, error) {
 
 // Plan runs terraform plan and returns the parsed changes.
 func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+	// A plan seeded with -plan is the session's plan (ADR-0005), as seeded
+	// state is in loadState.
+	if plan, ok := s.cache.GetPlan(); ok {
+		return plan, nil
+	}
 	s.dirLock.Acquire(s.workingDir)
 	defer s.dirLock.Release(s.workingDir)
 	logging.Logger().Debug("terraform.exec", "cmd", "plan", "dir", s.workingDir)

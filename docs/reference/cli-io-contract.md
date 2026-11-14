@@ -120,13 +120,13 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 
 ### Pre-seeded data on subcommands
 
-`-plan` and `-state` work on any command. Pre-seeded state answers the state reads instead of terraform; pre-seeded plan data is read only under `-macro` ([CLI Reference](cli-reference.md)):
+`-plan` and `-state` work on any command. Pre-seeded state answers the state reads, and a pre-seeded plan answers the plan, instead of terraform ([CLI Reference](cli-reference.md)):
 
 | Command | stdout (on exit) | stderr | Exit |
 |---------|-----------------|--------|------|
 | `tfui state -state file` | Addresses (from pre-seeded data) | TUI (alt-screen) | 0 |
 | `tfui state -ci -state file` | Addresses (from pre-seeded data) | — | 0 |
-| `tfui plan -plan file` | Tree view (terraform still plans) | TUI (alt-screen) | 0/2 |
+| `tfui plan -plan file` | Tree view (from pre-seeded data) | TUI (alt-screen) | 0/2 |
 
 ### Imperative commands (direct execution, no TUI)
 

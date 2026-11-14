@@ -261,9 +261,9 @@ and `terraform apply` commands. A live run does not forward it.
 binary plan file is rejected with a hint to convert it. `-state` takes the
 output of `terraform show -json` or `terraform state pull`.
 
-Pre-seeded state answers the state reads (resource list and inspect) instead
-of terraform. Pre-seeded plan data is read only under `-macro`; without it,
-`tfui plan` and the full TUI's plan view still run `terraform plan`.
+Pre-seeded state answers the state reads (resource list and inspect), and a
+pre-seeded plan answers `tfui plan` and the plan view, instead of terraform, for
+the whole session. `-json` output still comes from `terraform plan -json`.
 
 ```bash
 tfui state -state ./state.json                 # standalone state TUI, browses pre-loaded state
