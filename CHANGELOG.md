@@ -1,3 +1,16 @@
+# [1.28.0](https://github.com/lmarqs/terraform-ui/compare/v1.27.3...v1.28.0) (2026-11-14)
+
+
+### Bug Fixes
+
+* **plan:** remove the plan file a new plan run supersedes ([383b782](https://github.com/lmarqs/terraform-ui/commit/383b78279b564f972f346ceffa948961a7726b85)), closes [#95](https://github.com/lmarqs/terraform-ui/issues/95)
+* **state:** move the resource list cursor with j/k ([ff5fa9a](https://github.com/lmarqs/terraform-ui/commit/ff5fa9abb1b34b975d4178adb1cad3cf0361ef9d)), closes [#92](https://github.com/lmarqs/terraform-ui/issues/92)
+
+
+### Features
+
+* **release:** publish a Homebrew cask from this repository ([6620865](https://github.com/lmarqs/terraform-ui/commit/66208650c471002daedd840f3f5c6c20921ee0d9)), closes [#94](https://github.com/lmarqs/terraform-ui/issues/94)
+
 ## [1.27.3](https://github.com/lmarqs/terraform-ui/compare/v1.27.2...v1.27.3) (2026-11-13)
 
 
