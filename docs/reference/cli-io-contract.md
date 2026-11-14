@@ -169,7 +169,8 @@ with the code of that signal and without the note. On a system where terraform d
 
 Quitting the TUI while terraform runs interrupts terraform the same way and writes
 `Waiting for terraform to stop… (Ctrl+C again to force)` to stderr while tfui waits. A key quit is not a signal, so the
-run's own output and exit code apply. A macro run starts no terraform process and never waits.
+run's own output and exit code apply. While an editor opened from the TUI holds the terminal, tfui ignores both
+signals, so a Ctrl+C there is the editor's. A macro run starts no terraform process and never waits.
 
 ## Plan tree view
 
