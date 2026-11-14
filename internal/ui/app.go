@@ -1103,6 +1103,19 @@ func usableDimension(reported, fallback int) int {
 	return reported
 }
 
+// labelQAsHome relabels the plugins' shared "q quit" hint for the full TUI,
+// where q goes home; only a standalone run and the home screen quit on q.
+func labelQAsHome(hints []sdk.KeyHint) []sdk.KeyHint {
+	out := make([]sdk.KeyHint, len(hints))
+	for i, h := range hints {
+		if h == sdk.HintQuit {
+			h.Description = "home"
+		}
+		out[i] = h
+	}
+	return out
+}
+
 // activeHints returns the frame stack's hints, falling back to the plugin's own
 // when the stack has none (an empty stack, as on apply's confirmation screen).
 func activeHints(p sdk.Plugin) []sdk.KeyHint {
@@ -1146,6 +1159,9 @@ func (a App) renderStatusBar(idleHints []sdk.KeyHint) string {
 			Render(a.inputPrompt + " " + a.inputAnswer + "█")
 	case a.activePlugin != nil:
 		if hints := activeHints(a.activePlugin); hints != nil {
+			if a.standalone == nil {
+				hints = labelQAsHome(hints)
+			}
 			return a.statusBar.RenderHints(hints, a.width)
 		}
 		return a.statusBar.Render(a.width)

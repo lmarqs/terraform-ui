@@ -5967,3 +5967,86 @@ func TestApp_View_WhenApplyAwaitsConfirmation_ShouldShowApplyHints(t *testing.T)
 		})
 	}
 }
+
+func lastLine(s string) string {
+	lines := strings.Split(s, "\n")
+	return lines[len(lines)-1]
+}
+
+func TestApp_View_WhenPluginActiveInFullTUI_ShouldLabelQAsHome(t *testing.T) {
+	stack := sdk.NewStack()
+	stack.Push(&mockFrame{id: "root", hints: (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()})
+
+	tests := []struct {
+		name   string
+		plugin sdk.Plugin
+	}{
+		{
+			name: "plugin hints",
+			plugin: &mockHintablePlugin{
+				mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+				hints:      []sdk.KeyHint{sdk.HintBack, sdk.HintQuit},
+			},
+		},
+		{
+			name: "frame stack hints",
+			plugin: &mockStackablePlugin{
+				mockPlugin: mockPlugin{id: "state", name: "State", viewOutput: "state view"},
+				stack:      stack,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			app := setupTestApp()
+			app.width = 120
+			app.height = 24
+			app.activePlugin = tt.plugin
+
+			statusBar := lastLine(app.View())
+			if strings.Contains(statusBar, "quit") {
+				t.Errorf("full-TUI status bar = %q, want q labelled \"home\" (q goes home), not \"quit\"", statusBar)
+			}
+			if !strings.Contains(statusBar, "home") {
+				t.Errorf("full-TUI status bar = %q, want it to contain \"home\"", statusBar)
+			}
+		})
+	}
+}
+
+func TestApp_View_WhenPluginActiveInStandalone_ShouldLabelQAsQuit(t *testing.T) {
+	cfg := config.Config{
+		Dir:       "/test/dir",
+		Terraform: config.TerraformConfig{Bin: "terraform"},
+	}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+
+	app := NewApp(cfg, &sdktest.MockService{}, registry, nil, &StandaloneConfig{PluginID: "plan"})
+	app.width = 120
+	app.height = 24
+	app.activePlugin = &mockHintablePlugin{
+		mockPlugin: mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"},
+		hints:      []sdk.KeyHint{sdk.HintBack, sdk.HintQuit},
+	}
+
+	statusBar := lastLine(app.View())
+	if !strings.Contains(statusBar, "quit") {
+		t.Errorf("standalone status bar = %q, want q labelled \"quit\"", statusBar)
+	}
+	if strings.Contains(statusBar, "home") {
+		t.Errorf("standalone status bar = %q, must not label q \"home\"", statusBar)
+	}
+}
+
+func TestApp_View_WhenHomeScreen_ShouldKeepQAsQuit(t *testing.T) {
+	app := setupTestApp()
+	app.width = 120
+	app.height = 24
+	app.activePlugin = nil
+
+	statusBar := lastLine(app.View())
+	if !strings.Contains(statusBar, "quit") {
+		t.Errorf("home status bar = %q, want q labelled \"quit\"", statusBar)
+	}
+}
