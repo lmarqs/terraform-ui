@@ -268,27 +268,32 @@ func TestInterruptGuard_SignalWhileFinishWaits_ShouldForceExit(t *testing.T) {
 
 func TestInterruptGuard_Finish_WithoutSignal_ShouldInterruptAndWaitOnlyWhenRunning(t *testing.T) {
 	tests := []struct {
-		name       string
-		running    bool
-		want       []string
-		wantStderr string
+		name         string
+		running      bool
+		want         []string
+		wantStderr   string
+		wantCutShort bool
 	}{
-		{"nothing running", false, []string{"interrupt"}, ""},
+		{"nothing running", false, []string{"interrupt"}, "", false},
 		{
 			"terraform running",
 			true,
 			[]string{"interrupt", "stderr:" + waitingNotice, "wait"},
 			waitingNotice,
+			true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newInterruptHarness(t, true, tt.running, false)
 
-			got := h.guard.Finish()
+			got, cutShort := h.guard.Finish()
 
 			if got != nil {
-				t.Errorf("Finish() = %v, want nil", got)
+				t.Errorf("Finish() signal = %v, want nil", got)
+			}
+			if cutShort != tt.wantCutShort {
+				t.Errorf("Finish() cutShort = %v, want %v", cutShort, tt.wantCutShort)
 			}
 			if events := h.snapshot(); !reflect.DeepEqual(events, tt.want) {
 				t.Errorf("events = %v, want %v", events, tt.want)
@@ -315,16 +320,25 @@ func TestInterruptGuard_Finish_AfterSignal_ShouldReturnSignalWithoutSecondInterr
 			true,
 			[]string{"interrupt", "endRun", "stderr:" + waitingNotice, "wait"},
 		},
+		{
+			"SIGTERM, terraform running",
+			syscall.SIGTERM,
+			true,
+			[]string{"interrupt", "endRun", "stderr:" + waitingNotice, "wait"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			h := newInterruptHarness(t, true, tt.running, false)
 			h.firstSignal(t, tt.sig)
 
-			got := h.guard.Finish()
+			got, cutShort := h.guard.Finish()
 
 			if got != tt.sig {
-				t.Errorf("Finish() = %v, want %v", got, tt.sig)
+				t.Errorf("Finish() signal = %v, want %v", got, tt.sig)
+			}
+			if cutShort {
+				t.Errorf("Finish() cutShort = true, want false after a signal")
 			}
 			if events := h.snapshot(); !reflect.DeepEqual(events, tt.want) {
 				t.Errorf("events = %v, want %v", events, tt.want)

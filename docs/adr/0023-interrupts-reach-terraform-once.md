@@ -17,8 +17,8 @@ tfui owns SIGINT and SIGTERM in the TUI and in headless and standalone plugin ve
 running terraform process exactly once and ends the program; tfui then waits, with no timeout, until terraform has
 exited, runs plugin cleanup, writes no stdout and exits 130 for SIGINT or 143 for SIGTERM. A second signal, or any
 signal while tfui waits, ends tfui at once with the stderr note `terraform was stopped without finishing`, after plugin
-cleanup. Quitting the TUI while terraform runs interrupts it the same way, and prints
-`Waiting for terraform to stop… (Ctrl+C again to force)` while tfui waits.
+cleanup. Quitting the TUI while terraform runs interrupts it the same way, prints
+`Waiting for terraform to stop… (Ctrl+C again to force)` while tfui waits, and exits 130 as for SIGINT.
 
 Before this decision, bubbletea's own signal handler turned a SIGINT into an ordinary quit. A headless `tfui plan`
 interrupted mid-plan exited 0 and printed `Plan: 0 to add, 0 to change, 0 to destroy.`, and terraform disappeared

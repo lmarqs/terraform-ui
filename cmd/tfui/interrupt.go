@@ -124,8 +124,10 @@ func (g *interruptGuard) shutdownOnce() {
 
 // Finish runs once the program or headless driver returned. Without a prior
 // signal it interrupts terraform; if terraform still runs, it says so on
-// stderr and waits for it. It returns the first signal received, or nil.
-func (g *interruptGuard) Finish() os.Signal {
+// stderr and waits for it. It returns the first signal received, or nil, and
+// cutShort when the run ended without a signal while terraform still ran: a
+// quit cancelled terraform, so the run must not report the plugin's result.
+func (g *interruptGuard) Finish() (sig os.Signal, cutShort bool) {
 	g.mu.Lock()
 	g.finishing = true
 	received := g.received
@@ -134,7 +136,8 @@ func (g *interruptGuard) Finish() os.Signal {
 	if received == nil {
 		g.runs.Interrupt()
 	}
-	if g.runs.Running() {
+	running := g.runs.Running()
+	if running {
 		_, _ = io.WriteString(g.stderr, waitingMessage)
 		g.runs.Wait()
 	}
@@ -142,7 +145,7 @@ func (g *interruptGuard) Finish() os.Signal {
 	g.mu.Lock()
 	g.finished = true
 	g.mu.Unlock()
-	return received
+	return received, received == nil && running
 }
 
 // interruptExitCode maps SIGINT to 130 and SIGTERM to 143.

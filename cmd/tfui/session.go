@@ -48,7 +48,10 @@ func (s *Session) Run() error {
 	defer shutdown()
 	app := s.buildApp(svc, registry)
 	_, err = s.present(app, tape, guard)
-	sig := guard.Finish()
+	sig, cutShort := guard.Finish()
+	if cutShort {
+		sig = os.Interrupt
+	}
 	if sig != nil {
 		return &exitError{code: interruptExitCode(sig)}
 	}
@@ -247,9 +250,12 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 	app := ui.NewApp(s.cfg, svc, registry, s.rootCfg, standalone)
 
 	runErr := s.runStandalone(app, registry, pluginID, tape, guard)
-	sig := guard.Finish()
+	sig, cutShort := guard.Finish()
 	if sig == nil && runErr != nil {
 		return runErr
+	}
+	if cutShort {
+		sig = os.Interrupt
 	}
 
 	if recorder != nil && sig == nil {
