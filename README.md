@@ -82,7 +82,7 @@ This adds the tool to your `mise.toml` and installs it. To pin a specific versio
 - **Workspace Management** — List, switch, create, and delete workspaces
 - **Monorepo Support** — Discover and select chdir members via `tfui.hcl`
 - **Pin & Target** — Pin resources with `Space`; the next plan targets only them, and apply applies that plan
-- **Non-Interactive Mode** — every subcommand runs headless for CI pipelines, scripts and AI agents
+- **Headless Mode** — every subcommand runs headless for CI pipelines, scripts and AI agents
 
 ## Usage
 

@@ -24,7 +24,7 @@ variables and lock settings per workspace, add a `tfui.hcl` to the project root:
 
 tfui reads `tfui.hcl` from the project directory: `-project`, default the current directory.
 
-| | Without `tfui.hcl` | With `tfui.hcl` |
+| | Zero-config: no `tfui.hcl` | With `tfui.hcl` |
 |---|---|---|
 | Where terraform runs | The project directory, or `-chdir <dir>` under it | The member you pick, or `-chdir <dir>` under the project directory |
 | Settings | None: terraform's own defaults | The root file, the member's `tfui.hcl` and the matching workspace block |

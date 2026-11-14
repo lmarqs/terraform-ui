@@ -1,6 +1,6 @@
 ---
 name: tfui-cli-ux
-description: "tfui CLI UX rules: standalone TUI vs CI mode, headless failure contract, pre-seeded -plan/-state cache, input and output ports, flag conventions and scoping, binary resolution, -- passthrough, exit codes, tfui.hcl config resolution. Use before editing cmd/ or a plugin's Input, Stdout, Stderr or ExitCode."
+description: "tfui CLI UX rules: Standalone vs Headless, headless failure contract, pre-seeded -plan/-state cache, input and output ports, flag conventions and scoping, binary resolution, -- passthrough, exit codes, tfui.hcl config resolution. Use before editing cmd/ or a plugin's Input, Stdout, Stderr or ExitCode."
 ---
 
 Full spec: `docs/reference/cli-ux.md`. I/O contract: `docs/reference/cli-io-contract.md`. Every command and flag:
@@ -10,18 +10,18 @@ Full spec: `docs/reference/cli-ux.md`. I/O contract: `docs/reference/cli-io-cont
 
 ## Execution Model
 
-Every `tfui <command>` launches the plugin in a standalone TUI (on stderr). Output goes to stdout on exit. `-ci`, `CI=1`, or an agent environment disables the TUI.
+Every `tfui <command>` launches its plugin as a Standalone TUI on stderr; output goes to stdout on exit. `-ci`, `CI=1`, an agent environment or a non-TTY stderr runs it Headless instead.
 
 Two modes:
-- **Standalone TUI**: alt-screen on stderr, plugin output to stdout on exit (fzf model)
-- **CI**: no TUI, headless execution via macro driver, output to stdout immediately
+- **Standalone**: alt-screen on stderr, plugin output to stdout on exit (fzf model)
+- **Headless**: no TUI, the macro driver runs the plugin, output to stdout immediately
 
 Mode resolution (`resolveSilentStderrFrom`, see ADR-0022):
 ```go
-if -ci OR CI=1:                → CI mode
-if CLAUDECODE or AI_AGENT set:  → CI mode (agent environment)
-if stderr not TTY:              → CI mode
-otherwise:                      → Standalone TUI
+if -ci OR CI=1:                → Headless
+if CLAUDECODE or AI_AGENT set:  → Headless (agent environment)
+if stderr not TTY:              → Headless
+otherwise:                      → Standalone
 ```
 
 Headless failure contract: a failed run never claims success — terraform's error goes to stderr, stdout stays empty, exit 1. Action verbs (taint/untaint/import) skip their confirm prelude headlessly via `Input.AutoConfirm` set at the cmd boundary.
@@ -69,7 +69,7 @@ Plugins receive input and produce output via hexagonal ports (ADR-0021):
 Flag scoping:
 - `-plan`, `-state`, `-macro`, `-record`: available on ALL commands (persistent flags)
 - On root: `-macro` drives the full multi-plugin TUI headlessly
-- On subcommands: `-macro` drives the standalone plugin headlessly, outputs recorded commands
+- On subcommands: `-macro` drives the command's plugin headlessly, outputs recorded commands
 - `-record <dir>`: captures ANSI frames + manifest.json (orthogonal to `-macro`)
 - All other flags: persistent (available everywhere)
 - Every novel flag must combine validly with every other flag — no conditional validity (see ADR-0017)
@@ -86,7 +86,7 @@ Exit codes: `0` = success, `1` = error, `2` = changes present (plan only)
 
 ## Config (`tfui.hcl`)
 
-HCL format. Everything optional. No config file = standalone mode.
+HCL format. Everything optional. No config file = Zero-config.
 
 ```hcl
 terraform { bin = "terraform" }
@@ -101,7 +101,7 @@ defaults {
 ```
 
 Two modes:
-- Standalone (no tfui.hcl): CWD = terraform dir, `-chdir` = raw passthrough
+- Zero-config (no tfui.hcl): CWD = terraform dir, `-chdir` = raw passthrough
 - Project (tfui.hcl found): full resolution, chdir validated against members
 
 Resolution chain: Root defaults → Child top-level → Workspace block → CLI flags → `--` passthrough
