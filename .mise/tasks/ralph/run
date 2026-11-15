@@ -15,9 +15,14 @@ ARGS=(--serial)
 
 # ralph-tui and its worker find the `codex` in .mise/jail first, which runs the real one inside ai-jail.
 if [ "$AGENT" = codex ]; then
-  mise which ai-jail >/dev/null || { echo "ai-jail is not installed; run mise install." >&2; exit 1; }
+  command -v ai-jail >/dev/null || { echo "ai-jail is not on PATH; install ai-jail 3." >&2; exit 1; }
   export PATH="$MAIN/.mise/jail:$PATH"
 fi
+
+# Installed globally by each person, not pinned in mise.toml.
+for tool in ralph-tui bd bv "$AGENT"; do
+  command -v "$tool" >/dev/null || { echo "$tool is not on PATH." >&2; exit 1; }
+done
 
 cd "$MAIN"
 exec .ralph-tui/bin/run "$EPIC" --agent "$AGENT" --epic "$EPIC" "${ARGS[@]}"

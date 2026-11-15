@@ -8,6 +8,7 @@ description: "Beads task tracking, Beads Viewer triage and ralph-tui runs in thi
 Beads holds the task graph; Beads Viewer (`bv`) ranks it; ralph-tui works through an epic's beads with unattended
 workers, one worktree per run.
 
+`bd`, `bv`, `ralph-tui` and ai-jail 3 are installed globally by each person; mise.toml pins none of them.
 Start a run over an epic with `mise run ralph:run <epic>`, adding `--headless` to log instead of drawing the TUI and
 `--agent claude` for Claude workers. Codex workers are the default and run inside ai-jail through `.mise/jail/codex`:
 a worker writes only its worktree and cannot commit, push or run `bd`, so ralph-tui commits and closes each bead.

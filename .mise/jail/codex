@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # `codex` for a ralph-tui worker: `mise run ralph:run` puts this directory first on PATH, so the `codex` that
-# .ralph-tui/bin/worker runs is this file, which runs the real one inside ai-jail (mise.toml, on bubblewrap and
-# Landlock). The jail keeps the worker, and the subagents it spawns, to its worktree: no SSH or GitHub credentials,
+# .ralph-tui/bin/worker runs is this file, which runs the real one inside ai-jail (on bubblewrap and Landlock).
+# The jail keeps the worker, and the subagents it spawns, to its worktree: no SSH or GitHub credentials,
 # no Docker socket, and egress only to Codex's API and the Go module proxy.
 #
 # Codex's own sandbox is turned off inside the jail, where its bubblewrap fails to start ("Failed to create
@@ -16,8 +16,7 @@ CODEX=$(readlink -f "$CODEX")
 # ralph-tui asks every harness for its version through the worker, outside any task.
 [ "$*" = --version ] && exec "$CODEX" --version
 
-# The version mise.toml pins, which a PATH putting another install first would hide.
-AI_JAIL=$(mise which ai-jail) || { echo "ai-jail is not installed; run mise install." >&2; exit 127; }
+AI_JAIL=$(command -v ai-jail) || { echo "ai-jail is not on PATH; install ai-jail 3." >&2; exit 127; }
 GIT=$(git rev-parse --path-format=absolute --git-common-dir)
 MAIN=$(dirname "$GIT")
 
