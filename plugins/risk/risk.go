@@ -14,8 +14,9 @@ import (
 
 // RiskGroup holds changes grouped by risk level.
 type RiskGroup struct {
-	Level   sdk.RiskLevel
-	Changes []sdk.PlanChange
+	Level       sdk.RiskLevel
+	Changes     []sdk.PlanChange
+	Unavailable bool
 }
 
 // Plugin implements the risk analysis feature.
@@ -133,11 +134,20 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 		sdk.RiskNone:     {},
 	}
 
+	var unavailable []sdk.PlanChange
 	for _, c := range summary.Changes {
+		if row := e.resourceAssessment(c.Resource.Address); row != nil && row.Status == "unavailable" {
+			unavailable = append(unavailable, c)
+			continue
+		}
 		byLevel[c.Risk] = append(byLevel[c.Risk], c)
 	}
 
 	e.groups = make([]RiskGroup, 0)
+	if len(unavailable) > 0 {
+		sort.Slice(unavailable, func(i, j int) bool { return unavailable[i].Resource.Address < unavailable[j].Resource.Address })
+		e.groups = append(e.groups, RiskGroup{Changes: unavailable, Unavailable: true})
+	}
 	levels := []sdk.RiskLevel{
 		sdk.RiskCritical,
 		sdk.RiskHigh,
@@ -204,7 +214,7 @@ func (e *Plugin) totalItems() int {
 }
 
 func (e *Plugin) CursorPosition() (int, int) {
-	if e.status != sdk.StatusDone || len(e.groups) == 0 {
+	if !e.Ready() || len(e.groups) == 0 {
 		return 0, 0
 	}
 	return e.selected + 1, e.totalItems()
@@ -224,6 +234,9 @@ func (e *Plugin) View(width, height int) string {
 	case sdk.StatusDone:
 		return e.renderAnalysis(width, height)
 	case sdk.StatusError:
+		if len(e.groups) > 0 {
+			return e.renderAnalysis(width, height)
+		}
 		if e.planError != "" {
 			return sdk.StyleError.Render(e.planError)
 		}
@@ -236,7 +249,7 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderAnalysis(width, height int) string {
 	if len(e.groups) == 0 {
-		return sdk.StyleSuccess.Render("No changes to analyze.")
+		return sdk.StyleFaint.Render(fmt.Sprintf("No eligible mutations (%d changes not assessed).", e.excludedCount()))
 	}
 
 	rows := []string{}
@@ -271,21 +284,29 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 }
 
 func (e *Plugin) renderOverallBanner() string {
-	switch e.overall {
-	case sdk.RiskCritical:
-		return sdk.StyleRiskCritical.Render("!! CRITICAL RISK DETECTED !!")
-	case sdk.RiskHigh:
-		return sdk.StyleRiskHigh.Render("! HIGH RISK DETECTED !")
-	case sdk.RiskMedium:
-		return sdk.StyleRiskMedium.Render("Medium risk - review recommended")
-	case sdk.RiskLow:
-		return sdk.StyleRiskLow.Render("Low risk - changes look safe")
-	default:
-		return sdk.StyleSuccess.Render("No risk detected")
+	if e.assessment != nil && (e.assessment.Status == "partial" || e.assessment.Status == "unavailable") {
+		failed, classified := 0, 0
+		for _, row := range e.assessment.Resources {
+			if row.Status == "unavailable" {
+				failed++
+			}
+			if row.Status == "classified" {
+				classified++
+			}
+		}
+		message := fmt.Sprintf("Risk unavailable: %d of %d eligible mutations failed", failed, failed+classified)
+		if classified > 0 {
+			message += fmt.Sprintf("; %d classified", classified)
+		}
+		return sdk.StyleError.Render(message + ".")
 	}
+	return "Risk: " + e.overall.String() + " — explicit policy classifications."
 }
 
 func (e *Plugin) renderGroupHeader(group RiskGroup) string {
+	if group.Unavailable {
+		return "--- " + sdk.StyleError.Render(fmt.Sprintf("Risk unavailable (%d)", len(group.Changes))) + " ---"
+	}
 	var label string
 	switch group.Level {
 	case sdk.RiskCritical:
@@ -306,6 +327,18 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
 	symbol := sdk.ActionSymbol(change.Action)
 	address := change.Resource.Address
 	reason := riskReason(change)
+	if row := e.resourceAssessment(address); row != nil {
+		reason = ""
+		if row.Status == "unavailable" {
+			reason = "risk unavailable: " + row.ErrorCode
+		}
+		for _, evidence := range row.Reasons {
+			if reason != "" {
+				reason += "; "
+			}
+			reason += evidence.Message
+		}
+	}
 
 	row := fmt.Sprintf("   %s %s", symbol, address)
 	if reason != "" {
@@ -317,7 +350,11 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
 func (e *Plugin) renderStats() string {
 	var parts []string
 	for _, g := range e.groups {
-		parts = append(parts, fmt.Sprintf("%s: %d", g.Level.String(), len(g.Changes)))
+		label := g.Level.String()
+		if g.Unavailable {
+			label = "unavailable"
+		}
+		parts = append(parts, fmt.Sprintf("%s: %d", label, len(g.Changes)))
 	}
 	return sdk.StyleFaint.Render(fmt.Sprintf("Total: %d changes  [%s]", e.total, strings.Join(parts, " | ")))
 }
@@ -327,10 +364,33 @@ func riskReason(change sdk.PlanChange) string {
 	case change.Action == sdk.ActionDelete || change.Action == sdk.ActionDeleteThenCreate:
 		return "destructive operation"
 	case change.Action == sdk.ActionUpdate && change.Risk >= sdk.RiskHigh:
-		return "modification of critical resource"
+		return "resource update"
 	case change.IsPhantom:
-		return "phantom change (cosmetic only)"
+		return "phantom change"
 	default:
 		return ""
 	}
+}
+
+func (e *Plugin) resourceAssessment(address string) *sdk.PolicyResourceAssessment {
+	if e.assessment != nil {
+		for i := range e.assessment.Resources {
+			if e.assessment.Resources[i].Address == address {
+				return &e.assessment.Resources[i]
+			}
+		}
+	}
+	return nil
+}
+
+func (e *Plugin) excludedCount() int {
+	count := 0
+	if e.assessment != nil {
+		for _, row := range e.assessment.Resources {
+			if row.Status == "not_assessed" {
+				count++
+			}
+		}
+	}
+	return count
 }

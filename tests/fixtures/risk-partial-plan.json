@@ -1,0 +1,65 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.14.0",
+  "resource_changes": [
+    {
+      "address": "aws_instance.a_create",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "a_create",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "before": null,
+        "after": {
+          "id": "i-new"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_instance.b_delete",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "b_delete",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "before": {
+          "id": "i-old"
+        },
+        "after": null,
+        "after_unknown": false,
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "aws_instance.z_failed",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "z_failed",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "id": "i-old"
+        },
+        "after": {
+          "id": "i-new"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    }
+  ]
+}

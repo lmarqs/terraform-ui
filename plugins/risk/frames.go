@@ -27,14 +27,14 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 }
 func (f *listFrame) View(width, height int) string { return f.plugin.View(width, height) }
 func (f *listFrame) Hints() []sdk.KeyHint {
-	if f.plugin.status == sdk.StatusDone && f.plugin.totalItems() > 0 {
+	if f.plugin.Ready() && f.plugin.totalItems() > 0 {
 		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
 	}
 	return sdk.HintSetQuit.Hints()
 }
 
 func (e *Plugin) inspectSelected() {
-	if e.status != sdk.StatusDone {
+	if !e.Ready() {
 		return
 	}
 	index := e.selected
@@ -44,8 +44,12 @@ func (e *Plugin) inspectSelected() {
 			continue
 		}
 		change := group.Changes[index]
+		risk := change.Risk.String()
+		if row := e.resourceAssessment(change.Resource.Address); row != nil && row.Status == "unavailable" {
+			risk = "unavailable: " + row.ErrorCode
+		}
 		var b strings.Builder
-		fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(change.Action), change.Action, change.Resource.Address, change.Risk.String())
+		fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(change.Action), change.Action, change.Resource.Address, risk)
 		b.WriteString(sdk.RenderAttributeDiffs(change.AttributeDiffs))
 		if e.assessment != nil {
 			for _, row := range e.assessment.Resources {

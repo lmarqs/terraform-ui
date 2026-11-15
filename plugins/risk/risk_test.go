@@ -269,7 +269,7 @@ func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
 	p.groups = nil
 
 	view := p.View(80, 24)
-	if !strings.Contains(view, "No changes to analyze") {
+	if !strings.Contains(view, "No eligible mutations") {
 		t.Errorf("view should indicate no changes to analyze, got %q", view)
 	}
 }
@@ -281,7 +281,7 @@ func TestView_WhenDoneWithEmptyGroups_ShouldRenderNonEmpty(t *testing.T) {
 	p.groups = []RiskGroup{}
 
 	view := p.View(80, 24)
-	if !strings.Contains(view, "No changes to analyze") {
+	if !strings.Contains(view, "No eligible mutations") {
 		t.Errorf("view should indicate no changes to analyze, got %q", view)
 	}
 }
@@ -523,20 +523,19 @@ func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
 	}
 }
 
-func TestRiskReason_WhenUpdateWithHighRisk_ShouldReturnCriticalModification(t *testing.T) {
-	// Test the specific case: update + high risk = "modification of critical resource"
+func TestRiskReason_WhenUpdateWithHighRisk_ShouldDescribeUpdate(t *testing.T) {
 	change := sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskHigh}
 	result := riskReason(change)
-	if result != "modification of critical resource" {
-		t.Errorf("riskReason(update+high) = %q, want %q", result, "modification of critical resource")
+	if result != "resource update" {
+		t.Errorf("riskReason(update+high) = %q, want %q", result, "resource update")
 	}
 }
 
-func TestRiskReason_WhenUpdateWithCriticalRisk_ShouldReturnCriticalModification(t *testing.T) {
+func TestRiskReason_WhenUpdateWithCriticalRisk_ShouldDescribeUpdate(t *testing.T) {
 	change := sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskCritical}
 	result := riskReason(change)
-	if result != "modification of critical resource" {
-		t.Errorf("riskReason(update+critical) = %q, want %q", result, "modification of critical resource")
+	if result != "resource update" {
+		t.Errorf("riskReason(update+critical) = %q, want %q", result, "resource update")
 	}
 }
 

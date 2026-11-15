@@ -126,30 +126,32 @@ func (e *Plugin) acceptAssessment(msg assessmentResultMsg) {
 		return
 	}
 	e.assessment = msg.assessment
+
+	// Render a copy so selected-policy classifications never mutate Plan's summary.
+	summary := *msg.summary
+	summary.Changes = append([]sdk.PlanChange(nil), summary.Changes...)
+	byAddress := make(map[string]sdk.PolicyResourceAssessment)
+	for _, row := range msg.assessment.Resources {
+		if row.Level != nil || row.Status == "unavailable" {
+			byAddress[row.Address] = row
+		}
+	}
+	changes := summary.Changes[:0]
+	for _, change := range summary.Changes {
+		if row, ok := byAddress[change.Resource.Address]; ok {
+			if row.Level != nil {
+				change.Risk = *row.Level
+			}
+			changes = append(changes, change)
+		}
+	}
+	summary.Changes = changes
+	e.Analyze(&summary)
 	if msg.assessment.Status != "complete" && msg.assessment.Status != "empty" {
 		e.status = sdk.StatusError
 		e.riskDiagnostic = msg.assessment.ErrorCode
 		if e.riskDiagnostic == "" {
 			e.riskDiagnostic = msg.assessment.Status
 		}
-		return
 	}
-	// Render a copy so selected-policy classifications never mutate Plan's summary.
-	summary := *msg.summary
-	summary.Changes = append([]sdk.PlanChange(nil), summary.Changes...)
-	byAddress := make(map[string]sdk.RiskLevel)
-	for _, row := range msg.assessment.Resources {
-		if row.Level != nil {
-			byAddress[row.Address] = *row.Level
-		}
-	}
-	changes := summary.Changes[:0]
-	for _, change := range summary.Changes {
-		if level, ok := byAddress[change.Resource.Address]; ok {
-			change.Risk = level
-			changes = append(changes, change)
-		}
-	}
-	summary.Changes = changes
-	e.Analyze(&summary)
 }

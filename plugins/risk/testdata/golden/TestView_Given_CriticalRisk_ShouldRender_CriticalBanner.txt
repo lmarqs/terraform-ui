@@ -1,4 +1,4 @@
-!! CRITICAL RISK DETECTED !!
+Risk: critical — explicit policy classifications.
 
 --- CRITICAL (1) ---
    - aws_rds_cluster.production  destructive operation

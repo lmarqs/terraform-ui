@@ -1,4 +1,4 @@
-! HIGH RISK DETECTED !
+Risk: high — explicit policy classifications.
 
 --- HIGH (1) ---
    - aws_db_instance.main  destructive operation

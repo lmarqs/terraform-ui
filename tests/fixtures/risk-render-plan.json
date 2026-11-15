@@ -17,22 +17,48 @@
           "ami": "ami-old",
           "password": "fixture-hidden-before",
           "size": 1,
-          "version": 1
+          "version": 1,
+          "nested": {
+            "credential": "fixture-secret-old",
+            "endpoint": "old"
+          },
+          "computed": {
+            "endpoint": "previous"
+          }
         },
         "after": {
           "ami": "ami-new",
           "password": "fixture-hidden-after",
           "size": 2,
-          "version": null
+          "version": null,
+          "nested": {
+            "credential": "fixture-secret-new",
+            "endpoint": null
+          },
+          "computed": {
+            "endpoint": null
+          }
         },
         "after_unknown": {
-          "version": true
+          "version": true,
+          "nested": {
+            "endpoint": true
+          },
+          "computed": {
+            "endpoint": true
+          }
         },
         "before_sensitive": {
-          "password": true
+          "password": true,
+          "nested": {
+            "credential": true
+          }
         },
         "after_sensitive": {
-          "password": true
+          "password": true,
+          "nested": {
+            "credential": true
+          }
         },
         "replace_paths": [
           [
@@ -88,14 +114,9 @@
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "change": {
         "actions": [
-          "update"
+          "create"
         ],
-        "before": {
-          "ami": "ami-old",
-          "password": "fixture-hidden-before",
-          "size": 1,
-          "version": 1
-        },
+        "before": null,
         "after": {
           "ami": "ami-new",
           "password": "fixture-hidden-after",
@@ -105,9 +126,7 @@
         "after_unknown": {
           "version": true
         },
-        "before_sensitive": {
-          "password": true
-        },
+        "before_sensitive": false,
         "after_sensitive": {
           "password": true
         },
@@ -122,7 +141,7 @@
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "change": {
         "actions": [
-          "update"
+          "delete"
         ],
         "before": {
           "ami": "ami-old",
@@ -130,21 +149,12 @@
           "size": 1,
           "version": 1
         },
-        "after": {
-          "ami": "ami-new",
-          "password": "fixture-hidden-after",
-          "size": 2,
-          "version": null
-        },
-        "after_unknown": {
-          "version": true
-        },
+        "after": null,
+        "after_unknown": false,
         "before_sensitive": {
           "password": true
         },
-        "after_sensitive": {
-          "password": true
-        },
+        "after_sensitive": false,
         "replace_paths": []
       }
     },
