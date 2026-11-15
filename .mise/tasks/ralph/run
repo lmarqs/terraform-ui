@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-#MISE description="Run ralph-tui over a Beads epic in its own worktree, on branch ralph/<epic>, Codex workers jailed."
+#MISE description="Run ralph-tui over a Beads epic in its own worktree, on branch ralph/<epic>."
 #USAGE arg "<epic>" help="The Beads epic whose ready children the workers take, e.g. terraform-ui-eae"
 #USAGE flag "--agent <agent>" default="codex" help="codex or claude, both declared in .ralph-tui/config.toml"
 #USAGE flag "--headless" default="false" help="Log to stdout instead of drawing the TUI"

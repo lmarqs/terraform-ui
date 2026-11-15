@@ -179,15 +179,6 @@ echo "worktree: $worktree"
 echo "branch: $branch"
 
 cd "$worktree"
-if [ "$agent" = codex ]; then
-  { mise which ai-jail || command -v ai-jail; } >/dev/null 2>&1 ||
-    fail 'ai-jail is not installed; install ai-jail 3.'
-  jail=$worktree/.mise/jail
-  [ -x "$jail/codex" ] || fail "$jail/codex is not executable" 'use a base containing the Codex jail wrapper'
-  # Remove the caller's jail as well: chaining two wrappers would recurse instead of finding the real Codex.
-  PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF -e "$root/.mise/jail" -e "$jail" | paste -sd:)
-  export PATH="$jail:$PATH"
-fi
 if [ "$copied" = true ]; then
   template=$worktree/.ralph-tui/templates/json.hbs
   [ -z "$epic" ] || template=$worktree/.ralph-tui/templates/$epic_tracker.hbs

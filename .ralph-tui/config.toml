@@ -30,8 +30,8 @@ skipPermissions = false
 name = "codex"
 plugin = "codex"
 command = ".ralph-tui/bin/worker-codex"
-defaultFlags = ["--dangerously-bypass-hook-trust", "-c", "approval_policy=never", "-c", "sandbox_workspace_write.network_access=true", "-c", "shell_environment_policy.set.MISE_CACHE_DIR=\"/tmp/tfui-ralph-mise\""]
+defaultFlags = ["--dangerously-bypass-hook-trust", "-c", "approval_policy=never", "-c", "shell_environment_policy.set.MISE_CACHE_DIR=\"/tmp/tfui-ralph-mise\""]
 
 [agents.options]
 fullAuto = false
-sandbox = "workspace-write"
+sandbox = "danger-full-access"

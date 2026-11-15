@@ -58,16 +58,15 @@ a role exists when `permission/policy.yaml` defines it.
 | Codex | attended | developer | `codex` |
 | Codex | unattended | developer | `codex exec -c approval_policy=never "<task>"` |
 | ralph-tui, Claude workers | unattended | worker | `.ralph-tui/bin/run <name> --agent claude --epic <id> --headless` |
-| ralph-tui, Codex workers in ai-jail | unattended | worker | `mise run ralph:run <epic> --headless` |
+| ralph-tui, Codex workers | unattended | worker | `mise run ralph:run <epic> --headless` |
 
 A ralph-tui run works in `.worktrees/ralph/<name>` on branch `ralph/<name>`, takes its tasks from a Beads epic, or a
 JSON PRD with `--prd <file>`, and completes a task only when `scripts/worker-check` passes. Remove the run with
 `.ralph-tui/bin/clean <name>` once its branch is delivered. The `beads-ralph` skill holds the details.
 
-`mise run ralph:run <epic>` names the run after its epic and puts `.mise/jail/codex` first on `PATH`, so each Codex
-worker, and the `test-writer` and `code-checker` subagents it spawns, runs inside ai-jail: it writes only its
-worktree, reads Git's metadata, and reaches only Codex's API and the Go module proxy. ralph-tui commits its changes
-and closes the bead from outside the jail.
+`mise run ralph:run <epic>` names the run after its epic. Codex workers run unsandboxed
+(`sandbox = "danger-full-access"` in `.ralph-tui/config.toml`), with the person's credentials and network; the
+prompt tells them not to commit, push or run `bd`, and ralph-tui commits their changes and closes the bead.
 
 Codex has no roles: it has no option that adds a rules file to one run, so every Codex run gets the policy's
 `commands` alone. A role's denies reach only Claude runs.

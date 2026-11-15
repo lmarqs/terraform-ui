@@ -8,17 +8,11 @@ trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 failures=0
 fail() { printf 'FAIL %s: %s\n' "$name" "$1" >&2; failures=$((failures + 1)); }
-mkdir -p "$scratch/main/.ralph-tui/bin" "$scratch/main/.worktrees" "$scratch/main/.mise/jail" "$scratch/tools"
+mkdir -p "$scratch/main/.ralph-tui/bin" "$scratch/main/.worktrees" "$scratch/tools"
 cp "$root"/.ralph-tui/bin/* "$scratch/main/.ralph-tui/bin/"
 cp "$root/.ralph-tui/config.toml" "$scratch/main/.ralph-tui/config.toml"
-cp "$root/.mise/jail/codex" "$scratch/main/.mise/jail/codex"
 printf '#!/bin/sh\nexit 0\n' > "$scratch/main/.worktrees/setup"
 chmod +x "$scratch/main/.worktrees/setup"
-cat > "$scratch/tools/mise" <<'MISE'
-#!/bin/sh
-[ "$*" = 'which ai-jail' ] && [ "$jail_available" = yes ] || exit 1
-printf '%s\n' /fixture/ai-jail
-MISE
 cat > "$scratch/tools/ralph-tui" <<'RALPH'
 #!/bin/sh
 printf '%s\n' "$PATH" > "$capture/path"
@@ -30,7 +24,7 @@ for tool in bd bv; do
 done
 chmod +x "$scratch/tools"/*
 git init -q "$scratch/main"
-git -C "$scratch/main" add .ralph-tui .worktrees/setup .mise/jail/codex
+git -C "$scratch/main" add .ralph-tui .worktrees/setup
 git -C "$scratch/main" -c user.name=Test -c user.email=test@example.invalid -c core.hooksPath=/dev/null \
   commit -q --no-gpg-sign -m fixture
 capture=$scratch/capture
@@ -73,39 +67,12 @@ WORKER
   cp "$scratch/worker.saved" "$scratch/main/.ralph-tui/bin/worker"
 done
 
-name=direct-codex-jail
-jail_available=yes
-export jail_available
+name=direct-codex
 status=0
 (cd "$scratch/main" && PATH="$scratch/tools:/usr/bin:/bin" .ralph-tui/bin/run direct --agent codex --epic example --headless) \
   > "$scratch/direct" 2>&1 || status=$?
 [ "$status" -eq 0 ] || fail 'direct launcher failed'
-expected_jail=$scratch/main/.worktrees/ralph/direct/.mise/jail
-if [ -f "$capture/path" ]; then
-  case $(cat "$capture/path") in "$expected_jail":*) ;; *) fail 'run worktree jail is not first on PATH' ;; esac
-  count=$(tr ':' '\n' < "$capture/path" | grep -Fxc "$expected_jail" || true)
-  [ "$count" -eq 1 ] || fail 'run worktree jail must occur exactly once'
-else
-  fail 'Ralph was not invoked'
-fi
-status=0
-(cd "$scratch/main" && PATH="$expected_jail:$scratch/main/.mise/jail:$scratch/tools:/usr/bin:/bin" \
-  .ralph-tui/bin/run direct --agent codex --epic example --headless) > "$scratch/reused" 2>&1 || status=$?
-[ "$status" -eq 0 ] || fail 'reusing jailed PATH failed'
-count=$(tr ':' '\n' < "$capture/path" | grep -Fxc "$expected_jail" || true)
-[ "$count" -eq 1 ] || fail 'reused PATH duplicated run worktree jail'
-if tr ':' '\n' < "$capture/path" | grep -Fxq "$scratch/main/.mise/jail"; then
-  fail 'main checkout jail remains in worker PATH'
-fi
-
-name=missing-ai-jail
-jail_available=no
-rm -f "$capture/args"
-status=0
-(cd "$scratch/main" && PATH="$scratch/tools:/usr/bin:/bin" .ralph-tui/bin/run missing --agent codex --epic example --headless) \
-  > "$scratch/missing" 2>&1 || status=$?
-[ "$status" -ne 0 ] || fail 'missing ai-jail allowed launch'
-[ ! -f "$capture/args" ] || fail 'Ralph ran without ai-jail'
+[ -f "$capture/args" ] || fail 'Ralph was not invoked'
 
 name=mise-budget-model-forwarding
 # Invoke the task with the environment its usage parser produces.
@@ -114,7 +81,6 @@ cat > "$scratch/main/.ralph-tui/bin/run" <<'RUN'
 printf '%s\n' "$@" > "$capture/task-args"
 RUN
 chmod +x "$scratch/main/.ralph-tui/bin/run"
-jail_available=yes
 status=0
 (cd "$scratch/main" && PATH="$scratch/tools:/usr/bin:/bin" usage_epic=example usage_agent=claude \
   usage_headless=true usage_iterations=2 usage_model=fixture-model bash "$root/.mise/tasks/ralph/run") \

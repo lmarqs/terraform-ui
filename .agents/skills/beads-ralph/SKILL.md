@@ -8,10 +8,11 @@ description: "Beads task tracking, Beads Viewer triage and ralph-tui runs in thi
 Beads holds the task graph; Beads Viewer (`bv`) ranks it; ralph-tui works through an epic's beads with unattended
 workers, one worktree per run.
 
-`bd`, `bv`, `ralph-tui` and ai-jail 3 are installed globally by each person; mise.toml pins none of them.
+`bd`, `bv` and `ralph-tui` are installed globally by each person; mise.toml pins none of them.
 Start a run over an epic with `mise run ralph:run <epic>`, adding `--headless` to log instead of drawing the TUI and
-`--agent claude` for Claude workers. Codex workers are the default and run inside ai-jail through `.mise/jail/codex`:
-a worker writes only its worktree and cannot commit, push or run `bd`, so ralph-tui commits and closes each bead.
+`--agent claude` for Claude workers. Codex workers are the default and run without a sandbox, with the person's
+credentials and network; the prompt keeps them from committing, pushing or running `bd`, and ralph-tui commits and
+closes each bead.
 
 The sections below are written by the Cook recipes that set each tool up.
 <!-- cook:begin io.github.lmarqs.cookbook:beads#tracker/tracker -->

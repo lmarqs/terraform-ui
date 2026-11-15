@@ -24,7 +24,7 @@ GitHub issues remain the project backlog; the epic breaks that work into tasks a
 
 ## Start a coordinated run
 
-Start a coordinated run with `mise run ralph:run <epic> --headless`. The repository defaults to jailed Codex
+Start a coordinated run with `mise run ralph:run <epic> --headless`. The repository defaults to unsandboxed Codex
 workers, serial execution, and at most ten iterations. The run lives at `.worktrees/ralph/<epic>` on branch
 `ralph/<epic>`. The [Beads/Ralph skill](https://github.com/lmarqs/terraform-ui/blob/main/.agents/skills/beads-ralph/SKILL.md)
 owns tool setup, tracker discovery, and launcher details. Use `--iterations N` to bound the run and `--model NAME`
