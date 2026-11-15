@@ -113,5 +113,6 @@ The final code and UI checks passed individually:
 Independent code-checker review found no findings in the session tests, fixture corrections, evidence or
 updated smoke assertions. Production Go code and Apply behavior were not changed.
 
-The next integration bead should run its preservation checks against these corrected fixtures and retain
-the distinction between excluded changes, explicit classifications and unavailable assessment.
+The follow-up [preservation and gate verification](preservation-gates.md) records the Apply, Terraform
+JSON and final integration checks against these corrected fixtures. Keep the distinction between excluded
+changes, explicit classifications and unavailable assessment.
