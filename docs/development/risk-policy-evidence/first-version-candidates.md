@@ -376,3 +376,7 @@ for an already reviewed plan. These are acquisition experiments, not production 
 
 The [D-02c Context/source evidence](context-source-identity.md) records current HCL/startup/switch behavior,
 disposable snapshot/publication experiments and the combined D-02 first-version conclusion.
+
+The [D-03c release-target costs](release-costs.md) record combined tfui/OPA release builds, native runtime
+measurements and the delegated first-version cost judgment. These remain disposable evidence; no production
+evaluator or dependency is introduced by the experiments.

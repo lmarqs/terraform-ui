@@ -137,7 +137,7 @@ and fixed public diagnostics. Raw errors belong only in this synthetic experimen
 insufficient to enforce the selected source contract; undefined output must explicitly fail classification.
 The arithmetic additions are experimental controls and do not authorize broadening the production builtin list.
 
-D-03c can use the pinned version, lock, capability artifact and bounded guard approach for combined tfui
-build/size/cost measurements. It still must test the real combined dependency graph and all release targets;
-standalone success cannot substitute for those measurements. D-01c should publish the tested contract under the
+The [D-03c release-target costs](release-costs.md) use this pinned version, lock, capability artifact and
+bounded guard approach for combined tfui build/size/cost measurements. That evidence tests the real combined
+dependency graph and release matrix; these standalone controls do not substitute for it. D-01c should publish the tested contract under the
 owner's delegated first-version authority, while keeping these limitations explicit.

@@ -1,0 +1,9 @@
+test_comparison_records_resolved_graphs_toolchain_and_input_identity (__main__.CostEvidence.test_comparison_records_resolved_graphs_toolchain_and_input_identity) ... ok
+test_external_limits_are_verified_before_measurement (__main__.CostEvidence.test_external_limits_are_verified_before_measurement) ... ok
+test_four_release_targets_have_five_cold_and_warm_build_pairs (__main__.CostEvidence.test_four_release_targets_have_five_cold_and_warm_build_pairs) ... ok
+test_native_runtime_has_independent_cold_and_warm_process_samples (__main__.CostEvidence.test_native_runtime_has_independent_cold_and_warm_process_samples) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.009s
+
+OK

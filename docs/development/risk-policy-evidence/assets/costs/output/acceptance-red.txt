@@ -1,0 +1,45 @@
+test_comparison_records_resolved_graphs_toolchain_and_input_identity (__main__.CostEvidence.test_comparison_records_resolved_graphs_toolchain_and_input_identity) ... FAIL
+test_external_limits_are_verified_before_measurement (__main__.CostEvidence.test_external_limits_are_verified_before_measurement) ... FAIL
+test_four_release_targets_have_five_cold_and_warm_build_pairs (__main__.CostEvidence.test_four_release_targets_have_five_cold_and_warm_build_pairs) ... FAIL
+test_native_runtime_has_independent_cold_and_warm_process_samples (__main__.CostEvidence.test_native_runtime_has_independent_cold_and_warm_process_samples) ... FAIL
+
+======================================================================
+FAIL: test_comparison_records_resolved_graphs_toolchain_and_input_identity (__main__.CostEvidence.test_comparison_records_resolved_graphs_toolchain_and_input_identity)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/test_costs.py", line 19, in setUp
+    self.assertTrue(path.is_file(), "cost experiment has no recorded results.json observations")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : cost experiment has no recorded results.json observations
+
+======================================================================
+FAIL: test_external_limits_are_verified_before_measurement (__main__.CostEvidence.test_external_limits_are_verified_before_measurement)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/test_costs.py", line 19, in setUp
+    self.assertTrue(path.is_file(), "cost experiment has no recorded results.json observations")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : cost experiment has no recorded results.json observations
+
+======================================================================
+FAIL: test_four_release_targets_have_five_cold_and_warm_build_pairs (__main__.CostEvidence.test_four_release_targets_have_five_cold_and_warm_build_pairs)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/test_costs.py", line 19, in setUp
+    self.assertTrue(path.is_file(), "cost experiment has no recorded results.json observations")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : cost experiment has no recorded results.json observations
+
+======================================================================
+FAIL: test_native_runtime_has_independent_cold_and_warm_process_samples (__main__.CostEvidence.test_native_runtime_has_independent_cold_and_warm_process_samples)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/test_costs.py", line 19, in setUp
+    self.assertTrue(path.is_file(), "cost experiment has no recorded results.json observations")
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: False is not true : cost experiment has no recorded results.json observations
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.001s
+
+FAILED (failures=4)

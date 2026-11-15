@@ -1,0 +1,1 @@
+Frozen hashes, pinned origin, all priming builds, artifact consistency, bounded channels/groups and cancellation observations verified.
