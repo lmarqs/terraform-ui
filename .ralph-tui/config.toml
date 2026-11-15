@@ -12,10 +12,10 @@ continueOnNonZeroExit = false
 [parallel]
 directMerge = true
 
-# ralph-tui's beads trackers find no tasks unless this directory exists; a run worktree lacks it
-# when nothing under .beads/ is committed, and bd finds the main checkout's database itself.
+# ralph-tui's beads trackers find no tasks unless this directory exists. .beads/config.yaml is committed, so it
+# exists in every worktree, parallel workers' included, and bd still finds the main checkout's database itself.
 [trackerOptions]
-beadsDir = "../../../.beads"
+beadsDir = ".beads"
 
 [[agents]]
 name = "claude"
