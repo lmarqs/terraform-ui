@@ -446,7 +446,8 @@ default_reason := {
 This unconditional rule explicitly classifies every submitted mutation. A Lambda-specialized template must use
 an explicit default plus mutually exclusive specialized rules, and include a database deletion fixture proving
 the project's own default, never an invisible built-in database result. Templates are complete source copies,
-not runtime preset names. US-007 supplies tested full attribute-aware examples using this contract.
+not runtime preset names. The [authoring guide](../guides/risk-policy-authoring.md) supplies a complete
+attribute-aware Lambda example, isolated full-input fixtures and executable author tests using this contract.
 
 Choose ordinary Rego author tests alongside isolated resource input fixtures, using OPA v1.19.1 and input v1. Minimal author test for the template above:
 
@@ -454,10 +455,10 @@ Choose ordinary Rego author tests alongside isolated resource input fixtures, us
 # main_test.rego
 package tfui.risk.v1_test
 import rego.v1
-import data.tfui.risk.v1
+import data.tfui.risk.v1 as risk
 
 test_explicit_default if {
-    result := v1.classification with input as {"change": {"actions": ["delete"]}}
+    result := risk.classification with input as {"change": {"actions": ["delete"]}}
     result == {"level": "low", "reasons": [{
         "code": "project-default",
         "message": "Explicit project default for this mutation.",
@@ -470,8 +471,9 @@ Author command: `opa test main.rego reason.rego main_test.rego --fail-on-empty -
 tests policy logic only; it deliberately is not a valid tfui envelope. US-007's fixtures must use full v1
 envelopes and verify tfui validation/capabilities too. `opa test` alone proves neither eligibility nor the embedded
 capability boundary nor valid tfui results. OPA documents `with input`, test discovery and `--fail-on-empty` in its
-[testing guide](https://www.openpolicyagent.org/docs/policy-testing). This publication does not execute author tests; US-007 must verify these examples and complete fixture-based
-attribute templates under the published capabilities. The standalone CLI does not enforce tfui result validation.
+[testing guide](https://www.openpolicyagent.org/docs/policy-testing). The complete
+[Lambda example](../guides/risk-policy-authoring.md) is also exercised through tfui's production loader,
+capabilities and result validator. The standalone CLI does not enforce tfui result validation.
 
 Built-in policy ships as embedded complete source, with the current fixed action/type severities preserved for
 v1; the eligibility contract supersedes the old classifier's unhandled-action `none`. Add evidence-based reasons,

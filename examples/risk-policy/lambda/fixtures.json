@@ -1,0 +1,770 @@
+{
+  "fixtures": {
+    "filename-same-hash": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            },
+            "source_code_hash": {
+              "kind": "string",
+              "value": "same-hash"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            },
+            "source_code_hash": {
+              "kind": "string",
+              "value": "same-hash"
+            }
+          }
+        }
+      }
+    },
+    "filename-null-hash": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            },
+            "source_code_hash": {
+              "kind": "null"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            },
+            "source_code_hash": {
+              "kind": "null"
+            }
+          }
+        }
+      }
+    },
+    "filename-absent-hash": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "filename-unknown-hash": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            },
+            "source_code_hash": {
+              "kind": "string",
+              "value": "old-hash"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            },
+            "source_code_hash": {
+              "kind": "unknown"
+            }
+          }
+        }
+      }
+    },
+    "hash-unknown": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "source_code_hash": {
+              "kind": "string",
+              "value": "old-hash"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "source_code_hash": {
+              "kind": "unknown"
+            }
+          }
+        }
+      }
+    },
+    "memory-known-sources": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "same"
+            },
+            "s3_bucket": {
+              "kind": "string",
+              "value": "same"
+            },
+            "s3_key": {
+              "kind": "string",
+              "value": "same"
+            },
+            "s3_object_version": {
+              "kind": "string",
+              "value": "same"
+            },
+            "image_uri": {
+              "kind": "string",
+              "value": "same"
+            },
+            "source_code_hash": {
+              "kind": "string",
+              "value": "same"
+            },
+            "memory_size": {
+              "kind": "number",
+              "value": "128"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "same"
+            },
+            "s3_bucket": {
+              "kind": "string",
+              "value": "same"
+            },
+            "s3_key": {
+              "kind": "string",
+              "value": "same"
+            },
+            "s3_object_version": {
+              "kind": "string",
+              "value": "same"
+            },
+            "image_uri": {
+              "kind": "string",
+              "value": "same"
+            },
+            "source_code_hash": {
+              "kind": "string",
+              "value": "same"
+            },
+            "memory_size": {
+              "kind": "number",
+              "value": "256"
+            }
+          }
+        }
+      }
+    },
+    "memory-unknown-source": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "memory_size": {
+              "kind": "number",
+              "value": "128"
+            },
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "memory_size": {
+              "kind": "number",
+              "value": "256"
+            },
+            "filename": {
+              "kind": "unknown"
+            }
+          }
+        }
+      }
+    },
+    "sensitive-source": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "sensitive"
+            }
+          }
+        }
+      }
+    },
+    "function-create": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "absent"
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "function-delete": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "absent"
+        }
+      }
+    },
+    "function-delete-create": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "importing": null,
+        "replace_paths": [
+          [
+            "filename"
+          ]
+        ],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "function-create-delete": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_function.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_function",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "create",
+          "delete"
+        ],
+        "importing": null,
+        "replace_paths": [
+          [
+            "filename"
+          ]
+        ],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "layer-create": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_layer_version.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_layer_version",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "create"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "absent"
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "layer-delete": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_layer_version.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_layer_version",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "absent"
+        }
+      }
+    },
+    "layer-delete-create": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_layer_version.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_layer_version",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "importing": null,
+        "replace_paths": [
+          [
+            "filename"
+          ]
+        ],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "layer-create-delete": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_layer_version.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_layer_version",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "create",
+          "delete"
+        ],
+        "importing": null,
+        "replace_paths": [
+          [
+            "filename"
+          ]
+        ],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "layer-update": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_lambda_layer_version.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_lambda_layer_version",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "old.zip"
+            }
+          }
+        },
+        "after": {
+          "kind": "object",
+          "entries": {
+            "filename": {
+              "kind": "string",
+              "value": "new.zip"
+            }
+          }
+        }
+      }
+    },
+    "database-delete": {
+      "schema_version": "tfui.risk.input/v1",
+      "resource": {
+        "address": "aws_db_instance.example",
+        "previous_address": null,
+        "mode": "managed",
+        "type": "aws_db_instance",
+        "name": "example",
+        "provider_name": "registry.terraform.io/hashicorp/aws",
+        "index": {
+          "kind": "absent"
+        }
+      },
+      "change": {
+        "actions": [
+          "delete"
+        ],
+        "importing": null,
+        "replace_paths": [],
+        "before": {
+          "kind": "object",
+          "entries": {
+            "identifier": {
+              "kind": "string",
+              "value": "example"
+            }
+          }
+        },
+        "after": {
+          "kind": "absent"
+        }
+      }
+    }
+  }
+}

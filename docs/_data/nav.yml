@@ -8,6 +8,8 @@
       path: guides/configuration.md
     - title: Scaffold a project
       path: guides/scaffold.md
+    - title: Author a risk policy
+      path: guides/risk-policy-authoring.md
 - section: Features
   pages:
     - title: Overview
