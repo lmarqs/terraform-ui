@@ -1,0 +1,4 @@
+interface:
+  display_name: "Docs Layout"
+  short_description: "Organize and review repository documentation"
+  default_prompt: "Use $docs-layout review to review this repository's documentation against its map."

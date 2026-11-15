@@ -1,0 +1,4 @@
+interface:
+  display_name: "Agents Layout"
+  short_description: "Share agent instructions, permissions, and skills"
+  default_prompt: "Use $agents-layout review to review this repository's shared agent setup."

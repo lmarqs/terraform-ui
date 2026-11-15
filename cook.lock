@@ -2,8 +2,8 @@
 version: 1
 recipes:
   - name: "io.github.lmarqs.cookbook:agents#connect"
-    source: "io.github.lmarqs.cookbook:agents:12.1.0#connect"
-    sha256: "3dce6e93e88bbb4e4ade7ec51067760e74308134d46296b9fb0aeca0470b916b"
+    source: "io.github.lmarqs.cookbook:agents:12.2.0#connect"
+    sha256: "dad8240e2658b050b40b6646019dd5532af547ccf66ea95d952dd46168390ced"
     arguments:
       "harness": ["claude","codex"]
       "worktree-setup": [".worktrees/setup"]
@@ -64,12 +64,13 @@ recipes:
         - ".codex/hooks.json"
         - ".codex/rules"
   - name: "io.github.lmarqs.cookbook:agents#seed"
-    source: "io.github.lmarqs.cookbook:agents:12.1.0#seed"
-    sha256: "3dce6e93e88bbb4e4ade7ec51067760e74308134d46296b9fb0aeca0470b916b"
+    source: "io.github.lmarqs.cookbook:agents:12.2.0#seed"
+    sha256: "dad8240e2658b050b40b6646019dd5532af547ccf66ea95d952dd46168390ced"
     arguments: {}
     owns:
       files:
         - ".agents/skills/agents-layout/SKILL.md"
+        - ".agents/skills/agents-layout/agents/openai.yaml"
         - ".agents/skills/agents-layout/references/adopt.md"
         - ".agents/skills/agents-layout/references/agents-md.md"
         - ".agents/skills/agents-layout/references/claude.md"
@@ -85,13 +86,14 @@ recipes:
         - ".agents/skills/agents-layout/templates/README.template.md"
         - ".agents/skills/agents-layout/templates/policy.template.yaml"
   - name: "io.github.lmarqs.cookbook:docs#layout"
-    source: "io.github.lmarqs.cookbook:docs:12.1.0#layout"
-    sha256: "82acf206dbb9a160cc03cb6807fe887eab8d7ff0f9549b02c8c92ab376316f94"
+    source: "io.github.lmarqs.cookbook:docs:12.2.0#layout"
+    sha256: "bc5ab118fee287f201b87b7da2993b4cbc670bda34ebd515ad80d4725ff3bb76"
     arguments:
       "skills-root": [".agents/skills"]
     owns:
       files:
         - ".agents/skills/docs-layout/SKILL.md"
+        - ".agents/skills/docs-layout/agents/openai.yaml"
         - ".agents/skills/docs-layout/references/adopt.md"
         - ".agents/skills/docs-layout/references/adr.md"
         - ".agents/skills/docs-layout/references/api.md"
@@ -104,7 +106,7 @@ recipes:
         - ".agents/skills/docs-layout/references/runbooks.md"
         - ".agents/skills/docs-layout/references/standards.md"
   - name: "io.github.lmarqs.cookbook:git#worktrees"
-    source: "io.github.lmarqs.cookbook:git:12.1.0#worktrees"
+    source: "io.github.lmarqs.cookbook:git:12.2.0#worktrees"
     sha256: "f7423fc4a23e095201def4311c844448e8038c33a269028eff185c9a19d86130"
     arguments:
       "instructions": ["AGENTS.md"]
