@@ -1,6 +1,8 @@
 package sdk
 
 import (
+	"context"
+
 	tea "github.com/charmbracelet/bubbletea"
 
 	"log/slog"
@@ -34,6 +36,9 @@ type PluginDeps struct {
 	// when source acquisition succeeds; this does not validate evaluation.
 	// Hosts without policy source loading may leave it nil.
 	RiskPolicyDiagnostic func() string
+	// AssessRisk evaluates retained evidence for the captured immutable Context.
+	// The host owns source loading and evaluation; plugins receive domain values only.
+	AssessRisk func(context.Context, *Context, *PlanSummary) PolicyAssessment
 	// Pin toggles resource addresses into or out of the active Context's Pins
 	// as one group (see Pins.Toggle). Returns a tea.Cmd that emits the request
 	// to the App; the actual Pins change becomes visible to the plugin on the

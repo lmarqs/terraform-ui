@@ -45,7 +45,6 @@ func TestRunPlugin_GivenSeededPlan_ShouldAnalyzeWithoutTerraformInInitialContext
 				}
 				var plan *tfuiplan.Plugin
 				var risk *tfuirisk.Plugin
-				var acquisitionErr error
 				var evidence *sdk.PolicyEvidence
 				err := session.RunPlugin(context.Background(), id, func(p sdk.Plugin) tea.Cmd {
 					if id == "plan" {
@@ -56,21 +55,13 @@ func TestRunPlugin_GivenSeededPlan_ShouldAnalyzeWithoutTerraformInInitialContext
 					if got := risk.GetCtx().WorkingDir; got != workDir {
 						t.Errorf("initial working directory = %q, want %q", got, workDir)
 					}
-					summary, err := risk.GetCtx().Service.Plan(context.Background(), sdk.PlanOptions{})
-					acquisitionErr = err
-					if err == nil {
-						evidence = summary.PolicyEvidence
-					}
-					risk.Analyze(summary)
-					return nil
+					return risk.Activate()
 				})
 				var exitErr *exitError
 				if err != nil && (id != "plan" || !errors.As(err, &exitErr) || exitErr.code != 2) {
 					t.Fatalf("seeded %s RunPlugin error = %v; stderr = %s", id, err, stderr.String())
 				}
-				if acquisitionErr != nil {
-					t.Fatalf("seeded Risk acquisition invoked nonexistent Terraform: %v", acquisitionErr)
-				}
+
 				if id == "plan" {
 					if !strings.Contains(stdout.String(), "aws_lambda_function.worker") {
 						t.Fatalf("seeded Plan output = %q, want reviewed resource", stdout.String())
@@ -80,8 +71,19 @@ func TestRunPlugin_GivenSeededPlan_ShouldAnalyzeWithoutTerraformInInitialContext
 						t.Fatal(err)
 					}
 					evidence = summary.PolicyEvidence
-				} else if !strings.Contains(risk.View(100, 30), "aws_lambda_function.worker") {
-					t.Fatalf("seeded Risk view = %q, want reviewed resource", risk.View(100, 30))
+				} else {
+					if !strings.Contains(risk.View(100, 30), "aws_lambda_function.worker") {
+						t.Fatalf("seeded Risk view = %q, want reviewed resource", risk.View(100, 30))
+					}
+					assessment := risk.Assessment()
+					if assessment == nil || assessment.Status != "complete" || assessment.PlanID != fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(sessionPlanJSON))) {
+						t.Fatalf("seeded Risk assessment = %+v, want reviewed JSON identity", assessment)
+					}
+					summary, err := risk.GetCtx().Service.Plan(context.Background(), sdk.PlanOptions{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					evidence = summary.PolicyEvidence
 				}
 				if evidence == nil || evidence.PlanID != fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(sessionPlanJSON))) {
 					t.Fatalf("seeded analysis evidence = %#v, want original reviewed JSON identity", evidence)

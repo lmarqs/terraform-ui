@@ -1,6 +1,7 @@
 package risk
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
@@ -23,6 +24,12 @@ type Plugin struct {
 	selected       int
 	total          int
 	riskDiagnostic string
+	summary        *sdk.PlanSummary
+	assessment     *sdk.PolicyAssessment
+	assess         func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment
+	generation     uint64
+	cancel         context.CancelFunc
+	planError      string
 }
 
 // New creates a new risk analysis plugin.
@@ -32,7 +39,7 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone || e.status == sdk.StatusError }
 func (e *Plugin) Status() sdk.Status { return e.status }
 func (e *Plugin) Selected() int      { return e.selected }
 func (e *Plugin) Overall() sdk.RiskLevel {
@@ -55,15 +62,20 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
+	e.assess = deps.AssessRisk
 	return nil
 }
 
-// Activate reloads source availability even when no new plan was acquired.
+// Activate assesses the retained reviewed plan, acquiring one only when absent.
 func (e *Plugin) Activate() tea.Cmd {
-	if !e.checkPolicySource() && e.status == sdk.StatusError {
-		e.status = sdk.StatusIdle
+	if e.Busy() {
+		return nil
 	}
-	return nil
+	e.resetDerived()
+	if e.checkPolicySource() {
+		return nil
+	}
+	return e.startAssessment(e.summary)
 }
 
 func (e *Plugin) checkPolicySource() bool {
@@ -80,6 +92,9 @@ func (e *Plugin) checkPolicySource() bool {
 }
 
 func (e *Plugin) Stderr() []byte {
+	if e.planError != "" {
+		return []byte(e.planError + "\n")
+	}
 	if e.riskDiagnostic == "" {
 		return nil
 	}
@@ -146,6 +161,9 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case assessmentResultMsg:
+		e.acceptAssessment(msg)
+		return e, nil
 	case tea.KeyMsg:
 		e.handleKey(msg)
 		return e, nil
@@ -198,10 +216,15 @@ func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
+	case sdk.StatusLoading:
+		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
 
 	case sdk.StatusDone:
 		return e.renderAnalysis(width, height)
 	case sdk.StatusError:
+		if e.planError != "" {
+			return sdk.StyleError.Render(e.planError)
+		}
 		return sdk.StyleError.Render("risk unavailable: " + e.riskDiagnostic)
 
 	default:

@@ -59,6 +59,7 @@ type App struct {
 	svc         sdk.Service
 	registry    *plugin.Registry
 	holder      *contextHolder
+	riskCache   *riskAssessmentCache
 	bus         *sdk.EventBus
 	sourceIndex *terraform.SourceIndex
 	rootCfg     *config.RootConfig
@@ -118,6 +119,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		svc:           svc,
 		registry:      registry,
 		holder:        &contextHolder{},
+		riskCache:     &riskAssessmentCache{},
 		bus:           bus,
 		sourceIndex:   sourceIndex,
 		rootCfg:       rootCfg,
@@ -156,6 +158,7 @@ func (a App) Init() tea.Cmd {
 		Service:              a.holder.current.Service,
 		Context:              func() *sdk.Context { return holder.current },
 		RiskPolicyDiagnostic: a.riskPolicyDiagnostic,
+		AssessRisk:           a.assessRisk,
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
