@@ -13,6 +13,8 @@ import (
 
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
 )
 
 func TestPlan_GivenLiveAcquisition_ShouldRetainExactShowEvidenceWithoutReplanning(t *testing.T) {
@@ -34,9 +36,19 @@ esac
 	if err := os.WriteFile(binary, []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	live, err := NewExecService(dir, binary, nil).Plan(context.Background(), sdk.PlanOptions{PlanFile: filepath.Join(dir, "reviewed.tfplan")})
+	svc := NewExecService(dir, binary, nil)
+	live, err := svc.Plan(context.Background(), sdk.PlanOptions{PlanFile: filepath.Join(dir, "reviewed.tfplan")})
 	if err != nil {
 		t.Fatalf("live Plan: %v", err)
+	}
+	harness := sdktest.NewDeps(svc)
+	risk := tfuirisk.New(svc).(*tfuirisk.Plugin)
+	if cmd := risk.Init(harness.Deps); cmd != nil {
+		cmd()
+	}
+	risk.Analyze(live)
+	if !risk.Ready() || !strings.Contains(risk.View(100, 30), "aws_lambda_function.worker") {
+		t.Fatalf("Risk did not review the acquired plan: %q", risk.View(100, 30))
 	}
 	field := reflect.ValueOf(live).Elem().FieldByName("PolicyEvidence")
 	if !field.IsValid() {

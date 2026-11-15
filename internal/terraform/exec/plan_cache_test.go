@@ -50,3 +50,20 @@ func TestPlan_WhenCacheHoldsNoPlan_ShouldRunTerraform(t *testing.T) {
 		t.Fatal("Plan() error = nil, want the missing terraform binary to surface")
 	}
 }
+
+func TestPlan_GivenNewContext_ShouldNotReuseSeededPlan(t *testing.T) {
+	cache := terraform.NewServiceCache()
+	if err := cache.SeedPlan(planFixturePath(t), nil); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewExecService(t.TempDir(), "/nonexistent/terraform", cache)
+	for _, dir := range []string{t.TempDir(), svc.workingDir} {
+		scoped := svc.WithDir(dir)
+		if _, err := scoped.Plan(context.Background(), sdk.PlanOptions{}); err == nil {
+			t.Fatalf("new Context at %q reused the previous Context's seeded plan", dir)
+		}
+	}
+	if _, err := svc.Plan(context.Background(), sdk.PlanOptions{}); err != nil {
+		t.Fatalf("scoping a service discarded the initial Context's seed: %v", err)
+	}
+}

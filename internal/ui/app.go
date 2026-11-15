@@ -844,17 +844,15 @@ func (a *App) withResolvedConfig(next *sdk.Context) *sdk.Context {
 
 // startupContext is the Context the session starts in: the startup chdir in
 // workspace, with that workspace's tfui.hcl settings.
+// Session supplies the service in the startup directory; re-scoping it here
+// would discard the pre-seeded cache.
 func (a *App) startupContext(workspace sdk.Workspace) *sdk.Context {
-	svc := a.svc
 	dir := startupDir(a.cfg)
-	if a.cfg.Chdir != "" {
-		svc = a.svc.WithDir(dir)
-	}
 	return a.withResolvedConfig(&sdk.Context{
 		Chdir:      a.startupChdir(),
 		WorkingDir: dir,
 		Workspace:  workspace,
-		Service:    svc,
+		Service:    a.svc,
 		ExtraArgs:  a.cfg.ExtraArgs,
 	})
 }
