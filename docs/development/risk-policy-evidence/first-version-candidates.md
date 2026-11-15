@@ -16,8 +16,8 @@ must be revised there before dependent implementation starts. No production depe
 
 The existing contract still owns independent classification, eligibility, complete custom replacement and
 failure behavior. This page owns candidate detail until publication; guides must not advertise these examples
-as available. Source selection/reload and helper/template packaging belong to D-01b; this page requires their
-snapshot identity but does not select configuration keys or inheritance mechanics for them.
+as available. The [D-01b source and template decisions](source-template-decisions.md) own source selection/reload,
+snapshot identity, explicit helper reuse and template/upgrade choices; this page does not duplicate those mechanics.
 
 ## Current-checkout evidence and reproducibility
 
@@ -337,6 +337,9 @@ classification beside two low ones yields unavailable group impact, never minima
 are limited to this validity integration and provenance; no new impact algorithm or Apply behavior is authorized.
 
 ## Evidence handoff and falsification criteria
+
+The [D-03b prerequisite audit](boundary-controls.md) records the missing D-03a protocol at
+the inspected checkout; it contains no executed runtime controls.
 
 D-02 records fixtures, toolchain, baseline and criteria **before running** acquisition/lifecycle experiments.
 For every node kind above, compare source evidence and input structurally, including numeric token text, array

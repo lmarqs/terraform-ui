@@ -218,9 +218,13 @@ or acceptable runtime cost. These facts constrain the remaining choices without 
 
 The [D-01a first-version candidates](risk-policy-evidence/first-version-candidates.md) make concrete delegated
 choices for the input/result, trust, reporting and Blast Radius experiments. They are preparation for D-02/D-03
-and D-01c publication, not shipped interfaces or owner-selected details. Source lifecycle and packaging remain
-with D-01b. Earlier owner-review gates below describe the original process; this run delegates first-version
-choices and evidence review to contributors, with D-01c publishing the reviewed contract before implementation.
+and D-01c publication, not shipped interfaces or owner-selected details. The
+[D-01b source and template decisions](risk-policy-evidence/source-template-decisions.md) select source lifecycle,
+explicit helper reuse, author testing, upgrade behavior and conservative Lambda classifications, and prepare
+[narrowed ticket scopes](risk-policy-evidence/source-template-decisions.md#narrowed-decision-ticket-scopes).
+These choices require evidence before publication. Earlier owner-review gates below describe the original
+process; this run delegates first-version choices and evidence review to contributors, with D-01c publishing
+the reviewed contract before implementation.
 
 | Boundary | What is still open | Decision record |
 | --- | --- | --- |
