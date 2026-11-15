@@ -1065,7 +1065,11 @@ func (e *Plugin) Stdout() ([]byte, error) {
 func (e *Plugin) Stderr() []byte {
 	if e.status != sdk.StatusError {
 		if e.status == sdk.StatusDone && !e.input.JSON && e.riskDiagnostic != "" {
-			return []byte("risk unavailable: " + e.riskDiagnostic + "\n")
+			diagnostic := e.PolicyDiagnostic()
+			if diagnostic == "" {
+				diagnostic = e.riskDiagnostic
+			}
+			return []byte("risk unavailable: " + diagnostic + "\n")
 		}
 		return nil
 	}

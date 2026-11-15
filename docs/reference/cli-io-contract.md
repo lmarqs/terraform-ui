@@ -153,11 +153,10 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 A flag or argument error that stops the command before its plugin runs exits 1. A macro run's codes are in the
 [macro language](macro-language.md#exit-codes).
 
-### Planned Risk command v1
+### Risk command v1
 
-The [first-version risk contract](risk-policy-contract.md#command-threshold-and-report-v1) publishes a planned
-extension; `tfui risk` and its flags are **not implemented** in this checkout. Existing command rows and exit
-meanings above remain unchanged. Once implemented, Risk uses the same Standalone/Headless mode resolution:
+The [first-version risk contract](risk-policy-contract.md#command-threshold-and-report-v1) defines the report
+and comparison used by `tfui risk`. Risk uses the same Standalone/Headless mode resolution:
 TUI on stderr in Standalone, no TUI in Headless; `-json` changes only stdout format. The reference owns report
 schemas and threshold semantics; this table owns its channels and exits.
 
@@ -169,7 +168,7 @@ schemas and threshold semantics; this table owns its channels and exits.
 | Terraform acquisition fails | Empty | Existing Terraform error pass-through | 1 |
 | SIGINT / SIGTERM or interrupted acquisition | Empty | Existing interrupt behavior | 130 / 143 |
 
-Planned exit **3** is Risk-only: assessment completed and met the explicitly selected threshold. It is not an
+Exit **3** is Risk-only: assessment completed and met the explicitly selected threshold. It is not an
 operational failure and does not replace plan-only exit 2. Partial classifications remain inspectable in the
 TUI but never produce a successful command report or threshold comparison. Configuration errors detected before
 plugin activation also keep stdout empty and exit 1. Quitting an unfinished assessment follows the interrupt

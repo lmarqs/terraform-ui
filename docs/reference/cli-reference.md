@@ -24,7 +24,7 @@ and the exit codes.
 
 ## Commands
 
-Risk, phantom and blast radius are TUI plugins (`R`, `P`, `B`) with no command of their own.
+Phantom and blast radius are TUI plugins (`P`, `B`) with no command of their own.
 
 ### `tfui` (no command)
 
@@ -55,6 +55,21 @@ tfui plan -lock-timeout=30s         # Retry a held lock for 30s
 `-target` is repeatable and each value reaches terraform verbatim, so quoted
 index keys work as typed: `-target='module.a["x y"]'`. There is no
 comma-separated form — a comma is part of an address, not a separator.
+
+### `tfui risk`
+
+Assess planned resource mutations with the selected complete policy. Opens Risk standalone or runs headless;
+prints a text report on completion, or a versioned report with `-json`.
+
+```bash
+tfui risk -ci -plan ./plan.json
+tfui risk -ci -plan ./plan.json -json -threshold high
+```
+
+Without `-plan`, Risk acquires a plan using the active Context and cleans up its temporary artifact.
+The [risk policy contract](risk-policy-contract.md#command-threshold-and-report-v1) defines report v1,
+threshold settings and comparison; the [Risk I/O contract](cli-io-contract.md#risk-command-v1) defines channels
+and exits. A threshold match emits the complete report and exits 3; unavailable assessments emit no report.
 
 ### `tfui apply`
 
@@ -232,7 +247,8 @@ Every command accepts these flags:
 | `-chdir` | | Select a member directory (validated in project mode) |
 | `-config` | | Override config values (repeatable, `key=value`) |
 | `-ci` | `false` | Run [headless](cli-io-contract.md#mode-resolution): no TUI, output as soon as the plugin is done |
-| `-json` | `false` | JSON on stdout, for `plan`, `state`, `validate`, `output` and `version` |
+| `-json` | `false` | JSON on stdout, for `plan`, `state`, `validate`, `output`, `version` and `risk` |
+| `-threshold` | `off` | Risk comparison override; accepted by every command, affects only Risk. See the [risk contract](risk-policy-contract.md#command-threshold-and-report-v1) |
 | `-plan` | | Pre-seed plan data from a file or stdin |
 | `-state` | | Pre-seed state data from a file or stdin |
 | `-macro` | | Run a tape file (headless TUI recording) |

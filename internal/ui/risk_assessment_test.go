@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -15,6 +16,20 @@ func riskAssessor(t *testing.T, deps *sdk.PluginDeps) func(context.Context, *sdk
 		t.Fatal("app must provide its selected-policy assessor to plugins")
 	}
 	return deps.AssessRisk
+}
+
+func TestAssessRisk_GivenInvalidComparisonSettings_ShouldMakeRiskUnavailableWithoutEvaluation(t *testing.T) {
+	for _, settings := range []map[string]interface{}{{"level": "high"}, {"threshold": "urgent"}} {
+		app, deps := newPolicyDiagnosticApp(t, t.TempDir(), "", false)
+		app.cfg.Plugins = map[string]config.PluginConfig{"risk": {Options: settings}}
+		got := app.assessRisk(context.Background(), deps.Context(), reviewedRiskSummary())
+		if got.Status != "unavailable" || got.ErrorCode != "configuration_invalid" || got.OverallLevel != nil || len(got.Resources) != 0 {
+			t.Fatalf("invalid settings %v retained publishable classification or noncanonical code: %+v", settings, got)
+		}
+		if want := sdk.RiskSettingsError(settings).Error(); app.riskPolicyDiagnostic() != want {
+			t.Fatalf("settings diagnostic = %q, want actionable diagnostic %q", app.riskPolicyDiagnostic(), want)
+		}
+	}
 }
 
 func reviewedRiskSummary() *sdk.PlanSummary {

@@ -74,6 +74,13 @@ func (e *Plugin) startAssessment(summary *sdk.PlanSummary) tea.Cmd {
 	e.status = sdk.StatusLoading
 	generation := e.generation
 	current := e.GetCtx()
+	e.reportContext = reportContext{Project: e.input.Project, Chdir: e.input.Chdir, Workspace: current.Workspace.String()}
+	if e.reportContext.Chdir == "" {
+		e.reportContext.Chdir = current.Chdir.String()
+	}
+	if e.reportContext.Chdir == "" {
+		e.reportContext.Chdir = "."
+	}
 	svc := current.Service
 	opts := current.PlanOptions()
 	assess := e.assess

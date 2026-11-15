@@ -10,6 +10,9 @@ import (
 )
 
 func (a App) riskPolicyDiagnostic() string {
+	if err := sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options); err != nil {
+		return err.Error()
+	}
 	current := a.holder.current
 	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
@@ -49,6 +52,9 @@ func (a App) assessRisk(ctx context.Context, current *sdk.Context, summary *sdk.
 func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence) sdk.PolicyAssessment) sdk.PolicyAssessment {
 	unavailable := func(code string) sdk.PolicyAssessment {
 		return sdk.PolicyAssessment{Status: "unavailable", ErrorCode: code}
+	}
+	if err := sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options); err != nil {
+		return unavailable("configuration_invalid")
 	}
 	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {

@@ -11,9 +11,9 @@ audience: "Policy authors and contributors implementing the first-version risk i
 This is the **first-version, planned public contract**, published under delegated contributor decision authority
 on 2026-11-15. The coordinator selected the exact interfaces from D-01a/b and reviewed D-02/D-03 evidence;
 the owner did not select these details. Stress and refine this version after merge through explicit revisions.
-Custom policy evaluation, these settings and `tfui risk` are **not implemented** in this checkout. The
-[Risk guide](../plugins/risk.md) describes current availability. Contract publication permits dependent production
-stories to begin; it does not certify their behavior. [ADR-0026](../adr/0026-publish-first-version-risk-contract.md)
+Production integration is progressing through the dependent stories. `tfui risk` now provides the command and
+report described below; complete integration verification and the Risk guide refresh remain subsequent work.
+Contract publication alone does not certify implemented behavior. [ADR-0026](../adr/0026-publish-first-version-risk-contract.md)
 records the decision, and the [design](../development/risk-policy-design.md) records alternatives and residual risks.
 
 ## Purpose and philosophy
@@ -535,15 +535,15 @@ invalidates the whole assessment; do not salvage rows from uncertain eligibility
 
 ## Command, threshold and report v1
 
-Planned invocation: `tfui risk -ci -plan plan.json -json -threshold high`. `-json` controls format independently
-of mode. The future Risk setting is `threshold`, with values `off`, `none`, `low`, `medium`, `high`, `critical`;
-explicit CLI `-threshold` wins over the resolved Risk setting, then default `off`. These are planned interfaces, not current flags/settings. No policy-returned threshold or threshold inside the Rego input.
+Invocation: `tfui risk -ci -plan plan.json -json -threshold high`. `-json` controls format independently
+of mode. The Risk setting is `threshold`, with values `off`, `none`, `low`, `medium`, `high`, `critical`;
+explicit CLI `-threshold` wins over the resolved Risk setting, then default `off`. No policy-returned threshold or threshold inside the Rego input.
 
 Compare inclusively: with `high`, `medium` passes, `high` and `critical` meet the threshold. With `none`, every
 nonempty complete assessment meets the threshold, including explicit `none`. Empty eligibility never matches.
 `off` disables comparison; it does not disable assessment or hide errors. Invalid thresholds fail configuration.
 The old ignored `level` key is not an alias: report an actionable configuration error (`risk setting level is
-unsupported; use threshold`) and unavailable risk while preserving Plan review. The [CLI I/O contract](cli-io-contract.md#planned-risk-command-v1) owns the command channel/exit extension.
+unsupported; use threshold`) and unavailable risk while preserving Plan review. The [CLI I/O contract](cli-io-contract.md#risk-command-v1) owns the command channel/exit extension.
 
 Exit 3 distinguishes a completed comparison from an operational failure and preserves plan-only exit 2.
 Threshold met is a completed assessment, not the headless operational-failure case. JSON reports on failure

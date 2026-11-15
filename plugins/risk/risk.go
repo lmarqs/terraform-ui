@@ -21,21 +21,25 @@ type RiskGroup struct {
 // Plugin implements the risk analysis feature.
 type Plugin struct {
 	sdk.PluginBase
-	stack          *sdk.Stack
-	panel          *ui.ContentPanel
-	offset         int
-	status         sdk.Status
-	groups         []RiskGroup
-	overall        sdk.RiskLevel
-	selected       int
-	total          int
-	riskDiagnostic string
-	summary        *sdk.PlanSummary
-	assessment     *sdk.PolicyAssessment
-	assess         func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment
-	generation     uint64
-	cancel         context.CancelFunc
-	planError      string
+	stack            *sdk.Stack
+	panel            *ui.ContentPanel
+	offset           int
+	status           sdk.Status
+	groups           []RiskGroup
+	overall          sdk.RiskLevel
+	selected         int
+	total            int
+	riskDiagnostic   string
+	summary          *sdk.PlanSummary
+	assessment       *sdk.PolicyAssessment
+	assess           func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment
+	generation       uint64
+	cancel           context.CancelFunc
+	planError        string
+	input            Input
+	threshold        string
+	configDiagnostic string
+	reportContext    reportContext
 }
 
 // New creates a new risk analysis plugin.
@@ -63,7 +67,7 @@ func (e *Plugin) Stack() *sdk.Stack { return e.stack }
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
-	return nil
+	return e.configureReport(cfg)
 }
 
 // Init wires the plugin to its shared dependencies.
@@ -86,7 +90,13 @@ func (e *Plugin) Activate() tea.Cmd {
 }
 
 func (e *Plugin) checkPolicySource() bool {
-	e.riskDiagnostic = e.PolicyDiagnostic()
+	e.riskDiagnostic = e.configDiagnostic
+	if err := sdk.RiskSettingsError(map[string]interface{}{"threshold": e.selectedThreshold()}); err != nil && e.riskDiagnostic == "" {
+		e.riskDiagnostic = err.Error()
+	}
+	if e.riskDiagnostic == "" {
+		e.riskDiagnostic = e.PolicyDiagnostic()
+	}
 	if e.riskDiagnostic == "" {
 		return false
 	}
@@ -96,23 +106,6 @@ func (e *Plugin) checkPolicySource() bool {
 	e.selected = 0
 	e.total = 0
 	return true
-}
-
-func (e *Plugin) Stderr() []byte {
-	if e.planError != "" {
-		return []byte(e.planError + "\n")
-	}
-	if e.riskDiagnostic == "" {
-		return nil
-	}
-	return []byte("risk unavailable: " + e.riskDiagnostic + "\n")
-}
-
-func (e *Plugin) ExitCode() int {
-	if e.status == sdk.StatusError {
-		return 1
-	}
-	return 0
 }
 
 // Analyze processes a plan summary and groups changes by risk.

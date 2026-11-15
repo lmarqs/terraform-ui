@@ -35,6 +35,7 @@ func main() {
 
 	rootCmd.AddCommand(
 		buildPlanCommand(session),
+		buildRiskCommand(session),
 		buildApplyCommand(session),
 		buildStateCommand(session),
 		buildTaintCommand(session),
