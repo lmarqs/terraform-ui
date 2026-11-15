@@ -88,3 +88,6 @@ CLAUDE.local.md
 !/.ralph-tui/bin/
 /.worktrees/ralph/
 # cook:end io.github.lmarqs.cookbook:ralph#ralph-tui/ralph-tui
+
+# golangci-lint cache, one per checkout (.mise/tasks/check/lint)
+/.cache/

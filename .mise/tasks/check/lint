@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
 #MISE description="Enforce code style, complexity, and correctness rules. Must pass before merge."
 
+# golangci-lint's shared cache replays a package's issues under the absolute paths of whichever worktree linted
+# identical content first, so a deleted worktree's files fail lint here; each checkout keeps its own cache.
+export GOLANGCI_LINT_CACHE="${GOLANGCI_LINT_CACHE:-$(git rev-parse --show-toplevel)/.cache/golangci-lint}"
 exec golangci-lint run ./...
