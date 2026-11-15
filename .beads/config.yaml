@@ -1,7 +1,9 @@
-"export": 
-  "git-add": false
-  "auto": false
+"export":
+    "git-add": false
+    "auto": false
 "no-git-ops": true
-"dolt": 
-  "auto-push": false
-  "local-only": false
+"dolt":
+    "auto-push": false
+    "local-only": false
+sync:
+    remote: "git+ssh://git@github.com/lmarqs/terraform-ui.git"
