@@ -3,6 +3,13 @@ name: prepare_env
 runs:
   using: composite
   steps:
+    # The agent tools in mise.toml run on developers' machines, never in CI, and mise refuses to install ralph-tui
+    # from npm for its low weekly downloads.
+    - name: Skip the agent-only tools
+      shell: bash
+      run: |
+        echo "MISE_DISABLE_TOOLS=npm:ralph-tui,bun,aqua:steveyegge/beads,github:Dicklesworthstone/beads_viewer,github:akitaonrails/ai-jail" >> "$GITHUB_ENV"
+
     - name: Install Mise
       uses: jdx/mise-action@v2
       with:
