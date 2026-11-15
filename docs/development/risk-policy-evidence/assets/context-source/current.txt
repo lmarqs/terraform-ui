@@ -1,0 +1,12 @@
+=== RUN   TestContextSource_GivenRealHCL_ShouldExposeCurrentSelectorLimitations
+    context_source_experiment_test.go:36: root generic option path remains unresolved literal; empty retained, invalid expression discarded: map[string]interface {}{"empty":"", "source":"policies/root.rego"}
+    context_source_experiment_test.go:46: Member plugin rejection: block "plugin" is not allowed in member config (locked to root tfui.hcl); configure plugin settings in defaults { plugin "risk" { ... } } in the root tfui.hcl
+    context_source_experiment_test.go:46: Member plugin rejection: block "plugin" is not allowed in member config (locked to root tfui.hcl); configure plugin settings in defaults { plugin "risk" { ... } } in the root tfui.hcl
+--- PASS: TestContextSource_GivenRealHCL_ShouldExposeCurrentSelectorLimitations (0.01s)
+=== RUN   TestContextSource_GivenStartupAndSwitch_ShouldTraceRealFallbackAndWorkspacePrecedence
+    context_source_experiment_test.go:95: startup selected A/prod: chdir="A" vars=[root.tfvars a.tfvars] timeout="3m"
+    context_source_experiment_test.go:111: switch A -> invalid B falls back to root execution settings; policy integration must not inherit this failure behavior
+    context_source_experiment_test.go:133: zero-config startup retains selected Chdir and no policy selection; no parent discovery proved here
+--- PASS: TestContextSource_GivenStartupAndSwitch_ShouldTraceRealFallbackAndWorkspacePrecedence (0.00s)
+PASS
+ok  	github.com/lmarqs/terraform-ui/internal/ui	0.010s

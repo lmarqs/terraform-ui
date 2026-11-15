@@ -372,3 +372,6 @@ Context/source lifecycle or evaluator behavior; those evidence requests remain s
 The [D-02b acquisition evidence](acquisition-counts.md) records live/seeded call counting and real Session
 startup behavior, including rejection of initial-Chdir seed preservation and of `PlanJSON` as a retrieval path
 for an already reviewed plan. These are acquisition experiments, not production policy integration.
+
+The [D-02c Context/source evidence](context-source-identity.md) records current HCL/startup/switch behavior,
+disposable snapshot/publication experiments and the combined D-02 first-version conclusion.
