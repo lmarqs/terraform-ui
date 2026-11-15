@@ -62,6 +62,7 @@ func LoadChild(dir string) (*ChildConfig, error) {
 
 func childSchema() *hcl.BodySchema {
 	return &hcl.BodySchema{
+		Attributes: []hcl.AttributeSchema{{Name: "risk_policy"}},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "terraform"},
 			{Type: "member", LabelNames: []string{"path"}},
@@ -118,6 +119,7 @@ func convertWorkspaceBlock(block *hcl.Block) WorkspaceConfig {
 	wsContent, diags := block.Body.Content(&hcl.BodySchema{
 		Attributes: []hcl.AttributeSchema{
 			{Name: "lock_timeout"},
+			{Name: "risk_policy"},
 		},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "var_file", LabelNames: []string{"path"}},
