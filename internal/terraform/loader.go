@@ -1,8 +1,10 @@
 package terraform
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strings"
 
 	tfjson "github.com/hashicorp/terraform-json"
@@ -12,12 +14,37 @@ import (
 // LoadPlan parses terraform plan JSON (output of `terraform show -json <planfile>`)
 // and returns a PlanSummary with risk classification and phantom detection applied.
 func LoadPlan(data []byte) (*PlanSummary, error) {
+	var doc map[string]any
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.UseNumber()
+	if err := decoder.Decode(&doc); err != nil {
+		return nil, fmt.Errorf("parsing plan JSON: %w (hint: use `terraform show -json <planfile>` to convert binary plans)", err)
+	}
+
+	if decoder.Decode(new(any)) != io.EOF {
+		return nil, fmt.Errorf("parsing plan JSON: expected one JSON document")
+	}
+
+	evidence := policyEvidence(data, doc)
+
+	// Policy-only metadata must not prevent reviewing otherwise usable display
+	// changes. Its original form is validated separately by policyEvidence.
+	resources, _ := doc["resource_changes"].([]any)
+	for _, value := range resources {
+		resource, _ := value.(map[string]any)
+		change, _ := resource["change"].(map[string]any)
+		delete(change, "replace_paths")
+		delete(change, "importing")
+	}
+	delete(doc, "deferred_changes")
+	displayData, _ := json.Marshal(doc) // Decoder output contains only JSON values.
 	var plan tfjson.Plan
-	if err := json.Unmarshal(data, &plan); err != nil {
+	if err := json.Unmarshal(displayData, &plan); err != nil {
 		return nil, fmt.Errorf("parsing plan JSON: %w (hint: use `terraform show -json <planfile>` to convert binary plans)", err)
 	}
 
 	summary := ParsePlan(&plan)
+	summary.PolicyEvidence = evidence
 
 	for i := range summary.Changes {
 		summary.Changes[i].Risk = ClassifyRisk(&summary.Changes[i])

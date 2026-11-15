@@ -19,7 +19,7 @@ func ParsePlan(plan *tfjson.Plan) *PlanSummary {
 	}
 
 	for _, rc := range plan.ResourceChanges {
-		if rc.Change == nil {
+		if rc == nil || rc.Change == nil {
 			continue
 		}
 
