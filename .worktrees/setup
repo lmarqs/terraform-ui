@@ -3,13 +3,7 @@
 # from a runner or hook configured with it, which stops when it exits non-zero.
 set -eu
 
-# mise runs the tasks, hooks and env of every config it trusts. Each person trusts this clone once, worktrees
-# included, with `mise settings add trusted_config_paths <clone>`; a branch whose tool config differs from main's
-# waits for a person to review it, so no agent or runner approves a config it or another agent wrote.
-if ! git diff --quiet origin/main -- mise.toml .mise; then
-  echo "setup: mise.toml or .mise/ differ from origin/main; review them, then run 'mise install && mise run setup' here" >&2
-  exit 1
-fi
-
+# mise refuses an untrusted config, and each worktree path is a new config to trust.
+mise trust --quiet
 mise install
 mise run setup

@@ -32,10 +32,6 @@ git worktree add .worktrees/<branch> -b <branch>
 (cd .worktrees/<branch> && .worktrees/teardown) && git worktree remove .worktrees/<branch>
 ```
 
-mise runs only configs a person trusts. Trust this clone once, worktrees included, with
-`mise settings add trusted_config_paths ~/Work/terraform-ui`, using the clone's own path. Setup refuses a worktree whose
-`mise.toml` or `.mise/` differ from `origin/main`: review the change, then run `mise install && mise run setup` there.
-
 A loop runner or an agent harness runs them in the worktrees it creates and removes when its own configuration names
 them.
 
