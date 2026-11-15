@@ -15,7 +15,7 @@ ARGS=(--serial)
 
 # ralph-tui and its worker find the `codex` in .mise/jail first, which runs the real one inside ai-jail.
 if [ "$AGENT" = codex ]; then
-  command -v ai-jail >/dev/null || { echo "ai-jail is not on PATH; install ai-jail 3." >&2; exit 1; }
+  { mise which ai-jail || command -v ai-jail; } >/dev/null 2>&1 || { echo "ai-jail is not installed; install ai-jail 3." >&2; exit 1; }
   export PATH="$MAIN/.mise/jail:$PATH"
 fi
 

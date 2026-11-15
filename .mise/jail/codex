@@ -16,7 +16,9 @@ CODEX=$(readlink -f "$CODEX")
 # ralph-tui asks every harness for its version through the worker, outside any task.
 [ "$*" = --version ] && exec "$CODEX" --version
 
-AI_JAIL=$(command -v ai-jail) || { echo "ai-jail is not on PATH; install ai-jail 3." >&2; exit 127; }
+# The ai-jail the person's mise config selects, which an older install earlier on PATH, such as Homebrew's, would hide.
+AI_JAIL=$(mise which ai-jail 2>/dev/null || command -v ai-jail) ||
+  { echo "ai-jail is not installed; install ai-jail 3." >&2; exit 127; }
 GIT=$(git rev-parse --path-format=absolute --git-common-dir)
 MAIN=$(dirname "$GIT")
 
