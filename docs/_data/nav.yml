@@ -78,6 +78,8 @@
   pages:
     - title: Contributing
       path: development/index.md
+    - title: Agentic development
+      path: development/agentic.md
     - title: Architecture
       path: development/architecture.md
     - title: Risk policy design

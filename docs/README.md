@@ -64,11 +64,11 @@ plugin page and the guide links it; the settings no plugin owns (`terraform`, `m
 `var_file`, `var`, `lock_timeout`) are listed in [the configuration guide](guides/configuration.md). A good guide ends
 with tfui running on the reader's project.
 
-### Contributing: `development/backlog.md`, `development/index.md`
+### Contributing: `development/backlog.md`, `development/agentic.md`, `development/index.md`
 
-How a contributor works here: filing and moving issues, the board's statuses and labels, and
-how the site is laid out. A fact belongs here when a contributor follows it as a procedure and it is not a rule of
-the code. A good page lets a contributor do the task without asking.
+How a contributor works here: filing and moving issues, the board's statuses and labels, coordinating agent tasks,
+reviewing deliveries, and maintaining the docs site. A fact belongs here when a contributor follows it as a
+procedure and it is not a rule of the code. A good page lets a contributor do the task without asking.
 
 ## Where a fact goes: targets with a saved plan
 

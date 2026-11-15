@@ -1,7 +1,6 @@
 # terraform-ui (tfui)
 
-A k9s-style interactive TUI and headless CLI for Terraform operations: one Go binary where every feature is a
-plugin. Users and features are in the [README](README.md).
+A k9s-style Terraform TUI and headless CLI: one Go binary, every feature a plugin. See [README](README.md).
 
 Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12, goreleaser 2.15 and terraform
 1.14 (`mise.toml`).
@@ -23,7 +22,7 @@ Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12
 - Quick check, seconds on what changed: `mise run check:build && mise run test:unit ./<package>/...`
 - Done check, all that must pass before a change is done: `mise run check:lint && mise run test:unit && mise run check:build`,
   about 50 seconds, no services; for UI changes also `mise run test:macro`.
-- Every other task (coverage, integration, docs site, demo GIFs): `mise tasks` lists each with when to run it.
+- Other tasks: `mise tasks`.
 
 ## Boundaries
 
@@ -35,6 +34,8 @@ Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12
 - Keep this file under 800 words; past 1,200, move a section into a skill or memory file before adding. All
   `AGENTS.md` files together stay under 16 KiB.
 - Write the failing test first: the `test-writer` agent produces it before any implementation code.
+- Coordinating agents own delivery review and routine follow-up fixes. Before delegating, running Ralph, or accepting
+  a worker's result, follow [Agentic development](docs/development/agentic.md). Proceed within existing authorization.
 
 **Never**
 
@@ -42,7 +43,7 @@ Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12
 - Edit generated files by hand: `CHANGELOG.md` and `VERSION`, which semantic-release writes.
 - Make a check pass by weakening it: skipping a test, suppressing a warning, loosening an assertion.
 
-**Stop and ask** before a change spanning 3+ files or adding a new abstraction (share a brief plan first), and when
+**Stop and ask** before an unapproved change spanning 3+ files or adding a new abstraction (share a brief plan first), and when
 a check fails again after a fix, a command is refused, or a decision is left open.
 
 Enforced by none.

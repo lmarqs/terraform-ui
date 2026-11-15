@@ -15,6 +15,7 @@ The pages below explain how tfui is built and tested and how work is tracked. Th
 the docs site: its layout, the sidebar, icons, and how to build and preview it. What goes on which page is in
 [the docs map](https://github.com/lmarqs/terraform-ui/blob/main/docs/README.md).
 
+- [Agentic development](agentic.md) — Coordinator responsibilities, Ralph runs, and delivery review
 - [Architecture](architecture.md) — Plugin system, event bus, navigation model
 - [Risk policy design](risk-policy-design.md) — Accepted boundaries, alternatives and remaining interface decisions
 - [Risk runtime evidence](risk-policy-runtime-research.md) — Versioned evaluator behavior and unmeasured limits
