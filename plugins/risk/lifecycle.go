@@ -23,6 +23,9 @@ func (e *Plugin) Assessment() *sdk.PolicyAssessment { return e.assessment }
 
 func (e *Plugin) resetDerived() {
 	e.Cancel()
+	e.stack.Clear()
+	e.offset = 0
+	e.panel.ResetScroll()
 	e.status = sdk.StatusIdle
 	e.assessment = nil
 	e.groups = nil

@@ -3,6 +3,7 @@ package terraform
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -88,9 +89,20 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 		keys[k] = true
 	}
 
+	for k := range jsonToMap(change.AfterUnknown) {
+		keys[k] = true
+	}
+	sortedKeys := make([]string, 0, len(keys))
 	for key := range keys {
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Strings(sortedKeys)
+	for _, key := range sortedKeys {
 		oldVal := marshalValue(beforeMap[key])
 		newVal := marshalValue(afterMap[key])
+		if isKeySensitive(change.AfterUnknown, key) {
+			newVal = "(known after apply)"
+		}
 
 		if oldVal == newVal {
 			continue
@@ -107,6 +119,7 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 			OldValue:  oldVal,
 			NewValue:  newVal,
 			Sensitive: sensitive,
+			ForcesNew: attributeForcesNew(change.ReplacePaths, key),
 		})
 	}
 
@@ -142,10 +155,39 @@ func isKeySensitive(sensitive interface{}, key string) bool {
 	case bool:
 		return s
 	case map[string]interface{}:
-		if v, ok := s[key]; ok {
-			if b, ok := v.(bool); ok {
-				return b
+		return markedValue(s[key])
+	}
+	return false
+}
+
+func markedValue(mask interface{}) bool {
+	switch value := mask.(type) {
+	case bool:
+		return value
+	case map[string]interface{}:
+		for _, child := range value {
+			if markedValue(child) {
+				return true
 			}
+		}
+	case []interface{}:
+		for _, child := range value {
+			if markedValue(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func attributeForcesNew(paths []interface{}, key string) bool {
+	for _, value := range paths {
+		path, ok := value.([]interface{})
+		if !ok {
+			continue
+		}
+		if len(path) > 0 && path[0] == key {
+			return true
 		}
 	}
 	return false

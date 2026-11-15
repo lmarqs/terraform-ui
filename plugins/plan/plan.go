@@ -725,19 +725,7 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 
 	if len(change.AttributeDiffs) > 0 {
 		b.WriteString("\nAttributes:\n")
-		for _, diff := range change.AttributeDiffs {
-			if diff.Sensitive {
-				fmt.Fprintf(&b, "  %s: (sensitive)\n", diff.Key)
-				continue
-			}
-			if diff.ForcesNew {
-				fmt.Fprintf(&b, "  %s (forces new):\n", diff.Key)
-			} else {
-				fmt.Fprintf(&b, "  %s:\n", diff.Key)
-			}
-			fmt.Fprintf(&b, "    - %s\n", diff.OldValue)
-			fmt.Fprintf(&b, "    + %s\n", diff.NewValue)
-		}
+		b.WriteString(sdk.RenderAttributeDiffs(change.AttributeDiffs))
 	}
 
 	if e.assessment != nil {

@@ -531,11 +531,19 @@ func TestIsKeySensitive_WhenSensitiveIsMapWithKeyMissing_ShouldReturnFalse(t *te
 	}
 }
 
-func TestIsKeySensitive_WhenSensitiveIsMapWithNonBoolValue_ShouldReturnFalse(t *testing.T) {
+func TestIsKeySensitive_WhenSensitiveIsMapWithMarkedDescendant_ShouldReturnTrue(t *testing.T) {
 	m := map[string]interface{}{
 		"tags": map[string]interface{}{"env": true},
 	}
-	if isKeySensitive(m, "tags") {
-		t.Error("isKeySensitive(map, key with non-bool value) should return false")
+	if !isKeySensitive(m, "tags") {
+		t.Error("a marked descendant must mask the containing attribute")
+	}
+}
+
+func TestIsKeySensitive_GivenScalarWithoutBooleanMarks_ShouldReturnFalse(t *testing.T) {
+	for _, mask := range []any{"sensitive", 1} {
+		if isKeySensitive(mask, "password") {
+			t.Errorf("unsupported mask %v must not invent a sensitive mark", mask)
+		}
 	}
 }

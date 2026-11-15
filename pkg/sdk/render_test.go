@@ -12,7 +12,7 @@ func TestActionSymbol_WhenCalled_ShouldReturnStyledSymbol(t *testing.T) {
 		{"ShouldReturnTildeForUpdate", ActionUpdate, "~"},
 		{"ShouldReturnMinusForDelete", ActionDelete, "-"},
 		{"ShouldReturnReplaceSymForDeleteThenCreate", ActionDeleteThenCreate, "-/+"},
-		{"ShouldReturnReplaceSymForCreateThenDelete", ActionCreateThenDelete, "-/+"},
+		{"ShouldReturnReplaceSymForCreateThenDelete", ActionCreateThenDelete, "+/-"},
 		{"ShouldReturnArrowForRead", ActionRead, "<="},
 		{"ShouldReturnSpaceForNoOp", ActionNoOp, " "},
 		{"ShouldReturnSpaceForUnknown", Action("unknown"), " "},

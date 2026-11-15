@@ -206,7 +206,6 @@ func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
 		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
 		{Level: sdk.RiskLow, Changes: []sdk.PlanChange{{}}},
 	}
-	// total items = 2 headers + 3 changes = 5
 
 	p.MoveDown()
 	if p.selected != 1 {
@@ -216,21 +215,21 @@ func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
 	p.MoveDown()
 	p.MoveDown()
 	p.MoveDown()
-	// should be at 4 (max)
-	if p.selected != 4 {
-		t.Errorf("MoveDown multiple: selected = %d, want 4", p.selected)
+	// should be at 2 (max)
+	if p.selected != 2 {
+		t.Errorf("MoveDown multiple: selected = %d, want 2", p.selected)
 	}
 
 	// Should not go past max
 	p.MoveDown()
-	if p.selected != 4 {
-		t.Errorf("MoveDown boundary: selected = %d, want 4", p.selected)
+	if p.selected != 2 {
+		t.Errorf("MoveDown boundary: selected = %d, want 2", p.selected)
 	}
 
 	// Move up
 	p.MoveUp()
-	if p.selected != 3 {
-		t.Errorf("MoveUp: selected = %d, want 3", p.selected)
+	if p.selected != 1 {
+		t.Errorf("MoveUp: selected = %d, want 1", p.selected)
 	}
 
 	// Move up to 0
@@ -444,7 +443,7 @@ func TestUpdate_WhenArrowKeysPressed_ShouldNavigateUpAndDown(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}}},
+		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
 	}
 
 	// Test "down" key in addition to "j"
@@ -515,7 +514,6 @@ func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
 	p.groups = []RiskGroup{
 		{Level: sdk.RiskHigh, Changes: changes},
 	}
-	// Set selected high to test maxVisible cutoff
 	p.selected = 15
 
 	// verifies rendering completes without panic under scrolling
@@ -542,19 +540,18 @@ func TestRiskReason_WhenUpdateWithCriticalRisk_ShouldReturnCriticalModification(
 	}
 }
 
-func TestHints_WhenStatusDoneWithGroups_ShouldReturnBackHint(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}}},
-	}
-
+func TestHints_WhenStatusDoneWithGroups_ShouldOfferInspectAndQuit(t *testing.T) {
+	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
+	p.Analyze(lifecycleSummary("aws_instance.web"))
 	hints := p.Hints()
-	if len(hints) == 0 {
-		t.Fatal("Hints() returned empty slice, want at least one hint")
+	want := (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
+	if len(hints) != len(want) {
+		t.Fatalf("Hints() = %v, want %v", hints, want)
 	}
-	if hints[0].Key != "q" || hints[0].Description != "quit" {
-		t.Errorf("Hints()[0] = {%q, %q}, want {%q, %q}", hints[0].Key, hints[0].Description, "q", "quit")
+	for i := range want {
+		if hints[i] != want[i] {
+			t.Errorf("Hints()[%d] = %v, want %v", i, hints[i], want[i])
+		}
 	}
 }
 
@@ -598,8 +595,7 @@ func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) 
 			},
 		},
 	}
-	// selected=1 points to the first change row (index 0 is the group header)
-	p.selected = 1
+	p.selected = 0
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "aws_instance.web") {
@@ -614,7 +610,6 @@ func TestView_WhenMaxVisibleOverflow_ShouldTruncateRenderedItems(t *testing.T) {
 	p.overall = sdk.RiskHigh
 	p.total = 50
 
-	// Create a group with many changes that exceeds maxVisible
 	changes := make([]sdk.PlanChange, 30)
 	for i := range changes {
 		changes[i] = sdk.PlanChange{
@@ -626,7 +621,6 @@ func TestView_WhenMaxVisibleOverflow_ShouldTruncateRenderedItems(t *testing.T) {
 		{Level: sdk.RiskHigh, Changes: changes},
 	}
 
-	// Very small height to force overflow in the inner loop (itemIdx >= maxVisible)
 	// verifies rendering completes without panic under overflow
 	view := p.View(80, 15)
 	if view == "" {
@@ -655,8 +649,6 @@ func TestView_WhenMultipleGroupsOverflow_ShouldHandleGracefully(t *testing.T) {
 		{Level: sdk.RiskLow, Changes: changes2},
 	}
 
-	// Height 15, maxVisible = 15-10 = 5. First group header(1) + 4 changes fills it.
-	// The 5th change and entire second group are beyond maxVisible.
 	// verifies rendering completes without panic under overflow
 	view := p.View(80, 15)
 	if view == "" {
@@ -671,9 +663,6 @@ func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
 	p.overall = sdk.RiskHigh
 	p.total = 10
 
-	// Set up so that the second group's header falls beyond maxVisible
-	// maxVisible = 5 (height=15). First group: 1 header + 4 changes = 5 items.
-	// Second group header would be at itemIdx=5, which is >= maxVisible.
 	changes1 := make([]sdk.PlanChange, 4)
 	for i := range changes1 {
 		changes1[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g1_" + string(rune('a'+i))}}
@@ -704,15 +693,14 @@ func TestCursorPosition_WhenDoneWithGroups_ShouldReturnOneBasedPositionAndTotal(
 	p.selected = 0
 
 	pos, total := p.CursorPosition()
-	// totalItems = 2 headers + 3 changes = 5
-	if pos != 1 || total != 5 {
-		t.Errorf("CursorPosition() = (%d, %d), want (1, 5)", pos, total)
+	if pos != 1 || total != 3 {
+		t.Errorf("CursorPosition() = (%d, %d), want (1, 3)", pos, total)
 	}
 
-	p.selected = 4
+	p.selected = 2
 	pos, total = p.CursorPosition()
-	if pos != 5 || total != 5 {
-		t.Errorf("CursorPosition() after move = (%d, %d), want (5, 5)", pos, total)
+	if pos != 3 || total != 3 {
+		t.Errorf("CursorPosition() after move = (%d, %d), want (3, 3)", pos, total)
 	}
 }
 

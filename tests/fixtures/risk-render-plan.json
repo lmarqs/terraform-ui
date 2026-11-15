@@ -1,0 +1,560 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.14.0",
+  "resource_changes": [
+    {
+      "address": "aws_instance.node_00",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_00",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "delete",
+          "create"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": [
+          [
+            "ami"
+          ]
+        ]
+      }
+    },
+    {
+      "address": "aws_instance.node_01",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_01",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "create",
+          "delete"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": [
+          [
+            "ami"
+          ]
+        ]
+      }
+    },
+    {
+      "address": "aws_instance.node_02",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_02",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_03",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_03",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_04",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_04",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_05",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_05",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_06",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_06",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_07",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_07",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_08",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_08",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_09",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_09",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_10",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_10",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_11",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_11",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_12",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_12",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_13",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_13",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_14",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_14",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    },
+    {
+      "address": "aws_instance.node_15",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "node_15",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "update"
+        ],
+        "before": {
+          "ami": "ami-old",
+          "password": "fixture-hidden-before",
+          "size": 1,
+          "version": 1
+        },
+        "after": {
+          "ami": "ami-new",
+          "password": "fixture-hidden-after",
+          "size": 2,
+          "version": null
+        },
+        "after_unknown": {
+          "version": true
+        },
+        "before_sensitive": {
+          "password": true
+        },
+        "after_sensitive": {
+          "password": true
+        },
+        "replace_paths": []
+      }
+    }
+  ]
+}
