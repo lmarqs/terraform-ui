@@ -338,8 +338,9 @@ are limited to this validity integration and provenance; no new impact algorithm
 
 ## Evidence handoff and falsification criteria
 
-The [D-03b prerequisite audit](boundary-controls.md) records the missing D-03a protocol at
-the inspected checkout; it contains no executed runtime controls.
+The [D-03b boundary controls](boundary-controls.md) now record forty bounded standalone runtime probes,
+including result distinctions, strict execution, denied effects, print erasure/source rejection and disclosure
+limits. They supersede the earlier prerequisite audit; combined build/cost evidence remains D-03c work.
 
 D-02 records fixtures, toolchain, baseline and criteria **before running** acquisition/lifecycle experiments.
 For every node kind above, compare source evidence and input structurally, including numeric token text, array

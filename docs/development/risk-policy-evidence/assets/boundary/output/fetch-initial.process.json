@@ -1,0 +1,25 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/fetch.rss.txt",
+    "prlimit",
+    "--as=4294967296",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "120s",
+    "go",
+    "mod",
+    "tidy"
+  ],
+  "exit": 1,
+  "external_limit": "nonzero_exit",
+  "stdout": "",
+  "stderr": "github.com/open-policy-agent/opa@v1.19.1: verifying module: github.com/open-policy-agent/opa@v1.19.1: initializing sumdb.Client: could not locate sumdb file: missing $GOPATH: HOME is not set\n",
+  "wall_seconds": 0.10809154399976251,
+  "rss_file": "fetch.rss.txt"
+}

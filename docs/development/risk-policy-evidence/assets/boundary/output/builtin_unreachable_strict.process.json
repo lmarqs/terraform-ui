@@ -1,0 +1,31 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/builtin_unreachable_strict.rss.txt",
+    "prlimit",
+    "--as=1073741824",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "30s",
+    "/tmp/tfui-d03b-9sbzl2s4/probe",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/fixtures/builtin_unreachable_strict.json",
+    "/tmp/tfui-d03b-9sbzl2s4/builtin_unreachable_strict.result.json"
+  ],
+  "exit": 0,
+  "external_limit": "none",
+  "stdout": "",
+  "stderr": "",
+  "wall_seconds": 0.01013197500287788,
+  "rss_file": "builtin_unreachable_strict.rss.txt",
+  "truncated": {
+    "stdout": false,
+    "stderr": false
+  },
+  "pipes_drained": true,
+  "surviving_running_group_members": []
+}

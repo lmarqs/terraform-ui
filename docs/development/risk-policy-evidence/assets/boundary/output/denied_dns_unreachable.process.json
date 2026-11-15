@@ -1,0 +1,31 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/denied_dns_unreachable.rss.txt",
+    "prlimit",
+    "--as=1073741824",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "30s",
+    "/tmp/tfui-d03b-9sbzl2s4/probe",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/fixtures/denied_dns_unreachable.json",
+    "/tmp/tfui-d03b-9sbzl2s4/denied_dns_unreachable.result.json"
+  ],
+  "exit": 0,
+  "external_limit": "none",
+  "stdout": "",
+  "stderr": "",
+  "wall_seconds": 0.009884342001896584,
+  "rss_file": "denied_dns_unreachable.rss.txt",
+  "truncated": {
+    "stdout": false,
+    "stderr": false
+  },
+  "pipes_drained": true,
+  "surviving_running_group_members": []
+}
