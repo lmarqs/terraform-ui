@@ -25,7 +25,7 @@ func TestClassifyResults_GivenAmbiguousRuntimeOutput_ShouldRejectCardinality(t *
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, reasons, code := classifyResults(results)
+			_, reasons, code := classifyResults(results, nil)
 			if code != "result_cardinality" || reasons != nil {
 				t.Fatalf("ambiguous runtime output returned %q, %+v", code, reasons)
 			}

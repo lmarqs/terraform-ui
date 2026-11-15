@@ -1,6 +1,8 @@
 package riskpolicy
 
 import (
+	"encoding/json"
+	"math/big"
 	"regexp"
 	"strings"
 	"unicode"
@@ -11,7 +13,7 @@ import (
 
 var reasonCode = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
-func validateResult(value any) (sdk.RiskLevel, []sdk.PolicyReason, string) {
+func validateResult(value any, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, string) {
 	invalid := func() (sdk.RiskLevel, []sdk.PolicyReason, string) { return 0, nil, "result_invalid" }
 	object, ok := value.(map[string]any)
 	if !ok || len(object) != 2 {
@@ -58,12 +60,56 @@ func validateResult(value any) (sdk.RiskLevel, []sdk.PolicyReason, string) {
 		if !ok || len(paths) > 16 {
 			return invalid()
 		}
-		// Path traversal validation is supplied with the resource-aware validator.
-		// Until then, fail closed on path-bearing explanations.
-		if len(paths) != 0 {
-			return invalid()
+		validated := make([][]any, 0, len(paths))
+		for _, rawPath := range paths {
+			path, ok := rawPath.([]any)
+			if !ok || !validReasonPath(path, input) {
+				return invalid()
+			}
+			validated = append(validated, path)
 		}
-		reasons = append(reasons, sdk.PolicyReason{Code: code, Message: message, Paths: [][]any{}})
+		reasons = append(reasons, sdk.PolicyReason{Code: code, Message: message, Paths: validated})
 	}
 	return level, reasons, ""
+}
+
+func validReasonPath(path []any, input *sdk.PolicyInput) bool {
+	if len(path) == 0 {
+		return false
+	}
+	var node sdk.PolicyValue
+	switch path[0] {
+	case "before":
+		node = input.Change.Before
+	case "after":
+		node = input.Change.After
+	default:
+		return false
+	}
+	for _, element := range path[1:] {
+		switch node.Kind {
+		case "object":
+			key, ok := element.(string)
+			if !ok {
+				return false
+			}
+			node, ok = (*node.Entries)[key]
+			if !ok {
+				return false
+			}
+		case "array":
+			index, ok := element.(json.Number)
+			if !ok {
+				return false
+			}
+			number, ok := new(big.Rat).SetString(string(index))
+			if !ok || number.Sign() < 0 || !number.IsInt() || !number.Num().IsInt64() || number.Num().Int64() >= int64(len(*node.Items)) {
+				return false
+			}
+			node = (*node.Items)[number.Num().Int64()]
+		default:
+			return false
+		}
+	}
+	return true
 }

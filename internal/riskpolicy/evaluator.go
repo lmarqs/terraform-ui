@@ -107,15 +107,15 @@ func evaluate(ctx context.Context, query rego.PreparedEvalQuery, input *sdk.Poli
 		}
 		return 0, nil, "evaluation_failed"
 	}
-	return classifyResults(results)
+	return classifyResults(results, input)
 }
 
-func classifyResults(results rego.ResultSet) (sdk.RiskLevel, []sdk.PolicyReason, string) {
+func classifyResults(results rego.ResultSet, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, string) {
 	if len(results) == 0 {
 		return 0, nil, "result_undefined"
 	}
 	if len(results) != 1 || len(results[0].Expressions) != 1 {
 		return 0, nil, "result_cardinality"
 	}
-	return validateResult(results[0].Expressions[0].Value)
+	return validateResult(results[0].Expressions[0].Value, input)
 }
