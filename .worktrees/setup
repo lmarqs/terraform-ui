@@ -3,6 +3,12 @@
 # from a runner or hook configured with it, which stops when it exits non-zero.
 set -eu
 
+# mise.toml loads .env, which Git never brings into a worktree.
+main_checkout="$(dirname -- "$(git rev-parse --path-format=absolute --git-common-dir)")"
+if [ -f "$main_checkout/.env" ] && [ ! -e .env ]; then
+  cp "$main_checkout/.env" .env
+fi
+
 # mise refuses an untrusted config, and each worktree path is a new config to trust.
 mise trust --quiet
 mise install
