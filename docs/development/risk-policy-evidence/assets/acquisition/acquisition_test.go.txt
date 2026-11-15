@@ -1,0 +1,263 @@
+package main
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os/exec"
+
+	"github.com/lmarqs/terraform-ui/internal/terraform"
+	tfexec "github.com/lmarqs/terraform-ui/internal/terraform/exec"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
+)
+
+func TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan(t *testing.T) {
+	root := os.Getenv("ACQUISITION_ROOT")
+	for _, chdir := range []string{"", "member"} {
+		t.Run("chdir="+chdir, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.Mkdir(filepath.Join(dir, "member"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "member", "main.tf"), []byte("# fixture\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			session := &Session{
+				cfg:          config.Config{Dir: dir, Chdir: chdir, PreloadedData: true, Terraform: config.TerraformConfig{Bin: filepath.Join(dir, "nonexistent-terraform")}},
+				sources:      PreseedSources{Plan: filepath.Join(root, "tests/fixtures/plan.json")},
+				silentStderr: true,
+				effects:      Effects{Stdout: &stdout, Stderr: &stderr},
+			}
+			err := session.RunPlugin(context.Background(), "plan", func(p sdk.Plugin) tea.Cmd { return p.(*tfuiplan.Plugin).Activate(tfuiplan.Input{}) })
+			t.Logf("chdir=%q error=%v stdout=%q stderr=%q", chdir, err, stdout.String(), stderr.String())
+			if chdir == "" || os.Getenv("ACQUISITION_CANDIDATE") == "1" {
+				if !acquisitionExitCode(err, 2) || !strings.Contains(stdout.String(), "Plan: 1 to add, 1 to change, 0 to destroy.") || stderr.Len() != 0 {
+					t.Fatalf("seeded reviewed plan unavailable: error=%v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
+				}
+			} else if !acquisitionExitCode(err, 1) || stdout.Len() != 0 || !strings.Contains(stderr.String(), "nonexistent-terraform") {
+				t.Fatalf("expected observed initial-Chdir seed loss with missing binary, got error=%v stderr=%q", err, stderr.String())
+			}
+		})
+	}
+}
+
+func acquisitionExitCode(err error, code int) bool {
+	var exit *exitError
+	return errors.As(err, &exit) && exit.code == code
+}
+
+func acquisitionFixture(t *testing.T) (string, string, string, []byte) {
+	t.Helper()
+	root := os.Getenv("ACQUISITION_ROOT")
+	fixture := filepath.Join(root, "tests/fixtures/plan.json")
+	raw, err := os.ReadFile(fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	log := filepath.Join(dir, "calls.jsonl")
+	t.Setenv("ACQUISITION_CALL_LOG", log)
+	fixtureCopy := filepath.Join(dir, "source-plan.json")
+	if err := os.WriteFile(fixtureCopy, raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("ACQUISITION_PLAN_FIXTURE", fixtureCopy)
+	binary := filepath.Join(root, "docs/development/risk-policy-evidence/assets/acquisition/fake_terraform.py")
+	return dir, binary, log, raw
+}
+
+func acquisitionCount(t *testing.T, log string, verb string) int {
+	t.Helper()
+	raw, err := os.ReadFile(log)
+	if os.IsNotExist(err) {
+		return 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, line := range bytes.Split(bytes.TrimSpace(raw), []byte("\n")) {
+		var call struct {
+			Args []string `json:"args"`
+		}
+		if err := json.Unmarshal(line, &call); err != nil {
+			t.Fatal(err)
+		}
+		if len(call.Args) > 0 && call.Args[0] == verb {
+			count++
+		}
+	}
+	return count
+}
+
+func acquisitionRequireCounts(t *testing.T, log string, plans, shows int) {
+	t.Helper()
+	p, s := acquisitionCount(t, log, "plan"), acquisitionCount(t, log, "show")
+	t.Logf("calls: plan=%d show=%d version=%d workspace=%d", p, s, acquisitionCount(t, log, "version"), acquisitionCount(t, log, "workspace"))
+	if p != plans || s != shows {
+		t.Fatalf("plan/show calls = %d/%d, want %d/%d", p, s, plans, shows)
+	}
+}
+
+func TestAcquisition_GivenSeededPlan_ShouldAvoidTerraformPlanAndShow(t *testing.T) {
+	dir, binary, log, raw := acquisitionFixture(t)
+	for _, source := range []string{"bytes", "file"} {
+		t.Run(source, func(t *testing.T) {
+			cache := terraform.NewServiceCache()
+			if source == "bytes" {
+				if err := cache.SeedPlan("", raw); err != nil {
+					t.Fatal(err)
+				}
+			} else {
+				if err := cache.SeedPlan(os.Getenv("ACQUISITION_PLAN_FIXTURE"), nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			seeded, _ := cache.GetPlan()
+			svc := tfexec.NewExecService(dir, binary, cache)
+			for range 2 {
+				summary, err := svc.Plan(context.Background(), sdk.PlanOptions{PlanFile: filepath.Join(dir, "must-not-exist")})
+				if err != nil || summary != seeded || len(summary.Changes) != 2 {
+					t.Fatalf("seeded review changed: summary=%v err=%v", summary, err)
+				}
+			}
+			acquisitionRequireCounts(t, log, 0, 0)
+		})
+	}
+}
+
+func TestAcquisition_GivenLiveReview_ShouldReuseSameArtifactWithoutReplanning(t *testing.T) {
+	dir, binary, log, raw := acquisitionFixture(t)
+	svc := tfexec.NewExecService(dir, binary, nil)
+	artifact := filepath.Join(dir, "reviewed.tfplan")
+	summary, err := svc.Plan(context.Background(), sdk.PlanOptions{PlanFile: artifact})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary.Changes) != 2 {
+		t.Fatalf("review changes=%d want 2", len(summary.Changes))
+	}
+	acquisitionRequireCounts(t, log, 1, 1)
+	risk := tfuirisk.New(svc).(*tfuirisk.Plugin)
+	harness := sdktest.NewDeps(svc)
+	if cmd := risk.Init(harness.Deps); cmd != nil {
+		cmd()
+	}
+	risk.Analyze(summary)
+	if !risk.Ready() || risk.Overall() != sdk.OverallRisk(summary.Changes) {
+		t.Fatal("Risk did not present reviewed classifications")
+	}
+	acquisitionRequireCounts(t, log, 1, 1)
+	if err := os.WriteFile(os.Getenv("ACQUISITION_PLAN_FIXTURE"), []byte(`{"format_version":"1.2","terraform_version":"1.14.0","resource_changes":[]}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	retained, err := exec.CommandContext(context.Background(), binary, "show", "-json", artifact).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(retained, raw) {
+		t.Fatalf("same-artifact JSON bytes differ: got %x want %x", sha256.Sum256(retained), sha256.Sum256(raw))
+	}
+	t.Logf("same-artifact bytes=%d sha256=%x", len(retained), sha256.Sum256(retained))
+	acquisitionRequireCounts(t, log, 1, 2)
+	if err := os.WriteFile(os.Getenv("ACQUISITION_PLAN_FIXTURE"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	// This is observation of current behavior, not the proposed evidence strategy.
+	if _, err := svc.Plan(context.Background(), sdk.PlanOptions{PlanFile: artifact}); err != nil {
+		t.Fatal(err)
+	}
+	acquisitionRequireCounts(t, log, 2, 3)
+	data, err := svc.PlanJSON(context.Background(), sdk.PlanOptions{PlanFile: artifact})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, raw) {
+		t.Fatal("PlanJSON changed Terraform bytes")
+	}
+	acquisitionRequireCounts(t, log, 3, 4)
+	t.Log("REJECT PlanJSON for retrieving evidence after Plan: it generated a second plan; repeated live Plan is not cached")
+}
+
+func TestAcquisition_GivenSeededPlanJSON_ShouldObserveReplan(t *testing.T) {
+	dir, binary, log, raw := acquisitionFixture(t)
+	cache := terraform.NewServiceCache()
+	if err := cache.SeedPlan("", raw); err != nil {
+		t.Fatal(err)
+	}
+	svc := tfexec.NewExecService(dir, binary, cache)
+	data, err := svc.PlanJSON(context.Background(), sdk.PlanOptions{PlanFile: filepath.Join(dir, "json.tfplan")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(data, raw) {
+		t.Fatal("raw JSON changed")
+	}
+	acquisitionRequireCounts(t, log, 1, 1)
+}
+
+func TestAcquisition_GivenSession_ShouldCountLiveAndSeededInitialChdirAcquisition(t *testing.T) {
+	for _, seeded := range []bool{false, true} {
+		for _, chdir := range []string{"", "member"} {
+			t.Run(fmt.Sprintf("seeded=%t/chdir=%s", seeded, chdir), func(t *testing.T) {
+				dir, binary, log, _ := acquisitionFixture(t)
+				if err := os.Mkdir(filepath.Join(dir, "member"), 0755); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.WriteFile(filepath.Join(dir, "member", "main.tf"), []byte("# fixture\n"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				var stdout, stderr bytes.Buffer
+				var sources PreseedSources
+				if seeded {
+					sources.Plan = os.Getenv("ACQUISITION_PLAN_FIXTURE")
+				}
+				session := &Session{cfg: config.Config{Dir: dir, Chdir: chdir, PreloadedData: seeded, Terraform: config.TerraformConfig{Bin: binary}}, sources: sources, silentStderr: true, effects: Effects{Stdout: &stdout, Stderr: &stderr}}
+				err := session.RunPlugin(context.Background(), "plan", func(p sdk.Plugin) tea.Cmd { return p.(*tfuiplan.Plugin).Activate(tfuiplan.Input{}) })
+				if !acquisitionExitCode(err, 2) || !strings.Contains(stdout.String(), "Plan: 1 to add, 1 to change, 0 to destroy.") || stderr.Len() != 0 {
+					t.Fatalf("session review failed: %v stdout=%q stderr=%q", err, stdout.String(), stderr.String())
+				}
+				if seeded && chdir == "" {
+					acquisitionRequireCounts(t, log, 0, 0)
+				} else {
+					acquisitionRequireCounts(t, log, 1, 1)
+				}
+				calls, readErr := os.ReadFile(log)
+				if readErr != nil {
+					t.Fatal(readErr)
+				}
+				for _, line := range bytes.Split(bytes.TrimSpace(calls), []byte("\n")) {
+					var call struct {
+						Args []string `json:"args"`
+						Cwd  string   `json:"cwd"`
+					}
+					if err := json.Unmarshal(line, &call); err != nil {
+						t.Fatal(err)
+					}
+					if len(call.Args) > 0 && call.Args[0] == "plan" && call.Cwd != filepath.Join(dir, chdir) {
+						t.Fatalf("plan ran in %q, want initial directory %q", call.Cwd, filepath.Join(dir, chdir))
+					}
+				}
+				t.Logf("process log: %s", strings.ReplaceAll(string(calls), dir, "WORK"))
+				if acquisitionCount(t, log, "workspace") == 0 {
+					t.Fatal("workspace lookup was not observed")
+				}
+			})
+		}
+	}
+
+}

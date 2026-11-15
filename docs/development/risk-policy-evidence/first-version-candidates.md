@@ -368,3 +368,7 @@ tests and cannot establish that policy evaluation, reporting or lifecycle behavi
 The [D-02a fidelity evidence](input-fidelity.md) now records executed disposable resource-local projection,
 neighbor-independence and phantom-counterexample experiments. It does not establish live/seeded acquisition,
 Context/source lifecycle or evaluator behavior; those evidence requests remain separate.
+
+The [D-02b acquisition evidence](acquisition-counts.md) records live/seeded call counting and real Session
+startup behavior, including rejection of initial-Chdir seed preservation and of `PlanJSON` as a retrieval path
+for an already reviewed plan. These are acquisition experiments, not production policy integration.

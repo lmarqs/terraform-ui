@@ -1,0 +1,12 @@
+=== RUN   TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan
+=== RUN   TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan/chdir=
+    risk_acquisition_experiment_test.go:32: chdir="" error=exit status 2 stdout="+ aws_instance.web\n~ aws_s3_bucket.data\n\nPlan: 1 to add, 1 to change, 0 to destroy.\nRisk: high\n" stderr=""
+=== RUN   TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan/chdir=member
+    risk_acquisition_experiment_test.go:32: chdir="member" error=exit status 1 stdout="" stderr="running terraform plan: fork/exec WORKTREE/.tmp/risk-acquisition/tmp/TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPl459803127/001/nonexistent-terraform: no such file or directory\n"
+    risk_acquisition_experiment_test.go:34: seeded reviewed plan unavailable: error=exit status 1 stdout="" stderr="running terraform plan: fork/exec WORKTREE/.tmp/risk-acquisition/tmp/TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPl459803127/001/nonexistent-terraform: no such file or directory\n"
+--- FAIL: TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan (2.02s)
+    --- PASS: TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan/chdir= (1.01s)
+    --- FAIL: TestAcquisition_GivenSeededInitialChdir_ShouldPreserveReviewedPlan/chdir=member (1.01s)
+FAIL
+FAIL	github.com/lmarqs/terraform-ui/cmd/tfui	2.023s
+FAIL
