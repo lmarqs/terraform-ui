@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# `codex` for a ralph-tui worker: `mise run ralph:run` puts this directory first on PATH, so the `codex` that
+# .ralph-tui/bin/worker runs is this file, which runs the real one inside ai-jail (mise.toml, on bubblewrap and
+# Landlock). The jail keeps the worker, and the subagents it spawns, to its worktree: no SSH or GitHub credentials,
+# no Docker socket, and egress only to Codex's API and the Go module proxy.
+#
+# Codex's own sandbox is turned off inside the jail, where its bubblewrap fails to start ("Failed to create
+# NETLINK_ROUTE socket", tested at codex-cli 0.160.1 in ai-jail 3.4.0); the jail is the sandbox.
+set -euo pipefail
+
+SELF=$(cd "$(dirname "$0")" && pwd)
+CODEX=$(PATH=$(tr ':' '\n' <<<"$PATH" | grep -vxF "$SELF" | paste -sd:) command -v codex) ||
+  { echo "codex is not on PATH." >&2; exit 127; }
+CODEX=$(readlink -f "$CODEX")
+
+# ralph-tui asks every harness for its version through the worker, outside any task.
+[ "$*" = --version ] && exec "$CODEX" --version
+
+# The version mise.toml pins, which a PATH putting another install first would hide.
+AI_JAIL=$(mise which ai-jail) || { echo "ai-jail is not installed; run mise install." >&2; exit 127; }
+GIT=$(git rev-parse --path-format=absolute --git-common-dir)
+MAIN=$(dirname "$GIT")
+
+# --agent-state mounts ~/.codex, which holds the login. --worktree would mount Git's metadata writable, and a worker
+# never commits, so it is mapped read-only instead, with the main checkout's .codex and .agents, which Codex reads in
+# every worktree. Codex's whole package is mapped, not only its bin/, because the rg its shell tool runs is in it.
+JAIL=(--clean --no-save-config --no-status-bar --harness codex --agent-state --no-worktree
+  --map "$GIT" --map "$MAIN/.codex" --map "$MAIN/.agents" --map "$(dirname "$(dirname "$CODEX")")"
+  --allow-host chatgpt.com --allow-host openai.com --allow-host proxy.golang.org --allow-host sum.golang.org)
+
+ARGS=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --sandbox | -s) ARGS+=("$1" danger-full-access); shift 2 ;;
+    --sandbox=*) ARGS+=(--sandbox=danger-full-access); shift ;;
+    *) ARGS+=("$1"); shift ;;
+  esac
+done
+
+exec "$AI_JAIL" "${JAIL[@]}" "$CODEX" "${ARGS[@]}"

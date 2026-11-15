@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+#MISE description="Run ralph-tui over a Beads epic in its own worktree, on branch ralph/<epic>, Codex workers jailed."
+#USAGE arg "<epic>" help="The Beads epic whose ready children the workers take, e.g. terraform-ui-eae"
+#USAGE flag "--agent <agent>" default="codex" help="codex or claude, both declared in .ralph-tui/config.toml"
+#USAGE flag "--headless" default="false" help="Log to stdout instead of drawing the TUI"
+set -euo pipefail
+
+EPIC="${usage_epic:?}"
+AGENT="${usage_agent:-codex}"
+MAIN=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+
+# ralph-tui 0.12 runs no setup in a parallel worker's worktree, so every bead is worked in the run's own.
+ARGS=(--serial)
+[ "${usage_headless:-false}" = "true" ] && ARGS+=(--headless)
+
+# ralph-tui and its worker find the `codex` in .mise/jail first, which runs the real one inside ai-jail.
+if [ "$AGENT" = codex ]; then
+  mise which ai-jail >/dev/null || { echo "ai-jail is not installed; run mise install." >&2; exit 1; }
+  export PATH="$MAIN/.mise/jail:$PATH"
+fi
+
+cd "$MAIN"
+exec .ralph-tui/bin/run "$EPIC" --agent "$AGENT" --epic "$EPIC" "${ARGS[@]}"
