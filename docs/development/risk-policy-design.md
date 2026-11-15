@@ -216,6 +216,12 @@ or acceptable runtime cost. These facts constrain the remaining choices without 
 
 ## Remaining decisions
 
+The [D-01a first-version candidates](risk-policy-evidence/first-version-candidates.md) make concrete delegated
+choices for the input/result, trust, reporting and Blast Radius experiments. They are preparation for D-02/D-03
+and D-01c publication, not shipped interfaces or owner-selected details. Source lifecycle and packaging remain
+with D-01b. Earlier owner-review gates below describe the original process; this run delegates first-version
+choices and evidence review to contributors, with D-01c publishing the reviewed contract before implementation.
+
 | Boundary | What is still open | Decision record |
 | --- | --- | --- |
 | Input representation | Typed before/after data, numeric/null/unknown fidelity, action/resource identity and compatible versions. Only one mutation's evidence may be visible. | [Prove same-plan input fidelity](https://github.com/lmarqs/terraform-ui/issues/109) |
