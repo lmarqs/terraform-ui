@@ -278,8 +278,9 @@ binary plan file is rejected with a hint to convert it. `-state` takes the
 output of `terraform show -json` or `terraform state pull`.
 
 Pre-seeded state answers the state reads (resource list and inspect), and a
-pre-seeded plan answers `tfui plan` and the plan view, instead of terraform, for
-the whole session. `-json` output still comes from `terraform plan -json`.
+pre-seeded plan answers Plan and Risk acquisition, instead of terraform, for
+the whole session. `tfui plan -json` returns the original Terraform show JSON bytes; `tfui risk -json` returns
+the [risk report](risk-policy-contract.md#command-threshold-and-report-v1).
 
 ```bash
 tfui state -state ./state.json                 # standalone state TUI, browses pre-loaded state

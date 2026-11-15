@@ -8,13 +8,17 @@ audience: "Policy authors and contributors implementing the first-version risk i
 
 # Risk policy contract
 
-This is the **first-version, planned public contract**, published under delegated contributor decision authority
+This is the **implemented first-version public contract**, published under delegated contributor decision authority
 on 2026-11-15. The coordinator selected the exact interfaces from D-01a/b and reviewed D-02/D-03 evidence;
 the owner did not select these details. Stress and refine this version after merge through explicit revisions.
-Production integration is progressing through the dependent stories. `tfui risk` now provides the command and
-report described below; complete integration verification and the Risk guide refresh remain subsequent work.
-Contract publication alone does not certify implemented behavior. [ADR-0026](../adr/0026-publish-first-version-risk-contract.md)
-records the decision, and the [design](../development/risk-policy-design.md) records alternatives and residual risks.
+
+Plan and Risk share selected-policy classifications; `tfui risk` provides the report and comparison described
+below. The [session verification](../development/risk-policy-evidence/session-integration.md) and
+[preservation gates](../development/risk-policy-evidence/preservation-gates.md) record the tested production paths
+and their limits. The [Risk guide](../plugins/risk.md) explains use. [ADR-0026](../adr/0026-publish-first-version-risk-contract.md)
+records the original publication decision; the [design](../development/risk-policy-design.md) records alternatives
+and residual risks. Historical disposable evidence establishes feasibility within its stated bounds, not broader
+production guarantees.
 
 ## Purpose and philosophy
 
@@ -46,7 +50,7 @@ this page.
 | Threshold | A comparison used by tfui to interpret classifications for the risk command. The policy does not choose the caller's response. |
 | Template | Explicit policy source copied and owned by a project, rather than a named runtime preset. |
 
-The existing ordered severity vocabulary is `none`, `low`, `medium`, `high`, `critical`. In the planned contract,
+The existing ordered severity vocabulary is `none`, `low`, `medium`, `high`, `critical`. In this contract,
 `none` is an explicit policy classification. It must not stand in for missing results, excluded changes, failures,
 or a general guarantee of safety. The v1 result and compatibility rules are specified below.
 
@@ -191,7 +195,7 @@ Number strings must be valid JSON numeric tokens. Source spellings such as `1e3`
 convert with `to_number` when numeric comparison is wanted. String equality compares spellings, not numeric value.
 The fidelity experiment establishes exact ingestion for its fixtures, not evaluator arithmetic precision.
 V1 promises exact token strings, not arbitrary-precision numeric operations. Authors converting with `to_number`
-own conversion semantics and must test their numeric ranges; US-003 must cover large-number comparisons.
+own conversion semantics and must test their numeric ranges; production comparison tests cover large-number cases.
 
 Build object entries from the union of value keys and unknown/sensitivity mask keys: a key present only in an
 unknown mask becomes an unknown node, not an absent entry. A mask-only sensitive key whose existence is
@@ -308,7 +312,7 @@ Keep generic `plugin` blocks root-only. Decline adding Member plugin overrides: 
 invites per-key policy mixing. Decline placing source only in root plugin options: it cannot express complete
 Member/workspace replacement through the currently supported HCL.
 
-Exact v1 files (unsupported until implementation):
+Example v1 configuration files:
 
 ```hcl
 # /project/tfui.hcl
@@ -468,7 +472,7 @@ test_explicit_default if {
 ```
 
 Author command: `opa test main.rego reason.rego main_test.rego --fail-on-empty -v`. This minimal input
-tests policy logic only; it deliberately is not a valid tfui envelope. US-007's fixtures must use full v1
+tests policy logic only; it deliberately is not a valid tfui envelope. Production author-test fixtures use full v1
 envelopes and verify tfui validation/capabilities too. `opa test` alone proves neither eligibility nor the embedded
 capability boundary nor valid tfui results. OPA documents `with input`, test discovery and `--fail-on-empty` in its
 [testing guide](https://www.openpolicyagent.org/docs/policy-testing). The complete
@@ -632,7 +636,7 @@ impact score. Never call the old formula with zero values standing in for missin
 can retain their scores, but the overall banner reads `Blast radius unavailable: incomplete risk assessment`
 rather than a maximum over completed groups. List unavailable groups first, then existing score order for complete
 groups, address order to break ties. A global source/compile/evidence failure makes all affected groups unavailable.
-This requires an explicit SDK-facing validity representation in US-004; no evaluator types cross the boundary.
+SDK-facing assessment values carry validity explicitly; no evaluator types cross the boundary.
 
 Regression examples: one custom-low database deletion yields minimal impact under existing arithmetic (no hidden
 built-in critical fallback); three custom-none mutations including a delete still yield high impact; one failed

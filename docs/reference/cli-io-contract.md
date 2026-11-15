@@ -98,8 +98,9 @@ status channel.
 
 ### Headless failures
 
-Every plugin command reports failure the same way: terraform's error message
-on stderr, empty stdout, exit 1. A failed run never claims success.
+Every plugin command reports operational failure with empty stdout and exit 1. Terraform failures pass through
+the Terraform error on stderr; Risk policy failures use fixed diagnostics as specified in
+[Risk command v1](#risk-command-v1).
 
 | Command | stdout | stderr | Exit |
 |---------|--------|--------|------|
@@ -147,6 +148,7 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 | `0` | Success / no changes | All commands |
 | `1` | Error / validation failure | All commands |
 | `2` | Plan has changes, as terraform's `-detailed-exitcode` | `plan` command only |
+| `3` | Complete assessment meets the selected threshold | `risk` command only; see [Risk command v1](#risk-command-v1) |
 | `130` | Interrupted by SIGINT | All commands |
 | `143` | Terminated by SIGTERM | All commands |
 
