@@ -8,6 +8,11 @@ audience: "Contributors proving D-02 source identity and publishing D-01c before
 
 # First-version source, helper and template decisions
 
+**Publication status (2026-11-15):** D-01c adopted and refined these candidates in the
+[first-version contract](../../reference/risk-policy-contract.md). This page preserves the pre-experiment
+candidate and handoff as historical evidence; its future-tense gates are no longer current design blockers.
+The contract owns exact interfaces; the [publication review](contract-publication.md) records limits and changes.
+
 D-01b selects these first-version candidates under delegated contributor authority. They are concrete choices
 for experiments and D-01c publication, not owner-selected interfaces or implemented settings. The
 [contract](../../reference/risk-policy-contract.md) still owns independent mutation classification, complete

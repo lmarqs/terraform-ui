@@ -8,7 +8,12 @@ audience: "Contributors running D-02 and D-03 and publishing the D-01c contract"
 
 # First-version input, result, trust and compatibility candidates
 
-D-01a prepares these decisions for the [architecture design](../risk-policy-design.md#remaining-decisions).
+**Publication status (2026-11-15):** D-01c adopted and refined these candidates in the
+[first-version contract](../../reference/risk-policy-contract.md). This page preserves the pre-experiment
+candidate and handoff as historical evidence; its future-tense gates are no longer current design blockers.
+The contract owns exact interfaces; the [publication review](contract-publication.md) records limits and changes.
+
+D-01a prepares these decisions for the [architecture design](../risk-policy-design.md#first-version-decision-map).
 They are contributor-selected first-version choices under the delegated decision authority for this run, not
 interfaces selected by the owner or implemented behavior. D-02 and D-03 must test them before D-01c publishes the
 production interface in the [contract reference](../../reference/risk-policy-contract.md). A falsified candidate

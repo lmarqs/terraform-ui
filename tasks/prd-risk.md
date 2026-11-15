@@ -3,16 +3,17 @@
 
 ## Status and source of truth
 
-This is the implementation plan, not the definition of risk. The accepted language, responsibilities and
-eligibility are documented; the remaining public contract choices and embedding experiments still block
-production implementation. Do not execute dependent stories by choosing unspecified semantics in code.
+This is the implementation plan, not the definition of risk. The [first-version contract](../docs/reference/risk-policy-contract.md) is published under delegated
+contributor authority after D-02/D-03 evidence. Exact interfaces were selected by contributors, not the owner,
+and will be stressed and refined after merge. Production stories may implement this version in dependency
+order; publication and successful disposable experiments do not mark product behavior implemented.
 
 Definitions and architecture live under `docs/`:
 
 - [Policy contract](../docs/reference/risk-policy-contract.md): purpose, philosophy, terms, eligibility, ownership,
-  failure behavior and review presentation.
+  failure behavior, exact v1 interfaces/examples, compatibility and review presentation.
 - [Architecture design](../docs/development/risk-policy-design.md): goals, requirements R1–R8, alternatives,
-  component boundaries, evidence and remaining decisions.
+  component boundaries, evidence, first-version decision map and residual risks.
 - [Runtime research](../docs/development/risk-policy-runtime-research.md): pinned OPA API facts and their limits.
 - [ADR-0024](../docs/adr/0024-embed-rego-for-risk-policies.md) and
   [ADR-0025](../docs/adr/0025-classify-resource-mutations-explicitly.md): accepted decisions.
@@ -53,28 +54,30 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 
 ### D-01: Complete the public contract decisions
 
-**Depends on:** accepted purpose and ownership in ADR-0025; evidence from D-02 and D-03 as needed.
+**Published first version:** [contract](../docs/reference/risk-policy-contract.md),
+[architecture decision map](../docs/development/risk-policy-design.md#first-version-decision-map),
+[ADR-0026](../docs/adr/0026-publish-first-version-risk-contract.md) and
+[review/evidence limits](../docs/development/risk-policy-evidence/contract-publication.md).
+Contributor selection under explicit delegation supersedes earlier exact-owner-acceptance gates. The owner
+stresses and refines these interfaces after merge; no exact interface is described as owner-selected.
 
-- [ ] Resolve the remaining decisions listed in the architecture design: input/entrypoint/result representation,
-  unknown/sensitive handling, trust and capabilities, source selection/reload, multiple-rule resolution,
-  tfui aggregation, thresholds and report/version compatibility.
-- [ ] Narrow older decision tickets to their remaining questions. Per-resource scope, complete results, custom
-  replacement, eligibility and failure behavior are already accepted; do not reintroduce rejected alternatives
-  as implementation defaults.
-- [ ] Specify the user-facing result for no eligible mutations, incomplete input and partial evaluation failure.
-  These cases must preserve the distinctions defined in the contract reference.
-- [ ] Decide how the existing Blast Radius consumer of `PlanChange.Risk` handles custom classifications and
-  unavailable/partial assessments. Do not silently alter impact semantics or turn failed assessment into a zero level.
-- [ ] Decide explicit helper reuse, template testing and built-in-policy upgrade behavior. Review particular
-  Lambda classifications without assuming the field report's suggested severities are accepted.
-- [ ] Review the architecture with the owner, including the alternatives table and residual risks; update docs
-  and the decision map with the accepted outcomes.
-- [ ] Specify the approved interface under `docs/reference/`, with exact examples and compatibility behavior,
-  before implementing consumers. Replace this phase's gates with links to accepted definitions.
+- [x] Publish input/entrypoint/result, unknown/sensitive handling and trust/capabilities in the contract.
+- [x] Publish source/reload, helper/template/upgrade, multiple-rule and consumer compatibility decisions.
+- [x] Specify no eligible mutations, incomplete input and partial failure distinctly.
+- [x] Preserve Blast Radius arithmetic with selected-policy classifications and explicit unavailable inputs.
+- [x] Review alternatives and residual risks; record first-version outcomes in the local decision map.
+- [x] Publish exact interfaces/examples/version behavior before US consumers; replace contract gates with links.
+
+The [narrowed ticket scopes](../docs/development/risk-policy-evidence/source-template-decisions.md#narrowed-decision-ticket-scopes)
+remain local provenance; no remote ticket update or closure is claimed. D-02/D-03 evidence is complete for the
+bounded feasibility choices below, not for unimplemented production lifecycle or full-policy validation.
 
 ### D-02: Prove input fidelity and Context/source identity
 
-**Dependencies:** can gather code evidence now; final behavior follows D-01. Use disposable prototypes.
+**Evidence:** [fidelity](../docs/development/risk-policy-evidence/input-fidelity.md),
+[acquisition](../docs/development/risk-policy-evidence/acquisition-counts.md),
+[Context/source](../docs/development/risk-policy-evidence/context-source-identity.md).
+Final behavior follows the [v1 contract](../docs/reference/risk-policy-contract.md). Use disposable prototypes.
 
 - [ ] Compare source plan JSON with candidate per-resource input: large numbers, ordered lists, absent/null,
   nested/whole-object unknowns and sensitivity, resource identity, and both replacement orders.
@@ -86,11 +89,13 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 - [ ] Trace real root/Member/workspace source selection, relative path origin, zero-config, absent/empty source,
   invalid/deleted source, source edits, startup Chdir, and switching A to B while A evaluates.
 - [ ] Record pass/falsification criteria before execution: silent data loss rejects an input candidate; mixed
-  source or stale A results reject a lifecycle candidate. Link reproducible assets and obtain owner review.
+  source or stale A results reject a lifecycle candidate. Link reproducible assets and obtain delegated contributor review for this first version.
 
 ### D-03: Validate embedded evaluation and measure costs
 
-**Dependencies:** versioned research is complete; trust/result candidates from D-01 are needed for acceptance.
+**Evidence:** [boundary controls](../docs/development/risk-policy-evidence/boundary-controls.md) and
+[combined release costs](../docs/development/risk-policy-evidence/release-costs.md); first-version
+[runtime/trust choice](../docs/reference/risk-policy-contract.md#runtime-and-trust-boundary) is published.
 
 - [ ] Select and pin a candidate version after reviewing current maintenance. The research pin is evidence, not
   an automatic production dependency choice.
@@ -102,15 +107,15 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 - [ ] Attempt HTTP, DNS, time, randomness, print, trace and secret interpolation under the candidate capability
   boundary. Capture output/error channels; test against the chosen trust promise rather than claiming generic sandboxing.
 - [ ] Build every supported release target and measure baseline/candidate binary size, compilation time,
-  cold/warm evaluation and peak memory. Obtain owner judgment on costs; no numerical budget is yet accepted.
-- [ ] Record outcomes in docs evidence and the decision ticket. Unsupported builds or failed controls reopen
-  the affected architecture choice before production integration.
+  cold/warm evaluation and peak memory. Record delegated first-version judgment on costs; no numerical budget is implied.
+- [ ] Record outcomes in docs evidence and the decision ticket. Failed controls must remain visible and revise the affected first-version choice before integration;
+  this run does not wait for another owner selection when a workable documented choice exists.
 
 ## Phase 1: implement the accepted contract
 
 ### US-001: Preserve policy evidence through plan acquisition
 
-**Dependencies:** D-01, D-02. **Trace:** R1,R2,R5,R6.
+**Dependencies:** [published D-01/D-02 decisions](../docs/reference/risk-policy-contract.md#input-v1). **Trace:** R1,R2,R5,R6.
 
 - [ ] Retain the approved per-resource evidence separately from display-string diffs in both live and seeded paths.
 - [ ] Implement eligibility from the contract reference, including import/move with accompanying mutation and
@@ -123,12 +128,13 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 
 ### US-002: Resolve and load the selected complete policy
 
-**Dependencies:** US-001 and accepted source/trust contracts. **Trace:** R3,R7.
+**Dependencies:** US-001 and [v1 source](../docs/reference/risk-policy-contract.md#source-selection)/[trust](../docs/reference/risk-policy-contract.md#runtime-and-trust-boundary) contracts. **Trace:** R3,R7.
 
 - [ ] Implement approved HCL source selection and path resolution, including built-in selection when no custom
   source is selected. Do not implement a custom HCL matcher or independently inherited rule fragments.
-- [ ] Exercise actual configuration parsing/resolution, not just manually built option maps; account for the
-  reported ignored member plugin block and per-key merge behavior.
+- [ ] Exercise actual configuration parsing/resolution, not just manually built option maps; preserve current
+  Member plugin-block rejection and account for historical ignored-block/per-key merge evidence. Implement
+  the dedicated selector without restoring Member plugin inheritance.
 - [ ] Identify the loaded source snapshot consistently for compilation, evaluation, reload and reporting.
 - [ ] Report invalid source/configuration explicitly. Design propagation so risk-policy failures preserve Plan
   review with unavailable risk; do not blindly make every Risk Configure error abort the whole application.
@@ -137,7 +143,7 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 
 ### US-003: Evaluate and validate independent classifications
 
-**Dependencies:** US-001, US-002, D-03. **Trace:** R1–R6.
+**Dependencies:** US-001, US-002 and [published runtime choice](../docs/reference/risk-policy-contract.md#runtime-and-trust-boundary). **Trace:** R1–R6.
 
 - [ ] Embed the approved evaluator version and capabilities in app internals; expose only the accepted domain
   result through the SDK boundary.
@@ -186,12 +192,12 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 
 ### US-006: Add risk command reporting and threshold evaluation
 
-**Dependencies:** US-004 and approved report/threshold contract. **Trace:** R2,R4,R5.
+**Dependencies:** US-004 and [v1 report/threshold contract](../docs/reference/risk-policy-contract.md#command-threshold-and-report-v1). **Trace:** R2,R4,R5.
 
 - [ ] Register `tfui risk` using existing Standalone/Headless command conventions and cancellation handling.
 - [ ] Implement the accepted tfui aggregation and threshold comparison outside policy evaluation.
-- [ ] Implement approved text/JSON report, provenance, versioning and exit results. Do not adopt the old PRD's
-  `level`, default `high`, exit-code table or JSON fields without the contract decision.
+- [ ] Implement approved text/JSON report, provenance, versioning and exit results. Use the v1 contract's
+  explicit threshold, migration, report schema and channel/exit extension; old PRD guesses are superseded.
 - [ ] Cover threshold boundary equality, explicit overrides, old ignored `level`, empty eligibility, excluded
   changes, explicit defaults and all evaluation failures.
 - [ ] Keep `tfui plan -json` Terraform pass-through. Do not add a risk field or change Apply flags/auto-approval.
@@ -199,7 +205,7 @@ The contract reference owns the intended inline-diff presentation; existing TUI 
 
 ### US-007: Provide explicit policy templates and author tests
 
-**Dependencies:** US-003 and approved template/helper decisions. **Trace:** R1–R3,R6.
+**Dependencies:** US-003 and [v1 template/helper decisions](../docs/reference/risk-policy-contract.md#helpers-templates-and-upgrades). **Trace:** R1–R3,R6.
 
 - [ ] Supply complete, copyable source with an explicit default and no runtime preset selector.
 - [ ] Demonstrate the approved author-testing workflow on isolated resource fixtures.
