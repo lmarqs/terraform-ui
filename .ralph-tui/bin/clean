@@ -1,0 +1,123 @@
+#!/bin/sh
+# Removes the worktree <worktrees>/ralph/<name>, its parallel workers' worktrees, their branches and ralph/<name>.
+# Written by io.github.lmarqs.cookbook:ralph#ralph-tui; cook it again to update it.
+set -eu
+
+# The directory --worktree-root names, by its path from the repository root.
+worktrees='.worktrees'
+# The file --worktree-teardown names, by its path from the repository root; empty without --worktree-teardown.
+teardown='.worktrees/teardown'
+
+usage() {
+  echo 'usage: .ralph-tui/bin/clean <name> [--force]' >&2
+  exit 2
+}
+
+fail() {
+  printf 'clean: %s\n' "$1" >&2
+  shift
+  for line in "$@"; do printf '  %s\n' "$line" >&2; done
+  exit 1
+}
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/../.." && pwd)
+
+name='' force=false
+for argument in "$@"; do
+  case $argument in
+    --force) force=true ;;
+    -*) usage ;;
+    *) [ -z "$name" ] || usage; name=$argument ;;
+  esac
+done
+[ -n "$name" ] || usage
+branch=ralph/$name
+git check-ref-format --branch "$branch" >/dev/null 2>&1 ||
+  fail "$name is not a run name" "ralph/$name must be a valid branch name"
+worktree=$root/$worktrees/ralph/$name
+# ralph-tui puts a run's parallel workers beside its worktree, in .ralph-worktrees/<the worktree's directory name>/.
+# git lists worktrees by their paths with symbolic links resolved, so the prefix matched against them is resolved too.
+workers=$(CDPATH='' cd -P -- "$(dirname -- "$worktree")" 2>/dev/null && pwd -P ||
+  dirname -- "$worktree")/.ralph-worktrees
+parallel=$(git -C "$root" worktree list --porcelain | PREFIX="$workers/${name##*/}/" awk '
+  /^worktree / { path = substr($0, 10) }
+  /^branch refs\/heads\// && index(path, ENVIRON["PREFIX"]) == 1 { print path "\t" substr($0, 19) }
+')
+tab=$(printf '\t')
+
+origin_head=false
+if git -C "$root" rev-parse --verify --quiet 'refs/remotes/origin/HEAD^{commit}' >/dev/null; then origin_head=true; fi
+
+# The commits of branch $1 that $2 lacks, one per line: git cherry matches merged, rebased and cherry-picked commits by
+# patch, and skips merges, so a merge counts only when its result differs from Git's own, as a resolved conflict does.
+# A git error stops clean, never reads as delivered.
+lacks() {
+  cherry=$(git -C "$root" cherry -v --abbrev "$2" "refs/heads/$1") || exit 1
+  printf '%s\n' "$cherry" | sed -n 's/^+ //p'
+  merges=$(git -C "$root" rev-list --merges "refs/heads/$1" "^$2") || exit 1
+  for merge in $merges; do
+    resolution=$(git -C "$root" show --remerge-diff --format= "$merge") || exit 1
+    [ -z "$resolution" ] || git -C "$root" log -1 --format='%h %s' --abbrev=7 "$merge"
+  done
+}
+
+refuse_undelivered() {
+  missing=$(lacks "$1" HEAD)
+  if [ -n "$missing" ] && [ "$origin_head" = true ]; then
+    upstream=$(lacks "$1" refs/remotes/origin/HEAD)
+    missing=$(printf '%s\n' "$missing" | grep -Fx -e "$upstream" || true)
+  fi
+  [ -z "$missing" ] || fail "$1 has commits that neither HEAD nor origin/HEAD has" \
+    "$(printf '%s\n' "$missing" | sed '2,$s/^/  /')" \
+    'a squash merge, or a commit changed while delivering it, such as by resolving conflicts, changes its patch' \
+    "deliver $1, or run with --force to delete them"
+}
+
+has_branch=false
+if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then has_branch=true; fi
+
+if [ "$force" = false ]; then
+  if [ "$has_branch" = true ]; then refuse_undelivered "$branch"; fi
+  while IFS=$tab read -r _ parallel_branch; do
+    [ -z "$parallel_branch" ] || refuse_undelivered "$parallel_branch"
+  done <<EOF
+$parallel
+EOF
+  while IFS=$tab read -r path _; do
+    if [ -e "$path/.git" ] && [ -n "$(git -C "$path" status --porcelain)" ]; then
+      fail "$path has uncommitted changes" 'they would be lost' 'commit them, or run with --force to delete them'
+    fi
+  done <<EOF
+$worktree
+$parallel
+EOF
+fi
+
+if [ -n "$teardown" ] && [ -e "$worktree/.git" ]; then
+  retry="fix it, then run .ralph-tui/bin/clean $name again"
+  [ -f "$worktree/$teardown" ] ||
+    fail "$teardown is not in $worktree" 'a worktree holds only what is committed' "$retry"
+  [ -x "$worktree/$teardown" ] || fail "$teardown is not executable" "in $worktree" "$retry"
+  (cd "$worktree" && "./$teardown") || fail "$teardown failed" "in $worktree" 'nothing was removed' "$retry"
+fi
+
+while IFS=$tab read -r parallel_worktree parallel_branch; do
+  [ -n "$parallel_worktree" ] || continue
+  git -C "$root" worktree remove --force "$parallel_worktree"
+  git -C "$root" branch --quiet -D "$parallel_branch"
+  echo "Removed the worktree $parallel_worktree and the branch $parallel_branch."
+done <<EOF
+$parallel
+EOF
+rmdir "$workers/${name##*/}" "$workers" 2>/dev/null || true
+
+if [ -e "$worktree/.git" ]; then
+  git -C "$root" worktree remove --force "$worktree"
+  echo "Removed the worktree $worktree."
+fi
+git -C "$root" worktree prune
+if [ "$has_branch" = true ]; then
+  git -C "$root" branch --quiet -D "$branch"
+  echo "Removed the branch $branch."
+fi
+rmdir "$root/$worktrees/ralph" 2>/dev/null || true

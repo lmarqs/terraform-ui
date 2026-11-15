@@ -1,0 +1,37 @@
+configVersion = "2.1"
+tracker = "beads-bv"
+# ralph-tui stops a run after this many iterations, each one agent run on one task; 0 means no limit.
+maxIterations = 10
+autoCommit = true
+
+[errorHandling]
+strategy = "retry"
+maxRetries = 2
+continueOnNonZeroExit = false
+
+[parallel]
+directMerge = true
+
+# ralph-tui's beads trackers find no tasks unless this directory exists; a run worktree lacks it
+# when nothing under .beads/ is committed, and bd finds the main checkout's database itself.
+[trackerOptions]
+beadsDir = "../../../.beads"
+
+[[agents]]
+name = "claude"
+plugin = "claude"
+command = ".ralph-tui/bin/worker"
+defaultFlags = ["claude", "--permission-prompts", "none", "--permission-mode", "acceptEdits", "--settings", ".agents/adapters/claude/roles/worker.json"]
+
+[agents.options]
+skipPermissions = false
+
+[[agents]]
+name = "codex"
+plugin = "codex"
+command = ".ralph-tui/bin/worker"
+defaultFlags = ["codex", "--dangerously-bypass-hook-trust", "-c", "approval_policy=never", "-c", "sandbox_workspace_write.network_access=false", "-c", "sandbox_workspace_write.network_access=true", "-c", "shell_environment_policy.set.MISE_CACHE_DIR=\"/tmp/tfui-ralph-mise\""]
+
+[agents.options]
+fullAuto = false
+sandbox = "workspace-write"

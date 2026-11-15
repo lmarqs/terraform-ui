@@ -66,3 +66,25 @@ CLAUDE.md
 CLAUDE.local.md
 **/.claude/CLAUDE.md
 # cook:end io.github.lmarqs.cookbook:agents#connect/harnesses
+# cook:begin io.github.lmarqs.cookbook:beads#tracker/tracker
+# io.github.lmarqs.cookbook:beads#tracker --share=team --instructions=.agents/skills/beads-ralph/SKILL.md
+/.beads/*
+!/.beads/config.yaml
+.dolt/
+*.db
+.beads-credential-key
+.beads/proxieddb/
+*.gate.lock*
+# cook:end io.github.lmarqs.cookbook:beads#tracker/tracker
+# cook:begin io.github.lmarqs.cookbook:beads#viewer/viewer
+# io.github.lmarqs.cookbook:beads#viewer --instructions=.agents/skills/beads-ralph/SKILL.md
+/.beads/issues.jsonl
+# cook:end io.github.lmarqs.cookbook:beads#viewer/viewer
+# cook:begin io.github.lmarqs.cookbook:ralph#ralph-tui/ralph-tui
+# io.github.lmarqs.cookbook:ralph#ralph-tui --harness=claude --harness=codex --worker-role=claude:worker --worker-settings=codex:.agents/adapters/codex/worker.toml --worktree-setup=.worktrees/setup --worktree-teardown=.worktrees/teardown --worker-check=scripts/worker-check --tracker=beads-bv --tracker=json --instructions=.agents/skills/beads-ralph/SKILL.md
+/.ralph-tui/*
+!/.ralph-tui/config.toml
+!/.ralph-tui/templates/
+!/.ralph-tui/bin/
+/.worktrees/ralph/
+# cook:end io.github.lmarqs.cookbook:ralph#ralph-tui/ralph-tui

@@ -1,0 +1,74 @@
+#!/bin/sh
+# Runs a coding agent for ralph-tui, and hands its output to ralph-tui only once the team's check passes.
+# Written by io.github.lmarqs.cookbook:ralph#ralph-tui; cook it again to update it.
+set -u
+
+# The file --worker-check names, by its path from the repository root; empty without --worker-check.
+check='scripts/worker-check'
+# The harnesses the configuration was seeded with, each asked for its version when ralph-tui asks the worker.
+agents='claude codex'
+
+fail() {
+  printf 'worker: %s\n' "$1" >&2
+  shift
+  for line in "$@"; do printf '  %s\n' "$line" >&2; done
+  exit 1
+}
+
+if [ "$*" = --version ]; then
+  for agent in $agents; do "$agent" --version || exit; done
+  exit 0
+fi
+
+[ -n "$check" ] || fail 'no check is set, so no task may complete' \
+  'cook io.github.lmarqs.cookbook:ralph#ralph-tui again with --worker-check=<path>,' \
+  "or point the agent entry's command in .ralph-tui/config.toml at the team's own wrapper"
+[ $# -ge 1 ] || fail 'usage: .ralph-tui/bin/worker <agent> [agent arguments...]'
+agent=$1
+shift
+
+root=$(git rev-parse --show-toplevel) || fail 'the worker runs only in a Git worktree'
+[ "$(git rev-parse --path-format=absolute --git-dir)" != "$(git rev-parse --path-format=absolute --git-common-dir)" ] ||
+  fail "$root is the main checkout; the worker runs only in a run worktree, which .ralph-tui/bin/run creates"
+
+base=$(git rev-parse HEAD)
+mkdir -p "$root/.ralph-tui"
+output=$root/.ralph-tui/worker-output.log
+log=$root/.ralph-tui/worker-check.log
+
+# Prints the process and every descendant of it that is still running.
+tree() {
+  ps -A -o pid= -o ppid= | awk -v root="$1" '
+    { parent[$1] = $2 }
+    END {
+      found[root] = 1
+      do {
+        more = 0
+        for (pid in parent) if (!(pid in found) && (parent[pid] in found)) { found[pid] = 1; more = 1 }
+      } while (more)
+      for (pid in found) print pid
+    }'
+}
+
+# ralph-tui stops a worker by signalling this process only, and a shell without a terminal starts no process group, so
+# the trap stops the agent's or the check's whole process tree. The agent runs in the background, where the trap can
+# interrupt the wait, and reads ralph-tui's stdin through descriptor 3, as a background command otherwise reads nothing.
+child=''
+trap '[ -z "$child" ] || kill -TERM $(tree "$child") 2>/dev/null; exit 143' TERM INT HUP
+exec 3<&0
+
+"$agent" "$@" <&3 3<&- >"$output" &
+child=$!
+wait "$child"
+status=$?
+[ "$status" -eq 0 ] || exit "$status"
+
+# ralph-tui completes a task when the output holds the promise, at any exit code, so the output waits for the check.
+# It accepts any case and any whitespace inside the tags, so the match drops every byte but letters, digits and tag
+# characters, each byte of a multibyte space among them; a false match only runs the check.
+if LC_ALL=C tr -cd '[:alnum:]<>/' <"$output" | grep -iq '<promise>complete</promise>'; then
+  "$root/$check" "$base" </dev/null 3<&- >"$log" 2>&1 &
+  child=$!
+  wait "$child" || fail "$check did not pass, so the task stays open; its output is in $log"
+fi
+cat "$output"

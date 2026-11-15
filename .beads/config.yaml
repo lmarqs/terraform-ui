@@ -1,0 +1,7 @@
+"export": 
+  "git-add": false
+  "auto": false
+"no-git-ops": true
+"dolt": 
+  "auto-push": false
+  "local-only": false

@@ -63,3 +63,12 @@ commands:
     # mise's `:::` runs a second task in the same command, so an allowed task could carry an unlisted one such as
     # release:run past every rule. Codex cannot match mid-command.
     - claude: "mise * ::: *"
+
+roles:
+  # ralph-tui commits each task in the run worktree and closes its bead; a worker only edits and runs checks, so
+  # nothing it does leaves the worktree before the run branch is reviewed.
+  worker:
+    deny:
+      - [git, [commit, push, merge, rebase, reset, stash, worktree]]
+      - [gh]
+      - [bd]

@@ -57,6 +57,12 @@ a role exists when `permission/policy.yaml` defines it.
 | Claude | unattended | worker | `claude -p --permission-prompts none --settings .agents/adapters/claude/roles/worker.json "<task>"` |
 | Codex | attended | developer | `codex` |
 | Codex | unattended | developer | `codex exec -c approval_policy=never "<task>"` |
+| ralph-tui, Claude workers | unattended | worker | `.ralph-tui/bin/run <name> --agent claude --epic <id> --headless` |
+| ralph-tui, Codex workers | unattended | worker | `.ralph-tui/bin/run <name> --agent codex --epic <id> --headless` |
+
+A ralph-tui run works in `.worktrees/ralph/<name>` on branch `ralph/<name>`, takes its tasks from a Beads epic, or a
+JSON PRD with `--prd <file>`, and completes a task only when `scripts/worker-check` passes. Remove the run with
+`.ralph-tui/bin/clean <name>` once its branch is delivered. The `beads-ralph` skill holds the details.
 
 Codex has no roles: it has no option that adds a rules file to one run, so every Codex run gets the policy's
 `commands` alone. A role's denies reach only Claude runs.

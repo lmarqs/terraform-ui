@@ -1,0 +1,7 @@
+# Settings an unattended Codex ralph-tui worker adds to its run: Go modules and gh need the network, and mise caches
+# under the home directory, which the workspace-write sandbox keeps read-only.
+[sandbox_workspace_write]
+network_access = true
+
+[shell_environment_policy.set]
+MISE_CACHE_DIR = "/tmp/tfui-ralph-mise"

@@ -1,0 +1,67 @@
+{{!--
+  The prompt ralph-tui renders for each bead of a run with --epic under the beads-bv tracker. Seeded by
+  io.github.lmarqs.cookbook:ralph#ralph-tui; the team owns it. ralph-tui's variables are listed in its own beads-bv
+  template.
+--}}
+{{#if prdContent}}
+We are working in a project to implement the following Product Requirements Document (PRD):
+
+{{prdContent}}
+
+---
+{{/if}}
+
+## Bead
+- **ID**: {{taskId}}
+- **Title**: {{taskTitle}}
+{{#if epicId}}
+- **Epic**: {{epicId}}{{#if epicTitle}} - {{epicTitle}}{{/if}}
+{{/if}}
+{{#if taskDescription}}
+- **Description**: {{taskDescription}}
+{{/if}}
+
+{{#if acceptanceCriteria}}
+## Acceptance Criteria
+{{acceptanceCriteria}}
+{{/if}}
+
+{{#if dependsOn}}
+**Prerequisites**: {{dependsOn}}
+{{/if}}
+
+{{#if selectionReason}}
+## Why This Bead Was Selected
+{{selectionReason}}
+{{/if}}
+
+{{#if recentProgress}}
+## Recent Progress
+{{recentProgress}}
+{{/if}}
+
+## Rules
+- Stay in this worktree, `{{cwd}}`, on its current branch: do not change branches, and write nothing outside it.
+{{#if config.autoCommit}}
+- Do not commit: ralph-tui commits your changes after the bead completes.
+{{else}}
+- Do not commit: leave your changes uncommitted for review.
+{{/if}}
+- Never push, and never open a pull request.
+- Never close or update the bead, and do not run `bd`: the bead is above, and ralph-tui closes it when you signal
+  completion.
+
+## Workflow
+1. Read `.ralph-tui/progress.md`, if it exists, for the run's progress and the patterns found so far.
+2. Read the code this bead touches, and the project's instructions in `AGENTS.md`, before changing anything.
+3. Implement the bead and its acceptance criteria.
+4. Run the project's checks, as `AGENTS.md` names them, until they pass.
+5. Append to `.ralph-tui/progress.md`: `## {{taskId}}`, what you implemented, the files you changed, and what the next
+   bead should know.
+
+## Stop Condition
+When the work is done, or was already done, and the checks pass, print `<promise>COMPLETE</promise>` on a line of its
+own. Print it only then.
+
+When you cannot finish, print `BLOCKED: ` followed by the reason on a line of its own, do not print the promise, and
+stop.

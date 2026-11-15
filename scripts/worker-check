@@ -1,0 +1,7 @@
+#!/bin/sh
+# Gates a ralph-tui task: .ralph-tui/bin/worker runs it with the commit the agent started from, and the task
+# completes only when it exits 0. It runs the Done check from AGENTS.md.
+set -eu
+mise run check:lint
+mise run test:unit
+mise run check:build

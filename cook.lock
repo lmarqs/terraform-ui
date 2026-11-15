@@ -43,6 +43,7 @@ recipes:
         - ".agents/adapters/claude/agents/security-checker.md"
         - ".agents/adapters/claude/agents/test-writer.md"
         - ".agents/adapters/claude/agents/tui-checker.md"
+        - ".agents/adapters/claude/roles/worker.json"
         - ".agents/adapters/codex/agents/arch-checker.toml"
         - ".agents/adapters/codex/agents/architect.toml"
         - ".agents/adapters/codex/agents/cli-checker.toml"
@@ -85,6 +86,40 @@ recipes:
         - ".agents/skills/agents-layout/templates/AGENTS.template.md"
         - ".agents/skills/agents-layout/templates/README.template.md"
         - ".agents/skills/agents-layout/templates/policy.template.yaml"
+  - name: "io.github.lmarqs.cookbook:beads#tracker"
+    source: "io.github.lmarqs.cookbook:beads:12.2.0#tracker"
+    sha256: "7f225ec8337c8f67567bd20d12801a5993f8e70df030e8797cc7ba9f8481313c"
+    arguments:
+      "share": ["team"]
+      "instructions": [".agents/skills/beads-ralph/SKILL.md"]
+    owns:
+      sections:
+        - file: ".agents/skills/beads-ralph/SKILL.md"
+          id: "io.github.lmarqs.cookbook:beads#tracker/tracker"
+        - file: ".gitignore"
+          id: "io.github.lmarqs.cookbook:beads#tracker/tracker"
+      keys:
+        - file: ".beads/config.yaml"
+          path: ["dolt","auto-push"]
+        - file: ".beads/config.yaml"
+          path: ["dolt","local-only"]
+        - file: ".beads/config.yaml"
+          path: ["export","auto"]
+        - file: ".beads/config.yaml"
+          path: ["export","git-add"]
+        - file: ".beads/config.yaml"
+          path: ["no-git-ops"]
+  - name: "io.github.lmarqs.cookbook:beads#viewer"
+    source: "io.github.lmarqs.cookbook:beads:12.2.0#viewer"
+    sha256: "7f225ec8337c8f67567bd20d12801a5993f8e70df030e8797cc7ba9f8481313c"
+    arguments:
+      "instructions": [".agents/skills/beads-ralph/SKILL.md"]
+    owns:
+      sections:
+        - file: ".agents/skills/beads-ralph/SKILL.md"
+          id: "io.github.lmarqs.cookbook:beads#viewer/viewer"
+        - file: ".gitignore"
+          id: "io.github.lmarqs.cookbook:beads#viewer/viewer"
   - name: "io.github.lmarqs.cookbook:docs#layout"
     source: "io.github.lmarqs.cookbook:docs:12.2.0#layout"
     sha256: "bc5ab118fee287f201b87b7da2993b4cbc670bda34ebd515ad80d4725ff3bb76"
@@ -116,3 +151,25 @@ recipes:
           id: "io.github.lmarqs.cookbook:git#worktrees/worktrees"
         - file: "AGENTS.md"
           id: "io.github.lmarqs.cookbook:git#worktrees/worktrees"
+  - name: "io.github.lmarqs.cookbook:ralph#ralph-tui"
+    source: "io.github.lmarqs.cookbook:ralph:12.2.0#ralph-tui"
+    sha256: "543426c28b13a1d14b950b158a99ac3668785ca8565ded643a091b71892d6da9"
+    arguments:
+      "harness": ["claude","codex"]
+      "worker-role": ["claude:worker"]
+      "worker-settings": ["codex:.agents/adapters/codex/worker.toml"]
+      "worktree-setup": [".worktrees/setup"]
+      "worktree-teardown": [".worktrees/teardown"]
+      "worker-check": ["scripts/worker-check"]
+      "tracker": ["beads-bv","json"]
+      "instructions": [".agents/skills/beads-ralph/SKILL.md"]
+    owns:
+      sections:
+        - file: ".agents/skills/beads-ralph/SKILL.md"
+          id: "io.github.lmarqs.cookbook:ralph#ralph-tui/ralph-tui"
+        - file: ".gitignore"
+          id: "io.github.lmarqs.cookbook:ralph#ralph-tui/ralph-tui"
+      files:
+        - ".ralph-tui/bin/clean"
+        - ".ralph-tui/bin/run"
+        - ".ralph-tui/bin/worker"
