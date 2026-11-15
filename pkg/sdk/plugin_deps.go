@@ -29,6 +29,11 @@ type PluginDeps struct {
 	// non-nil after the first ContextChangedEvent; before that, returns a
 	// minimal bootstrap snapshot derived from Service.
 	Context func() *Context
+	// RiskPolicyDiagnostic reloads selected policy configuration and source for
+	// the active Context. It returns a fixed failure code, or an empty string
+	// when source acquisition succeeds; this does not validate evaluation.
+	// Hosts without policy source loading may leave it nil.
+	RiskPolicyDiagnostic func() string
 	// Pin toggles resource addresses into or out of the active Context's Pins
 	// as one group (see Pins.Toggle). Returns a tea.Cmd that emits the request
 	// to the App; the actual Pins change becomes visible to the plugin on the

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
@@ -123,5 +124,104 @@ esac
 	}
 	if got := stdout.String(); got != source {
 		t.Fatalf("Plan JSON output = %q, want exact Terraform bytes %q", got, source)
+	}
+}
+
+func TestRunPlugin_GivenPolicySourceFailure_ShouldPreserveSeededPlanReview(t *testing.T) {
+	for _, tc := range []struct {
+		name, root, member, source, code string
+	}{
+		{"missing source", `defaults { risk_policy = "missing.rego" }`, "", "", "source_unreadable"},
+		{"empty source", `defaults { risk_policy = "policy.rego" }`, "", "", "source_invalid"},
+		{"malformed member selector", `defaults { risk_policy = "policy.rego" }`, `risk_policy = null`, "package example", "configuration_invalid"},
+		{"malformed root selector", `defaults { risk_policy = null }`, "", "package example", "configuration_invalid"},
+		{"malformed member HCL", `defaults { risk_policy = "policy.rego" }`, `risk_policy = "unterminated`, "package example", "configuration_invalid"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			member := filepath.Join(dir, "member")
+			if err := os.Mkdir(member, 0700); err != nil {
+				t.Fatal(err)
+			}
+			for path, content := range map[string]string{
+				filepath.Join(dir, "tfui.hcl"):    tc.root,
+				filepath.Join(member, "tfui.hcl"): tc.member,
+				filepath.Join(member, "main.tf"):  "# seeded review",
+				filepath.Join(dir, "policy.rego"): tc.source,
+				filepath.Join(dir, "plan.json"):   sessionPlanJSON,
+			} {
+				if err := os.WriteFile(path, []byte(content), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			root, err := config.LoadRoot(dir)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var stdout, stderr bytes.Buffer
+			session := &Session{
+				cfg:     config.Config{Dir: dir, Chdir: "member", PreloadedData: true, Terraform: config.TerraformConfig{Bin: filepath.Join(dir, "nonexistent-terraform")}},
+				rootCfg: root, sources: PreseedSources{Plan: filepath.Join(dir, "plan.json")}, silentStderr: true,
+				effects: Effects{Stdout: &stdout, Stderr: &stderr},
+			}
+			var plan *tfuiplan.Plugin
+			err = session.RunPlugin(context.Background(), "plan", func(p sdk.Plugin) tea.Cmd {
+				plan = p.(*tfuiplan.Plugin)
+				return plan.Activate(tfuiplan.Input{})
+			})
+			var exitErr *exitError
+			if !errors.As(err, &exitErr) || exitErr.code != 2 {
+				t.Fatalf("Plan exit = %v, want unchanged plan-with-changes exit 2; stderr = %q", err, stderr.String())
+			}
+			if plan.Status() != sdk.StatusDone || !strings.Contains(stdout.String(), "aws_lambda_function.worker") {
+				t.Fatalf("Plan review lost: status = %v, stdout = %q", plan.Status(), stdout.String())
+			}
+			want := "risk unavailable: " + tc.code
+			if !strings.Contains(stderr.String(), want) {
+				t.Fatalf("stderr = %q, want explicit policy failure %q", stderr.String(), want)
+			}
+			if !strings.Contains(plan.View(100, 30), want) {
+				t.Errorf("Plan view missing %q", want)
+			}
+			if strings.Contains(stdout.String(), "Risk:") {
+				t.Errorf("Plan output retained successful risk badge: %q", stdout.String())
+			}
+		})
+	}
+}
+
+func TestRunPlugin_GivenRiskSourceFailure_ShouldTerminateWithFixedDiagnosticWithoutTerraform(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "tfui.hcl"), []byte(`defaults { risk_policy = "missing.rego" }`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, err := config.LoadRoot(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stdout, stderr bytes.Buffer
+	session := &Session{
+		cfg:     config.Config{Dir: dir, PreloadedData: true, Terraform: config.TerraformConfig{Bin: filepath.Join(dir, "nonexistent-terraform")}},
+		rootCfg: root, silentStderr: true,
+		effects: Effects{Stdout: &stdout, Stderr: &stderr},
+	}
+	done := make(chan error, 1)
+	go func() {
+		done <- session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).Activate() })
+	}()
+	select {
+	case err = <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("Risk source failure hung instead of reaching terminal error")
+	}
+	var exitErr *exitError
+	if !errors.As(err, &exitErr) || exitErr.code != 1 {
+		t.Fatalf("Risk exit = %v, want operational failure 1", err)
+	}
+	if got := stderr.String(); got != "risk unavailable: source_unreadable\n" {
+		t.Fatalf("Risk stderr = %q", got)
+	}
+	if got := stdout.String(); got != "" {
+		t.Fatalf("Risk failure stdout = %q, want no successful report", got)
 	}
 }

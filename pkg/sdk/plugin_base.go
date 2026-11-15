@@ -38,7 +38,8 @@ type PluginBase struct {
 	// Log is the structured logger. Always non-nil after NewPluginBase.
 	Log *slog.Logger
 	// GetCtx returns the live immutable Context snapshot. Set by InitBase.
-	GetCtx func() *Context
+	GetCtx           func() *Context
+	policyDiagnostic func() string
 	// PinFn toggles a group of resource addresses. Set by InitBase.
 	PinFn func(...string) tea.Cmd
 	// ClearPinsFn removes every pin. Set by InitBase.
@@ -73,8 +74,18 @@ func (b *PluginBase) InitBase(deps *PluginDeps) {
 		b.Log = deps.Logger
 	}
 	b.GetCtx = deps.Context
+	b.policyDiagnostic = deps.RiskPolicyDiagnostic
 	b.PinFn = deps.Pin
 	b.ClearPinsFn = deps.ClearPins
+}
+
+// PolicyDiagnostic checks source availability independently of Terraform so
+// a policy failure cannot prevent reviewing a successfully acquired plan.
+func (b *PluginBase) PolicyDiagnostic() string {
+	if b.policyDiagnostic == nil {
+		return ""
+	}
+	return b.policyDiagnostic()
 }
 
 // HandleContextChangedDefault implements the standard service-rebind that

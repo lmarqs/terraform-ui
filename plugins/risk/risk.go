@@ -17,11 +17,12 @@ type RiskGroup struct {
 // Plugin implements the risk analysis feature.
 type Plugin struct {
 	sdk.PluginBase
-	status   sdk.Status
-	groups   []RiskGroup
-	overall  sdk.RiskLevel
-	selected int
-	total    int
+	status         sdk.Status
+	groups         []RiskGroup
+	overall        sdk.RiskLevel
+	selected       int
+	total          int
+	riskDiagnostic string
 }
 
 // New creates a new risk analysis plugin.
@@ -57,8 +58,46 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	return nil
 }
 
+// Activate reloads source availability even when no new plan was acquired.
+func (e *Plugin) Activate() tea.Cmd {
+	if !e.checkPolicySource() && e.status == sdk.StatusError {
+		e.status = sdk.StatusIdle
+	}
+	return nil
+}
+
+func (e *Plugin) checkPolicySource() bool {
+	e.riskDiagnostic = e.PolicyDiagnostic()
+	if e.riskDiagnostic == "" {
+		return false
+	}
+	e.status = sdk.StatusError
+	e.groups = nil
+	e.overall = sdk.RiskNone
+	e.selected = 0
+	e.total = 0
+	return true
+}
+
+func (e *Plugin) Stderr() []byte {
+	if e.riskDiagnostic == "" {
+		return nil
+	}
+	return []byte("risk unavailable: " + e.riskDiagnostic + "\n")
+}
+
+func (e *Plugin) ExitCode() int {
+	if e.status == sdk.StatusError {
+		return 1
+	}
+	return 0
+}
+
 // Analyze processes a plan summary and groups changes by risk.
 func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
+	if e.checkPolicySource() {
+		return
+	}
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = sdk.StatusDone
 		e.groups = nil
@@ -162,6 +201,8 @@ func (e *Plugin) View(width, height int) string {
 
 	case sdk.StatusDone:
 		return e.renderAnalysis(width, height)
+	case sdk.StatusError:
+		return sdk.StyleError.Render("risk unavailable: " + e.riskDiagnostic)
 
 	default:
 		return ""

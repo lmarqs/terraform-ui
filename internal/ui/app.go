@@ -152,9 +152,10 @@ func (a App) Init() tea.Cmd {
 
 	holder := a.holder
 	deps := &plugin.PluginDeps{
-		Logger:  logging.Logger(),
-		Service: a.holder.current.Service,
-		Context: func() *sdk.Context { return holder.current },
+		Logger:               logging.Logger(),
+		Service:              a.holder.current.Service,
+		Context:              func() *sdk.Context { return holder.current },
+		RiskPolicyDiagnostic: a.riskPolicyDiagnostic,
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
