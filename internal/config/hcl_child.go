@@ -10,7 +10,7 @@ import (
 	"github.com/zclconf/go-cty/cty"
 )
 
-var lockedBlocks = []string{"terraform", "member", "defaults"}
+var lockedBlocks = []string{"terraform", "member", "defaults", "plugin"}
 
 func LoadChild(dir string) (*ChildConfig, error) {
 	path := filepath.Join(dir, HCLConfigFileName)
@@ -42,6 +42,20 @@ func LoadChild(dir string) (*ChildConfig, error) {
 	if err := rejectLockedBlocks(content); err != nil {
 		return nil, err
 	}
+	for _, block := range content.Blocks {
+		if block.Type != "workspace" {
+			continue
+		}
+		plugins, _, diags := block.Body.PartialContent(&hcl.BodySchema{
+			Blocks: []hcl.BlockHeaderSchema{{Type: "plugin", LabelNames: []string{"name"}}},
+		})
+		if diags.HasErrors() {
+			return nil, fmt.Errorf("decoding %s: %w", path, diags)
+		}
+		if err := rejectLockedBlocks(plugins); err != nil {
+			return nil, err
+		}
+	}
 
 	return convertChildContent(content), nil
 }
@@ -64,6 +78,9 @@ func rejectLockedBlocks(content *hcl.BodyContent) error {
 	for _, block := range content.Blocks {
 		for _, locked := range lockedBlocks {
 			if block.Type == locked {
+				if locked == "plugin" {
+					return fmt.Errorf("block %q is not allowed in member config (locked to root tfui.hcl); configure plugin settings in defaults { plugin %q { ... } } in the root tfui.hcl", locked, block.Labels[0])
+				}
 				return fmt.Errorf("block %q is not allowed in child config (locked to root tfui.hcl)", locked)
 			}
 		}
@@ -84,11 +101,6 @@ func convertChildContent(content *hcl.BodyContent) *ChildConfig {
 			}
 			val := extractVarValue(block.Body)
 			cfg.Vars[block.Labels[0]] = val
-		case "plugin":
-			if cfg.Plugins == nil {
-				cfg.Plugins = make(map[string]PluginSettings)
-			}
-			cfg.Plugins[block.Labels[0]] = extractChildPlugin(block.Body)
 		case "workspace":
 			ws := convertWorkspaceBlock(block)
 			cfg.Workspaces = append(cfg.Workspaces, ws)
@@ -110,7 +122,6 @@ func convertWorkspaceBlock(block *hcl.Block) WorkspaceConfig {
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "var_file", LabelNames: []string{"path"}},
 			{Type: "var", LabelNames: []string{"name"}},
-			{Type: "plugin", LabelNames: []string{"name"}},
 		},
 	})
 	if diags.HasErrors() {
@@ -133,11 +144,6 @@ func convertWorkspaceBlock(block *hcl.Block) WorkspaceConfig {
 				ws.Vars = make(map[string]string)
 			}
 			ws.Vars[b.Labels[0]] = extractVarValue(b.Body)
-		case "plugin":
-			if ws.Plugins == nil {
-				ws.Plugins = make(map[string]PluginSettings)
-			}
-			ws.Plugins[b.Labels[0]] = extractChildPlugin(b.Body)
 		}
 	}
 
@@ -162,32 +168,4 @@ func extractVarValue(body hcl.Body) string {
 		return ""
 	}
 	return val.AsString()
-}
-
-func extractChildPlugin(body hcl.Body) PluginSettings {
-	attrs, diags := body.JustAttributes()
-	if diags.HasErrors() {
-		return PluginSettings{Enabled: true}
-	}
-
-	ps := PluginSettings{
-		Enabled: true,
-		Options: make(map[string]interface{}),
-	}
-
-	for name, attr := range attrs {
-		val, diags := attr.Expr.Value(nil)
-		if diags.HasErrors() {
-			continue
-		}
-		if name == "enabled" && val.Type() == cty.Bool {
-			ps.Enabled = val.True()
-			continue
-		}
-		if v, ok := pluginOptionValue(val); ok {
-			ps.Options[name] = v
-		}
-	}
-
-	return ps
 }

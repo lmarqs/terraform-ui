@@ -452,10 +452,6 @@ defaults {
 func TestLoadChild_WhenValidConfig_ShouldParseTopLevelAndWorkspaces(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
-plugin "risk" {
-  level = "critical"
-}
-
 var_file "base.tfvars" {}
 
 workspace "default" {
@@ -471,11 +467,6 @@ workspace "production" {
 	cfg, err := LoadChild(dir)
 	if err != nil {
 		t.Fatalf("LoadChild() error: %v", err)
-	}
-
-	risk := cfg.PluginConfig("risk")
-	if risk.Options["level"] != "critical" {
-		t.Errorf("plugin risk level = %v, want %q", risk.Options["level"], "critical")
 	}
 
 	if len(cfg.VarFiles) != 1 {
@@ -1239,39 +1230,67 @@ workspace "prod" {
 	}
 }
 
-func TestConvertWorkspaceBlock_WhenPluginBlock_ShouldParsePlugins(t *testing.T) {
-	dir := t.TempDir()
-	writeHCL(t, dir, `
-workspace "prod" {
-  plugin "risk" {
-    enabled = true
-    level   = "critical"
-  }
-  plugin "phantom" {
-    enabled = false
-  }
+func TestLoadChild_WhenPluginBlockPresent_ShouldRejectWithRootDefaultsHint(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		plugin string
+	}{
+		{
+			name:   "top level",
+			config: `plugin "risk" { enabled = false }`,
+			plugin: "risk",
+		},
+		{
+			name: "workspace",
+			config: `workspace "prod" {
+  plugin "phantom" { enabled = false }
+}`,
+			plugin: "phantom",
+		},
+		{
+			name: "workspace with variables and lock timeout",
+			config: `workspace "prod" {
+  lock_timeout = "30s"
+  var_file "prod.tfvars" {}
+  var "region" { value = "us-east-1" }
+  plugin "risk" { level = "critical" }
+}`,
+			plugin: "risk",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeHCL(t, dir, tt.config)
+
+			_, err := LoadChild(dir)
+			if err == nil {
+				t.Fatal("LoadChild() should reject plugin blocks in member tfui.hcl")
+			}
+			for _, want := range []string{"plugin", tt.plugin, "defaults", "root tfui.hcl"} {
+				if !strings.Contains(err.Error(), want) {
+					t.Errorf("LoadChild() error = %q, want %q in root defaults guidance", err, want)
+				}
+			}
+		})
+	}
 }
-`)
 
-	cfg, err := LoadChild(dir)
-	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
-	}
+func TestLoadChild_WhenWorkspacePluginLabelsInvalid_ShouldReturnSchemaError(t *testing.T) {
+	for _, block := range []string{`plugin {}`, `plugin "risk" "extra" {}`} {
+		t.Run(block, func(t *testing.T) {
+			dir := t.TempDir()
+			writeHCL(t, dir, "workspace \"prod\" {\n"+block+"\n}")
 
-	ws := cfg.Workspaces[0]
-	if len(ws.Plugins) != 2 {
-		t.Fatalf("workspace plugins length = %d, want 2", len(ws.Plugins))
-	}
-	risk := ws.Plugins["risk"]
-	if !risk.Enabled {
-		t.Error("workspace plugin risk should be enabled")
-	}
-	if risk.Options["level"] != "critical" {
-		t.Errorf("workspace plugin risk level = %v, want %q", risk.Options["level"], "critical")
-	}
-	phantom := ws.Plugins["phantom"]
-	if phantom.Enabled {
-		t.Error("workspace plugin phantom should be disabled")
+			_, err := LoadChild(dir)
+			if err == nil {
+				t.Fatal("LoadChild() should report malformed workspace plugin labels")
+			}
+			if !strings.Contains(err.Error(), "plugin") {
+				t.Errorf("LoadChild() error = %q, want plugin schema diagnostic", err)
+			}
+		})
 	}
 }
 
@@ -1301,23 +1320,25 @@ workspace "staging" {
 	}
 }
 
-func TestExtractChildPlugin_WhenBoolAndNumberOptions_ShouldParse(t *testing.T) {
+func TestLoadRoot_WhenDefaultsPluginOptions_ShouldParseBoolNumberAndString(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
+defaults {
 plugin "risk" {
   enabled   = true
   verbose   = true
   threshold = 0.8
   label     = "high"
 }
+}
 `)
 
-	cfg, err := LoadChild(dir)
+	cfg, err := LoadRoot(dir)
 	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
+		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	risk := cfg.Plugins["risk"]
+	risk := cfg.Defaults.PluginConfig("risk")
 	if !risk.Enabled {
 		t.Error("plugin risk should be enabled")
 	}
@@ -1332,20 +1353,22 @@ plugin "risk" {
 	}
 }
 
-func TestExtractChildPlugin_WhenEnabledFalse_ShouldSetEnabled(t *testing.T) {
+func TestLoadRoot_WhenDefaultsPluginDisabled_ShouldSetEnabledFalse(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
+defaults {
 plugin "phantom" {
   enabled = false
 }
+}
 `)
 
-	cfg, err := LoadChild(dir)
+	cfg, err := LoadRoot(dir)
 	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
+		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	phantom := cfg.Plugins["phantom"]
+	phantom := cfg.Defaults.PluginConfig("phantom")
 	if phantom.Enabled {
 		t.Error("plugin phantom should be disabled")
 	}
@@ -1551,6 +1574,31 @@ func TestChildConfig_PluginConfig_WhenPluginNotFound_ShouldReturnEmpty(t *testin
 	}
 }
 
+func TestChildConfig_PluginConfig_WhenPluginFound_ShouldReturnItsSettings(t *testing.T) {
+	c := &ChildConfig{Plugins: map[string]PluginSettings{
+		"risk":    {Enabled: true, Options: map[string]interface{}{"level": "high"}},
+		"phantom": {Enabled: false, Options: map[string]interface{}{"level": "low"}},
+	}}
+	for _, tt := range []struct {
+		id      string
+		enabled bool
+		level   string
+	}{
+		{id: "risk", enabled: true, level: "high"},
+		{id: "phantom", enabled: false, level: "low"},
+	} {
+		t.Run(tt.id, func(t *testing.T) {
+			ps := c.PluginConfig(tt.id)
+			if ps.Enabled != tt.enabled {
+				t.Errorf("PluginConfig(%q).Enabled = %v, want %v", tt.id, ps.Enabled, tt.enabled)
+			}
+			if ps.Options["level"] != tt.level {
+				t.Errorf("PluginConfig(%q).Options[level] = %v, want %q", tt.id, ps.Options["level"], tt.level)
+			}
+		})
+	}
+}
+
 func TestResolvedConfig_PluginConfig_WhenNilPlugins_ShouldReturnEmpty(t *testing.T) {
 	r := &ResolvedConfig{plugins: nil}
 	ps := r.PluginConfig("anything")
@@ -1739,21 +1787,23 @@ defaults {
 	}
 }
 
-func TestExtractChildPlugin_WhenOptionHasExpressionError_ShouldSkipIt(t *testing.T) {
+func TestLoadRoot_WhenDefaultsPluginExpressionError_ShouldPreserveValidOptions(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
+defaults {
 plugin "risk" {
   level = unknown_var
   label = "valid"
 }
+}
 `)
 
-	cfg, err := LoadChild(dir)
+	cfg, err := LoadRoot(dir)
 	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
+		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	risk := cfg.Plugins["risk"]
+	risk := cfg.Defaults.PluginConfig("risk")
 	if risk.Options["label"] != "valid" {
 		t.Errorf("risk label = %v, want %q", risk.Options["label"], "valid")
 	}
@@ -1762,22 +1812,24 @@ plugin "risk" {
 	}
 }
 
-func TestExtractChildPlugin_WhenBodyHasNestedBlock_ShouldReturnDefaultEnabled(t *testing.T) {
+func TestLoadRoot_WhenDefaultsPluginNestedBlock_ShouldDefaultEnabled(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
+defaults {
 plugin "risk" {
   nested_block {
     key = "value"
   }
 }
+}
 `)
 
-	cfg, err := LoadChild(dir)
+	cfg, err := LoadRoot(dir)
 	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
+		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	risk := cfg.Plugins["risk"]
+	risk := cfg.Defaults.PluginConfig("risk")
 	if !risk.Enabled {
 		t.Error("plugin with nested block should default to enabled=true")
 	}
@@ -1998,20 +2050,22 @@ defaults {
 	assertOptionStrings(t, opts, "mixed", []string{"ok"})
 }
 
-func TestLoadChild_WhenPluginOptionIsAList_ShouldDecodeTheStrings(t *testing.T) {
+func TestLoadRoot_WhenPlanTargets_ShouldDecodeStrings(t *testing.T) {
 	dir := t.TempDir()
 	writeHCL(t, dir, `
+defaults {
 plugin "plan" {
   targets = ["module.vpc"]
 }
+}
 `)
 
-	cfg, err := LoadChild(dir)
+	cfg, err := LoadRoot(dir)
 	if err != nil {
-		t.Fatalf("LoadChild() error: %v", err)
+		t.Fatalf("LoadRoot() error: %v", err)
 	}
 
-	assertOptionStrings(t, cfg.PluginConfig("plan").Options, "targets", []string{"module.vpc"})
+	assertOptionStrings(t, cfg.Defaults.PluginConfig("plan").Options, "targets", []string{"module.vpc"})
 }
 
 // TestResolvedConfig_PluginConfigs_ShouldExposeEveryPluginForTheRegistry covers
