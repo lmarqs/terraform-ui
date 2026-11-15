@@ -1,0 +1,57 @@
+{
+  "status": "prepared; execution gated; not accepted for production",
+  "inspected_date": "2026-11-15",
+  "repository_revision": "60167777494b622ca55a203f05deb8e127357d23",
+  "prd_sha256": "f2143150e7fd0d07b5cb0309a4ff68a3a1964bd51c0bf253de08290d6a67973f",
+  "experimental_candidate": {
+    "module": "github.com/open-policy-agent/opa",
+    "import": "github.com/open-policy-agent/opa/v1/rego",
+    "version": "v1.19.1",
+    "revision": "54896f9f28515d14b31a93e6ef5737bb85866e30",
+    "declared_go": "1.25.0",
+    "source": "https://github.com/open-policy-agent/opa/releases/tag/v1.19.1",
+    "module_source": "https://raw.githubusercontent.com/open-policy-agent/opa/54896f9f28515d14b31a93e6ef5737bb85866e30/go.mod",
+    "dependency_resolution": "not run; transitive compatibility unproven",
+    "maintenance_status": "older release with inspected patch evidence; current support and advisory applicability unproven"
+  },
+  "latest_observed": {
+    "version": "v1.22.4",
+    "revision": "ba39415db4b3c90cd68942a74b3cc2223ec2b23c",
+    "declared_go": "1.26.0",
+    "source": "https://github.com/open-policy-agent/opa/releases/tag/v1.22.4"
+  },
+  "toolchain": {"go": "go1.25.5", "host": "linux/amd64", "GOTOOLCHAIN": "local", "CGO_ENABLED": "0", "GOMAXPROCS": "2"},
+  "targets": ["linux/amd64", "linux/arm64", "darwin/amd64", "darwin/arm64"],
+  "baseline": {
+    "revision": "60167777494b622ca55a203f05deb8e127357d23",
+    "go_mod_sha256": "045f4f04798ed21698c1e247b601e2d03bcf81ed2619c21c28a071676c8b4837",
+    "go_sum_sha256": "74591be67e913e1403022f8258bf9f4c7ed1558d9fd8119e1887e2516e18dd5c",
+    "mise_sha256": "9f2866685a11422535a372e2c3dbeca997c1a2052499ba93771d190905834100",
+    "goreleaser_sha256": "419ba51689c1a001e6a115e56138794f9eceea16d6a80578b8eae0bf04c6d78b"
+  },
+  "proposed_capabilities": {
+    "builtin_allowlist": ["eq", "equal", "neq", "lt", "lte", "gt", "gte", "count", "plus", "minus", "mul", "div", "object.get", "sprintf"],
+    "allow_net": [],
+    "strict_builtin_errors": true,
+    "enable_print_statements": false,
+    "print_hook": false,
+    "query_tracer": false,
+    "custom_compiler": false,
+    "custom_builtins_or_resolvers": false,
+    "remote_loaders_or_schema_refs": false,
+    "language_features": "retain exactly candidate v1 feature set; freeze actual names/declarations and capabilities hash before execution"
+  },
+  "limits": {
+    "build": {"wall_seconds": 120, "kill_after_seconds": 2, "memory_bytes": 4294967296, "tasks": 128},
+    "probe_process": {"wall_seconds": 30, "kill_after_seconds": 2, "memory_bytes": 1073741824, "tasks": 64},
+    "cooperative_eval_timeout_ms": 100,
+    "source_bytes_max": 65536,
+    "input_bytes_max": 1048576,
+    "output_bytes_per_channel_max": 1048576,
+    "resource_counts": [1, 100, 1000],
+    "repetitions": 5,
+    "warm_evaluations_per_process": 100,
+    "scope": "experimental harness guards only, not product budgets or sandbox guarantees"
+  },
+  "execution_prerequisites": ["explicit D-01a experimental trust/capability/disclosure candidate", "explicit D-01a experimental entrypoint/result/validation candidate", "external cgroup memory and process-group termination preflight", "resolved dependency lock and immutable source hashes"]
+}
