@@ -42,8 +42,8 @@
     "language_features": "retain exactly candidate v1 feature set; freeze actual names/declarations and capabilities hash before execution"
   },
   "limits": {
-    "build": {"wall_seconds": 120, "kill_after_seconds": 2, "memory_bytes": 4294967296, "tasks": 128},
-    "probe_process": {"wall_seconds": 30, "kill_after_seconds": 2, "memory_bytes": 1073741824, "tasks": 64},
+    "build": {"wall_seconds": 120, "kill_after_seconds": 2, "address_space_bytes": 4294967296},
+    "probe_process": {"wall_seconds": 30, "kill_after_seconds": 2, "address_space_bytes": 1073741824},
     "cooperative_eval_timeout_ms": 100,
     "source_bytes_max": 65536,
     "input_bytes_max": 1048576,
@@ -53,5 +53,5 @@
     "warm_evaluations_per_process": 100,
     "scope": "experimental harness guards only, not product budgets or sandbox guarantees"
   },
-  "execution_prerequisites": ["explicit D-01a experimental trust/capability/disclosure candidate", "explicit D-01a experimental entrypoint/result/validation candidate", "external cgroup memory and process-group termination preflight", "resolved dependency lock and immutable source hashes"]
+  "execution_prerequisites": ["explicit D-01a experimental trust/capability/disclosure candidate", "explicit D-01a experimental entrypoint/result/validation candidate", "external prlimit address-space, timeout and process-group termination preflight", "resolved dependency lock and immutable source hashes"]
 }
