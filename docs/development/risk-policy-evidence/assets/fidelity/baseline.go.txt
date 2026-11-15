@@ -1,0 +1,59 @@
+package main
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+
+	tfjson "github.com/hashicorp/terraform-json"
+	"github.com/lmarqs/terraform-ui/internal/terraform"
+)
+
+func run() error {
+	for _, probe := range []struct{ name, before, after string }{
+		{"array-order", `["allow","deny"]`, `["deny","allow"]`},
+		{"null-field", `{"optional":null}`, `{}`},
+	} {
+		change := terraform.PlanChange{
+			Action:         terraform.ActionUpdate,
+			AttributeDiffs: []terraform.AttributeDiff{{Key: "value", OldValue: probe.before, NewValue: probe.after}},
+		}
+		phantom := terraform.IsPhantomChange(&change)
+		fmt.Printf("%s: phantom=%t\n", probe.name, phantom)
+		if !phantom {
+			return fmt.Errorf("%s baseline changed; review counterexample", probe.name)
+		}
+	}
+	data := []byte(`{"format_version":"1.2","resource_changes":[{"address":"test.example","mode":"managed","type":"test","name":"example","provider_name":"example/test","change":{"actions":["update"],"before":{"large":0,"exponent":0},"after":{"large":9007199254740993,"exponent":1e3}}}]}`)
+	summary, err := terraform.LoadPlan(data)
+	if err != nil {
+		return err
+	}
+	values := map[string]string{}
+	for _, diff := range summary.Changes[0].AttributeDiffs {
+		values[diff.Key] = diff.NewValue
+	}
+	fmt.Printf("LoadPlan: large=%s exponent=%s\n", values["large"], values["exponent"])
+	if values["large"] != "9007199254740992" || values["exponent"] != "1000" {
+		return fmt.Errorf("display baseline changed; review fidelity finding")
+	}
+	var plan tfjson.Plan
+	plan.UseJSONNumber(true)
+	if err := json.Unmarshal(data, &plan); err != nil {
+		return err
+	}
+	after := plan.ResourceChanges[0].Change.After.(map[string]interface{})
+	large, exponent := after["large"].(json.Number), after["exponent"].(json.Number)
+	fmt.Printf("UseJSONNumber: large=%s exponent=%s\n", large, exponent)
+	if large.String() != "9007199254740993" || exponent.String() != "1e3" {
+		return fmt.Errorf("number-preserving decode lost evidence")
+	}
+	return nil
+}
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+}

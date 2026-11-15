@@ -1,0 +1,16 @@
+test_Classify_GivenNeighborInsertionRemoval_ShouldKeepInputAndResult (test_fidelity.FidelityTests.test_Classify_GivenNeighborInsertionRemoval_ShouldKeepInputAndResult) ... ok
+test_Classify_GivenPhantomArrayOrderCounterexample_ShouldSeeDistinctEvidence (test_fidelity.FidelityTests.test_Classify_GivenPhantomArrayOrderCounterexample_ShouldSeeDistinctEvidence) ... ok
+test_Classify_GivenPhantomNullCounterexample_ShouldSeeDistinctEvidence (test_fidelity.FidelityTests.test_Classify_GivenPhantomNullCounterexample_ShouldSeeDistinctEvidence) ... ok
+test_Encode_GivenInconsistentMask_ShouldFailInsteadOfGuessing (test_fidelity.FidelityTests.test_Encode_GivenInconsistentMask_ShouldFailInsteadOfGuessing) ... ok
+test_Encode_GivenNestedMasks_ShouldRetainOnlyEstablishedShape (test_fidelity.FidelityTests.test_Encode_GivenNestedMasks_ShouldRetainOnlyEstablishedShape) ... ok
+test_Project_GivenCreateDeleteOrNull_ShouldDistinguishAbsentSide (test_fidelity.FidelityTests.test_Project_GivenCreateDeleteOrNull_ShouldDistinguishAbsentSide) ... ok
+test_Project_GivenIndexVariants_ShouldRetainIdentity (test_fidelity.FidelityTests.test_Project_GivenIndexVariants_ShouldRetainIdentity) ... ok
+test_Project_GivenReplacementOrders_ShouldRetainBothSequences (test_fidelity.FidelityTests.test_Project_GivenReplacementOrders_ShouldRetainBothSequences) ... ok
+test_Project_GivenSensitiveMasks_ShouldExposeNoSyntheticMarkers (test_fidelity.FidelityTests.test_Project_GivenSensitiveMasks_ShouldExposeNoSyntheticMarkers) ... ok
+test_Project_GivenSourceEvidence_ShouldRetainExactEnvelope (test_fidelity.FidelityTests.test_Project_GivenSourceEvidence_ShouldRetainExactEnvelope) ... ok
+test_Project_GivenWholeUnknownAfter_ShouldCollapseDescendants (test_fidelity.FidelityTests.test_Project_GivenWholeUnknownAfter_ShouldCollapseDescendants) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.003s
+
+OK

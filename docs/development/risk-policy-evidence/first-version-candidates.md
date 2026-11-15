@@ -364,3 +364,7 @@ costs and either records acceptance under delegated authority or revises the can
 These are evidence requests, not executed experiments. Runtime, acquisition, configuration and UI behavior tests
 belong to the downstream stories once the interface is published. This prose-only preparation adds no product
 tests and cannot establish that policy evaluation, reporting or lifecycle behavior already works.
+
+The [D-02a fidelity evidence](input-fidelity.md) now records executed disposable resource-local projection,
+neighbor-independence and phantom-counterexample experiments. It does not establish live/seeded acquisition,
+Context/source lifecycle or evaluator behavior; those evidence requests remain separate.

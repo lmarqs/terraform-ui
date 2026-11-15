@@ -1,0 +1,23 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.14.0",
+  "resource_changes": [{
+    "address": "module.app.aws_example.worker[9007199254740993]",
+    "previous_address": "module.old.aws_example.worker[9007199254740993]",
+    "module_address": "module.app",
+    "mode": "managed",
+    "type": "aws_example",
+    "name": "worker",
+    "provider_name": "registry.terraform.io/hashicorp/aws",
+    "index": 9007199254740993,
+    "change": {
+      "actions": ["update"],
+      "before": {"large": 9007199254740993, "exponent": 1e3, "steps": ["allow", "deny"], "optional": null, "enabled": false, "secret": "SYNTHETIC_BEFORE_SECRET_71"},
+      "after": {"large": 9007199254740993, "exponent": 1e3, "steps": ["allow", "deny"], "optional": null, "enabled": true, "secret": "SYNTHETIC_AFTER_SECRET_72", "nested": {"known": "kept", "password": "SYNTHETIC_NESTED_SECRET_73"}, "sequence": [null, "visible", "SYNTHETIC_ARRAY_SECRET_74"], "opaque": {"hidden_key": "SYNTHETIC_SUBTREE_SECRET_75"}},
+      "after_unknown": {"future": true, "nested": {"later": true}, "secret_future": true},
+      "before_sensitive": {"secret": true},
+      "after_sensitive": {"secret": true, "nested": {"password": true}, "sequence": [false, false, true], "opaque": true, "secret_future": true},
+      "replace_paths": [["nested", "known"], ["sequence", 2]]
+    }
+  }]
+}
