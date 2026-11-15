@@ -20,8 +20,8 @@ beadsDir = ".beads"
 [[agents]]
 name = "claude"
 plugin = "claude"
-command = ".ralph-tui/bin/worker"
-defaultFlags = ["claude", "--permission-prompts", "none", "--permission-mode", "acceptEdits", "--settings", ".agents/adapters/claude/roles/worker.json"]
+command = ".ralph-tui/bin/worker-claude"
+defaultFlags = ["--permission-prompts", "none", "--permission-mode", "acceptEdits", "--settings", ".agents/adapters/claude/roles/worker.json"]
 
 [agents.options]
 skipPermissions = false
@@ -29,8 +29,8 @@ skipPermissions = false
 [[agents]]
 name = "codex"
 plugin = "codex"
-command = ".ralph-tui/bin/worker"
-defaultFlags = ["codex", "--dangerously-bypass-hook-trust", "-c", "approval_policy=never", "-c", "sandbox_workspace_write.network_access=false", "-c", "sandbox_workspace_write.network_access=true", "-c", "shell_environment_policy.set.MISE_CACHE_DIR=\"/tmp/tfui-ralph-mise\""]
+command = ".ralph-tui/bin/worker-codex"
+defaultFlags = ["--dangerously-bypass-hook-trust", "-c", "approval_policy=never", "-c", "sandbox_workspace_write.network_access=true", "-c", "shell_environment_policy.set.MISE_CACHE_DIR=\"/tmp/tfui-ralph-mise\""]
 
 [agents.options]
 fullAuto = false

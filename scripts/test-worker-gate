@@ -1,0 +1,206 @@
+#!/bin/sh
+# Exercise the worker in linked Git worktrees without running real agents or checks.
+set -eu
+
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
+worker=$root/.ralph-tui/bin/worker
+scratch=$(mktemp -d "$root/.worker-gate.XXXXXX")
+trap 'rm -rf "$scratch"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM HUP
+
+mkdir -p "$scratch/main/scripts"
+git init -q "$scratch/main"
+cat > "$scratch/main/agent" <<'AGENT'
+#!/bin/sh
+printf 'agent stdout diagnostic\n'
+printf 'agent stderr diagnostic\n' >&2
+case $agent_mode in
+  stdout) printf '<promise>COMPLETE</promise>\n' ;;
+  stderr) printf '<promise>COMPLETE</promise>\n' >&2 ;;
+  both)
+    printf '<promise>COMPLETE</promise>\n'
+    printf '<promise>COMPLETE</promise>\n' >&2
+    ;;
+  mixed) printf '<PrOmIsE> \tCoMpLeTe \n</PrOmIsE>\n' >&2 ;;
+  none) ;;
+esac
+exit "$agent_status"
+AGENT
+cat > "$scratch/main/scripts/worker-check" <<'CHECK'
+#!/bin/sh
+set -eu
+[ "$#" -eq 1 ]
+[ "$1" = "$(git rev-parse HEAD)" ]
+printf 'check ran\n' > "$state/checked"
+# Snapshot what Ralph could already have consumed while the gate is still running.
+cat "$state/stdout" "$state/stderr" > "$state/during-check"
+if [ "$check_mode" = slow-fail ]; then
+  sleep 1
+  cat "$state/stdout" "$state/stderr" >> "$state/during-check"
+fi
+printf 'check diagnostic\n'
+if [ "$check_mode" != pass ]; then
+  printf '<promise>COMPLETE</promise>\n' >&2
+  exit 9
+fi
+CHECK
+chmod +x "$scratch/main/agent" "$scratch/main/scripts/worker-check"
+mkdir "$scratch/main/bin"
+cat > "$scratch/main/bin/codex" <<'CODEX'
+#!/bin/sh
+set -eu
+final=''
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    --output-last-message) final=$2; shift 2 ;;
+    *) shift ;;
+  esac
+done
+printf '%s\n' '{"type":"item.completed","item":{"type":"command_execution","aggregated_output":"<promise>COMPLETE</promise>"}}'
+if [ -n "$final" ] && [ "$codex_mode" != missing ]; then
+  if [ "$codex_mode" = complete ]; then
+    printf '<promise>COMPLETE</promise>\n' > "$final"
+  else
+    printf 'BLOCKED: work remains\n' > "$final"
+  fi
+fi
+exit "$agent_status"
+CODEX
+chmod +x "$scratch/main/bin/codex"
+git -C "$scratch/main" add agent bin/codex scripts/worker-check
+git -C "$scratch/main" -c user.name='Worker Gate Test' -c user.email='worker-gate@example.invalid' \
+  -c core.hooksPath=/dev/null commit -q --no-gpg-sign -m 'test fixture'
+
+failures=0
+cases=0
+fail() {
+  printf 'FAIL %s: %s\n' "$name" "$1" >&2
+  failures=$((failures + 1))
+}
+has_promise() {
+  LC_ALL=C tr -cd '[:alnum:]<>/' < "$1" | grep -iq '<promise>complete</promise>'
+}
+require_text() {
+  grep -Fq "$1" "$state/observed" || fail "missing diagnostic: $1"
+}
+run_case() {
+  name=$1
+  agent_mode=$2
+  agent_status=$3
+  check_mode=$4
+  cases=$((cases + 1))
+  state=$scratch/case-$cases
+  mkdir "$state"
+  git -C "$scratch/main" worktree add --quiet --detach "$state/worktree" HEAD
+  export state agent_mode agent_status check_mode
+  status=0
+  (cd "$state/worktree" && "$worker" ./agent) > "$state/stdout" 2> "$state/stderr" || status=$?
+  cat "$state/stdout" "$state/stderr" > "$state/observed"
+
+  if [ "$agent_status" -ne 0 ]; then
+    [ "$status" -eq "$agent_status" ] || fail "agent exit status $status, expected $agent_status"
+    [ ! -f "$state/checked" ] || fail 'check ran after agent failure'
+  elif [ "$agent_mode" = none ]; then
+    [ "$status" -eq 0 ] || fail "ordinary output exited $status"
+    [ ! -f "$state/checked" ] || fail 'check ran without completion'
+  else
+    [ -f "$state/checked" ] || fail 'completion did not run the check'
+    if [ "$check_mode" = pass ]; then
+      [ "$status" -eq 0 ] || fail "passing check exited $status"
+      has_promise "$state/observed" || fail 'passing check did not release completion'
+    else
+      [ "$status" -ne 0 ] || fail 'failed check allowed successful exit'
+      require_text 'check diagnostic'
+    fi
+  fi
+
+  if [ -f "$state/during-check" ] && has_promise "$state/during-check"; then
+    fail 'completion escaped while the check was running'
+  fi
+  if [ "$agent_status" -ne 0 ] || [ "$check_mode" != pass ]; then
+    if has_promise "$state/observed"; then
+      fail 'failed worker released a completion promise'
+    fi
+  fi
+  require_text 'agent stdout diagnostic'
+  require_text 'agent stderr diagnostic'
+  printf 'tested %s\n' "$name"
+}
+
+run_case stderr-completion-failing-check stderr 0 fail
+run_case both-streams-slow-failing-check both 0 slow-fail
+run_case stderr-mixed-case-whitespace-failing-check mixed 0 fail
+run_case stdout-completion-failing-check stdout 0 fail
+run_case nonzero-agent-completion both 7 pass
+run_case stderr-completion-passing-check stderr 0 pass
+run_case both-streams-passing-check both 0 pass
+run_case stdout-completion-passing-check stdout 0 pass
+run_case ordinary-output-without-completion none 0 pass
+
+run_codex() {
+  status=0
+  (cd "$state/worktree" && PATH="$state/worktree/bin:$PATH" "$worker" codex exec --json) \
+    > "$state/stdout" 2> "$state/stderr" || status=$?
+  cat "$state/stdout" "$state/stderr" > "$state/observed"
+}
+run_codex_case() {
+  name=$1
+  codex_mode=$2
+  agent_status=$3
+  cases=$((cases + 1))
+  state=$scratch/case-$cases
+  mkdir "$state"
+  git -C "$scratch/main" worktree add --quiet --detach "$state/worktree" HEAD
+  check_mode=pass
+  export state codex_mode agent_status check_mode
+
+  if [ "$codex_mode" = stale ]; then
+    codex_mode=complete
+    run_codex
+    [ "$status" -eq 0 ] || fail 'could not prime a previous successful invocation'
+    has_promise "$state/observed" || fail 'previous successful invocation did not complete'
+    rm -f "$state/checked" "$state/during-check"
+    codex_mode=missing
+  fi
+  run_codex
+
+  if [ "$agent_status" -ne 0 ]; then
+    [ "$status" -eq "$agent_status" ] || fail "agent exit status $status, expected $agent_status"
+  elif [ "$codex_mode" = complete ]; then
+    [ "$status" -eq 0 ] || fail "passing check exited $status"
+    [ -f "$state/checked" ] || fail 'final completion did not run the check'
+    has_promise "$state/observed" || fail 'final completion was not released'
+    jq -e '.type == "item.completed" and .item.type == "agent_message" and
+      .item.text == "<promise>COMPLETE</promise>\n"' "$state/stdout" >/dev/null 2>&1 ||
+      fail 'final response is not a renderable Codex agent_message event with the exact text'
+  elif [ "$codex_mode" = missing ]; then
+    [ "$status" -ne 0 ] || fail 'missing final response allowed successful exit'
+  fi
+
+  if [ "$codex_mode" != complete ] || [ "$agent_status" -ne 0 ]; then
+    [ ! -f "$state/checked" ] || fail 'check ran without successful final completion'
+    if has_promise "$state/observed"; then
+      fail 'incidental tool output or failed final response released completion'
+    fi
+  fi
+  if [ "$codex_mode" = blocked ]; then
+    require_text 'BLOCKED: work remains'
+  fi
+  if [ -f "$state/during-check" ] && has_promise "$state/during-check"; then
+    fail 'completion escaped while the check was running'
+  fi
+  printf 'tested %s\n' "$name"
+}
+
+run_codex_case codex-tool-promise-with-blocked-final blocked 0
+run_codex_case codex-final-completion-passing-check complete 0
+run_codex_case codex-missing-final-response missing 0
+run_codex_case codex-stale-final-response stale 0
+run_codex_case codex-nonzero-final-completion complete 7
+
+if [ "$failures" -ne 0 ]; then
+  printf '%s assertion(s) failed across %s worker gate cases\n' "$failures" "$cases" >&2
+  exit 1
+fi
+printf 'All %s worker gate cases passed\n' "$cases"

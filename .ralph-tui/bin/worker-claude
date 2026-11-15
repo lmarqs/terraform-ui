@@ -1,0 +1,4 @@
+#!/bin/sh
+# Ralph probes the command without defaultFlags, so each harness needs its own version entrypoint.
+[ "$*" != --version ] || exec claude --version
+exec "$(dirname -- "$0")/worker" claude "$@"

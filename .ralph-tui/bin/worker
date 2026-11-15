@@ -35,6 +35,13 @@ base=$(git rev-parse HEAD)
 mkdir -p "$root/.ralph-tui"
 output=$root/.ralph-tui/worker-output.log
 log=$root/.ralph-tui/worker-check.log
+response=$output
+if [ "${agent##*/}" = codex ]; then
+  # Tool events can quote the completion marker; only Codex's final response can complete a task.
+  response=$root/.ralph-tui/worker-final.txt
+  : >"$response"
+  set -- "$@" --output-last-message "$response"
+fi
 
 # Prints the process and every descendant of it that is still running.
 tree() {
@@ -57,18 +64,46 @@ child=''
 trap '[ -z "$child" ] || kill -TERM $(tree "$child") 2>/dev/null; exit 143' TERM INT HUP
 exec 3<&0
 
-"$agent" "$@" <&3 3<&- >"$output" &
+"$agent" "$@" <&3 3<&- >"$output" 2>&1 &
 child=$!
 wait "$child"
 status=$?
-[ "$status" -eq 0 ] || exit "$status"
+
+# Failed runs still expose diagnostics, but no opening tag that Ralph could treat as completion.
+diagnostics() {
+  tr '<' '[' <"$1" >&2
+}
+
+if [ "$status" -ne 0 ]; then
+  diagnostics "$output"
+  exit "$status"
+fi
+
+if [ "$response" != "$output" ] && [ ! -s "$response" ]; then
+  diagnostics "$output"
+  fail 'Codex returned no final response; the task stays open'
+fi
 
 # ralph-tui completes a task when the output holds the promise, at any exit code, so the output waits for the check.
 # It accepts any case and any whitespace inside the tags, so the match drops every byte but letters, digits and tag
 # characters, each byte of a multibyte space among them; a false match only runs the check.
-if LC_ALL=C tr -cd '[:alnum:]<>/' <"$output" | grep -iq '<promise>complete</promise>'; then
+if LC_ALL=C tr -cd '[:alnum:]<>/' <"$response" | grep -iq '<promise>complete</promise>'; then
   "$root/$check" "$base" </dev/null 3<&- >"$log" 2>&1 &
   child=$!
-  wait "$child" || fail "$check did not pass, so the task stays open; its output is in $log"
+  if ! wait "$child"; then
+    diagnostics "$output"
+    diagnostics "$log"
+    fail "$check did not pass, so the task stays open; its output is in $log"
+  fi
 fi
-cat "$output"
+if [ "$response" = "$output" ]; then
+  cat "$response"
+else
+  python3 - "$response" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as response:
+    print(json.dumps({"type": "item.completed", "item": {"type": "agent_message", "text": response.read()}}))
+PY
+fi

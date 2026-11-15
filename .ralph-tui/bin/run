@@ -138,12 +138,12 @@ fi
 # session files ralph-tui writes beside it.
 copied=false
 if ! git -C "$worktree" ls-files --error-unmatch .ralph-tui/config.toml >/dev/null 2>&1; then
-  for file in config.toml bin/worker; do
+  for file in config.toml bin/worker bin/worker-codex bin/worker-claude; do
     [ -f "$root/.ralph-tui/$file" ] ||
       fail ".ralph-tui/$file is not in $root" 'cook io.github.lmarqs.cookbook:ralph#ralph-tui again'
   done
   for file in "$root/.ralph-tui/config.toml" "$root/.ralph-tui/session.json" "$root"/.ralph-tui/templates/*.hbs \
-    "$root/.ralph-tui/bin/worker"; do
+    "$root/.ralph-tui/bin/worker" "$root/.ralph-tui/bin/worker-codex" "$root/.ralph-tui/bin/worker-claude"; do
     path=.ralph-tui/${file#"$root/.ralph-tui/"}
     git -C "$worktree" check-ignore -q "$path" ||
       fail ".ralph-tui/config.toml is not committed on $branch, and Git does not ignore $path there" \
@@ -159,8 +159,10 @@ if ! git -C "$worktree" ls-files --error-unmatch .ralph-tui/config.toml >/dev/nu
   cp "$root/.ralph-tui/config.toml" "$worktree/.ralph-tui/"
   [ ! -d "$root/.ralph-tui/templates" ] || cp -R "$root/.ralph-tui/templates" "$worktree/.ralph-tui/"
   mkdir -p "$worktree/.ralph-tui/bin"
-  cp -p "$root/.ralph-tui/bin/worker" "$worktree/.ralph-tui/bin/"
-  echo "Copied .ralph-tui/config.toml, templates/ and bin/worker from $root: they are not committed on $branch."
+  for file in worker worker-codex worker-claude; do
+    cp -p "$root/.ralph-tui/bin/$file" "$worktree/.ralph-tui/bin/"
+  done
+  echo "Copied .ralph-tui/config.toml, templates/ and worker entrypoints from $root: they are not committed on $branch."
   copied=true
 fi
 
@@ -177,6 +179,15 @@ echo "worktree: $worktree"
 echo "branch: $branch"
 
 cd "$worktree"
+if [ "$agent" = codex ]; then
+  { mise which ai-jail || command -v ai-jail; } >/dev/null 2>&1 ||
+    fail 'ai-jail is not installed; install ai-jail 3.'
+  jail=$worktree/.mise/jail
+  [ -x "$jail/codex" ] || fail "$jail/codex is not executable" 'use a base containing the Codex jail wrapper'
+  # Remove the caller's jail as well: chaining two wrappers would recurse instead of finding the real Codex.
+  PATH=$(printf '%s' "$PATH" | tr ':' '\n' | grep -vxF -e "$root/.mise/jail" -e "$jail" | paste -sd:)
+  export PATH="$jail:$PATH"
+fi
 if [ "$copied" = true ]; then
   template=$worktree/.ralph-tui/templates/json.hbs
   [ -z "$epic" ] || template=$worktree/.ralph-tui/templates/$epic_tracker.hbs

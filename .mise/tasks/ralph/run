@@ -3,6 +3,8 @@
 #USAGE arg "<epic>" help="The Beads epic whose ready children the workers take, e.g. terraform-ui-eae"
 #USAGE flag "--agent <agent>" default="codex" help="codex or claude, both declared in .ralph-tui/config.toml"
 #USAGE flag "--headless" default="false" help="Log to stdout instead of drawing the TUI"
+#USAGE flag "--iterations <count>" default="10" help="Maximum iterations; 0 means no limit"
+#USAGE flag "--model <model>" help="Override the worker model"
 set -euo pipefail
 
 EPIC="${usage_epic:?}"
@@ -12,12 +14,8 @@ MAIN=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 # ralph-tui 0.12 runs no setup in a parallel worker's worktree, so every bead is worked in the run's own.
 ARGS=(--serial)
 [ "${usage_headless:-false}" = "true" ] && ARGS+=(--headless)
-
-# ralph-tui and its worker find the `codex` in .mise/jail first, which runs the real one inside ai-jail.
-if [ "$AGENT" = codex ]; then
-  { mise which ai-jail || command -v ai-jail; } >/dev/null 2>&1 || { echo "ai-jail is not installed; install ai-jail 3." >&2; exit 1; }
-  export PATH="$MAIN/.mise/jail:$PATH"
-fi
+ARGS+=(--iterations "${usage_iterations:-10}")
+[ -z "${usage_model:-}" ] || ARGS+=(--model "$usage_model")
 
 # Installed globally by each person, not pinned in mise.toml.
 for tool in ralph-tui bd bv "$AGENT"; do
