@@ -25,9 +25,6 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # mise run installs every tool mise.toml pins, and mise refuses ralph-tui, an agent-only tool, for its low downloads.
-    env:
-      MISE_DISABLE_TOOLS: npm:ralph-tui,bun,aqua:steveyegge/beads,github:Dicklesworthstone/beads_viewer,github:akitaonrails/ai-jail
     steps:
       - uses: actions/checkout@v4
         with:

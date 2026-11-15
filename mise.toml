@@ -16,3 +16,7 @@ terraform = "1.14"
 [env]
 _.python.venv = { path = ".venv", create = true }
 _.file = ".env"
+
+[settings]
+# ralph-tui runs on bun, and mise's default npm installer refuses it for its low weekly downloads.
+npm.package_manager = "bun"
