@@ -1,0 +1,4 @@
+repositories = [
+  "~/.m2/repository",
+  "https://repo1.maven.org/maven2",
+]
