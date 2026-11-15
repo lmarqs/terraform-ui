@@ -78,3 +78,5 @@ The fast `check:build` command was not used as the macro binary producer.
 This bead changes only evidence and the run handoff. No production branch was introduced and no
 check was weakened. US-009 can publish the implemented interfaces using these results and the
 session evidence, while retaining the limits stated above.
+
+US-009b records the subsequent [summary synchronization and verification applicability](summary-verification.md).

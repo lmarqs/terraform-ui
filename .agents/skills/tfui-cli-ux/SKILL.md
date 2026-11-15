@@ -24,7 +24,9 @@ if stderr not TTY:              → Headless
 otherwise:                      → Standalone
 ```
 
-Headless failure contract: a failed run never claims success — terraform's error goes to stderr, stdout stays empty, exit 1. Action verbs (taint/untaint/import) skip their confirm prelude headlessly via `Input.AutoConfirm` set at the cmd boundary.
+Headless operational failures keep stdout empty and exit 1. Terraform errors pass through on stderr; Risk policy
+failures use fixed diagnostics. Risk threshold matches emit a complete report and exit 3; see the I/O contract
+for channels and terminal outcomes. Action verbs (taint/untaint/import) skip their confirm prelude headlessly via `Input.AutoConfirm` set at the cmd boundary.
 
 Behavior matrix:
 - `tfui plan` → TUI on stderr, tree view to stdout on quit
@@ -83,7 +85,8 @@ Binary resolution:
 - `ExecService` does NOT forward ExtraArgs (terraform-exec typed API)
 
 Exit codes: `0` = success, `1` = error, `2` = changes present (plan only), `130` = interrupted by SIGINT,
-`143` = terminated by SIGTERM (all commands)
+`143` = terminated by SIGTERM (all commands). Risk-only exit `3` and its complete-report semantics are defined
+in `docs/reference/cli-io-contract.md#risk-command-v1`.
 
 Interrupts: tfui owns SIGINT/SIGTERM (`cmd/tfui/interrupt.go`). The first signal interrupts terraform once, waits for
 it with no timeout, runs plugin `Shutdown`, writes no stdout and exits 130/143; a second signal exits at once with
@@ -101,7 +104,7 @@ defaults {
   parallelism = 10
   lock = true
   var_file "common/tags.tfvars" {}
-  plugin "risk" { level = "high" }
+  plugin "risk" { threshold = "high" }
 }
 ```
 
@@ -112,3 +115,8 @@ Two modes:
 Resolution chain: Root defaults → Child top-level → Workspace block → CLI flags → `--` passthrough
 
 Key functions: `config.LoadRoot(dir)`, `config.LoadChild(dir)`, `config.Resolve(root, child, workspace)`
+
+Risk settings: `docs/reference/risk-policy-contract.md#command-threshold-and-report-v1` owns threshold values,
+precedence and migration from the formerly ignored `level` key. The complete-policy selector is separate from
+plugin settings; consult `docs/reference/risk-policy-contract.md#source-selection` before changing resolution.
+Member plugin blocks remain rejected.
