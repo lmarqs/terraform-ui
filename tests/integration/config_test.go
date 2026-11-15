@@ -134,9 +134,9 @@ func TestConfig_Monorepo_ResolveDevGlob_ShouldMatchWorkspace(t *testing.T) {
 
 	resolved := config.Resolve(root, child, "dev-us-east-1")
 
-	pc := resolved.PluginConfig("risk")
-	if pc.Options["level"] != "low" {
-		t.Errorf("risk level = %v, want %q (from dev-* workspace)", pc.Options["level"], "low")
+	vars := resolved.Vars()
+	if vars["environment"] != "dev" {
+		t.Errorf("Vars()[environment] = %q, want %q (from dev-* workspace)", vars["environment"], "dev")
 	}
 }
 

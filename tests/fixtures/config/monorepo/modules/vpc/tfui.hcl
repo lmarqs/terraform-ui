@@ -1,9 +1,5 @@
 var_file "base.tfvars" {}
 
-plugin "risk" {
-  level = "critical"
-}
-
 workspace "production" {
   var_file "prod.tfvars" {}
   var "environment" { value = "prod" }
@@ -15,7 +11,5 @@ workspace "staging" {
 }
 
 workspace "dev-*" {
-  plugin "risk" {
-    level = "low"
-  }
+  var "environment" { value = "dev" }
 }
