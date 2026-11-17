@@ -26,6 +26,10 @@ func RenderAttributeDiffs(diffs []AttributeDiff) string {
 	return b.String()
 }
 
+// compactRowFixedWidth is the width of a compact row outside its key, values and suffix:
+// a four-space indent, ": " after the key and " → " between the values.
+const compactRowFixedWidth = 9
+
 // RenderCompactAttributeDiffs renders two paths and an overflow count for a resource row.
 func RenderCompactAttributeDiffs(diffs []AttributeDiff, width int) []string {
 	if width <= 0 {
@@ -41,7 +45,7 @@ func RenderCompactAttributeDiffs(diffs []AttributeDiff, width int) []string {
 		if !diff.Sensitive {
 			oldValue := strings.ReplaceAll(diff.OldValue, "\n", " ")
 			newValue := strings.ReplaceAll(diff.NewValue, "\n", " ")
-			budget := max(0, width-ansi.StringWidth(diff.Key)-9-len(suffix))
+			budget := max(0, width-ansi.StringWidth(diff.Key)-compactRowFixedWidth-len(suffix))
 			oldWidth := min(ansi.StringWidth(oldValue), budget/2)
 			newWidth := max(0, budget-oldWidth)
 			if strings.Contains(oldValue, "(known after apply)") {
