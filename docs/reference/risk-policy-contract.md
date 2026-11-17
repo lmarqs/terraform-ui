@@ -10,7 +10,7 @@ audience: "Policy authors and contributors designing risk classification and its
 
 This page defines the accepted behavior of the **planned** policy interface. Custom policy evaluation and
 `tfui risk` are not implemented in the current checkout. This is a semantic contract, not a published Rego
-entrypoint or JSON schema. The [architecture design](../development/risk-policy-design.md) explains the choices
+entrypoint or JSON schema. The [architecture design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) explains the choices
 and identifies the remaining decisions. The [Risk plugin guide](../plugins/risk.md) describes current availability.
 
 ## Purpose and philosophy
@@ -119,7 +119,7 @@ multiple-rule resolution, aggregation formula, threshold default/override syntax
 trust/capability boundary, version migration, or the effect of custom/unavailable assessments on existing Blast
 Radius impact calculations. Those decisions are tracked in the
 [architecture map](https://github.com/lmarqs/terraform-ui/issues/107) and analyzed in the
-[design](../development/risk-policy-design.md#remaining-decisions). No executable configuration or schema example
+[design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md#remaining-decisions). No executable configuration or schema example
 is published here until those choices are accepted.
 
 ## Decision records

@@ -1,9 +1,0 @@
-{
-  "status": "synthetic experimental data; no public input contract",
-  "query_candidate": "data.d03.result",
-  "minimal": {"resource": {"address": "example_item.synthetic", "mode": "managed", "type": "example_item", "name": "synthetic"}, "change": {"actions": ["update"], "before": {"value": 1}, "after": {"value": 2}, "after_unknown": {}, "before_sensitive": {}, "after_sensitive": {}}},
-  "fidelity": {"resource": {"address": "example_item.synthetic", "mode": "managed", "type": "example_item", "name": "synthetic"}, "change": {"actions": ["delete", "create"], "before": {"large": 9007199254740993, "items": ["b", "a"], "nullable": null, "nested": {"token": "D03_SYNTHETIC_SECRET_ONLY"}}, "after": {"large": 9007199254740993, "items": ["a", "b"], "nullable": null, "nested": {"token": "D03_SYNTHETIC_SECRET_ONLY"}}, "after_unknown": {"computed": true, "nested": {"computed": true}}, "before_sensitive": {"nested": {"token": true}}, "after_sensitive": {"nested": {"token": true}}}},
-  "variations": ["omit nullable versus explicit null", "replace after_unknown with true", "replace nested unknown mask with true", "replace nested sensitivity with whole-object true", "actions create/delete versus delete/create", "omit before on create", "omit after on delete"],
-  "workload_generation": "For N in [1,100,1000], copy minimal N times with address example_item.synthetic_<i>; each evaluation receives one mutation only. Never expose the list to the policy. Reject generated serialized input over 1 MiB before child launch.",
-  "bounded_expression": "Generate one module with 256 independent equality conditions over literal integers; maximum 64 KiB. Run separately from normal workload and record exact bytes/hash. No recursion, unbounded generators, real credentials or external hostnames."
-}

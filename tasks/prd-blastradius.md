@@ -13,13 +13,13 @@ It has no headless side, and its docs disagree with the code:
 - The README promises "resource dependencies", but no dependency graph exists.
 - The pages list `Space` to expand, but only `enter` and `i` are bound.
 
-This PRD depends on the [Risk](prd-risk.md) and [Phantom](prd-phantom.md) implementation plans,
+This PRD depends on the [Risk](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/tasks/prd-risk.md) and [Phantom](prd-phantom.md) implementation plans,
 which must be complete first. Reuse their verified same-plan acquisition, seeded-session support and Context
 invalidation behavior. These are behavioral dependencies, not promises of a new annotation helper, a prescribed
 test filename or a shared tfui-native JSON ADR. Command conventions belong to the
 [CLI I/O contract](../docs/reference/cli-io-contract.md).
 
-**Blocked on risk-consumer compatibility:** the [risk architecture design](../docs/development/risk-policy-design.md#remaining-decisions)
+**Blocked on risk-consumer compatibility:** the [risk architecture design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md#remaining-decisions)
 and Risk PRD D-01 must settle how custom classifications and unavailable/partial assessments affect Blast Radius.
 Before implementing dependent stories, update the scoring, report and exit requirements below to match that
 accepted decision. Their current shapes describe completed assessments; they do not define failure behavior.

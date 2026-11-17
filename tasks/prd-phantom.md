@@ -13,7 +13,7 @@ Its explanations are guesses from the attribute name. `explainPhantom`
 a `tfui phantom` stdin filter, a `tfui show` command and `phantom` fields in `tfui plan -json`.
 None of those exists.
 
-This PRD depends on the [Risk implementation plan](prd-risk.md), which must be complete first. Reuse its
+This PRD depends on the [Risk implementation plan](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/tasks/prd-risk.md), which must be complete first. Reuse its
 verified same-plan acquisition, seeded-session support and Context invalidation behavior. Preserve the existing
 exec-service cache; the dependency is working behavior through real session wiring, not a new annotation helper
 or a prescribed test filename.

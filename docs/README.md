@@ -4,8 +4,8 @@ The documentation of tfui that its code, its issues and its history do not hold.
 page, listed below; put a fact on the kind of page whose reader relies on it. Read this map before adding or moving a
 page.
 
-Work tracking lives in GitHub issues and the project board ([backlog](development/backlog.md)); the risk
-implementation plan lives in `tasks/prd-risk.md`. Definitions and architecture stay under `docs/`. The general glossary
+Work tracking lives in GitHub issues and the project board ([backlog](development/backlog.md)); the
+[risk implementation plan](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/tasks/prd-risk.md) is archived on the research branch. Definitions and architecture stay under `docs/`. The general glossary
 is [`CONTEXT.md`](../CONTEXT.md) at the repository root.
 
 Every page except this map is published to [the site](https://lmarqs.github.io/terraform-ui) by
@@ -51,8 +51,8 @@ How the parts fit together: the SDK, the app internals, the plugins, the event b
 directory each lives in. A fact belongs here when it is about the whole and no single file shows it. A good page
 lets a reader go from a box on the diagram to the code, and links the decision behind each shape.
 
-The [risk policy design](development/risk-policy-design.md) owns its requirements, alternatives and intended
-component boundaries; [runtime evidence](development/risk-policy-runtime-research.md) records versioned research.
+The [risk policy design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) owns its requirements, alternatives and intended
+component boundaries; [runtime evidence](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-runtime-research.md) records versioned research.
 A design labels accepted decisions and unresolved choices; it does not present them as shipped functionality or
 store implementation checklists. The PRD owns implementation sequencing; issues own progress.
 
