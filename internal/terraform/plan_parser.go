@@ -39,6 +39,7 @@ func ParsePlan(plan *tfjson.Plan) *PlanSummary {
 				Name:         rc.Name,
 				Module:       ExtractModule(rc.Address),
 				ProviderName: rc.ProviderName,
+				Deposed:      rc.DeposedKey,
 			},
 			Action:         action,
 			AttributeDiffs: parseAttributeDiffs(rc.Change),

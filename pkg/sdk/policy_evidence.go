@@ -11,6 +11,7 @@ type PolicyEvidence struct {
 // PolicyResourceEvidence distinguishes eligible inputs from explicit exclusions.
 type PolicyResourceEvidence struct {
 	Address   string       `json:"address"`
+	Deposed   string       `json:"deposed,omitempty"`
 	Actions   []string     `json:"actions"`
 	Exclusion string       `json:"exclusion,omitempty"`
 	Input     *PolicyInput `json:"input,omitempty"`
@@ -27,6 +28,7 @@ type PolicyInput struct {
 type PolicyResource struct {
 	Address         string      `json:"address"`
 	PreviousAddress *string     `json:"previous_address"`
+	Deposed         *string     `json:"deposed"`
 	Mode            string      `json:"mode"`
 	Type            string      `json:"type"`
 	Name            string      `json:"name"`

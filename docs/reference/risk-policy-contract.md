@@ -137,6 +137,7 @@ in scope; move/import metadata is resource-local evidence, not an eligibility by
   "resource": {
     "address": "aws_lambda_function.worker",
     "previous_address": null,
+    "deposed": null,
     "mode": "managed",
     "type": "aws_lambda_function",
     "name": "worker",
@@ -165,7 +166,7 @@ Envelope/resource/change keys shown above are required and no other keys are exp
 provider_name are nonempty strings; mode is `managed` or `data`. Actions must be exactly `["create"]`,
 `["update"]`, `["delete"]`, `["delete","create"]` or `["create","delete"]` after eligibility.
 Missing provider/resource/action metadata needed to interpret a mutation is incomplete
-input, not an empty plan. `previous_address` is a string or null; `index` is an absent, number or string node.
+input, not an empty plan. `previous_address` is a string or null; `deposed` is null for the current object and the deposed key (for example `"00000001"`) for a deposed object left at the same address; `index` is an absent, number or string node.
 `importing` is null or an object with `id` as a value node and `unknown` as a boolean. A known import ID or identity
 is passed as kind `sensitive` with no value and `unknown` false; an unknown one is passed as kind `unknown` with
 `unknown` true. Import metadata that is neither known nor unknown, or both, fails that input.

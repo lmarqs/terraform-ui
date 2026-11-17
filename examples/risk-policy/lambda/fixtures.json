@@ -5,6 +5,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -52,6 +53,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -97,6 +99,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -136,6 +139,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -182,6 +186,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -220,6 +225,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -307,6 +313,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -353,6 +360,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -391,6 +399,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -424,6 +433,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -457,6 +467,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -501,6 +512,7 @@
       "resource": {
         "address": "aws_lambda_function.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_function",
         "name": "example",
@@ -545,6 +557,7 @@
       "resource": {
         "address": "aws_lambda_layer_version.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_layer_version",
         "name": "example",
@@ -578,6 +591,7 @@
       "resource": {
         "address": "aws_lambda_layer_version.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_layer_version",
         "name": "example",
@@ -611,6 +625,7 @@
       "resource": {
         "address": "aws_lambda_layer_version.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_layer_version",
         "name": "example",
@@ -655,6 +670,7 @@
       "resource": {
         "address": "aws_lambda_layer_version.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_layer_version",
         "name": "example",
@@ -699,6 +715,7 @@
       "resource": {
         "address": "aws_lambda_layer_version.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_lambda_layer_version",
         "name": "example",
@@ -738,6 +755,7 @@
       "resource": {
         "address": "aws_db_instance.example",
         "previous_address": null,
+        "deposed": null,
         "mode": "managed",
         "type": "aws_db_instance",
         "name": "example",

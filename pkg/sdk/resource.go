@@ -9,4 +9,6 @@ type Resource struct {
 	Module       string
 	ProviderName string
 	Tainted      bool
+	// Deposed is the key of a deposed object left at Address; empty for the current object.
+	Deposed string
 }

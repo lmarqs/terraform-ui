@@ -79,7 +79,8 @@ func isForget(actions []string) bool {
 
 func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence, string) {
 	address, _ := resource["address"].(string)
-	row := sdk.PolicyResourceEvidence{Address: address}
+	deposed, _ := resource["deposed"].(string)
+	row := sdk.PolicyResourceEvidence{Address: address, Deposed: deposed}
 	if address == "" {
 		return row, "input_incomplete"
 	}
@@ -109,6 +110,9 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 	identity := sdk.PolicyResource{Address: address, Index: sdk.PolicyValue{Kind: "absent"}}
 	if previous != "" {
 		identity.PreviousAddress = &previous
+	}
+	if deposed != "" {
+		identity.Deposed = &deposed
 	}
 	identity.Mode, _ = resource["mode"].(string)
 	identity.Type, _ = resource["type"].(string)
