@@ -136,3 +136,19 @@ func TestActivate_GivenPinsBeforeFirstPlan_ShouldAcquireReviewedPlan(t *testing.
 		t.Fatalf("initial selected plan calls=%d view=%q; want acquisition before assessment", len(svc.PlanCalls), p.View(100, 30))
 	}
 }
+
+func TestStreamCancel_GivenRunningPlan_ShouldLeaveLoadingWithTheRunError(t *testing.T) {
+	svc := &sdktest.MockService{PlanFn: func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+		return nil, ctx.Err()
+	}}
+	h := sdktest.NewDeps(svc)
+	p := New(svc).(*Plugin)
+	p.Init(h.Deps)
+	defer p.Shutdown()
+	pending := p.Activate(Input{})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	drainAssessmentPlan(t, p, pending, nil)
+	if p.Busy() || p.Status() != sdk.StatusError || p.ExitCode() != 1 || !strings.Contains(p.View(100, 30), context.Canceled.Error()) {
+		t.Fatalf("plan cancelled from its stream frame: status=%v busy=%v view=%q; want the run's error", p.Status(), p.Busy(), p.View(100, 30))
+	}
+}

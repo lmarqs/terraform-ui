@@ -38,8 +38,8 @@ type Input struct {
 type PlanResultMsg struct {
 	Summary *sdk.PlanSummary
 	Err     error
-	// run is cancelled when the plan is cancelled or superseded, so its late
-	// result is dropped.
+	// run identifies the plan run, so a late result of a run the plugin
+	// cancelled or superseded is dropped.
 	run context.Context
 }
 
@@ -80,6 +80,7 @@ type Plugin struct {
 	listPanel    *ui.ContentPanel
 	pinnedOnly   bool
 	cancelFn     context.CancelFunc
+	run          context.Context     // the plan run whose result the plugin awaits
 	lastStream   *frames.StreamFrame // retained for L key re-display after success
 	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
 	planFile     sdk.PlanFile        // plan artifact produced by the most recent run
@@ -287,6 +288,7 @@ func (e *Plugin) Cancel() {
 // touching the deferred-apply intent. Used when starting a new plan run on
 // top of an old one (the new run is the continuation, not an abort).
 func (e *Plugin) cancelInflight() {
+	e.run = nil
 	if e.cancelFn != nil {
 		e.cancelFn()
 		e.cancelFn = nil
@@ -296,7 +298,7 @@ func (e *Plugin) cancelInflight() {
 func (e *Plugin) runPlan() tea.Cmd {
 	e.cancelInflight()
 	ctx, cancel := context.WithCancel(context.Background())
-	e.cancelFn = cancel
+	e.cancelFn, e.run = cancel, ctx
 
 	svc := e.Svc
 	var opts sdk.PlanOptions
@@ -422,7 +424,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, nil
 
 	case PlanResultMsg:
-		if msg.run != nil && msg.run.Err() != nil {
+		if msg.run != nil && msg.run != e.run {
 			return e, nil
 		}
 		e.timer.Stop()
