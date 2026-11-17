@@ -1,7 +1,6 @@
 package blastradius
 
 import (
-	"context"
 	"fmt"
 	"sort"
 	"strings"
@@ -46,16 +45,14 @@ type ModuleImpact struct {
 // Plugin implements the blast radius visualization feature.
 type Plugin struct {
 	sdk.PluginBase
-	status     sdk.Status
-	modules    []ModuleImpact
-	selected   int
-	expanded   map[int]bool
-	total      int
-	summary    *sdk.PlanSummary
-	assessment *sdk.PolicyAssessment
-	assess     func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment
-	generation uint64
-	cancel     context.CancelFunc
+	status      sdk.Status
+	modules     []ModuleImpact
+	selected    int
+	expanded    map[int]bool
+	total       int
+	summary     *sdk.PlanSummary
+	assessment  *sdk.PolicyAssessment
+	requestRisk func(*sdk.PlanSummary) tea.Cmd
 }
 
 // New creates a new blast radius plugin.
@@ -97,7 +94,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
-	e.assess = deps.AssessRisk
+	e.requestRisk = deps.RequestAssessment
 	return nil
 }
 
@@ -134,12 +131,6 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
-	case blastRadiusAssessedMsg:
-		if msg.generation == e.generation {
-			e.assessment = msg.assessment
-			e.analyzeAssessment()
-		}
-		return e, nil
 	case tea.KeyMsg:
 		e.handleKey(msg)
 		return e, nil

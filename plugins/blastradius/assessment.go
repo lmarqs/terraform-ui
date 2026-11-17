@@ -1,25 +1,15 @@
 package blastradius
 
 import (
-	"context"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-type blastRadiusAssessedMsg struct {
-	generation uint64
-	assessment *sdk.PolicyAssessment
-}
-
+// Busy reports a pending assessment request, so headless output waits for it.
 func (e *Plugin) Busy() bool { return e.status == sdk.StatusLoading }
 
+// Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
-	if e.cancel != nil {
-		e.cancel()
-		e.cancel = nil
-	}
-	e.generation++
 	if e.Busy() {
 		e.status = sdk.StatusError
 	}
@@ -51,20 +41,22 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.Busy() || e.summary == nil {
 		return nil
 	}
-	e.Cancel()
 	e.assessment, e.modules = nil, nil
 	e.status = sdk.StatusLoading
-	ctx, cancel := context.WithCancel(context.Background())
-	e.cancel = cancel
-	generation, current, summary, assess := e.generation, e.GetCtx(), e.summary, e.assess
-	return func() tea.Msg {
-		var result *sdk.PolicyAssessment
-		if assess != nil {
-			assessment := assess(ctx, current, summary)
-			result = &assessment
-		}
-		return blastRadiusAssessedMsg{generation: generation, assessment: result}
+	return e.requestRisk(e.summary)
+}
+
+// HandleRiskAssessed implements sdk.RiskAssessedHandler. The host neither
+// supersedes requests for an older plan nor stops evaluating after Cancel, so
+// only a result for the reviewed plan while a request is pending counts.
+func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
+	if !e.Busy() || ev.Summary != e.summary {
+		return nil
 	}
+	assessment := ev.Assessment
+	e.assessment = &assessment
+	e.analyzeAssessment()
+	return nil
 }
 
 func (e *Plugin) resourceAssessment(key sdk.InstanceKey) sdk.PolicyResourceAssessment {
@@ -78,10 +70,6 @@ func (e *Plugin) resourceAssessment(key sdk.InstanceKey) sdk.PolicyResourceAsses
 }
 
 func (e *Plugin) analyzeAssessment() {
-	if e.assessment == nil {
-		e.Analyze(e.summary)
-		return
-	}
 	changes := sdk.ApplyAssessment(e.summary, e.assessment).Changes
 	e.total = len(changes)
 	e.modules = nil

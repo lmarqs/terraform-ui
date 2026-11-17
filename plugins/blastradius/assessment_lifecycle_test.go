@@ -1,7 +1,6 @@
 package blastradius
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -12,17 +11,10 @@ import (
 func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(t *testing.T) {
 	for _, tc := range []string{"cancel", "invalidate", "context", "new plan", "shutdown"} {
 		t.Run(tc, func(t *testing.T) {
-			svc := &sdktest.MockService{}
-			h := sdktest.NewDeps(svc)
-			var evaluatedCtx context.Context
 			high := sdk.RiskHigh
-			h.Deps.AssessRisk = func(ctx context.Context, _ *sdk.Context, _ *sdk.PlanSummary) sdk.PolicyAssessment {
-				evaluatedCtx = ctx
-				return sdk.PolicyAssessment{Status: "complete", Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.old", Status: "classified", Level: &high}}}
-			}
-			p := New(svc).(*Plugin)
-			p.Init(h.Deps)
-			p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.old"}, Action: sdk.ActionUpdate}}}})
+			summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.old"}, Action: sdk.ActionUpdate}}}
+			p, h, svc := newBlastHarness(t, summary, sdk.PolicyAssessment{Status: "complete", Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.old", Status: "classified", Level: &high}}})
+			p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary})
 			cmd := p.Activate()
 			if !p.Busy() || !strings.Contains(p.View(80, 20), "Loading risk assessment") {
 				t.Fatal("activation should show assessment loading")
@@ -43,9 +35,9 @@ func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(
 			case "shutdown":
 				p.Shutdown()
 			}
-			p.Update(cmd())
-			if evaluatedCtx.Err() != context.Canceled {
-				t.Fatalf("operation context error=%v; want cancellation", evaluatedCtx.Err())
+			runBlastCmd(p, cmd)
+			if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != summary {
+				t.Fatalf("assessment requests = %v; want one request for the reviewed summary %p", h.AssessmentRequests, summary)
 			}
 			if p.Busy() || strings.Contains(p.View(80, 20), "aws_instance.old") {
 				t.Fatalf("late result restored obsolete assessment: status=%v view=%q", p.Status(), p.View(80, 20))
@@ -73,15 +65,14 @@ func TestActivate_GivenNoReviewedPlan_ShouldWaitForPlan(t *testing.T) {
 	}
 }
 
-func TestActivate_GivenHostWithoutPolicyEvaluator_ShouldRetainLegacyRisk(t *testing.T) {
-	svc := &sdktest.MockService{}
-	h := sdktest.NewDeps(svc)
-	p := New(svc).(*Plugin)
-	p.Init(h.Deps)
-	p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.legacy"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh}}}})
-	p.Update(p.Activate()())
-	if !p.Ready() || !strings.Contains(p.View(100, 20), "High blast radius") {
-		t.Fatalf("legacy host lost reviewed classification: %q", p.View(100, 20))
+func TestActivate_GivenRawPlanRisk_ShouldRenderHostClassificationInstead(t *testing.T) {
+	low := sdk.RiskLow
+	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.legacy"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh}}}
+	p := activateAssessmentBlast(t, summary, sdk.PolicyAssessment{Status: "complete", OverallLevel: &low, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_instance.legacy", Status: "classified", Level: &low},
+	}})
+	if view := p.View(100, 20); !p.Ready() || !strings.Contains(view, "Minimal blast radius") || strings.Contains(view, "High blast radius") {
+		t.Fatalf("Blast Radius = %q; want the host's low classification, not the plan's raw high risk", view)
 	}
 }
 

@@ -1,7 +1,6 @@
 package blastradius
 
 import (
-	"context"
 	"strings"
 	"testing"
 
@@ -86,39 +85,48 @@ func TestActivate_GivenGlobalAssessmentFailure_ShouldNotPresentMinimalImpact(t *
 	}
 }
 
-func activateAssessmentBlast(t *testing.T, summary *sdk.PlanSummary, assessment sdk.PolicyAssessment) *Plugin {
+// newBlastHarness is a Blast Radius whose host answers every assessment
+// request with assessment for summary, as the App's RequestAssessment does.
+func newBlastHarness(t *testing.T, summary *sdk.PlanSummary, assessment sdk.PolicyAssessment) (*Plugin, *sdktest.PluginDepsHarness, *sdktest.MockService) {
 	t.Helper()
 	svc := &sdktest.MockService{}
 	h := sdktest.NewDeps(svc)
-	h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment { return assessment }
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: assessment}
 	p := New(svc).(*Plugin)
 	p.Init(h.Deps)
-	handler, ok := any(p).(interface {
-		HandlePlanCompleted(sdk.PlanCompletedEvent) tea.Cmd
-	})
-	if !ok {
-		t.Fatal("Blast Radius does not accept the completed reviewed plan for shared assessment")
+	return p, h, svc
+}
+
+// runBlastCmd runs cmd depth-first like macro.Driver: plugin messages go to
+// Update, and events go through an EventBus, as the App dispatches them.
+func runBlastCmd(p *Plugin, cmd tea.Cmd) {
+	if cmd == nil {
+		return
 	}
-	var execute func(tea.Cmd)
-	execute = func(cmd tea.Cmd) {
-		if cmd == nil {
-			return
+	msg := cmd()
+	if batch, ok := msg.(tea.BatchMsg); ok {
+		for _, sub := range batch {
+			runBlastCmd(p, sub)
 		}
-		msg := cmd()
-		if batch, ok := msg.(tea.BatchMsg); ok {
-			for _, sub := range batch {
-				execute(sub)
-			}
-			return
-		}
-		_, next := p.Update(msg)
-		execute(next)
+		return
 	}
-	execute(handler.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
-	activator, ok := any(p).(interface{ Activate() tea.Cmd })
-	if !ok {
-		t.Fatal("Blast Radius cannot activate the shared selected-policy assessment")
+	if _, ok := msg.(sdk.Event); ok {
+		runBlastCmd(p, sdk.NewEventBus([]sdk.Plugin{p}).Dispatch(msg))
+		return
 	}
-	execute(activator.Activate())
+	_, next := p.Update(msg)
+	runBlastCmd(p, next)
+}
+
+// deliverBlast hands ev to the plugin as the App does when the host publishes it.
+func deliverBlast(p *Plugin, ev sdk.RiskAssessedEvent) {
+	runBlastCmd(p, func() tea.Msg { return ev })
+}
+
+func activateAssessmentBlast(t *testing.T, summary *sdk.PlanSummary, assessment sdk.PolicyAssessment) *Plugin {
+	t.Helper()
+	p, _, _ := newBlastHarness(t, summary, assessment)
+	runBlastCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+	runBlastCmd(p, p.Activate())
 	return p
 }
