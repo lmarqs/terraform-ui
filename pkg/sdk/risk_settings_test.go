@@ -61,3 +61,17 @@ func TestRiskSettingsError_GivenLegacyLevel_ShouldReturnMigrationHintRegardlessO
 		})
 	}
 }
+
+func TestDiagnosticError_GivenCodeAndOptionalHint_ShouldRenderAndExposeBoth(t *testing.T) {
+	plain := DiagnosticError{Code: ErrorSourceInvalid}
+	if plain.Error() != "source_invalid" || DiagnosticHint(plain) != "" {
+		t.Fatalf("hintless diagnostic = %q hint %q, want the code alone", plain.Error(), DiagnosticHint(plain))
+	}
+	hinted := RiskSettingsError(map[string]interface{}{"level": "high"})
+	if got := DiagnosticHint(hinted); got == "" || (DiagnosticError{Code: ErrorConfigurationInvalid, Hint: got}).Error() != hinted.Error() {
+		t.Fatalf("hint %q does not rebuild %q", got, hinted.Error())
+	}
+	if got := DiagnosticHint(ErrorConfigurationInvalid); got != "" {
+		t.Fatalf("bare code hint = %q, want none", got)
+	}
+}

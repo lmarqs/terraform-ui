@@ -170,6 +170,12 @@ func TestRequestAssessment_GivenInvalidComparisonSettings_ShouldPublishUnavailab
 		if got.Status != "unavailable" || got.ErrorCode != "configuration_invalid" || got.OverallLevel != nil || len(got.Resources) != 0 || ev.Err != nil {
 			t.Fatalf("invalid settings %v retained publishable classification or noncanonical code: %+v", settings, ev)
 		}
+		if want := sdk.DiagnosticHint(sdk.RiskSettingsError(settings)); ev.Hint != want {
+			t.Fatalf("invalid settings %v hint = %q, want %q", settings, ev.Hint, want)
+		}
+		if _, legacy := settings["level"]; legacy && (sdk.DiagnosticError{Code: got.ErrorCode, Hint: ev.Hint}).Error() != sdk.RiskSettingsError(settings).Error() {
+			t.Fatalf("legacy level event %+v does not carry the settings hint", ev)
+		}
 	}
 }
 

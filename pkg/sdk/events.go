@@ -109,9 +109,12 @@ func (PlanInvalidatedEvent) event() {}
 // RiskAssessedEvent carries the result of PluginDeps.RequestAssessment. The App
 // dispatches it only while no Context change or plan invalidation happened since
 // the request. Err reports a failed plan fetch, which leaves Assessment empty.
+// Hint tells how to resolve the failure behind Assessment.ErrorCode, or is
+// empty; DiagnosticError renders the two together.
 type RiskAssessedEvent struct {
 	Summary    *PlanSummary
 	Assessment PolicyAssessment
+	Hint       string
 	Err        error
 }
 

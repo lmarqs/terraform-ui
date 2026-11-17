@@ -71,7 +71,7 @@ func TestRunPlugin_GivenLegacyRiskSetting_ShouldPreservePlanReviewWithUnavailabl
 	if !strings.Contains(stdout.String(), "aws_lambda_function.worker") || strings.Contains(stdout.String(), "Risk:") {
 		t.Fatalf("Plan review lost or retained successful risk: %q", stdout.String())
 	}
-	want := "risk unavailable: configuration_invalid\n"
+	want := "risk unavailable: configuration_invalid\n\nhint: risk setting level is unsupported; use threshold\n"
 	if stderr.String() != want {
 		t.Fatalf("legacy Risk setting Plan stderr = %q, want %q", stderr.String(), want)
 	}

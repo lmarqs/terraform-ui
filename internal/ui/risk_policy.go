@@ -109,6 +109,7 @@ func (a App) runAssessment(ctx context.Context, current *sdk.Context, summary *s
 	selection, snapshot, failure := a.loadRiskPolicy(current)
 	if failure != "" {
 		event.Assessment = unavailableAssessment(failure)
+		event.Hint = sdk.DiagnosticHint(sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options))
 		return event
 	}
 	if summary == nil {

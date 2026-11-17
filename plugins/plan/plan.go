@@ -73,6 +73,7 @@ type Plugin struct {
 	errMsg       string
 	assessment   *sdk.PolicyAssessment
 	assessing    bool
+	riskHint     string
 	requestRisk  func(*sdk.PlanSummary) tea.Cmd
 	lockInfo     *sdk.StateLock
 	stale        bool
@@ -1036,7 +1037,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 func (e *Plugin) Stderr() []byte {
 	if e.status != sdk.StatusError {
 		if diagnostic := e.assessmentDiagnostic(); e.status == sdk.StatusDone && !e.input.JSON && diagnostic != "" {
-			return []byte("risk unavailable: " + string(diagnostic) + "\n")
+			return []byte("risk unavailable: " + sdk.DiagnosticError{Code: diagnostic, Hint: e.riskHint}.Error() + "\n")
 		}
 		return nil
 	}

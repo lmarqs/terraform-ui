@@ -158,3 +158,14 @@ func TestActivate_GivenNotAssessedRead_ShouldShowNoRiskAndNoFailure(t *testing.T
 		t.Fatalf("view=%q stderr=%q; want the read row without a risk badge or failure", view, p.Stderr())
 	}
 }
+
+func TestStderr_GivenAssessmentFailureWithHint_ShouldAppendTheHostHint(t *testing.T) {
+	summary := &sdk.PlanSummary{ToUpdate: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.reviewed"}, Action: sdk.ActionUpdate}}}
+	p, _, h := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorConfigurationInvalid})
+	h.AssessmentEvent.Hint = "risk setting level is unsupported; use threshold"
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+	want := "risk unavailable: configuration_invalid\n\nhint: risk setting level is unsupported; use threshold\n"
+	if got := string(p.Stderr()); got != want {
+		t.Fatalf("stderr = %q, want %q", got, want)
+	}
+}

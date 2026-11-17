@@ -25,6 +25,7 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 		return nil
 	}
 	e.assessing = false
+	e.riskHint = ev.Hint
 	e.setAssessment(&ev.Assessment)
 	return nil
 }
