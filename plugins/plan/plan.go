@@ -962,6 +962,9 @@ func (e *Plugin) renderDetail(width, height int) string {
 }
 
 func (e *Plugin) renderOverallRisk() string {
+	if e.assessing {
+		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
+	}
 	if diagnostic := e.assessmentDiagnostic(); diagnostic != "" {
 		return sdk.StyleError.Render("risk unavailable: " + string(diagnostic))
 	}

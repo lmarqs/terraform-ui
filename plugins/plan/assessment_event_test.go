@@ -274,3 +274,24 @@ func TestHandleRiskAssessed_GivenNoSummaryAndNilSummaryEvent_ShouldIgnoreIt(t *t
 		})
 	}
 }
+
+func TestView_GivenPlanDoneAndAssessmentPending_ShouldShowRiskAssessmentInProgressUntilAssessed(t *testing.T) {
+	summary := moduleSummary()
+	assessed := sdk.RiskAssessedEvent{Summary: summary, Assessment: allHigh(summary)}
+	p, _, h := newAssessedPlugin(t, summary, assessed.Assessment)
+	h.AssessmentEvent.Summary = &sdk.PlanSummary{}
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+	if p.Status() != sdk.StatusDone || !p.Busy() {
+		t.Fatalf("setup: status=%v busy=%v; want Done and busy while the assessment is pending", p.Status(), p.Busy())
+	}
+
+	const indicator = "Loading risk assessment..."
+	if view := ansi.Strip(p.View(120, 40)); !strings.Contains(view, indicator) {
+		t.Fatalf("view while the assessment is pending = %q; want it to contain %q", view, indicator)
+	}
+
+	drainAssessmentPlan(t, p, func() tea.Msg { return assessed }, nil)
+	if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, indicator) {
+		t.Fatalf("view after the assessment arrived = %q; want no %q", view, indicator)
+	}
+}
