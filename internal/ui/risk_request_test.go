@@ -6,10 +6,12 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
+	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -211,5 +213,72 @@ func TestRequestAssessment_GivenNilSummary_ShouldPlanWithActiveContextOptionsAnd
 	}
 	if _, err := os.Stat(artifact); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("temporary artifact remains: %v", err)
+	}
+}
+
+// blockingPlanService runs a Terraform plan that lasts until its context ends,
+// as exec.CommandContext does, and reports that context once the plan starts.
+func blockingPlanService() (*sdktest.MockService, <-chan context.Context) {
+	started := make(chan context.Context, 1)
+	svc := newMockService("default", nil)
+	svc.PlanFn = func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+		started <- ctx
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return svc, started
+}
+
+func TestCancel_GivenHostPlanForNilSummary_ShouldCancelTerraformContext(t *testing.T) {
+	for name, cancel := range map[string]func(*App){
+		"deactivate": func(app *App) {
+			model, _ := app.Update(sdk.DeactivateMsg{})
+			*app = model.(App)
+		},
+		"navigate":   func(app *App) { app.navigateTo(app.activePlugin) },
+		"force quit": func(app *App) { app.cmdForceQuit() },
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc, started := blockingPlanService()
+			app, deps, _ := newAssessmentRequestApp(t, t.TempDir(), false, svc)
+			done := make(chan tea.Msg, 1)
+			cmd := deps.RequestAssessment(nil)
+			go func() { done <- cmd() }()
+			planCtx := <-started
+
+			cancel(&app)
+
+			select {
+			case <-planCtx.Done():
+			case <-time.After(5 * time.Second):
+				t.Fatal("Cancel did not cancel the Terraform service Context of the host plan")
+			}
+			<-done
+		})
+	}
+}
+
+func TestCancel_GivenSuppliedSummary_ShouldKeepEvaluatingIt(t *testing.T) {
+	app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
+	evaluating := make(chan context.Context, 1)
+	release := make(chan struct{})
+	cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Snapshot, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+		evaluating <- ctx
+		<-release
+		return sdk.PolicyAssessment{Status: sdk.AssessmentEmpty}
+	})
+	done := make(chan tea.Msg, 1)
+	go func() { done <- cmd() }()
+	ctx := <-evaluating
+
+	app.cmdForceQuit()
+	close(release)
+
+	if ctx.Err() != nil {
+		t.Fatalf("Cancel cancelled evaluation of a supplied summary: %v", ctx.Err())
+	}
+	drainPolicyAppCommand(&app, func() tea.Msg { return <-done })
+	if event := onlyRiskEvent(t, recorder); event.Assessment.Status != sdk.AssessmentEmpty {
+		t.Fatalf("supplied summary result = %+v, want the evaluated assessment", event.Assessment)
 	}
 }

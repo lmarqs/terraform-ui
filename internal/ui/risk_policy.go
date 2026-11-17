@@ -62,11 +62,14 @@ type riskEvaluator func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence
 
 // riskRequests is shared by App copies and touched only on the Update loop. Every
 // request made since the last Context change or plan invalidation shares one
-// generation and one cancellable context.
+// generation and one cancellable context. Plans the host runs for those requests
+// share a child context, which cancelling a plugin also ends.
 type riskRequests struct {
 	generation uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
+	planCtx    context.Context
+	cancelPlan context.CancelFunc
 }
 
 func (r *riskRequests) begin() (uint64, context.Context) {
@@ -76,7 +79,23 @@ func (r *riskRequests) begin() (uint64, context.Context) {
 	return r.generation, r.ctx
 }
 
+func (r *riskRequests) beginPlan() (uint64, context.Context) {
+	generation, ctx := r.begin()
+	if r.cancelPlan == nil {
+		r.planCtx, r.cancelPlan = context.WithCancel(ctx)
+	}
+	return generation, r.planCtx
+}
+
+func (r *riskRequests) cancelPlans() {
+	if r.cancelPlan != nil {
+		r.cancelPlan()
+		r.cancelPlan = nil
+	}
+}
+
 func (r *riskRequests) advance() {
+	r.cancelPlans()
 	if r.cancel != nil {
 		r.cancel()
 		r.cancel = nil
@@ -89,6 +108,15 @@ type riskAssessedMsg struct {
 	event      sdk.RiskAssessedEvent
 }
 
+// cancelPlugin cancels p's operation, including any plan the host runs on a
+// plugin's behalf, which would otherwise keep Terraform and its state lock busy.
+func (a App) cancelPlugin(p sdk.Plugin) {
+	if c, ok := p.(sdk.Cancellable); ok {
+		c.Cancel()
+	}
+	a.riskRequests.cancelPlans()
+}
+
 func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
 	return a.requestAssessmentWith(summary, riskpolicy.Assess)
 }
@@ -97,7 +125,11 @@ func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
 // result for a superseded Context or plan never reaches plugins.
 func (a App) requestAssessmentWith(summary *sdk.PlanSummary, assess riskEvaluator) tea.Cmd {
 	current := a.holder.current
-	generation, ctx := a.riskRequests.begin()
+	begin := a.riskRequests.begin
+	if summary == nil {
+		begin = a.riskRequests.beginPlan
+	}
+	generation, ctx := begin()
 	return func() tea.Msg {
 		return riskAssessedMsg{generation: generation, event: a.runAssessment(ctx, current, summary, assess)}
 	}

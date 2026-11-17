@@ -355,9 +355,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
-			if c, ok := a.activePlugin.(sdk.Cancellable); ok {
-				c.Cancel()
-			}
+			a.cancelPlugin(a.activePlugin)
 			if a.standalone != nil && a.activePlugin.ID() == a.standalone.PluginID {
 				return a, tea.Quit
 			}
@@ -765,9 +763,7 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 	from := "home"
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
-		if c, ok := a.activePlugin.(sdk.Cancellable); ok {
-			c.Cancel()
-		}
+		a.cancelPlugin(a.activePlugin)
 	}
 	switch nav {
 	case plugin.NavPush:
@@ -1014,9 +1010,7 @@ func (a *App) cmdQuit() tea.Cmd {
 
 func (a *App) cmdForceQuit() tea.Cmd {
 	for _, p := range a.registry.All() {
-		if c, ok := p.(sdk.Cancellable); ok {
-			c.Cancel()
-		}
+		a.cancelPlugin(p)
 	}
 	return tea.Quit
 }
