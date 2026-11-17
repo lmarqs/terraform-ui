@@ -33,6 +33,9 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 
 func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	e.assessment = assessment
+	if assessment != nil {
+		e.assessedRisk = e.highestRisk()
+	}
 	if e.detailAddr == "" || e.summary == nil {
 		return
 	}
@@ -78,8 +81,16 @@ func (e *Plugin) riskBadge(change sdk.PlanChange) string {
 	return sdk.RiskBadge(level)
 }
 
-// overallRisk is the highest assessed level across the reviewed plan.
+// overallRisk is the highest assessed level across the reviewed plan, computed
+// once per assessment because View renders it on every frame.
 func (e *Plugin) overallRisk() sdk.RiskLevel {
+	if e.assessment == nil {
+		return sdk.RiskNone
+	}
+	return e.assessedRisk
+}
+
+func (e *Plugin) highestRisk() sdk.RiskLevel {
 	overall := sdk.RiskNone
 	for _, change := range e.summary.Changes {
 		if level, _ := e.riskCell(change); level > overall {

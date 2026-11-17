@@ -1000,6 +1000,7 @@ func TestPlugin_WhenBuildInspectContentWithRisk_ShouldIncludeRiskLine(t *testing
 		Action:   sdk.ActionDelete,
 		Risk:     sdk.RiskHigh,
 	}
+	p.summary = &sdk.PlanSummary{Changes: []sdk.PlanChange{*change}}
 	classifyAsChangeRisk(p, *change)
 
 	content := p.buildInspectContent(change)

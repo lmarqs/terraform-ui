@@ -981,7 +981,7 @@ func classifyAsChangeRisk(p *Plugin, changes ...sdk.PlanChange) {
 		level := change.Risk
 		assessment.Resources = append(assessment.Resources, sdk.PolicyResourceAssessment{Address: change.Resource.Address, Deposed: change.Resource.Deposed, Status: sdk.ResourceClassified, Level: &level})
 	}
-	p.assessment = &assessment
+	p.setAssessment(&assessment)
 }
 
 func newTestPlugin(svc sdk.Service) *Plugin {

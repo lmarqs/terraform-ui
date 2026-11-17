@@ -72,6 +72,7 @@ type Plugin struct {
 	filtering    bool
 	errMsg       string
 	assessment   *sdk.PolicyAssessment
+	assessedRisk sdk.RiskLevel
 	assessing    bool
 	riskHint     string
 	requestRisk  func(*sdk.PlanSummary) tea.Cmd
