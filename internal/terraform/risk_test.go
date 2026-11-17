@@ -1,6 +1,11 @@
 package terraform
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
+	"github.com/open-policy-agent/opa/v1/ast"
+)
 
 func TestClassifyRisk(t *testing.T) {
 	tests := []struct {
@@ -281,4 +286,65 @@ func TestOverallRisk(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRiskTypeLists_GivenBuiltinPolicy_ShouldMatchClassifyRiskTypeMaps(t *testing.T) {
+	policy := builtinPolicyTypeSets(t)
+
+	tests := []struct {
+		rule string
+		want map[string]bool
+	}{
+		{"critical_types", criticalTypes},
+		{"high_types", highRiskTypes},
+		{"medium_types", mediumRiskTypes},
+	}
+	for _, tt := range tests {
+		t.Run(tt.rule, func(t *testing.T) {
+			got, ok := policy[tt.rule]
+			if !ok {
+				t.Fatalf("builtin.rego defines no %s set", tt.rule)
+			}
+			for resourceType := range tt.want {
+				if !got[resourceType] {
+					t.Errorf("%s is in the Go type map but missing from builtin.rego %s", resourceType, tt.rule)
+				}
+			}
+			for resourceType := range got {
+				if !tt.want[resourceType] {
+					t.Errorf("%s is in builtin.rego %s but missing from the Go type map", resourceType, tt.rule)
+				}
+			}
+		})
+	}
+}
+
+func builtinPolicyTypeSets(t *testing.T) map[string]map[string]bool {
+	t.Helper()
+	modules := riskpolicy.BuiltinModules()
+	if len(modules) != 1 {
+		t.Fatalf("builtin policy has %d modules, want 1", len(modules))
+	}
+	module, err := ast.ParseModule(modules[0].Name, modules[0].Source)
+	if err != nil {
+		t.Fatalf("parse builtin policy: %v", err)
+	}
+	sets := make(map[string]map[string]bool)
+	for _, rule := range module.Rules {
+		if rule.Head.Value == nil {
+			continue
+		}
+		set, ok := rule.Head.Value.Value.(ast.Set)
+		if !ok {
+			continue
+		}
+		members := make(map[string]bool)
+		set.Foreach(func(term *ast.Term) {
+			if text, ok := term.Value.(ast.String); ok {
+				members[string(text)] = true
+			}
+		})
+		sets[string(rule.Head.Name)] = members
+	}
+	return sets
 }
