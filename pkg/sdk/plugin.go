@@ -64,9 +64,10 @@ type Hintable interface {
 	Hints() []KeyHint
 }
 
-// Busy is an optional interface plugins implement to report when they have a
-// critical operation in progress that holds a terraform state lock. Used by :q
-// to guard against accidental quit (which would kill terraform and leave a stale lock).
+// Busy is an optional interface plugins implement to report an operation in
+// flight: a terraform call, which may hold a state lock, or a pending risk
+// assessment. The App rejects quitting, navigation and Context changes while
+// any plugin is Busy, so a terraform call is not killed or raced (:q! still quits).
 type Busy interface {
 	Busy() bool
 }
