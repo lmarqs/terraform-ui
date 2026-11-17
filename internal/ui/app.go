@@ -55,18 +55,19 @@ type contextHolder struct {
 }
 
 type App struct {
-	cfg         config.Config
-	svc         sdk.Service
-	registry    *plugin.Registry
-	holder      *contextHolder
-	riskCache   *riskAssessmentCache
-	bus         *sdk.EventBus
-	sourceIndex *terraform.SourceIndex
-	rootCfg     *config.RootConfig
-	childCfg    *config.ChildConfig
-	standalone  *StandaloneConfig
-	width       int
-	height      int
+	cfg          config.Config
+	svc          sdk.Service
+	registry     *plugin.Registry
+	holder       *contextHolder
+	riskCache    *riskAssessmentCache
+	riskRequests *riskRequests
+	bus          *sdk.EventBus
+	sourceIndex  *terraform.SourceIndex
+	rootCfg      *config.RootConfig
+	childCfg     *config.ChildConfig
+	standalone   *StandaloneConfig
+	width        int
+	height       int
 
 	header        components.Header
 	contentBorder components.ContentBorder
@@ -120,6 +121,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		registry:      registry,
 		holder:        &contextHolder{},
 		riskCache:     &riskAssessmentCache{},
+		riskRequests:  &riskRequests{},
 		bus:           bus,
 		sourceIndex:   sourceIndex,
 		rootCfg:       rootCfg,
@@ -159,6 +161,7 @@ func (a App) Init() tea.Cmd {
 		Context:              func() *sdk.Context { return holder.current },
 		RiskPolicyDiagnostic: a.riskPolicyDiagnostic,
 		AssessRisk:           a.assessRisk,
+		RequestAssessment:    a.requestAssessment,
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
@@ -309,7 +312,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
 
+	case riskAssessedMsg:
+		if msg.generation != a.riskRequests.generation {
+			return a, nil
+		}
+		return a, a.bus.Dispatch(msg.event)
+
 	case sdk.PlanInvalidatedEvent:
+		a.riskRequests.advance()
 		a.staleState = true
 		a.header = a.header.WithStale(true)
 		return a, a.bus.Dispatch(msg)
@@ -889,6 +899,7 @@ func (a *App) startupChdir() sdk.Chdir {
 func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
+	a.riskRequests.advance()
 	logging.Logger().Debug("context.replaced",
 		"prev_chdir", contextChdir(prev),
 		"next_chdir", contextChdir(next),

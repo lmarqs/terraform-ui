@@ -3,7 +3,11 @@ package ui
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"sync"
+
+	tea "github.com/charmbracelet/bubbletea"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
@@ -17,7 +21,7 @@ func (a App) riskPolicyDiagnostic() string {
 	current := a.holder.current
 	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
-		return string(errorCode(err))
+		return string(errorCode(err, sdk.ErrorConfigurationInvalid))
 	}
 	// The evaluator owns embedded modules. Built-in selection needs no disk
 	// acquisition; custom selection must never recover through that policy.
@@ -25,15 +29,18 @@ func (a App) riskPolicyDiagnostic() string {
 		return ""
 	}
 	if _, err := riskpolicy.LoadSource(selection, nil); err != nil {
-		return string(errorCode(err))
+		return string(errorCode(err, sdk.ErrorSourceUnreadable))
 	}
 	return ""
 }
 
-func errorCode(err error) sdk.ErrorCode {
+// errorCode keeps a failure visible as a code even when err carries none.
+func errorCode(err error, fallback sdk.ErrorCode) sdk.ErrorCode {
 	var code sdk.ErrorCode
-	errors.As(err, &code)
-	return code
+	if errors.As(err, &code) && code != "" {
+		return code
+	}
+	return fallback
 }
 
 type riskAssessmentKey struct {
@@ -51,26 +58,117 @@ type riskAssessmentCache struct {
 	result sdk.PolicyAssessment
 }
 
+type riskEvaluator func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence) sdk.PolicyAssessment
+
+// riskRequests is shared by App copies and touched only on the Update loop. Every
+// request made since the last Context change or plan invalidation shares one
+// generation and one cancellable context.
+type riskRequests struct {
+	generation uint64
+	ctx        context.Context
+	cancel     context.CancelFunc
+}
+
+func (r *riskRequests) begin() (uint64, context.Context) {
+	if r.cancel == nil {
+		r.ctx, r.cancel = context.WithCancel(context.Background())
+	}
+	return r.generation, r.ctx
+}
+
+func (r *riskRequests) advance() {
+	if r.cancel != nil {
+		r.cancel()
+		r.cancel = nil
+	}
+	r.generation++
+}
+
+type riskAssessedMsg struct {
+	generation uint64
+	event      sdk.RiskAssessedEvent
+}
+
+func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
+	return a.requestAssessmentWith(summary, riskpolicy.Assess)
+}
+
+// requestAssessmentWith pairs the generation with the Context of the request, so a
+// result for a superseded Context or plan never reaches plugins.
+func (a App) requestAssessmentWith(summary *sdk.PlanSummary, assess riskEvaluator) tea.Cmd {
+	current := a.holder.current
+	generation, ctx := a.riskRequests.begin()
+	return func() tea.Msg {
+		return riskAssessedMsg{generation: generation, event: a.runAssessment(ctx, current, summary, assess)}
+	}
+}
+
+// runAssessment loads the policy before any plan, so a broken policy never runs Terraform.
+func (a App) runAssessment(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess riskEvaluator) sdk.RiskAssessedEvent {
+	event := sdk.RiskAssessedEvent{Summary: summary}
+	selection, snapshot, failure := a.loadRiskPolicy(current)
+	if failure != "" {
+		event.Assessment = unavailableAssessment(failure)
+		return event
+	}
+	if summary == nil {
+		event.Summary, event.Err = planForAssessment(ctx, current)
+		if event.Err != nil {
+			return event
+		}
+	}
+	event.Assessment = a.evaluateRisk(ctx, current, event.Summary, selection, snapshot, assess)
+	return event
+}
+
+func planForAssessment(ctx context.Context, current *sdk.Context) (*sdk.PlanSummary, error) {
+	dir, err := os.MkdirTemp("", "tfui-risk-*")
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = os.RemoveAll(dir) }()
+	opts := current.PlanOptions()
+	opts.PlanFile = filepath.Join(dir, "plan.tfplan")
+	summary, err := current.Service.Plan(ctx, opts)
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+	return summary, err
+}
+
+func unavailableAssessment(code sdk.ErrorCode) sdk.PolicyAssessment {
+	return sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: code}
+}
+
 // assessRisk uses only captured Context values while work runs off the UI thread.
 func (a App) assessRisk(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary) sdk.PolicyAssessment {
 	return a.assessRiskWith(ctx, current, summary, riskpolicy.Assess)
 }
 
-func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence) sdk.PolicyAssessment) sdk.PolicyAssessment {
-	unavailable := func(code sdk.ErrorCode) sdk.PolicyAssessment {
-		return sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: code}
+func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess riskEvaluator) sdk.PolicyAssessment {
+	selection, snapshot, failure := a.loadRiskPolicy(current)
+	if failure != "" {
+		return unavailableAssessment(failure)
 	}
+	return a.evaluateRisk(ctx, current, summary, selection, snapshot, assess)
+}
+
+func (a App) loadRiskPolicy(current *sdk.Context) (config.RiskPolicySelection, riskpolicy.Snapshot, sdk.ErrorCode) {
 	if err := sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options); err != nil {
-		return unavailable(sdk.ErrorConfigurationInvalid)
+		return config.RiskPolicySelection{}, riskpolicy.Snapshot{}, sdk.ErrorConfigurationInvalid
 	}
 	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
-		return unavailable(errorCode(err))
+		return config.RiskPolicySelection{}, riskpolicy.Snapshot{}, errorCode(err, sdk.ErrorConfigurationInvalid)
 	}
 	snapshot, err := riskpolicy.LoadSource(selection, riskpolicy.BuiltinModules())
 	if err != nil {
-		return unavailable(errorCode(err))
+		return config.RiskPolicySelection{}, riskpolicy.Snapshot{}, errorCode(err, sdk.ErrorSourceUnreadable)
 	}
+	return selection, snapshot, ""
+}
+
+func (a App) evaluateRisk(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, snapshot riskpolicy.Snapshot, assess riskEvaluator) sdk.PolicyAssessment {
 	evidence := sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
 	if summary != nil && summary.PolicyEvidence != nil {
 		evidence = *summary.PolicyEvidence
@@ -91,11 +189,11 @@ func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *
 	}
 	next, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
-		return unavailable(sdk.ErrorSourceChanged)
+		return unavailableAssessment(sdk.ErrorSourceChanged)
 	}
 	verified, err := riskpolicy.LoadSource(next, riskpolicy.BuiltinModules())
 	if err != nil || next != selection || verified.Digest() != snapshot.Digest() {
-		return unavailable(sdk.ErrorSourceChanged)
+		return unavailableAssessment(sdk.ErrorSourceChanged)
 	}
 	a.riskCache.mu.Lock()
 	a.riskCache.key, a.riskCache.result = key, result

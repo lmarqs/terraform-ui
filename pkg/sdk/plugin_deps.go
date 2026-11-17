@@ -39,6 +39,10 @@ type PluginDeps struct {
 	// AssessRisk evaluates retained evidence for the captured immutable Context.
 	// The host owns source loading and evaluation; plugins receive domain values only.
 	AssessRisk func(context.Context, *Context, *PlanSummary) PolicyAssessment
+	// RequestAssessment asks the host to assess summary against the policy the
+	// active Context selects; a nil summary makes the host run the plan first.
+	// The result arrives as a RiskAssessedEvent.
+	RequestAssessment func(summary *PlanSummary) tea.Cmd
 	// Pin toggles resource addresses into or out of the active Context's Pins
 	// as one group (see Pins.Toggle). Returns a tea.Cmd that emits the request
 	// to the App; the actual Pins change becomes visible to the plugin on the
