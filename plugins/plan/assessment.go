@@ -19,9 +19,10 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 }
 
 // HandleRiskAssessed implements sdk.RiskAssessedHandler. The host does not
-// supersede requests for an older plan, so only the reviewed plan's result counts.
+// supersede requests for an older plan, so only the reviewed plan's result counts;
+// a nil-summary event answers another plugin's host-planned request.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if ev.Summary != e.summary {
+	if ev.Summary == nil || ev.Summary != e.summary {
 		return nil
 	}
 	e.assessing = false

@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
@@ -249,5 +250,27 @@ func TestActivate_GivenFreshPlan_ShouldStayBusyUntilAssessmentArrives(t *testing
 	}
 	if p.Busy() {
 		t.Fatal("Plan still busy after its assessment arrived")
+	}
+}
+
+// Plan requests assessments only for a summary it holds, so a nil-summary event
+// answers another plugin's host-planned request.
+func TestHandleRiskAssessed_GivenNoSummaryAndNilSummaryEvent_ShouldIgnoreIt(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ev   sdk.RiskAssessedEvent
+	}{
+		{"policy failure", sdk.RiskAssessedEvent{Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceUnreadable}, Hint: "check risk_policy"}},
+		{"host plan error", sdk.RiskAssessedEvent{Err: errors.New("terraform plan failed")}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := newTestPlugin(&sdktest.MockService{})
+
+			sdk.NewEventBus([]sdk.Plugin{p}).Dispatch(tc.ev)
+
+			if got := p.Assessment(); got != nil {
+				t.Fatalf("Plan without a summary took another request's assessment: %+v", got)
+			}
+		})
 	}
 }
