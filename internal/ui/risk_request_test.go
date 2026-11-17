@@ -282,3 +282,35 @@ func TestCancel_GivenSuppliedSummary_ShouldKeepEvaluatingIt(t *testing.T) {
 		t.Fatalf("supplied summary result = %+v, want the evaluated assessment", event.Assessment)
 	}
 }
+
+func TestRequestAssessment_GivenContextChangeDuringSuppliedSummaryEvaluation_ShouldCancelEvaluationContext(t *testing.T) {
+	for name, change := range map[string]tea.Msg{
+		"context switch": sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: sdk.NewWorkspace("other")},
+		"pin change":     sdk.PinToggleRequestMsg{Addresses: []string{"aws_db_instance.database"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
+			evaluating := make(chan context.Context, 1)
+			cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Snapshot, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+				evaluating <- ctx
+				<-ctx.Done()
+				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
+			})
+			done := make(chan tea.Msg, 1)
+			go func() { done <- cmd() }()
+			ctx := <-evaluating
+
+			drainPolicyAppCommand(&app, func() tea.Msg { return change })
+
+			select {
+			case <-ctx.Done():
+			case <-time.After(5 * time.Second):
+				t.Fatalf("%s did not cancel the evaluation context of a supplied summary", name)
+			}
+			drainPolicyAppCommand(&app, func() tea.Msg { return <-done })
+			if len(recorder.events) != 0 {
+				t.Fatalf("result superseded by %s was dispatched: %+v", name, recorder.events)
+			}
+		})
+	}
+}
