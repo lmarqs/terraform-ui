@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -208,7 +209,8 @@ func TestLoadPlan_GivenInvalidPolicyEvidence_ShouldKeepReviewAndMarkUnavailable(
 		{"negative index", policyPlan(policyResource(`,"index":-1`, `{"actions":["update"],"before":{},"after":{}}`)), "input_invalid"},
 		{"fractional index", policyPlan(policyResource(`,"index":1.5`, `{"actions":["update"],"before":{},"after":{}}`)), "input_invalid"},
 		{"boolean replacement path", policyPlan(policyResource("", `{"actions":["update"],"before":{},"after":{},"replace_paths":[[true]]}`)), "input_invalid"},
-		{"unmasked import id", policyPlan(policyResource("", `{"actions":["update"],"importing":{"id":"secret"},"before":{},"after":{}}`)), "input_incomplete"},
+		{"import id with unknown flag", policyPlan(policyResource("", `{"actions":["update"],"importing":{"id":"secret","unknown":true},"before":{},"after":{}}`)), "input_incomplete"},
+		{"import without id or unknown flag", policyPlan(policyResource("", `{"actions":["update"],"importing":{},"before":{},"after":{}}`)), "input_incomplete"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -343,5 +345,58 @@ func TestLoadPlan_GivenForgetAndUpdateChanges_ShouldExcludeForgetAndAssessUpdate
 	}
 	if updated.Exclusion != "" || updated.Input == nil {
 		t.Errorf("update row = %+v, want an Input and no Exclusion", updated)
+	}
+}
+
+func TestLoadPlan_GivenKnownImportIDOnUpdate_ShouldPassItRedactedAsSensitive(t *testing.T) {
+	source := policyPlan(policyResource("", `{"actions":["update"],"importing":{"id":"i-123"},"before":{"x":1},"after":{"x":2}}`))
+	summary, err := LoadPlan([]byte(source))
+	if err != nil {
+		t.Fatalf("Plan review must remain available: %v", err)
+	}
+	evidence := summary.PolicyEvidence
+	if evidence.ErrorCode != "" {
+		t.Fatalf("ErrorCode = %q, want empty: a known import ID must not make the plan unavailable", evidence.ErrorCode)
+	}
+	if len(evidence.Resources) != 1 || evidence.Resources[0].Input == nil {
+		t.Fatalf("resources = %+v, want one row with an Input", evidence.Resources)
+	}
+	input := evidence.Resources[0].Input
+	if input.Change.Importing == nil {
+		t.Fatal("Input.Change.Importing is nil, want the import retained")
+	}
+	id := input.Change.Importing.ID
+	if id.Kind != "sensitive" || id.Value != nil {
+		t.Errorf("Importing.ID = %+v, want kind sensitive with no value", id)
+	}
+	data, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "i-123") {
+		t.Errorf("marshalled PolicyInput exposes the import ID: %s", data)
+	}
+}
+
+func TestLoadPlan_GivenKnownImportIdentityOnUpdate_ShouldPassItRedactedAsSensitive(t *testing.T) {
+	source := policyPlan(policyResource("", `{"actions":["update"],"importing":{"identity":{"name":"i-456"}},"before":{"x":1},"after":{"x":2}}`))
+	summary, err := LoadPlan([]byte(source))
+	if err != nil {
+		t.Fatalf("Plan review must remain available: %v", err)
+	}
+	evidence := summary.PolicyEvidence
+	if evidence.ErrorCode != "" || len(evidence.Resources) != 1 || evidence.Resources[0].Input == nil {
+		t.Fatalf("evidence = %+v, want one assessed row", evidence)
+	}
+	input := evidence.Resources[0].Input
+	if id := input.Change.Importing.ID; id.Kind != "sensitive" || id.Value != nil || input.Change.Importing.Unknown {
+		t.Errorf("Importing = %+v, want sensitive ID with no value and Unknown false", input.Change.Importing)
+	}
+	data, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "i-456") {
+		t.Errorf("marshalled PolicyInput exposes the import identity: %s", data)
 	}
 }

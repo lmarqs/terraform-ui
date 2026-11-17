@@ -130,12 +130,16 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 		Change: sdk.PolicyChange{Actions: actions, ReplacePaths: [][]any{}}}
 	if importing := change["importing"]; importing != nil {
 		metadata, _ := importing.(map[string]any)
-		// Terraform supplies no sensitivity mask for a known import identifier.
-		// Do not expose it, including when a separate unknown flag is present.
-		if metadata["unknown"] != true || metadata["id"] != nil || metadata["identity"] != nil {
+		known := metadata["id"] != nil || metadata["identity"] != nil
+		if known == (metadata["unknown"] == true) {
 			return row, "input_incomplete"
 		}
-		input.Change.Importing = &sdk.PolicyImport{ID: sdk.PolicyValue{Kind: "unknown"}, Unknown: true}
+		// Terraform supplies no sensitivity mask for a known import ID or identity, so neither reaches the policy.
+		id := sdk.PolicyValue{Kind: "unknown"}
+		if known {
+			id = sdk.PolicyValue{Kind: "sensitive"}
+		}
+		input.Change.Importing = &sdk.PolicyImport{ID: id, Unknown: !known}
 	}
 	if paths, exists := change["replace_paths"]; exists {
 		values, ok := paths.([]any)

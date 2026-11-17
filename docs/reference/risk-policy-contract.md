@@ -166,9 +166,10 @@ provider_name are nonempty strings; mode is `managed` or `data`. Actions must be
 `["update"]`, `["delete"]`, `["delete","create"]` or `["create","delete"]` after eligibility.
 Missing provider/resource/action metadata needed to interpret a mutation is incomplete
 input, not an empty plan. `previous_address` is a string or null; `index` is an absent, number or string node.
-`importing` is null or an object with `id` as a value node and `unknown` as a boolean, preserving a resource-local
-import identifier's sensitivity/uncertainty. If acquisition cannot establish its masking, omit no evidence silently:
-fail that input. `replace_paths` is an ordered array of paths, each an array of string keys or nonnegative integer indexes
+`importing` is null or an object with `id` as a value node and `unknown` as a boolean. A known import ID or identity
+is passed as kind `sensitive` with no value and `unknown` false; an unknown one is passed as kind `unknown` with
+`unknown` true. Import metadata that is neither known nor unknown, or both, fails that input.
+`replace_paths` is an ordered array of paths, each an array of string keys or nonnegative integer indexes
 (never booleans). An empty replacement path denotes the whole object; paths preserve Terraform evidence
 even when a target subtree is opaque. A resource index is a nonnegative integer number node or a string node;
 no fractional/negative numeric index is accepted.
