@@ -222,6 +222,73 @@ func TestLoadPlan_GivenInvalidPolicyEvidence_ShouldKeepReviewAndMarkUnavailable(
 	}
 }
 
+func TestLoadPlan_GivenDeleteChange_ShouldProduceAbsentAfterInput(t *testing.T) {
+	source := policyPlan(policyResource("", `{"actions":["delete"],"before":{"id":"i-abc123"},"after":null,"after_unknown":{},"before_sensitive":false,"after_sensitive":false}`))
+	summary, err := LoadPlan([]byte(source))
+	if err != nil {
+		t.Fatalf("Plan review must remain available: %v", err)
+	}
+	if summary.PolicyEvidence.ErrorCode != "" {
+		t.Fatalf("PolicyEvidence.ErrorCode = %q, want empty", summary.PolicyEvidence.ErrorCode)
+	}
+	if len(summary.PolicyEvidence.Resources) != 1 {
+		t.Fatalf("resources = %d, want 1", len(summary.PolicyEvidence.Resources))
+	}
+	input := summary.PolicyEvidence.Resources[0].Input
+	if input == nil {
+		t.Fatal("deleted resource has no policy Input")
+	}
+	if input.Change.After.Kind != "absent" {
+		t.Errorf("After.Kind = %q, want absent", input.Change.After.Kind)
+	}
+}
+
+func TestLoadPlan_GivenEmptyMaskOnNullOrScalar_ShouldTreatValueAsNotMarked(t *testing.T) {
+	tests := []struct{ name, change, expected string }{
+		{"null empty object unknown mask", `{"actions":["update"],"before":{},"after":null,"after_unknown":{}}`, `{"kind":"null"}`},
+		{"null empty array unknown mask", `{"actions":["update"],"before":{},"after":null,"after_unknown":[]}`, `{"kind":"null"}`},
+		{"null empty object sensitive mask", `{"actions":["update"],"before":{},"after":null,"after_sensitive":{}}`, `{"kind":"null"}`},
+		{"null empty array sensitive mask", `{"actions":["update"],"before":{},"after":null,"after_sensitive":[]}`, `{"kind":"null"}`},
+		{"string empty object unknown mask", `{"actions":["update"],"before":{},"after":"x","after_unknown":{}}`, `{"kind":"string","value":"x"}`},
+		{"string empty array unknown mask", `{"actions":["update"],"before":{},"after":"x","after_unknown":[]}`, `{"kind":"string","value":"x"}`},
+		{"number empty object sensitive mask", `{"actions":["update"],"before":{},"after":1,"after_sensitive":{}}`, `{"kind":"number","value":"1"}`},
+		{"boolean empty array sensitive mask", `{"actions":["update"],"before":{},"after":true,"after_sensitive":[]}`, `{"kind":"boolean","value":true}`},
+		{"delete absent empty unknown mask", `{"actions":["delete"],"before":{},"after":null,"after_unknown":{}}`, `{"kind":"absent"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rows := policyRows(t, policyEvidenceJSON(t, policyPlan(policyResource("", tt.change))))
+			input := rows[0].(map[string]any)["input"].(map[string]any)
+			assertPolicyJSON(t, input["change"].(map[string]any)["after"], tt.expected)
+		})
+	}
+}
+
+func TestLoadPlan_GivenEmptyMaskOnBefore_ShouldTreatValueAsNotMarked(t *testing.T) {
+	rows := policyRows(t, policyEvidenceJSON(t, policyPlan(policyResource("", `{"actions":["update"],"before":"old","after":"new","before_sensitive":{}}`))))
+	input := rows[0].(map[string]any)["input"].(map[string]any)
+	assertPolicyJSON(t, input["change"].(map[string]any)["before"], `{"kind":"string","value":"old"}`)
+}
+
+func TestLoadPlan_GivenNonEmptyMaskOnNullOrScalar_ShouldRejectAsInputInvalid(t *testing.T) {
+	tests := []struct{ name, change string }{
+		{"null non-empty object unknown mask", `{"actions":["update"],"before":{},"after":null,"after_unknown":{"x":false}}`},
+		{"null non-empty array sensitive mask", `{"actions":["update"],"before":{},"after":null,"after_sensitive":[false]}`},
+		{"string non-empty object sensitive mask", `{"actions":["update"],"before":{},"after":"x","after_sensitive":{"x":true}}`},
+		{"string non-empty array unknown mask", `{"actions":["update"],"before":{},"after":"x","after_unknown":[true]}`},
+		{"number non-empty object unknown mask", `{"actions":["update"],"before":{},"after":1,"after_unknown":{"x":false}}`},
+		{"before scalar non-empty object mask", `{"actions":["update"],"before":"old","after":{},"before_sensitive":{"x":true}}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			evidence := policyEvidenceJSON(t, policyPlan(policyResource("", tt.change)))
+			if evidence["error_code"] != "input_invalid" {
+				t.Errorf("error_code = %v, want input_invalid", evidence["error_code"])
+			}
+		})
+	}
+}
+
 func TestLoadPlan_GivenStringIndexAndUnknownImport_ShouldRetainCompleteIdentity(t *testing.T) {
 	rows := policyRows(t, policyEvidenceJSON(t, policyPlan(policyResource(`,"index":"worker-key"`, `{"actions":["update"],"importing":{"unknown":true},"before":{},"after":{}}`))))
 	input := rows[0].(map[string]any)["input"].(map[string]any)

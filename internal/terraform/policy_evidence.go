@@ -294,10 +294,7 @@ func projectPolicyValue(value any, exists bool, unknown, sensitive any) (sdk.Pol
 		}
 		node = sdk.PolicyValue{Kind: "array", Items: &items}
 	default:
-		if _, ok := unknown.(bool); !ok {
-			return node, false
-		}
-		if _, ok := sensitive.(bool); !ok {
+		if !scalarPolicyMask(unknown) || !scalarPolicyMask(sensitive) {
 			return node, false
 		}
 		switch v := value.(type) {
@@ -315,6 +312,19 @@ func projectPolicyValue(value any, exists bool, unknown, sensitive any) (sdk.Pol
 		return sdk.PolicyValue{Kind: "sensitive"}, true
 	}
 	return node, true
+}
+
+// Terraform marks a scalar with a bare bool, and writes an empty object or array
+// where nothing under a null or scalar value is marked. Callers have already
+// validated that every mask is a bool, object or array.
+func scalarPolicyMask(mask any) bool {
+	switch m := mask.(type) {
+	case map[string]any:
+		return len(m) == 0
+	case []any:
+		return len(m) == 0
+	}
+	return true
 }
 
 func objectPolicyMask(mask any) (map[string]any, bool) {
