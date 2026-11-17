@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -63,5 +65,38 @@ func TestPolicySourceFailure_ShouldAllowNavigationToOtherOperations(t *testing.T
 				t.Fatal("manual unlock must keep confirmation")
 			}
 		}
+	}
+}
+
+func TestRiskReopen_GivenHostPlanCancelledByEsc_ShouldShowTheNewAssessmentNotTheCancellation(t *testing.T) {
+	svc := newMockService("default", nil)
+	svc.PlanFn = func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		planned := reviewedRiskSummary()
+		planned.Changes = []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_db_instance.database"}, Action: sdk.ActionDelete}}
+		return planned, nil
+	}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("risk", tfuirisk.New, plugin.PluginMeta{})
+	registry.Build(svc, nil)
+	app := NewApp(config.Config{Dir: t.TempDir()}, svc, registry, nil)
+	app.Init()
+
+	model, cancelledOpen := app.Update(sdk.NavigateMsg{PluginID: "risk"})
+	app = model.(App)
+	model, home := app.Update(sdk.DeactivateMsg{})
+	app = model.(App)
+	drainPolicyAppCommand(&app, home)
+	model, reopen := app.Update(sdk.NavigateMsg{PluginID: "risk"})
+	app = model.(App)
+
+	drainPolicyAppCommand(&app, cancelledOpen)
+	drainPolicyAppCommand(&app, reopen)
+
+	view := ansi.Strip(app.ActivePlugin().View(100, 30))
+	if strings.Contains(view, "context canceled") || !strings.Contains(view, "aws_db_instance.database") {
+		t.Fatalf("reopened Risk view = %q, want the reopened request's assessment, not the cancelled plan's error", view)
 	}
 }

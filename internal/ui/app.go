@@ -311,7 +311,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.bus.Dispatch(msg)
 
 	case riskAssessedMsg:
-		if msg.generation != a.riskRequests.generation {
+		if !a.riskRequests.current(msg.request) {
 			return a, nil
 		}
 		return a, a.bus.Dispatch(msg.event)

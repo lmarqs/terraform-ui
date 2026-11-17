@@ -44,34 +44,55 @@ type riskEvaluator func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence
 // request made since the last Context change or plan invalidation shares one
 // generation and one cancellable context. Plans the host runs for those requests
 // share a child context, which cancelling a plugin also ends.
+//
+// Requests are numbered in issue order. A cancel followed by a new request
+// supersedes every request issued before that cancel: their late results would
+// otherwise settle the new request, since a requester recognises its answer by
+// pending state or Summary pointer.
 type riskRequests struct {
 	generation uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
 	planCtx    context.Context
 	cancelPlan context.CancelFunc
+
+	issued            uint64
+	cancelledThrough  uint64
+	supersededThrough uint64
 }
 
-func (r *riskRequests) begin() (uint64, context.Context) {
+type riskRequestID struct {
+	generation uint64
+	number     uint64
+}
+
+func (r *riskRequests) begin() (riskRequestID, context.Context) {
 	if r.cancel == nil {
 		r.ctx, r.cancel = context.WithCancel(context.Background())
 	}
-	return r.generation, r.ctx
+	r.supersededThrough = r.cancelledThrough
+	r.issued++
+	return riskRequestID{generation: r.generation, number: r.issued}, r.ctx
 }
 
-func (r *riskRequests) beginPlan() (uint64, context.Context) {
-	generation, ctx := r.begin()
+func (r *riskRequests) beginPlan() (riskRequestID, context.Context) {
+	id, ctx := r.begin()
 	if r.cancelPlan == nil {
 		r.planCtx, r.cancelPlan = context.WithCancel(ctx)
 	}
-	return generation, r.planCtx
+	return id, r.planCtx
 }
 
 func (r *riskRequests) cancelPlans() {
+	r.cancelledThrough = r.issued
 	if r.cancelPlan != nil {
 		r.cancelPlan()
 		r.cancelPlan = nil
 	}
+}
+
+func (r *riskRequests) current(id riskRequestID) bool {
+	return id.generation == r.generation && id.number > r.supersededThrough
 }
 
 func (r *riskRequests) advance() {
@@ -84,8 +105,8 @@ func (r *riskRequests) advance() {
 }
 
 type riskAssessedMsg struct {
-	generation uint64
-	event      sdk.RiskAssessedEvent
+	request riskRequestID
+	event   sdk.RiskAssessedEvent
 }
 
 // cancelPlugin cancels p's operation, including any plan the host runs on a
@@ -101,17 +122,17 @@ func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
 	return a.requestAssessmentWith(summary, riskpolicy.Assess)
 }
 
-// requestAssessmentWith pairs the generation with the Context of the request, so a
-// result for a superseded Context or plan never reaches plugins.
+// requestAssessmentWith pairs the request's identity with its Context, so a result
+// for a superseded Context, plan or cancelled request never reaches plugins.
 func (a App) requestAssessmentWith(summary *sdk.PlanSummary, assess riskEvaluator) tea.Cmd {
 	current := a.holder.current
 	begin := a.riskRequests.begin
 	if summary == nil {
 		begin = a.riskRequests.beginPlan
 	}
-	generation, ctx := begin()
+	request, ctx := begin()
 	return func() tea.Msg {
-		return riskAssessedMsg{generation: generation, event: a.runAssessment(ctx, current, summary, assess)}
+		return riskAssessedMsg{request: request, event: a.runAssessment(ctx, current, summary, assess)}
 	}
 }
 

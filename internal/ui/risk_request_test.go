@@ -314,3 +314,83 @@ func TestRequestAssessment_GivenContextChangeDuringSuppliedSummaryEvaluation_Sho
 		})
 	}
 }
+
+func deactivateActivePlugin(app *App) {
+	model, _ := app.Update(sdk.DeactivateMsg{})
+	*app = model.(App)
+}
+
+func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_ShouldDispatchOnlyTheNewResult(t *testing.T) {
+	planned := reviewedRiskSummary()
+	svc := newMockService("default", nil)
+	svc.PlanFn = func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return planned, nil
+	}
+	for _, tc := range []struct {
+		name      string
+		cancelled func(*App) tea.Cmd
+	}{
+		{"cancelled during host plan", func(app *App) tea.Cmd {
+			cmd := app.requestAssessment(nil)
+			deactivateActivePlugin(app)
+			return cmd
+		}},
+		{"cancelled during evaluation", func(app *App) tea.Cmd {
+			return app.requestAssessmentWith(nil, func(ctx context.Context, _ riskpolicy.Snapshot, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+				deactivateActivePlugin(app)
+				<-ctx.Done()
+				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
+			})
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
+			stale := tc.cancelled(&app)()
+			current := deps.RequestAssessment(nil)
+
+			drainPolicyAppCommand(&app, func() tea.Msg { return stale })
+			if len(recorder.events) != 0 {
+				t.Fatalf("cancelled request's result dispatched to the request issued after cancel: %+v", recorder.events)
+			}
+			deliverAssessment(&app, current)
+
+			ev := onlyRiskEvent(t, recorder)
+			if ev.Err != nil || ev.Summary != planned || !ev.Assessment.Usable() {
+				t.Fatalf("dispatched event = %+v, want the new request's usable assessment of %p", ev, planned)
+			}
+		})
+	}
+}
+
+// Blast Radius requests every assessment for the reviewed summary, so a request
+// cancelled before an identical one is issued must not settle the new request
+// with a result computed under the policy it replaced.
+func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgain_ShouldDispatchOnlyTheNewResult(t *testing.T) {
+	root := t.TempDir()
+	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
+	classifyAll := func(level string) string {
+		return "package tfui.risk.v1\nimport rego.v1\ndefault classification := {\"level\":\"" + level + "\",\"reasons\":[{\"code\":\"edited\",\"message\":\"Edited policy.\",\"paths\":[]}]}\n"
+	}
+	writePolicyFile(t, root, "policy.rego", classifyAll("low"))
+	app, deps, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
+	summary := reviewedRiskSummary()
+
+	stale := deps.RequestAssessment(summary)()
+	deactivateActivePlugin(&app)
+	writePolicyFile(t, root, "policy.rego", classifyAll("high"))
+	current := deps.RequestAssessment(summary)
+
+	drainPolicyAppCommand(&app, func() tea.Msg { return stale })
+	if len(recorder.events) != 0 {
+		t.Fatalf("cancelled request's result dispatched to the request issued after cancel: %+v", recorder.events)
+	}
+	deliverAssessment(&app, current)
+
+	ev := onlyRiskEvent(t, recorder)
+	if ev.Assessment.OverallLevel == nil || *ev.Assessment.OverallLevel != sdk.RiskHigh {
+		t.Fatalf("dispatched assessment = %+v, want the new request's high classification", ev.Assessment)
+	}
+}

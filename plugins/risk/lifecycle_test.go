@@ -16,10 +16,11 @@ import (
 // never seen it. While a nil request is pending, Risk accepts the next
 // RiskAssessedEvent whatever its Summary (a host-planned summary, or nil when
 // the policy failed before planning). The host drops results requested before
-// a Context change or plan invalidation (FR-9), and Risk leaves the pending
-// state on those, on Cancel and on PlanCompletedEvent, so the next event while
-// pending answers this request. A request for a retained summary accepts only
-// the event whose Summary is that pointer.
+// a Context change or plan invalidation (FR-9), and results of requests issued
+// before a cancel once a later request follows it, so a cancelled request never
+// answers its successor. Risk leaves the pending state on Context change,
+// invalidation, Cancel and PlanCompletedEvent. A request for a retained summary
+// accepts only the event whose Summary is that pointer.
 
 func newLifecyclePlugin(t *testing.T, svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
 	t.Helper()
