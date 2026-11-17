@@ -38,7 +38,7 @@ func pressKey(t *testing.T, p *Plugin, key tea.KeyMsg) tea.Cmd {
 
 func TestTogglePin_GivenCursorOnRow3OfExpandedTree_ShouldKeepCursorExpansionAndBadges(t *testing.T) {
 	summary := moduleSummary()
-	p, _, h := newAssessedPlugin(t, summary, allHigh(summary), withLegacyHostAssessment)
+	p, _, h := newAssessedPlugin(t, summary, allHigh(summary))
 	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 	pressKey(t, p, tea.KeyMsg{Type: tea.KeyCtrlT})
 	pressKey(t, p, tea.KeyMsg{Type: tea.KeyEnter})
@@ -82,7 +82,7 @@ func TestTogglePin_GivenCursorOnRow3OfExpandedTree_ShouldKeepCursorExpansionAndB
 
 func TestActivate_GivenFinishedPlan_ShouldNeverShowRunningPlanWhileReassessing(t *testing.T) {
 	summary := moduleSummary()
-	p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary), withLegacyHostAssessment)
+	p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary))
 	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 
 	pending := p.Activate(Input{})
@@ -169,7 +169,7 @@ func TestHandlePlanInvalidated_GivenIdleOrError_ShouldNotMarkPlanDone(t *testing
 		t.Run(tc.name, func(t *testing.T) {
 			summary := moduleSummary()
 			calls := 0
-			p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary), withLegacyHostAssessment)
+			p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary))
 			svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) {
 				calls++
 				if calls > 1 {

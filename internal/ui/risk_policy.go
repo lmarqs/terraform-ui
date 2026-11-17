@@ -14,26 +14,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-func (a App) riskPolicyDiagnostic() string {
-	if err := sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options); err != nil {
-		return err.Error()
-	}
-	current := a.holder.current
-	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
-	if err != nil {
-		return string(errorCode(err, sdk.ErrorConfigurationInvalid))
-	}
-	// The evaluator owns embedded modules. Built-in selection needs no disk
-	// acquisition; custom selection must never recover through that policy.
-	if selection.Path == "" {
-		return ""
-	}
-	if _, err := riskpolicy.LoadSource(selection, nil); err != nil {
-		return string(errorCode(err, sdk.ErrorSourceUnreadable))
-	}
-	return ""
-}
-
 // errorCode keeps a failure visible as a code even when err carries none.
 func errorCode(err error, fallback sdk.ErrorCode) sdk.ErrorCode {
 	var code sdk.ErrorCode
@@ -171,19 +151,6 @@ func planForAssessment(ctx context.Context, current *sdk.Context) (*sdk.PlanSumm
 
 func unavailableAssessment(code sdk.ErrorCode) sdk.PolicyAssessment {
 	return sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: code}
-}
-
-// assessRisk uses only captured Context values while work runs off the UI thread.
-func (a App) assessRisk(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary) sdk.PolicyAssessment {
-	return a.assessRiskWith(ctx, current, summary, riskpolicy.Assess)
-}
-
-func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess riskEvaluator) sdk.PolicyAssessment {
-	selection, snapshot, failure := a.loadRiskPolicy(current)
-	if failure != "" {
-		return unavailableAssessment(failure)
-	}
-	return a.evaluateRisk(ctx, current, summary, selection, snapshot, assess)
 }
 
 func (a App) loadRiskPolicy(current *sdk.Context) (config.RiskPolicySelection, riskpolicy.Snapshot, sdk.ErrorCode) {

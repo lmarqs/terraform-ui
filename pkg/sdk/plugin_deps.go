@@ -1,8 +1,6 @@
 package sdk
 
 import (
-	"context"
-
 	tea "github.com/charmbracelet/bubbletea"
 
 	"log/slog"
@@ -31,14 +29,6 @@ type PluginDeps struct {
 	// non-nil after the first ContextChangedEvent; before that, returns a
 	// minimal bootstrap snapshot derived from Service.
 	Context func() *Context
-	// RiskPolicyDiagnostic reloads selected policy configuration and source for
-	// the active Context. It returns a fixed failure code, or an empty string
-	// when source acquisition succeeds; this does not validate evaluation.
-	// Hosts without policy source loading may leave it nil.
-	RiskPolicyDiagnostic func() string
-	// AssessRisk evaluates retained evidence for the captured immutable Context.
-	// The host owns source loading and evaluation; plugins receive domain values only.
-	AssessRisk func(context.Context, *Context, *PlanSummary) PolicyAssessment
 	// RequestAssessment asks the host to assess summary against the policy the
 	// active Context selects; a nil summary makes the host run the plan first.
 	// The result arrives as a RiskAssessedEvent. Every host provides it. Call it

@@ -28,16 +28,6 @@ func newAssessedPlugin(t *testing.T, summary *sdk.PlanSummary, assessment sdk.Po
 	return p, svc, h
 }
 
-// withLegacyHostAssessment wires the synchronous AssessRisk and
-// RiskPolicyDiagnostic callbacks the App still provides beside
-// RequestAssessment, so regression tests run the plugin as the App does.
-func withLegacyHostAssessment(h *sdktest.PluginDepsHarness) {
-	h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-		return h.AssessmentEvent.Assessment
-	}
-	h.Deps.RiskPolicyDiagnostic = func() string { return "" }
-}
-
 // drainAssessmentPlan runs cmd depth-first like the macro driver. Plugin
 // messages go to Update; events go through an EventBus, as the App dispatches
 // them. PlanCompletedEvents are recorded instead of dispatched.

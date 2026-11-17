@@ -273,3 +273,26 @@ func (m *firstReadyOutput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	return m, cmd
 }
+
+// TestRunPlugin_GivenPolicyThatLoadsButClassifiesInvalidly_ShouldReportTheAssessmentErrorCode
+// uses a policy whose source loads, so only its evaluation can report the failure.
+func TestRunPlugin_GivenPolicyThatLoadsButClassifiesInvalidly_ShouldReportTheAssessmentErrorCode(t *testing.T) {
+	session := newRiskReviewSession(t, []byte(sessionPlanJSON))
+	policy := strings.ReplaceAll(sessionRiskPolicy, `"low"`, `"not-a-level"`)
+	if err := os.WriteFile(filepath.Join(session.cfg.Dir, "policy.rego"), []byte(policy), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var plan *tfuiplan.Plugin
+	err := session.RunPlugin(context.Background(), "plan", func(p sdk.Plugin) tea.Cmd {
+		plan = p.(*tfuiplan.Plugin)
+		return plan.Activate(tfuiplan.Input{})
+	})
+	stdout, stderr := session.effects.Stdout.(*bytes.Buffer), session.effects.Stderr.(*bytes.Buffer)
+	var exitErr *exitError
+	if !errors.As(err, &exitErr) || exitErr.code != 2 || !strings.Contains(stdout.String(), "aws_lambda_function.worker") {
+		t.Fatalf("Plan exit = %v, stdout = %q; want plan review with exit 2", err, stdout.String())
+	}
+	if got, want := stderr.String(), "risk unavailable: "+string(sdk.ErrorResultInvalid)+"\n"; got != want {
+		t.Fatalf("stderr = %q, want the host assessment's error code %q", got, want)
+	}
+}
