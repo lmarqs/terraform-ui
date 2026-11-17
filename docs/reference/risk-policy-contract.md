@@ -75,6 +75,7 @@ sensitive metadata must not be reconstructed from rendered diff strings; the per
 | Mutation labeled phantom by tfui | Submit normally. The label does not bypass assessment or force `none`. |
 | Read or no-op | Not assessed. |
 | Pure import or pure address move | Not assessed. |
+| Forget (`removed` block with `destroy = false`) | Not assessed, exclusion `forget`. |
 | Output-only change | Not assessed. |
 | Import or move accompanied by a mutation | Assess the create/update/delete/replacement mutation. |
 
@@ -599,7 +600,7 @@ CWD, or null in zero-config mode. `context.chdir` is relative to that root in pr
 to invocation CWD; `workspace` is the actual selected workspace. These display paths do not replace internal
 Context identity or participate in policy evaluation. JSON object key order is irrelevant; resource rows sort by address.
 Excluded rows have address/actions/status `not_assessed` and an `exclusion` code, no level or reasons. Codes are
-`read`, `no_op`, `pure_import`, `pure_move`, `output_only`; output-only rows use the output address. In combined
+`read`, `no_op`, `forget`, `pure_import`, `pure_move`, `output_only`; output-only rows use the output address. In combined
 exclusions use `pure_move`, then `pure_import`, then the action code. Exclusion codes describe scope, not severity.
 An empty report has `status: "empty"`, `overall_level: null`, zero eligible/classified/level counts, excluded rows
 retained, and threshold result `not_applicable`. Otherwise threshold results are `disabled`, `below`, `met`.

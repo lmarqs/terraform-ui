@@ -197,7 +197,8 @@ func TestLoadPlan_GivenInvalidPolicyEvidence_ShouldKeepReviewAndMarkUnavailable(
 		{"missing provider", policyPlan(`{"address":"aws_x.y","mode":"managed","type":"aws_x","name":"y","change":{"actions":["update"],"before":{},"after":{}}}`), "input_incomplete"},
 		{"missing output actions", `{"format_version":"1.2","output_changes":{"x":{}}}`, "input_incomplete"},
 		{"missing actions", policyPlan(policyResource("", `{"before":{},"after":{}}`)), "input_incomplete"},
-		{"unsupported actions", policyPlan(policyResource("", `{"actions":["forget"],"before":{},"after":{}}`)), "input_invalid"},
+		{"unsupported actions", policyPlan(policyResource("", `{"actions":["teleport"],"before":{},"after":{}}`)), "input_invalid"},
+		{"forget combined with another action", policyPlan(policyResource("", `{"actions":["forget","create"],"before":{},"after":{}}`)), "input_invalid"},
 		{"invalid unknown descendant", policyPlan(policyResource("", `{"actions":["update"],"before":{},"after":null,"after_unknown":true,"after_sensitive":{"child":"invalid"}}`)), "input_invalid"},
 		{"invalid sensitive descendant", policyPlan(policyResource("", `{"actions":["update"],"before":{},"after":{"child":{}},"after_sensitive":true,"after_unknown":{"child":{"nested":"invalid"}}}`)), "input_invalid"},
 		{"mask leaf", policyPlan(policyResource("", `{"actions":["update"],"before":{},"after":{"x":1},"after_sensitive":{"x":"secret"}}`)), "input_invalid"},
@@ -316,5 +317,31 @@ func TestLoadPlan_GivenInvalidPolicyOnlyMetadata_ShouldPreserveDisplayChanges(t 
 	diffs := summary.Changes[0].AttributeDiffs
 	if len(diffs) != 1 || diffs[0].Key != "memory_size" || diffs[0].OldValue != "128" || diffs[0].NewValue != "256" {
 		t.Errorf("policy failure changed display evidence: %#v", diffs)
+	}
+}
+
+func TestLoadPlan_GivenForgetAndUpdateChanges_ShouldExcludeForgetAndAssessUpdate(t *testing.T) {
+	forget := `{"address":"aws_s3_bucket.forgotten","mode":"managed","type":"aws_s3_bucket","name":"forgotten","provider_name":"registry.terraform.io/hashicorp/aws","change":{"actions":["forget"],"before":{"bucket":"old"},"after":null,"after_unknown":{}}}`
+	update := policyResource("", `{"actions":["update"],"before":{"x":1},"after":{"x":2}}`)
+	summary, err := LoadPlan([]byte(policyPlan(forget + "," + update)))
+	if err != nil {
+		t.Fatalf("Plan review must remain available: %v", err)
+	}
+	evidence := summary.PolicyEvidence
+	if evidence.ErrorCode != "" {
+		t.Fatalf("ErrorCode = %q, want empty: a forget change must not make the plan unavailable", evidence.ErrorCode)
+	}
+	if len(evidence.Resources) != 2 {
+		t.Fatalf("resources = %d, want 2", len(evidence.Resources))
+	}
+	forgotten, updated := evidence.Resources[0], evidence.Resources[1]
+	if forgotten.Address != "aws_s3_bucket.forgotten" || forgotten.Exclusion != "forget" || forgotten.Input != nil {
+		t.Errorf("forget row = %+v, want Exclusion forget and no Input", forgotten)
+	}
+	if !reflect.DeepEqual(forgotten.Actions, []string{"forget"}) {
+		t.Errorf("forget row actions = %v, want [forget]", forgotten.Actions)
+	}
+	if updated.Exclusion != "" || updated.Input == nil {
+		t.Errorf("update row = %+v, want an Input and no Exclusion", updated)
 	}
 }

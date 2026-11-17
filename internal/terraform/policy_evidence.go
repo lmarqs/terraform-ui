@@ -66,10 +66,15 @@ func policyActions(change map[string]any) ([]string, string) {
 	for i, value := range values {
 		actions[i], _ = value.(string)
 	}
-	if sdk.ActionFromStrings(actions) == sdk.ActionNoOp && (len(actions) != 1 || actions[0] != "no-op") {
+	if sdk.ActionFromStrings(actions) == sdk.ActionNoOp && (len(actions) != 1 || (actions[0] != "no-op" && !isForget(actions))) {
 		return nil, "input_invalid"
 	}
 	return actions, ""
+}
+
+// ActionFromStrings maps forget to no-op, so forget is recognised by its raw action string.
+func isForget(actions []string) bool {
+	return len(actions) == 1 && actions[0] == "forget"
 }
 
 func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence, string) {
@@ -92,6 +97,8 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 			row.Exclusion = "pure_move"
 		case change["importing"] != nil:
 			row.Exclusion = "pure_import"
+		case isForget(actions):
+			row.Exclusion = "forget"
 		case action == sdk.ActionRead:
 			row.Exclusion = "read"
 		default:

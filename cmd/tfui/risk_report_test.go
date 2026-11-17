@@ -252,3 +252,11 @@ func TestRiskCommand_GivenUnavailableInputOrSource_ShouldEmitFixedGlobalDiagnost
 		}
 	}
 }
+
+func TestRiskCommand_GivenForgetChange_ShouldPrintNotAssessedForget(t *testing.T) {
+	plan := `{"format_version":"1.2","resource_changes":[{"address":"aws_s3_bucket.forgotten","mode":"managed","type":"aws_s3_bucket","name":"forgotten","provider_name":"registry.terraform.io/hashicorp/aws","change":{"actions":["forget"],"before":{"bucket":"old"},"after":null,"after_unknown":{}}}]}`
+	_, stdout, _ := runSeededRiskCommand(t, plan, "", "", "--threshold", "off")
+	if !strings.Contains(stdout, "forget aws_s3_bucket.forgotten: not assessed (forget)\n") {
+		t.Fatalf("missing forget row in text output: %q", stdout)
+	}
+}
