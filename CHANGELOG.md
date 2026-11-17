@@ -1,3 +1,29 @@
+# [1.31.0](https://github.com/lmarqs/terraform-ui/compare/v1.30.2...v1.31.0) (2026-11-15)
+
+
+### Bug Fixes
+
+* **config:** reject plugin blocks in member configuration ([9a2afea](https://github.com/lmarqs/terraform-ui/commit/9a2afeae1169bd63ddfa3c89969378c0fc9d82b0)), closes [#98](https://github.com/lmarqs/terraform-ui/issues/98)
+* **lint:** keep one golangci-lint cache per checkout ([717694b](https://github.com/lmarqs/terraform-ui/commit/717694b06c74c7e2b5fb171e51f9a224336861da))
+* **ralph:** find the Beads directory in every worktree, parallel workers' included ([ad88817](https://github.com/lmarqs/terraform-ui/commit/ad888175b4d0b7aaedc9e9c366277dd7304be2fa))
+* **ralph:** separate Codex's arguments from ai-jail's ([d81aaa3](https://github.com/lmarqs/terraform-ui/commit/d81aaa3e3b1c58865454b2918eb2df70d44eb06e))
+* **ralph:** take the ai-jail mise selects over an older one on PATH ([a34acce](https://github.com/lmarqs/terraform-ui/commit/a34accef9da429426f683fc2a9a0e786c37a4673))
+* **ralph:** verify final responses and isolate worker launches ([28ac970](https://github.com/lmarqs/terraform-ui/commit/28ac970126a9bb92e98e79f6d9a9d7cd0113eef4))
+* **worktrees:** stop setup trusting each worktree's mise config ([a0fe253](https://github.com/lmarqs/terraform-ui/commit/a0fe253212c0ea0b7769bd705b21c1256dcf07df))
+
+
+### Features
+
+* **agents:** adopt Beads, Beads Viewer and ralph-tui ([e0ba6d3](https://github.com/lmarqs/terraform-ui/commit/e0ba6d372f51b0d26bcd5651d5d4e3ec3d188c2b)), closes [beads#tracker](https://github.com/beads/issues/tracker) [beads#viewer](https://github.com/beads/issues/viewer) [ralph#ralph-tui](https://github.com/ralph/issues/ralph-tui)
+* **ralph:** have each worker coordinate the test-writer and code-checker subagents ([f130165](https://github.com/lmarqs/terraform-ui/commit/f130165d453af320ba276df1909e76c37a287a14))
+* **ralph:** run Codex workers inside ai-jail 3 ([470f3a8](https://github.com/lmarqs/terraform-ui/commit/470f3a8a9915c4f6e975f4cb61e7dd2a09ff1bb6))
+* **worktrees:** copy the main checkout's .env into each new worktree ([859c912](https://github.com/lmarqs/terraform-ui/commit/859c912e4a0ef8a6a33f7d8438aa60742c86f81c))
+
+
+### Reverts
+
+* let setup trust each worktree's mise config again ([928b26a](https://github.com/lmarqs/terraform-ui/commit/928b26ad3395962d1205204f4e66a0b92d643e35))
+
 ## [1.30.2](https://github.com/lmarqs/terraform-ui/compare/v1.30.1...v1.30.2) (2026-11-14)
 
 
