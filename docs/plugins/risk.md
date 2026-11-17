@@ -70,7 +70,7 @@ terraform show -json tfplan.out | tfui risk -ci -plan -
 ```
 
 `-plan` accepts Terraform show JSON from a file or stdin, so seeded analysis needs no Terraform binary.
-Without it, Risk acquires a live plan. `-json` selects the versioned risk report; `tfui plan -json` continues to
+Without it, tfui acquires a live plan for Risk. `-json` selects the versioned risk report; `tfui plan -json` continues to
 emit Terraform JSON without risk fields. Show JSON is analysis input, not an executable saved plan.
 
 The [CLI reference](../reference/cli-reference.md#tfui-risk) lists the command and flags. The

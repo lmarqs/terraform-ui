@@ -66,7 +66,7 @@ tfui risk -ci -plan ./plan.json
 tfui risk -ci -plan ./plan.json -json -threshold high
 ```
 
-Without `-plan`, Risk acquires a plan using the active Context and cleans up its temporary artifact.
+Without `-plan`, tfui acquires a plan for Risk using the active Context and cleans up its temporary artifact.
 The [risk policy contract](risk-policy-contract.md#command-threshold-and-report-v1) defines report v1,
 threshold settings and comparison; the [Risk I/O contract](cli-io-contract.md#risk-command-v1) defines channels
 and exits. A threshold match emits the complete report and exits 3; unavailable assessments emit no report.
