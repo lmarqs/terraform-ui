@@ -1,0 +1,33 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/module.rss.txt",
+    "prlimit",
+    "--as=4294967296",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "120s",
+    "go",
+    "mod",
+    "download",
+    "-json",
+    "github.com/open-policy-agent/opa@v1.19.1"
+  ],
+  "exit": 0,
+  "external_limit": "none",
+  "stdout": "{\n\t\"Path\": \"github.com/open-policy-agent/opa\",\n\t\"Version\": \"v1.19.1\",\n\t\"Info\": \"/tmp/tfui-d03b/modcache/cache/download/github.com/open-policy-agent/opa/@v/v1.19.1.info\",\n\t\"GoMod\": \"/tmp/tfui-d03b/modcache/cache/download/github.com/open-policy-agent/opa/@v/v1.19.1.mod\",\n\t\"Zip\": \"/tmp/tfui-d03b/modcache/cache/download/github.com/open-policy-agent/opa/@v/v1.19.1.zip\",\n\t\"Dir\": \"/tmp/tfui-d03b/modcache/github.com/open-policy-agent/opa@v1.19.1\",\n\t\"Sum\": \"h1:aB1nOncChnTbQurjRQVJnjTJxditt8VqszlbaM3GGKU=\",\n\t\"GoModSum\": \"h1:pb6Y6klyf7X7X8uXNDflruA9dQC2gMqWROXI5w/kvv0=\",\n\t\"Origin\": {\n\t\t\"VCS\": \"git\",\n\t\t\"URL\": \"https://github.com/open-policy-agent/opa\",\n\t\t\"Hash\": \"54896f9f28515d14b31a93e6ef5737bb85866e30\",\n\t\t\"Ref\": \"refs/tags/v1.19.1\"\n\t}\n}\n",
+  "stderr": "",
+  "wall_seconds": 0.010224347999610472,
+  "rss_file": "module.rss.txt",
+  "truncated": {
+    "stdout": false,
+    "stderr": false
+  },
+  "pipes_drained": true,
+  "surviving_running_group_members": []
+}

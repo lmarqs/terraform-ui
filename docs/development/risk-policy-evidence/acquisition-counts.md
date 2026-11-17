@@ -13,6 +13,9 @@ This D-02b experiment inspects baseline `8f56f88e03618d47677b012548c5003a57d7d2a
 `Session.RunPlugin`; it changes no product code. The [contract](../../reference/risk-policy-contract.md)
 owns eligibility and failure behavior, and [D-02a](input-fidelity.md) owns representation fidelity.
 
+[US-008a session verification](session-integration.md) records the later production integration tests and
+repository fixture corrections. The baseline failures below remain historical evidence.
+
 ## Criteria declared before execution
 
 The [protocol](assets/acquisition/protocol.md) was written before the first run. A seeded reviewed plan

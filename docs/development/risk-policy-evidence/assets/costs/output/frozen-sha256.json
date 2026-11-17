@@ -1,0 +1,16 @@
+{
+  "summarize.py": "65e843aa3f6442e245a66ed10b1cc4b77a5cfe5f97bba277794ccd279ab787cf",
+  "test_costs.py": "0f25e56a9bfd2ba15f9611cb8b600f048b52afb86c76981127a71682c7cb5866",
+  "guard.py": "d7f55bddb5a11bd9ef4514333cd6aa8d809552926a7d91ac81955be4f02c22e1",
+  "run.py": "3af28257f2010459e005e6dc43c36256502fe01f33f14e74a7c91fe4eaf5286e",
+  "probe.go.txt": "4b2f0fe03fb6a13a27c8f6beb4b763e82af2a59cdc9fe45032fb8709094c40ab",
+  "fixtures.json": "806b082515be9b0ac830815fc60cda68494d08e6e53b6b87047de54013c4b724",
+  "protocol.md": "a99418e4013106c9b48597c28fdd9c9a4664438ada4161fa5af78e895cba2c40",
+  "output/capabilities.json": "5f23efc2b4f4b72ef990c56eeca17f7bdd14ca81d9a876feb918320ac2db42ed",
+  "output/candidate-main.patch": "973b7fa8ab6b8273eb948dd08bca88067669857412145b414f67af652fd08f6d",
+  "output/candidate-go.mod": "bcc6e3e75f484d1c7fe860ad4572c40a11d996a99e38278bd595fa9dd70e45b4",
+  "output/baseline-go.mod": "045f4f04798ed21698c1e247b601e2d03bcf81ed2619c21c28a071676c8b4837",
+  "output/candidate-go.sum": "8fdbc07415208112f9ac9410cfb6e62b5fac4264123d694cfc97dc172dfbd1f2",
+  "output/baseline-go.sum": "fce8ff74f7cd30092e506ced54a3b1ecd742d4938f4f46572ee08f8929b7ff30",
+  "go-compiler": "d29b19f04e57fa2f35d4725a8743b663289ac29832128a235c4a3f76f885b150"
+}

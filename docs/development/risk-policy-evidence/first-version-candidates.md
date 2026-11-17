@@ -8,7 +8,12 @@ audience: "Contributors running D-02 and D-03 and publishing the D-01c contract"
 
 # First-version input, result, trust and compatibility candidates
 
-D-01a prepares these decisions for the [architecture design](../risk-policy-design.md#remaining-decisions).
+**Publication status (2026-11-15):** D-01c adopted and refined these candidates in the
+[first-version contract](../../reference/risk-policy-contract.md). This page preserves the pre-experiment
+candidate and handoff as historical evidence; its future-tense gates are no longer current design blockers.
+The contract owns exact interfaces; the [publication review](contract-publication.md) records limits and changes.
+
+D-01a prepares these decisions for the [architecture design](../risk-policy-design.md#first-version-decision-map).
 They are contributor-selected first-version choices under the delegated decision authority for this run, not
 interfaces selected by the owner or implemented behavior. D-02 and D-03 must test them before D-01c publishes the
 production interface in the [contract reference](../../reference/risk-policy-contract.md). A falsified candidate
@@ -338,8 +343,9 @@ are limited to this validity integration and provenance; no new impact algorithm
 
 ## Evidence handoff and falsification criteria
 
-The [D-03b prerequisite audit](boundary-controls.md) records the missing D-03a protocol at
-the inspected checkout; it contains no executed runtime controls.
+The [D-03b boundary controls](boundary-controls.md) now record forty bounded standalone runtime probes,
+including result distinctions, strict execution, denied effects, print erasure/source rejection and disclosure
+limits. They supersede the earlier prerequisite audit; combined build/cost evidence remains D-03c work.
 
 D-02 records fixtures, toolchain, baseline and criteria **before running** acquisition/lifecycle experiments.
 For every node kind above, compare source evidence and input structurally, including numeric token text, array
@@ -375,3 +381,7 @@ for an already reviewed plan. These are acquisition experiments, not production 
 
 The [D-02c Context/source evidence](context-source-identity.md) records current HCL/startup/switch behavior,
 disposable snapshot/publication experiments and the combined D-02 first-version conclusion.
+
+The [D-03c release-target costs](release-costs.md) record combined tfui/OPA release builds, native runtime
+measurements and the delegated first-version cost judgment. These remain disposable evidence; no production
+evaluator or dependency is introduced by the experiments.

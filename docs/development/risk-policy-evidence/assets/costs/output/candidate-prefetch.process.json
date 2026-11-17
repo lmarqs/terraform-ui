@@ -1,0 +1,34 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/output/candidate-prefetch.rss.txt",
+    "prlimit",
+    "--as=4294967296",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "120s",
+    "go",
+    "mod",
+    "download",
+    "all"
+  ],
+  "exit": 0,
+  "external_limit": "none",
+  "stdout": "",
+  "stderr": "",
+  "wall_seconds": 17.732823289003136,
+  "rss_file": "candidate-prefetch.rss.txt",
+  "truncated": {
+    "stdout": false,
+    "stderr": false
+  },
+  "pipes_drained": true,
+  "surviving_running_group_members": [],
+  "peak_rss_kib": 25028,
+  "status": "ok"
+}

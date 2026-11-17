@@ -1,0 +1,37 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/output/runtime-candidate-1000-warm-1.rss.txt",
+    "prlimit",
+    "--as=1073741824",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "30s",
+    "/tmp/tfui-d03c-541nbmlw/native-candidate",
+    "__d03",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/fixtures.json",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/output/capabilities.json",
+    "1000",
+    "warm",
+    "candidate"
+  ],
+  "exit": 0,
+  "external_limit": "none",
+  "stdout": "{\"correct_count\":100000,\"eval_count\":100000,\"eval_total_ns\":2391775465,\"first_eval_ns\":30636,\"input_bytes\":246891,\"loops\":100,\"parse_ns\":14640100,\"phase\":\"warm\",\"prepare_count\":1,\"prepare_ns\":382409,\"source_parse_ns\":120930,\"variant\":\"candidate\",\"workload_n\":1000}\n",
+  "stderr": "",
+  "wall_seconds": 2.7714410799999314,
+  "rss_file": "runtime-candidate-1000-warm-1.rss.txt",
+  "truncated": {
+    "stdout": false,
+    "stderr": false
+  },
+  "pipes_drained": true,
+  "surviving_running_group_members": [],
+  "peak_rss_kib": 28756,
+  "status": "ok"
+}

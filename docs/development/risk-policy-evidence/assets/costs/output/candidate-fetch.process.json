@@ -1,0 +1,33 @@
+{
+  "command": [
+    "/usr/bin/time",
+    "-v",
+    "-o",
+    "/home/lmarqs/Work/terraform-ui/.worktrees/ralph/risk-plugin/docs/development/risk-policy-evidence/assets/costs/output/candidate-fetch.rss.txt",
+    "prlimit",
+    "--as=4294967296",
+    "--core=0",
+    "--",
+    "timeout",
+    "--signal=TERM",
+    "--kill-after=2s",
+    "120s",
+    "go",
+    "mod",
+    "tidy"
+  ],
+  "exit": 0,
+  "external_limit": "none",
+  "stdout": "",
+  "stderr": "go: downloading github.com/open-policy-agent/opa v1.19.1\ngo: downloading github.com/cespare/xxhash/v2 v2.3.0\ngo: downloading go.yaml.in/yaml/v3 v3.0.4\ngo: downloading github.com/fortytw2/leaktest v1.3.0\ngo: downloading github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415\ngo: downloading github.com/rcrowley/go-metrics v0.0.0-20250401214520-65e299d6c5c9\ngo: downloading sigs.k8s.io/yaml v1.6.0\ngo: downloading github.com/gobwas/glob v0.2.3\ngo: downloading github.com/lestrrat-go/jwx/v3 v3.1.1\ngo: downloading google.golang.org/protobuf v1.36.11\ngo: downloading github.com/tchap/go-patricia/v2 v2.3.3\ngo: downloading github.com/vektah/gqlparser/v2 v2.5.36\ngo: downloading github.com/yashtewari/glob-intersection v0.2.0\ngo: downloading github.com/foxcpp/go-mockdns v1.2.0\ngo: downloading gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c\ngo: downloading github.com/sirupsen/logrus v1.9.4\ngo: downloading github.com/dgraph-io/badger/v4 v4.9.4\ngo: downloading github.com/prometheus/client_golang v1.24.0\ngo: downloading github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb\ngo: downloading go.yaml.in/yaml/v2 v2.4.4\ngo: downloading github.com/lestrrat-go/option/v2 v2.0.0\ngo: downloading github.com/lestrrat-go/dsig v1.2.1\ngo: downloading github.com/lestrrat-go/dsig-secp256k1 v1.0.0\ngo: downloading github.com/valyala/fastjson v1.6.10\ngo: downloading github.com/lestrrat-go/blackmagic v1.0.4\ngo: downloading github.com/lestrrat-go/httprc/v3 v3.0.5\ngo: downloading github.com/decred/dcrd/dcrec/secp256k1/v4 v4.4.1\ngo: downloading github.com/google/uuid v1.6.0\ngo: downloading github.com/miekg/dns v1.1.57\ngo: downloading github.com/kr/pretty v0.3.1\ngo: downloading github.com/dgraph-io/ristretto/v2 v2.2.0\ngo: downloading github.com/dustin/go-humanize v1.0.1\ngo: downloading go.opentelemetry.io/otel v1.44.0\ngo: downloading github.com/beorn7/perks v1.0.1\ngo: downloading github.com/prometheus/client_model v0.6.2\ngo: downloading github.com/prometheus/common v0.70.0\ngo: downloading github.com/prometheus/procfs v0.21.1\ngo: downloading github.com/segmentio/asm v1.2.1\ngo: downloading github.com/goccy/go-json v0.10.6\ngo: downloading github.com/lestrrat-go/httpcc v1.0.1\ngo: downloading github.com/agnivade/levenshtein v1.2.1\ngo: downloading github.com/tetratelabs/wazero v1.12.0\ngo: downloading github.com/kr/text v0.2.0\ngo: downloading github.com/rogpeppe/go-internal v1.15.0\ngo: downloading github.com/google/flatbuffers v25.2.10+incompatible\ngo: downloading github.com/klauspost/compress v1.19.0\ngo: downloading golang.org/x/net v0.56.0\ngo: downloading github.com/go-logr/logr v1.4.4\ngo: downloading go.opentelemetry.io/otel/metric v1.44.0\ngo: downloading go.opentelemetry.io/otel/trace v1.44.0\ngo: downloading golang.org/x/crypto v0.53.0\ngo: downloading github.com/sergi/go-diff v1.4.0\ngo: downloading github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822\ngo: downloading github.com/go-logr/stdr v1.2.2\ngo: downloading go.opentelemetry.io/auto/sdk v1.2.1\ngo: downloading github.com/spf13/cobra v1.10.2\ngo: downloading github.com/mattn/go-runewidth v0.0.19\ngo: downloading golang.org/x/sync v0.22.0\ngo: downloading golang.org/x/sys v0.47.0\ngo: downloading golang.org/x/tools v0.47.0\ngo: downloading github.com/clipperhouse/uax29/v2 v2.6.0\ngo: downloading golang.org/x/text v0.40.0\ngo: downloading github.com/spf13/pflag v1.0.10\ngo: downloading github.com/stretchr/testify v1.11.1\ngo: downloading golang.org/x/mod v0.37.0\ngo: downloading github.com/pmezard/go-difflib v1.0.0\ngo: downloading github.com/arbovm/levenshtein v0.0.0-20160628152529-48b4e1c0c4d0\ngo: downloading github.com/dgryski/trifles v0.0.0-20230903005119-f50d829f2e54\n",
+  "wall_seconds": 21.75627946000168,
+  "rss_file": "candidate-fetch.rss.txt",
+  "truncated": {
+    "stdout": false,
+    "stderr": false
+  },
+  "pipes_drained": true,
+  "surviving_running_group_members": [],
+  "peak_rss_kib": 53116,
+  "status": "ok"
+}

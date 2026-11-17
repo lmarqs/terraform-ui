@@ -1,0 +1,5 @@
+First delivery validation, before restoration:
+Command: python3 docs/development/risk-policy-evidence/assets/costs/validate.py
+Observed exit: 1
+AssertionError: summarize.py
+Cause: post-freeze presentation edits. Exact frozen formatter restored; enhanced formatting retained separately in report.py.
