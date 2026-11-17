@@ -22,7 +22,7 @@ risk badges; Blast Radius uses those classifications in its impact calculation. 
 in [Risk analysis](../features/risk-analysis.md). A custom policy completely replaces them.
 
 Open Risk after Plan to reuse the reviewed evidence without generating a second plan. Without a current plan,
-Risk acquires one using the active Context's plan options and cleans up its temporary saved artifact.
+tfui acquires one for Risk using the active Context's plan options and cleans up its temporary saved artifact.
 Risk provides review and reporting; it adds no Apply action.
 
 ## Interactive (TUI)
