@@ -73,7 +73,8 @@ Flag scoping:
 - On root: `-macro` drives the full multi-plugin TUI headlessly
 - On subcommands: `-macro` drives the command's plugin headlessly, outputs recorded commands
 - `-record <dir>`: captures ANSI frames + manifest.json (orthogonal to `-macro`)
-- All other flags: persistent (available everywhere)
+- Root flags (`-project`, `-terraform-bin`, `-config`, `-chdir`, `-ci`, `-json`): persistent (available everywhere)
+- Command-specific flags (`-target`, `-risk-threshold`, `-lock`, `-force`, `-backend`, …): local to their command
 - Every novel flag must combine validly with every other flag — no conditional validity (see ADR-0017)
 
 Binary resolution:
@@ -117,6 +118,7 @@ Resolution chain: Root defaults → Child top-level → Workspace block → CLI 
 Key functions: `config.LoadRoot(dir)`, `config.LoadChild(dir)`, `config.Resolve(root, child, workspace)`
 
 Risk settings: `docs/reference/risk-policy-contract.md#command-threshold-and-report-v1` owns threshold values,
-precedence, and the rejection of the `level` key with an error that names `threshold`. The complete-policy selector is separate from
-plugin settings; consult `docs/reference/risk-policy-contract.md#source-selection` before changing resolution.
+precedence, and the rejection of the `level` key with an error that names `threshold`. The complete-policy selector is
+separate from plugin settings; consult `docs/reference/risk-policy-contract.md#source-selection` before changing
+resolution.
 Member plugin blocks remain rejected.

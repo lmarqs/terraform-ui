@@ -147,6 +147,7 @@ Plugins are:
 | `Context` | `func() *Context` returning the current snapshot |
 | `Pin` | Toggles a group of pin addresses; triggers a Context replacement |
 | `ClearPins` | Removes every pin |
+| `RequestAssessment` | Asks the host to assess a plan summary against the risk policy; the result arrives as a `RiskAssessedEvent` |
 
 `sdk.Context` (`pkg/sdk/context.go`) is an immutable snapshot of everything that shapes a terraform command: `Chdir`,
 `WorkingDir`, `Workspace`, a `Service` scoped to the working directory, `Pins`, `VarFiles`, `Vars`, `ExtraArgs`,
@@ -170,12 +171,25 @@ interface ([ADR-0003](../adr/0003-typed-event-bus.md)):
 | `ContextChangedEvent` | `ContextChangedHandler` |
 | `PlanCompletedEvent` | `PlanCompletedHandler` |
 | `PlanInvalidatedEvent` | `PlanInvalidatedHandler` |
+| `RiskAssessedEvent` | `RiskAssessedHandler` |
 | `LockDetectedEvent` | `LockDetectedHandler` |
 | `LockClearedEvent` | `LockClearedHandler` |
 | `StateRefreshedEvent` | `StateRefreshedHandler` |
 
 `ContextChangedEvent` carries `Prev`, `Next` and a `Reason`; `OnlyPinsChanged()` lets plan tell a pin toggle (keep UI
 state, mark stale) from a chdir or workspace switch (full reset).
+
+### Risk assessment
+
+`PluginDeps.RequestAssessment` is the only way a plugin gets risk; no plugin runs a plan for it or reads the policy. The
+host owns each request: it loads the policy the active Context selects, runs the plan when the summary is nil, evaluates
+the summary, re-checks that the policy source did not change, and publishes a `RiskAssessedEvent` to every
+`RiskAssessedHandler`. A plugin calls `RequestAssessment` only on the Update loop, because the request captures the
+active Context. The event carries the assessed `Summary`, so a plugin keeps only the result for the summary it holds.
+
+The host drops a result whose request preceded a Context change or a plan invalidation, and a result whose request
+preceded a cancel that a later request followed. Cancelling a plugin also cancels the plans the host runs for
+nil-summary requests; a supplied summary keeps evaluating.
 
 ## Plugin Loading
 
