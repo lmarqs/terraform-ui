@@ -15,11 +15,10 @@ import (
 
 // Input carries command output options independently of policy evaluation.
 type Input struct {
-	JSON         bool
-	Threshold    string
-	ThresholdSet bool
-	Project      *string
-	Chdir        string
+	JSON      bool
+	Threshold *string
+	Project   *string
+	Chdir     string
 }
 
 // ActivateInput starts Risk with command-specific output and comparison options.
@@ -41,8 +40,8 @@ func (e *Plugin) configureReport(cfg map[string]interface{}) error {
 }
 
 func (e *Plugin) selectedThreshold() string {
-	if e.input.ThresholdSet || e.input.Threshold != "" {
-		return e.input.Threshold
+	if e.input.Threshold != nil {
+		return *e.input.Threshold
 	}
 	if e.threshold == "" {
 		return "off"

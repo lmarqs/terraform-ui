@@ -10,8 +10,11 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const riskThresholdFlag = "risk-threshold"
+
 func buildRiskCommand(s *Session) *cobra.Command {
-	return &cobra.Command{
+	var threshold string
+	cmd := &cobra.Command{
 		Use:   "risk",
 		Short: "Assess planned resource mutations with the selected risk policy",
 		Args:  cobra.NoArgs,
@@ -20,9 +23,9 @@ func buildRiskCommand(s *Session) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			input := tfuirisk.Input{JSON: s.JSONStdout(), ThresholdSet: cmd.Flags().Changed("threshold")}
-			if input.ThresholdSet {
-				input.Threshold = s.threshold
+			input := tfuirisk.Input{JSON: s.JSONStdout()}
+			if cmd.Flags().Changed(riskThresholdFlag) {
+				input.Threshold = &threshold
 			}
 			origin := cwd
 			if s.rootCfg != nil {
@@ -40,4 +43,6 @@ func buildRiskCommand(s *Session) *cobra.Command {
 			return s.RunPlugin(cmd.Context(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).ActivateInput(input) })
 		},
 	}
+	cmd.Flags().StringVar(&threshold, riskThresholdFlag, "off", "Risk comparison threshold: off, none, low, medium, high, critical")
+	return cmd
 }

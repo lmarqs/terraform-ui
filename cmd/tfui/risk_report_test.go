@@ -39,7 +39,7 @@ func TestRiskCommand_GivenEveryClassificationAndThreshold_ShouldCompareInclusive
 		for thresholdRank, threshold := range levels {
 			t.Run(level+"/"+threshold, func(t *testing.T) {
 				policy := fmt.Sprintf("package tfui.risk.v1\nimport rego.v1\ndefault classification := {\"level\":%q,\"reasons\":[{\"code\":\"project-default\",\"message\":\"Explicit project classification.\",\"paths\":[]}]}\n", level)
-				code, stdout, stderr := runSeededRiskCommand(t, sessionPlanJSON, `defaults { risk_policy = "policy.rego" }`, policy, "--json", "--threshold", threshold)
+				code, stdout, stderr := runSeededRiskCommand(t, sessionPlanJSON, `defaults { risk_policy = "policy.rego" }`, policy, "--json", "--risk-threshold", threshold)
 				wantCode, wantResult, wantStderr := 0, "below", ""
 				if rank >= thresholdRank {
 					wantCode, wantResult = 3, "met"
@@ -71,7 +71,7 @@ func TestRiskCommand_GivenEveryClassificationAndThreshold_ShouldCompareInclusive
 func TestRiskCommand_GivenExplicitOffOverride_ShouldDisableConfiguredComparison(t *testing.T) {
 	configuration := "defaults {\n risk_policy = \"policy.rego\"\n plugin \"risk\" { threshold = \"none\" }\n}"
 	policy := "package tfui.risk.v1\nimport rego.v1\ndefault classification := {\"level\":\"critical\",\"reasons\":[{\"code\":\"project-default\",\"message\":\"Explicit project classification.\",\"paths\":[]}]}\n"
-	code, stdout, stderr := runSeededRiskCommand(t, sessionPlanJSON, configuration, policy, "--threshold", "off", "--json")
+	code, stdout, stderr := runSeededRiskCommand(t, sessionPlanJSON, configuration, policy, "--risk-threshold", "off", "--json")
 	var report struct {
 		Overall   string `json:"overall_level"`
 		Threshold struct {
@@ -98,7 +98,7 @@ func TestRiskCommand_GivenNoEligibleMutations_ShouldRetainExclusionsWithoutThres
 		for _, threshold := range []string{"off", "none", "critical"} {
 			for _, format := range []string{"text", "json"} {
 				t.Run(tc.name+"/"+threshold+"/"+format, func(t *testing.T) {
-					args := []string{"--threshold", threshold}
+					args := []string{"--risk-threshold", threshold}
 					if format == "json" {
 						args = append(args, "--json")
 					}
@@ -168,7 +168,7 @@ func TestRiskCommand_GivenInvalidPolicy_ShouldEmitFixedDiagnosticWithoutSensitiv
 	} {
 		for _, format := range []string{"text", "json"} {
 			t.Run(tc.name+"/"+format, func(t *testing.T) {
-				args := []string{"--threshold", "off"}
+				args := []string{"--risk-threshold", "off"}
 				if format == "json" {
 					args = append(args, "--json")
 				}
@@ -197,7 +197,7 @@ classification := {"level":"none","reasons":[{"code":"redacted","message":"Sensi
 `
 	for _, format := range []string{"text", "json"} {
 		t.Run(format, func(t *testing.T) {
-			args := []string{"--threshold", "none"}
+			args := []string{"--risk-threshold", "none"}
 			if format == "json" {
 				args = append(args, "--json")
 			}
@@ -219,7 +219,7 @@ classification := {"level":"critical","reasons":[{"code":"project-default","mess
 `
 	for _, format := range []string{"text", "json"} {
 		t.Run(format, func(t *testing.T) {
-			args := []string{"--threshold", "none"}
+			args := []string{"--risk-threshold", "none"}
 			if format == "json" {
 				args = append(args, "--json")
 			}
@@ -240,7 +240,7 @@ func TestRiskCommand_GivenUnavailableInputOrSource_ShouldEmitFixedGlobalDiagnost
 	} {
 		for _, format := range []string{"text", "json"} {
 			t.Run(tc.name+"/"+format, func(t *testing.T) {
-				args := []string{"--threshold", "off"}
+				args := []string{"--risk-threshold", "off"}
 				if format == "json" {
 					args = append(args, "--json")
 				}
@@ -255,7 +255,7 @@ func TestRiskCommand_GivenUnavailableInputOrSource_ShouldEmitFixedGlobalDiagnost
 
 func TestRiskCommand_GivenForgetChange_ShouldPrintNotAssessedForget(t *testing.T) {
 	plan := `{"format_version":"1.2","resource_changes":[{"address":"aws_s3_bucket.forgotten","mode":"managed","type":"aws_s3_bucket","name":"forgotten","provider_name":"registry.terraform.io/hashicorp/aws","change":{"actions":["forget"],"before":{"bucket":"old"},"after":null,"after_unknown":{}}}]}`
-	_, stdout, _ := runSeededRiskCommand(t, plan, "", "", "--threshold", "off")
+	_, stdout, _ := runSeededRiskCommand(t, plan, "", "", "--risk-threshold", "off")
 	if !strings.Contains(stdout, "forget aws_s3_bucket.forgotten: not assessed (forget)\n") {
 		t.Fatalf("missing forget row in text output: %q", stdout)
 	}

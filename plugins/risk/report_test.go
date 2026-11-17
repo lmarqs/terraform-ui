@@ -114,7 +114,7 @@ func TestReport_GivenEmptyAssessment_ShouldEmitRequiredJSONFieldsAndEmptyArrays(
 			a := reportAssessment(sdk.RiskNone)
 			a.Status, a.OverallLevel, a.Resources = "empty", nil, nil
 			p := newReportPlugin(t, a)
-			runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: threshold}))
+			runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: &threshold}))
 			out, err := reportStdout(t, p)
 			if err != nil {
 				t.Fatal(err)
@@ -155,7 +155,7 @@ func TestReport_GivenGlobalFailure_ShouldPreferGlobalDiagnosticAndEmitNoJSON(t *
 	a.Status, a.OverallLevel, a.ErrorCode = "unavailable", nil, "input_incomplete"
 	a.Resources = []sdk.PolicyResourceAssessment{{Address: "aws_instance.bad\x1b[31m", Status: "unavailable", ErrorCode: "result_invalid"}}
 	p := newReportPlugin(t, a)
-	runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: "off"}))
+	runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: ptr("off")}))
 	out, err := reportStdout(t, p)
 	if err != nil || len(out) != 0 || p.ExitCode() != 1 || string(p.Stderr()) != "risk unavailable: input_incomplete\n" {
 		t.Fatalf("global failure stdout %q stderr %q exit %d error %v", out, p.Stderr(), p.ExitCode(), err)
@@ -225,7 +225,7 @@ func TestActivateInput_GivenLegacySettingAndInvalidOverride_ShouldRetainMigratio
 	if err := configureAsHost(t, p, map[string]interface{}{"level": "high"}); err == nil {
 		t.Fatal("legacy level must be rejected")
 	}
-	runLifecycleCmd(p, p.ActivateInput(Input{Threshold: "urgent", ThresholdSet: true}))
+	runLifecycleCmd(p, p.ActivateInput(Input{Threshold: ptr("urgent")}))
 	want := "risk unavailable: configuration_invalid\n\nhint: risk setting level is unsupported; use threshold\n"
 	if got := string(p.Stderr()); got != want {
 		t.Fatalf("invalid override replaced actionable legacy diagnostic: got %q, want %q", got, want)
@@ -242,7 +242,7 @@ func TestReport_GivenJSONInput_ShouldPreserveProvenanceContextAndStatusSpecificR
 	current.Workspace = "production"
 	p.GetCtx = func() *sdk.Context { return &current }
 	project := "../project"
-	runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: "high", ThresholdSet: true, Project: &project, Chdir: "members/api"}))
+	runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: ptr("high"), Project: &project, Chdir: "members/api"}))
 	// The report must retain the acquisition Context even if the host has since replaced it.
 	next := current
 	next.Workspace = "later"
@@ -277,25 +277,27 @@ func TestReport_GivenJSONInput_ShouldPreserveProvenanceContextAndStatusSpecificR
 	}
 }
 
+func ptr(value string) *string { return &value }
+
 func TestActivateInput_GivenThresholdOverride_ShouldOverrideSettingsAndRejectExplicitEmpty(t *testing.T) {
 	for _, tc := range []struct {
-		name, override string
-		set            bool
-		exit           int
-		diagnostic     string
+		name       string
+		override   *string
+		exit       int
+		diagnostic string
 	}{
-		{"omitted uses settings", "", false, 3, "risk threshold met: low >= low\n"},
-		{"off overrides settings", "off", true, 0, ""},
-		{"higher overrides settings", "high", true, 0, ""},
-		{"explicit empty invalid", "", true, 1, "risk unavailable: configuration_invalid\n"},
-		{"invalid override", "urgent", true, 1, "risk unavailable: configuration_invalid\n"},
+		{"omitted uses settings", nil, 3, "risk threshold met: low >= low\n"},
+		{"off overrides settings", ptr("off"), 0, ""},
+		{"higher overrides settings", ptr("high"), 0, ""},
+		{"explicit empty invalid", ptr(""), 1, "risk unavailable: configuration_invalid\n"},
+		{"invalid override", ptr("urgent"), 1, "risk unavailable: configuration_invalid\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p := newReportPlugin(t, reportAssessment(sdk.RiskLow))
 			if err := p.Configure(map[string]interface{}{"threshold": "low"}); err != nil {
 				t.Fatal(err)
 			}
-			runLifecycleCmd(p, p.ActivateInput(Input{Threshold: tc.override, ThresholdSet: tc.set}))
+			runLifecycleCmd(p, p.ActivateInput(Input{Threshold: tc.override}))
 			if p.ExitCode() != tc.exit || string(p.Stderr()) != tc.diagnostic {
 				t.Fatalf("override exit %d stderr %q, want exit %d stderr %q", p.ExitCode(), p.Stderr(), tc.exit, tc.diagnostic)
 			}

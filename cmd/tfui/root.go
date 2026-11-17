@@ -85,7 +85,6 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	rootCmd.PersistentFlags().StringVar(&macroSpec.RecordDir, "record", "", "Record session frames and tape to directory")
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
-	rootCmd.PersistentFlags().StringVar(&session.threshold, "threshold", "off", "Risk comparison threshold: off, none, low, medium, high, critical (default off)")
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
 
 	return rootCmd, session, &extraArgs

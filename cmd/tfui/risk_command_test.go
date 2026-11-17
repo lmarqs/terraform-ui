@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -80,11 +81,121 @@ func TestRunPlugin_GivenLegacyRiskSetting_ShouldPreservePlanReviewWithUnavailabl
 	}
 }
 
-func TestRoot_GivenThresholdFlag_ShouldExposeItForEveryCommand(t *testing.T) {
-	root, _, _ := buildRoot()
-	flag := root.PersistentFlags().Lookup("threshold")
-	if flag == nil {
-		t.Fatal("--threshold must be persistent so every tfui command accepts it")
+func TestRiskThresholdFlag_GivenRoot_ShouldScopeItToRiskCommandOnly(t *testing.T) {
+	root, session, _ := buildRoot()
+	risk := buildRiskCommand(session)
+	root.AddCommand(risk)
+	if risk.LocalNonPersistentFlags().Lookup("risk-threshold") == nil {
+		t.Error("risk-threshold must be a local flag of the risk command")
+	}
+	for _, name := range []string{"threshold", "risk-threshold"} {
+		if root.PersistentFlags().Lookup(name) != nil {
+			t.Errorf("root must not carry a persistent %q flag", name)
+		}
+	}
+}
+
+func TestRiskThresholdFlag_GivenRetiredName_ShouldRejectItAsUnknown(t *testing.T) {
+	for _, command := range []string{"risk", "plan"} {
+		t.Run(command, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# retired flag\n"), 0600); err != nil {
+				t.Fatal(err)
+			}
+			root, session, _ := buildRoot()
+			root.AddCommand(buildPlanCommand(session), buildRiskCommand(session))
+			var stdout, stderr bytes.Buffer
+			session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
+			root.SilenceUsage, root.SilenceErrors = true, true
+			root.SetArgs(normalizeArgs([]string{command, "--project", dir, "--ci", "--terraform-bin", filepath.Join(dir, "nonexistent-terraform"), "-threshold", "high"}))
+			err := root.Execute()
+			if err == nil || !strings.Contains(err.Error(), "unknown flag: --threshold") {
+				t.Fatalf("%s -threshold high error = %v, want unknown flag: --threshold", command, err)
+			}
+		})
+	}
+}
+
+func TestRiskThresholdFlag_GivenPlanCommand_ShouldRejectItAsUnknown(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte("# plan scope\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	root, session, _ := buildRoot()
+	root.AddCommand(buildPlanCommand(session), buildRiskCommand(session))
+	var stdout, stderr bytes.Buffer
+	session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
+	root.SilenceUsage, root.SilenceErrors = true, true
+	root.SetArgs(normalizeArgs([]string{"plan", "--project", dir, "--ci", "--terraform-bin", filepath.Join(dir, "nonexistent-terraform"), "-risk-threshold", "high"}))
+	err := root.Execute()
+	if err == nil || !strings.Contains(err.Error(), "unknown flag: --risk-threshold") {
+		t.Fatalf("plan -risk-threshold high error = %v, want unknown flag: --risk-threshold", err)
+	}
+}
+
+func TestRiskThresholdFlag_GivenEitherDashStyle_ShouldCompareAndExitLikeTheOldFlag(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		flags []string
+	}{
+		{"single dash", []string{"-risk-threshold", "none"}},
+		{"double dash", []string{"--risk-threshold", "none"}},
+		{"single dash equals", []string{"-risk-threshold=none"}},
+		{"double dash equals", []string{"--risk-threshold=none"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, body := range map[string]string{"main.tf": "# dash styles\n", "plan.json": sessionPlanJSON} {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			root, session, _ := buildRoot()
+			root.AddCommand(buildRiskCommand(session))
+			var stdout, stderr bytes.Buffer
+			session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
+			args := append([]string{"risk", "--project", dir, "--ci", "--plan", filepath.Join(dir, "plan.json"), "--terraform-bin", filepath.Join(dir, "nonexistent-terraform")}, tc.flags...)
+			root.SetArgs(normalizeArgs(args))
+			code, message := exitStatus(root.Execute())
+			if code != 3 || message != "" {
+				t.Fatalf("risk exit = %d, message %q; stderr %q", code, message, stderr.String())
+			}
+			re := regexp.MustCompile(`^risk threshold met: (none|low|medium|high|critical) >= none\n$`)
+			if !re.MatchString(stderr.String()) {
+				t.Fatalf("stderr = %q, want risk threshold met: <level> >= none", stderr.String())
+			}
+		})
+	}
+}
+
+func TestRiskCommand_GivenHelp_ShouldListRiskThresholdValuesWithDefaultOnce(t *testing.T) {
+	root, session, _ := buildRoot()
+	root.AddCommand(buildRiskCommand(session))
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"risk", "--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	var lines []string
+	for _, line := range strings.Split(out.String(), "\n") {
+		if strings.Contains(line, "--risk-threshold") {
+			lines = append(lines, line)
+		}
+	}
+	if len(lines) != 1 {
+		t.Fatalf("risk --help lists --risk-threshold on %d lines, want 1:\n%s", len(lines), out.String())
+	}
+	line := lines[0]
+	if !strings.Contains(line, "off, none, low, medium, high, critical") {
+		t.Errorf("help line lacks the value list: %q", line)
+	}
+	if got := strings.Count(line, "(default"); got != 1 || !strings.Contains(line, `(default "off")`) {
+		t.Errorf("help line must show the default once as (default \"off\"), got %d: %q", got, line)
+	}
+	if got := strings.Count(line, "default"); got != 1 {
+		t.Errorf("word default appears %d times in %q, want 1", got, line)
 	}
 }
 
@@ -110,7 +221,7 @@ func TestRiskCommand_GivenSeededPlan_ShouldEmitRequestedFormatAndThresholdExit(t
 			root.AddCommand(buildRiskCommand(session))
 			var stdout, stderr bytes.Buffer
 			session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
-			args := []string{"--project", dir, "--ci", "--plan", filepath.Join(dir, "plan.json"), "--terraform-bin", filepath.Join(dir, "nonexistent-terraform"), "--threshold", tc.threshold, "risk"}
+			args := []string{"--project", dir, "--ci", "--plan", filepath.Join(dir, "plan.json"), "--terraform-bin", filepath.Join(dir, "nonexistent-terraform"), "risk", "--risk-threshold", tc.threshold}
 			if tc.json {
 				args = append(args, "--json")
 			}
@@ -189,7 +300,7 @@ func TestRiskCommand_GivenAssessmentFailure_ShouldLeaveStdoutEmpty(t *testing.T)
 			root.AddCommand(buildRiskCommand(session))
 			var stdout, stderr bytes.Buffer
 			session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
-			root.SetArgs([]string{"risk", "--project", dir, "--ci", "--json", "--plan", filepath.Join(dir, "plan.json"), "--threshold=" + tc.threshold, "--terraform-bin", filepath.Join(dir, "nonexistent-terraform")})
+			root.SetArgs([]string{"risk", "--project", dir, "--ci", "--json", "--plan", filepath.Join(dir, "plan.json"), "--risk-threshold=" + tc.threshold, "--terraform-bin", filepath.Join(dir, "nonexistent-terraform")})
 			code, message := exitStatus(root.Execute())
 			if code != 1 || message != "" || stdout.Len() != 0 || stderr.String() != tc.diagnostic {
 				t.Fatalf("failure exit %d message %q stdout %q stderr %q, want fixed diagnostic %q", code, message, stdout.String(), stderr.String(), tc.diagnostic)
@@ -221,7 +332,7 @@ default classification := {"level":"low","reasons":[{"code":"default","message":
 			args := []string{"risk", "--project", dir, "--ci", "--json", "--plan", filepath.Join(dir, "plan.json"), "--terraform-bin", filepath.Join(dir, "nonexistent-terraform")}
 			wantExit, wantLevel, wantResult := 3, "low", "met"
 			if override {
-				args = append(args, "--threshold", "high")
+				args = append(args, "--risk-threshold", "high")
 				wantExit, wantLevel, wantResult = 0, "high", "below"
 			}
 			root.SetArgs(args)

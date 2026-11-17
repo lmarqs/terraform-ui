@@ -26,7 +26,6 @@ type Session struct {
 	sources      PreseedSources
 	macro        MacroSpec
 	effects      Effects
-	threshold    string
 	jsonStdout   bool
 	ciMode       bool
 	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || agent env || !isStderrTTY
