@@ -31,7 +31,7 @@ func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 		return
 	}
 	e.riskDiagnostic = string(assessment.ErrorCode)
-	if assessment.Status != sdk.AssessmentComplete && assessment.Status != sdk.AssessmentEmpty && e.riskDiagnostic == "" {
+	if !assessment.Usable() && e.riskDiagnostic == "" {
 		e.riskDiagnostic = string(sdk.ErrorInputIncomplete)
 		first := ""
 		for _, row := range assessment.Resources {

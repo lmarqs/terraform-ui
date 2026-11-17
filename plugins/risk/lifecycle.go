@@ -147,7 +147,7 @@ func (e *Plugin) acceptAssessment(msg assessmentResultMsg) {
 	}
 	summary.Changes = changes
 	e.Analyze(&summary)
-	if msg.assessment.Status != sdk.AssessmentComplete && msg.assessment.Status != sdk.AssessmentEmpty {
+	if !msg.assessment.Usable() {
 		e.status = sdk.StatusError
 		e.riskDiagnostic = string(msg.assessment.ErrorCode)
 		if e.riskDiagnostic == "" {

@@ -8,9 +8,8 @@ func RiskSettingsError(cfg map[string]interface{}) error {
 		return fmt.Errorf("%w\n\nhint: risk setting level is unsupported; use threshold", ErrorConfigurationInvalid)
 	}
 	if value, exists := cfg["threshold"]; exists {
-		switch value {
-		case "off", "none", "low", "medium", "high", "critical":
-		default:
+		name, _ := value.(string)
+		if _, valid := ParseRiskLevel(name); name != "off" && !valid {
 			return ErrorConfigurationInvalid
 		}
 	}

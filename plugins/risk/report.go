@@ -57,8 +57,8 @@ func (e *Plugin) thresholdResult() string {
 	if threshold == "off" {
 		return "disabled"
 	}
-	levels := map[string]sdk.RiskLevel{"none": sdk.RiskNone, "low": sdk.RiskLow, "medium": sdk.RiskMedium, "high": sdk.RiskHigh, "critical": sdk.RiskCritical}
-	if *e.assessment.OverallLevel >= levels[threshold] {
+	level, _ := sdk.ParseRiskLevel(threshold)
+	if *e.assessment.OverallLevel >= level {
 		return "met"
 	}
 	return "below"

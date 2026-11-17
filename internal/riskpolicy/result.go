@@ -23,19 +23,8 @@ func validateResult(value any, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.Pol
 	if !ok {
 		return invalid()
 	}
-	var level sdk.RiskLevel
-	switch levelName {
-	case "none":
-		level = sdk.RiskNone
-	case "low":
-		level = sdk.RiskLow
-	case "medium":
-		level = sdk.RiskMedium
-	case "high":
-		level = sdk.RiskHigh
-	case "critical":
-		level = sdk.RiskCritical
-	default:
+	level, ok := sdk.ParseRiskLevel(levelName)
+	if !ok {
 		return invalid()
 	}
 	rawReasons, ok := object["reasons"].([]any)

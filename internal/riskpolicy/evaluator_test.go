@@ -203,3 +203,21 @@ func TestAssess_GivenInvalidEvidenceOrEmptyPlanWithBrokenPolicy_ShouldRemainUnav
 		})
 	}
 }
+
+func TestAssess_GivenDeposedEvidence_ShouldCopyDeposedKeyToRows(t *testing.T) {
+	snapshot := evaluationSnapshot(t, projectDefault)
+	current := evaluationResource("aws_instance.web", "aws_instance")
+	deposed := evaluationResource("aws_instance.web", "aws_instance")
+	deposed.Deposed = "0a1b2c3d"
+	excluded := sdk.PolicyResourceEvidence{Address: "aws_instance.web", Deposed: "ffffffff", Actions: []string{"forget"}, Exclusion: sdk.ExclusionForget}
+
+	got := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{current, deposed, excluded}})
+
+	var keys []string
+	for _, row := range got.Resources {
+		keys = append(keys, row.Deposed)
+	}
+	if want := []string{"", "0a1b2c3d", "ffffffff"}; !reflect.DeepEqual(keys, want) {
+		t.Errorf("row deposed keys = %q, want %q", keys, want)
+	}
+}

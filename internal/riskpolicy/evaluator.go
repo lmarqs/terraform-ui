@@ -45,7 +45,7 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 	classified, failed := 0, 0
 	overall := sdk.RiskNone
 	for _, resource := range evidence.Resources {
-		row := sdk.PolicyResourceAssessment{Address: resource.Address, Actions: slices.Clone(resource.Actions), Exclusion: resource.Exclusion}
+		row := sdk.PolicyResourceAssessment{Address: resource.Address, Deposed: resource.Deposed, Actions: slices.Clone(resource.Actions), Exclusion: resource.Exclusion}
 		if resource.Exclusion != "" {
 			row.Status = sdk.ResourceNotAssessed
 		} else {

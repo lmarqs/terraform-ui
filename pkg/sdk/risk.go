@@ -38,3 +38,13 @@ func OverallRisk(changes []PlanChange) RiskLevel {
 	}
 	return max
 }
+
+// ParseRiskLevel is the inverse of RiskLevel.String; it accepts only the exact lowercase names.
+func ParseRiskLevel(name string) (RiskLevel, bool) {
+	for level := RiskNone; level <= RiskCritical; level++ {
+		if level.String() == name {
+			return level, true
+		}
+	}
+	return RiskNone, false
+}

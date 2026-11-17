@@ -205,7 +205,7 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderBlastRadius(width, height int) string {
 	if len(e.modules) == 0 {
-		if e.assessment != nil && e.assessment.Status != sdk.AssessmentComplete && e.assessment.Status != sdk.AssessmentEmpty {
+		if e.assessment != nil && !e.assessment.Usable() {
 			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment")
 		}
 		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
