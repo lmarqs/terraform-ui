@@ -95,7 +95,7 @@ defaults {
 
 `threshold` controls command comparison and defaults to `off`; explicit `-threshold` overrides it. Accepted
 values and inclusive comparison are defined in the [threshold contract](../reference/risk-policy-contract.md#command-threshold-and-report-v1).
-The former ignored `level` setting now produces a migration error directing callers to `threshold`.
+The `level` setting is rejected with a configuration error that names `threshold`.
 
 Generic plugin settings such as `enabled` remain root-only; Member plugin blocks are rejected. Disabling the
 Risk view does not disable the shared policy selector used by Plan. See [configuration](../guides/configuration.md)

@@ -117,6 +117,6 @@ Resolution chain: Root defaults → Child top-level → Workspace block → CLI 
 Key functions: `config.LoadRoot(dir)`, `config.LoadChild(dir)`, `config.Resolve(root, child, workspace)`
 
 Risk settings: `docs/reference/risk-policy-contract.md#command-threshold-and-report-v1` owns threshold values,
-precedence and migration from the formerly ignored `level` key. The complete-policy selector is separate from
+precedence, and the rejection of the `level` key with an error that names `threshold`. The complete-policy selector is separate from
 plugin settings; consult `docs/reference/risk-policy-contract.md#source-selection` before changing resolution.
 Member plugin blocks remain rejected.

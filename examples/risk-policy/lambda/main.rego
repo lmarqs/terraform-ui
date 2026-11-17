@@ -105,4 +105,3 @@ reasons := [{
     "message": "Explicit action/type classification for this Lambda mutation.",
     "paths": [],
 }]
-
