@@ -694,8 +694,8 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			if busy, ok := a.activePlugin.(sdk.Busy); ok && busy.Busy() {
 				// Don't cancel plugins holding a terraform lock
-			} else if c, ok := a.activePlugin.(sdk.Cancellable); ok {
-				c.Cancel()
+			} else {
+				a.cancelPlugin(a.activePlugin)
 			}
 			return a, a.goHome(a.activePlugin.ID())
 		}

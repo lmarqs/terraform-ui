@@ -394,3 +394,33 @@ func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgai
 		t.Fatalf("dispatched assessment = %+v, want the new request's high classification", ev.Assessment)
 	}
 }
+
+func TestQuitKey_GivenIdlePluginWithHostPlan_ShouldCancelTerraformContext(t *testing.T) {
+	svc, started := blockingPlanService()
+	var deps *sdk.PluginDeps
+	probe := &mockPluginWithInit{
+		mockPlugin: mockPlugin{id: "riskprobe"},
+		initFn:     func(d *sdk.PluginDeps) tea.Cmd { deps = d; return nil },
+	}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("riskprobe", func(_ sdk.Service) sdk.Plugin { return probe }, plugin.PluginMeta{})
+	registry.Build(nil, nil)
+	app := NewApp(config.Config{Dir: t.TempDir()}, svc, registry, nil)
+	drainPolicyAppCommand(&app, app.Init())
+	model, _ := app.Update(sdk.NavigateMsg{PluginID: "riskprobe"})
+	app = model.(App)
+	done := make(chan tea.Msg, 1)
+	cmd := deps.RequestAssessment(nil)
+	go func() { done <- cmd() }()
+	planCtx := <-started
+
+	model, _ = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("q")})
+	app = model.(App)
+
+	select {
+	case <-planCtx.Done():
+	case <-time.After(time.Second):
+		t.Fatal("leaving an idle plugin with q left the host plan running")
+	}
+	<-done
+}
