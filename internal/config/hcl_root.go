@@ -45,7 +45,7 @@ func LoadRoot(dir string) (*RootConfig, error) {
 
 	cfg := convertRootFile(&raw)
 	if raw.Defaults != nil {
-		cfg.Defaults.RiskPolicy = redefinitions.policySelector(raw.Defaults.Body, raw.Defaults.RiskPolicy, dir)
+		cfg.Defaults.RiskPolicy = redefinitions.readSelector(raw.Defaults.Body, raw.Defaults.RiskPolicy, dir)
 	}
 	if len(redefinitions.pending) > 0 {
 		return nil, fmt.Errorf("parsing %s: %w", path, redefinitions.pending)

@@ -134,8 +134,8 @@ func directlyIn(body *hclsyntax.Body, offset int) bool {
 	return true
 }
 
-// policySelector reads the risk_policy attribute declared in body.
-func (r *riskPolicyRedefinitions) policySelector(body hcl.Body, attr *hcl.Attribute, origin string) *PolicySelector {
+// readSelector reads the risk_policy attribute declared in body.
+func (r *riskPolicyRedefinitions) readSelector(body hcl.Body, attr *hcl.Attribute, origin string) *PolicySelector {
 	redefined := r.claim(body)
 	if attr == nil {
 		return nil

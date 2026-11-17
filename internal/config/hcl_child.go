@@ -59,7 +59,7 @@ func LoadChild(dir string) (*ChildConfig, error) {
 	}
 
 	cfg := convertChildContent(content, redefinitions, dir)
-	cfg.RiskPolicy = redefinitions.policySelector(body, content.Attributes[riskPolicyAttribute], dir)
+	cfg.RiskPolicy = redefinitions.readSelector(body, content.Attributes[riskPolicyAttribute], dir)
 	if len(redefinitions.pending) > 0 {
 		return nil, fmt.Errorf("parsing %s: %w", path, redefinitions.pending)
 	}
@@ -132,7 +132,7 @@ func convertWorkspaceBlock(block *hcl.Block, redefinitions *riskPolicyRedefiniti
 			{Type: "var", LabelNames: []string{"name"}},
 		},
 	})
-	ws.RiskPolicy = redefinitions.policySelector(block.Body, wsContent.Attributes[riskPolicyAttribute], dir)
+	ws.RiskPolicy = redefinitions.readSelector(block.Body, wsContent.Attributes[riskPolicyAttribute], dir)
 	if diags.HasErrors() {
 		return ws
 	}
