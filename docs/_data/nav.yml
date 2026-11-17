@@ -84,10 +84,6 @@
       path: development/agentic.md
     - title: Architecture
       path: development/architecture.md
-    - title: Risk policy design
-      path: development/risk-policy-design.md
-    - title: Risk runtime evidence
-      path: development/risk-policy-runtime-research.md
     - title: Testing strategy
       path: development/testing.md
     - title: Backlog

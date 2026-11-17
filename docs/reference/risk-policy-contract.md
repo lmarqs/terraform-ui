@@ -13,10 +13,10 @@ on 2026-11-15. The coordinator selected the exact interfaces from D-01a/b and re
 the owner did not select these details. Stress and refine this version after merge through explicit revisions.
 
 Plan and Risk share selected-policy classifications; `tfui risk` provides the report and comparison described
-below. The [session verification](../development/risk-policy-evidence/session-integration.md) and
-[preservation gates](../development/risk-policy-evidence/preservation-gates.md) record the tested production paths
-and their limits. The [Risk guide](../plugins/risk.md) explains use. [ADR-0026](../adr/0026-publish-first-version-risk-contract.md)
-records the original publication decision; the [design](../development/risk-policy-design.md) records alternatives
+below. The [session verification](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/session-integration.md) and
+[preservation gates](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/preservation-gates.md) record the tested production paths
+and their limits. The [Risk guide](../plugins/risk.md) explains use. [ADR-0026](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/adr/0026-publish-first-version-risk-contract.md)
+records the original publication decision; the [design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) records alternatives
 and residual risks. Historical disposable evidence establishes feasibility within its stated bounds, not broader
 production guarantees.
 
@@ -291,7 +291,7 @@ The positive builtin allowlist is exactly: `eq`, `equal`, `neq`, `lt`, `lte`, `g
 `is_object`, `is_string`, `is_number`, `is_boolean`, `is_null`, `object.get`, `object.keys`, `array.concat`,
 `concat`, `sprintf`, `startswith`, `endswith`, `contains`, `lower`, `upper`, `to_number`.
 Use the declarations, `future_keywords` and `features` from the
-[frozen capability artifact](../development/risk-policy-evidence/assets/boundary/output/capabilities.json),
+[frozen capability artifact](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/assets/boundary/output/capabilities.json),
 removing the experimental `plus`, `minus`, `mul`, `div` controls. Those arithmetic operators are not v1 author
 capabilities. Compute the capability fingerprint as `sha256:` plus SHA-256 of UTF-8 JSON with recursively sorted
 object keys, no insignificant whitespace, literal Unicode and array order retained, over that filtered artifact.
@@ -713,5 +713,5 @@ partial assessments have no command JSON encoding in v1: stdout is empty, exit 1
 
 - [ADR-0024: embedded Rego](../adr/0024-embed-rego-for-risk-policies.md).
 - [ADR-0025: explicit independent classification](../adr/0025-classify-resource-mutations-explicitly.md).
-- [ADR-0026: first-version publication](../adr/0026-publish-first-version-risk-contract.md).
-- [Publication review and evidence limits](../development/risk-policy-evidence/contract-publication.md).
+- [ADR-0026: first-version publication](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/adr/0026-publish-first-version-risk-contract.md).
+- [Publication review and evidence limits](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/contract-publication.md).

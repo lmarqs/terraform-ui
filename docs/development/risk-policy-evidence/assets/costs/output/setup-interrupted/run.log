@@ -1,6 +1,0 @@
-preflight-memory 42 0.023
-preflight-timeout 124 1.01
-candidate-add 0 0.01
-baseline-fetch 0 21.652
-baseline-prefetch 0 13.669
-baseline-graph 0 0.011

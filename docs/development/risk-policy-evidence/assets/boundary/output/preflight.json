@@ -1,6 +1,0 @@
-{
-  "allocation_rejected": true,
-  "timeout_exit": 124,
-  "descendant_running_after_kill": false,
-  "zombie_allowed_pending_reap": true
-}

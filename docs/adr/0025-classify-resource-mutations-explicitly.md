@@ -31,7 +31,7 @@ that mutation. These exclusions are not safety claims.
 
 Policy failure leaves Plan review available with risk marked unavailable and the error visible. The risk command
 returns an error outcome. Apply behavior does not change. The [contract reference](../reference/risk-policy-contract.md)
-owns these definitions; the [architecture design](../development/risk-policy-design.md) holds the alternatives,
+owns these definitions; the [architecture design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) holds the alternatives,
 evidence, remaining decisions and confirmation criteria.
 
 ## Consequences
@@ -44,7 +44,7 @@ evidence, remaining decisions and confirmation criteria.
 - Existing phantom detection cannot establish a bypass: it normalizes array order and null-valued object fields.
   The implementation must preserve the classification boundary even when presentation labels a mutation phantom.
 - tfui must distinguish evaluation success from a valid, complete classification. OPA can return an undefined
-  query without a Go error; the [runtime research](../development/risk-policy-runtime-research.md) explains this.
+  query without a Go error; the [runtime research](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-runtime-research.md) explains this.
 - Input/output representation, sensitive-data access, capabilities, multiple-rule resolution, aggregation,
   threshold settings and policy loading remain separate decisions. This ADR accepts none of their draft defaults.
 

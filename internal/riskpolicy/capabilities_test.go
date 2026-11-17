@@ -11,7 +11,7 @@ import (
 )
 
 func TestCapabilities_GivenPublishedProfile_ShouldMatchFrozenDeclarationsAndFingerprint(t *testing.T) {
-	frozen, err := os.ReadFile("../../docs/development/risk-policy-evidence/assets/boundary/output/capabilities.json")
+	frozen, err := os.ReadFile("testdata/capabilities.json")
 	if err != nil {
 		t.Fatal(err)
 	}
