@@ -98,36 +98,6 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	return nil
 }
 
-// Analyze processes a plan summary, groups by module, and calculates impact scores.
-func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
-	if summary == nil || len(summary.Changes) == 0 {
-		e.status = sdk.StatusDone
-		e.modules = nil
-		e.total = 0
-		return
-	}
-
-	e.total = len(summary.Changes)
-
-	groups := sdk.GroupByModule(summary.Changes)
-	e.modules = make([]ModuleImpact, 0, len(groups))
-
-	for _, g := range groups {
-		score := calculateImpact(g)
-		e.modules = append(e.modules, ModuleImpact{
-			Group: g,
-			Score: score,
-		})
-	}
-
-	// Sort by impact score descending (highest impact first)
-	sortByImpact(e.modules)
-
-	e.status = sdk.StatusDone
-	e.selected = 0
-	e.expanded = make(map[int]bool)
-}
-
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -196,7 +166,7 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderBlastRadius(width, height int) string {
 	if len(e.modules) == 0 {
-		if e.assessment != nil && !e.assessment.Usable() {
+		if !e.assessment.Usable() {
 			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment")
 		}
 		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
@@ -301,15 +271,13 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 		}
 
 		risk := sdk.RiskBadge(change.Risk)
-		if e.assessment != nil {
-			row := e.resourceAssessment(change.Resource.InstanceKey())
-			switch row.Status {
-			case sdk.ResourceNotAssessed:
-				risk = "Risk: not assessed"
-			case sdk.ResourceClassified:
-			default:
-				risk = "risk unavailable: " + string(row.ErrorCode)
-			}
+		resource := e.resourceAssessment(change.Resource.InstanceKey())
+		switch resource.Status {
+		case sdk.ResourceNotAssessed:
+			risk = "Risk: not assessed"
+		case sdk.ResourceClassified:
+		default:
+			risk = "risk unavailable: " + string(resource.ErrorCode)
 		}
 		row := fmt.Sprintf("     %s %s", symbol, address)
 		if risk != "" {
@@ -319,10 +287,8 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 			row += " " + sdk.StylePhantom.Render("(phantom)")
 		}
 		b.WriteString(row)
-		if e.assessment != nil {
-			for _, reason := range e.resourceAssessment(change.Resource.InstanceKey()).Reasons {
-				b.WriteString("\n       " + reason.Message)
-			}
+		for _, reason := range resource.Reasons {
+			b.WriteString("\n       " + reason.Message)
 		}
 		b.WriteByte('\n')
 	}
