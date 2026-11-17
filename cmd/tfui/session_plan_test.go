@@ -296,3 +296,41 @@ func TestRunPlugin_GivenPolicyThatLoadsButClassifiesInvalidly_ShouldReportTheAss
 		t.Fatalf("stderr = %q, want the host assessment's error code %q", got, want)
 	}
 }
+
+func TestPlanCommand_GivenInvalidRootRiskPolicy_ShouldStartAndReviewPlanWithUnavailableRisk(t *testing.T) {
+	for _, tc := range []struct{ name, selector string }{
+		{"null", `risk_policy = null`},
+		{"number", `risk_policy = 12`},
+		{"unknown expression", `risk_policy = env.POLICY`},
+		{"URI", `risk_policy = "https://example.test/policy.rego"`},
+		{"whitespace only", `risk_policy = "  "`},
+		{"duplicate", "risk_policy = \"first.rego\"\nrisk_policy = \"second.rego\""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			for name, body := range map[string]string{
+				"main.tf": "# seeded review\n", "plan.json": sessionPlanJSON,
+				"tfui.hcl": "defaults {\n" + tc.selector + "\n}\n",
+			} {
+				if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			root, session, _ := buildRoot()
+			root.AddCommand(buildPlanCommand(session))
+			var stdout, stderr bytes.Buffer
+			session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
+			root.SetArgs([]string{"plan", "--project", dir, "--ci", "--plan", filepath.Join(dir, "plan.json"), "--terraform-bin", filepath.Join(dir, "nonexistent-terraform")})
+			code, message := exitStatus(root.Execute())
+			if code != 2 || message != "" {
+				t.Fatalf("tfui plan exit %d message %q stderr %q, want startup and plan-with-changes exit 2", code, message, stderr.String())
+			}
+			if !strings.Contains(stdout.String(), "aws_lambda_function.worker") {
+				t.Fatalf("Plan review lost: stdout %q", stdout.String())
+			}
+			if !strings.Contains(stderr.String(), "risk unavailable: configuration_invalid") {
+				t.Fatalf("stderr %q, want risk unavailable: configuration_invalid", stderr.String())
+			}
+		})
+	}
+}
