@@ -90,12 +90,13 @@ type Plugin struct {
 	pendingApply       bool
 	pendingAutoApprove bool
 	// detail view state
-	detail       string
-	detailAddr   string
-	detailScroll int
-	detailPanel  *ui.ContentPanel
-	viewWidth    int
-	input        Input // typed input from cmd/tfui or app.go's typed dispatch
+	detail        string
+	detailAddr    string
+	detailDeposed string
+	detailScroll  int
+	detailPanel   *ui.ContentPanel
+	viewWidth     int
+	input         Input // typed input from cmd/tfui or app.go's typed dispatch
 	// cfgTargets is the project-level default target list from
 	// `plugin "plan" { targets = [...] }`. Used only when no explicit selection
 	// exists, so an explicit --target or pin narrows rather than widens.
@@ -239,7 +240,7 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 		e.riskDiagnostic = e.PolicyDiagnostic()
 		if e.detailAddr != "" {
 			for _, change := range e.summary.Changes {
-				if change.Resource.Address == e.detailAddr {
+				if change.Resource.InstanceKey() == e.detailKey() {
 					e.detail = e.buildInspectContent(&change)
 					break
 				}
@@ -692,7 +693,7 @@ func (e *Plugin) inspectSelected() tea.Cmd {
 		return nil
 	}
 	e.detail = e.buildInspectContent(change)
-	e.detailAddr = change.Resource.Address
+	e.detailAddr, e.detailDeposed = change.Resource.Address, change.Resource.Deposed
 	e.detailScroll = 0
 	e.detailPanel.ResetScroll()
 	e.filtering = false
@@ -714,7 +715,7 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 	fmt.Fprintf(&b, "Type:     %s\n", change.Resource.Type)
 	fmt.Fprintf(&b, "Provider: %s\n", change.Resource.ProviderName)
 
-	if diagnostic := e.changeDiagnostic(change.Resource.Address); diagnostic != "" {
+	if diagnostic := e.changeDiagnostic(change.Resource.InstanceKey()); diagnostic != "" {
 		fmt.Fprintf(&b, "risk unavailable: %s\n", diagnostic)
 	} else if change.Risk != sdk.RiskNone {
 		fmt.Fprintf(&b, "Risk:     %s\n", sdk.RiskBadge(change.Risk))
@@ -729,11 +730,9 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 	}
 
 	if e.assessment != nil {
-		for _, row := range e.assessment.Resources {
-			if row.Address == change.Resource.Address {
-				for _, reason := range row.Reasons {
-					fmt.Fprintf(&b, "\n%s\n", reason.Message)
-				}
+		if row, ok := e.assessment.Resource(change.Resource.InstanceKey()); ok {
+			for _, reason := range row.Reasons {
+				fmt.Fprintf(&b, "\n%s\n", reason.Message)
 			}
 		}
 	}

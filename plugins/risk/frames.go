@@ -45,19 +45,15 @@ func (e *Plugin) inspectSelected() {
 		}
 		change := group.Changes[index]
 		risk := change.Risk.String()
-		if row := e.resourceAssessment(change.Resource.Address); row != nil && row.Status == sdk.ResourceUnavailable {
+		if row := e.resourceAssessment(change.Resource.InstanceKey()); row != nil && row.Status == sdk.ResourceUnavailable {
 			risk = "unavailable: " + string(row.ErrorCode)
 		}
 		var b strings.Builder
 		fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(change.Action), change.Action, change.Resource.Address, risk)
 		b.WriteString(sdk.RenderAttributeDiffs(change.AttributeDiffs))
-		if e.assessment != nil {
-			for _, row := range e.assessment.Resources {
-				if row.Address == change.Resource.Address {
-					for _, reason := range row.Reasons {
-						fmt.Fprintf(&b, "\n%s\n", reason.Message)
-					}
-				}
+		if row := e.resourceAssessment(change.Resource.InstanceKey()); row != nil {
+			for _, reason := range row.Reasons {
+				fmt.Fprintf(&b, "\n%s\n", reason.Message)
 			}
 		}
 		e.stack.Push(&inspectFrame{InspectFrame: frames.NewInspectFrame(frames.InspectOpts{Title: "Mutation", Address: change.Resource.Address, Content: b.String()})})

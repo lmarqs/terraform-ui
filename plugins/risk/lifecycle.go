@@ -128,25 +128,15 @@ func (e *Plugin) acceptAssessment(msg assessmentResultMsg) {
 	e.assessment = msg.assessment
 
 	// Render a copy so selected-policy classifications never mutate Plan's summary.
-	summary := *msg.summary
-	summary.Changes = append([]sdk.PlanChange(nil), summary.Changes...)
-	byAddress := make(map[string]sdk.PolicyResourceAssessment)
-	for _, row := range msg.assessment.Resources {
-		if row.Level != nil || row.Status == sdk.ResourceUnavailable {
-			byAddress[row.Address] = row
-		}
-	}
+	summary := sdk.ApplyAssessment(msg.summary, msg.assessment)
 	changes := summary.Changes[:0]
 	for _, change := range summary.Changes {
-		if row, ok := byAddress[change.Resource.Address]; ok {
-			if row.Level != nil {
-				change.Risk = *row.Level
-			}
+		if row, ok := msg.assessment.Resource(change.Resource.InstanceKey()); ok && (row.Level != nil || row.Status == sdk.ResourceUnavailable) {
 			changes = append(changes, change)
 		}
 	}
 	summary.Changes = changes
-	e.Analyze(&summary)
+	e.Analyze(summary)
 	if !msg.assessment.Usable() {
 		e.status = sdk.StatusError
 		e.riskDiagnostic = string(msg.assessment.ErrorCode)

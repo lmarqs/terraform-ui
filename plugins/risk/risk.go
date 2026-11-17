@@ -1,9 +1,10 @@
 package risk
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -136,7 +137,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 
 	var unavailable []sdk.PlanChange
 	for _, c := range summary.Changes {
-		if row := e.resourceAssessment(c.Resource.Address); row != nil && row.Status == sdk.ResourceUnavailable {
+		if row := e.resourceAssessment(c.Resource.InstanceKey()); row != nil && row.Status == sdk.ResourceUnavailable {
 			unavailable = append(unavailable, c)
 			continue
 		}
@@ -145,7 +146,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 
 	e.groups = make([]RiskGroup, 0)
 	if len(unavailable) > 0 {
-		sort.Slice(unavailable, func(i, j int) bool { return unavailable[i].Resource.Address < unavailable[j].Resource.Address })
+		slices.SortFunc(unavailable, compareChanges)
 		e.groups = append(e.groups, RiskGroup{Changes: unavailable, Unavailable: true})
 	}
 	levels := []sdk.RiskLevel{
@@ -157,7 +158,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	}
 	for _, level := range levels {
 		if len(byLevel[level]) > 0 {
-			sort.Slice(byLevel[level], func(i, j int) bool { return byLevel[level][i].Resource.Address < byLevel[level][j].Resource.Address })
+			slices.SortFunc(byLevel[level], compareChanges)
 			e.groups = append(e.groups, RiskGroup{
 				Level:   level,
 				Changes: byLevel[level],
@@ -327,7 +328,7 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
 	symbol := sdk.ActionSymbol(change.Action)
 	address := change.Resource.Address
 	reason := riskReason(change)
-	if row := e.resourceAssessment(address); row != nil {
+	if row := e.resourceAssessment(change.Resource.InstanceKey()); row != nil {
 		reason = ""
 		if row.Status == sdk.ResourceUnavailable {
 			reason = "risk unavailable: " + string(row.ErrorCode)
@@ -372,15 +373,19 @@ func riskReason(change sdk.PlanChange) string {
 	}
 }
 
-func (e *Plugin) resourceAssessment(address string) *sdk.PolicyResourceAssessment {
-	if e.assessment != nil {
-		for i := range e.assessment.Resources {
-			if e.assessment.Resources[i].Address == address {
-				return &e.assessment.Resources[i]
-			}
-		}
+func (e *Plugin) resourceAssessment(key sdk.InstanceKey) *sdk.PolicyResourceAssessment {
+	if e.assessment == nil {
+		return nil
 	}
-	return nil
+	row, ok := e.assessment.Resource(key)
+	if !ok {
+		return nil
+	}
+	return &row
+}
+
+func compareChanges(a, b sdk.PlanChange) int {
+	return cmp.Or(cmp.Compare(a.Resource.Address, b.Resource.Address), cmp.Compare(a.Resource.Deposed, b.Resource.Deposed))
 }
 
 func (e *Plugin) excludedCount() int {

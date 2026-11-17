@@ -243,3 +243,15 @@ func TestApplyAssessment_WhenSummaryNil_ShouldReturnNil(t *testing.T) {
 		t.Errorf("ApplyAssessment(nil, nil) = %+v, want nil", got)
 	}
 }
+
+func TestResource_InstanceKey_WhenDeposed_ShouldCarryAddressAndDeposedKey(t *testing.T) {
+	current := Resource{Address: "aws_instance.web", Type: "aws_instance"}
+	deposed := Resource{Address: "aws_instance.web", Deposed: "0a1b2c3d"}
+
+	if got := current.InstanceKey(); got != (InstanceKey{Address: "aws_instance.web"}) {
+		t.Errorf("current InstanceKey = %+v, want address only", got)
+	}
+	if got := deposed.InstanceKey(); got != (InstanceKey{Address: "aws_instance.web", Deposed: "0a1b2c3d"}) {
+		t.Errorf("deposed InstanceKey = %+v, want address and deposed key", got)
+	}
+}

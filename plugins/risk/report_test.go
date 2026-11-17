@@ -256,9 +256,9 @@ func TestReport_GivenJSONInput_ShouldPreserveProvenanceContextAndStatusSpecificR
 		"levels":{"none":0,"low":2,"medium":0,"high":0,"critical":0},
 		"threshold":{"level":"high","result":"below"},
 		"resources":[
-			{"address":"aws_instance.a","actions":["update"],"status":"classified","level":"low","reasons":[{"code":"default","message":"Explicit project classification.","paths":[]}]},
-			{"address":"aws_instance.z","actions":["delete","create"],"status":"classified","level":"low","reasons":[{"code":"replacement","message":"Replaces this resource.","paths":[["after","size"]]}]},
-			{"address":"output.name","actions":["update"],"status":"not_assessed","exclusion":"output_only"}
+			{"address":"aws_instance.a","deposed":null,"actions":["update"],"status":"classified","level":"low","reasons":[{"code":"default","message":"Explicit project classification.","paths":[]}]},
+			{"address":"aws_instance.z","deposed":null,"actions":["delete","create"],"status":"classified","level":"low","reasons":[{"code":"replacement","message":"Replaces this resource.","paths":[["after","size"]]}]},
+			{"address":"output.name","deposed":null,"actions":["update"],"status":"not_assessed","exclusion":"output_only"}
 		]}`
 	if err := json.Unmarshal([]byte(expected), &want); err != nil {
 		t.Fatal(err)

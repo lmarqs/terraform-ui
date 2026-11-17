@@ -45,23 +45,12 @@ func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	}
 	// Selected classifications are a display projection; the service cache and
 	// PlanCompletedEvent retain the original evidence and artifact ownership.
-	summary := *e.rawSummary
-	summary.Changes = append([]sdk.PlanChange(nil), summary.Changes...)
-	for i := range summary.Changes {
-		change := &summary.Changes[i]
-		change.Risk = sdk.RiskNone
-		for _, row := range assessment.Resources {
-			if row.Address == change.Resource.Address && row.Status == sdk.ResourceClassified && row.Level != nil {
-				change.Risk = *row.Level
-			}
-		}
-	}
-	e.summary = &summary
-	e.fuzzy.SetItems(summary.Changes)
+	e.summary = sdk.ApplyAssessment(e.rawSummary, assessment)
+	e.fuzzy.SetItems(e.summary.Changes)
 	e.SetFilter(e.filter)
 	if e.detailAddr != "" {
-		for _, change := range summary.Changes {
-			if change.Resource.Address == e.detailAddr {
+		for _, change := range e.summary.Changes {
+			if change.Resource.InstanceKey() == e.detailKey() {
 				e.detail = e.buildInspectContent(&change)
 				break
 			}
@@ -69,21 +58,23 @@ func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	}
 }
 
-func (e *Plugin) changeDiagnostic(address string) string {
+func (e *Plugin) detailKey() sdk.InstanceKey {
+	return sdk.InstanceKey{Address: e.detailAddr, Deposed: e.detailDeposed}
+}
+
+func (e *Plugin) changeDiagnostic(key sdk.InstanceKey) string {
 	if e.assessment == nil {
 		return e.riskDiagnostic
 	}
 	if e.assessment.ErrorCode != "" {
 		return string(e.assessment.ErrorCode)
 	}
-	for _, row := range e.assessment.Resources {
-		if row.Address == address {
-			if row.ErrorCode != "" {
-				return string(row.ErrorCode)
-			}
-			if row.Status == sdk.ResourceClassified || row.Status == sdk.ResourceNotAssessed {
-				return ""
-			}
+	if row, ok := e.assessment.Resource(key); ok {
+		if row.ErrorCode != "" {
+			return string(row.ErrorCode)
+		}
+		if row.Status == sdk.ResourceClassified || row.Status == sdk.ResourceNotAssessed {
+			return ""
 		}
 	}
 	return string(sdk.ErrorInputIncomplete)
@@ -93,7 +84,7 @@ func (e *Plugin) changeRiskBadge(change sdk.PlanChange) string {
 	if e.assessment == nil {
 		return e.riskBadge(change.Risk)
 	}
-	if diagnostic := e.changeDiagnostic(change.Resource.Address); diagnostic != "" {
+	if diagnostic := e.changeDiagnostic(change.Resource.InstanceKey()); diagnostic != "" {
 		return sdk.StyleError.Render("[risk unavailable: " + diagnostic + "]")
 	}
 	return sdk.RiskBadge(change.Risk)

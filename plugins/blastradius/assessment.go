@@ -67,14 +67,12 @@ func (e *Plugin) Activate() tea.Cmd {
 	}
 }
 
-func (e *Plugin) resourceAssessment(address string) sdk.PolicyResourceAssessment {
+func (e *Plugin) resourceAssessment(key sdk.InstanceKey) sdk.PolicyResourceAssessment {
 	if e.assessment.ErrorCode != "" {
 		return sdk.PolicyResourceAssessment{Status: sdk.ResourceUnavailable, ErrorCode: e.assessment.ErrorCode}
 	}
-	for _, row := range e.assessment.Resources {
-		if row.Address == address {
-			return row
-		}
+	if row, ok := e.assessment.Resource(key); ok {
+		return row
 	}
 	return sdk.PolicyResourceAssessment{Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorInputIncomplete}
 }
@@ -84,20 +82,13 @@ func (e *Plugin) analyzeAssessment() {
 		e.Analyze(e.summary)
 		return
 	}
-	changes := append([]sdk.PlanChange(nil), e.summary.Changes...)
-	for i := range changes {
-		changes[i].Risk = sdk.RiskNone
-		row := e.resourceAssessment(changes[i].Resource.Address)
-		if row.Status == sdk.ResourceClassified && row.Level != nil {
-			changes[i].Risk = *row.Level
-		}
-	}
+	changes := sdk.ApplyAssessment(e.summary, e.assessment).Changes
 	e.total = len(changes)
 	e.modules = nil
 	for _, group := range sdk.GroupByModule(changes) {
 		impact := ModuleImpact{Group: group, NotAssessed: true}
 		for _, change := range group.Changes {
-			row := e.resourceAssessment(change.Resource.Address)
+			row := e.resourceAssessment(change.Resource.InstanceKey())
 			if row.Status != sdk.ResourceNotAssessed {
 				impact.NotAssessed = false
 			}

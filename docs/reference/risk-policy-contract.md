@@ -583,7 +583,7 @@ Report:
   "levels": {"none": 0, "low": 1, "medium": 0, "high": 0, "critical": 0},
   "threshold": {"level": "high", "result": "below"},
   "resources": [{
-    "address": "aws_lambda_function.worker", "actions": ["update"], "status": "classified",
+    "address": "aws_lambda_function.worker", "deposed": null, "actions": ["update"], "status": "classified",
     "level": "low", "reasons": [{"code": "project-default", "message": "Explicit project default for this mutation.", "paths": []}]
   }]
 }
@@ -600,7 +600,10 @@ identifiers describe acquisition;
 they do not enter the independent policy input. `context.project` is the project root relative to invocation
 CWD, or null in zero-config mode. `context.chdir` is relative to that root in project mode, otherwise relative
 to invocation CWD; `workspace` is the actual selected workspace. These display paths do not replace internal
-Context identity or participate in policy evaluation. JSON object key order is irrelevant; resource rows sort by address.
+Context identity or participate in policy evaluation. JSON object key order is irrelevant; resource rows sort by address,
+then by deposed key with the current object first. Every row has `deposed`: null for the current object, otherwise the
+deposed key (for example `"00000001"`) of the deposed object left at that address, so an update and a deposed delete at
+one address are two distinguishable rows.
 Excluded rows have address/actions/status `not_assessed` and an `exclusion` code, no level or reasons. Codes are
 `read`, `no_op`, `forget`, `pure_import`, `pure_move`, `output_only`; output-only rows use the output address. In combined
 exclusions use `pure_move`, then `pure_import`, then the action code. Exclusion codes describe scope, not severity.
@@ -664,7 +667,7 @@ artifact, explicitly cleaned up, and never claims Plan's executable artifact own
 
 ### Text format and diagnostics
 
-Successful text uses LF-terminated lines, no ANSI, and this field order. Within each classified/excluded text section, rows sort by address;
+Successful text uses LF-terminated lines, no ANSI, and this field order. Within each classified/excluded text section, rows sort by address, then deposed key (current object first);
 reason rows retain policy order. Action labels join the original actions with `/`. Counts are decimal.
 For the JSON example above, the exact text is:
 
@@ -678,8 +681,9 @@ update aws_lambda_function.worker: low
 ```
 
 Reasons with
-paths append ` [paths: <compact JSON paths array>]`. Excluded rows follow classified rows in address order:
-`<actions> <address>: not assessed (<exclusion>)`. An empty assessment replaces the first line with
+paths append ` [paths: <compact JSON paths array>]`. A deposed object's row shows its key after the address:
+`<actions> <address> (deposed <key>): <level>`. Excluded rows follow classified rows in address order:
+`<actions> <address>: not assessed (<exclusion>)`, with the same ` (deposed <key>)` suffix for deposed objects. An empty assessment replaces the first line with
 `No eligible mutations (N changes not assessed).`, retains policy/count/threshold lines, then excluded rows.
 Threshold text is `off (disabled)` when off for nonempty reports and `<level-or-off> (not_applicable)` for empty.
 A complete explicit-none report starts `Risk: none`; it does not imply safety. End every report with one LF.
@@ -704,7 +708,7 @@ For the same policy identity, no eligible resources and one no-op change, the va
   "counts": {"eligible": 0, "classified": 0, "not_assessed": 1},
   "levels": {"none": 0, "low": 0, "medium": 0, "high": 0, "critical": 0},
   "threshold": {"level": "high", "result": "not_applicable"},
-  "resources": [{"address": "aws_s3_bucket.logs", "actions": ["no-op"],
+  "resources": [{"address": "aws_s3_bucket.logs", "deposed": null, "actions": ["no-op"],
     "status": "not_assessed", "exclusion": "no_op"}]
 }
 ```

@@ -76,7 +76,7 @@ func ApplyAssessment(summary *PlanSummary, assessment *PolicyAssessment) *PlanSu
 	for i := range result.Changes {
 		change := &result.Changes[i]
 		change.Risk = RiskNone
-		row, ok := assessment.Resource(InstanceKey{Address: change.Resource.Address, Deposed: change.Resource.Deposed})
+		row, ok := assessment.Resource(change.Resource.InstanceKey())
 		if ok && row.Status == ResourceClassified && row.Level != nil {
 			change.Risk = *row.Level
 		}

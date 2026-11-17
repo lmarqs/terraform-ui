@@ -311,7 +311,7 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 
 		risk := sdk.RiskBadge(change.Risk)
 		if e.assessment != nil {
-			row := e.resourceAssessment(change.Resource.Address)
+			row := e.resourceAssessment(change.Resource.InstanceKey())
 			switch row.Status {
 			case sdk.ResourceNotAssessed:
 				risk = "Risk: not assessed"
@@ -329,7 +329,7 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 		}
 		b.WriteString(row)
 		if e.assessment != nil {
-			for _, reason := range e.resourceAssessment(change.Resource.Address).Reasons {
+			for _, reason := range e.resourceAssessment(change.Resource.InstanceKey()).Reasons {
 				b.WriteString("\n       " + reason.Message)
 			}
 		}

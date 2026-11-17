@@ -1,9 +1,10 @@
 package risk
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -78,6 +79,7 @@ type reportReason struct {
 
 type reportResource struct {
 	Address   string             `json:"address"`
+	Deposed   *string            `json:"deposed"`
 	Actions   []string           `json:"actions"`
 	Status    sdk.ResourceStatus `json:"status"`
 	Level     *string            `json:"level,omitempty"`
@@ -125,6 +127,9 @@ func (e *Plugin) report() riskReport {
 	r.Threshold.Result = e.thresholdResult()
 	for _, row := range a.Resources {
 		resource := reportResource{Address: row.Address, Actions: row.Actions, Status: row.Status, Exclusion: row.Exclusion}
+		if row.Deposed != "" {
+			resource.Deposed = &row.Deposed
+		}
 		if row.Status == sdk.ResourceClassified {
 			r.Counts.Eligible++
 			r.Counts.Classified++
@@ -145,7 +150,9 @@ func (e *Plugin) report() riskReport {
 		}
 		r.Resources = append(r.Resources, resource)
 	}
-	sort.Slice(r.Resources, func(i, j int) bool { return r.Resources[i].Address < r.Resources[j].Address })
+	slices.SortFunc(r.Resources, func(a, b reportResource) int {
+		return cmp.Or(cmp.Compare(a.Address, b.Address), cmp.Compare(deposedKey(a), deposedKey(b)))
+	})
 	return r
 }
 
@@ -170,7 +177,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		if row.Status != sdk.ResourceClassified {
 			continue
 		}
-		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), escapedAddress(row.Address), *row.Level)
+		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row), *row.Level)
 		for _, reason := range *row.Reasons {
 			fmt.Fprintf(&out, "  %s: %s", reason.Code, reason.Message)
 			if len(reason.Paths) > 0 {
@@ -183,10 +190,25 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	}
 	for _, row := range r.Resources {
 		if row.Status == sdk.ResourceNotAssessed {
-			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), escapedAddress(row.Address), row.Exclusion)
+			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), instanceLabel(row), row.Exclusion)
 		}
 	}
 	return []byte(out.String()), nil
+}
+
+func deposedKey(row reportResource) string {
+	if row.Deposed == nil {
+		return ""
+	}
+	return *row.Deposed
+}
+
+func instanceLabel(row reportResource) string {
+	label := escapedAddress(row.Address)
+	if row.Deposed != nil {
+		label += " (deposed " + *row.Deposed + ")"
+	}
+	return label
 }
 
 func escapedAddress(address string) string {
@@ -204,7 +226,9 @@ func (e *Plugin) Stderr() []byte {
 		diagnostic := e.riskDiagnostic
 		if e.assessment != nil && e.assessment.ErrorCode == "" {
 			rows := append([]sdk.PolicyResourceAssessment(nil), e.assessment.Resources...)
-			sort.Slice(rows, func(i, j int) bool { return rows[i].Address < rows[j].Address })
+			slices.SortFunc(rows, func(a, b sdk.PolicyResourceAssessment) int {
+				return cmp.Or(cmp.Compare(a.Address, b.Address), cmp.Compare(a.Deposed, b.Deposed))
+			})
 			for _, row := range rows {
 				if row.ErrorCode != "" {
 					diagnostic = string(row.ErrorCode) + " for " + escapedAddress(row.Address)
