@@ -101,7 +101,7 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 	for _, key := range sortedKeys {
 		oldVal := marshalValue(beforeMap[key])
 		newVal := marshalValue(afterMap[key])
-		if isKeySensitive(change.AfterUnknown, key) {
+		if maskMarked(change.AfterUnknown, key) {
 			newVal = "(known after apply)"
 		}
 
@@ -149,14 +149,18 @@ func marshalValue(v interface{}) string {
 }
 
 func isKeySensitive(sensitive interface{}, key string) bool {
-	if sensitive == nil {
+	return maskMarked(sensitive, key)
+}
+
+func maskMarked(mask interface{}, key string) bool {
+	if mask == nil {
 		return false
 	}
-	switch s := sensitive.(type) {
+	switch m := mask.(type) {
 	case bool:
-		return s
+		return m
 	case map[string]interface{}:
-		return markedValue(s[key])
+		return markedValue(m[key])
 	}
 	return false
 }

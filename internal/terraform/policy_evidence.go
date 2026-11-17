@@ -235,33 +235,13 @@ func validPolicyMask(mask any) bool {
 	}
 }
 
-func markedPolicyMask(mask any) bool {
-	switch m := mask.(type) {
-	case bool:
-		return m
-	case map[string]any:
-		for _, child := range m {
-			if markedPolicyMask(child) {
-				return true
-			}
-		}
-	case []any:
-		for _, child := range m {
-			if markedPolicyMask(child) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
 func projectPolicyValue(value any, exists bool, unknown, sensitive any) (sdk.PolicyValue, bool) {
 	if unknown == true {
 		if !validOpaquePolicyMask(value, sensitive) {
 			return sdk.PolicyValue{}, false
 		}
 		kind := sdk.KindUnknown
-		if markedPolicyMask(sensitive) {
+		if markedValue(sensitive) {
 			kind = sdk.KindSensitiveUnknown
 		}
 		return sdk.PolicyValue{Kind: kind}, true
