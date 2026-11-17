@@ -2,60 +2,42 @@ package plan
 
 import (
 	"cmp"
-	"context"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-type planAssessedMsg struct {
-	generation uint64
-	assessment *sdk.PolicyAssessment
+// requestAssessment hides the current classification until the host assesses
+// the reviewed plan again; Busy covers the wait so headless output waits too.
+func (e *Plugin) requestAssessment() tea.Cmd {
+	if e.summary == nil {
+		return nil
+	}
+	e.assessing = true
+	e.setAssessment(nil)
+	return e.requestRisk(e.summary)
 }
 
-func (e *Plugin) reassess() tea.Cmd {
-	e.cancelInflight()
-	e.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorInputIncomplete})
-	e.status = sdk.StatusLoading
-	ctx, cancel := context.WithCancel(context.Background())
-	e.cancelFn = cancel
-	current, summary, assess, generation := e.GetCtx(), e.rawSummary, e.assess, e.generation
-	return func() tea.Msg {
-		assessment := assess(ctx, current, summary)
-		return planAssessedMsg{generation: generation, assessment: &assessment}
+// HandleRiskAssessed implements sdk.RiskAssessedHandler. The host does not
+// supersede requests for an older plan, so only the reviewed plan's result counts.
+func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
+	if ev.Summary != e.summary {
+		return nil
 	}
+	e.assessing = false
+	e.setAssessment(&ev.Assessment)
+	return nil
 }
 
 func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	e.assessment = assessment
-	if assessment == nil {
+	if e.detailAddr == "" || e.summary == nil {
 		return
 	}
-	e.riskDiagnostic = string(assessment.ErrorCode)
-	if !assessment.Usable() && e.riskDiagnostic == "" {
-		e.riskDiagnostic = string(sdk.ErrorInputIncomplete)
-		var first sdk.InstanceKey
-		for _, row := range assessment.Resources {
-			key := sdk.InstanceKey{Address: row.Address, Deposed: row.Deposed}
-			if row.ErrorCode != "" && (first.Address == "" || cmp.Or(cmp.Compare(key.Address, first.Address), cmp.Compare(key.Deposed, first.Deposed)) < 0) {
-				first, e.riskDiagnostic = key, string(row.ErrorCode)
-			}
-		}
-	}
-	if e.rawSummary == nil {
-		return
-	}
-	// Selected classifications are a display projection; the service cache and
-	// PlanCompletedEvent retain the original evidence and artifact ownership.
-	e.summary = sdk.ApplyAssessment(e.rawSummary, assessment)
-	e.fuzzy.SetItems(e.summary.Changes)
-	e.SetFilter(e.filter)
-	if e.detailAddr != "" {
-		for _, change := range e.summary.Changes {
-			if change.Resource.InstanceKey() == e.detailKey() {
-				e.detail = e.buildInspectContent(&change)
-				break
-			}
+	for _, change := range e.summary.Changes {
+		if change.Resource.InstanceKey() == e.detailKey() {
+			e.detail = e.buildInspectContent(&change)
+			return
 		}
 	}
 }
@@ -64,39 +46,64 @@ func (e *Plugin) detailKey() sdk.InstanceKey {
 	return sdk.InstanceKey{Address: e.detailAddr, Deposed: e.detailDeposed}
 }
 
-func (e *Plugin) changeDiagnostic(key sdk.InstanceKey) string {
+// riskCell is the assessed level of change, or the code that leaves it
+// unclassified. Without an assessment the change shows no risk at all.
+func (e *Plugin) riskCell(change sdk.PlanChange) (sdk.RiskLevel, sdk.ErrorCode) {
 	if e.assessment == nil {
-		return e.riskDiagnostic
+		return sdk.RiskNone, ""
 	}
 	if e.assessment.ErrorCode != "" {
-		return string(e.assessment.ErrorCode)
+		return sdk.RiskNone, e.assessment.ErrorCode
 	}
-	if row, ok := e.assessment.Resource(key); ok {
-		if row.ErrorCode != "" {
-			return string(row.ErrorCode)
-		}
-		if row.Status == sdk.ResourceClassified || row.Status == sdk.ResourceNotAssessed {
-			return ""
-		}
+	row, ok := e.assessment.Resource(change.Resource.InstanceKey())
+	if ok && row.ErrorCode != "" {
+		return sdk.RiskNone, row.ErrorCode
 	}
-	return string(sdk.ErrorInputIncomplete)
+	if !ok || (row.Status != sdk.ResourceClassified && row.Status != sdk.ResourceNotAssessed) {
+		return sdk.RiskNone, sdk.ErrorInputIncomplete
+	}
+	if row.Status == sdk.ResourceClassified && row.Level != nil {
+		return *row.Level, ""
+	}
+	return sdk.RiskNone, ""
 }
 
-func (e *Plugin) changeRiskBadge(change sdk.PlanChange) string {
+func (e *Plugin) riskBadge(change sdk.PlanChange) string {
+	level, diagnostic := e.riskCell(change)
+	if diagnostic != "" {
+		return sdk.StyleError.Render("[risk unavailable: " + string(diagnostic) + "]")
+	}
+	return sdk.RiskBadge(level)
+}
+
+// overallRisk is the highest assessed level across the reviewed plan.
+func (e *Plugin) overallRisk() sdk.RiskLevel {
+	overall := sdk.RiskNone
+	for _, change := range e.summary.Changes {
+		if level, _ := e.riskCell(change); level > overall {
+			overall = level
+		}
+	}
+	return overall
+}
+
+// assessmentDiagnostic is the code that leaves the plan's overall risk
+// unavailable: the assessment's own failure, else the first failed instance in
+// key order.
+func (e *Plugin) assessmentDiagnostic() sdk.ErrorCode {
 	if e.assessment == nil {
-		return e.riskBadge(change.Risk)
+		return ""
 	}
-	if diagnostic := e.changeDiagnostic(change.Resource.InstanceKey()); diagnostic != "" {
-		return sdk.StyleError.Render("[risk unavailable: " + diagnostic + "]")
+	if e.assessment.ErrorCode != "" || e.assessment.Usable() {
+		return e.assessment.ErrorCode
 	}
-	return sdk.RiskBadge(change.Risk)
-}
-
-func (e *Plugin) invalidateAssessment() {
-	if e.assess == nil {
-		return
+	diagnostic := sdk.ErrorInputIncomplete
+	var first sdk.InstanceKey
+	for _, row := range e.assessment.Resources {
+		key := sdk.InstanceKey{Address: row.Address, Deposed: row.Deposed}
+		if row.ErrorCode != "" && (first.Address == "" || cmp.Or(cmp.Compare(key.Address, first.Address), cmp.Compare(key.Deposed, first.Deposed)) < 0) {
+			first, diagnostic = key, row.ErrorCode
+		}
 	}
-	e.cancelInflight()
-	e.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorInputIncomplete})
-	e.status = sdk.StatusDone
+	return diagnostic
 }

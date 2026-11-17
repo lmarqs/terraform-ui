@@ -214,7 +214,7 @@ func TestActivate_GivenPlanFails_ShouldReturnErrorInCmd(t *testing.T) {
 
 func TestUpdatePlanResultSuccess(t *testing.T) {
 	svc := &sdktest.MockService{}
-	p := newTestPlugin(svc)
+	p, h := newTestPluginWithHarness(svc)
 	p.status = sdk.StatusLoading
 
 	summary := &sdk.PlanSummary{
@@ -223,6 +223,7 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 		},
 		ToCreate: 1,
 	}
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentComplete}}
 
 	result, cmd := p.Update(PlanResultMsg{Summary: summary, Err: nil})
 	if cmd == nil {
@@ -236,12 +237,15 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 	}
 	foundPlanCompleted := false
 	foundStateRefreshed := false
+	var assessed []sdk.RiskAssessedEvent
 	for _, subCmd := range batchMsg {
 		if subCmd == nil {
 			continue
 		}
 		subMsg := subCmd()
 		switch evt := subMsg.(type) {
+		case sdk.RiskAssessedEvent:
+			assessed = append(assessed, evt)
 		case sdk.PlanCompletedEvent:
 			foundPlanCompleted = true
 			if evt.ResourceCount != 1 {
@@ -268,8 +272,15 @@ func TestUpdatePlanResultSuccess(t *testing.T) {
 	if updated.summary == nil {
 		t.Error("summary = nil, want non-nil")
 	}
+	if len(assessed) != 1 {
+		t.Fatalf("batched cmd requested %d assessments, want 1", len(assessed))
+	}
+	updated.HandleRiskAssessed(assessed[0])
 	if !updated.Ready() {
 		t.Error("Ready() = false after success, want true")
+	}
+	if got := updated.Assessment(); got == nil || got.Status != sdk.AssessmentComplete {
+		t.Errorf("Assessment() = %+v, want the delivered host assessment", got)
 	}
 }
 
@@ -786,6 +797,7 @@ func TestRenderOverallRisk(t *testing.T) {
 				{Risk: tt.risk},
 			},
 		}
+		classifyAsChangeRisk(p, p.summary.Changes...)
 		result := p.renderOverallRisk()
 		if tt.wantNon && result == "" {
 			t.Errorf("renderOverallRisk(risk=%v): got empty, want non-empty", tt.risk)
@@ -959,6 +971,17 @@ func newTestPluginWithHarness(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarn
 	h := sdktest.NewDeps(svc)
 	p.Init(h.Deps)
 	return p, h
+}
+
+// classifyAsChangeRisk gives p the host assessment of a policy that classifies
+// each change at its own Risk.
+func classifyAsChangeRisk(p *Plugin, changes ...sdk.PlanChange) {
+	assessment := sdk.PolicyAssessment{Status: sdk.AssessmentComplete}
+	for _, change := range changes {
+		level := change.Risk
+		assessment.Resources = append(assessment.Resources, sdk.PolicyResourceAssessment{Address: change.Resource.Address, Deposed: change.Resource.Deposed, Status: sdk.ResourceClassified, Level: &level})
+	}
+	p.assessment = &assessment
 }
 
 func newTestPlugin(svc sdk.Service) *Plugin {

@@ -6,51 +6,31 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func TestActivate_GivenInspectedPlanAndDeletedPolicySource_ShouldReplaceCachedRiskBadge(t *testing.T) {
-	svc := &sdktest.MockService{}
-	harness := sdktest.NewDeps(svc)
-	diagnostic := ""
-	harness.Deps.RiskPolicyDiagnostic = func() string { return diagnostic }
-	p := New(svc).(*Plugin)
-	var execute func(tea.Cmd)
-	execute = func(cmd tea.Cmd) {
-		if cmd == nil {
-			return
-		}
-		msg := cmd()
-		if batch, ok := msg.(tea.BatchMsg); ok {
-			for _, sub := range batch {
-				execute(sub)
-			}
-			return
-		}
-		_, next := p.Update(msg)
-		execute(next)
-	}
-	execute(p.Init(harness.Deps))
-	_, cmd := p.Update(PlanResultMsg{Summary: &sdk.PlanSummary{ToDelete: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_db_instance.database"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical}}}})
-	execute(cmd)
-	cmd = p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter})
-	execute(cmd)
+	critical := sdk.RiskCritical
+	summary := &sdk.PlanSummary{ToDelete: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_db_instance.database"}, Action: sdk.ActionDelete, Risk: sdk.RiskLow}}}
+	classified := sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &critical, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_db_instance.database", Status: sdk.ResourceClassified, Level: &critical}}}
+	p, svc, h := newAssessedPlugin(t, summary, classified)
+	deliverPlanResult(t, p, summary)
+	drainAssessmentPlan(t, p, p.stack.Update(tea.KeyMsg{Type: tea.KeyEnter}), nil)
 	if p.stack.Peek().ID() != "inspect" {
 		t.Fatalf("top frame = %q, want inspect", p.stack.Peek().ID())
 	}
 	if view := p.View(100, 30); !strings.Contains(view, "CRITICAL") {
-		t.Fatalf("initial inspection = %q, want existing risk badge", view)
+		t.Fatalf("initial inspection = %q, want the host's CRITICAL badge", view)
 	}
 
-	diagnostic = "source_unreadable"
-	execute(p.Activate(Input{}))
+	h.AssessmentEvent.Assessment = sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceUnreadable}
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 
 	view := p.View(100, 30)
 	if !strings.Contains(view, "risk unavailable: source_unreadable") || strings.Contains(view, "CRITICAL") {
 		t.Fatalf("reactivated inspection = %q, want unavailable diagnostic without previous risk badge", view)
 	}
-	diagnostic = ""
-	execute(p.Activate(Input{}))
+	h.AssessmentEvent.Assessment = classified
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 	recovered := p.View(100, 30)
 	if !strings.Contains(recovered, "CRITICAL") || strings.Contains(recovered, "risk unavailable:") {
 		t.Fatalf("inspection after source recovery = %q, want current risk badge", recovered)

@@ -35,16 +35,16 @@ func TestSession_GivenSeededRepositoryFixtures_ShouldShareExactSelectedPolicyCla
 				t.Fatal(err)
 			}
 			session := newRiskReviewSession(t, data)
-			var planAssessment *sdk.PolicyAssessment
 			var plan *tfuiplan.Plugin
 			err = session.RunPlugin(context.Background(), "plan", func(p sdk.Plugin) tea.Cmd {
 				plan = p.(*tfuiplan.Plugin)
-				return observePlanAssessment(plan.Activate(tfuiplan.Input{}), &planAssessment)
+				return plan.Activate(tfuiplan.Input{})
 			})
 			var exitErr *exitError
 			if !errors.As(err, &exitErr) || exitErr.code != 2 {
 				t.Fatalf("seeded Plan exit = %v, want changes exit 2", err)
 			}
+			planAssessment := plan.Assessment()
 			var risk *tfuirisk.Plugin
 			err = session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd {
 				risk = p.(*tfuirisk.Plugin)
@@ -87,16 +87,16 @@ esac
 	}
 	registry := buildRegistry(svc, session.cfg, session.rootCfg)
 	defer registry.Shutdown()
-	var planAssessment *sdk.PolicyAssessment
-	app := session.buildApp(svc, registry)
-	driver := macro.NewDriver(&sessionPlanObserver{Model: app, assessment: &planAssessment}, 120, 40)
-	driver.Init()
-	driver.SendMsg(sdk.NavigateMsg{PluginID: "plan"})
-	if err := driver.WaitUntil(func(string) bool { return planAssessment != nil }, 5*time.Second); err != nil {
-		t.Fatalf("live Plan did not finish: %v; view %q", err, driver.View())
-	}
 	planPlugin, _ := registry.ByID("plan")
 	plan := planPlugin.(*tfuiplan.Plugin)
+	app := session.buildApp(svc, registry)
+	driver := macro.NewDriver(app, 120, 40)
+	driver.Init()
+	driver.SendMsg(sdk.NavigateMsg{PluginID: "plan"})
+	if err := driver.WaitUntil(func(string) bool { return plan.Assessment() != nil }, 5*time.Second); err != nil {
+		t.Fatalf("live Plan did not finish: %v; view %q", err, driver.View())
+	}
+	planAssessment := plan.Assessment()
 	assertPlanSelectedReason(t, plan)
 	driver.SendMsg(sdk.NavigateMsg{PluginID: "risk"})
 	p, _ := registry.ByID("risk")
@@ -157,6 +157,7 @@ esac
 		t.Fatalf("Context switch retained assessment or old Context: assessment=%+v Context=%+v", risk.Assessment(), risk.GetCtx())
 	}
 	driver.SendMsg(sdk.NavigateMsg{PluginID: "plan"})
+	planAssessment = plan.Assessment()
 	driver.SendMsg(sdk.NavigateMsg{PluginID: "risk"})
 	current = risk.Assessment()
 	if current == nil || !reflect.DeepEqual(planAssessment, current) || current.Status != "complete" || current.Policy.Digest == initialDigest || current.OverallLevel == nil || *current.OverallLevel != sdk.RiskHigh || len(current.Resources) != 1 || len(current.Resources[0].Reasons) != 1 || current.Resources[0].Reasons[0].Message != "Reviewed with the selected workspace policy." {
@@ -169,20 +170,6 @@ esac
 	if strings.Count(string(memberCalls), "plan\n") != 1 || strings.Count(string(memberCalls), "show\n") != 1 {
 		t.Fatalf("new Context Plan → Risk commands = %q, want one plan and one show in member", memberCalls)
 	}
-}
-
-type sessionPlanObserver struct {
-	tea.Model
-	assessment **sdk.PolicyAssessment
-}
-
-func (m *sessionPlanObserver) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if result, ok := msg.(tfuiplan.PlanResultMsg); ok {
-		*m.assessment = result.Assessment
-	}
-	model, cmd := m.Model.Update(msg)
-	m.Model = model
-	return m, cmd
 }
 
 func newRiskReviewSession(t *testing.T, plan []byte) *Session {
@@ -205,25 +192,6 @@ func newRiskReviewSession(t *testing.T, plan []byte) *Session {
 		cfg:     config.Config{Dir: dir, PreloadedData: true, Terraform: config.TerraformConfig{Bin: filepath.Join(dir, "nonexistent-terraform")}},
 		rootCfg: root, sources: PreseedSources{Plan: filepath.Join(dir, "plan.json")}, silentStderr: true,
 		effects: Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
-	}
-}
-
-func observePlanAssessment(cmd tea.Cmd, assessment **sdk.PolicyAssessment) tea.Cmd {
-	if cmd == nil {
-		return nil
-	}
-	return func() tea.Msg {
-		msg := cmd()
-		if result, ok := msg.(tfuiplan.PlanResultMsg); ok {
-			*assessment = result.Assessment
-		}
-		if batch, ok := msg.(tea.BatchMsg); ok {
-			for i, sub := range batch {
-				batch[i] = observePlanAssessment(sub, assessment)
-			}
-			return batch
-		}
-		return msg
 	}
 }
 

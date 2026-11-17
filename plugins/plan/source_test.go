@@ -10,16 +10,14 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
+func sourceInvalid() sdk.PolicyAssessment {
+	return sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceInvalid}
+}
+
 func TestActivate_GivenPolicySourceFailure_ShouldKeepReviewAndReportUnavailable(t *testing.T) {
-	svc := &sdktest.MockService{PlanFn: func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) {
-		return &sdk.PlanSummary{ToDelete: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_db_instance.database"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical}}}, nil
-	}}
-	harness := sdktest.NewDeps(svc)
-	harness.Deps.RiskPolicyDiagnostic = func() string { return "source_invalid" }
-	p := New(svc).(*Plugin)
-	p.Init(harness.Deps)
-	p = drainActivate(t, p, Input{})
-	defer p.Shutdown()
+	summary := &sdk.PlanSummary{ToDelete: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_db_instance.database"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical}}}
+	p, _, _ := newAssessedPlugin(t, summary, sourceInvalid())
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 	if p.Status() != sdk.StatusDone || p.ExitCode() != 2 {
 		t.Fatalf("Plan status = %v, exit = %d; want Done and 2", p.Status(), p.ExitCode())
 	}
@@ -44,13 +42,16 @@ func TestActivate_GivenTerraformFailureAndPolicyFailure_ShouldPreserveTerraformE
 		return nil, errors.New("terraform planning failed")
 	}}
 	harness := sdktest.NewDeps(svc)
-	harness.Deps.RiskPolicyDiagnostic = func() string { return "source_invalid" }
+	harness.AssessmentEvent = sdk.RiskAssessedEvent{Assessment: sourceInvalid()}
 	p := New(svc).(*Plugin)
 	p.Init(harness.Deps)
-	p = drainActivate(t, p, Input{})
 	defer p.Shutdown()
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 	if p.Status() != sdk.StatusError || p.ExitCode() != 1 || string(p.Stderr()) != "terraform planning failed\n" {
 		t.Fatalf("Terraform failure changed: status = %v, exit = %d, stderr = %q", p.Status(), p.ExitCode(), p.Stderr())
+	}
+	if len(harness.AssessmentRequests) != 0 {
+		t.Fatalf("failed plan requested %d assessments; a nil summary makes the host plan again", len(harness.AssessmentRequests))
 	}
 }
 
@@ -58,14 +59,13 @@ func TestActivate_GivenPlanJSONAndPolicyFailure_ShouldSkipPolicyAndPreserveBytes
 	raw := []byte(" {\"resource_changes\": []}\n")
 	svc := &sdktest.MockService{PlanJSONFn: func(context.Context, sdk.PlanOptions) ([]byte, error) { return raw, nil }}
 	harness := sdktest.NewDeps(svc)
-	checks := 0
-	harness.Deps.RiskPolicyDiagnostic = func() string { checks++; return "source_unreadable" }
+	harness.AssessmentEvent = sdk.RiskAssessedEvent{Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceUnreadable}}
 	p := New(svc).(*Plugin)
 	p.Init(harness.Deps)
-	p = drainActivate(t, p, Input{JSON: true})
 	defer p.Shutdown()
+	drainAssessmentPlan(t, p, p.Activate(Input{JSON: true}), nil)
 	output, err := p.Stdout()
-	if err != nil || string(output) != string(raw) || len(p.Stderr()) != 0 || checks != 0 {
-		t.Fatalf("JSON pass-through changed: stdout = %q, err = %v, stderr = %q, policy checks = %d", output, err, p.Stderr(), checks)
+	if err != nil || string(output) != string(raw) || len(p.Stderr()) != 0 || len(harness.AssessmentRequests) != 0 {
+		t.Fatalf("JSON pass-through changed: stdout = %q, err = %v, stderr = %q, assessment requests = %d", output, err, p.Stderr(), len(harness.AssessmentRequests))
 	}
 }

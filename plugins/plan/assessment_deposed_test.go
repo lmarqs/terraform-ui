@@ -1,27 +1,16 @@
 package plan
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func deposedPlanLines(t *testing.T, assessment sdk.PolicyAssessment) (updateLine, deleteLine string) {
 	t.Helper()
-	summary := &sdk.PlanSummary{ToUpdate: 1, ToDelete: 1, Changes: []sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "aws_instance.web", Deposed: "00000001"}, Action: sdk.ActionDelete},
-		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate},
-	}}
-	svc := &sdktest.MockService{PlanFn: func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return summary, nil }}
-	h := sdktest.NewDeps(svc)
-	h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment { return assessment }
-	p := New(svc).(*Plugin)
-	p.Init(h.Deps)
-	defer p.Shutdown()
+	p, _, _ := newAssessedPlugin(t, deposedSummary(), assessment)
 	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 	for _, line := range strings.Split(ansi.Strip(p.View(120, 40)), "\n") {
 		switch {
@@ -67,50 +56,55 @@ func TestView_GivenUpdateClassifiedAndDeposedDeleteFailed_ShouldMarkOnlyTheDepos
 	}
 }
 
-func TestSetAssessment_GivenDetailOpenOnDeposedDelete_ShouldRebuildDetailForThatInstance(t *testing.T) {
-	low, high := sdk.RiskLow, sdk.RiskHigh
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.rawSummary = &sdk.PlanSummary{Changes: []sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate},
+// deposedSummary lists the deposed delete first, so it is the initial cursor row.
+func deposedSummary() *sdk.PlanSummary {
+	return &sdk.PlanSummary{ToUpdate: 1, ToDelete: 1, Changes: []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web", Deposed: "00000001"}, Action: sdk.ActionDelete},
+		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate},
 	}}
-	p.detailAddr, p.detailDeposed = "aws_instance.web", "00000001"
+}
 
-	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentComplete, Resources: []sdk.PolicyResourceAssessment{
+func TestActivate_GivenDetailOpenOnDeposedDelete_ShouldRebuildDetailForThatInstance(t *testing.T) {
+	low, high := sdk.RiskLow, sdk.RiskHigh
+	p, _, h := newAssessedPlugin(t, deposedSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorCompilationFailed})
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+	p.inspectSelected()
+
+	h.AssessmentEvent.Assessment = sdk.PolicyAssessment{Status: sdk.AssessmentComplete, Resources: []sdk.PolicyResourceAssessment{
 		{Address: "aws_instance.web", Status: sdk.ResourceClassified, Level: &low},
 		{Address: "aws_instance.web", Deposed: "00000001", Status: sdk.ResourceClassified, Level: &high},
-	}})
+	}}
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 
-	detail := ansi.Strip(p.detail)
-	if !strings.Contains(detail, "delete") || !strings.Contains(detail, "[HIGH]") || strings.Contains(detail, "update") {
+	detail := ansi.Strip(p.View(120, 40))
+	if !strings.Contains(detail, "delete") || !strings.Contains(detail, "[HIGH]") || strings.Contains(detail, "[low]") {
 		t.Errorf("detail = %q, want the deposed delete with its own [HIGH] risk", detail)
 	}
 }
 
-func TestBuildInspectContent_GivenUpdateAndDeposedDelete_ShouldShowOnlyTheOwnReasons(t *testing.T) {
+func TestInspect_GivenUpdateAndDeposedDelete_ShouldShowOnlyTheOwnReasons(t *testing.T) {
 	low, high := sdk.RiskLow, sdk.RiskHigh
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.assessment = &sdk.PolicyAssessment{Status: sdk.AssessmentComplete, Resources: []sdk.PolicyResourceAssessment{
+	p, _, _ := newAssessedPlugin(t, deposedSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentComplete, Resources: []sdk.PolicyResourceAssessment{
 		{Address: "aws_instance.web", Status: sdk.ResourceClassified, Level: &low, Reasons: []sdk.PolicyReason{{Code: "current-object", Message: "Current object update."}}},
 		{Address: "aws_instance.web", Deposed: "00000001", Status: sdk.ResourceClassified, Level: &high, Reasons: []sdk.PolicyReason{{Code: "deposed-object", Message: "Deposed object cleanup."}}},
-	}}
+	}})
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+	p.inspectSelected()
 
-	detail := p.buildInspectContent(&sdk.PlanChange{Resource: sdk.Resource{Address: "aws_instance.web", Deposed: "00000001"}, Action: sdk.ActionDelete})
-
+	detail := ansi.Strip(p.View(120, 40))
 	if !strings.Contains(detail, "Deposed object cleanup.") || strings.Contains(detail, "Current object update.") {
 		t.Errorf("detail = %q, want only the deposed object's reason", detail)
 	}
 }
 
-func TestSetAssessment_GivenFailuresAtSameAddress_ShouldPickCurrentObjectFailureFirst(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-
-	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentPartial, Resources: []sdk.PolicyResourceAssessment{
+func TestActivate_GivenFailuresAtSameAddress_ShouldReportCurrentObjectFailureFirst(t *testing.T) {
+	p, _, _ := newAssessedPlugin(t, deposedSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentPartial, Resources: []sdk.PolicyResourceAssessment{
 		{Address: "aws_instance.web", Deposed: "00000001", Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorResultInvalid},
 		{Address: "aws_instance.web", Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorEvaluationFailed},
 	}})
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 
-	if p.riskDiagnostic != string(sdk.ErrorEvaluationFailed) {
-		t.Errorf("riskDiagnostic = %q, want the current object's %q (address, then deposed key order)", p.riskDiagnostic, sdk.ErrorEvaluationFailed)
+	if got, want := string(p.Stderr()), "risk unavailable: "+string(sdk.ErrorEvaluationFailed)+"\n"; got != want {
+		t.Errorf("stderr = %q, want %q: the current object's failure (address, then deposed key order)", got, want)
 	}
 }
