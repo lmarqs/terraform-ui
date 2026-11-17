@@ -27,23 +27,12 @@ func LoadPlan(data []byte) (*PlanSummary, error) {
 
 	evidence := policyEvidence(data, doc)
 
-	// Policy-only metadata must not prevent reviewing otherwise usable display
-	// changes. Its original form is validated separately by policyEvidence.
-	resources, _ := doc["resource_changes"].([]any)
-	for _, value := range resources {
-		resource, _ := value.(map[string]any)
-		change, _ := resource["change"].(map[string]any)
-		delete(change, "replace_paths")
-		delete(change, "importing")
-	}
-	delete(doc, "deferred_changes")
-	displayData, _ := json.Marshal(doc) // Decoder output contains only JSON values.
-	var plan tfjson.Plan
-	if err := json.Unmarshal(displayData, &plan); err != nil {
+	plan, err := decodeDisplayPlan(data, doc)
+	if err != nil {
 		return nil, fmt.Errorf("parsing plan JSON: %w (hint: use `terraform show -json <planfile>` to convert binary plans)", err)
 	}
 
-	summary := ParsePlan(&plan)
+	summary := ParsePlan(plan)
 	summary.PolicyEvidence = evidence
 
 	for i := range summary.Changes {
@@ -52,6 +41,32 @@ func LoadPlan(data []byte) (*PlanSummary, error) {
 	DetectPhantomChanges(summary.Changes)
 
 	return summary, nil
+}
+
+// decodeDisplayPlan decodes the original bytes. Policy-only metadata that
+// tfjson rejects must not prevent reviewing otherwise usable display changes,
+// so a failed decode is retried on doc with that metadata removed; its original
+// form is validated separately by policyEvidence. doc is modified by the retry.
+func decodeDisplayPlan(data []byte, doc map[string]any) (*tfjson.Plan, error) {
+	var plan tfjson.Plan
+	if err := json.Unmarshal(data, &plan); err == nil {
+		return &plan, nil
+	}
+
+	resources, _ := doc["resource_changes"].([]any)
+	for _, value := range resources {
+		resource, _ := value.(map[string]any)
+		change, _ := resource["change"].(map[string]any)
+		delete(change, "replace_paths")
+		delete(change, "importing")
+	}
+	delete(doc, "deferred_changes")
+	strippedData, _ := json.Marshal(doc) // Decoder output contains only JSON values.
+	plan = tfjson.Plan{}
+	if err := json.Unmarshal(strippedData, &plan); err != nil {
+		return nil, err
+	}
+	return &plan, nil
 }
 
 // LoadState parses terraform state and returns resources and the parsed state.
