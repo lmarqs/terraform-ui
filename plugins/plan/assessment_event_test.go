@@ -97,28 +97,56 @@ func TestActivate_GivenFinishedPlan_ShouldNeverShowRunningPlanWhileReassessing(t
 	}
 }
 
+// TestCancel_GivenReassessmentPending_ShouldKeepPlanDoneAndReuseItOnNextEntry
+// models the App during a reassessment: Esc cancels only a plugin that is not
+// Busy (app.go Esc handling), while DeactivateMsg and :q! always cancel.
 func TestCancel_GivenReassessmentPending_ShouldKeepPlanDoneAndReuseItOnNextEntry(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		leave func(p *Plugin)
+	}{
+		{"esc", func(p *Plugin) {
+			if !p.Busy() {
+				p.Cancel()
+			}
+		}},
+		{"deactivate or force quit", func(p *Plugin) { p.Cancel() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			summary := moduleSummary()
+			p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary))
+			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+			pending := p.Activate(Input{})
+
+			tc.leave(p)
+
+			if p.Status() != sdk.StatusDone || p.ExitCode() != 2 {
+				t.Fatalf("leaving during reassessment: status=%v exit=%d; want the good plan to stay Done", p.Status(), p.ExitCode())
+			}
+			if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "cancelled") || !strings.Contains(view, "aws_s3_bucket.logs") {
+				t.Fatalf("leaving during reassessment view = %q; want the reviewed rows", view)
+			}
+			drainAssessmentPlan(t, p, pending, nil)
+			next := p.Activate(Input{})
+			if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "Running terraform plan") {
+				t.Fatalf("next entry view = %q; want no running plan", view)
+			}
+			drainAssessmentPlan(t, p, next, nil)
+			if len(svc.PlanCalls) != 1 {
+				t.Fatalf("next entry after leaving planned %d times; want 1", len(svc.PlanCalls))
+			}
+		})
+	}
+}
+
+func TestCancel_GivenReassessmentPending_ShouldReleaseBusy(t *testing.T) {
 	summary := moduleSummary()
-	p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary), withLegacyHostAssessment)
+	p, _, _ := newAssessedPlugin(t, summary, allHigh(summary))
 	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
-	pending := p.Activate(Input{})
-
+	p.Activate(Input{})
 	p.Cancel()
-
-	if p.Status() != sdk.StatusDone || p.ExitCode() != 2 {
-		t.Fatalf("Esc during reassessment: status=%v exit=%d; want the good plan to stay Done", p.Status(), p.ExitCode())
-	}
-	if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "cancelled") || !strings.Contains(view, "aws_s3_bucket.logs") {
-		t.Fatalf("Esc during reassessment view = %q; want the reviewed rows", view)
-	}
-	drainAssessmentPlan(t, p, pending, nil)
-	next := p.Activate(Input{})
-	if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "Running terraform plan") {
-		t.Fatalf("next entry view = %q; want no running plan", view)
-	}
-	drainAssessmentPlan(t, p, next, nil)
-	if len(svc.PlanCalls) != 1 {
-		t.Fatalf("next entry after Esc planned %d times; want 1", len(svc.PlanCalls))
+	if p.Busy() {
+		t.Fatal("Plan stays busy after Cancel; DeactivateMsg and :q! could not release it")
 	}
 }
 
