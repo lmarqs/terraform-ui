@@ -83,7 +83,7 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 func prepare(ctx context.Context, snapshot Snapshot) (rego.PreparedEvalQuery, error) {
 	options := []func(*rego.Rego){rego.Query("data.tfui.risk.v1.classification"), rego.Capabilities(capabilities()), rego.StrictBuiltinErrors(true), rego.EnablePrintStatements(false)}
 	if len(snapshot.modules) == 0 {
-		return rego.PreparedEvalQuery{}, sdk.ErrorSourceInvalid
+		return rego.PreparedEvalQuery{}, sdk.ErrorCompilationFailed
 	}
 	for _, source := range snapshot.Modules() {
 		module, err := ast.ParseModule(source.Name, source.Source)
