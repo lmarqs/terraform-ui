@@ -101,3 +101,16 @@ func TestBuildInspectContent_GivenUpdateAndDeposedDelete_ShouldShowOnlyTheOwnRea
 		t.Errorf("detail = %q, want only the deposed object's reason", detail)
 	}
 }
+
+func TestSetAssessment_GivenFailuresAtSameAddress_ShouldPickCurrentObjectFailureFirst(t *testing.T) {
+	p := New(&sdktest.MockService{}).(*Plugin)
+
+	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentPartial, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_instance.web", Deposed: "00000001", Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorResultInvalid},
+		{Address: "aws_instance.web", Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorEvaluationFailed},
+	}})
+
+	if p.riskDiagnostic != string(sdk.ErrorEvaluationFailed) {
+		t.Errorf("riskDiagnostic = %q, want the current object's %q (address, then deposed key order)", p.riskDiagnostic, sdk.ErrorEvaluationFailed)
+	}
+}

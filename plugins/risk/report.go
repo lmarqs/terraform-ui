@@ -206,7 +206,7 @@ func deposedKey(row reportResource) string {
 func instanceLabel(row reportResource) string {
 	label := escapedAddress(row.Address)
 	if row.Deposed != nil {
-		label += " (deposed " + *row.Deposed + ")"
+		label += " (deposed " + escapedAddress(*row.Deposed) + ")"
 	}
 	return label
 }

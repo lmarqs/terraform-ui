@@ -129,3 +129,29 @@ func TestResourceAssessment_GivenAssessmentWithoutMatchingRow_ShouldReturnNil(t 
 		t.Errorf("resourceAssessment(current object) = %+v, want nil when only the deposed row exists", row)
 	}
 }
+
+func TestReport_GivenControlCharacterInDeposedKey_ShouldEscapeItInText(t *testing.T) {
+	high := sdk.RiskHigh
+	p := newReportPlugin(t, sdk.PolicyAssessment{
+		Status: sdk.AssessmentComplete, PlanID: "sha256:reviewed", OverallLevel: &high,
+		Policy: sdk.PolicyIdentity{Kind: "custom", ID: "custom/sha256:policy", Digest: "sha256:policy"},
+		Resources: []sdk.PolicyResourceAssessment{
+			{Address: "aws_instance.web", Deposed: "0001\x1b[31m", Actions: []string{"delete"}, Status: sdk.ResourceClassified, Level: &high},
+			{Address: "aws_instance.web", Deposed: "0002\x1b[31m", Actions: []string{"delete"}, Status: sdk.ResourceNotAssessed, Exclusion: sdk.ExclusionNoOp},
+		},
+	})
+	runLifecycleCmd(p, p.Activate())
+
+	out, err := reportStdout(t, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`delete aws_instance.web (deposed "0001\x1b[31m"): high`, `delete aws_instance.web (deposed "0002\x1b[31m"): not assessed (no_op)`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("text = %q, want line containing %q", out, want)
+		}
+	}
+	if strings.ContainsRune(string(out), '\x1b') {
+		t.Errorf("text report contains an unescaped escape byte: %q", out)
+	}
+}

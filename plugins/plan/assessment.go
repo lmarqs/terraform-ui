@@ -1,6 +1,7 @@
 package plan
 
 import (
+	"cmp"
 	"context"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,10 +34,11 @@ func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	e.riskDiagnostic = string(assessment.ErrorCode)
 	if !assessment.Usable() && e.riskDiagnostic == "" {
 		e.riskDiagnostic = string(sdk.ErrorInputIncomplete)
-		first := ""
+		var first sdk.InstanceKey
 		for _, row := range assessment.Resources {
-			if row.ErrorCode != "" && (first == "" || row.Address < first) {
-				first, e.riskDiagnostic = row.Address, string(row.ErrorCode)
+			key := sdk.InstanceKey{Address: row.Address, Deposed: row.Deposed}
+			if row.ErrorCode != "" && (first.Address == "" || cmp.Or(cmp.Compare(key.Address, first.Address), cmp.Compare(key.Deposed, first.Deposed)) < 0) {
+				first, e.riskDiagnostic = key, string(row.ErrorCode)
 			}
 		}
 	}
