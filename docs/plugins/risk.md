@@ -65,7 +65,7 @@ Edits are detected at the next boundary; there is no background watcher. See the
 
 ```bash
 tfui risk -ci -plan ./plan.json
-tfui risk -ci -plan ./plan.json -json -threshold high
+tfui risk -ci -plan ./plan.json -json -risk-threshold high
 terraform show -json tfplan.out | tfui risk -ci -plan -
 ```
 
@@ -93,7 +93,7 @@ defaults {
 }
 ```
 
-`threshold` controls command comparison and defaults to `off`; explicit `-threshold` overrides it. Accepted
+`threshold` controls command comparison and defaults to `off`; explicit `-risk-threshold` overrides it. Accepted
 values and inclusive comparison are defined in the [threshold contract](../reference/risk-policy-contract.md#command-threshold-and-report-v1).
 The `level` setting is rejected with a configuration error that names `threshold`.
 

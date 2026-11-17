@@ -63,8 +63,11 @@ prints a text report on completion, or a versioned report with `-json`.
 
 ```bash
 tfui risk -ci -plan ./plan.json
-tfui risk -ci -plan ./plan.json -json -threshold high
+tfui risk -ci -plan ./plan.json -json -risk-threshold high
 ```
+
+`-risk-threshold` (`off`, `none`, `low`, `medium`, `high`, `critical`; default `off`) overrides the Risk `threshold` setting for
+this run; only `tfui risk` accepts it.
 
 Without `-plan`, tfui acquires a plan for Risk using the active Context and cleans up its temporary artifact.
 The [risk policy contract](risk-policy-contract.md#command-threshold-and-report-v1) defines report v1,
@@ -248,7 +251,6 @@ Every command accepts these flags:
 | `-config` | | Override config values (repeatable, `key=value`) |
 | `-ci` | `false` | Run [headless](cli-io-contract.md#mode-resolution): no TUI, output as soon as the plugin is done |
 | `-json` | `false` | JSON on stdout, for `plan`, `state`, `validate`, `output`, `version` and `risk` |
-| `-threshold` | `off` | Risk comparison override; accepted by every command, affects only Risk. See the [risk contract](risk-policy-contract.md#command-threshold-and-report-v1) |
 | `-plan` | | Pre-seed plan data from a file or stdin |
 | `-state` | | Pre-seed state data from a file or stdin |
 | `-macro` | | Run a tape file (headless TUI recording) |

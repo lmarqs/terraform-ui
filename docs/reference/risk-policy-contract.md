@@ -544,9 +544,9 @@ invalidates the whole assessment; do not salvage rows from uncertain eligibility
 
 ## Command, threshold and report v1
 
-Invocation: `tfui risk -ci -plan plan.json -json -threshold high`. `-json` controls format independently
+Invocation: `tfui risk -ci -plan plan.json -json -risk-threshold high`. `-json` controls format independently
 of mode. The Risk setting is `threshold`, with values `off`, `none`, `low`, `medium`, `high`, `critical`;
-explicit CLI `-threshold` wins over the resolved Risk setting, then default `off`. No policy-returned threshold or threshold inside the Rego input.
+explicit CLI `-risk-threshold` wins over the resolved Risk setting, then default `off`. No policy-returned threshold or threshold inside the Rego input.
 
 Compare inclusively: with `high`, `medium` passes, `high` and `critical` meet the threshold. With `none`, every
 nonempty complete assessment meets the threshold, including explicit `none`. Empty eligibility never matches.
@@ -659,8 +659,8 @@ defaults {
 ```
 
 The selector is usable even if the Risk view is disabled. A CLI threshold override affects command comparison,
-not classification or policy source. Register `--threshold` as a persistent tfui flag (single-dash normalization
-also accepted), usable with all commands; it has comparison effects only for Risk and never changes Plan/Apply.
+not classification or policy source. Register `--risk-threshold` as a local flag of `tfui risk` (single-dash normalization
+also accepted); no other command accepts it, and it never changes Plan/Apply.
 `-json` and `-ci` retain their independent format/mode meanings; `-plan` accepts show JSON, including stdin `-`,
 never a binary saved plan. Without seeded evidence Risk uses active Context plan options and a temporary saved
 artifact, explicitly cleaned up, and never claims Plan's executable artifact ownership.

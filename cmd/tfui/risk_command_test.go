@@ -96,6 +96,7 @@ func TestRiskThresholdFlag_GivenRoot_ShouldScopeItToRiskCommandOnly(t *testing.T
 }
 
 func TestRiskThresholdFlag_GivenRetiredName_ShouldRejectItAsUnknown(t *testing.T) {
+	retiredName := "threshold"
 	for _, command := range []string{"risk", "plan"} {
 		t.Run(command, func(t *testing.T) {
 			dir := t.TempDir()
@@ -107,10 +108,10 @@ func TestRiskThresholdFlag_GivenRetiredName_ShouldRejectItAsUnknown(t *testing.T
 			var stdout, stderr bytes.Buffer
 			session.effects = Effects{Stdout: &stdout, Stderr: &stderr}
 			root.SilenceUsage, root.SilenceErrors = true, true
-			root.SetArgs(normalizeArgs([]string{command, "--project", dir, "--ci", "--terraform-bin", filepath.Join(dir, "nonexistent-terraform"), "-threshold", "high"}))
+			root.SetArgs(normalizeArgs([]string{command, "--project", dir, "--ci", "--terraform-bin", filepath.Join(dir, "nonexistent-terraform"), "-" + retiredName, "high"}))
 			err := root.Execute()
-			if err == nil || !strings.Contains(err.Error(), "unknown flag: --threshold") {
-				t.Fatalf("%s -threshold high error = %v, want unknown flag: --threshold", command, err)
+			if err == nil || !strings.Contains(err.Error(), "unknown flag: --"+retiredName) {
+				t.Fatalf("%s -%s high error = %v, want unknown flag: --%s", command, retiredName, err, retiredName)
 			}
 		})
 	}
