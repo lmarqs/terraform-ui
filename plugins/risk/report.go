@@ -176,7 +176,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		if row.Status != sdk.ResourceClassified {
 			continue
 		}
-		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row), *row.Level)
+		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, deposedKey(row)), *row.Level)
 		for _, reason := range *row.Reasons {
 			fmt.Fprintf(&out, "  %s: %s", reason.Code, reason.Message)
 			if len(reason.Paths) > 0 {
@@ -189,7 +189,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	}
 	for _, row := range r.Resources {
 		if row.Status == sdk.ResourceNotAssessed {
-			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), instanceLabel(row), row.Exclusion)
+			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, deposedKey(row)), row.Exclusion)
 		}
 	}
 	return []byte(out.String()), nil
@@ -202,10 +202,10 @@ func deposedKey(row reportResource) string {
 	return *row.Deposed
 }
 
-func instanceLabel(row reportResource) string {
-	label := escapedAddress(row.Address)
-	if row.Deposed != nil {
-		label += " (deposed " + escapedAddress(*row.Deposed) + ")"
+func instanceLabel(address, deposed string) string {
+	label := escapedAddress(address)
+	if deposed != "" {
+		label += " (deposed " + escapedAddress(deposed) + ")"
 	}
 	return label
 }
@@ -230,7 +230,7 @@ func (e *Plugin) Stderr() []byte {
 			})
 			for _, row := range rows {
 				if row.ErrorCode != "" {
-					diagnostic = string(row.ErrorCode) + " for " + escapedAddress(row.Address)
+					diagnostic = string(row.ErrorCode) + " for " + instanceLabel(row.Address, row.Deposed)
 					break
 				}
 			}

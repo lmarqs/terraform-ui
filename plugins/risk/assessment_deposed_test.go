@@ -150,3 +150,24 @@ func TestReport_GivenControlCharacterInDeposedKey_ShouldEscapeItInText(t *testin
 		t.Errorf("text report contains an unescaped escape byte: %q", out)
 	}
 }
+
+func TestStderr_GivenDeposedInstanceFailed_ShouldNameItsDeposedKey(t *testing.T) {
+	low := sdk.RiskLow
+	for _, tc := range []struct {
+		name, deposed, want string
+	}{
+		{"plain key", "00000001", "risk unavailable: result_invalid for aws_instance.web (deposed 00000001)\n"},
+		{"key with terminal controls", "0000\x1b[31m", "risk unavailable: result_invalid for aws_instance.web (deposed \"0000\\x1b[31m\")\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := deposedRiskPlugin(t, sdk.PolicyAssessment{Status: sdk.AssessmentPartial, Resources: []sdk.PolicyResourceAssessment{
+				{Address: "aws_instance.web", Deposed: tc.deposed, Actions: []string{"delete"}, Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorResultInvalid},
+				{Address: "aws_instance.web", Actions: []string{"update"}, Status: sdk.ResourceClassified, Level: &low, Reasons: []sdk.PolicyReason{{Code: "current-object", Message: "Current object update."}}},
+			}})
+
+			if got := string(p.Stderr()); got != tc.want {
+				t.Fatalf("stderr = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
