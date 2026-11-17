@@ -152,7 +152,7 @@ classification := {"level":"high","reasons":[]} if {input.resource.name == "work
 				t.Fatalf("invalid output yielded successful or missing assessment: %+v", assessment)
 			}
 			row := assessment.Resources[0]
-			if row.Status != "unavailable" || row.ErrorCode != tc.code || row.Level != nil || len(row.Reasons) != 0 {
+			if row.Status != "unavailable" || row.ErrorCode != sdk.ErrorCode(tc.code) || row.Level != nil || len(row.Reasons) != 0 {
 				t.Fatalf("resource=%+v; want unavailable %s without neutral classification", row, tc.code)
 			}
 		})
@@ -197,7 +197,7 @@ func TestAssess_GivenInvalidEvidenceOrEmptyPlanWithBrokenPolicy_ShouldRemainUnav
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			assessment := Assess(context.Background(), tc.snapshot, tc.evidence)
-			if assessment.Status != "unavailable" || assessment.ErrorCode != tc.code || assessment.OverallLevel != nil {
+			if assessment.Status != "unavailable" || assessment.ErrorCode != sdk.ErrorCode(tc.code) || assessment.OverallLevel != nil {
 				t.Fatalf("invalid plan/source became an empty success: %+v", assessment)
 			}
 		})

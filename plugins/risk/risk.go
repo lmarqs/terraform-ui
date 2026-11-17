@@ -136,7 +136,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 
 	var unavailable []sdk.PlanChange
 	for _, c := range summary.Changes {
-		if row := e.resourceAssessment(c.Resource.Address); row != nil && row.Status == "unavailable" {
+		if row := e.resourceAssessment(c.Resource.Address); row != nil && row.Status == sdk.ResourceUnavailable {
 			unavailable = append(unavailable, c)
 			continue
 		}
@@ -284,13 +284,13 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 }
 
 func (e *Plugin) renderOverallBanner() string {
-	if e.assessment != nil && (e.assessment.Status == "partial" || e.assessment.Status == "unavailable") {
+	if e.assessment != nil && (e.assessment.Status == sdk.AssessmentPartial || e.assessment.Status == sdk.AssessmentUnavailable) {
 		failed, classified := 0, 0
 		for _, row := range e.assessment.Resources {
-			if row.Status == "unavailable" {
+			if row.Status == sdk.ResourceUnavailable {
 				failed++
 			}
-			if row.Status == "classified" {
+			if row.Status == sdk.ResourceClassified {
 				classified++
 			}
 		}
@@ -329,8 +329,8 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
 	reason := riskReason(change)
 	if row := e.resourceAssessment(address); row != nil {
 		reason = ""
-		if row.Status == "unavailable" {
-			reason = "risk unavailable: " + row.ErrorCode
+		if row.Status == sdk.ResourceUnavailable {
+			reason = "risk unavailable: " + string(row.ErrorCode)
 		}
 		for _, evidence := range row.Reasons {
 			if reason != "" {
@@ -352,7 +352,7 @@ func (e *Plugin) renderStats() string {
 	for _, g := range e.groups {
 		label := g.Level.String()
 		if g.Unavailable {
-			label = "unavailable"
+			label = string(sdk.ResourceUnavailable)
 		}
 		parts = append(parts, fmt.Sprintf("%s: %d", label, len(g.Changes)))
 	}
@@ -387,7 +387,7 @@ func (e *Plugin) excludedCount() int {
 	count := 0
 	if e.assessment != nil {
 		for _, row := range e.assessment.Resources {
-			if row.Status == "not_assessed" {
+			if row.Status == sdk.ResourceNotAssessed {
 				count++
 			}
 		}

@@ -205,7 +205,7 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderBlastRadius(width, height int) string {
 	if len(e.modules) == 0 {
-		if e.assessment != nil && e.assessment.Status != "complete" && e.assessment.Status != "empty" {
+		if e.assessment != nil && e.assessment.Status != sdk.AssessmentComplete && e.assessment.Status != sdk.AssessmentEmpty {
 			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment")
 		}
 		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
@@ -313,11 +313,11 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 		if e.assessment != nil {
 			row := e.resourceAssessment(change.Resource.Address)
 			switch row.Status {
-			case "not_assessed":
+			case sdk.ResourceNotAssessed:
 				risk = "Risk: not assessed"
-			case "classified":
+			case sdk.ResourceClassified:
 			default:
-				risk = "risk unavailable: " + row.ErrorCode
+				risk = "risk unavailable: " + string(row.ErrorCode)
 			}
 		}
 		row := fmt.Sprintf("     %s %s", symbol, address)

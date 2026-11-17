@@ -15,12 +15,12 @@ import (
 // independently. It does not acquire plans, reload source or publish lifecycle events.
 func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence) (result sdk.PolicyAssessment) {
 	result = sdk.PolicyAssessment{
-		Status: "unavailable", PlanID: evidence.PlanID,
+		Status: sdk.AssessmentUnavailable, PlanID: evidence.PlanID,
 		Policy: sdk.PolicyIdentity{Kind: snapshot.Kind(), ID: snapshot.ID(), Digest: snapshot.Digest(), EvaluatorVersion: evaluatorVersion, CapabilityDigest: capabilityDigest},
 	}
 	defer func() {
 		if ctx.Err() != nil {
-			result.Status, result.ErrorCode = "cancelled", "cancelled"
+			result.Status, result.ErrorCode = sdk.AssessmentCancelled, sdk.ErrorCancelled
 			result.Resources, result.OverallLevel = nil, nil
 		}
 	}()
@@ -33,13 +33,13 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 	}
 	for _, resource := range evidence.Resources {
 		if resource.Exclusion == "" && resource.Input == nil {
-			result.ErrorCode = "input_incomplete"
+			result.ErrorCode = sdk.ErrorInputIncomplete
 			return result
 		}
 	}
 	query, err := prepare(ctx, snapshot)
 	if err != nil {
-		result.ErrorCode = "compilation_failed"
+		result.ErrorCode = sdk.ErrorCompilationFailed
 		return result
 	}
 	classified, failed := 0, 0
@@ -47,9 +47,9 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 	for _, resource := range evidence.Resources {
 		row := sdk.PolicyResourceAssessment{Address: resource.Address, Actions: slices.Clone(resource.Actions), Exclusion: resource.Exclusion}
 		if resource.Exclusion != "" {
-			row.Status = "not_assessed"
+			row.Status = sdk.ResourceNotAssessed
 		} else {
-			row.Status = "unavailable"
+			row.Status = sdk.ResourceUnavailable
 			level, reasons, code := evaluate(ctx, query, resource.Input)
 			if ctx.Err() != nil {
 				return result
@@ -58,7 +58,7 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 			if code != "" {
 				failed++
 			} else {
-				row.Status, row.Level, row.Reasons = "classified", &level, reasons
+				row.Status, row.Level, row.Reasons = sdk.ResourceClassified, &level, reasons
 				classified++
 				if level > overall {
 					overall = level
@@ -69,13 +69,13 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 	}
 	switch {
 	case failed > 0 && classified > 0:
-		result.Status = "partial"
+		result.Status = sdk.AssessmentPartial
 	case failed > 0:
-		result.Status = "unavailable"
+		result.Status = sdk.AssessmentUnavailable
 	case classified == 0:
-		result.Status = "empty"
+		result.Status = sdk.AssessmentEmpty
 	default:
-		result.Status, result.OverallLevel = "complete", &overall
+		result.Status, result.OverallLevel = sdk.AssessmentComplete, &overall
 	}
 	return result
 }
@@ -83,7 +83,7 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 func prepare(ctx context.Context, snapshot Snapshot) (rego.PreparedEvalQuery, error) {
 	options := []func(*rego.Rego){rego.Query("data.tfui.risk.v1.classification"), rego.Capabilities(capabilities()), rego.StrictBuiltinErrors(true), rego.EnablePrintStatements(false)}
 	if len(snapshot.modules) == 0 {
-		return rego.PreparedEvalQuery{}, errors.New("source_invalid")
+		return rego.PreparedEvalQuery{}, sdk.ErrorSourceInvalid
 	}
 	for _, source := range snapshot.Modules() {
 		module, err := ast.ParseModule(source.Name, source.Source)
@@ -91,31 +91,31 @@ func prepare(ctx context.Context, snapshot Snapshot) (rego.PreparedEvalQuery, er
 			return rego.PreparedEvalQuery{}, err
 		}
 		if deniedOutput(module) {
-			return rego.PreparedEvalQuery{}, errors.New("compilation_failed")
+			return rego.PreparedEvalQuery{}, sdk.ErrorCompilationFailed
 		}
 		options = append(options, rego.ParsedModule(module))
 	}
 	return rego.New(options...).PrepareForEval(ctx)
 }
 
-func evaluate(ctx context.Context, query rego.PreparedEvalQuery, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, string) {
+func evaluate(ctx context.Context, query rego.PreparedEvalQuery, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, sdk.ErrorCode) {
 	results, err := query.Eval(ctx, rego.EvalInput(input))
 	if err != nil {
 		var evaluationError *topdown.Error
 		if errors.As(err, &evaluationError) && evaluationError.Code == topdown.ConflictErr {
-			return 0, nil, "evaluation_conflict"
+			return 0, nil, sdk.ErrorEvaluationConflict
 		}
-		return 0, nil, "evaluation_failed"
+		return 0, nil, sdk.ErrorEvaluationFailed
 	}
 	return classifyResults(results, input)
 }
 
-func classifyResults(results rego.ResultSet, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, string) {
+func classifyResults(results rego.ResultSet, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, sdk.ErrorCode) {
 	if len(results) == 0 {
-		return 0, nil, "result_undefined"
+		return 0, nil, sdk.ErrorResultUndefined
 	}
 	if len(results) != 1 || len(results[0].Expressions) != 1 {
-		return 0, nil, "result_cardinality"
+		return 0, nil, sdk.ErrorResultCardinality
 	}
 	return validateResult(results[0].Expressions[0].Value, input)
 }

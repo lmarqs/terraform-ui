@@ -1,7 +1,6 @@
 package config
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +8,8 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
+
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // RiskPolicySelection retains the declaration origin even when a selector is inherited.
@@ -23,11 +24,11 @@ type RiskPolicySelection struct {
 func ResolveRiskPolicy(projectDir, chdirDir, workspace string) (RiskPolicySelection, error) {
 	project, err := filepath.Abs(projectDir)
 	if err != nil {
-		return RiskPolicySelection{}, errors.New("configuration_invalid")
+		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
 	chdir, err := filepath.Abs(chdirDir)
 	if err != nil {
-		return RiskPolicySelection{}, errors.New("configuration_invalid")
+		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
 	root, err := policyConfigBody(project)
 	if err != nil {
@@ -39,7 +40,7 @@ func ResolveRiskPolicy(projectDir, chdirDir, workspace string) (RiskPolicySelect
 	}
 	content, _, diags := root.PartialContent(&hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{{Type: "defaults"}}})
 	if diags.HasErrors() || len(content.Blocks) > 1 {
-		return RiskPolicySelection{}, errors.New("configuration_invalid")
+		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
 	if len(content.Blocks) == 1 {
 		selection, err = policySelector(content.Blocks[0].Body, project, selection)
@@ -60,7 +61,7 @@ func ResolveRiskPolicy(projectDir, chdirDir, workspace string) (RiskPolicySelect
 	}
 	memberContent, diags := memberBody.Content(childSchema())
 	if diags.HasErrors() || rejectLockedBlocks(memberContent) != nil {
-		return RiskPolicySelection{}, errors.New("configuration_invalid")
+		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
 	var blocks []*hcl.Block
 	var workspaces []WorkspaceConfig
@@ -70,7 +71,7 @@ func ResolveRiskPolicy(projectDir, chdirDir, workspace string) (RiskPolicySelect
 		}
 		plugins, _, diags := block.Body.PartialContent(&hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{{Type: "plugin", LabelNames: []string{"name"}}}})
 		if diags.HasErrors() || rejectLockedBlocks(plugins) != nil {
-			return RiskPolicySelection{}, errors.New("configuration_invalid")
+			return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 		}
 		blocks = append(blocks, block)
 		workspaces = append(workspaces, WorkspaceConfig{Name: block.Labels[0]})
@@ -97,11 +98,11 @@ func policyConfigBody(dir string) (hcl.Body, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, errors.New("configuration_invalid")
+		return nil, sdk.ErrorConfigurationInvalid
 	}
 	file, diags := hclparse.NewParser().ParseHCL(data, path)
 	if diags.HasErrors() {
-		return nil, errors.New("configuration_invalid")
+		return nil, sdk.ErrorConfigurationInvalid
 	}
 	return file.Body, nil
 }
@@ -114,14 +115,14 @@ func policySelector(body hcl.Body, origin string, inherited RiskPolicySelection)
 	}
 	value, diags := attr.Expr.Value(nil)
 	if diags.HasErrors() || !value.IsKnown() || value.IsNull() || value.Type() != cty.String {
-		return RiskPolicySelection{}, errors.New("configuration_invalid")
+		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
 	path := value.AsString()
 	if path == "" {
 		return RiskPolicySelection{Origin: origin}, nil
 	}
 	if strings.TrimSpace(path) == "" || strings.Contains(path, "://") {
-		return RiskPolicySelection{}, errors.New("configuration_invalid")
+		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(origin, path)

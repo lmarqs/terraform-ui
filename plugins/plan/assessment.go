@@ -14,7 +14,7 @@ type planAssessedMsg struct {
 
 func (e *Plugin) reassess() tea.Cmd {
 	e.cancelInflight()
-	e.setAssessment(&sdk.PolicyAssessment{Status: "unavailable", ErrorCode: "input_incomplete"})
+	e.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorInputIncomplete})
 	e.status = sdk.StatusLoading
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
@@ -30,13 +30,13 @@ func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	if assessment == nil {
 		return
 	}
-	e.riskDiagnostic = assessment.ErrorCode
-	if assessment.Status != "complete" && assessment.Status != "empty" && e.riskDiagnostic == "" {
-		e.riskDiagnostic = "input_incomplete"
+	e.riskDiagnostic = string(assessment.ErrorCode)
+	if assessment.Status != sdk.AssessmentComplete && assessment.Status != sdk.AssessmentEmpty && e.riskDiagnostic == "" {
+		e.riskDiagnostic = string(sdk.ErrorInputIncomplete)
 		first := ""
 		for _, row := range assessment.Resources {
 			if row.ErrorCode != "" && (first == "" || row.Address < first) {
-				first, e.riskDiagnostic = row.Address, row.ErrorCode
+				first, e.riskDiagnostic = row.Address, string(row.ErrorCode)
 			}
 		}
 	}
@@ -51,7 +51,7 @@ func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 		change := &summary.Changes[i]
 		change.Risk = sdk.RiskNone
 		for _, row := range assessment.Resources {
-			if row.Address == change.Resource.Address && row.Status == "classified" && row.Level != nil {
+			if row.Address == change.Resource.Address && row.Status == sdk.ResourceClassified && row.Level != nil {
 				change.Risk = *row.Level
 			}
 		}
@@ -74,19 +74,19 @@ func (e *Plugin) changeDiagnostic(address string) string {
 		return e.riskDiagnostic
 	}
 	if e.assessment.ErrorCode != "" {
-		return e.assessment.ErrorCode
+		return string(e.assessment.ErrorCode)
 	}
 	for _, row := range e.assessment.Resources {
 		if row.Address == address {
 			if row.ErrorCode != "" {
-				return row.ErrorCode
+				return string(row.ErrorCode)
 			}
-			if row.Status == "classified" || row.Status == "not_assessed" {
+			if row.Status == sdk.ResourceClassified || row.Status == sdk.ResourceNotAssessed {
 				return ""
 			}
 		}
 	}
-	return "input_incomplete"
+	return string(sdk.ErrorInputIncomplete)
 }
 
 func (e *Plugin) changeRiskBadge(change sdk.PlanChange) string {
@@ -104,6 +104,6 @@ func (e *Plugin) invalidateAssessment() {
 		return
 	}
 	e.cancelInflight()
-	e.setAssessment(&sdk.PolicyAssessment{Status: "unavailable", ErrorCode: "input_incomplete"})
+	e.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorInputIncomplete})
 	e.status = sdk.StatusDone
 }

@@ -3,12 +3,12 @@ package sdk
 // PolicyAssessment contains classifications from one selected policy and reviewed plan.
 // Only a complete assessment has an overall level; cancelled results cannot be published.
 type PolicyAssessment struct {
-	Status       string
+	Status       AssessmentStatus
 	PlanID       string
 	Policy       PolicyIdentity
 	OverallLevel *RiskLevel
 	Resources    []PolicyResourceAssessment
-	ErrorCode    string
+	ErrorCode    ErrorCode
 }
 
 // PolicyIdentity identifies immutable policy bytes and the evaluation profile.
@@ -24,11 +24,11 @@ type PolicyIdentity struct {
 type PolicyResourceAssessment struct {
 	Address   string
 	Actions   []string
-	Status    string
+	Status    ResourceStatus
 	Level     *RiskLevel
 	Reasons   []PolicyReason
-	Exclusion string
-	ErrorCode string
+	Exclusion Exclusion
+	ErrorCode ErrorCode
 }
 
 // PolicyReason is a validated author explanation referring to tagged input values.

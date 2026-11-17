@@ -50,7 +50,7 @@ func (e *Plugin) selectedThreshold() string {
 }
 
 func (e *Plugin) thresholdResult() string {
-	if e.assessment.Status == "empty" {
+	if e.assessment.Status == sdk.AssessmentEmpty {
 		return "not_applicable"
 	}
 	threshold := e.selectedThreshold()
@@ -77,12 +77,12 @@ type reportReason struct {
 }
 
 type reportResource struct {
-	Address   string          `json:"address"`
-	Actions   []string        `json:"actions"`
-	Status    string          `json:"status"`
-	Level     *string         `json:"level,omitempty"`
-	Reasons   *[]reportReason `json:"reasons,omitempty"`
-	Exclusion string          `json:"exclusion,omitempty"`
+	Address   string             `json:"address"`
+	Actions   []string           `json:"actions"`
+	Status    sdk.ResourceStatus `json:"status"`
+	Level     *string            `json:"level,omitempty"`
+	Reasons   *[]reportReason    `json:"reasons,omitempty"`
+	Exclusion sdk.Exclusion      `json:"exclusion,omitempty"`
 }
 
 type riskReport struct {
@@ -93,10 +93,10 @@ type riskReport struct {
 		ID     string `json:"id"`
 		Digest string `json:"digest"`
 	} `json:"policy"`
-	Context      reportContext `json:"context"`
-	PlanID       string        `json:"plan_id"`
-	Status       string        `json:"status"`
-	OverallLevel *string       `json:"overall_level"`
+	Context      reportContext        `json:"context"`
+	PlanID       string               `json:"plan_id"`
+	Status       sdk.AssessmentStatus `json:"status"`
+	OverallLevel *string              `json:"overall_level"`
 	Counts       struct {
 		Eligible    int `json:"eligible"`
 		Classified  int `json:"classified"`
@@ -125,7 +125,7 @@ func (e *Plugin) report() riskReport {
 	r.Threshold.Result = e.thresholdResult()
 	for _, row := range a.Resources {
 		resource := reportResource{Address: row.Address, Actions: row.Actions, Status: row.Status, Exclusion: row.Exclusion}
-		if row.Status == "classified" {
+		if row.Status == sdk.ResourceClassified {
 			r.Counts.Eligible++
 			r.Counts.Classified++
 			level := row.Level.String()
@@ -160,14 +160,14 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		return append(data, '\n'), err
 	}
 	var out strings.Builder
-	if r.Status == "empty" {
+	if r.Status == sdk.AssessmentEmpty {
 		fmt.Fprintf(&out, "No eligible mutations (%d changes not assessed).\n", r.Counts.NotAssessed)
 	} else {
 		fmt.Fprintf(&out, "Risk: %s\n", *r.OverallLevel)
 	}
 	fmt.Fprintf(&out, "Policy: %s\nMutations: %d eligible, %d classified; %d changes not assessed\nThreshold: %s (%s)\n", r.Policy.ID, r.Counts.Eligible, r.Counts.Classified, r.Counts.NotAssessed, e.selectedThreshold(), r.Threshold.Result)
 	for _, row := range r.Resources {
-		if row.Status != "classified" {
+		if row.Status != sdk.ResourceClassified {
 			continue
 		}
 		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), escapedAddress(row.Address), *row.Level)
@@ -182,7 +182,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		}
 	}
 	for _, row := range r.Resources {
-		if row.Status == "not_assessed" {
+		if row.Status == sdk.ResourceNotAssessed {
 			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), escapedAddress(row.Address), row.Exclusion)
 		}
 	}
@@ -207,7 +207,7 @@ func (e *Plugin) Stderr() []byte {
 			sort.Slice(rows, func(i, j int) bool { return rows[i].Address < rows[j].Address })
 			for _, row := range rows {
 				if row.ErrorCode != "" {
-					diagnostic = row.ErrorCode + " for " + escapedAddress(row.Address)
+					diagnostic = string(row.ErrorCode) + " for " + escapedAddress(row.Address)
 					break
 				}
 			}

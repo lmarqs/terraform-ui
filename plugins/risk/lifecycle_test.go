@@ -240,7 +240,7 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 			p, h := newLifecyclePlugin(t, svc)
 			high := sdk.RiskHigh
 			h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-				got := sdk.PolicyAssessment{Status: status, PlanID: "retained"}
+				got := sdk.PolicyAssessment{Status: sdk.AssessmentStatus(status), PlanID: "retained"}
 				if status == "complete" {
 					got.OverallLevel = &high
 					got.Resources = []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &high, Reasons: []sdk.PolicyReason{{Code: "authored", Message: "Project classification."}}}}
@@ -265,7 +265,7 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 			if !p.Ready() || p.Busy() {
 				t.Fatalf("policy status %s left headless waiting", status)
 			}
-			if p.Assessment() == nil || p.Assessment().Status != status {
+			if p.Assessment() == nil || p.Assessment().Status != sdk.AssessmentStatus(status) {
 				t.Fatalf("policy terminal status %s was not retained", status)
 			}
 			switch status {

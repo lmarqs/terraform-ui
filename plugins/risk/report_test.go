@@ -72,7 +72,7 @@ func TestReport_GivenThreshold_ShouldCompareInclusivelyWithoutTreatingEmptyAsNon
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a := reportAssessment(tc.level)
-			a.Status = tc.status
+			a.Status = sdk.AssessmentStatus(tc.status)
 			if tc.status == "empty" {
 				a.OverallLevel = nil
 				a.Resources = a.Resources[2:]

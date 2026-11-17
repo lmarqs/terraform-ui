@@ -79,7 +79,7 @@ func TestAssessment_GivenResourceFailures_ShouldRetainReviewRowsWithoutAggregate
 			}
 			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
 			h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-				return sdk.PolicyAssessment{Status: name, Resources: rows, ErrorCode: "result_undefined"}
+				return sdk.PolicyAssessment{Status: sdk.AssessmentStatus(name), Resources: rows, ErrorCode: "result_undefined"}
 			}
 			runLifecycleCmd(p, p.Init(h.Deps))
 			summary := &sdk.PlanSummary{}

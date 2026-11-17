@@ -39,7 +39,7 @@ classification := {"level":"high","reasons":[]} if { input.resource.name == "wor
 			} {
 				t.Run(scenario.name, func(t *testing.T) {
 					assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{PlanID: "sha256:reviewed-plan", Resources: scenario.resources})
-					if assessment.Status != scenario.status || assessment.OverallLevel != nil || len(assessment.Resources) != len(scenario.resources) {
+					if assessment.Status != sdk.AssessmentStatus(scenario.status) || assessment.OverallLevel != nil || len(assessment.Resources) != len(scenario.resources) {
 						t.Fatalf("resource failure became successful, lost review rows, or produced aggregate: %+v", assessment)
 					}
 					if assessment.PlanID != "sha256:reviewed-plan" || assessment.Policy.ID != snapshot.ID() || assessment.Policy.Digest != snapshot.Digest() || assessment.Policy.Kind != "custom" || assessment.Policy.EvaluatorVersion == "" || assessment.Policy.CapabilityDigest == "" {
@@ -52,7 +52,7 @@ classification := {"level":"high","reasons":[]} if { input.resource.name == "wor
 						}
 						switch row.Address {
 						case failed.Address:
-							if row.Status != "unavailable" || row.ErrorCode != tc.code || row.Level != nil || len(row.Reasons) != 0 {
+							if row.Status != "unavailable" || row.ErrorCode != sdk.ErrorCode(tc.code) || row.Level != nil || len(row.Reasons) != 0 {
 								t.Errorf("failed resource returned a classification instead of %s: %+v", tc.code, row)
 							}
 						case excluded.Address:

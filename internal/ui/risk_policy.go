@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
@@ -16,7 +17,7 @@ func (a App) riskPolicyDiagnostic() string {
 	current := a.holder.current
 	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
-		return err.Error()
+		return string(errorCode(err))
 	}
 	// The evaluator owns embedded modules. Built-in selection needs no disk
 	// acquisition; custom selection must never recover through that policy.
@@ -24,9 +25,15 @@ func (a App) riskPolicyDiagnostic() string {
 		return ""
 	}
 	if _, err := riskpolicy.LoadSource(selection, nil); err != nil {
-		return err.Error()
+		return string(errorCode(err))
 	}
 	return ""
+}
+
+func errorCode(err error) sdk.ErrorCode {
+	var code sdk.ErrorCode
+	errors.As(err, &code)
+	return code
 }
 
 type riskAssessmentKey struct {
@@ -50,21 +57,21 @@ func (a App) assessRisk(ctx context.Context, current *sdk.Context, summary *sdk.
 }
 
 func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence) sdk.PolicyAssessment) sdk.PolicyAssessment {
-	unavailable := func(code string) sdk.PolicyAssessment {
-		return sdk.PolicyAssessment{Status: "unavailable", ErrorCode: code}
+	unavailable := func(code sdk.ErrorCode) sdk.PolicyAssessment {
+		return sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: code}
 	}
 	if err := sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options); err != nil {
-		return unavailable("configuration_invalid")
+		return unavailable(sdk.ErrorConfigurationInvalid)
 	}
 	selection, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
-		return unavailable(err.Error())
+		return unavailable(errorCode(err))
 	}
 	snapshot, err := riskpolicy.LoadSource(selection, riskpolicy.BuiltinModules())
 	if err != nil {
-		return unavailable(err.Error())
+		return unavailable(errorCode(err))
 	}
-	evidence := sdk.PolicyEvidence{ErrorCode: "input_incomplete"}
+	evidence := sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
 	if summary != nil && summary.PolicyEvidence != nil {
 		evidence = *summary.PolicyEvidence
 	}
@@ -84,11 +91,11 @@ func (a App) assessRiskWith(ctx context.Context, current *sdk.Context, summary *
 	}
 	next, err := config.ResolveRiskPolicy(a.cfg.Dir, current.WorkingDir, current.Workspace.String())
 	if err != nil {
-		return unavailable("source_changed")
+		return unavailable(sdk.ErrorSourceChanged)
 	}
 	verified, err := riskpolicy.LoadSource(next, riskpolicy.BuiltinModules())
 	if err != nil || next != selection || verified.Digest() != snapshot.Digest() {
-		return unavailable("source_changed")
+		return unavailable(sdk.ErrorSourceChanged)
 	}
 	a.riskCache.mu.Lock()
 	a.riskCache.key, a.riskCache.result = key, result

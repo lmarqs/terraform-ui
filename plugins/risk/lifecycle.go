@@ -43,7 +43,7 @@ func (e *Plugin) Cancel() {
 	e.generation++
 	if e.status == sdk.StatusLoading {
 		e.status = sdk.StatusError
-		e.riskDiagnostic = "cancelled"
+		e.riskDiagnostic = string(sdk.ErrorCancelled)
 	}
 }
 
@@ -132,7 +132,7 @@ func (e *Plugin) acceptAssessment(msg assessmentResultMsg) {
 	summary.Changes = append([]sdk.PlanChange(nil), summary.Changes...)
 	byAddress := make(map[string]sdk.PolicyResourceAssessment)
 	for _, row := range msg.assessment.Resources {
-		if row.Level != nil || row.Status == "unavailable" {
+		if row.Level != nil || row.Status == sdk.ResourceUnavailable {
 			byAddress[row.Address] = row
 		}
 	}
@@ -147,11 +147,11 @@ func (e *Plugin) acceptAssessment(msg assessmentResultMsg) {
 	}
 	summary.Changes = changes
 	e.Analyze(&summary)
-	if msg.assessment.Status != "complete" && msg.assessment.Status != "empty" {
+	if msg.assessment.Status != sdk.AssessmentComplete && msg.assessment.Status != sdk.AssessmentEmpty {
 		e.status = sdk.StatusError
-		e.riskDiagnostic = msg.assessment.ErrorCode
+		e.riskDiagnostic = string(msg.assessment.ErrorCode)
 		if e.riskDiagnostic == "" {
-			e.riskDiagnostic = msg.assessment.Status
+			e.riskDiagnostic = string(msg.assessment.Status)
 		}
 	}
 }

@@ -45,8 +45,8 @@ func (e *Plugin) inspectSelected() {
 		}
 		change := group.Changes[index]
 		risk := change.Risk.String()
-		if row := e.resourceAssessment(change.Resource.Address); row != nil && row.Status == "unavailable" {
-			risk = "unavailable: " + row.ErrorCode
+		if row := e.resourceAssessment(change.Resource.Address); row != nil && row.Status == sdk.ResourceUnavailable {
+			risk = "unavailable: " + string(row.ErrorCode)
 		}
 		var b strings.Builder
 		fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(change.Action), change.Action, change.Resource.Address, risk)

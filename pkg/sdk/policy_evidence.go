@@ -5,7 +5,7 @@ package sdk
 type PolicyEvidence struct {
 	PlanID    string                   `json:"plan_id"`
 	Resources []PolicyResourceEvidence `json:"resources"`
-	ErrorCode string                   `json:"error_code,omitempty"`
+	ErrorCode ErrorCode                `json:"error_code,omitempty"`
 }
 
 // PolicyResourceEvidence distinguishes eligible inputs from explicit exclusions.
@@ -13,7 +13,7 @@ type PolicyResourceEvidence struct {
 	Address   string       `json:"address"`
 	Deposed   string       `json:"deposed,omitempty"`
 	Actions   []string     `json:"actions"`
-	Exclusion string       `json:"exclusion,omitempty"`
+	Exclusion Exclusion    `json:"exclusion,omitempty"`
 	Input     *PolicyInput `json:"input,omitempty"`
 }
 
@@ -54,7 +54,7 @@ type PolicyImport struct {
 // PolicyValue preserves absence, null, uncertainty and sensitivity as distinct kinds.
 // Container pointers retain empty entries/items in JSON; opaque nodes have no children.
 type PolicyValue struct {
-	Kind    string                  `json:"kind"`
+	Kind    PolicyValueKind         `json:"kind"`
 	Value   any                     `json:"value,omitempty"`
 	Entries *map[string]PolicyValue `json:"entries,omitempty"`
 	Items   *[]PolicyValue          `json:"items,omitempty"`

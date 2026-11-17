@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
-	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -13,6 +12,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // Module contains exact source bytes under a snapshot-local logical name.
@@ -66,16 +66,16 @@ func (r sourceReader) load(selection config.RiskPolicySelection, builtin []Modul
 		}
 		verified, err := r.readSource(selection.Path)
 		if err != nil || !slices.Equal(modules, verified) {
-			return Snapshot{}, errors.New("source_changed")
+			return Snapshot{}, sdk.ErrorSourceChanged
 		}
 	}
 	slices.SortFunc(modules, func(a, b Module) int { return strings.Compare(a.Name, b.Name) })
 	if len(modules) == 0 {
-		return Snapshot{}, errors.New("source_invalid")
+		return Snapshot{}, sdk.ErrorSourceInvalid
 	}
 	for i, module := range modules {
 		if !utf8.ValidString(module.Name) || !productionModule(module.Name) || strings.TrimSpace(module.Source) == "" || (i > 0 && modules[i-1].Name == module.Name) {
-			return Snapshot{}, errors.New("source_invalid")
+			return Snapshot{}, sdk.ErrorSourceInvalid
 		}
 	}
 	return Snapshot{kind: kind, digest: sourceDigest(modules), modules: modules}, nil
@@ -103,18 +103,18 @@ func productionModule(name string) bool {
 func (r sourceReader) readSource(path string) ([]Module, error) {
 	path, err := filepath.Abs(path)
 	if err != nil {
-		return nil, errors.New("source_unreadable")
+		return nil, sdk.ErrorSourceUnreadable
 	}
 	if err := r.rejectSymlinks(path); err != nil {
 		return nil, err
 	}
 	info, err := r.lstat(path)
 	if err != nil {
-		return nil, errors.New("source_unreadable")
+		return nil, sdk.ErrorSourceUnreadable
 	}
 	if info.Mode().IsRegular() {
 		if !productionModule(filepath.Base(path)) {
-			return nil, errors.New("source_invalid")
+			return nil, sdk.ErrorSourceInvalid
 		}
 		module, err := r.readModule(path)
 		if err != nil {
@@ -123,11 +123,11 @@ func (r sourceReader) readSource(path string) ([]Module, error) {
 		return []Module{module}, nil
 	}
 	if !info.IsDir() {
-		return nil, errors.New("source_invalid")
+		return nil, sdk.ErrorSourceInvalid
 	}
 	entries, err := r.readDir(path)
 	if err != nil {
-		return nil, errors.New("source_unreadable")
+		return nil, sdk.ErrorSourceUnreadable
 	}
 	var modules []Module
 	for _, entry := range entries {
@@ -135,7 +135,7 @@ func (r sourceReader) readSource(path string) ([]Module, error) {
 			continue
 		}
 		if entry.Type()&os.ModeSymlink != 0 {
-			return nil, errors.New("source_invalid")
+			return nil, sdk.ErrorSourceInvalid
 		}
 		module, err := r.readModule(filepath.Join(path, entry.Name()))
 		if err != nil {
@@ -149,14 +149,14 @@ func (r sourceReader) readSource(path string) ([]Module, error) {
 func (r sourceReader) readModule(path string) (Module, error) {
 	info, err := r.lstat(path)
 	if err != nil {
-		return Module{}, errors.New("source_unreadable")
+		return Module{}, sdk.ErrorSourceUnreadable
 	}
 	if !info.Mode().IsRegular() {
-		return Module{}, errors.New("source_invalid")
+		return Module{}, sdk.ErrorSourceInvalid
 	}
 	data, err := r.readFile(path)
 	if err != nil {
-		return Module{}, errors.New("source_unreadable")
+		return Module{}, sdk.ErrorSourceUnreadable
 	}
 	return Module{Name: filepath.Base(path), Source: string(data)}, nil
 }
@@ -165,10 +165,10 @@ func (r sourceReader) rejectSymlinks(path string) error {
 	for {
 		info, err := r.lstat(path)
 		if err != nil {
-			return errors.New("source_unreadable")
+			return sdk.ErrorSourceUnreadable
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("source_invalid")
+			return sdk.ErrorSourceInvalid
 		}
 		parent := filepath.Dir(path)
 		if parent == path {

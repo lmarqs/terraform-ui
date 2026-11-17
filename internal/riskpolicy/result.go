@@ -13,8 +13,8 @@ import (
 
 var reasonCode = regexp.MustCompile(`^[a-z][a-z0-9-]{0,63}$`)
 
-func validateResult(value any, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, string) {
-	invalid := func() (sdk.RiskLevel, []sdk.PolicyReason, string) { return 0, nil, "result_invalid" }
+func validateResult(value any, input *sdk.PolicyInput) (sdk.RiskLevel, []sdk.PolicyReason, sdk.ErrorCode) {
+	invalid := func() (sdk.RiskLevel, []sdk.PolicyReason, sdk.ErrorCode) { return 0, nil, sdk.ErrorResultInvalid }
 	object, ok := value.(map[string]any)
 	if !ok || len(object) != 2 {
 		return invalid()
@@ -88,7 +88,7 @@ func validReasonPath(path []any, input *sdk.PolicyInput) bool {
 	}
 	for _, element := range path[1:] {
 		switch node.Kind {
-		case "object":
+		case sdk.KindObject:
 			key, ok := element.(string)
 			if !ok {
 				return false
@@ -97,7 +97,7 @@ func validReasonPath(path []any, input *sdk.PolicyInput) bool {
 			if !ok {
 				return false
 			}
-		case "array":
+		case sdk.KindArray:
 			index, ok := element.(json.Number)
 			if !ok {
 				return false

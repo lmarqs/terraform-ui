@@ -15,7 +15,7 @@ func policyEvidence(data []byte, doc map[string]any) *sdk.PolicyEvidence {
 		PlanID:    fmt.Sprintf("sha256:%x", sha256.Sum256(data)),
 		Resources: []sdk.PolicyResourceEvidence{},
 	}
-	fail := func(code string) *sdk.PolicyEvidence {
+	fail := func(code sdk.ErrorCode) *sdk.PolicyEvidence {
 		evidence.ErrorCode = code
 		evidence.Resources = []sdk.PolicyResourceEvidence{}
 		return evidence
@@ -23,10 +23,10 @@ func policyEvidence(data []byte, doc map[string]any) *sdk.PolicyEvidence {
 	if value := doc["deferred_changes"]; value != nil {
 		deferred, ok := value.([]any)
 		if !ok {
-			return fail("input_invalid")
+			return fail(sdk.ErrorInputInvalid)
 		}
 		if len(deferred) > 0 {
-			return fail("input_incomplete")
+			return fail(sdk.ErrorInputIncomplete)
 		}
 	}
 	resources, _ := doc["resource_changes"].([]any)
@@ -51,23 +51,23 @@ func policyEvidence(data []byte, doc map[string]any) *sdk.PolicyEvidence {
 			return fail(code)
 		}
 		evidence.Resources = append(evidence.Resources, sdk.PolicyResourceEvidence{
-			Address: "output." + name, Actions: actions, Exclusion: "output_only",
+			Address: "output." + name, Actions: actions, Exclusion: sdk.ExclusionOutputOnly,
 		})
 	}
 	return evidence
 }
 
-func policyActions(change map[string]any) ([]string, string) {
+func policyActions(change map[string]any) ([]string, sdk.ErrorCode) {
 	values, _ := change["actions"].([]any)
 	if len(values) == 0 {
-		return nil, "input_incomplete"
+		return nil, sdk.ErrorInputIncomplete
 	}
 	actions := make([]string, len(values))
 	for i, value := range values {
 		actions[i], _ = value.(string)
 	}
 	if sdk.ActionFromStrings(actions) == sdk.ActionNoOp && (len(actions) != 1 || (actions[0] != "no-op" && !isForget(actions))) {
-		return nil, "input_invalid"
+		return nil, sdk.ErrorInputInvalid
 	}
 	return actions, ""
 }
@@ -77,12 +77,12 @@ func isForget(actions []string) bool {
 	return len(actions) == 1 && actions[0] == "forget"
 }
 
-func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence, string) {
+func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence, sdk.ErrorCode) {
 	address, _ := resource["address"].(string)
 	deposed, _ := resource["deposed"].(string)
 	row := sdk.PolicyResourceEvidence{Address: address, Deposed: deposed}
 	if address == "" {
-		return row, "input_incomplete"
+		return row, sdk.ErrorInputIncomplete
 	}
 	change, _ := resource["change"].(map[string]any)
 	actions, code := policyActions(change)
@@ -95,19 +95,19 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 	if action == sdk.ActionNoOp || action == sdk.ActionRead {
 		switch {
 		case previous != "":
-			row.Exclusion = "pure_move"
+			row.Exclusion = sdk.ExclusionPureMove
 		case change["importing"] != nil:
-			row.Exclusion = "pure_import"
+			row.Exclusion = sdk.ExclusionPureImport
 		case isForget(actions):
-			row.Exclusion = "forget"
+			row.Exclusion = sdk.ExclusionForget
 		case action == sdk.ActionRead:
-			row.Exclusion = "read"
+			row.Exclusion = sdk.ExclusionRead
 		default:
-			row.Exclusion = "no_op"
+			row.Exclusion = sdk.ExclusionNoOp
 		}
 		return row, ""
 	}
-	identity := sdk.PolicyResource{Address: address, Index: sdk.PolicyValue{Kind: "absent"}}
+	identity := sdk.PolicyResource{Address: address, Index: sdk.PolicyValue{Kind: sdk.KindAbsent}}
 	if previous != "" {
 		identity.PreviousAddress = &previous
 	}
@@ -119,14 +119,14 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 	identity.Name, _ = resource["name"].(string)
 	identity.ProviderName, _ = resource["provider_name"].(string)
 	if identity.Mode == "" || identity.Type == "" || identity.Name == "" || identity.ProviderName == "" {
-		return row, "input_incomplete"
+		return row, sdk.ErrorInputIncomplete
 	}
 	if identity.Mode != "managed" && identity.Mode != "data" {
-		return row, "input_invalid"
+		return row, sdk.ErrorInputInvalid
 	}
 	if index, exists := resource["index"]; exists {
 		if !policyPathElement(index) {
-			return row, "input_invalid"
+			return row, sdk.ErrorInputInvalid
 		}
 		identity.Index, _ = projectPolicyValue(index, true, false, false)
 	}
@@ -136,28 +136,28 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 		metadata, _ := importing.(map[string]any)
 		known := metadata["id"] != nil || metadata["identity"] != nil
 		if known == (metadata["unknown"] == true) {
-			return row, "input_incomplete"
+			return row, sdk.ErrorInputIncomplete
 		}
 		// Terraform supplies no sensitivity mask for a known import ID or identity, so neither reaches the policy.
-		id := sdk.PolicyValue{Kind: "unknown"}
+		id := sdk.PolicyValue{Kind: sdk.KindUnknown}
 		if known {
-			id = sdk.PolicyValue{Kind: "sensitive"}
+			id = sdk.PolicyValue{Kind: sdk.KindSensitive}
 		}
 		input.Change.Importing = &sdk.PolicyImport{ID: id, Unknown: !known}
 	}
 	if paths, exists := change["replace_paths"]; exists {
 		values, ok := paths.([]any)
 		if !ok {
-			return row, "input_invalid"
+			return row, sdk.ErrorInputInvalid
 		}
 		for _, value := range values {
 			path, ok := value.([]any)
 			if !ok {
-				return row, "input_invalid"
+				return row, sdk.ErrorInputInvalid
 			}
 			for _, element := range path {
 				if !policyPathElement(element) {
-					return row, "input_invalid"
+					return row, sdk.ErrorInputInvalid
 				}
 			}
 			input.Change.ReplacePaths = append(input.Change.ReplacePaths, path)
@@ -166,7 +166,7 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 	for _, side := range []string{"before", "after"} {
 		value, exists := change[side]
 		if !exists {
-			return row, "input_incomplete"
+			return row, sdk.ErrorInputIncomplete
 		}
 		unknown := any(false)
 		if side == "after" {
@@ -174,14 +174,14 @@ func policyResourceEvidence(resource map[string]any) (sdk.PolicyResourceEvidence
 		}
 		sensitive := policyMask(change, side+"_sensitive")
 		if !validPolicyMask(unknown) || !validPolicyMask(sensitive) {
-			return row, "input_invalid"
+			return row, sdk.ErrorInputInvalid
 		}
 		node, valid := projectPolicyValue(value, true, unknown, sensitive)
 		if !valid {
-			return row, "input_invalid"
+			return row, sdk.ErrorInputInvalid
 		}
-		if value == nil && node.Kind == "null" && ((side == "before" && action == sdk.ActionCreate) || (side == "after" && action == sdk.ActionDelete)) {
-			node.Kind = "absent"
+		if value == nil && node.Kind == sdk.KindNull && ((side == "before" && action == sdk.ActionCreate) || (side == "after" && action == sdk.ActionDelete)) {
+			node.Kind = sdk.KindAbsent
 		}
 		if side == "before" {
 			input.Change.Before = node
@@ -260,9 +260,9 @@ func projectPolicyValue(value any, exists bool, unknown, sensitive any) (sdk.Pol
 		if !validOpaquePolicyMask(value, sensitive) {
 			return sdk.PolicyValue{}, false
 		}
-		kind := "unknown"
+		kind := sdk.KindUnknown
 		if markedPolicyMask(sensitive) {
-			kind = "sensitive_unknown"
+			kind = sdk.KindSensitiveUnknown
 		}
 		return sdk.PolicyValue{Kind: kind}, true
 	}
@@ -292,7 +292,7 @@ func projectPolicyValue(value any, exists bool, unknown, sensitive any) (sdk.Pol
 			}
 			entries[key] = entry
 		}
-		node = sdk.PolicyValue{Kind: "object", Entries: &entries}
+		node = sdk.PolicyValue{Kind: sdk.KindObject, Entries: &entries}
 	case []any:
 		u, uok := arrayPolicyMask(unknown, len(v))
 		s, sok := arrayPolicyMask(sensitive, len(v))
@@ -307,24 +307,24 @@ func projectPolicyValue(value any, exists bool, unknown, sensitive any) (sdk.Pol
 			}
 			items[i] = entry
 		}
-		node = sdk.PolicyValue{Kind: "array", Items: &items}
+		node = sdk.PolicyValue{Kind: sdk.KindArray, Items: &items}
 	default:
 		if !scalarPolicyMask(unknown) || !scalarPolicyMask(sensitive) {
 			return node, false
 		}
 		switch v := value.(type) {
 		case nil:
-			node.Kind = "null"
+			node.Kind = sdk.KindNull
 		case bool:
-			node.Kind, node.Value = "boolean", v
+			node.Kind, node.Value = sdk.KindBoolean, v
 		case string:
-			node.Kind, node.Value = "string", v
+			node.Kind, node.Value = sdk.KindString, v
 		case json.Number:
-			node.Kind, node.Value = "number", string(v)
+			node.Kind, node.Value = sdk.KindNumber, string(v)
 		}
 	}
 	if sensitive == true {
-		return sdk.PolicyValue{Kind: "sensitive"}, true
+		return sdk.PolicyValue{Kind: sdk.KindSensitive}, true
 	}
 	return node, true
 }
