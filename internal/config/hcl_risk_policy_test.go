@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -220,6 +221,66 @@ func TestResolveRiskPolicy_GivenInvalidSelectorInUnmatchedWorkspace_ShouldSelect
 workspace "staging" { risk_policy = null }`)
 	selected, err := ResolveRiskPolicy(project, member, "prod")
 	if err != nil || selected.Path != filepath.Join(member, "member.rego") || selected.Origin != member {
+		t.Fatalf("selection=%+v error=%v", selected, err)
+	}
+}
+
+func TestLoadRoot_GivenRedefinitionOutsideDefaultsSelector_ShouldFail(t *testing.T) {
+	tests := []struct{ name, hcl string }{
+		{"risk_policy at top level", "risk_policy = \"a\"\nrisk_policy = \"b\"\ndefaults { risk_policy = \"c\" }"},
+		{"risk_policy in a defaults plugin block", "defaults {\nplugin \"risk\" {\nrisk_policy = \"a\"\nrisk_policy = \"b\"\n}\n}"},
+		{"another defaults attribute", "defaults {\nparallelism = 1\nparallelism = 2\n}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeHCL(t, dir, tt.hcl)
+			if _, err := LoadRoot(dir); err == nil || !strings.Contains(err.Error(), "Attribute redefined") {
+				t.Fatalf("LoadRoot error = %v, want Attribute redefined", err)
+			}
+		})
+	}
+}
+
+func TestLoadChild_GivenRedefinitionOutsideSelector_ShouldFail(t *testing.T) {
+	tests := []struct{ name, hcl string }{
+		{"risk_policy in a var block", "risk_policy = \"a\"\nworkspace \"prod\" { lock_timeout = \"1s\" }\nvar \"region\" {\nrisk_policy = \"a\"\nrisk_policy = \"b\"\n}"},
+		{"another workspace attribute", "workspace \"prod\" {\nlock_timeout = \"1s\"\nlock_timeout = \"2s\"\n}"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			writeHCL(t, dir, tt.hcl)
+			if _, err := LoadChild(dir); err == nil || !strings.Contains(err.Error(), "Attribute redefined") {
+				t.Fatalf("LoadChild error = %v, want Attribute redefined", err)
+			}
+		})
+	}
+}
+
+func TestLoadChild_GivenWorkspaceWithUnsupportedArgument_ShouldStillRecordSelector(t *testing.T) {
+	dir := t.TempDir()
+	writeHCL(t, dir, `workspace "prod" {
+risk_policy = "policies/prod"
+unsupported = true
+}`)
+	cfg, err := LoadChild(dir)
+	if err != nil {
+		t.Fatalf("LoadChild error = %v", err)
+	}
+	assertSelector(t, "workspace prod RiskPolicy", cfg.Workspaces[0].RiskPolicy, &PolicySelector{Value: "policies/prod", Origin: dir})
+}
+
+func TestResolveRiskPolicy_GivenNoDeclaredSelector_ShouldSelectBuiltinWithoutOrigin(t *testing.T) {
+	project := t.TempDir()
+	member := filepath.Join(project, "member")
+	if err := os.Mkdir(member, 0755); err != nil {
+		t.Fatal(err)
+	}
+	writeHCL(t, project, `defaults { parallelism = 2 }`)
+	writeHCL(t, member, `workspace "prod" { lock_timeout = "1s" }`)
+	selected, err := ResolveRiskPolicy(project, member, "prod")
+	if err != nil || selected != (RiskPolicySelection{}) {
 		t.Fatalf("selection=%+v error=%v", selected, err)
 	}
 }

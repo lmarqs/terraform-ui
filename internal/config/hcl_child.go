@@ -29,6 +29,7 @@ func LoadChild(dir string) (*ChildConfig, error) {
 
 	parser := hclparse.NewParser()
 	file, diags := parser.ParseHCL(data, path)
+	diags, redefinitions := splitRiskPolicyRedefinitions(data, diags)
 	if diags.HasErrors() {
 		return nil, fmt.Errorf("parsing %s: %w", path, diags)
 	}
@@ -57,12 +58,17 @@ func LoadChild(dir string) (*ChildConfig, error) {
 		}
 	}
 
-	return convertChildContent(content), nil
+	cfg := convertChildContent(content, redefinitions, dir)
+	cfg.RiskPolicy = redefinitions.policySelector(body, content.Attributes[riskPolicyAttribute], dir)
+	if len(redefinitions.pending) > 0 {
+		return nil, fmt.Errorf("parsing %s: %w", path, redefinitions.pending)
+	}
+	return cfg, nil
 }
 
 func childSchema() *hcl.BodySchema {
 	return &hcl.BodySchema{
-		Attributes: []hcl.AttributeSchema{{Name: "risk_policy"}},
+		Attributes: []hcl.AttributeSchema{{Name: riskPolicyAttribute}},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "terraform"},
 			{Type: "member", LabelNames: []string{"path"}},
@@ -89,7 +95,7 @@ func rejectLockedBlocks(content *hcl.BodyContent) error {
 	return nil
 }
 
-func convertChildContent(content *hcl.BodyContent) *ChildConfig {
+func convertChildContent(content *hcl.BodyContent, redefinitions *riskPolicyRedefinitions, dir string) *ChildConfig {
 	cfg := &ChildConfig{}
 
 	for _, block := range content.Blocks {
@@ -103,7 +109,7 @@ func convertChildContent(content *hcl.BodyContent) *ChildConfig {
 			val := extractVarValue(block.Body)
 			cfg.Vars[block.Labels[0]] = val
 		case "workspace":
-			ws := convertWorkspaceBlock(block)
+			ws := convertWorkspaceBlock(block, redefinitions, dir)
 			cfg.Workspaces = append(cfg.Workspaces, ws)
 		}
 	}
@@ -111,7 +117,7 @@ func convertChildContent(content *hcl.BodyContent) *ChildConfig {
 	return cfg
 }
 
-func convertWorkspaceBlock(block *hcl.Block) WorkspaceConfig {
+func convertWorkspaceBlock(block *hcl.Block, redefinitions *riskPolicyRedefinitions, dir string) WorkspaceConfig {
 	ws := WorkspaceConfig{
 		Name: block.Labels[0],
 	}
@@ -119,13 +125,14 @@ func convertWorkspaceBlock(block *hcl.Block) WorkspaceConfig {
 	wsContent, diags := block.Body.Content(&hcl.BodySchema{
 		Attributes: []hcl.AttributeSchema{
 			{Name: "lock_timeout"},
-			{Name: "risk_policy"},
+			{Name: riskPolicyAttribute},
 		},
 		Blocks: []hcl.BlockHeaderSchema{
 			{Type: "var_file", LabelNames: []string{"path"}},
 			{Type: "var", LabelNames: []string{"name"}},
 		},
 	})
+	ws.RiskPolicy = redefinitions.policySelector(block.Body, wsContent.Attributes[riskPolicyAttribute], dir)
 	if diags.HasErrors() {
 		return ws
 	}

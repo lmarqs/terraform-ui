@@ -1,16 +1,18 @@
 package config
 
 import (
-	"os"
+	"errors"
 	"path/filepath"
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclparse"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/zclconf/go-cty/cty"
 
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
+
+const riskPolicyAttribute = "risk_policy"
 
 // RiskPolicySelection retains the declaration origin even when a selector is inherited.
 // An empty Path selects the complete built-in policy.
@@ -30,102 +32,122 @@ func ResolveRiskPolicy(projectDir, chdirDir, workspace string) (RiskPolicySelect
 	if err != nil {
 		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
-	root, err := policyConfigBody(project)
+	root, err := LoadRoot(project)
+	if isConfigNotFound(err) {
+		return RiskPolicySelection{}, nil
+	}
 	if err != nil {
-		return RiskPolicySelection{}, err
-	}
-	selection := RiskPolicySelection{}
-	if root == nil {
-		return selection, nil
-	}
-	content, _, diags := root.PartialContent(&hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{{Type: "defaults"}}})
-	if diags.HasErrors() || len(content.Blocks) > 1 {
 		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 	}
-	if len(content.Blocks) == 1 {
-		selection, err = policySelector(content.Blocks[0].Body, project, selection)
-		if err != nil {
-			return RiskPolicySelection{}, err
-		}
-	}
+	declared := []*PolicySelector{root.Defaults.RiskPolicy}
+	var child *ChildConfig
 	// A root Member uses the root schema, never the Member schema a second time.
-	if project == chdir {
-		return selection, nil
-	}
-	memberBody, err := policyConfigBody(chdir)
-	if err != nil {
-		return RiskPolicySelection{}, err
-	}
-	if memberBody == nil {
-		return selection, nil
-	}
-	memberContent, diags := memberBody.Content(childSchema())
-	if diags.HasErrors() || rejectLockedBlocks(memberContent) != nil {
-		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
-	}
-	var blocks []*hcl.Block
-	var workspaces []WorkspaceConfig
-	for _, block := range memberContent.Blocks {
-		if block.Type != "workspace" {
-			continue
-		}
-		plugins, _, diags := block.Body.PartialContent(&hcl.BodySchema{Blocks: []hcl.BlockHeaderSchema{{Type: "plugin", LabelNames: []string{"name"}}}})
-		if diags.HasErrors() || rejectLockedBlocks(plugins) != nil {
+	if project != chdir {
+		child, err = LoadChild(chdir)
+		if err != nil && !isConfigNotFound(err) {
 			return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
 		}
-		blocks = append(blocks, block)
-		workspaces = append(workspaces, WorkspaceConfig{Name: block.Labels[0]})
 	}
-	selection, err = policySelector(memberBody, chdir, selection)
-	if err != nil {
-		return RiskPolicySelection{}, err
-	}
-	matched := matchWorkspace(workspaces, workspace)
-	if workspace != "" && matched != nil {
-		for i := range workspaces {
-			if matched == &workspaces[i] {
-				return policySelector(blocks[i].Body, chdir, selection)
+	if child != nil {
+		declared = append(declared, child.RiskPolicy)
+		if workspace != "" {
+			if ws := matchWorkspace(child.Workspaces, workspace); ws != nil {
+				declared = append(declared, ws.RiskPolicy)
 			}
 		}
 	}
-	return selection, nil
+	// An invalid declaration fails even when a later layer overrides it, so it
+	// never silently falls back to another layer's policy.
+	for _, selector := range declared {
+		if selector != nil && selector.Invalid {
+			return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
+		}
+	}
+	return selectionFor(Resolve(root, child, workspace).RiskPolicy()), nil
 }
 
-func policyConfigBody(dir string) (hcl.Body, error) {
-	path := filepath.Join(dir, HCLConfigFileName)
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, sdk.ErrorConfigurationInvalid
-	}
-	file, diags := hclparse.NewParser().ParseHCL(data, path)
-	if diags.HasErrors() {
-		return nil, sdk.ErrorConfigurationInvalid
-	}
-	return file.Body, nil
+func isConfigNotFound(err error) bool {
+	var notFound *ConfigNotFoundError
+	return errors.As(err, &notFound)
 }
 
-func policySelector(body hcl.Body, origin string, inherited RiskPolicySelection) (RiskPolicySelection, error) {
-	content, _, _ := body.PartialContent(&hcl.BodySchema{Attributes: []hcl.AttributeSchema{{Name: "risk_policy"}}})
-	attr, ok := content.Attributes["risk_policy"]
-	if !ok {
-		return inherited, nil
+func selectionFor(selector *PolicySelector) RiskPolicySelection {
+	if selector == nil {
+		return RiskPolicySelection{}
 	}
+	if selector.Value == "" {
+		return RiskPolicySelection{Origin: selector.Origin}
+	}
+	path := selector.Value
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(selector.Origin, path)
+	}
+	return RiskPolicySelection{Path: filepath.Clean(path), Origin: selector.Origin}
+}
+
+// riskPolicyRedefinitions holds the parser's "Attribute redefined" errors for
+// risk_policy. The loaders record each one as an invalid selector in the body
+// that declares it; any left unclaimed stays a load error.
+type riskPolicyRedefinitions struct {
+	pending hcl.Diagnostics
+}
+
+// splitRiskPolicyRedefinitions separates risk_policy redefinitions from the
+// other parse diagnostics.
+func splitRiskPolicyRedefinitions(src []byte, diags hcl.Diagnostics) (hcl.Diagnostics, *riskPolicyRedefinitions) {
+	var rest hcl.Diagnostics
+	redefinitions := &riskPolicyRedefinitions{}
+	for _, diag := range diags {
+		if diag.Summary == "Attribute redefined" && diag.Subject != nil && string(diag.Subject.SliceBytes(src)) == riskPolicyAttribute {
+			redefinitions.pending = append(redefinitions.pending, diag)
+			continue
+		}
+		rest = append(rest, diag)
+	}
+	return rest, redefinitions
+}
+
+// claim removes the redefinitions that sit directly in body, outside its nested
+// blocks, and reports whether there were any.
+func (r *riskPolicyRedefinitions) claim(body hcl.Body) bool {
+	syntax := body.(*hclsyntax.Body)
+	var unclaimed hcl.Diagnostics
+	for _, diag := range r.pending {
+		if !directlyIn(syntax, diag.Subject.Start.Byte) {
+			unclaimed = append(unclaimed, diag)
+		}
+	}
+	claimed := len(unclaimed) < len(r.pending)
+	r.pending = unclaimed
+	return claimed
+}
+
+func directlyIn(body *hclsyntax.Body, offset int) bool {
+	if !body.SrcRange.ContainsOffset(offset) {
+		return false
+	}
+	for _, block := range body.Blocks {
+		if block.Body.SrcRange.ContainsOffset(offset) {
+			return false
+		}
+	}
+	return true
+}
+
+// policySelector reads the risk_policy attribute declared in body.
+func (r *riskPolicyRedefinitions) policySelector(body hcl.Body, attr *hcl.Attribute, origin string) *PolicySelector {
+	redefined := r.claim(body)
+	if attr == nil {
+		return nil
+	}
+	selector := &PolicySelector{Origin: origin, Invalid: true}
 	value, diags := attr.Expr.Value(nil)
-	if diags.HasErrors() || !value.IsKnown() || value.IsNull() || value.Type() != cty.String {
-		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
+	if redefined || diags.HasErrors() || !value.IsKnown() || value.IsNull() || value.Type() != cty.String {
+		return selector
 	}
 	path := value.AsString()
-	if path == "" {
-		return RiskPolicySelection{Origin: origin}, nil
+	if path != "" && (strings.TrimSpace(path) == "" || strings.Contains(path, "://")) {
+		return selector
 	}
-	if strings.TrimSpace(path) == "" || strings.Contains(path, "://") {
-		return RiskPolicySelection{}, sdk.ErrorConfigurationInvalid
-	}
-	if !filepath.IsAbs(path) {
-		path = filepath.Join(origin, path)
-	}
-	return RiskPolicySelection{Path: filepath.Clean(path), Origin: origin}, nil
+	return &PolicySelector{Value: path, Origin: origin}
 }
