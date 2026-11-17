@@ -3,6 +3,8 @@ package ui
 import (
 	"context"
 	"errors"
+	"os"
+	"reflect"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -179,5 +181,35 @@ func TestRequestAssessment_GivenContextChangeOrPlanInvalidationAfterRequest_Shou
 				t.Fatalf("stale result dispatched after %s: %+v", name, recorder.events)
 			}
 		})
+	}
+}
+
+func TestRequestAssessment_GivenNilSummary_ShouldPlanWithActiveContextOptionsAndRemoveTemporaryArtifact(t *testing.T) {
+	var artifact string
+	svc := newMockService("default", nil)
+	svc.PlanFn = func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
+		artifact = opts.PlanFile
+		if err := os.WriteFile(artifact, []byte("saved plan"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		return reviewedRiskSummary(), nil
+	}
+	app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
+
+	requestRisk(t, &app, recorder, deps.RequestAssessment(nil))
+
+	if len(svc.PlanCalls) != 1 {
+		t.Fatalf("Service.Plan called %d times, want 1", len(svc.PlanCalls))
+	}
+	got, want := svc.PlanCalls[0], app.holder.current.PlanOptions()
+	got.PlanFile, got.Writer = "", nil
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("plan options = %#v, want active Context %#v", got, want)
+	}
+	if artifact == "" {
+		t.Fatal("host plan must supply a temporary artifact instead of Terraform's tfplan.out default")
+	}
+	if _, err := os.Stat(artifact); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("temporary artifact remains: %v", err)
 	}
 }

@@ -29,9 +29,9 @@ func (e *Plugin) ActivateInput(input Input) tea.Cmd {
 }
 
 func (e *Plugin) configureReport(cfg map[string]interface{}) error {
-	e.threshold, e.configDiagnostic = "off", ""
+	e.threshold, e.settingsInvalid = "off", false
 	if err := sdk.RiskSettingsError(cfg); err != nil {
-		e.configDiagnostic = err.Error()
+		e.settingsInvalid = true
 		return err
 	}
 	if value, exists := cfg["threshold"]; exists {

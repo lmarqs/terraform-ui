@@ -1,7 +1,6 @@
 package risk
 
 import (
-	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -26,11 +25,21 @@ func reportAssessment(level sdk.RiskLevel) sdk.PolicyAssessment {
 
 func newReportPlugin(t *testing.T, assessment sdk.PolicyAssessment) *Plugin {
 	t.Helper()
-	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-	h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment { return assessment }
-	runLifecycleCmd(p, p.Init(h.Deps))
-	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: lifecycleSummary("aws_instance.a")}))
+	p, _, _ := newAssessedPlugin(t, lifecycleSummary("aws_instance.a"), assessment)
 	return p
+}
+
+// configureAsHost applies settings to p and makes p's host answer as the App
+// does for those settings: unavailable with the settings' code and hint.
+func configureAsHost(t *testing.T, p *Plugin, settings map[string]interface{}) error {
+	t.Helper()
+	err := p.Configure(settings)
+	if err != nil {
+		h := sdktest.NewDeps(&sdktest.MockService{})
+		h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: p.summary, Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorConfigurationInvalid}, Hint: sdk.DiagnosticHint(err)}
+		runLifecycleCmd(p, p.Init(h.Deps))
+	}
+	return err
 }
 
 func reportStdout(t *testing.T, p *Plugin) ([]byte, error) {
@@ -198,7 +207,7 @@ func TestReport_GivenPartialAssessment_ShouldEmitNoStdoutAndFirstFailureByAddres
 func TestConfigure_GivenInvalidRiskSettings_ShouldRejectConfiguration(t *testing.T) {
 	for _, settings := range []map[string]interface{}{{"threshold": "urgent"}, {"threshold": true}, {"level": "high"}} {
 		p := newReportPlugin(t, reportAssessment(sdk.RiskLow))
-		if err := p.Configure(settings); err == nil {
+		if err := configureAsHost(t, p, settings); err == nil {
 			t.Errorf("Configure(%v) accepted unsupported risk settings", settings)
 		}
 		runLifecycleCmd(p, p.Activate())
@@ -213,7 +222,7 @@ func TestConfigure_GivenInvalidRiskSettings_ShouldRejectConfiguration(t *testing
 
 func TestActivateInput_GivenLegacySettingAndInvalidOverride_ShouldRetainMigrationHint(t *testing.T) {
 	p := newReportPlugin(t, reportAssessment(sdk.RiskLow))
-	if err := p.Configure(map[string]interface{}{"level": "high"}); err == nil {
+	if err := configureAsHost(t, p, map[string]interface{}{"level": "high"}); err == nil {
 		t.Fatal("legacy level must be rejected")
 	}
 	runLifecycleCmd(p, p.ActivateInput(Input{Threshold: "urgent", ThresholdSet: true}))

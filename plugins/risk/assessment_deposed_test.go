@@ -1,7 +1,6 @@
 package risk
 
 import (
-	"context"
 	"encoding/json"
 	"reflect"
 	"strings"
@@ -10,19 +9,15 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func deposedRiskPlugin(t *testing.T, assessment sdk.PolicyAssessment) *Plugin {
 	t.Helper()
-	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-	h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment { return assessment }
-	runLifecycleCmd(p, p.Init(h.Deps))
 	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web", Deposed: "00000001"}, Action: sdk.ActionDelete},
 		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate},
 	}}
-	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+	p, _, _ := newAssessedPlugin(t, summary, assessment)
 	runLifecycleCmd(p, p.Activate())
 	return p
 }

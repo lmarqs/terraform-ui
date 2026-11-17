@@ -2,7 +2,6 @@ package risk
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -23,25 +22,23 @@ type RiskGroup struct {
 // Plugin implements the risk analysis feature.
 type Plugin struct {
 	sdk.PluginBase
-	stack            *sdk.Stack
-	panel            *ui.ContentPanel
-	offset           int
-	status           sdk.Status
-	groups           []RiskGroup
-	overall          sdk.RiskLevel
-	selected         int
-	total            int
-	riskDiagnostic   string
-	summary          *sdk.PlanSummary
-	assessment       *sdk.PolicyAssessment
-	assess           func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment
-	generation       uint64
-	cancel           context.CancelFunc
-	planError        string
-	input            Input
-	threshold        string
-	configDiagnostic string
-	reportContext    reportContext
+	stack           *sdk.Stack
+	panel           *ui.ContentPanel
+	offset          int
+	status          sdk.Status
+	groups          []RiskGroup
+	overall         sdk.RiskLevel
+	selected        int
+	total           int
+	riskDiagnostic  string
+	summary         *sdk.PlanSummary
+	assessment      *sdk.PolicyAssessment
+	requestRisk     func(*sdk.PlanSummary) tea.Cmd
+	planError       string
+	input           Input
+	threshold       string
+	settingsInvalid bool
+	reportContext   reportContext
 }
 
 // New creates a new risk analysis plugin.
@@ -75,46 +72,36 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
-	e.assess = deps.AssessRisk
+	e.requestRisk = deps.RequestAssessment
 	return nil
 }
 
-// Activate assesses the retained reviewed plan, acquiring one only when absent.
+// Activate requests the host assessment of the retained reviewed plan, or of a
+// plan the host acquires when none is retained.
 func (e *Plugin) Activate() tea.Cmd {
 	if e.Busy() {
 		return nil
 	}
 	e.resetDerived()
-	if e.checkPolicySource() {
+	if err := e.overrideError(); err != nil {
+		e.status = sdk.StatusError
+		e.riskDiagnostic = err.Error()
 		return nil
 	}
-	return e.startAssessment(e.summary)
+	return e.requestAssessment()
 }
 
-func (e *Plugin) checkPolicySource() bool {
-	e.riskDiagnostic = e.configDiagnostic
-	if err := sdk.RiskSettingsError(map[string]interface{}{"threshold": e.selectedThreshold()}); err != nil && e.riskDiagnostic == "" {
-		e.riskDiagnostic = err.Error()
+// overrideError validates the CLI threshold, which the host never sees. Invalid
+// settings defer to the host, whose answer carries their hint.
+func (e *Plugin) overrideError() error {
+	if e.settingsInvalid {
+		return nil
 	}
-	if e.riskDiagnostic == "" {
-		e.riskDiagnostic = e.PolicyDiagnostic()
-	}
-	if e.riskDiagnostic == "" {
-		return false
-	}
-	e.status = sdk.StatusError
-	e.groups = nil
-	e.overall = sdk.RiskNone
-	e.selected = 0
-	e.total = 0
-	return true
+	return sdk.RiskSettingsError(map[string]interface{}{"threshold": e.selectedThreshold()})
 }
 
 // Analyze processes a plan summary and groups changes by risk.
 func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
-	if e.checkPolicySource() {
-		return
-	}
 	if summary == nil || len(summary.Changes) == 0 {
 		e.status = sdk.StatusDone
 		e.groups = nil
@@ -173,9 +160,6 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
-	case assessmentResultMsg:
-		e.acceptAssessment(msg)
-		return e, nil
 	case tea.KeyMsg:
 		return e, e.stack.Update(msg)
 	}

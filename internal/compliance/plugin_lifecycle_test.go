@@ -80,11 +80,12 @@ func allPlugins() []sdk.Plugin {
 func initPlugin(p sdk.Plugin) {
 	bootCtx := &sdk.Context{Service: nopSvc}
 	p.Init(&sdk.PluginDeps{
-		Service:   nopSvc,
-		Logger:    slog.New(slog.NewTextHandler(io.Discard, nil)),
-		Context:   func() *sdk.Context { return bootCtx },
-		Pin:       func(_ ...string) tea.Cmd { return nil },
-		ClearPins: func() tea.Cmd { return nil },
+		Service:           nopSvc,
+		Logger:            slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Context:           func() *sdk.Context { return bootCtx },
+		Pin:               func(_ ...string) tea.Cmd { return nil },
+		ClearPins:         func() tea.Cmd { return nil },
+		RequestAssessment: func(*sdk.PlanSummary) tea.Cmd { return nil },
 	})
 }
 

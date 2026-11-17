@@ -1,14 +1,12 @@
 package risk
 
 import (
-	"context"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func TestAssessment_GivenEmptyOrExplicitNone_ShouldExplainDistinctReviewStates(t *testing.T) {
@@ -34,16 +32,13 @@ func TestAssessment_GivenEmptyOrExplicitNone_ShouldExplainDistinctReviewStates(t
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-			h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment { return tt.assessment }
-			runLifecycleCmd(p, p.Init(h.Deps))
 			summary := lifecycleSummary("aws_instance.reviewed")
 			if tt.name == "empty" {
 				summary.Changes[0].Action = sdk.ActionNoOp
 			} else {
 				summary.Changes[0].Action = sdk.ActionUpdate
 			}
-			runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+			p, _, _ := newAssessedPlugin(t, summary, tt.assessment)
 			runLifecycleCmd(p, p.Activate())
 			view := ansi.Strip(p.View(100, 24))
 			if !strings.Contains(view, tt.want) {
@@ -77,16 +72,11 @@ func TestAssessment_GivenResourceFailures_ShouldRetainReviewRowsWithoutAggregate
 					rows[i].Reasons = []sdk.PolicyReason{{Code: "observed", Message: "Memory size changed."}}
 				}
 			}
-			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-			h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-				return sdk.PolicyAssessment{Status: sdk.AssessmentStatus(name), Resources: rows, ErrorCode: "result_undefined"}
-			}
-			runLifecycleCmd(p, p.Init(h.Deps))
 			summary := &sdk.PlanSummary{}
 			for _, row := range rows {
 				summary.Changes = append(summary.Changes, sdk.PlanChange{Resource: sdk.Resource{Address: row.Address}, Action: sdk.ActionUpdate, AttributeDiffs: []sdk.AttributeDiff{{Key: "memory_size", OldValue: "128", NewValue: "256"}}})
 			}
-			runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+			p, _, _ := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: sdk.AssessmentStatus(name), Resources: rows, ErrorCode: "result_undefined"})
 			runLifecycleCmd(p, p.Activate())
 			view := ansi.Strip(p.View(110, 30))
 			if !strings.Contains(view, want) {
@@ -134,14 +124,9 @@ func TestAssessment_GivenValidatedReasons_ShouldShowEvidenceWithoutInventedSafet
 		{name: "phantom", level: sdk.RiskMedium, action: sdk.ActionUpdate, phantom: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-			h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-				return sdk.PolicyAssessment{Status: "complete", OverallLevel: &tt.level, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Actions: []string{"update"}, Status: "classified", Level: &tt.level, Reasons: []sdk.PolicyReason{{Code: "observed", Message: "Memory size changed."}, {Code: "source", Message: "Source hash is unchanged."}}}}}
-			}
-			runLifecycleCmd(p, p.Init(h.Deps))
 			summary := lifecycleSummary("aws_instance.reviewed")
 			summary.Changes[0].Action, summary.Changes[0].IsPhantom = tt.action, tt.phantom
-			runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+			p, _, _ := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: "complete", OverallLevel: &tt.level, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Actions: []string{"update"}, Status: "classified", Level: &tt.level, Reasons: []sdk.PolicyReason{{Code: "observed", Message: "Memory size changed."}, {Code: "source", Message: "Source hash is unchanged."}}}}})
 			runLifecycleCmd(p, p.Activate())
 			view := ansi.Strip(p.View(120, 24))
 			if !strings.Contains(view, "Memory size changed.; Source hash is unchanged.") {

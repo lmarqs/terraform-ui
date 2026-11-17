@@ -101,18 +101,16 @@ func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedRe
 }
 
 func TestInspect_GivenPlanInvalidatedAndLateResult_ShouldCloseOldDetails(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
 	summary := lifecycleSummary("aws_instance.stale")
-	p.Analyze(summary)
-	generation := p.generation
+	p, _, h := newAssessedPlugin(t, summary, classifiedAs("aws_instance.stale", sdk.RiskLow, "Stale classification."))
+	runLifecycleCmd(p, p.Activate())
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	runLifecycleCmd(p, cmd)
 	if p.Stack().Peek().ID() != "inspect" {
 		t.Fatal("expected mutation inspection before invalidation")
 	}
 	runLifecycleCmd(p, p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{}))
-	_, cmd = p.Update(assessmentResultMsg{generation: generation, summary: summary})
-	runLifecycleCmd(p, cmd)
+	deliver(p, h.AssessmentEvent)
 	if p.Stack().Peek().ID() != "list" {
 		t.Error("invalidation must close old mutation inspection")
 	}

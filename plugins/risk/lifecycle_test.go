@@ -1,17 +1,25 @@
 package risk
 
 import (
-	"context"
 	"errors"
-	"os"
-	"reflect"
 	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
+
+// Risk recognises the answer to its own nil-summary request by its pending
+// state, not by the Summary pointer: the host plans that summary, so Risk has
+// never seen it. While a nil request is pending, Risk accepts the next
+// RiskAssessedEvent whatever its Summary (a host-planned summary, or nil when
+// the policy failed before planning). The host drops results requested before
+// a Context change or plan invalidation (FR-9), and Risk leaves the pending
+// state on those, on Cancel and on PlanCompletedEvent, so the next event while
+// pending answers this request. A request for a retained summary accepts only
+// the event whose Summary is that pointer.
 
 func newLifecyclePlugin(t *testing.T, svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
 	t.Helper()
@@ -21,6 +29,19 @@ func newLifecyclePlugin(t *testing.T, svc sdk.Service) (*Plugin, *sdktest.Plugin
 	return p, h
 }
 
+// newAssessedPlugin returns a Risk plugin that retains summary from Plan and
+// whose host answers every assessment request with assessment for summary.
+func newAssessedPlugin(t *testing.T, summary *sdk.PlanSummary, assessment sdk.PolicyAssessment) (*Plugin, *sdktest.MockService, *sdktest.PluginDepsHarness) {
+	t.Helper()
+	svc := &sdktest.MockService{}
+	p, h := newLifecyclePlugin(t, svc)
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: assessment}
+	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+	return p, svc, h
+}
+
+// runLifecycleCmd runs cmd depth-first like the macro driver. Plugin messages
+// go to Update; events go through an EventBus, as the App dispatches them.
 func runLifecycleCmd(p *Plugin, cmd tea.Cmd) {
 	if cmd == nil {
 		return
@@ -32,114 +53,183 @@ func runLifecycleCmd(p *Plugin, cmd tea.Cmd) {
 		}
 		return
 	}
+	if _, ok := msg.(sdk.Event); ok {
+		runLifecycleCmd(p, sdk.NewEventBus([]sdk.Plugin{p}).Dispatch(msg))
+		return
+	}
 	_, next := p.Update(msg)
 	runLifecycleCmd(p, next)
+}
+
+// deliver hands ev to the plugin as the App does when the host publishes it.
+func deliver(p *Plugin, ev sdk.RiskAssessedEvent) {
+	runLifecycleCmd(p, func() tea.Msg { return ev })
 }
 
 func lifecycleSummary(address string) *sdk.PlanSummary {
 	return &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: address}, Action: sdk.ActionCreate, Risk: sdk.RiskLow}}}
 }
 
-func TestActivate_GivenNoRetainedPlan_ShouldUseActiveOptionsAndRemoveTemporaryArtifact(t *testing.T) {
-	for _, planErr := range []error{nil, errors.New("terraform planning failed")} {
-		t.Run(map[bool]string{true: "failure", false: "success"}[planErr != nil], func(t *testing.T) {
-			var artifact string
-			scoped := &sdktest.MockService{PlanFn: func(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
-				artifact = opts.PlanFile
-				if artifact == "" {
-					t.Fatal("Risk must supply a temporary artifact instead of Terraform's tfplan.out default")
-				}
-				if err := os.WriteFile(artifact, []byte("saved plan"), 0600); err != nil {
-					t.Fatal(err)
-				}
-				return lifecycleSummary("aws_instance.active"), planErr
-			}}
+// classifiedAs is a complete assessment that classifies address at level with
+// reason, so a view showing reason came from the event, not the raw plan risk.
+func classifiedAs(address string, level sdk.RiskLevel, reason string) sdk.PolicyAssessment {
+	return sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &level, Resources: []sdk.PolicyResourceAssessment{
+		{Address: address, Actions: []string{"create"}, Status: sdk.ResourceClassified, Level: &level, Reasons: []sdk.PolicyReason{{Code: "authored", Message: reason}}},
+	}}
+}
+
+func TestActivate_GivenNoRetainedPlan_ShouldRequestHostPlanWithoutRunningTerraform(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		ev   func(planned *sdk.PlanSummary) sdk.RiskAssessedEvent
+	}{
+		{"success", func(planned *sdk.PlanSummary) sdk.RiskAssessedEvent {
+			return sdk.RiskAssessedEvent{Summary: planned, Assessment: classifiedAs("aws_instance.active", sdk.RiskHigh, "Host planned classification.")}
+		}},
+		{"failure", func(*sdk.PlanSummary) sdk.RiskAssessedEvent {
+			return sdk.RiskAssessedEvent{Err: errors.New("terraform planning failed")}
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			scoped := &sdktest.MockService{}
 			fallback := &sdktest.MockService{}
 			p, h := newLifecyclePlugin(t, fallback)
-			h.Ctx = &sdk.Context{Service: scoped, WorkingDir: t.TempDir(), Workspace: "production", Pins: sdk.Pins{"aws_instance.active"}, Vars: map[string]string{"size": "large"}, VarFiles: []string{"production.tfvars"}, ExtraArgs: []string{"-refresh=false"}, Parallelism: 3}
-			runLifecycleCmd(p, p.Activate())
-			if len(scoped.PlanCalls) != 1 {
-				t.Fatalf("active Context plan calls = %d, want 1", len(scoped.PlanCalls))
+			h.Ctx = &sdk.Context{Service: scoped, WorkingDir: t.TempDir(), Workspace: "production", Pins: sdk.Pins{"aws_instance.active"}}
+			h.AssessmentEvent = tc.ev(lifecycleSummary("aws_instance.active"))
+			cmd := p.Activate()
+			if !p.Busy() || p.Ready() {
+				t.Fatalf("before the host answers: busy=%v ready=%v; want busy and not ready for headless waiting", p.Busy(), p.Ready())
 			}
-			got := scoped.PlanCalls[0]
-			want := h.Ctx.PlanOptions()
-			got.PlanFile = ""
-			got.Writer = nil
-			if !reflect.DeepEqual(got, want) {
-				t.Fatalf("plan options = %#v, want active Context %#v", got, want)
+			runLifecycleCmd(p, cmd)
+			if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != nil {
+				t.Fatalf("assessment requests = %v; want one nil-summary request so the host plans", h.AssessmentRequests)
 			}
-			if len(fallback.PlanCalls) != 0 {
-				t.Fatal("Risk used unscoped fallback service")
+			if len(scoped.PlanCalls)+len(fallback.PlanCalls) != 0 {
+				t.Fatalf("Risk ran Service.Plan itself: scoped %d, fallback %d; planning belongs to the host", len(scoped.PlanCalls), len(fallback.PlanCalls))
 			}
-			if _, err := os.Stat(artifact); !errors.Is(err, os.ErrNotExist) {
-				t.Fatalf("temporary artifact remains: %v", err)
+			if !p.Ready() || p.Busy() {
+				t.Fatalf("after the host answered: busy=%v ready=%v; the answer must terminate headless waiting, including errors", p.Busy(), p.Ready())
 			}
-			if !p.Ready() {
-				t.Fatal("completed acquisition must terminate headless waiting, including errors")
-			}
-			if planErr != nil {
-				if p.ExitCode() == 0 || !strings.Contains(string(p.Stderr()), planErr.Error()) || !strings.Contains(p.View(100, 30), planErr.Error()) {
-					t.Fatalf("planning failure must be visible: exit %d, stderr %q", p.ExitCode(), p.Stderr())
+			view := ansi.Strip(p.View(100, 30))
+			if tc.name == "failure" {
+				if p.ExitCode() != 1 || string(p.Stderr()) != "terraform planning failed\n" || view != "terraform planning failed" {
+					t.Fatalf("planning failure: exit %d, stderr %q, view %q; want the plan error as before", p.ExitCode(), p.Stderr(), view)
 				}
-			} else if !strings.Contains(p.View(100, 30), "aws_instance.active") {
-				t.Fatal("acquired plan not displayed")
+				return
+			}
+			if !strings.Contains(view, "aws_instance.active") || !strings.Contains(view, "Host planned classification.") || p.Overall() != sdk.RiskHigh {
+				t.Fatalf("view = %q overall = %s; want the host-planned summary classified by the event", view, p.Overall())
 			}
 		})
 	}
 }
 
-func TestPlanCompleted_GivenReviewedPlan_ShouldReuseEvidenceOnRiskActivation(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, _ := newLifecyclePlugin(t, svc)
-	handler, ok := any(p).(sdk.PlanCompletedHandler)
-	if !ok {
+func TestPlanCompleted_GivenReviewedPlan_ShouldRequestAssessmentOfRetainedSummary(t *testing.T) {
+	summary := lifecycleSummary("aws_instance.reviewed")
+	p, svc, h := newAssessedPlugin(t, summary, classifiedAs("aws_instance.reviewed", sdk.RiskMedium, "Reviewed plan classification."))
+	if _, ok := any(p).(sdk.PlanCompletedHandler); !ok {
 		t.Fatal("Risk must consume Plan completion rather than require a second plan")
 	}
-	runLifecycleCmd(p, handler.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: lifecycleSummary("aws_instance.reviewed"), PlanFile: "owned-by-plan"}))
 	runLifecycleCmd(p, p.Activate())
+	if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != summary {
+		t.Fatalf("assessment requests = %v; want one request for the retained summary %p", h.AssessmentRequests, summary)
+	}
 	if len(svc.PlanCalls) != 0 {
 		t.Fatalf("Risk acquired %d extra plans despite retained evidence", len(svc.PlanCalls))
 	}
-	if !p.Ready() || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
-		t.Fatal("retained reviewed plan was not assessed")
+	if view := p.View(100, 30); !p.Ready() || !strings.Contains(view, "aws_instance.reviewed") || !strings.Contains(view, "Reviewed plan classification.") {
+		t.Fatalf("retained reviewed plan was not rendered from the event: %q", view)
 	}
 }
 
-func TestActivate_GivenPolicySourceFailure_ShouldTerminateHeadlessWaiting(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, h := newLifecyclePlugin(t, svc)
-	h.Deps.RiskPolicyDiagnostic = func() string { return "source_unreadable" }
-	runLifecycleCmd(p, p.Init(h.Deps))
-	runLifecycleCmd(p, p.Activate())
-	if !p.Ready() {
-		t.Fatal("policy source failure must be terminal for headless sessions")
-	}
-	if p.ExitCode() == 0 || !strings.Contains(string(p.Stderr()), "source_unreadable") {
-		t.Fatal("policy source failure must remain unavailable and visible")
-	}
-	if len(svc.PlanCalls) != 0 {
-		t.Fatal("unreadable policy should not acquire another plan")
+func TestActivate_GivenPolicyFailureWithoutPlan_ShouldShowUnavailableCode(t *testing.T) {
+	const hint = "risk setting level is unsupported; use threshold"
+	for _, tc := range []struct {
+		name       string
+		code       sdk.ErrorCode
+		hint       string
+		wantStderr string
+		wantView   []string
+	}{
+		{"source", sdk.ErrorSourceUnreadable, "", "risk unavailable: source_unreadable\n", []string{"risk unavailable: source_unreadable"}},
+		{"hint", sdk.ErrorConfigurationInvalid, hint, "risk unavailable: configuration_invalid\n\nhint: " + hint + "\n", []string{"risk unavailable: configuration_invalid", "hint: " + hint}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc := &sdktest.MockService{}
+			p, h := newLifecyclePlugin(t, svc)
+			h.AssessmentEvent = sdk.RiskAssessedEvent{Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: tc.code}, Hint: tc.hint}
+			runLifecycleCmd(p, p.Activate())
+			if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != nil {
+				t.Fatalf("assessment requests = %v; want one nil-summary request", h.AssessmentRequests)
+			}
+			if !p.Ready() || p.Busy() {
+				t.Fatal("policy failure must be terminal for headless sessions")
+			}
+			if p.ExitCode() != 1 || string(p.Stderr()) != tc.wantStderr {
+				t.Fatalf("exit %d stderr %q; want exit 1 stderr %q", p.ExitCode(), p.Stderr(), tc.wantStderr)
+			}
+			view := ansi.Strip(p.View(100, 30))
+			for _, want := range tc.wantView {
+				if !strings.Contains(view, want) {
+					t.Errorf("view = %q; want %q", view, want)
+				}
+			}
+			if len(svc.PlanCalls) != 0 {
+				t.Fatal("unavailable policy must not run Terraform")
+			}
+		})
 	}
 }
 
-func TestAssessment_GivenInvalidationOrContextChange_ShouldRejectLateAcquisition(t *testing.T) {
+func TestHandleRiskAssessed_GivenStaleEvent_ShouldIgnoreIt(t *testing.T) {
+	retained := lifecycleSummary("aws_instance.retained")
+	other := lifecycleSummary("aws_instance.other")
+	otherEvent := sdk.RiskAssessedEvent{Summary: other, Assessment: classifiedAs("aws_instance.other", sdk.RiskCritical, "Other plan classification.")}
+
+	t.Run("another summary while own request pending", func(t *testing.T) {
+		p, _, _ := newAssessedPlugin(t, retained, classifiedAs("aws_instance.retained", sdk.RiskLow, "Retained plan classification."))
+		cmd := p.Activate()
+		deliver(p, otherEvent)
+		if !p.Busy() || p.Ready() || strings.Contains(p.View(100, 30), "aws_instance.other") {
+			t.Fatalf("event for another plan settled the request: busy=%v ready=%v view %q", p.Busy(), p.Ready(), p.View(100, 30))
+		}
+		runLifecycleCmd(p, cmd)
+		if view := p.View(100, 30); !p.Ready() || !strings.Contains(view, "Retained plan classification.") {
+			t.Fatalf("own event was not rendered after the stale one: %q", view)
+		}
+	})
+
+	t.Run("another summary after own result", func(t *testing.T) {
+		p, _, _ := newAssessedPlugin(t, retained, classifiedAs("aws_instance.retained", sdk.RiskLow, "Retained plan classification."))
+		runLifecycleCmd(p, p.Activate())
+		deliver(p, otherEvent)
+		view := p.View(100, 30)
+		if !strings.Contains(view, "Retained plan classification.") || strings.Contains(view, "aws_instance.other") || p.Overall() != sdk.RiskLow {
+			t.Fatalf("late event for another plan replaced the result: overall %s, view %q", p.Overall(), view)
+		}
+	})
+
+	t.Run("no request", func(t *testing.T) {
+		p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
+		deliver(p, otherEvent)
+		if p.Status() != sdk.StatusIdle || strings.Contains(p.View(100, 30), "aws_instance.other") {
+			t.Fatalf("unrequested event changed Risk: status %v view %q", p.Status(), p.View(100, 30))
+		}
+	})
+}
+
+func TestAssessment_GivenInvalidationOrContextChange_ShouldRejectLateResult(t *testing.T) {
 	for _, event := range []string{"invalidation", "context", "cancel"} {
 		t.Run(event, func(t *testing.T) {
-			var operationCtx context.Context
-			svc := &sdktest.MockService{PlanFn: func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-				operationCtx = ctx
-				return lifecycleSummary("aws_instance.stale"), nil
-			}}
-			p, h := newLifecyclePlugin(t, svc)
-			cmd := p.Activate()
-			if cmd == nil {
-				t.Fatal("Risk activation must start acquiring its missing plan")
+			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
+			late := sdk.RiskAssessedEvent{Summary: lifecycleSummary("aws_instance.stale"), Assessment: classifiedAs("aws_instance.stale", sdk.RiskHigh, "Stale classification.")}
+			if cmd := p.Activate(); cmd == nil {
+				t.Fatal("Risk activation must request an assessment")
 			}
 			busy, ok := any(p).(sdk.Busy)
 			if !ok || !busy.Busy() {
-				t.Fatal("Risk must report its running operation")
+				t.Fatal("Risk must report its pending request")
 			}
-			late := cmd()
 			switch event {
 			case "invalidation":
 				handler, ok := any(p).(sdk.PlanInvalidatedHandler)
@@ -162,15 +252,12 @@ func TestAssessment_GivenInvalidationOrContextChange_ShouldRejectLateAcquisition
 				}
 				cancel.Cancel()
 			}
-			if operationCtx == nil || operationCtx.Err() != context.Canceled {
-				t.Fatal("reset must cancel the old operation Context")
-			}
-			runLifecycleCmd(p, func() tea.Msg { return late })
+			deliver(p, late)
 			if strings.Contains(p.View(100, 30), "aws_instance.stale") {
-				t.Fatal("late previous-generation result became visible")
+				t.Fatal("late previous-request result became visible")
 			}
 			if busy.Busy() {
-				t.Fatal("reset left the operation busy")
+				t.Fatal("reset left the request busy")
 			}
 			if event == "cancel" && !p.Ready() {
 				t.Fatal("cancelled Risk must terminate headless waiting")
@@ -179,11 +266,9 @@ func TestAssessment_GivenInvalidationOrContextChange_ShouldRejectLateAcquisition
 	}
 }
 
-func TestPlanInvalidated_GivenCompletedAssessment_ShouldClearRowsAndAcquireFreshPlan(t *testing.T) {
-	svc := &sdktest.MockService{PlanFn: func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) {
-		return lifecycleSummary("aws_instance.fresh"), nil
-	}}
-	p, _ := newLifecyclePlugin(t, svc)
+func TestPlanInvalidated_GivenCompletedAssessment_ShouldClearRowsAndRequestFreshPlan(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, h := newLifecyclePlugin(t, svc)
 	p.Analyze(lifecycleSummary("aws_instance.old"))
 	handler, ok := any(p).(sdk.PlanInvalidatedHandler)
 	if !ok {
@@ -193,70 +278,54 @@ func TestPlanInvalidated_GivenCompletedAssessment_ShouldClearRowsAndAcquireFresh
 	if strings.Contains(p.View(100, 30), "aws_instance.old") {
 		t.Fatal("invalidated assessment rows remain visible")
 	}
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: lifecycleSummary("aws_instance.fresh"), Assessment: classifiedAs("aws_instance.fresh", sdk.RiskLow, "Fresh classification.")}
 	runLifecycleCmd(p, p.Activate())
-	if len(svc.PlanCalls) != 1 || !p.Ready() || !strings.Contains(p.View(100, 30), "aws_instance.fresh") {
-		t.Fatalf("activation did not assess fresh evidence: plans %d, view %q", len(svc.PlanCalls), p.View(100, 30))
+	if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != nil || len(svc.PlanCalls) != 0 {
+		t.Fatalf("requests %v plans %d; want one nil-summary request and no plan by Risk", h.AssessmentRequests, len(svc.PlanCalls))
+	}
+	if view := p.View(100, 30); !p.Ready() || !strings.Contains(view, "Fresh classification.") {
+		t.Fatalf("activation did not render the fresh host assessment: %q", view)
 	}
 }
 
-func TestCancel_GivenRunningAcquisition_ShouldCancelServiceAndRejectItsLateResult(t *testing.T) {
-	started := make(chan context.Context, 1)
-	release := make(chan struct{})
-	svc := &sdktest.MockService{PlanFn: func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-		started <- ctx
-		<-release
-		return lifecycleSummary("aws_instance.cancelled"), nil
-	}}
-	p, _ := newLifecyclePlugin(t, svc)
+func TestCancel_GivenPendingRequest_ShouldTerminateAndRejectItsLateResult(t *testing.T) {
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: lifecycleSummary("aws_instance.cancelled"), Assessment: classifiedAs("aws_instance.cancelled", sdk.RiskHigh, "Cancelled classification.")}
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Fatal("Risk activation must acquire missing evidence")
+		t.Fatal("Risk activation must request missing evidence")
 	}
 	cancellation, ok := any(p).(sdk.Cancellable)
 	if !ok {
-		t.Fatal("Risk must cancel running Terraform acquisition")
+		t.Fatal("Risk must support cancellation")
 	}
-	result := make(chan tea.Msg, 1)
-	go func() { result <- cmd() }()
-	ctx := <-started
 	cancellation.Cancel()
-	if ctx.Err() != context.Canceled {
-		close(release)
-		<-result
-		t.Fatal("Cancel did not cancel the Terraform service Context")
+	runLifecycleCmd(p, cmd)
+	if view := p.View(100, 30); !p.Ready() || p.Busy() || strings.Contains(view, "aws_instance.cancelled") {
+		t.Fatalf("cancelled late result was published or headless wait did not terminate: %q", view)
 	}
-	close(release)
-	late := <-result
-	runLifecycleCmd(p, func() tea.Msg { return late })
-	if !p.Ready() || strings.Contains(p.View(100, 30), "aws_instance.cancelled") {
-		t.Fatalf("cancelled late acquisition was published or headless wait did not terminate: %q", p.View(100, 30))
+	if p.ExitCode() != 1 || string(p.Stderr()) != "risk unavailable: cancelled\n" {
+		t.Fatalf("cancelled Risk: exit %d stderr %q; want exit 1 and the cancelled diagnostic", p.ExitCode(), p.Stderr())
 	}
 }
 
 func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFallback(t *testing.T) {
 	for _, status := range []string{"complete", "empty", "partial", "unavailable", "cancelled"} {
 		t.Run(status, func(t *testing.T) {
-			svc := &sdktest.MockService{}
-			p, h := newLifecyclePlugin(t, svc)
 			high := sdk.RiskHigh
-			h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-				got := sdk.PolicyAssessment{Status: sdk.AssessmentStatus(status), PlanID: "retained"}
-				if status == "complete" {
-					got.OverallLevel = &high
-					got.Resources = []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &high, Reasons: []sdk.PolicyReason{{Code: "authored", Message: "Project classification."}}}}
-				}
-				if status == "partial" || status == "unavailable" {
-					got.ErrorCode = "evaluation_failed"
-				}
-				return got
+			got := sdk.PolicyAssessment{Status: sdk.AssessmentStatus(status), PlanID: "retained"}
+			if status == "complete" {
+				got.OverallLevel = &high
+				got.Resources = []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &high, Reasons: []sdk.PolicyReason{{Code: "authored", Message: "Project classification."}}}}
 			}
-			runLifecycleCmd(p, p.Init(h.Deps))
+			if status == "partial" || status == "unavailable" {
+				got.ErrorCode = "evaluation_failed"
+			}
+			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
 			p.Analyze(lifecycleSummary("aws_instance.old"))
-			handler, ok := any(p).(sdk.PlanCompletedHandler)
-			if !ok {
-				t.Fatal("Risk must receive plan completion")
-			}
-			runLifecycleCmd(p, handler.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: lifecycleSummary("aws_instance.reviewed")}))
+			reviewed := lifecycleSummary("aws_instance.reviewed")
+			h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: reviewed, Assessment: got}
+			runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: reviewed}))
 			cmd := p.Activate()
 			if strings.Contains(p.View(100, 30), "aws_instance.old") {
 				t.Fatal("new assessment retained old classification while evaluating")
@@ -287,59 +356,32 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 }
 
 func TestAssessment_GivenLatePolicyResultAfterContextSwitch_ShouldKeepNewContextAssessment(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, h := newLifecyclePlugin(t, svc)
-	started := make(chan context.Context, 1)
-	release := make(chan struct{})
-	high, low := sdk.RiskHigh, sdk.RiskLow
-	h.Deps.AssessRisk = func(ctx context.Context, current *sdk.Context, _ *sdk.PlanSummary) sdk.PolicyAssessment {
-		level, address := &low, "aws_instance.new"
-		if current.Workspace == "default" {
-			started <- ctx
-			<-release
-			level, address = &high, "aws_instance.old"
-		}
-		return sdk.PolicyAssessment{Status: "complete", OverallLevel: level, Resources: []sdk.PolicyResourceAssessment{{Address: address, Status: "classified", Level: level}}}
+	old := lifecycleSummary("aws_instance.old")
+	p, svc, h := newAssessedPlugin(t, old, classifiedAs("aws_instance.old", sdk.RiskHigh, "Old classification."))
+	late := h.AssessmentEvent
+	if cmd := p.Activate(); cmd == nil {
+		t.Fatal("Risk activation must request an assessment")
 	}
-	runLifecycleCmd(p, p.Init(h.Deps))
-	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: lifecycleSummary("aws_instance.old")}))
-	oldCmd := p.Activate()
-	late := make(chan tea.Msg, 1)
-	go func() { late <- oldCmd() }()
-	oldCtx := <-started
 	previous := h.Ctx
 	h.Ctx = &sdk.Context{Service: svc, Workspace: "new", WorkingDir: t.TempDir()}
 	runLifecycleCmd(p, p.HandleContextChanged(sdk.ContextChangedEvent{Prev: previous, Next: h.Ctx}))
-	if oldCtx.Err() != context.Canceled {
-		close(release)
-		<-late
-		t.Fatal("Context switch did not cancel previous policy evaluation")
-	}
 	if p.Assessment() != nil {
-		close(release)
-		<-late
 		t.Fatal("Context switch retained previous assessment")
 	}
-	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: lifecycleSummary("aws_instance.new")}))
+	current := lifecycleSummary("aws_instance.new")
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: current, Assessment: classifiedAs("aws_instance.new", sdk.RiskLow, "New classification.")}
+	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: current}))
 	runLifecycleCmd(p, p.Activate())
-	close(release)
-	message := <-late
-	runLifecycleCmd(p, func() tea.Msg { return message })
-	if !p.Ready() || p.Overall() != low || !strings.Contains(p.View(100, 30), "aws_instance.new") || strings.Contains(p.View(100, 30), "aws_instance.old") {
-		t.Fatalf("late policy result replaced current assessment: %q", p.View(100, 30))
+	deliver(p, late)
+	if view := p.View(100, 30); !p.Ready() || p.Overall() != sdk.RiskLow || !strings.Contains(view, "New classification.") || strings.Contains(view, "aws_instance.old") {
+		t.Fatalf("late policy result replaced current assessment: %q", view)
 	}
 }
 
 func TestAssessment_GivenCustomClassification_ShouldPreserveReviewedPlanSummary(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p, h := newLifecyclePlugin(t, svc)
 	high := sdk.RiskHigh
-	h.Deps.AssessRisk = func(context.Context, *sdk.Context, *sdk.PlanSummary) sdk.PolicyAssessment {
-		return sdk.PolicyAssessment{Status: "complete", OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &high}}}
-	}
-	runLifecycleCmd(p, p.Init(h.Deps))
 	summary := lifecycleSummary("aws_instance.reviewed")
-	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary, PlanFile: "plan-owned.tfplan"}))
+	p, _, _ := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: "complete", OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &high}}})
 	runLifecycleCmd(p, p.Activate())
 	if p.Overall() != high {
 		t.Fatalf("Risk did not use selected-policy classification: %s", p.Overall())
@@ -354,7 +396,8 @@ func TestAssessment_GivenCustomClassification_ShouldPreserveReviewedPlanSummary(
 }
 
 func TestLifecycle_GivenShutdownOrNilContext_ShouldEndOrPreserveCurrentOperation(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: lifecycleSummary("aws_instance.late"), Assessment: classifiedAs("aws_instance.late", sdk.RiskLow, "Late classification.")}
 	cmd := p.Activate()
 	p.HandleContextChanged(sdk.ContextChangedEvent{})
 	if !p.Busy() {
@@ -362,70 +405,57 @@ func TestLifecycle_GivenShutdownOrNilContext_ShouldEndOrPreserveCurrentOperation
 	}
 	p.Shutdown()
 	runLifecycleCmd(p, cmd)
-	if !p.Ready() || p.Busy() || p.ExitCode() != 1 {
+	if !p.Ready() || p.Busy() || p.ExitCode() != 1 || strings.Contains(p.View(100, 30), "aws_instance.late") {
 		t.Fatal("shutdown did not leave terminal cancellation")
 	}
 }
 
-func TestPlanCompleted_GivenSourceFailure_ShouldClearPriorAssessmentWithoutAcquisition(t *testing.T) {
+func TestPlanCompleted_GivenSourceFailure_ShouldClearPriorAssessmentWithoutRequest(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p, h := newLifecyclePlugin(t, svc)
 	p.Analyze(lifecycleSummary("aws_instance.old"))
-	calls := 0
-	h.Deps.RiskPolicyDiagnostic = func() string { calls++; return "source_unreadable" }
-	runLifecycleCmd(p, p.Init(h.Deps))
 	summary := lifecycleSummary("aws_instance.reviewed")
 	if cmd := p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}); cmd != nil {
 		runLifecycleCmd(p, cmd)
 		t.Fatal("Plan completion handler must only retain reviewed state")
 	}
-	if calls != 0 {
-		t.Fatalf("Plan completion performed %d source diagnostic reads; filesystem work belongs to activation", calls)
+	if len(h.AssessmentRequests) != 0 {
+		t.Fatalf("Plan completion made %d assessment requests; assessment belongs to activation", len(h.AssessmentRequests))
 	}
 	if p.Status() != sdk.StatusIdle || p.Assessment() != nil || strings.Contains(p.View(100, 30), "aws_instance.old") {
 		t.Fatalf("Plan completion retained previous assessment: status %v, view %q", p.Status(), p.View(100, 30))
 	}
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceUnreadable}}
 	runLifecycleCmd(p, p.Activate())
-	if calls != 1 || !p.Ready() || p.ExitCode() != 1 || !strings.Contains(string(p.Stderr()), "source_unreadable") {
-		t.Fatalf("activation did not report terminal source failure: calls %d, stderr %q", calls, p.Stderr())
+	if !p.Ready() || p.ExitCode() != 1 || string(p.Stderr()) != "risk unavailable: source_unreadable\n" {
+		t.Fatalf("activation did not report terminal source failure: exit %d, stderr %q", p.ExitCode(), p.Stderr())
 	}
-	if len(svc.PlanCalls) != 0 {
-		t.Fatal("source failure acquired an unnecessary Terraform plan")
-	}
-	h.Deps.RiskPolicyDiagnostic = func() string { return "" }
-	runLifecycleCmd(p, p.Init(h.Deps))
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: classifiedAs("aws_instance.reviewed", sdk.RiskLow, "Recovered classification.")}
 	runLifecycleCmd(p, p.Activate())
-	if len(svc.PlanCalls) != 0 || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
-		t.Fatal("source recovery did not assess the retained reviewed summary")
+	if len(svc.PlanCalls) != 0 || !strings.Contains(p.View(100, 30), "Recovered classification.") {
+		t.Fatalf("source recovery did not assess the retained reviewed summary: plans %d view %q", len(svc.PlanCalls), p.View(100, 30))
+	}
+	if len(h.AssessmentRequests) != 2 || h.AssessmentRequests[0] != summary || h.AssessmentRequests[1] != summary {
+		t.Fatalf("assessment requests = %v; want two for the retained summary", h.AssessmentRequests)
 	}
 }
 
-func TestActivate_GivenTemporaryDirectoryUnavailable_ShouldFailTerminally(t *testing.T) {
-	t.Setenv("TMPDIR", t.TempDir()+"/missing")
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	runLifecycleCmd(p, p.Activate())
-	if !p.Ready() || p.ExitCode() != 1 || len(p.Stderr()) == 0 {
-		t.Fatal("temporary acquisition error did not terminate")
-	}
-}
-
-func TestActivate_GivenAcquisitionAlreadyRunning_ShouldPreserveSingleOperation(t *testing.T) {
-	svc := &sdktest.MockService{PlanFn: func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) {
-		return lifecycleSummary("aws_instance.reviewed"), nil
-	}}
-	p, _ := newLifecyclePlugin(t, svc)
+func TestActivate_GivenRequestAlreadyPending_ShouldPreserveSingleRequest(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p, h := newLifecyclePlugin(t, svc)
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: lifecycleSummary("aws_instance.reviewed"), Assessment: classifiedAs("aws_instance.reviewed", sdk.RiskLow, "Reviewed classification.")}
 	cmd := p.Activate()
 	if cmd == nil {
-		t.Fatal("initial activation did not acquire missing evidence")
+		t.Fatal("initial activation did not request an assessment")
 	}
 	if view := p.View(100, 30); !strings.Contains(view, "Loading") {
-		t.Fatalf("running Risk acquisition must show the standard Loading marker, got %q", view)
+		t.Fatalf("pending Risk request must show the standard Loading marker, got %q", view)
 	}
 	if duplicate := p.Activate(); duplicate != nil {
-		t.Fatal("repeated activation must not start a second in-flight operation")
+		t.Fatal("repeated activation must not start a second in-flight request")
 	}
 	runLifecycleCmd(p, cmd)
-	if !p.Ready() || len(svc.PlanCalls) != 1 || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
-		t.Fatalf("repeated activation invalidated first operation: plans %d, view %q", len(svc.PlanCalls), p.View(100, 30))
+	if !p.Ready() || len(h.AssessmentRequests) != 1 || len(svc.PlanCalls) != 0 || !strings.Contains(p.View(100, 30), "Reviewed classification.") {
+		t.Fatalf("repeated activation invalidated first request: requests %d plans %d, view %q", len(h.AssessmentRequests), len(svc.PlanCalls), p.View(100, 30))
 	}
 }

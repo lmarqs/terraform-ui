@@ -30,8 +30,9 @@ func TestPolicySourceFailure_ShouldAllowNavigationToOtherOperations(t *testing.T
 	app := NewApp(config.Config{Dir: root}, svc, registry, rootCfg)
 	app.Init()
 	for _, id := range []string{"state", "init", "forceunlock"} {
-		model, _ := app.Update(sdk.NavigateMsg{PluginID: "risk"})
+		model, activate := app.Update(sdk.NavigateMsg{PluginID: "risk"})
 		app = model.(App)
+		drainPolicyAppCommand(&app, activate)
 		if !strings.Contains(app.ActivePlugin().View(100, 30), "risk unavailable: source_unreadable") {
 			t.Fatal("Risk source error missing")
 		}
