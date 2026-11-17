@@ -14,6 +14,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/macro"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
 	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
@@ -226,4 +227,49 @@ func TestRunPlugin_GivenRiskSourceFailure_ShouldTerminateWithFixedDiagnosticWith
 	if got := stdout.String(); got != "" {
 		t.Fatalf("Risk failure stdout = %q, want no successful report", got)
 	}
+}
+
+// TestPlan_GivenSelectedPolicy_ShouldStayBusyUntilItsAssessmentArrives drives the
+// App through the macro driver that runs headless `tfui plan`, which prints the
+// output port at the first step where the plugin is Ready.
+func TestPlan_GivenSelectedPolicy_ShouldStayBusyUntilItsAssessmentArrives(t *testing.T) {
+	session := newRiskReviewSession(t, []byte(sessionPlanJSON))
+	policy := strings.ReplaceAll(sessionRiskPolicy, `"low"`, `"critical"`)
+	if err := os.WriteFile(filepath.Join(session.cfg.Dir, "policy.rego"), []byte(policy), 0600); err != nil {
+		t.Fatal(err)
+	}
+	svc, _, err := session.buildService()
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry := buildRegistry(svc, session.cfg, session.rootCfg)
+	defer registry.Shutdown()
+	p, _ := registry.ByID("plan")
+	observer := &firstReadyOutput{Model: session.buildApp(svc, registry), plan: p.(*tfuiplan.Plugin)}
+	driver := macro.NewDriver(observer, 120, 40)
+	driver.Init()
+	driver.SendMsg(sdk.NavigateMsg{PluginID: "plan"})
+	if observer.stdout == nil {
+		t.Fatalf("Plan never became Ready; view %q", driver.View())
+	}
+	if got := string(observer.stdout); !strings.Contains(got, "aws_lambda_function.worker") || !strings.Contains(got, "Risk: critical\n") {
+		t.Fatalf("Plan stdout at first Ready = %q; want the selected policy's CRITICAL risk", got)
+	}
+}
+
+// firstReadyOutput records the plan's Stdout at the first message after which
+// the plan is Ready.
+type firstReadyOutput struct {
+	tea.Model
+	plan   *tfuiplan.Plugin
+	stdout []byte
+}
+
+func (m *firstReadyOutput) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	model, cmd := m.Model.Update(msg)
+	m.Model = model
+	if m.stdout == nil && m.plan.Ready() {
+		m.stdout, _ = m.plan.Stdout()
+	}
+	return m, cmd
 }
