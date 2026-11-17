@@ -276,22 +276,39 @@ func TestHandleRiskAssessed_GivenNoSummaryAndNilSummaryEvent_ShouldIgnoreIt(t *t
 }
 
 func TestView_GivenPlanDoneAndAssessmentPending_ShouldShowRiskAssessmentInProgressUntilAssessed(t *testing.T) {
-	summary := moduleSummary()
-	assessed := sdk.RiskAssessedEvent{Summary: summary, Assessment: allHigh(summary)}
-	p, _, h := newAssessedPlugin(t, summary, assessed.Assessment)
-	h.AssessmentEvent.Summary = &sdk.PlanSummary{}
-	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
-	if p.Status() != sdk.StatusDone || !p.Busy() {
-		t.Fatalf("setup: status=%v busy=%v; want Done and busy while the assessment is pending", p.Status(), p.Busy())
-	}
+	for _, tc := range []struct {
+		name    string
+		summary *sdk.PlanSummary
+		filter  string
+	}{
+		{"changes listed", moduleSummary(), ""},
+		{"no changes", &sdk.PlanSummary{}, ""},
+		{"filter matches nothing", moduleSummary(), "zzzzzz"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			assessed := sdk.RiskAssessedEvent{Summary: tc.summary, Assessment: allHigh(tc.summary)}
+			p, _, h := newAssessedPlugin(t, tc.summary, assessed.Assessment)
+			h.AssessmentEvent.Summary = &sdk.PlanSummary{}
+			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+			if p.Status() != sdk.StatusDone || !p.Busy() {
+				t.Fatalf("setup: status=%v busy=%v; want Done and busy while the assessment is pending", p.Status(), p.Busy())
+			}
+			if tc.filter != "" {
+				p.SetFilter(tc.filter)
+				if len(p.filtered) != 0 {
+					t.Fatalf("setup: filter %q matched %d changes; want none", tc.filter, len(p.filtered))
+				}
+			}
 
-	const indicator = "Loading risk assessment..."
-	if view := ansi.Strip(p.View(120, 40)); !strings.Contains(view, indicator) {
-		t.Fatalf("view while the assessment is pending = %q; want it to contain %q", view, indicator)
-	}
+			const indicator = "Loading risk assessment..."
+			if view := ansi.Strip(p.View(120, 40)); !strings.Contains(view, indicator) {
+				t.Fatalf("view while the assessment is pending = %q; want it to contain %q", view, indicator)
+			}
 
-	drainAssessmentPlan(t, p, func() tea.Msg { return assessed }, nil)
-	if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, indicator) {
-		t.Fatalf("view after the assessment arrived = %q; want no %q", view, indicator)
+			drainAssessmentPlan(t, p, func() tea.Msg { return assessed }, nil)
+			if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, indicator) {
+				t.Fatalf("view after the assessment arrived = %q; want no %q", view, indicator)
+			}
+		})
 	}
 }

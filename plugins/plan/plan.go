@@ -771,7 +771,7 @@ func (e *Plugin) listActions() []ui.ActionChip {
 func (e *Plugin) renderResults(width, height int) string {
 	if e.summary == nil || len(e.summary.Changes) == 0 {
 		content := sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
-		if e.assessmentDiagnostic() != "" {
+		if e.assessing || e.assessmentDiagnostic() != "" {
 			content += "\n" + e.renderOverallRisk()
 		}
 		return content
@@ -797,7 +797,7 @@ func (e *Plugin) renderResults(width, height int) string {
 
 	if len(e.filtered) == 0 {
 		noChanges := sdk.StyleFaintItalic.Render("No matching changes.")
-		if e.assessmentDiagnostic() != "" {
+		if e.assessing || e.assessmentDiagnostic() != "" {
 			noChanges += "\n" + e.renderOverallRisk()
 		}
 		return filterLine + noChanges
