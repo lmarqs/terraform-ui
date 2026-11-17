@@ -129,3 +129,15 @@ func TestRenderCompactAttributeDiffs_GivenUnknownBeforeValue_ShouldKeepEvidenceA
 		}
 	}
 }
+
+func TestRenderCompactAttributeDiffs_GivenLongValues_ShouldFillTheWidthExactly(t *testing.T) {
+	diffs := []AttributeDiff{{Key: "key", OldValue: strings.Repeat("a", 40), NewValue: strings.Repeat("b", 40)}}
+	got := RenderCompactAttributeDiffs(diffs, 30)
+	want := []string{"    key: aaaaaaaa… → bbbbbbbb…"}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("rows = %q, want %q", got, want)
+	}
+	if width := ansi.StringWidth(got[0]); width != 30 {
+		t.Errorf("row width = %d, want 30", width)
+	}
+}
