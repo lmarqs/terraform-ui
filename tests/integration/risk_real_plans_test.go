@@ -40,8 +40,8 @@ func TestRisk_RealTerraformPlans_ShouldReportExpectedRowsWithoutFailing(t *testi
 
 			stdout, stderr, err := runTfui("risk", "-ci", "-json", "-plan", filepath.Join(dir, "plan.json"), "-project", dir)
 
-			if err != nil && !isExitCode(err, 3) {
-				t.Fatalf("tfui risk failed (want exit 0 or 3): %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
+			if err != nil {
+				t.Fatalf("tfui risk failed (want exit 0 with the threshold off): %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
 			}
 			var report struct {
 				Resources []riskReportRow `json:"resources"`
