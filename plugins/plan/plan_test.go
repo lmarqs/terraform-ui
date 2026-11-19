@@ -1278,6 +1278,95 @@ func TestActivate_WhenInputJSONAndServiceFails_ShouldSetError(t *testing.T) {
 	}
 }
 
+// jsonMsgFrom runs cmd and returns the planJSONMsg it (or a batched sub-cmd)
+// produces, without delivering it to the plugin.
+func jsonMsgFrom(t *testing.T, cmd tea.Cmd) planJSONMsg {
+	t.Helper()
+	if cmd == nil {
+		t.Fatal("cmd = nil, want a plan --json cmd")
+	}
+	msg := cmd()
+	if jm, ok := msg.(planJSONMsg); ok {
+		return jm
+	}
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		t.Fatalf("cmd returned %T, want planJSONMsg or tea.BatchMsg", msg)
+	}
+	for _, sub := range batch {
+		if sub == nil {
+			continue
+		}
+		if jm, ok := sub().(planJSONMsg); ok {
+			return jm
+		}
+	}
+	t.Fatal("batch carried no planJSONMsg")
+	return planJSONMsg{}
+}
+
+// TestUpdate_GivenCancelledJSONRun_WhenItsResultArrivesLate_ShouldIgnoreIt
+// verifies that a planJSONMsg from a run Cancel() aborted leaves the plugin
+// state as Cancel() left it.
+func TestUpdate_GivenCancelledJSONRun_WhenItsResultArrivesLate_ShouldIgnoreIt(t *testing.T) {
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			return []byte(`{"format_version":"1.2","resource_changes":[]}`), nil
+		},
+	}
+	p := newTestPlugin(svc)
+	stale := jsonMsgFrom(t, p.Activate(Input{JSON: true}))
+
+	p.Cancel()
+	wantStatus, wantJSON, wantErr := p.status, p.jsonBytes, p.errMsg
+
+	p.Update(stale)
+
+	if p.status != wantStatus {
+		t.Errorf("status = %v, want %v (late result of a cancelled run must be ignored)", p.status, wantStatus)
+	}
+	if string(p.jsonBytes) != string(wantJSON) {
+		t.Errorf("jsonBytes = %q, want %q (late result of a cancelled run must be ignored)", p.jsonBytes, wantJSON)
+	}
+	if p.errMsg != wantErr {
+		t.Errorf("errMsg = %q, want %q (late result of a cancelled run must be ignored)", p.errMsg, wantErr)
+	}
+}
+
+// TestUpdate_GivenReplacedJSONRun_WhenBothResultsArrive_ShouldApplyOnlyTheCurrentRun
+// verifies that once Refresh() starts a new run, the old run's planJSONMsg is
+// ignored and the new run's is applied.
+func TestUpdate_GivenReplacedJSONRun_WhenBothResultsArrive_ShouldApplyOnlyTheCurrentRun(t *testing.T) {
+	calls := 0
+	svc := &sdktest.MockService{
+		PlanJSONFn: func(_ context.Context, _ sdk.PlanOptions) ([]byte, error) {
+			calls++
+			return []byte(fmt.Sprintf(`{"format_version":"1.2","resource_changes":[],"run":%d}`, calls)), nil
+		},
+	}
+	p := newTestPlugin(svc)
+	old := jsonMsgFrom(t, p.Activate(Input{JSON: true}))
+	current := jsonMsgFrom(t, p.Refresh())
+
+	p.Update(old)
+
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v after the old run's result, want StatusLoading (old run must be ignored)", p.status)
+	}
+	if p.jsonBytes != nil {
+		t.Errorf("jsonBytes = %q after the old run's result, want nil (old run must be ignored)", p.jsonBytes)
+	}
+
+	p.Update(current)
+
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v after the new run's result, want StatusDone", p.status)
+	}
+	if string(p.jsonBytes) != string(current.Data) {
+		t.Errorf("jsonBytes = %q, want the new run's %q", p.jsonBytes, current.Data)
+	}
+}
+
 // --- CLI --target scoping ---
 
 func TestRunPlan_WhenInputCarriesTargets_ShouldScopeThePlan(t *testing.T) {
