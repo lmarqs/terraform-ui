@@ -1,6 +1,7 @@
 package macro
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"time"
@@ -57,7 +58,7 @@ type tickMsg struct{}
 
 // WaitUntil repeatedly sends tick messages to advance the model until
 // the predicate returns true or the timeout expires.
-func (d *Driver) WaitUntil(predicate func(view string) bool, timeout time.Duration) error {
+func (d *Driver) WaitUntil(ctx context.Context, predicate func(view string) bool, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 
 	for {
@@ -68,7 +69,11 @@ func (d *Driver) WaitUntil(predicate func(view string) bool, timeout time.Durati
 			return fmt.Errorf("timeout after %v waiting for condition", timeout)
 		}
 		d.SendMsg(tickMsg{})
-		time.Sleep(10 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 

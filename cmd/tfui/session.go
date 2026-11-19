@@ -106,7 +106,7 @@ func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuar
 				rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
 				runner.WithRecorder(rec)
 			}
-			return app, runner.Execute(tape)
+			return app, runner.Execute(context.Background(), tape)
 		}
 		return app, nil
 	}
@@ -290,10 +290,10 @@ func (s *Session) runStandalone(app ui.App, registry *plugin.Registry, pluginID 
 			rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
 			runner.WithRecorder(rec)
 		}
-		return runner.Execute(tape)
+		return runner.Execute(context.Background(), tape)
 	}
 	driver.Init()
-	return driver.WaitUntil(func(_ string) bool {
+	return driver.WaitUntil(context.Background(), func(_ string) bool {
 		if interrupted.Load() {
 			return true
 		}
