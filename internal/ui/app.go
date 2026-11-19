@@ -264,9 +264,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		next := current.TogglePins(msg.Addresses...)
-		// replaceContext changes a, and a return statement may read a before its calls run.
-		cmd := a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
-		return a, cmd
+		return a, a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
 
 	case sdk.PinClearRequestMsg:
 		if !a.requireIdle("pin") {
@@ -285,8 +283,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, nil
 		}
 		next := current.WithPins(nil)
-		cmd := a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
-		return a, cmd
+		return a, a.bus.Dispatch(a.replaceContext(next, sdk.ContextPinsChanged)())
 
 	case sdk.ContextSwitchRequestMsg:
 		// Single chokepoint: chdir/workspace plugins emit this when the user
