@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -321,11 +322,35 @@ func TestStderr_GivenFailedRowsWithoutGlobalCode_ShouldReportFirstRowErrorCode(t
 			} else {
 				a.Resources = append(a.Resources, failed...)
 			}
-			p := newReportPlugin(t, a)
+			summary := &sdk.PlanSummary{}
+			for _, row := range a.Resources {
+				summary.Changes = append(summary.Changes, sdk.PlanChange{Resource: sdk.Resource{Address: row.Address}, Action: sdk.ActionUpdate})
+			}
+			p, _, _ := newAssessedPlugin(t, summary, a)
 			runLifecycleCmd(p, p.Activate(Input{}))
 			if got := string(p.Stderr()); got != "risk unavailable: result_invalid for aws_instance.a_failed\n" || p.ExitCode() != 1 {
 				t.Fatalf("%s without a global code: exit %d stderr %q; want the first failed row's code", status, p.ExitCode(), got)
 			}
+			view := ansi.Strip(p.View(120, 30))
+			for _, want := range []string{
+				"Risk unavailable: 2 of " + map[sdk.AssessmentStatus]string{sdk.AssessmentPartial: "4 eligible mutations failed; 2 classified.", sdk.AssessmentUnavailable: "2 eligible mutations failed."}[status],
+				"--- Risk unavailable (2) ---",
+				"~ aws_instance.a_failed  risk unavailable: result_invalid",
+				"~ aws_instance.z_failed  risk unavailable: evaluation_failed",
+			} {
+				if !strings.Contains(view, want) {
+					t.Errorf("%s view lacks %q:\n%s", status, want, view)
+				}
+			}
 		})
+	}
+}
+
+// The policy evaluator and the host always give an unusable assessment a global
+// code or failed rows with codes; this pins the input that has neither.
+func TestFailureDiagnostic_GivenNoGlobalCodeAndNoFailedRow_ShouldBeEmpty(t *testing.T) {
+	a := sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, Resources: []sdk.PolicyResourceAssessment{{Address: "output.name", Status: sdk.ResourceNotAssessed, Exclusion: "output_only"}}}
+	if got := failureDiagnostic(a, "unused hint"); got != "" {
+		t.Fatalf("failureDiagnostic = %q, want empty", got)
 	}
 }

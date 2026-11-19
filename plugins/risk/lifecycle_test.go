@@ -347,6 +347,9 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 			if status == "partial" || status == "unavailable" {
 				got.ErrorCode = "evaluation_failed"
 			}
+			if status == "cancelled" {
+				got.ErrorCode = sdk.ErrorCancelled
+			}
 			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
 			assessAtPlanRisk(p, h, lifecycleSummary("aws_instance.old"))
 			reviewed := lifecycleSummary("aws_instance.reviewed")
@@ -365,16 +368,17 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 			}
 			switch status {
 			case "complete":
-				if p.ExitCode() != 0 || p.overall() != high || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
-					t.Fatalf("selected classification missing: %q", p.View(100, 30))
+				if p.ExitCode() != 0 || len(p.Stderr()) != 0 || p.overall() != high || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
+					t.Fatalf("selected classification missing: stderr %q view %q", p.Stderr(), p.View(100, 30))
 				}
 			case "empty":
-				if p.ExitCode() != 0 || strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
-					t.Fatalf("empty eligibility rendered a classified resource: %q", p.View(100, 30))
+				if p.ExitCode() != 0 || len(p.Stderr()) != 0 || strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
+					t.Fatalf("empty eligibility rendered a classified resource: stderr %q view %q", p.Stderr(), p.View(100, 30))
 				}
 			default:
-				if p.ExitCode() == 0 || len(p.Stderr()) == 0 || strings.Contains(p.View(100, 30), "Low risk") {
-					t.Fatalf("policy %s became successful fallback: exit %d, view %q", status, p.ExitCode(), p.View(100, 30))
+				want := "risk unavailable: " + string(got.ErrorCode)
+				if view := ansi.Strip(p.View(100, 30)); p.ExitCode() != 1 || string(p.Stderr()) != want+"\n" || view != want {
+					t.Fatalf("policy %s: exit %d, stderr %q, view %q; want exit 1 and %q", status, p.ExitCode(), p.Stderr(), view, want)
 				}
 			}
 		})
