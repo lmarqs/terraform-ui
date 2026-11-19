@@ -24,7 +24,18 @@ The Phantom Changes plugin identifies plan changes that are cosmetic only -- the
 
 ## Interactive (TUI)
 
-Press `P` (uppercase) to open the Phantom Changes view. It requires a completed plan to analyze.
+Press `P` (uppercase) to open the Phantom Changes view. Its screen fills as soon as a plan exists:
+
+- After a plan ran in this session (`:plan`), the view lists that plan's phantom changes at once.
+- With no plan in this session, opening the view asks tfui to run `terraform plan` for the active chdir and
+  workspace, and shows `Loading plan...` with the elapsed time until it ends. A plan loaded with `-plan` counts as
+  run, so it answers at once.
+- If that plan cannot be produced, the view shows `plan unavailable` with the reason, and `P` asks again.
+- A change of chdir, workspace or pins drops the plan, and the view returns to its empty state until the next plan
+  or the next `P`.
+
+The request goes through the same host assessment that [Risk](risk.md) uses, so a risk policy that fails to load
+stops it before it plans and the view shows that failure instead.
 
 ### Keybindings
 
@@ -32,15 +43,17 @@ Press `P` (uppercase) to open the Phantom Changes view. It requires a completed 
 |-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
 | `Enter` / `i` | Expand/collapse phantom details | List |
+| `Esc` | Back to Home, cancelling the plan | Loading |
 | `q` | Back to Home | Always |
 
 ### Flow
 
 ```
 Home ──P──→ Phantom Changes (loading) ──→ Phantom Changes (list)
-                                             │
-                                             ├── Enter/i → Expand phantom details
-                                             └── q → Home
+                  │                         │
+                  │                         ├── Enter/i → Expand phantom details
+                  │                         └── q → Home
+                  └── Esc → Home (cancels the plan)
 ```
 
 ## Command Line (CLI)
