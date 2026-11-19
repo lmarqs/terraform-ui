@@ -368,3 +368,26 @@ default classification := {"level":"low","reasons":[{"code":"default","message":
 		})
 	}
 }
+
+func TestRiskCommand_GivenUnresolvablePaths_ShouldNameTheFailingStep(t *testing.T) {
+	tests := []struct {
+		name    string
+		rootCfg *config.RootConfig
+		want    string
+	}{
+		{"project", &config.RootConfig{}, "resolve project directory: Rel: can't make relative/dir relative to "},
+		{"chdir", nil, "resolve chdir: Rel: can't make relative/dir relative to "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := &Session{cfg: config.Config{Dir: "relative/dir"}, rootCfg: tt.rootCfg}
+			cmd := buildRiskCommand(session)
+			cmd.SetArgs(nil)
+			cmd.SilenceUsage, cmd.SilenceErrors = true, true
+			err := cmd.Execute()
+			if err == nil || !strings.HasPrefix(err.Error(), tt.want) {
+				t.Fatalf("risk error = %v, want prefix %q", err, tt.want)
+			}
+		})
+	}
+}
