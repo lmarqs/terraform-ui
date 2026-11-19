@@ -28,17 +28,6 @@ func (r RiskLevel) String() string {
 	}
 }
 
-// OverallRisk returns the highest risk level found across all changes in the slice.
-func OverallRisk(changes []PlanChange) RiskLevel {
-	max := RiskNone
-	for i := range changes {
-		if changes[i].Risk > max {
-			max = changes[i].Risk
-		}
-	}
-	return max
-}
-
 // ParseRiskLevel is the inverse of RiskLevel.String; it accepts only the exact lowercase names.
 func ParseRiskLevel(name string) (RiskLevel, bool) {
 	for level := RiskNone; level <= RiskCritical; level++ {
