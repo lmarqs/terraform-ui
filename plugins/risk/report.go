@@ -1,7 +1,6 @@
 package risk
 
 import (
-	"cmp"
 	"encoding/json"
 	"fmt"
 	"slices"
@@ -69,7 +68,7 @@ func failureDiagnostic(a sdk.PolicyAssessment, hint string) string {
 	}
 	rows := slices.Clone(a.Resources)
 	slices.SortFunc(rows, func(a, b sdk.PolicyResourceAssessment) int {
-		return cmp.Or(cmp.Compare(a.Address, b.Address), cmp.Compare(a.Deposed, b.Deposed))
+		return sdk.InstanceKey{Address: a.Address, Deposed: a.Deposed}.Compare(sdk.InstanceKey{Address: b.Address, Deposed: b.Deposed})
 	})
 	for _, row := range rows {
 		if row.ErrorCode != "" {
@@ -178,7 +177,7 @@ func (e *Plugin) report() riskReport {
 		r.Resources = append(r.Resources, resource)
 	}
 	slices.SortFunc(r.Resources, func(a, b reportResource) int {
-		return cmp.Or(cmp.Compare(a.Address, b.Address), cmp.Compare(deposedKey(a), deposedKey(b)))
+		return sdk.InstanceKey{Address: a.Address, Deposed: deposedKey(a)}.Compare(sdk.InstanceKey{Address: b.Address, Deposed: deposedKey(b)})
 	})
 	return r
 }

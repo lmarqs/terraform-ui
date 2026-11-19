@@ -1,7 +1,6 @@
 package risk
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -325,8 +324,7 @@ func (e *Plugin) renderStats() string {
 }
 
 func compareItems(x, y riskItem) int {
-	a, b := x.change, y.change
-	return cmp.Or(cmp.Compare(a.Resource.Address, b.Resource.Address), cmp.Compare(a.Resource.Deposed, b.Resource.Deposed))
+	return x.change.Resource.InstanceKey().Compare(y.change.Resource.InstanceKey())
 }
 
 func (e *Plugin) excludedCount() int {
