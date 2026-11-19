@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -358,6 +359,66 @@ func TestPumpOutputPort_WhenInterrupted_ShouldSkipStdoutKeepStderrAndExitWithSig
 			}
 			if got := stderr.String(); got != "terraform said why\n" {
 				t.Errorf("stderr = %q, want the plugin's stderr as is", got)
+			}
+		})
+	}
+}
+
+// TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130 covers both
+// macro call sites: tfui --macro (Run) and a headless verb with --macro
+// (RunPlugin). The tape's first screenshot is a FIFO, so reading it to EOF
+// proves the guard is watching and playback is past that command.
+func TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130(t *testing.T) {
+	tests := []struct {
+		name string
+		run  func(*Session) error
+	}{
+		{"Run", (*Session).Run},
+		{"RunPlugin", func(s *Session) error {
+			return runPluginWithCapturedStdout(s, "apply", apply.Input{AutoApprove: true})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			keepAlive := make(chan os.Signal, 1)
+			signal.Notify(keepAlive, syscall.SIGINT)
+			defer signal.Stop(keepAlive)
+
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
+				t.Fatalf("write tf: %v", err)
+			}
+			started := filepath.Join(dir, "started")
+			if err := syscall.Mkfifo(started, 0600); err != nil {
+				t.Fatalf("mkfifo: %v", err)
+			}
+			later := filepath.Join(dir, "later")
+			session := &Session{
+				cfg:          config.Config{Dir: dir},
+				ciMode:       true,
+				silentStderr: true,
+				macro:        MacroSpec{TapeURI: writeTempTape(t, "screenshot "+started+"\nsleep 1h\nscreenshot "+later+"\n")},
+				effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
+			}
+			done := make(chan error, 1)
+			go func() { done <- tt.run(session) }()
+
+			if _, err := os.ReadFile(started); err != nil {
+				t.Fatalf("read %s: %v", started, err)
+			}
+			if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+				t.Fatalf("send SIGINT: %v", err)
+			}
+			select {
+			case err := <-done:
+				if code, _ := exitStatus(err); code != 130 {
+					t.Errorf("exit code = %d (err %v), want 130", code, err)
+				}
+			case <-time.After(10 * time.Second):
+				t.Fatal("tape kept playing after the first signal")
+			}
+			if _, err := os.Stat(later); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("stat %s = %v, want the command after the signal not to run", later, err)
 			}
 		})
 	}
