@@ -28,11 +28,10 @@ func ContentWidth(width int, hasGutter bool) int {
 // concerns of a scrollable content area: truncation, horizontal scroll, wrap toggle,
 // cursor highlighting, and scroll gutter alignment.
 //
-// Vertical navigation (cursor position, viewport offset) is NOT owned by the panel —
-// these remain in the tree/list that understands the data structure. The panel takes
-// them as inputs for rendering.
-//
-// Plugins provide pre-windowed Rows and call Render(). The panel formats what it's given.
+// Vertical navigation (which rows exist, the cursor) stays with the tree or list that
+// understands the data structure. Callers either window the rows themselves and call
+// Render, or pass every row to RenderWindow, which picks the window from the offset it
+// returned last frame; the caller stores that offset.
 type ContentPanel struct {
 	hScroll  int
 	wrapMode bool
@@ -55,10 +54,13 @@ type RenderParams struct {
 	// Height is the maximum number of visual lines to render.
 	Height int
 	// TotalItems is the total number of items in the full list (for gutter thumb).
+	// RenderWindow ignores it and counts Rows.
 	TotalItems int
 	// Cursor is the index into Rows to highlight (-1 for none).
 	Cursor int
 	// ScrollOffset is the position in the full list (for gutter thumb positioning).
+	// For RenderWindow it is the offset RenderWindow returned last frame: rows with wrap
+	// off, wrapped lines with wrap on.
 	ScrollOffset int
 	// CursorEnd is one past the last row of the cursor's block, such as a row and the
 	// detail rows under it. Zero or less means the block is the cursor row alone.
@@ -109,28 +111,30 @@ func (p *ContentPanel) Render(params RenderParams) string {
 		return ""
 	}
 
+	if p.wrapMode {
+		// Rows outside the slice count as one line each: the panel never sees them wrapped.
+		above := max(0, params.ScrollOffset)
+		below := max(0, params.TotalItems-above-len(params.Rows))
+		output, _ := p.renderWrapped(params, 0, above, below)
+		return output
+	}
+
 	hasGutter := params.TotalItems > params.Height
 	contentWidth := ContentWidth(params.Width, hasGutter)
 
 	var lines []string
-	if p.wrapMode {
-		wrapped, start, end := p.wrapRows(params.Rows, params.Cursor, params.CursorEnd, contentWidth)
-		offset := scrollTo(0, start, end, params.Height, len(wrapped))
-		lines = wrapped[offset:min(len(wrapped), offset+params.Height)]
-	} else {
-		for i, row := range params.Rows[:min(len(params.Rows), params.Height)] {
-			line := row
-			if p.hScroll > 0 {
-				line = scrollLeft(line, p.hScroll)
-			}
-			line = truncateStyled(line, contentWidth)
-
-			if i == params.Cursor {
-				line = p.applySelected(line, contentWidth)
-			}
-
-			lines = append(lines, line)
+	for i, row := range params.Rows[:min(len(params.Rows), params.Height)] {
+		line := row
+		if p.hScroll > 0 {
+			line = scrollLeft(line, p.hScroll)
 		}
+		line = truncateStyled(line, contentWidth)
+
+		if i == params.Cursor {
+			line = p.applySelected(line, contentWidth)
+		}
+
+		lines = append(lines, line)
 	}
 
 	if hasGutter {
@@ -169,17 +173,25 @@ func (p *ContentPanel) RenderWindow(params RenderParams) (string, int) {
 		}), offset
 	}
 
+	return p.renderWrapped(params, params.ScrollOffset, 0, 0)
+}
+
+// renderWrapped draws params.Rows wrapped, scrolled from offset (in lines) just far enough
+// to show the cursor's block. above and below are lines outside Rows, which place the
+// gutter thumb and decide whether the gutter is drawn. It returns the new offset.
+func (p *ContentPanel) renderWrapped(params RenderParams, offset, above, below int) (string, int) {
+	rows, height := params.Rows, params.Height
 	lines, start, end := p.wrapRows(rows, params.Cursor, params.CursorEnd, params.Width)
-	hasGutter := len(lines) > height
+	hasGutter := above+len(lines)+below > height
 	if hasGutter {
 		lines, start, end = p.wrapRows(rows, params.Cursor, params.CursorEnd, ContentWidth(params.Width, true))
 	}
-	offset := scrollTo(params.ScrollOffset, start, end, height, len(lines))
+	offset = scrollTo(offset, start, end, height, len(lines))
 	visible := lines[offset:min(len(lines), offset+height)]
 	if hasGutter {
 		visible = RenderScrollGutter(visible, ScrollGutterOpts{
-			ViewOffset:     offset,
-			TotalItems:     len(lines),
+			ViewOffset:     above + offset,
+			TotalItems:     above + len(lines) + below,
 			ViewportHeight: height,
 			Width:          params.Width - 1,
 		})
