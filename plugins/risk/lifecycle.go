@@ -5,8 +5,9 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Busy reports a pending assessment request, so headless output waits for it.
-func (e *Plugin) Busy() bool { return e.status == sdk.StatusLoading }
+// Busy reports that the host runs terraform plan for the pending request, which
+// it does only when Risk retains no reviewed plan. Ready covers headless waiting.
+func (e *Plugin) Busy() bool { return e.status == sdk.StatusLoading && e.summary == nil }
 
 // Assessment returns the current assessment, or nil after invalidation.
 func (e *Plugin) Assessment() *sdk.PolicyAssessment { return e.assessment }
@@ -71,7 +72,7 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
 // pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if !e.Busy() || ev.Request != e.pending {
+	if e.status != sdk.StatusLoading || ev.Request != e.pending {
 		return nil
 	}
 	e.acceptAssessment(ev)

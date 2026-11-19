@@ -8,7 +8,7 @@ import (
 )
 
 // requestAssessment hides the current classification until the host assesses
-// the reviewed plan again; Busy covers the wait so headless output waits too.
+// the reviewed plan again; Ready covers the wait so headless output waits too.
 func (e *Plugin) requestAssessment() tea.Cmd {
 	if e.summary == nil {
 		return nil

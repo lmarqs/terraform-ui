@@ -16,8 +16,8 @@ func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(
 			p, h, svc := newBlastHarness(t, summary, sdk.PolicyAssessment{Status: "complete", Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.old", Status: "classified", Level: &high}}})
 			p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary})
 			cmd := p.Activate()
-			if !p.Busy() || !strings.Contains(p.View(80, 20), "Loading risk assessment") {
-				t.Fatal("activation should show assessment loading")
+			if p.Busy() || p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(80, 20), "Loading risk assessment") {
+				t.Fatalf("activation should show assessment loading, pending and not busy: busy=%v status=%v ready=%v", p.Busy(), p.Status(), p.Ready())
 			}
 			if p.Activate() != nil {
 				t.Fatal("activation while loading should not launch duplicate assessment")

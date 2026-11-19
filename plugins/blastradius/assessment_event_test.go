@@ -54,8 +54,8 @@ func TestHandleRiskAssessed_GivenEventForAnotherSummary_ShouldIgnoreIt(t *testin
 	pending := p.Activate()
 
 	deliverBlast(p, classifiedEvent(other, sdk.RiskCritical, "Other plan classification."))
-	if !p.Busy() || p.Ready() || !strings.Contains(p.View(120, 40), "Loading risk assessment") {
-		t.Fatalf("another plan's event settled the pending request: Busy=%v Ready=%v view=%q", p.Busy(), p.Ready(), p.View(120, 40))
+	if p.Busy() || p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(120, 40), "Loading risk assessment") {
+		t.Fatalf("another plan's event settled the pending request: Busy=%v Status=%v Ready=%v view=%q", p.Busy(), p.Status(), p.Ready(), p.View(120, 40))
 	}
 
 	runBlastCmd(p, pending)

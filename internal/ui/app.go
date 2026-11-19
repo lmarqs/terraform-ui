@@ -991,9 +991,10 @@ var builtinCommands = []builtinCommand{
 // requireIdle is the universal busy-guard chokepoint. Every action that
 // would mutate terraform inputs, replace the active Context, or start a
 // new terraform call routes through this. While ANY registered plugin is
-// Busy — holding a terraform operation (DirLock per ADR-0016) or awaiting a
-// risk assessment — the action is rejected and `commandError` is set to a uniform message instructing the
-// user to escape via `:q!`. UI-only actions (scrolling, filtering, esc)
+// Busy — holding a terraform operation (DirLock per ADR-0016) — the action is
+// rejected and `commandError` is set to a uniform message instructing the user
+// to escape via `:q!`. A pending policy-only assessment holds no lock, so the
+// action proceeds and cancelPlugin or the Context change cancels it. UI-only actions (scrolling, filtering, esc)
 // bypass this on purpose — see `docs/development/architecture.md` § Navigation.
 //
 // reason is a short label used in the rejection message ("plan", "chdir",

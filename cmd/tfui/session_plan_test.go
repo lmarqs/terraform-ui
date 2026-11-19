@@ -229,10 +229,10 @@ func TestRunPlugin_GivenRiskSourceFailure_ShouldTerminateWithFixedDiagnosticWith
 	}
 }
 
-// TestPlan_GivenSelectedPolicy_ShouldStayBusyUntilItsAssessmentArrives drives the
+// TestPlan_GivenSelectedPolicy_ShouldStayUnreadyUntilItsAssessmentArrives drives the
 // App through the macro driver that runs headless `tfui plan`, which prints the
 // output port at the first step where the plugin is Ready.
-func TestPlan_GivenSelectedPolicy_ShouldStayBusyUntilItsAssessmentArrives(t *testing.T) {
+func TestPlan_GivenSelectedPolicy_ShouldStayUnreadyUntilItsAssessmentArrives(t *testing.T) {
 	session := newRiskReviewSession(t, []byte(sessionPlanJSON))
 	policy := strings.ReplaceAll(sessionRiskPolicy, `"low"`, `"critical"`)
 	if err := os.WriteFile(filepath.Join(session.cfg.Dir, "policy.rego"), []byte(policy), 0600); err != nil {
