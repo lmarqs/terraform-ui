@@ -311,7 +311,7 @@ func TestCompat_RootTargetStartsPinned(t *testing.T) {
 		name string
 		args []string
 	}{
-		{name: "live", args: []string{"-target", "aws_instance.web"}},
+		{name: "macro", args: []string{"-target", "aws_instance.web"}},
 		{name: "dry run", args: []string{"-dry-run", "-target=aws_instance.web"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

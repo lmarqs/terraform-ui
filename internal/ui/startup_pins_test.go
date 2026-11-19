@@ -107,3 +107,17 @@ func TestStartupPins_GivenStartup_ShouldRunNoTerraformPlan(t *testing.T) {
 			len(svc.PlanCalls), len(svc.ApplyCalls))
 	}
 }
+
+func TestStartupPins_GivenPinToggles_ShouldAddAndRemoveLikeHandSetPins(t *testing.T) {
+	app, _ := newStartupPinsApp(t, config.Config{Pins: []string{"aws_instance.web"}})
+	app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: sdk.WorkspaceDefault})
+
+	app = update(t, app, sdk.PinToggleRequestMsg{Addresses: []string{"aws_s3_bucket.data"}})
+	if got, want := app.holder.current.Pins, (sdk.Pins{"aws_instance.web", "aws_s3_bucket.data"}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("Pins after pinning another address = %#v, want %#v", got, want)
+	}
+	app = update(t, app, sdk.PinToggleRequestMsg{Addresses: []string{"aws_instance.web"}})
+	if got, want := app.holder.current.Pins, (sdk.Pins{"aws_s3_bucket.data"}); !reflect.DeepEqual(got, want) {
+		t.Errorf("Pins after unpinning the -target address = %#v, want %#v", got, want)
+	}
+}
