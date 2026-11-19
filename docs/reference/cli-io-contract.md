@@ -72,8 +72,8 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly; `CI=tr
 | `tfui init` | "Initialized successfully." | TUI (alt-screen) | 0/1 |
 | `tfui version` | Version text | TUI (alt-screen) | 0 |
 | `tfui version -json` | Version JSON | TUI (alt-screen) | 0 |
-| `tfui risk` | Risk text report | TUI (alt-screen); after it, the threshold-met line or the failure diagnostic | 0/1/3 |
-| `tfui risk -json` | Risk JSON report | TUI (alt-screen); after it, the threshold-met line or the failure diagnostic | 0/1/3 |
+| `tfui risk` | Risk text report | TUI (alt-screen); after it, the threshold-met line (threshold from `-risk-threshold` or `tfui.hcl`) or the failure diagnostic | 0/1/3 |
+| `tfui risk -json` | Risk JSON report | TUI (alt-screen); after it, the threshold-met line (threshold from `-risk-threshold` or `tfui.hcl`) or the failure diagnostic | 0/1/3 |
 
 ### Headless mode
 
@@ -90,9 +90,9 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly; `CI=tr
 | `tfui output -ci -json` | Outputs JSON | — | 0 |
 | `tfui init -ci` | "Initialized successfully." | — | 0/1 |
 | `tfui version -ci` | Version text | — | 0 |
-| `tfui risk -ci` | Risk text report | — | 0 |
-| `tfui risk -ci -json` | Risk JSON report | — | 0 |
-| `tfui risk -ci -risk-threshold high` (threshold met) | Same complete report | `risk threshold met: high >= high` (actual levels substituted) | 3 |
+| `tfui risk -ci` (threshold off or not met) | Risk text report | — | 0 |
+| `tfui risk -ci -json` (threshold off or not met) | Risk JSON report | — | 0 |
+| `tfui risk -ci` (threshold met, from `-risk-threshold` or `tfui.hcl`) | Same complete report | `risk threshold met: high >= high` (actual levels substituted) | 3 |
 | `tfui taint addr -ci` | — | "✓ Tainted addr" | 0 |
 | `tfui untaint addr -ci` | — | "✓ Untainted addr" | 0 |
 | `tfui import addr id -ci` | — | "✓ Imported id as addr" | 0 |
@@ -176,8 +176,8 @@ schemas and threshold semantics; this table owns its channels and exits.
 | Terraform acquisition fails | Empty | Existing Terraform error pass-through | 1 |
 | SIGINT / SIGTERM or interrupted acquisition | Empty | Existing interrupt behavior | 130 / 143 |
 
-Exit **3** is Risk-only: assessment completed and met the explicitly selected threshold. It is not an
-operational failure and does not replace plan-only exit 2. Partial classifications remain inspectable in the
+Exit **3** is Risk-only: assessment completed and met the explicitly selected threshold, from `-risk-threshold` or
+the Risk `threshold` setting in `tfui.hcl`. It is not an operational failure and does not replace plan-only exit 2. Partial classifications remain inspectable in the
 TUI but never produce a successful command report or threshold comparison. Configuration errors detected before
 plugin activation also keep stdout empty and exit 1. Quitting an unfinished assessment follows the interrupt
 contract; quitting a completed one keeps its report and result. `tfui plan -json` stays Terraform JSON, with no
