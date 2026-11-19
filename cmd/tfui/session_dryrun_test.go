@@ -62,7 +62,7 @@ func TestDryRunFlag_GivenPassthroughArgs_ShouldWarnOnlyOnALiveRun(t *testing.T) 
 		wantDryRun  bool
 		wantWarning string
 	}{
-		{name: "live run", wantWarning: "warning: ignoring arguments after --: -compact-warnings; only a -macro run records them\n"},
+		{name: "live run", wantWarning: "warning: ignoring arguments after --: -compact-warnings; only a -macro or -dry-run run records them\n"},
 		{name: "dry run", args: []string{"-dry-run"}, wantDryRun: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -81,6 +81,38 @@ func TestDryRunFlag_GivenPassthroughArgs_ShouldWarnOnlyOnALiveRun(t *testing.T) 
 			}
 			if got := stderr.String(); got != tc.wantWarning {
 				t.Errorf("stderr = %q, want %q", got, tc.wantWarning)
+			}
+		})
+	}
+}
+
+// Console runs terraform itself, outside the service, so a dry run leaves it out.
+func TestBuildRegistry_GivenDryRun_ShouldLeaveConsoleOut(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		dryRun      bool
+		wantConsole bool
+	}{
+		{name: "live run", wantConsole: true},
+		{name: "dry run", dryRun: true, wantConsole: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			enabled := true
+			plugins := map[string]config.PluginConfig{"console": {Enabled: &enabled}}
+			session := &Session{cfg: config.Config{Dir: t.TempDir(), Plugins: plugins}, dryRun: tc.dryRun}
+			svc, _, err := session.buildService()
+			if err != nil {
+				t.Fatal(err)
+			}
+			registry := session.buildRegistry(svc)
+			if _, ok := registry.ByID("console"); ok != tc.wantConsole {
+				t.Errorf("console registered = %v, want %v", ok, tc.wantConsole)
+			}
+			if _, ok := registry.ByID("plan"); !ok {
+				t.Error("plan must stay registered")
+			}
+			if !*plugins["console"].Enabled {
+				t.Error("buildRegistry changed the session's plugin config")
 			}
 		})
 	}

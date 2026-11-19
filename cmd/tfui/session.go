@@ -49,7 +49,7 @@ func (s *Session) runApp() error {
 	if err != nil {
 		return err
 	}
-	registry := buildRegistry(svc, s.cfg, s.rootCfg)
+	registry := s.buildRegistry(svc)
 	guard, shutdown := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
 	defer shutdown()
 	app := s.buildApp(svc, registry)
@@ -96,10 +96,26 @@ func (s *Session) buildService() (sdk.Service, *terraform.MacroService, error) {
 	return svc, nil, nil
 }
 
-// recordsCommands reports whether the session records terraform commands
-// instead of running them: a macro tape or -dry-run.
 func (s *Session) recordsCommands() bool {
 	return s.macro.Active() || s.dryRun
+}
+
+// buildRegistry leaves Console out of a dry run: it runs `terraform console`
+// itself, outside the service, so the recording service cannot stop it.
+func (s *Session) buildRegistry(svc sdk.Service) *plugin.Registry {
+	if !s.dryRun {
+		return buildRegistry(svc, s.cfg, s.rootCfg)
+	}
+	cfg := s.cfg
+	cfg.Plugins = make(map[string]config.PluginConfig, len(s.cfg.Plugins)+1)
+	for id, pc := range s.cfg.Plugins {
+		cfg.Plugins[id] = pc
+	}
+	disabled := false
+	console := cfg.Plugins["console"]
+	console.Enabled = &disabled
+	cfg.Plugins["console"] = console
+	return buildRegistry(svc, cfg, s.rootCfg)
 }
 
 func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
@@ -128,7 +144,7 @@ func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuar
 		opts = append(opts, tea.WithInput(s.effects.Stdin))
 	}
 	if s.dryRun {
-		// stdout carries the recorded commands, so `tfui -dry-run | sh` works.
+		// stdout carries only the recorded commands, so it stays clean in a pipe.
 		opts = append(opts, tea.WithOutput(s.effects.Stderr))
 	}
 

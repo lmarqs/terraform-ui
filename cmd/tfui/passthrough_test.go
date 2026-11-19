@@ -6,30 +6,30 @@ func TestPassthroughWarning_WhenArgsAndMode_ShouldWarnOnlyForLiveRuns(t *testing
 	tests := []struct {
 		name        string
 		extraArgs   []string
-		macroActive bool
+		recording bool
 		want        string
 	}{
-		{name: "no args on a live run", extraArgs: nil, macroActive: false, want: ""},
-		{name: "no args on a macro run", extraArgs: nil, macroActive: true, want: ""},
+		{name: "no args on a live run", extraArgs: nil, recording: false, want: ""},
+		{name: "no args on a recording run", extraArgs: nil, recording: true, want: ""},
 		{
-			name:        "args on a macro run",
+			name:        "args on a recording run",
 			extraArgs:   []string{"-compact-warnings", "-no-color"},
-			macroActive: true,
+			recording: true,
 			want:        "",
 		},
 		{
 			name:        "args on a live run",
 			extraArgs:   []string{"-compact-warnings", "-no-color"},
-			macroActive: false,
-			want:        "warning: ignoring arguments after --: -compact-warnings -no-color; only a -macro run records them\n",
+			recording: false,
+			want:        "warning: ignoring arguments after --: -compact-warnings -no-color; only a -macro or -dry-run run records them\n",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := passthroughWarning(tt.extraArgs, tt.macroActive)
+			got := passthroughWarning(tt.extraArgs, tt.recording)
 			if got != tt.want {
-				t.Errorf("passthroughWarning(%q, %v) = %q, want %q", tt.extraArgs, tt.macroActive, got, tt.want)
+				t.Errorf("passthroughWarning(%q, %v) = %q, want %q", tt.extraArgs, tt.recording, got, tt.want)
 			}
 		})
 	}

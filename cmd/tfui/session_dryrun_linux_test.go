@@ -112,6 +112,9 @@ func TestRunApp_GivenDryRun_ShouldRunTheProgramOnStderrAndPrintRecordedCommandsO
 			go func() { done <- session.runApp() }()
 
 			waitFor(t, screen, "Plan")
+			if strings.Contains(screen.String(), "Console") {
+				t.Error("home menu offers Console, which runs terraform itself")
+			}
 			if _, err := controller.Write([]byte("p")); err != nil {
 				t.Fatal(err)
 			}

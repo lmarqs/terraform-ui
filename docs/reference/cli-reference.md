@@ -43,13 +43,21 @@ tfui -dry-run                  # Full TUI that records terraform commands instea
 | `-dry-run` | `false` | Record terraform commands instead of running them; print them to stdout on exit |
 
 `-dry-run` runs the same interactive TUI against the recording service that `-macro` uses, so no terraform command
-runs and no state changes. The TUI renders on stderr, and on exit stdout gets the recorded commands, one per line, or
-a JSON array with `-json`. A signal ends the run with no stdout, as it does for every command.
+runs and no state changes. The Console plugin runs `terraform console` itself, so a dry run leaves it out of the
+menu. The TUI renders on stderr, and on exit stdout gets the recorded commands, one per line, or a JSON array with
+`-json`. A signal ends the run with no stdout, as it does for every command.
+
+Reads come only from `-plan` and `-state`: without them the plan, the state, the outputs and the diagnostics are
+empty, which does not mean there is nothing to change.
+
+The printed commands are for review. They are not shell-quoted and omit the member directory, so piping them to a
+shell can run the wrong command or run it in the wrong directory
+([#166](https://github.com/lmarqs/terraform-ui/issues/166)).
 
 ```bash
-tfui -dry-run                       # review the commands on exit
-tfui -dry-run | sh                  # review, then run them
-tfui -dry-run -record ./session/    # frames, tape and commands
+tfui -dry-run -plan ./plan.json -state ./state.json   # review the commands on exit
+tfui -dry-run -json                                   # the commands as a JSON array
+tfui -dry-run -record ./session/                      # frames, tape and commands
 ```
 
 `-dry-run` belongs to `tfui` with no command; a subcommand rejects it as an unknown flag.

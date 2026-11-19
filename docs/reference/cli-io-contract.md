@@ -125,7 +125,12 @@ the Terraform error on stderr; Risk policy failures use fixed diagnostics as spe
 | `tfui -plan file` | (alt-screen) | — | 0/1 |
 | `tfui -state file` | (alt-screen) | — | 0/1 |
 | `tfui -macro tape -plan file` | Commands | — | 0/1 |
-| `tfui -dry-run` | Recorded commands, on exit | TUI (alt-screen) | 0/1 |
+| `tfui -dry-run` | Recorded commands, one per line, on exit | TUI (alt-screen) | 0/1 |
+| `tfui -dry-run -json` | Recorded commands as a JSON array, on exit | TUI (alt-screen) | 0/1 |
+| `tfui -ci` | (alt-screen) | — | 0/1 |
+
+`-ci` has no effect on the full TUI: `tfui -ci` runs the same TUI as `tfui`, and still needs a terminal. Mode
+resolution applies to commands only.
 
 ### Pre-seeded data on subcommands
 
@@ -292,4 +297,4 @@ Recorded in [ADR-0022](../adr/0022-agent-environments-imply-headless.md). [Terra
 
 ### Why full TUI (`tfui` no args) uses stdout?
 
-The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split, and `tfui -dry-run`, whose result is the recorded commands.
+The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split, and `tfui -dry-run`, whose result is the recorded commands for review; they are not shell-quoted and omit the member directory ([#166](https://github.com/lmarqs/terraform-ui/issues/166)).
