@@ -2,10 +2,15 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/macro"
+	"github.com/lmarqs/terraform-ui/internal/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
 	"github.com/spf13/cobra"
 )
@@ -99,6 +104,25 @@ func TestRequireApplyConfirmable(t *testing.T) {
 				t.Fatalf("requireApplyConfirmable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestStandaloneApply_GivenNoAutoApprove_ShouldNotApplyWithoutConfirmationPrompt(t *testing.T) {
+	svc := &sdktest.MockService{}
+	cfg := config.Config{}
+	registry := buildRegistry(svc, cfg, nil)
+	standalone := &ui.StandaloneConfig{
+		PluginID: "apply",
+		Activate: func(p sdk.Plugin) tea.Cmd {
+			return p.(*apply.Plugin).Activate(apply.Input{AutoApprove: false})
+		},
+	}
+	d := macro.NewDriver(ui.NewApp(cfg, svc, registry, nil, standalone), 80, 24)
+
+	d.Init()
+
+	if len(svc.ApplyCalls) > 0 && !strings.Contains(d.View(), "Are you sure") {
+		t.Errorf("apply executed without the confirmation prompt")
 	}
 }
 
