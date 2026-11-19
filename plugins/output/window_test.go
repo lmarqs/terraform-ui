@@ -209,3 +209,85 @@ func TestUpdate_GivenPannedListAndReloadOrReset_ShouldPanBackToTheStart(t *testi
 		})
 	}
 }
+
+func multiLineValue(lines int) string {
+	parts := make([]string, lines)
+	for i := range parts {
+		parts[i] = fmt.Sprintf("value line %02d", i)
+	}
+	return strings.Join(parts, "\n")
+}
+
+func TestView_GivenOneMultiLineValueTallerThanTheListBudget_ShouldStillShowItsLastLine(t *testing.T) {
+	// The list gives up the count line before it hides a line of the value, as it did before ContentPanel.
+	for _, lines := range []int{11, 12} {
+		t.Run(fmt.Sprintf("%d lines", lines), func(t *testing.T) {
+			p := doneWith(t, []sdk.OutputValue{{Name: "only", Type: "string", Value: multiLineValue(lines)}})
+
+			view := ansi.Strip(p.View(60, 12))
+
+			if want := fmt.Sprintf("value line %02d", lines-1); !strings.Contains(view, want) {
+				t.Fatalf("view should reach %q:\n%s", want, view)
+			}
+			if got := len(strings.Split(view, "\n")); got > 12 {
+				t.Fatalf("view is %d lines, want at most the height 12:\n%s", got, view)
+			}
+		})
+	}
+}
+
+func TestView_GivenOneMultiLineValueThatFits_ShouldKeepTheCountLine(t *testing.T) {
+	p := doneWith(t, []sdk.OutputValue{{Name: "only", Type: "string", Value: multiLineValue(10)}})
+
+	view := ansi.Strip(p.View(60, 12))
+
+	for _, want := range []string{"value line 09", "1 outputs"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("view should show %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestFilter_GivenPannedList_ShouldPanBackWhenTheFilterReplacesTheList(t *testing.T) {
+	long := strings.Repeat("x", 40)
+	for _, tc := range []struct {
+		name string
+		keys []tea.Msg
+	}{
+		{"opening the filter", []tea.Msg{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}}},
+		{"applying a query", []tea.Msg{tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := doneWith(t, []sdk.OutputValue{
+				{Name: "long", Type: "string", Value: long},
+				{Name: "short", Type: "string", Value: "v"},
+			})
+			press(p, keyRight, keyRight)
+			if p.panel.HScroll() == 0 {
+				t.Fatal("right should pan the list")
+			}
+
+			press(p, tc.keys...)
+
+			if got := p.panel.HScroll(); got != 0 {
+				t.Fatalf("hscroll = %d, want 0 once the filter replaces the list", got)
+			}
+			if view := ansi.Strip(p.View(60, 12)); !strings.Contains(view, "short") {
+				t.Fatalf("view should show the list from its left edge:\n%s", view)
+			}
+		})
+	}
+}
+
+func TestFilter_GivenScrolledList_ShouldStartTheWindowAtTheTopWhenTheFilterReplacesTheList(t *testing.T) {
+	p := doneWith(t, numberedOutputs(30))
+	p.View(60, 14)
+	press(p, keyShift)
+	p.View(60, 14)
+
+	press(p, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+	if view := ansi.Strip(p.View(60, 14)); !strings.Contains(view, "output_00") {
+		t.Fatalf("opening the filter should show the first row:\n%s", view)
+	}
+}

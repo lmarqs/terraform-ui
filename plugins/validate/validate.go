@@ -303,11 +303,16 @@ func (p *Plugin) renderResults(width, height int) string {
 		}
 	}
 
-	// The summary line and the blank line above it take two rows.
-	content, offset := p.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, height-2), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: p.offset})
+	// The blank line above the summary and the summary take two rows, unless the
+	// cursor's diagnostic is taller than what is left: it gets them, so its last line shows.
+	listHeight, footer := height-2, "\n\n"+p.renderSummaryLine()
+	if cursorEnd-cursor > listHeight {
+		listHeight, footer = height, ""
+	}
+	content, offset := p.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, listHeight), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: p.offset})
 	p.offset = offset
 
-	return content + "\n\n" + p.renderSummaryLine()
+	return content + footer
 }
 
 func (p *Plugin) renderDiagnosticRow(diag sdk.Diagnostic) string {

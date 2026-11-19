@@ -104,9 +104,14 @@ func (p *Plugin) reset() {
 	p.filtering = false
 	p.errMsg = ""
 	p.selected = 0
+	p.resetWindow()
+	p.fuzzy.SetItems(nil)
+}
+
+// resetWindow shows the list from its top left, for a list that replaces the one on screen.
+func (p *Plugin) resetWindow() {
 	p.offset = 0
 	p.panel.ResetScroll()
-	p.fuzzy.SetItems(nil)
 }
 
 // Activate stores the typed input and returns the initial command.
@@ -232,6 +237,7 @@ func (p *Plugin) MoveToEnd() {
 func (p *Plugin) SetFilter(filter string) {
 	p.filter = filter
 	p.selected = 0
+	p.resetWindow()
 	p.fuzzy.SetItems(p.outputs)
 	p.fuzzy.SetQuery(filter)
 	p.filtered = p.fuzzy.Results()
@@ -307,12 +313,16 @@ func (p *Plugin) renderOutputs(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d outputs", len(p.filtered), len(p.outputs)))
 	}
 
-	// The filter line, the blank line above the count and the count itself are not rows.
-	reserved := strings.Count(filterLine, "\n") + 2
-	content, offset := p.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, height-reserved), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: p.offset})
+	// The blank line above the count and the count itself take two rows, unless the
+	// cursor's value is taller than what is left: it gets them, so its last line shows.
+	listHeight, footer := height-strings.Count(filterLine, "\n")-2, "\n\n"+count
+	if cursorEnd-cursor > listHeight {
+		listHeight, footer = listHeight+2, ""
+	}
+	content, offset := p.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, listHeight), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: p.offset})
 	p.offset = offset
 
-	return filterLine + content + "\n\n" + count
+	return filterLine + content + footer
 }
 
 // Stdout produces stdout content for standalone/CI mode.

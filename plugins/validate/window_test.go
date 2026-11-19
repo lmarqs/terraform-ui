@@ -192,3 +192,43 @@ func TestUpdate_GivenPannedListAndNewRunOrReset_ShouldPanBackToTheStart(t *testi
 		})
 	}
 }
+
+func detailLines(n int) string {
+	lines := make([]string, n)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("detail line %02d", i)
+	}
+	return strings.Join(lines, "\n")
+}
+
+func TestView_GivenOneExpandedDiagnosticTallerThanTheListBudget_ShouldStillShowItsLastLine(t *testing.T) {
+	// The list gives up the summary line before it hides a line of the block, as it did before ContentPanel.
+	for _, lines := range []int{10, 11} {
+		t.Run(fmt.Sprintf("%d detail lines", lines), func(t *testing.T) {
+			p := doneWith(t, []sdk.Diagnostic{{Severity: "error", Summary: "only one", Detail: detailLines(lines)}})
+			p.Update(keyEnter)
+
+			view := ansi.Strip(p.View(60, 12))
+
+			if want := fmt.Sprintf("detail line %02d", lines-1); !strings.Contains(view, want) {
+				t.Fatalf("view should reach %q:\n%s", want, view)
+			}
+			if got := len(strings.Split(view, "\n")); got > 12 {
+				t.Fatalf("view is %d lines, want at most the height 12:\n%s", got, view)
+			}
+		})
+	}
+}
+
+func TestView_GivenOneExpandedDiagnosticThatFits_ShouldKeepTheSummaryLine(t *testing.T) {
+	p := doneWith(t, []sdk.Diagnostic{{Severity: "error", Summary: "only one", Detail: detailLines(9)}})
+	p.Update(keyEnter)
+
+	view := ansi.Strip(p.View(60, 12))
+
+	for _, want := range []string{"detail line 08", "1 error(s)"} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("view should show %q:\n%s", want, view)
+		}
+	}
+}
