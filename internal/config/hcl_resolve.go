@@ -14,6 +14,7 @@ func Resolve(root *RootConfig, child *ChildConfig, workspace string) *ResolvedCo
 	r.varFiles = append(r.varFiles, root.Defaults.VarFiles...)
 	r.vars = copyVars(root.Defaults.Vars)
 	r.plugins = copyPlugins(root.Defaults.Plugins)
+	r.riskPolicy = root.Defaults.RiskPolicy
 
 	if child == nil {
 		return r
@@ -22,6 +23,7 @@ func Resolve(root *RootConfig, child *ChildConfig, workspace string) *ResolvedCo
 	r.varFiles = append(r.varFiles, child.VarFiles...)
 	mergeVars(r, child.Vars)
 	mergePlugins(r, child.Plugins)
+	overrideRiskPolicy(r, child.RiskPolicy)
 
 	if workspace == "" {
 		return r
@@ -38,6 +40,7 @@ func Resolve(root *RootConfig, child *ChildConfig, workspace string) *ResolvedCo
 	if ws.LockTimeout != "" {
 		r.lockTimeout = ws.LockTimeout
 	}
+	overrideRiskPolicy(r, ws.RiskPolicy)
 
 	return r
 }
@@ -56,6 +59,12 @@ func matchWorkspace(workspaces []WorkspaceConfig, name string) *WorkspaceConfig 
 		}
 	}
 	return globMatch
+}
+
+func overrideRiskPolicy(r *ResolvedConfig, selector *PolicySelector) {
+	if selector != nil {
+		r.riskPolicy = selector
+	}
 }
 
 func copyVars(src map[string]string) map[string]string {

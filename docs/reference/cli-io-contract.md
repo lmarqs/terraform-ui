@@ -98,8 +98,9 @@ status channel.
 
 ### Headless failures
 
-Every plugin command reports failure the same way: terraform's error message
-on stderr, empty stdout, exit 1. A failed run never claims success.
+Every plugin command reports operational failure with empty stdout and exit 1. Terraform failures pass through
+the Terraform error on stderr; Risk policy failures use fixed diagnostics as specified in
+[Risk command v1](#risk-command-v1).
 
 | Command | stdout | stderr | Exit |
 |---------|--------|--------|------|
@@ -147,11 +148,34 @@ on stderr, empty stdout, exit 1. A failed run never claims success.
 | `0` | Success / no changes | All commands |
 | `1` | Error / validation failure | All commands |
 | `2` | Plan has changes, as terraform's `-detailed-exitcode` | `plan` command only |
+| `3` | Complete assessment meets the selected threshold | `risk` command only; see [Risk command v1](#risk-command-v1) |
 | `130` | Interrupted by SIGINT | All commands |
 | `143` | Terminated by SIGTERM | All commands |
 
 A flag or argument error that stops the command before its plugin runs exits 1. A macro run's codes are in the
 [macro language](macro-language.md#exit-codes).
+
+### Risk command v1
+
+The [first-version risk contract](risk-policy-contract.md#command-threshold-and-report-v1) defines the report
+and comparison used by `tfui risk`. Risk uses the same Standalone/Headless mode resolution:
+TUI on stderr in Standalone, no TUI in Headless; `-json` changes only stdout format. The reference owns report
+schemas and threshold semantics; this table owns its channels and exits.
+
+| Risk terminal outcome | stdout (on quit in Standalone; on terminal completion in Headless) | stderr after TUI | Exit |
+| --- | --- | --- | --- |
+| Complete, threshold off or below; or empty eligible set | Complete text/JSON report | Empty | 0 |
+| Complete, inclusive threshold met | Same complete text/JSON report | `risk threshold met: high >= high` (actual levels substituted), followed by LF | 3 |
+| Configuration/source/input/compilation/evaluation/validation failure, including partial | Empty, including JSON mode | Fixed diagnostic from the risk contract, followed by LF | 1 |
+| Terraform acquisition fails | Empty | Existing Terraform error pass-through | 1 |
+| SIGINT / SIGTERM or interrupted acquisition | Empty | Existing interrupt behavior | 130 / 143 |
+
+Exit **3** is Risk-only: assessment completed and met the explicitly selected threshold. It is not an
+operational failure and does not replace plan-only exit 2. Partial classifications remain inspectable in the
+TUI but never produce a successful command report or threshold comparison. Configuration errors detected before
+plugin activation also keep stdout empty and exit 1. Quitting an unfinished assessment follows the interrupt
+contract; quitting a completed one keeps its report and result. `tfui plan -json` stays Terraform JSON, with no
+risk augmentation. None of these interfaces alters Apply or turns show JSON into an executable plan.
 
 ### Interrupts
 

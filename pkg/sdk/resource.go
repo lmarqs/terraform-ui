@@ -9,4 +9,11 @@ type Resource struct {
 	Module       string
 	ProviderName string
 	Tainted      bool
+	// Deposed is the key of a deposed object left at Address; empty for the current object.
+	Deposed string
+}
+
+// InstanceKey returns the identity of the object this resource describes.
+func (r Resource) InstanceKey() InstanceKey {
+	return InstanceKey{Address: r.Address, Deposed: r.Deposed}
 }

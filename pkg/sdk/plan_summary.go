@@ -8,12 +8,13 @@ import (
 // PlanSummary holds the full set of resource changes from a terraform plan
 // along with aggregate counts by action type.
 type PlanSummary struct {
-	Changes   []PlanChange
-	ToCreate  int
-	ToUpdate  int
-	ToDelete  int
-	ToReplace int
-	ToRead    int
+	PolicyEvidence *PolicyEvidence
+	Changes        []PlanChange
+	ToCreate       int
+	ToUpdate       int
+	ToDelete       int
+	ToReplace      int
+	ToRead         int
 }
 
 // SummaryLine renders the action counts as a single styled line, e.g.

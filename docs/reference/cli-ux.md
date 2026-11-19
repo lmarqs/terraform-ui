@@ -47,6 +47,8 @@ holds the rules a contributor follows when writing a command, each with its reas
 
 - **Exit 2 comes only from the plan plugin's `ExitCode()`.** Scripts read 2 as "plan has changes", as with terraform's
   `-detailed-exitcode`; a second source would make it ambiguous.
+- **Exit 3 comes only from `tfui risk`.** It means the assessment completed and met the explicitly selected risk
+  threshold; it is a result, not a failure, and never replaces exit 2 ([contract](cli-io-contract.md#risk-command-v1)).
 - **Every other failure exits 1.** A plugin's `ExitCode()` returns 1 on failure; a cobra error exits 1 through
   `SilenceUsage: true` and `os.Exit(1)` in `main.go`.
 - **A signal exits 130 or 143.** SIGINT exits 130 and SIGTERM exits 143, replacing the plugin's code, so a script

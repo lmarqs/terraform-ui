@@ -36,18 +36,24 @@ func (s ImpactScore) String() string {
 
 // ModuleImpact holds a module group with its calculated impact score.
 type ModuleImpact struct {
-	Group sdk.ModuleGroup
-	Score ImpactScore
+	Group       sdk.ModuleGroup
+	Score       ImpactScore
+	Unavailable bool
+	NotAssessed bool
 }
 
 // Plugin implements the blast radius visualization feature.
 type Plugin struct {
 	sdk.PluginBase
-	status   sdk.Status
-	modules  []ModuleImpact
-	selected int
-	expanded map[int]bool
-	total    int
+	status      sdk.Status
+	modules     []ModuleImpact
+	selected    int
+	expanded    map[int]bool
+	total       int
+	summary     *sdk.PlanSummary
+	assessment  *sdk.PolicyAssessment
+	rows        sdk.AssessmentRows
+	requestRisk func(*sdk.PlanSummary) tea.Cmd
 }
 
 // New creates a new blast radius plugin.
@@ -60,7 +66,7 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone || e.status == sdk.StatusError }
 func (e *Plugin) Status() sdk.Status { return e.status }
 func (e *Plugin) Selected() int      { return e.selected }
 func (e *Plugin) ModuleCount() int   { return len(e.modules) }
@@ -89,37 +95,8 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
+	e.requestRisk = deps.RequestAssessment
 	return nil
-}
-
-// Analyze processes a plan summary, groups by module, and calculates impact scores.
-func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
-	if summary == nil || len(summary.Changes) == 0 {
-		e.status = sdk.StatusDone
-		e.modules = nil
-		e.total = 0
-		return
-	}
-
-	e.total = len(summary.Changes)
-
-	groups := sdk.GroupByModule(summary.Changes)
-	e.modules = make([]ModuleImpact, 0, len(groups))
-
-	for _, g := range groups {
-		score := calculateImpact(g)
-		e.modules = append(e.modules, ModuleImpact{
-			Group: g,
-			Score: score,
-		})
-	}
-
-	// Sort by impact score descending (highest impact first)
-	sortByImpact(e.modules)
-
-	e.status = sdk.StatusDone
-	e.selected = 0
-	e.expanded = make(map[int]bool)
 }
 
 // Update processes messages and returns the updated plugin.
@@ -176,6 +153,10 @@ func (e *Plugin) View(width, height int) string {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
 
+	case sdk.StatusLoading:
+		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
+	case sdk.StatusError:
+		return sdk.StyleError.Render("risk unavailable: cancelled")
 	case sdk.StatusDone:
 		return e.renderBlastRadius(width, height)
 
@@ -186,6 +167,9 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderBlastRadius(width, height int) string {
 	if len(e.modules) == 0 {
+		if !e.assessment.Usable() {
+			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment")
+		}
 		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
 	}
 
@@ -233,6 +217,9 @@ func (e *Plugin) renderOverallSummary() string {
 	moduleCount := len(e.modules)
 	maxImpact := ImpactMinimal
 	for _, m := range e.modules {
+		if m.Unavailable {
+			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment") + "  " + sdk.StyleFaint.Render(fmt.Sprintf("%d module(s) affected, %d total change(s)", moduleCount, e.total))
+		}
 		if m.Score > maxImpact {
 			maxImpact = m.Score
 		}
@@ -260,6 +247,12 @@ func (e *Plugin) renderModuleRow(mi ModuleImpact, idx int) string {
 
 	module := mi.Group.Module
 	impactBadge := renderImpactBadge(mi.Score)
+	if mi.Unavailable {
+		impactBadge = sdk.StyleError.Render("[unavailable]")
+	}
+	if mi.NotAssessed {
+		impactBadge += " Risk: not assessed"
+	}
 	changeCount := sdk.StyleFaint.Render(fmt.Sprintf("(%d changes)", len(mi.Group.Changes)))
 
 	// Render action summary bar
@@ -279,6 +272,14 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 		}
 
 		risk := sdk.RiskBadge(change.Risk)
+		resource := e.resourceAssessment(change.Resource.InstanceKey())
+		switch resource.Status {
+		case sdk.ResourceNotAssessed:
+			risk = "Risk: not assessed"
+		case sdk.ResourceClassified:
+		default:
+			risk = "risk unavailable: " + string(resource.ErrorCode)
+		}
 		row := fmt.Sprintf("     %s %s", symbol, address)
 		if risk != "" {
 			row += " " + risk
@@ -287,6 +288,9 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 			row += " " + sdk.StylePhantom.Render("(phantom)")
 		}
 		b.WriteString(row)
+		for _, reason := range resource.Reasons {
+			b.WriteString("\n       " + reason.Message)
+		}
 		b.WriteByte('\n')
 	}
 	b.WriteByte('\n')
@@ -353,6 +357,12 @@ func calculateImpact(group sdk.ModuleGroup) ImpactScore {
 
 func sortByImpact(modules []ModuleImpact) {
 	sort.Slice(modules, func(i, j int) bool {
-		return modules[i].Score > modules[j].Score
+		if modules[i].Unavailable != modules[j].Unavailable {
+			return modules[i].Unavailable
+		}
+		if modules[i].Score != modules[j].Score {
+			return modules[i].Score > modules[j].Score
+		}
+		return modules[i].Group.Module < modules[j].Group.Module
 	})
 }

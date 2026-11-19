@@ -4,6 +4,7 @@
   "resource_changes": [
     {
       "address": "module.networking.aws_vpc.main",
+      "mode": "managed",
       "module_address": "module.networking",
       "type": "aws_vpc",
       "name": "main",
@@ -19,6 +20,7 @@
     },
     {
       "address": "module.networking.aws_subnet.public[0]",
+      "mode": "managed",
       "module_address": "module.networking",
       "type": "aws_subnet",
       "name": "public",
@@ -34,6 +36,7 @@
     },
     {
       "address": "module.networking.aws_subnet.public[1]",
+      "mode": "managed",
       "module_address": "module.networking",
       "type": "aws_subnet",
       "name": "public",
@@ -49,6 +52,7 @@
     },
     {
       "address": "module.networking.aws_security_group.web",
+      "mode": "managed",
       "module_address": "module.networking",
       "type": "aws_security_group",
       "name": "web",
@@ -64,6 +68,7 @@
     },
     {
       "address": "module.compute.aws_instance.app[0]",
+      "mode": "managed",
       "module_address": "module.compute",
       "type": "aws_instance",
       "name": "app",
@@ -79,6 +84,7 @@
     },
     {
       "address": "module.compute.aws_instance.app[1]",
+      "mode": "managed",
       "module_address": "module.compute",
       "type": "aws_instance",
       "name": "app",
@@ -94,6 +100,7 @@
     },
     {
       "address": "module.compute.aws_launch_template.app",
+      "mode": "managed",
       "module_address": "module.compute",
       "type": "aws_launch_template",
       "name": "app",
@@ -109,6 +116,7 @@
     },
     {
       "address": "module.compute.aws_iam_role.app",
+      "mode": "managed",
       "module_address": "module.compute",
       "type": "aws_iam_role",
       "name": "app",
@@ -124,6 +132,7 @@
     },
     {
       "address": "module.storage.aws_s3_bucket.logs",
+      "mode": "managed",
       "module_address": "module.storage",
       "type": "aws_s3_bucket",
       "name": "logs",
@@ -139,6 +148,7 @@
     },
     {
       "address": "module.storage.aws_s3_bucket_policy.logs",
+      "mode": "managed",
       "module_address": "module.storage",
       "type": "aws_s3_bucket_policy",
       "name": "logs",
@@ -154,21 +164,23 @@
     },
     {
       "address": "module.storage.aws_db_instance.primary",
+      "mode": "managed",
       "module_address": "module.storage",
       "type": "aws_db_instance",
       "name": "primary",
       "provider_name": "registry.terraform.io/hashicorp/aws",
       "change": {
         "actions": ["delete"],
-        "before": {"id": "prod-db", "identifier": "prod-db", "engine": "postgres", "engine_version": "14.9", "instance_class": "db.r6g.xlarge", "allocated_storage": 500, "multi_az": true, "deletion_protection": false},
+        "before": {"id": "prod-db", "identifier": "prod-db", "engine": "postgres", "engine_version": "14.9", "instance_class": "db.r6g.xlarge", "allocated_storage": 500, "multi_az": true, "deletion_protection": false, "password": null},
         "after": null,
-        "after_unknown": {},
+        "after_unknown": false,
         "before_sensitive": {"password": true},
         "after_sensitive": false
       }
     },
     {
       "address": "module.storage.aws_db_instance.primary_v2",
+      "mode": "managed",
       "module_address": "module.storage",
       "type": "aws_db_instance",
       "name": "primary_v2",
@@ -176,7 +188,7 @@
       "change": {
         "actions": ["create"],
         "before": null,
-        "after": {"identifier": "prod-db-v2", "engine": "postgres", "engine_version": "16.1", "instance_class": "db.r7g.xlarge", "allocated_storage": 500, "multi_az": true, "deletion_protection": true},
+        "after": {"identifier": "prod-db-v2", "engine": "postgres", "engine_version": "16.1", "instance_class": "db.r7g.xlarge", "allocated_storage": 500, "multi_az": true, "deletion_protection": true, "password": null},
         "after_unknown": {"id": true, "arn": true, "endpoint": true, "address": true},
         "before_sensitive": false,
         "after_sensitive": {"password": true}
@@ -184,6 +196,7 @@
     },
     {
       "address": "module.compute.aws_autoscaling_group.app",
+      "mode": "managed",
       "module_address": "module.compute",
       "type": "aws_autoscaling_group",
       "name": "app",
@@ -199,6 +212,7 @@
     },
     {
       "address": "module.networking.aws_route_table.public",
+      "mode": "managed",
       "module_address": "module.networking",
       "type": "aws_route_table",
       "name": "public",
@@ -214,6 +228,7 @@
     },
     {
       "address": "module.networking.aws_eip.nat",
+      "mode": "managed",
       "module_address": "module.networking",
       "type": "aws_eip",
       "name": "nat",

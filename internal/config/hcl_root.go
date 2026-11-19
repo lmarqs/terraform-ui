@@ -6,7 +6,8 @@ import (
 	"path/filepath"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/hashicorp/hcl/v2/hclsimple"
+	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
 )
 
@@ -31,13 +32,25 @@ func LoadRoot(dir string) (*RootConfig, error) {
 		return convertRootFile(&hclRootFile{}), nil
 	}
 
-	var raw hclRootFile
-	err = hclsimple.Decode(path, data, nil, &raw)
-	if err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	file, diags := hclparse.NewParser().ParseHCL(data, path)
+	diags, redefinitions := splitRiskPolicyRedefinitions(data, diags)
+	if diags.HasErrors() {
+		return nil, fmt.Errorf("parsing %s: %w", path, diags)
 	}
 
-	return convertRootFile(&raw), nil
+	var raw hclRootFile
+	if diags := gohcl.DecodeBody(file.Body, nil, &raw); diags.HasErrors() {
+		return nil, fmt.Errorf("parsing %s: %w", path, diags)
+	}
+
+	cfg := convertRootFile(&raw)
+	if raw.Defaults != nil {
+		cfg.Defaults.RiskPolicy = redefinitions.readSelector(raw.Defaults.Body, raw.Defaults.RiskPolicy, dir)
+	}
+	if len(redefinitions.pending) > 0 {
+		return nil, fmt.Errorf("parsing %s: %w", path, redefinitions.pending)
+	}
+	return cfg, nil
 }
 
 type hclRootFile struct {
@@ -61,6 +74,8 @@ type hclDefaultsBlock struct {
 	Lock        *bool            `hcl:"lock"`
 	VarFiles    []hclVarFile     `hcl:"var_file,block"`
 	Plugins     []hclPluginBlock `hcl:"plugin,block"`
+	RiskPolicy  *hcl.Attribute   `hcl:"risk_policy,optional"`
+	Body        hcl.Body         `hcl:",body"`
 	Remain      hcl.Body         `hcl:",remain"`
 }
 

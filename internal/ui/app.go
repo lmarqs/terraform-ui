@@ -55,17 +55,19 @@ type contextHolder struct {
 }
 
 type App struct {
-	cfg         config.Config
-	svc         sdk.Service
-	registry    *plugin.Registry
-	holder      *contextHolder
-	bus         *sdk.EventBus
-	sourceIndex *terraform.SourceIndex
-	rootCfg     *config.RootConfig
-	childCfg    *config.ChildConfig
-	standalone  *StandaloneConfig
-	width       int
-	height      int
+	cfg          config.Config
+	svc          sdk.Service
+	registry     *plugin.Registry
+	holder       *contextHolder
+	riskCache    *riskAssessmentCache
+	riskRequests *riskRequests
+	bus          *sdk.EventBus
+	sourceIndex  *terraform.SourceIndex
+	rootCfg      *config.RootConfig
+	childCfg     *config.ChildConfig
+	standalone   *StandaloneConfig
+	width        int
+	height       int
 
 	header        components.Header
 	contentBorder components.ContentBorder
@@ -118,6 +120,8 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		svc:           svc,
 		registry:      registry,
 		holder:        &contextHolder{},
+		riskCache:     &riskAssessmentCache{},
+		riskRequests:  &riskRequests{},
 		bus:           bus,
 		sourceIndex:   sourceIndex,
 		rootCfg:       rootCfg,
@@ -152,9 +156,10 @@ func (a App) Init() tea.Cmd {
 
 	holder := a.holder
 	deps := &plugin.PluginDeps{
-		Logger:  logging.Logger(),
-		Service: a.holder.current.Service,
-		Context: func() *sdk.Context { return holder.current },
+		Logger:            logging.Logger(),
+		Service:           a.holder.current.Service,
+		Context:           func() *sdk.Context { return holder.current },
+		RequestAssessment: a.requestAssessment,
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
@@ -305,7 +310,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
 
+	case riskAssessedMsg:
+		if !a.riskRequests.current(msg.request) {
+			return a, nil
+		}
+		return a, a.bus.Dispatch(msg.event)
+
 	case sdk.PlanInvalidatedEvent:
+		a.riskRequests.advance()
 		a.staleState = true
 		a.header = a.header.WithStale(true)
 		return a, a.bus.Dispatch(msg)
@@ -341,9 +353,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sdk.DeactivateMsg:
 		if a.activePlugin != nil {
-			if c, ok := a.activePlugin.(sdk.Cancellable); ok {
-				c.Cancel()
-			}
+			a.cancelPlugin(a.activePlugin)
 			if a.standalone != nil && a.activePlugin.ID() == a.standalone.PluginID {
 				return a, tea.Quit
 			}
@@ -684,8 +694,8 @@ func (a App) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			}
 			if busy, ok := a.activePlugin.(sdk.Busy); ok && busy.Busy() {
 				// Don't cancel plugins holding a terraform lock
-			} else if c, ok := a.activePlugin.(sdk.Cancellable); ok {
-				c.Cancel()
+			} else {
+				a.cancelPlugin(a.activePlugin)
 			}
 			return a, a.goHome(a.activePlugin.ID())
 		}
@@ -751,9 +761,7 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 	from := "home"
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
-		if c, ok := a.activePlugin.(sdk.Cancellable); ok {
-			c.Cancel()
-		}
+		a.cancelPlugin(a.activePlugin)
 	}
 	switch nav {
 	case plugin.NavPush:
@@ -844,17 +852,15 @@ func (a *App) withResolvedConfig(next *sdk.Context) *sdk.Context {
 
 // startupContext is the Context the session starts in: the startup chdir in
 // workspace, with that workspace's tfui.hcl settings.
+// Session supplies the service in the startup directory; re-scoping it here
+// would discard the pre-seeded cache.
 func (a *App) startupContext(workspace sdk.Workspace) *sdk.Context {
-	svc := a.svc
 	dir := startupDir(a.cfg)
-	if a.cfg.Chdir != "" {
-		svc = a.svc.WithDir(dir)
-	}
 	return a.withResolvedConfig(&sdk.Context{
 		Chdir:      a.startupChdir(),
 		WorkingDir: dir,
 		Workspace:  workspace,
-		Service:    svc,
+		Service:    a.svc,
 		ExtraArgs:  a.cfg.ExtraArgs,
 	})
 }
@@ -887,6 +893,7 @@ func (a *App) startupChdir() sdk.Chdir {
 func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
+	a.riskRequests.advance()
 	logging.Logger().Debug("context.replaced",
 		"prev_chdir", contextChdir(prev),
 		"next_chdir", contextChdir(next),
@@ -974,8 +981,8 @@ var builtinCommands = []builtinCommand{
 // requireIdle is the universal busy-guard chokepoint. Every action that
 // would mutate terraform inputs, replace the active Context, or start a
 // new terraform call routes through this. While ANY registered plugin is
-// holding a terraform operation (DirLock per ADR-0016), the action is
-// rejected and `commandError` is set to a uniform message instructing the
+// Busy — holding a terraform operation (DirLock per ADR-0016) or awaiting a
+// risk assessment — the action is rejected and `commandError` is set to a uniform message instructing the
 // user to escape via `:q!`. UI-only actions (scrolling, filtering, esc)
 // bypass this on purpose — see `docs/development/architecture.md` § Navigation.
 //
@@ -1001,9 +1008,7 @@ func (a *App) cmdQuit() tea.Cmd {
 
 func (a *App) cmdForceQuit() tea.Cmd {
 	for _, p := range a.registry.All() {
-		if c, ok := p.(sdk.Cancellable); ok {
-			c.Cancel()
-		}
+		a.cancelPlugin(p)
 	}
 	return tea.Quit
 }

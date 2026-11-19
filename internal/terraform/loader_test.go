@@ -531,11 +531,68 @@ func TestIsKeySensitive_WhenSensitiveIsMapWithKeyMissing_ShouldReturnFalse(t *te
 	}
 }
 
-func TestIsKeySensitive_WhenSensitiveIsMapWithNonBoolValue_ShouldReturnFalse(t *testing.T) {
+func TestIsKeySensitive_WhenSensitiveIsMapWithMarkedDescendant_ShouldReturnTrue(t *testing.T) {
 	m := map[string]interface{}{
 		"tags": map[string]interface{}{"env": true},
 	}
-	if isKeySensitive(m, "tags") {
-		t.Error("isKeySensitive(map, key with non-bool value) should return false")
+	if !isKeySensitive(m, "tags") {
+		t.Error("a marked descendant must mask the containing attribute")
+	}
+}
+
+func TestIsKeySensitive_GivenScalarWithoutBooleanMarks_ShouldReturnFalse(t *testing.T) {
+	for _, mask := range []any{"sensitive", 1} {
+		if isKeySensitive(mask, "password") {
+			t.Errorf("unsupported mask %v must not invent a sensitive mark", mask)
+		}
+	}
+}
+
+func TestLoadPlan_GivenReplacePaths_ShouldMarkAttributeForcesNew(t *testing.T) {
+	source := `{"format_version":"1.2","resource_changes":[{"address":"aws_instance.web","mode":"managed","type":"aws_instance","name":"web","change":{"actions":["delete","create"],"before":{"ami":"old","instance_type":"t3.small"},"after":{"ami":"new","instance_type":"t3.micro"},"after_unknown":{},"replace_paths":[["ami"]]}}]}`
+
+	summary, err := LoadPlan([]byte(source))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(summary.Changes) != 1 {
+		t.Fatalf("changes = %d, want 1", len(summary.Changes))
+	}
+
+	forcesNew := map[string]bool{}
+	for _, diff := range summary.Changes[0].AttributeDiffs {
+		forcesNew[diff.Key] = diff.ForcesNew
+	}
+	if got, ok := forcesNew["ami"]; !ok || !got {
+		t.Errorf("ami ForcesNew = %v (present=%v), want true", got, ok)
+	}
+	if forcesNew["instance_type"] {
+		t.Error("instance_type is not in replace_paths and must not force replacement")
+	}
+}
+
+func TestLoadPlan_GivenFieldTfjsonRejects_ShouldKeepDisplaySummaryWithInvalidEvidence(t *testing.T) {
+	resource := func(change string) string {
+		return `{"address":"aws_instance.web","mode":"managed","type":"aws_instance","name":"web","provider_name":"registry.terraform.io/hashicorp/aws","change":` + change + `}`
+	}
+	create := `{"actions":["create"],"before":null,"after":{"ami":"new"},"after_unknown":{}`
+	tests := []struct{ name, source string }{
+		{"object replace_paths", `{"format_version":"1.2","resource_changes":[` + resource(create+`,"replace_paths":{}}`) + `]}`},
+		{"object deferred_changes", `{"format_version":"1.2","resource_changes":[` + resource(create+`}`) + `],"deferred_changes":{}}`},
+		{"string deferred_changes", `{"format_version":"1.2","resource_changes":[` + resource(create+`}`) + `],"deferred_changes":"invalid"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			summary, err := LoadPlan([]byte(tt.source))
+			if err != nil {
+				t.Fatalf("display summary must survive malformed policy-only fields: %v", err)
+			}
+			if summary.ToCreate != 1 || len(summary.Changes) != 1 {
+				t.Errorf("ToCreate = %d, changes = %d, want 1 and 1", summary.ToCreate, len(summary.Changes))
+			}
+			if summary.PolicyEvidence == nil || summary.PolicyEvidence.ErrorCode != "input_invalid" {
+				t.Errorf("evidence = %+v, want ErrorCode input_invalid", summary.PolicyEvidence)
+			}
+		})
 	}
 }

@@ -64,6 +64,7 @@ func TestView_Given_Changes_ShouldRender_ChangeList(t *testing.T) {
 		ToDelete: 1,
 	}
 	p.filtered = p.summary.Changes
+	classifyAsChangeRisk(p, p.summary.Changes...)
 	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -83,6 +84,7 @@ func TestView_Given_Changes_WithSelection_ShouldRender_HighlightedRow(t *testing
 		ToDelete: 1,
 	}
 	p.filtered = p.summary.Changes
+	classifyAsChangeRisk(p, p.summary.Changes...)
 	p.rebuildTree()
 	p.MoveDown()
 
@@ -108,6 +110,7 @@ func TestView_Given_InspectView_ShouldRender_AttributeDiffs(t *testing.T) {
 		ToUpdate: 1,
 	}
 	p.filtered = p.summary.Changes
+	classifyAsChangeRisk(p, p.summary.Changes...)
 	p.rebuildTree()
 	p.inspectSelected()
 
@@ -126,6 +129,7 @@ func TestView_Given_PhantomChange_ShouldRender_PhantomMarker(t *testing.T) {
 		ToUpdate: 1,
 	}
 	p.filtered = p.summary.Changes
+	classifyAsChangeRisk(p, p.summary.Changes...)
 	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -141,6 +145,7 @@ func TestView_Given_CriticalRisk_ShouldRender_RiskWarning(t *testing.T) {
 		ToDelete: 1,
 	}
 	p.filtered = p.summary.Changes
+	classifyAsChangeRisk(p, p.summary.Changes...)
 	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))
@@ -158,6 +163,7 @@ func TestView_Given_PinnedChange_ShouldRender_PinMarker(t *testing.T) {
 		ToCreate: 2,
 	}
 	p.filtered = p.summary.Changes
+	classifyAsChangeRisk(p, p.summary.Changes...)
 	p.rebuildTree()
 
 	sdktest.AssertGolden(t, p.View(80, 18))

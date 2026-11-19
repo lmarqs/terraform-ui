@@ -132,19 +132,16 @@ func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.Plan
 		return nil, fmt.Errorf("running terraform plan: %w", err)
 	}
 
-	plan, err := tf.ShowPlanFile(ctx, planFilePath)
+	data, err := s.runRawJSON(ctx, "show", "-json", planFilePath)
 	if err != nil {
 		logging.Logger().Debug("terraform.result", "cmd", "plan", "error", err.Error(), "duration", time.Since(start).String())
 		return nil, fmt.Errorf("reading plan file: %w", err)
 	}
 
-	summary := terraform.ParsePlan(plan)
-
-	for i := range summary.Changes {
-		summary.Changes[i].Risk = terraform.ClassifyRisk(&summary.Changes[i])
+	summary, err := terraform.LoadPlan(data)
+	if err != nil {
+		return nil, fmt.Errorf("reading plan file: %w", err)
 	}
-
-	terraform.DetectPhantomChanges(summary.Changes)
 
 	logging.Logger().Debug("terraform.result", "cmd", "plan", "changes", len(summary.Changes), "duration", time.Since(start).String())
 	return summary, nil

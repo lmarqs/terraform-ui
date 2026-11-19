@@ -1,0 +1,48 @@
+{
+  "format_version": "1.2",
+  "terraform_version": "1.14.0",
+  "resource_changes": [
+    {
+      "address": "aws_instance.unchanged",
+      "mode": "managed",
+      "type": "aws_instance",
+      "name": "unchanged",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "no-op"
+        ],
+        "before": {
+          "id": "i-old"
+        },
+        "after": {
+          "id": "i-old"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    },
+    {
+      "address": "data.aws_instance.lookup",
+      "mode": "data",
+      "type": "aws_instance",
+      "name": "lookup",
+      "provider_name": "registry.terraform.io/hashicorp/aws",
+      "change": {
+        "actions": [
+          "read"
+        ],
+        "before": {
+          "id": "i-old"
+        },
+        "after": {
+          "id": "i-old"
+        },
+        "after_unknown": {},
+        "before_sensitive": false,
+        "after_sensitive": false
+      }
+    }
+  ]
+}

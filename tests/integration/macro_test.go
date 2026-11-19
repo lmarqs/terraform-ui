@@ -30,6 +30,36 @@ func TestMacro(t *testing.T) {
 		wantStdout string
 	}{
 		{
+			name:     "risk actions nested attributes and long plan",
+			tapeFile: tape("risk_render.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-render-plan.json")},
+			wantExit: 0,
+		},
+		{
+			name:     "risk selected policy unavailable",
+			tapeFile: tape("risk-policy-unavailable.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},
+			wantExit: 0,
+		},
+		{
+			name:     "risk empty assessment excludes no-op and read",
+			tapeFile: tape("risk_empty.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-empty-plan.json")},
+			wantExit: 0,
+		},
+		{
+			name:     "risk explicit none classification",
+			tapeFile: tape("risk_none.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-partial-plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-none")},
+			wantExit: 0,
+		},
+		{
+			name:     "risk partial assessment retains failures and classifications",
+			tapeFile: tape("risk_partial.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-partial-plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-partial")},
+			wantExit: 0,
+		},
+		{
 			name:     "home menu visible after init",
 			tapeFile: tape("home_menu.tape"),
 			args:     []string{"-plan", planFixture},

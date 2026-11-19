@@ -29,6 +29,12 @@ type PluginDeps struct {
 	// non-nil after the first ContextChangedEvent; before that, returns a
 	// minimal bootstrap snapshot derived from Service.
 	Context func() *Context
+	// RequestAssessment asks the host to assess summary against the policy the
+	// active Context selects; a nil summary makes the host run the plan first.
+	// The result arrives as a RiskAssessedEvent. Every host provides it. Call it
+	// only on the Update loop (Init, Update, Activate or an event handler), never
+	// inside a Cmd: it captures the active Context and request generation.
+	RequestAssessment func(summary *PlanSummary) tea.Cmd
 	// Pin toggles resource addresses into or out of the active Context's Pins
 	// as one group (see Pins.Toggle). Returns a tea.Cmd that emits the request
 	// to the App; the actual Pins change becomes visible to the plugin on the

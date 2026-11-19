@@ -3,6 +3,7 @@ package terraform
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -19,7 +20,7 @@ func ParsePlan(plan *tfjson.Plan) *PlanSummary {
 	}
 
 	for _, rc := range plan.ResourceChanges {
-		if rc.Change == nil {
+		if rc == nil || rc.Change == nil {
 			continue
 		}
 
@@ -38,6 +39,7 @@ func ParsePlan(plan *tfjson.Plan) *PlanSummary {
 				Name:         rc.Name,
 				Module:       ExtractModule(rc.Address),
 				ProviderName: rc.ProviderName,
+				Deposed:      rc.DeposedKey,
 			},
 			Action:         action,
 			AttributeDiffs: parseAttributeDiffs(rc.Change),
@@ -88,9 +90,20 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 		keys[k] = true
 	}
 
+	for k := range jsonToMap(change.AfterUnknown) {
+		keys[k] = true
+	}
+	sortedKeys := make([]string, 0, len(keys))
 	for key := range keys {
+		sortedKeys = append(sortedKeys, key)
+	}
+	sort.Strings(sortedKeys)
+	for _, key := range sortedKeys {
 		oldVal := marshalValue(beforeMap[key])
 		newVal := marshalValue(afterMap[key])
+		if maskMarked(change.AfterUnknown, key) {
+			newVal = "(known after apply)"
+		}
 
 		if oldVal == newVal {
 			continue
@@ -107,6 +120,7 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 			OldValue:  oldVal,
 			NewValue:  newVal,
 			Sensitive: sensitive,
+			ForcesNew: attributeForcesNew(change.ReplacePaths, key),
 		})
 	}
 
@@ -135,17 +149,50 @@ func marshalValue(v interface{}) string {
 }
 
 func isKeySensitive(sensitive interface{}, key string) bool {
-	if sensitive == nil {
+	return maskMarked(sensitive, key)
+}
+
+func maskMarked(mask interface{}, key string) bool {
+	if mask == nil {
 		return false
 	}
-	switch s := sensitive.(type) {
+	switch m := mask.(type) {
 	case bool:
-		return s
+		return m
 	case map[string]interface{}:
-		if v, ok := s[key]; ok {
-			if b, ok := v.(bool); ok {
-				return b
+		return markedValue(m[key])
+	}
+	return false
+}
+
+func markedValue(mask interface{}) bool {
+	switch value := mask.(type) {
+	case bool:
+		return value
+	case map[string]interface{}:
+		for _, child := range value {
+			if markedValue(child) {
+				return true
 			}
+		}
+	case []interface{}:
+		for _, child := range value {
+			if markedValue(child) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func attributeForcesNew(paths []interface{}, key string) bool {
+	for _, value := range paths {
+		path, ok := value.([]interface{})
+		if !ok {
+			continue
+		}
+		if len(path) > 0 && path[0] == key {
+			return true
 		}
 	}
 	return false

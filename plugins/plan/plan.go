@@ -38,6 +38,9 @@ type Input struct {
 type PlanResultMsg struct {
 	Summary *sdk.PlanSummary
 	Err     error
+	// run identifies the plan run, so a late result of a run the plugin
+	// cancelled or superseded is dropped.
+	run context.Context
 }
 
 // planJSONMsg carries the raw bytes captured from terraform show -json.
@@ -68,11 +71,18 @@ type Plugin struct {
 	filter       string
 	filtering    bool
 	errMsg       string
+	assessment   *sdk.PolicyAssessment
+	rows         sdk.AssessmentRows
+	assessedRisk sdk.RiskLevel
+	assessing    bool
+	riskHint     string
+	requestRisk  func(*sdk.PlanSummary) tea.Cmd
 	lockInfo     *sdk.StateLock
 	stale        bool
 	listPanel    *ui.ContentPanel
 	pinnedOnly   bool
 	cancelFn     context.CancelFunc
+	run          context.Context     // the plan run whose result the plugin awaits
 	lastStream   *frames.StreamFrame // retained for L key re-display after success
 	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
 	planFile     sdk.PlanFile        // plan artifact produced by the most recent run
@@ -82,12 +92,13 @@ type Plugin struct {
 	pendingApply       bool
 	pendingAutoApprove bool
 	// detail view state
-	detail       string
-	detailAddr   string
-	detailScroll int
-	detailPanel  *ui.ContentPanel
-	viewWidth    int
-	input        Input // typed input from cmd/tfui or app.go's typed dispatch
+	detail        string
+	detailAddr    string
+	detailDeposed string
+	detailScroll  int
+	detailPanel   *ui.ContentPanel
+	viewWidth     int
+	input         Input // typed input from cmd/tfui or app.go's typed dispatch
 	// cfgTargets is the project-level default target list from
 	// `plugin "plan" { targets = [...] }`. Used only when no explicit selection
 	// exists, so an explicit --target or pin narrows rather than widens.
@@ -119,12 +130,18 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone && !e.assessing }
 func (e *Plugin) Status() sdk.Status { return e.status }
-func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
+func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading || e.assessing }
 func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
+}
+
+// Assessment is the host's assessment of the reviewed plan, or nil while none
+// has arrived.
+func (e *Plugin) Assessment() *sdk.PolicyAssessment {
+	return e.assessment
 }
 
 func (e *Plugin) Count() (int, int) {
@@ -144,6 +161,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // the user must explicitly activate the plugin to trigger a plan.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
+	e.requestRisk = deps.RequestAssessment
 	e.reset()
 	return nil
 }
@@ -161,6 +179,8 @@ func (e *Plugin) HandleLockCleared(_ sdk.LockClearedEvent) tea.Cmd {
 // changes the plugin fully resets.
 func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return e.ReactToContext(ev, func() {
+		// The host drops results requested before a Context change.
+		e.assessing = false
 		e.stale = true
 		// In pinned-only view the filtered slice is derived from the pin set,
 		// so re-run the filter to drop newly-unpinned rows (and admit newly-
@@ -179,7 +199,9 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 // HandlePlanInvalidated implements sdk.PlanInvalidatedHandler.
 func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 	if e.status == sdk.StatusDone {
-		// Keep results visible; Activate() will re-plan on next entry
+		// Keep results visible; Activate() will re-plan on next entry. The host
+		// drops results requested before the invalidation.
+		e.assessing = false
 		e.stale = true
 		return nil
 	}
@@ -190,6 +212,10 @@ func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 // reset clears all plugin state to initial values. Removes any stale plan
 // artifact from disk so subsequent runs start clean.
 func (e *Plugin) reset() {
+	e.cancelInflight()
+	e.assessment = nil
+	e.rows = nil
+	e.assessing = false
 	e.planFile.Cleanup()
 	e.planFile = sdk.PlanFile{}
 	e.status = sdk.StatusIdle
@@ -229,6 +255,9 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 		}
 		return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 	}
+	if e.status == sdk.StatusDone && !input.JSON {
+		return e.requestAssessment()
+	}
 	if e.status == sdk.StatusLoading && e.timer.Running() {
 		return e.timer.Tick()
 	}
@@ -248,12 +277,21 @@ func (e *Plugin) Refresh() tea.Cmd {
 func (e *Plugin) Cancel() {
 	e.cancelInflight()
 	e.clearPendingApply()
+	e.assessing = false
+	if e.status == sdk.StatusLoading {
+		e.timer.Stop()
+		e.status = sdk.StatusError
+		e.errMsg = "cancelled"
+		e.stack.Clear()
+		e.stack.Push(&listFrame{plugin: e})
+	}
 }
 
 // cancelInflight aborts the current terraform plan goroutine without
 // touching the deferred-apply intent. Used when starting a new plan run on
 // top of an old one (the new run is the continuation, not an abort).
 func (e *Plugin) cancelInflight() {
+	e.run = nil
 	if e.cancelFn != nil {
 		e.cancelFn()
 		e.cancelFn = nil
@@ -263,7 +301,7 @@ func (e *Plugin) cancelInflight() {
 func (e *Plugin) runPlan() tea.Cmd {
 	e.cancelInflight()
 	ctx, cancel := context.WithCancel(context.Background())
-	e.cancelFn = cancel
+	e.cancelFn, e.run = cancel, ctx
 
 	svc := e.Svc
 	var opts sdk.PlanOptions
@@ -306,7 +344,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 	return func() tea.Msg {
 		summary, err := svc.Plan(ctx, opts)
 		lw.Close()
-		return PlanResultMsg{Summary: summary, Err: err}
+		return PlanResultMsg{Summary: summary, Err: err, run: ctx}
 	}
 }
 
@@ -332,6 +370,7 @@ func mergeTargets(pinned, cli []string) []string {
 // Shutdown implements sdk.Shutdowner: the temp plan file holds variable values
 // in plaintext and must not outlive the program (ADR-0020).
 func (e *Plugin) Shutdown() {
+	e.cancelInflight()
 	e.planFile.Cleanup()
 }
 
@@ -388,6 +427,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, nil
 
 	case PlanResultMsg:
+		if msg.run != nil && msg.run != e.run {
+			return e, nil
+		}
 		e.timer.Stop()
 		if msg.Err != nil {
 			e.clearPendingApply()
@@ -404,10 +446,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		} else {
 			e.status = sdk.StatusDone
 			e.summary = msg.Summary
+			e.assessment = nil
+			e.rows = nil
 			var pruneCmd tea.Cmd
 			if msg.Summary != nil {
-				e.filtered = msg.Summary.Changes
-				e.fuzzy.SetItems(msg.Summary.Changes)
+				e.filtered = e.summary.Changes
+				e.fuzzy.SetItems(e.summary.Changes)
 				pruneCmd = e.pruneStalePins(msg.Summary.Changes)
 				e.rebuildTree()
 			}
@@ -436,7 +480,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 					},
 				)
 			}
-			cmds = append(cmds, func() tea.Msg { return sdk.StateRefreshedEvent{} })
+			cmds = append(cmds, e.requestAssessment(), func() tea.Msg { return sdk.StateRefreshedEvent{} })
 
 			// Fire the deferred apply only when the replan produced changes. If
 			// it ended up clean (zero changes), there is nothing to apply.
@@ -629,7 +673,7 @@ func (e *Plugin) inspectSelected() tea.Cmd {
 		return nil
 	}
 	e.detail = e.buildInspectContent(change)
-	e.detailAddr = change.Resource.Address
+	e.detailAddr, e.detailDeposed = change.Resource.Address, change.Resource.Deposed
 	e.detailScroll = 0
 	e.detailPanel.ResetScroll()
 	e.filtering = false
@@ -651,8 +695,10 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 	fmt.Fprintf(&b, "Type:     %s\n", change.Resource.Type)
 	fmt.Fprintf(&b, "Provider: %s\n", change.Resource.ProviderName)
 
-	if change.Risk != sdk.RiskNone {
-		fmt.Fprintf(&b, "Risk:     %s\n", sdk.RiskBadge(change.Risk))
+	if level, diagnostic := e.riskCell(*change); diagnostic != "" {
+		fmt.Fprintf(&b, "risk unavailable: %s\n", diagnostic)
+	} else if level != sdk.RiskNone {
+		fmt.Fprintf(&b, "Risk:     %s\n", sdk.RiskBadge(level))
 	}
 	if change.IsPhantom {
 		b.WriteString("Phantom:  yes (no real change detected)\n")
@@ -660,21 +706,16 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 
 	if len(change.AttributeDiffs) > 0 {
 		b.WriteString("\nAttributes:\n")
-		for _, diff := range change.AttributeDiffs {
-			if diff.Sensitive {
-				fmt.Fprintf(&b, "  %s: (sensitive)\n", diff.Key)
-				continue
-			}
-			if diff.ForcesNew {
-				fmt.Fprintf(&b, "  %s (forces new):\n", diff.Key)
-			} else {
-				fmt.Fprintf(&b, "  %s:\n", diff.Key)
-			}
-			fmt.Fprintf(&b, "    - %s\n", diff.OldValue)
-			fmt.Fprintf(&b, "    + %s\n", diff.NewValue)
-		}
+		b.WriteString(sdk.RenderAttributeDiffs(change.AttributeDiffs))
 	}
 
+	if e.assessment != nil {
+		if row, ok := e.rows[change.Resource.InstanceKey()]; ok {
+			for _, reason := range row.Reasons {
+				fmt.Fprintf(&b, "\n%s\n", reason.Message)
+			}
+		}
+	}
 	return b.String()
 }
 
@@ -732,7 +773,11 @@ func (e *Plugin) listActions() []ui.ActionChip {
 
 func (e *Plugin) renderResults(width, height int) string {
 	if e.summary == nil || len(e.summary.Changes) == 0 {
-		return sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
+		content := sdk.StyleSuccess.Render("No changes. Infrastructure is up-to-date.")
+		if e.assessing || e.assessmentDiagnostic() != "" {
+			content += "\n" + e.renderOverallRisk()
+		}
+		return content
 	}
 
 	filterLine := ""
@@ -755,6 +800,9 @@ func (e *Plugin) renderResults(width, height int) string {
 
 	if len(e.filtered) == 0 {
 		noChanges := sdk.StyleFaintItalic.Render("No matching changes.")
+		if e.assessing || e.assessmentDiagnostic() != "" {
+			noChanges += "\n" + e.renderOverallRisk()
+		}
 		return filterLine + noChanges
 	}
 
@@ -778,7 +826,7 @@ func (e *Plugin) renderResults(width, height int) string {
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
 				c := node.Item.(changeItem).change
 				symbol := sdk.ActionSymbol(c.Action)
-				risk := sdk.RiskBadge(c.Risk)
+				risk := e.riskBadge(c)
 				full := symbol + " " + node.Label
 				if risk != "" {
 					full += " " + risk
@@ -851,7 +899,7 @@ func (e *Plugin) buildFlatRows(contentWidth, maxVisible int) []string {
 func (e *Plugin) formatChangeRow(pinMark string, change sdk.PlanChange) string {
 	symbol := sdk.ActionSymbol(change.Action)
 	address := change.Resource.Address
-	risk := sdk.RiskBadge(change.Risk)
+	risk := e.riskBadge(change)
 
 	full := symbol + " " + address
 	if risk != "" {
@@ -917,11 +965,16 @@ func (e *Plugin) renderDetail(width, height int) string {
 }
 
 func (e *Plugin) renderOverallRisk() string {
+	if e.assessing {
+		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
+	}
+	if diagnostic := e.assessmentDiagnostic(); diagnostic != "" {
+		return sdk.StyleError.Render("risk unavailable: " + string(diagnostic))
+	}
 	if e.summary == nil || len(e.summary.Changes) == 0 {
 		return ""
 	}
-	overall := sdk.OverallRisk(e.summary.Changes)
-	switch overall {
+	switch e.overallRisk() {
 	case sdk.RiskCritical:
 		return sdk.StyleRiskCritical.Render("Overall risk: CRITICAL")
 	case sdk.RiskHigh:
@@ -982,16 +1035,19 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	b.WriteString("\n")
 	fmt.Fprintf(&b, "Plan: %d to add, %d to change, %d to destroy.\n",
 		e.summary.ToCreate, e.summary.ToUpdate+e.summary.ToReplace, e.summary.ToDelete)
-	if risk := sdk.OverallRisk(e.summary.Changes); risk > sdk.RiskNone {
+	if risk := e.overallRisk(); e.assessmentDiagnostic() == "" && risk > sdk.RiskNone {
 		fmt.Fprintf(&b, "Risk: %s\n", risk)
 	}
 	return []byte(b.String()), nil
 }
 
-// Stderr surfaces the failure when the plan run itself failed — a failed
-// plan must not pass silently in headless mode.
+// Stderr reports policy availability separately from successful Plan output;
+// Terraform planning failures retain their own diagnostic.
 func (e *Plugin) Stderr() []byte {
 	if e.status != sdk.StatusError {
+		if diagnostic := e.assessmentDiagnostic(); e.status == sdk.StatusDone && !e.input.JSON && diagnostic != "" {
+			return []byte("risk unavailable: " + sdk.DiagnosticError{Code: diagnostic, Hint: e.riskHint}.Error() + "\n")
+		}
 		return nil
 	}
 	return []byte(e.errMsg + "\n")
@@ -1063,6 +1119,9 @@ func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
 // replan. Used both by Refresh and by the implicit replan-before-apply path.
 func (e *Plugin) startReplan() tea.Cmd {
 	e.status = sdk.StatusLoading
+	e.assessment = nil
+	e.rows = nil
+	e.assessing = false
 	e.summary = nil
 	e.filtered = nil
 	e.errMsg = ""

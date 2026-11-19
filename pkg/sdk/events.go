@@ -106,6 +106,20 @@ type PlanInvalidatedEvent struct{}
 
 func (PlanInvalidatedEvent) event() {}
 
+// RiskAssessedEvent carries the result of PluginDeps.RequestAssessment. The App
+// dispatches it only while no Context change or plan invalidation happened since
+// the request, and no cancel that a later request followed. Err reports a failed plan fetch, which leaves Assessment empty.
+// Hint tells how to resolve the failure behind Assessment.ErrorCode, or is
+// empty; DiagnosticError renders the two together.
+type RiskAssessedEvent struct {
+	Summary    *PlanSummary
+	Assessment PolicyAssessment
+	Hint       string
+	Err        error
+}
+
+func (RiskAssessedEvent) event() {}
+
 type LockDetectedEvent struct {
 	Lock *StateLock
 }
@@ -126,6 +140,10 @@ type PlanCompletedHandler interface {
 
 type PlanInvalidatedHandler interface {
 	HandlePlanInvalidated(PlanInvalidatedEvent) tea.Cmd
+}
+
+type RiskAssessedHandler interface {
+	HandleRiskAssessed(RiskAssessedEvent) tea.Cmd
 }
 
 type LockDetectedHandler interface {

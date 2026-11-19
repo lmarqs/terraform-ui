@@ -7,7 +7,7 @@ key: R
 seo:
   description: "Group Terraform plan changes by risk level, critical, high, medium, low or none, with an overall assessment and the reason behind each classification."
 description: "Describes how the Risk Analysis plugin groups planned changes by risk level."
-audience: "Users who have run a plan and want its riskiest changes first"
+audience: "Users who know Terraform plans and want to review or report their risk classifications"
 category: analysis
 default_enabled: true
 ---
@@ -16,57 +16,94 @@ default_enabled: true
 
 ## Overview
 
-The Risk Analysis plugin contains a view that groups a supplied plan summary by risk level. In the current
-checkout, production activation and plan-completion events do not supply that summary, so opening the view stays
-idle even after Plan completes. This is tracked in [Risk, Phantom and Blast Radius screens never receive a plan](https://github.com/lmarqs/terraform-ui/issues/76).
+Risk Analysis groups eligible resource mutations from the reviewed plan by the selected policy's classification,
+from critical to none, with the policy's explanation beside each resource. Plan uses the same assessment for its
+risk badges; Blast Radius uses those classifications in its impact calculation. The built-in rules are described
+in [Risk analysis](../features/risk-analysis.md). A custom policy completely replaces them.
 
-Plan's risk badges and headless text summary work independently of this view. Their fixed classification rules
-are documented in [Risk analysis](../features/risk-analysis.md). Custom policies and `tfui risk` are planned, not
-available configuration or commands; their accepted definitions are in the [policy contract](../reference/risk-policy-contract.md).
-
-## Screenshot
-
-![Risk Analysis]({{ site.baseurl }}/assets/demo/risk-analysis.gif)
+Open Risk after Plan to reuse the reviewed evidence without generating a second plan. Without a current plan,
+tfui acquires one for Risk using the active Context's plan options and cleans up its temporary saved artifact.
+Risk provides review and reporting; it adds no Apply action.
 
 ## Interactive (TUI)
 
-Press `R` (uppercase) to open the Risk Analysis view. The current idle message is "Run a plan first to analyze risk...". The missing plan-delivery wiring means running a plan does not currently populate this view.
+Press `R` (uppercase) to open Risk Analysis. Resource rows show the original action symbol, address, policy
+explanation and compact attribute changes. Additional changes have an overflow count; inspect a resource for the
+full diff and reasons. Unknown values keep their unknown notation and sensitive values stay masked.
+
+Only resources are cursor items; group headings are skipped. The title shows the cursor/count, and a scroll
+gutter appears when the list exceeds the viewport.
 
 ### Keybindings
 
 | Key | Action | When |
 |-----|--------|------|
-| `j` / `k` / arrows | Navigate groups and changes | Supplied-summary list |
-| `q` | Back to Home | Always |
+| `j` / `k` / arrows | Navigate resources | Mutation list |
+| `Enter` | Inspect the selected mutation's full diff and reasons | Mutation list |
+| `↑` / `↓`, `g` / `G` | Scroll detail; jump to start/end | Inspection |
+| `←` / `→` | Scroll horizontally when wrapping is off | Inspection |
+| `Ctrl+w` | Toggle wrapping | Inspection |
+| `Esc` | Close inspection; leave Risk from the list | Inspection or list |
+| `q` | Close inspection first; from the list, return Home (quit in standalone mode) | Inspection or list |
 
-### Supplied-summary rendering
+### Assessment states
 
-The view can render an overall level and groups from critical to none when supplied a summary directly. Reasons
-are heuristic strings for some actions, not policy-authored explanations. The screenshot illustrates that
-rendering; it is not evidence that the production plan-delivery path works.
+A complete nonempty assessment shows its maximum level and groups the classified mutations. An explicit
+`none` is a policy classification, not a safety guarantee. With no eligible mutations, the view instead shows
+`No eligible mutations (N changes not assessed).` Reads, no-ops and pure moves/imports are excluded; a phantom
+label does not exclude a mutation.
+
+Policy or input failure shows unavailable risk. A partial assessment retains classified resources and failed
+rows for inspection, but supplies no overall classification. Plan review remains available on policy failure;
+Terraform planning failures still report the Terraform error.
+
+Source and configuration are rechecked at assessment boundaries, including Risk activation and Context changes.
+Edits are detected at the next boundary; there is no background watcher. See the
+[source lifecycle](../reference/risk-policy-contract.md#reload-and-publication).
 
 ## Command Line (CLI)
 
-Risk Analysis is an analysis view within the TUI. It has no CLI command of its own.
+```bash
+tfui risk -ci -plan ./plan.json
+tfui risk -ci -plan ./plan.json -json -risk-threshold high
+terraform show -json tfplan.out | tfui risk -ci -plan -
+```
 
-Risk is not in `-json` output. `tfui plan -ci` prints the overall level as its last line, for example `Risk: critical`.
+`-plan` accepts Terraform show JSON from a file or stdin, so seeded analysis needs no Terraform binary.
+Without it, tfui acquires a live plan for Risk. `-json` selects the versioned risk report; `tfui plan -json` continues to
+emit Terraform JSON without risk fields. Show JSON is analysis input, not an executable saved plan.
 
-## Equivalence
-
-| Goal | CLI | TUI |
-|------|-----|-----|
-| See risk breakdown | — | `R` view exists; plan-delivery wiring is incomplete |
-| Get overall risk level | `tfui plan -ci` (last line, e.g. `Risk: critical`) | Overall risk line in Plan |
+The [CLI reference](../reference/cli-reference.md#tfui-risk) lists the command and flags. The
+[policy contract](../reference/risk-policy-contract.md#command-threshold-and-report-v1) owns report schemas and
+threshold comparison; the [I/O contract](../reference/cli-io-contract.md#risk-command-v1) owns channels and exits.
 
 ## Configuration
 
-Risk currently reads no plugin-specific options: `Configure` ignores them. In particular, an option named `level`
-does not configure a working threshold. The generic `enabled` setting is handled by the application; see
-[configuration](../guides/configuration.md). Custom source selection and templates belong to the planned contract,
-not the current HCL interface.
+With no policy selector, Risk uses the embedded complete built-in policy. Select a local complete policy with
+`risk_policy`; the [source selection contract](../reference/risk-policy-contract.md#source-selection) defines
+root, Member and workspace precedence, declaration-relative paths and explicit reset to built-in.
+
+```hcl
+# Project tfui.hcl
+defaults {
+  risk_policy = "policies/team"
+  plugin "risk" {
+    threshold = "high"
+  }
+}
+```
+
+`threshold` controls command comparison and defaults to `off`; explicit `-risk-threshold` overrides it. Accepted
+values and inclusive comparison are defined in the [threshold contract](../reference/risk-policy-contract.md#command-threshold-and-report-v1).
+The `level` setting is rejected with a configuration error that names `threshold`.
+
+Generic plugin settings such as `enabled` remain root-only; Member plugin blocks are rejected. Disabling the
+Risk view does not disable the shared policy selector used by Plan. See [configuration](../guides/configuration.md)
+for plugin enablement and the [authoring guide](../guides/risk-policy-authoring.md) for complete copyable policies
+and isolated author tests.
 
 ## Related
 
-- [Plan](plan.md) -- view the raw plan changes
-- [Blast Radius](blastradius.md) -- module-level impact scoring
-- [Phantom Changes](phantom.md) -- filter out cosmetic-only changes
+- [Plan](plan.md) — review the plan tree and shared risk badges
+- [Blast Radius](blastradius.md) — module-level impact from selected-policy classifications
+- [Phantom Changes](phantom.md) — review advisory phantom labels

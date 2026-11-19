@@ -51,88 +51,6 @@ func TestCount_WhenModulesPresent_ShouldReturnFilteredAndTotal(t *testing.T) {
 	}
 }
 
-func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	p.Analyze(nil)
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
-	}
-	if p.modules != nil {
-		t.Error("modules = non-nil, want nil")
-	}
-	if p.total != 0 {
-		t.Errorf("total = %d, want 0", p.total)
-	}
-	if !p.Ready() {
-		t.Error("Ready() = false after Analyze(nil), want true")
-	}
-}
-
-func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilModules(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
-	}
-	if p.modules != nil {
-		t.Error("modules = non-nil after empty changes, want nil")
-	}
-}
-
-func TestAnalyze_WhenChangesPresent_ShouldGroupByModuleAndSortByImpact(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	summary := &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "aws_instance.web", Module: ""}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
-			{Resource: sdk.Resource{Address: "module.vpc.aws_subnet.a", Module: "module.vpc"}, Action: sdk.ActionUpdate, Risk: sdk.RiskMedium},
-			{Resource: sdk.Resource{Address: "module.vpc.aws_subnet.b", Module: "module.vpc"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
-			{Resource: sdk.Resource{Address: "module.rds.aws_db_instance.main", Module: "module.rds"}, Action: sdk.ActionDeleteThenCreate, Risk: sdk.RiskCritical},
-		},
-	}
-
-	p.Analyze(summary)
-
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
-	}
-	if p.TotalChanges() != 4 {
-		t.Errorf("TotalChanges() = %d, want 4", p.TotalChanges())
-	}
-	if p.ModuleCount() == 0 {
-		t.Error("ModuleCount() = 0, want > 0")
-	}
-	if p.selected != 0 {
-		t.Errorf("selected = %d, want 0 after Analyze", p.selected)
-	}
-
-	// Highest impact should be first (sorted by impact score)
-	if p.modules[0].Score < p.modules[len(p.modules)-1].Score {
-		t.Error("modules not sorted by impact score descending")
-	}
-}
-
-func TestAnalyze_WhenSingleModule_ShouldReturnOneModuleGroup(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	summary := &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{
-			{Resource: sdk.Resource{Address: "aws_instance.web", Module: ""}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
-		},
-	}
-
-	p.Analyze(summary)
-	if p.ModuleCount() != 1 {
-		t.Errorf("ModuleCount() = %d, want 1", p.ModuleCount())
-	}
-}
-
 func TestPlugin_WhenNew_ShouldHaveIdleStatus(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
@@ -341,6 +259,7 @@ func TestView_WhenDoneWithNilModules_ShouldRenderNonEmpty(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = nil
+	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "No changes") || !strings.Contains(view, "zero") {
@@ -353,6 +272,7 @@ func TestView_WhenDoneWithEmptyModules_ShouldRenderNonEmpty(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = []ModuleImpact{}
+	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "No changes") || !strings.Contains(view, "zero") {
@@ -430,6 +350,7 @@ func TestView_WhenModuleExpanded_ShouldShowChanges(t *testing.T) {
 		},
 	}
 	p.expanded = map[int]bool{0: true}
+	p.setAssessment(classifiedLow(p.modules))
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "aws_subnet.a") {
@@ -461,6 +382,7 @@ func TestView_WhenExpandedWithReplaceAction_ShouldRenderReplaceSymbol(t *testing
 		},
 	}
 	p.expanded = map[int]bool{0: true}
+	p.setAssessment(classifiedLow(p.modules))
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "aws_instance.web") {
@@ -897,4 +819,15 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 	if pos != 0 || total != 0 {
 		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
 	}
+}
+
+func classifiedLow(modules []ModuleImpact) *sdk.PolicyAssessment {
+	low := sdk.RiskLow
+	assessment := &sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low}
+	for _, m := range modules {
+		for _, change := range m.Group.Changes {
+			assessment.Resources = append(assessment.Resources, sdk.PolicyResourceAssessment{Address: change.Resource.Address, Status: sdk.ResourceClassified, Level: &low})
+		}
+	}
+	return assessment
 }

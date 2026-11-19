@@ -9,7 +9,9 @@ func ActionSymbol(action Action) string {
 		return StyleUpdate.Render("~")
 	case ActionDelete:
 		return StyleDelete.Render("-")
-	case ActionDeleteThenCreate, ActionCreateThenDelete:
+	case ActionCreateThenDelete:
+		return StyleReplace.Render("+/-")
+	case ActionDeleteThenCreate:
 		return StyleReplace.Render("-/+")
 	case ActionRead:
 		return StyleFaint.Render("<=")
