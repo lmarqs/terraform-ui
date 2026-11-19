@@ -29,6 +29,8 @@ Press `o` from the home menu. The plugin fetches outputs and displays them in a 
 | `j` / `k` / `↑` / `↓` | Navigate up/down | List |
 | `g` / `G` | Jump to first/last | List |
 | `/` | Filter outputs by name | List |
+| `←` / `→` | Scroll the list horizontally when wrapping is off | List |
+| `Ctrl+w` | Toggle wrapping | List |
 | `ctrl+r` | Refresh outputs | Outputs loaded or failed |
 | `Esc` | Close filter; otherwise back to Home | Filter / List |
 | `q` | Back to home | Always |
