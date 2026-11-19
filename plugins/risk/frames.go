@@ -27,38 +27,28 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 }
 func (f *listFrame) View(width, height int) string { return f.plugin.View(width, height) }
 func (f *listFrame) Hints() []sdk.KeyHint {
-	if f.plugin.Ready() && f.plugin.totalItems() > 0 {
+	if f.plugin.Ready() && len(f.plugin.items) > 0 {
 		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
 	}
 	return sdk.HintSetQuit.Hints()
 }
 
 func (e *Plugin) inspectSelected() {
-	if !e.Ready() {
+	if !e.Ready() || e.selected >= len(e.items) {
 		return
 	}
-	index := e.selected
-	for _, group := range e.groups {
-		if index >= len(group.Changes) {
-			index -= len(group.Changes)
-			continue
-		}
-		change := group.Changes[index]
-		risk := change.Risk.String()
-		if row := e.resourceAssessment(change.Resource.InstanceKey()); row != nil && row.Status == sdk.ResourceUnavailable {
-			risk = "unavailable: " + string(row.ErrorCode)
-		}
-		var b strings.Builder
-		fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(change.Action), change.Action, change.Resource.Address, risk)
-		b.WriteString(sdk.RenderAttributeDiffs(change.AttributeDiffs))
-		if row := e.resourceAssessment(change.Resource.InstanceKey()); row != nil {
-			for _, reason := range row.Reasons {
-				fmt.Fprintf(&b, "\n%s\n", reason.Message)
-			}
-		}
-		e.stack.Push(&inspectFrame{InspectFrame: frames.NewInspectFrame(frames.InspectOpts{Title: "Mutation", Address: change.Resource.Address, Content: b.String()})})
-		return
+	item := e.items[e.selected]
+	risk := "unavailable: " + string(item.row.ErrorCode)
+	if item.row.Status != sdk.ResourceUnavailable {
+		risk = item.row.Level.String()
 	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(item.change.Action), item.change.Action, item.change.Resource.Address, risk)
+	b.WriteString(sdk.RenderAttributeDiffs(item.change.AttributeDiffs))
+	for _, reason := range item.row.Reasons {
+		fmt.Fprintf(&b, "\n%s\n", reason.Message)
+	}
+	e.stack.Push(&inspectFrame{InspectFrame: frames.NewInspectFrame(frames.InspectOpts{Title: "Mutation", Address: item.change.Resource.Address, Content: b.String()})})
 }
 
 type inspectFrame struct {

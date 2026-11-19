@@ -46,7 +46,12 @@ esac
 	if cmd := risk.Init(harness.Deps); cmd != nil {
 		cmd()
 	}
-	risk.Analyze(live)
+	low := sdk.RiskLow
+	harness.AssessmentEvent = sdk.RiskAssessedEvent{Summary: live, Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_lambda_function.worker", Actions: []string{"update"}, Status: sdk.ResourceClassified, Level: &low},
+	}}}
+	risk.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: live})
+	risk.HandleRiskAssessed(risk.Activate()().(sdk.RiskAssessedEvent))
 	if !risk.Ready() || !strings.Contains(risk.View(100, 30), "aws_lambda_function.worker") {
 		t.Fatalf("Risk did not review the acquired plan: %q", risk.View(100, 30))
 	}

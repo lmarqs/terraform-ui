@@ -8,12 +8,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func TestView_GivenMutationWithThreeDiffs_ShouldShowTwoPathsAndOverflow(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{{
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{{
 		Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate, Risk: sdk.RiskLow,
 		AttributeDiffs: []sdk.AttributeDiff{
 			{Key: "instance_type", OldValue: "t3.small", NewValue: "t3.large"},
@@ -36,12 +34,11 @@ func TestView_GivenMutationWithThreeDiffs_ShouldShowTwoPathsAndOverflow(t *testi
 }
 
 func TestNavigation_GivenLongPlan_WhenMovingAndResizing_ShouldKeepSelectedResourceVisible(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
 	changes := make([]sdk.PlanChange, 30)
 	for i := range changes {
 		changes[i] = sdk.PlanChange{Resource: sdk.Resource{Address: fmt.Sprintf("aws_instance.node_%02d", i)}, Action: sdk.ActionUpdate, Risk: sdk.RiskLow}
 	}
-	p.Analyze(&sdk.PlanSummary{Changes: changes})
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: changes})
 	p.View(80, 14)
 	for range 24 {
 		_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -80,13 +77,13 @@ func TestNavigation_GivenLongPlan_WhenMovingAndResizing_ShouldKeepSelectedResour
 func TestInspect_GivenReplacementWithSensitiveAndUnknownDiffs_ShouldShowEveryPathAndValidatedReason(t *testing.T) {
 	for _, action := range []sdk.Action{sdk.ActionDeleteThenCreate, sdk.ActionCreateThenDelete} {
 		t.Run(string(action), func(t *testing.T) {
-			p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-			p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: action, Risk: sdk.RiskHigh, AttributeDiffs: []sdk.AttributeDiff{
+			high := sdk.RiskHigh
+			p, _, _ := newAssessedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: action, Risk: sdk.RiskHigh, AttributeDiffs: []sdk.AttributeDiff{
 				{Key: "ami", OldValue: "old", NewValue: "(known after apply)", ForcesNew: true},
 				{Key: "password", OldValue: "secret-before", NewValue: "secret-after", Sensitive: true},
 				{Key: "tags.Owner", OldValue: "ops", NewValue: "platform"},
-			}}}})
-			p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Reasons: []sdk.PolicyReason{{Code: "replacement", Message: "The image change requires replacement."}}}}})
+			}}}}, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Status: sdk.ResourceClassified, Level: &high, Reasons: []sdk.PolicyReason{{Code: "replacement", Message: "The image change requires replacement."}}}}})
+			runLifecycleCmd(p, p.Activate())
 			compact := ansi.Strip(p.View(42, 18))
 			symbol := "-/+"
 			if action == sdk.ActionCreateThenDelete {

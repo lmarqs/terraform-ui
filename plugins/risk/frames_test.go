@@ -47,8 +47,7 @@ func TestListFrame_WhenEscapePressed_ShouldRequestDeactivation(t *testing.T) {
 }
 
 func TestFrames_GivenNonKeyMessage_ShouldPreserveCurrentView(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(lifecycleSummary("aws_instance.web"))
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
 	for _, inspect := range []bool{false, true} {
 		if inspect {
 			_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -64,15 +63,15 @@ func TestFrames_GivenNonKeyMessage_ShouldPreserveCurrentView(t *testing.T) {
 }
 
 func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedReasons(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{
+	low, high := sdk.RiskLow, sdk.RiskHigh
+	p, _, _ := newAssessedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_db_instance.main"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
 		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate, Risk: sdk.RiskLow, AttributeDiffs: []sdk.AttributeDiff{{Key: "size", OldValue: "small", NewValue: "large"}}},
+	}}, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_db_instance.main", Status: sdk.ResourceClassified, Level: &high, Reasons: []sdk.PolicyReason{{Message: "Database deletion"}}},
+		{Address: "aws_instance.web", Status: sdk.ResourceClassified, Level: &low, Reasons: []sdk.PolicyReason{{Message: "Memory size changed"}}},
 	}})
-	p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{
-		{Address: "aws_db_instance.main", Reasons: []sdk.PolicyReason{{Message: "Database deletion"}}},
-		{Address: "aws_instance.web", Reasons: []sdk.PolicyReason{{Message: "Memory size changed"}}},
-	}})
+	runLifecycleCmd(p, p.Activate())
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	runLifecycleCmd(p, cmd)
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -120,8 +119,7 @@ func TestInspect_GivenPlanInvalidatedAndLateResult_ShouldCloseOldDetails(t *test
 }
 
 func TestInspect_WhenWrapToggled_ShouldShowCurrentWrapMode(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(lifecycleSummary("aws_instance.web"))
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	runLifecycleCmd(p, cmd)
 	for _, want := range []string{"wrap(on)", "wrap(off)"} {

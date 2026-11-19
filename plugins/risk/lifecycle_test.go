@@ -71,6 +71,31 @@ func lifecycleSummary(address string) *sdk.PlanSummary {
 	return &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: address}, Action: sdk.ActionCreate, Risk: sdk.RiskLow}}}
 }
 
+// newAnalyzedPlugin returns a Risk plugin showing summary after a complete
+// assessment that classifies each change at its plan risk with no reasons.
+func newAnalyzedPlugin(t *testing.T, summary *sdk.PlanSummary) *Plugin {
+	t.Helper()
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
+	assessAtPlanRisk(p, h, summary)
+	return p
+}
+
+// assessAtPlanRisk shows summary in p through a complete assessment that
+// classifies each change at its plan risk, then forgets that setup request.
+func assessAtPlanRisk(p *Plugin, h *sdktest.PluginDepsHarness, summary *sdk.PlanSummary) {
+	assessment := sdk.PolicyAssessment{Status: sdk.AssessmentComplete}
+	overall := sdk.RiskNone
+	for _, change := range summary.Changes {
+		level := change.Risk
+		overall = max(overall, level)
+		assessment.Resources = append(assessment.Resources, sdk.PolicyResourceAssessment{Address: change.Resource.Address, Deposed: change.Resource.Deposed, Status: sdk.ResourceClassified, Level: &level})
+	}
+	assessment.OverallLevel = &overall
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: assessment}
+	runLifecycleCmd(p, p.Activate())
+	h.AssessmentRequests = nil
+}
+
 // classifiedAs is a complete assessment that classifies address at level with
 // reason, so a view showing reason came from the event, not the raw plan risk.
 func classifiedAs(address string, level sdk.RiskLevel, reason string) sdk.PolicyAssessment {
@@ -118,8 +143,8 @@ func TestActivate_GivenNoRetainedPlan_ShouldRequestHostPlanWithoutRunningTerrafo
 				}
 				return
 			}
-			if !strings.Contains(view, "aws_instance.active") || !strings.Contains(view, "Host planned classification.") || p.Overall() != sdk.RiskHigh {
-				t.Fatalf("view = %q overall = %s; want the host-planned summary classified by the event", view, p.Overall())
+			if !strings.Contains(view, "aws_instance.active") || !strings.Contains(view, "Host planned classification.") || p.overall() != sdk.RiskHigh {
+				t.Fatalf("view = %q overall = %s; want the host-planned summary classified by the event", view, p.overall())
 			}
 		})
 	}
@@ -205,8 +230,8 @@ func TestHandleRiskAssessed_GivenStaleEvent_ShouldIgnoreIt(t *testing.T) {
 		runLifecycleCmd(p, p.Activate())
 		deliver(p, otherEvent)
 		view := p.View(100, 30)
-		if !strings.Contains(view, "Retained plan classification.") || strings.Contains(view, "aws_instance.other") || p.Overall() != sdk.RiskLow {
-			t.Fatalf("late event for another plan replaced the result: overall %s, view %q", p.Overall(), view)
+		if !strings.Contains(view, "Retained plan classification.") || strings.Contains(view, "aws_instance.other") || p.overall() != sdk.RiskLow {
+			t.Fatalf("late event for another plan replaced the result: overall %s, view %q", p.overall(), view)
 		}
 	})
 
@@ -270,7 +295,7 @@ func TestAssessment_GivenInvalidationOrContextChange_ShouldRejectLateResult(t *t
 func TestPlanInvalidated_GivenCompletedAssessment_ShouldClearRowsAndRequestFreshPlan(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p, h := newLifecyclePlugin(t, svc)
-	p.Analyze(lifecycleSummary("aws_instance.old"))
+	assessAtPlanRisk(p, h, lifecycleSummary("aws_instance.old"))
 	handler, ok := any(p).(sdk.PlanInvalidatedHandler)
 	if !ok {
 		t.Fatal("Risk must discard derived assessment when the reviewed plan is invalidated")
@@ -323,7 +348,7 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 				got.ErrorCode = "evaluation_failed"
 			}
 			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-			p.Analyze(lifecycleSummary("aws_instance.old"))
+			assessAtPlanRisk(p, h, lifecycleSummary("aws_instance.old"))
 			reviewed := lifecycleSummary("aws_instance.reviewed")
 			h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: reviewed, Assessment: got}
 			runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: reviewed}))
@@ -340,7 +365,7 @@ func TestAssessment_GivenPolicyTerminalStatuses_ShouldFinishWithoutSuccessfulFal
 			}
 			switch status {
 			case "complete":
-				if p.ExitCode() != 0 || p.Overall() != high || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
+				if p.ExitCode() != 0 || p.overall() != high || !strings.Contains(p.View(100, 30), "aws_instance.reviewed") {
 					t.Fatalf("selected classification missing: %q", p.View(100, 30))
 				}
 			case "empty":
@@ -374,7 +399,7 @@ func TestAssessment_GivenLatePolicyResultAfterContextSwitch_ShouldKeepNewContext
 	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: current}))
 	runLifecycleCmd(p, p.Activate())
 	deliver(p, late)
-	if view := p.View(100, 30); !p.Ready() || p.Overall() != sdk.RiskLow || !strings.Contains(view, "New classification.") || strings.Contains(view, "aws_instance.old") {
+	if view := p.View(100, 30); !p.Ready() || p.overall() != sdk.RiskLow || !strings.Contains(view, "New classification.") || strings.Contains(view, "aws_instance.old") {
 		t.Fatalf("late policy result replaced current assessment: %q", view)
 	}
 }
@@ -384,8 +409,8 @@ func TestAssessment_GivenCustomClassification_ShouldPreserveReviewedPlanSummary(
 	summary := lifecycleSummary("aws_instance.reviewed")
 	p, _, _ := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: "complete", OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &high}}})
 	runLifecycleCmd(p, p.Activate())
-	if p.Overall() != high {
-		t.Fatalf("Risk did not use selected-policy classification: %s", p.Overall())
+	if p.overall() != high {
+		t.Fatalf("Risk did not use selected-policy classification: %s", p.overall())
 	}
 	if len(summary.Changes) != 1 || summary.Changes[0].Risk != sdk.RiskLow {
 		t.Fatalf("Risk changed Plan-owned summary: %+v", summary.Changes)
@@ -414,7 +439,7 @@ func TestLifecycle_GivenShutdownOrNilContext_ShouldEndOrPreserveCurrentOperation
 func TestPlanCompleted_GivenSourceFailure_ShouldClearPriorAssessmentWithoutRequest(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p, h := newLifecyclePlugin(t, svc)
-	p.Analyze(lifecycleSummary("aws_instance.old"))
+	assessAtPlanRisk(p, h, lifecycleSummary("aws_instance.old"))
 	summary := lifecycleSummary("aws_instance.reviewed")
 	if cmd := p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}); cmd != nil {
 		runLifecycleCmd(p, cmd)

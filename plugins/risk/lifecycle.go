@@ -18,10 +18,9 @@ func (e *Plugin) resetDerived() {
 	e.offset = 0
 	e.panel.ResetScroll()
 	e.status = sdk.StatusIdle
-	e.setAssessment(nil)
-	e.groups = nil
-	e.overall = sdk.RiskNone
-	e.selected, e.total = 0, 0
+	e.assessment = nil
+	e.groups, e.items = nil, nil
+	e.selected = 0
 	e.riskDiagnostic, e.planError = "", ""
 }
 
@@ -79,14 +78,6 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 	return nil
 }
 
-// setAssessment keeps rows indexing the assessment's rows.
-func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
-	e.assessment, e.rows = assessment, nil
-	if assessment != nil {
-		e.rows = assessment.Rows()
-	}
-}
-
 func (e *Plugin) acceptAssessment(ev sdk.RiskAssessedEvent) {
 	if ev.Err != nil {
 		e.status = sdk.StatusError
@@ -95,20 +86,8 @@ func (e *Plugin) acceptAssessment(ev sdk.RiskAssessedEvent) {
 	}
 	e.summary = ev.Summary
 	assessment := ev.Assessment
-	e.setAssessment(&assessment)
-
-	// Render a copy so selected-policy classifications never mutate Plan's summary.
-	summary := sdk.ApplyAssessment(ev.Summary, e.rows)
-	if summary != nil {
-		changes := summary.Changes[:0]
-		for _, change := range summary.Changes {
-			if row, ok := e.rows[change.Resource.InstanceKey()]; ok && (row.Level != nil || row.Status == sdk.ResourceUnavailable) {
-				changes = append(changes, change)
-			}
-		}
-		summary.Changes = changes
-	}
-	e.Analyze(summary)
+	e.assessment = &assessment
+	e.analyze(ev.Summary, assessment.Rows())
 	if !assessment.Usable() {
 		e.status = sdk.StatusError
 		e.riskDiagnostic = string(assessment.Status)

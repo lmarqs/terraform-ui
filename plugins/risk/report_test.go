@@ -2,6 +2,7 @@ package risk
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -138,10 +139,11 @@ func TestReport_GivenEmptyAssessment_ShouldEmitRequiredJSONFieldsAndEmptyArrays(
 }
 
 func TestReport_GivenNoAssessment_ShouldEmitNoReport(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
 	for _, done := range []bool{false, true} {
 		if done {
-			p.Analyze(nil)
+			h.AssessmentEvent = sdk.RiskAssessedEvent{Err: errors.New("terraform planning failed")}
+			runLifecycleCmd(p, p.Activate())
 		}
 		out, err := reportStdout(t, p)
 		if err != nil || len(out) != 0 {

@@ -52,7 +52,7 @@ func TestView_GivenUpdateAndDeposedDeleteAtSameAddress_ShouldGroupEachInstanceUn
 		t.Errorf("LOW group = %q, want the update with its own reason only", lowSection)
 	}
 
-	p.MoveDown()
+	p.moveDown()
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	runLifecycleCmd(p, cmd)
 	inspection := ansi.Strip(p.View(120, 30))
@@ -117,12 +117,16 @@ func TestReport_GivenDeposedRowsAtSameAddress_ShouldSortCurrentFirstAndLabelDepo
 	}
 }
 
-func TestResourceAssessment_GivenAssessmentWithoutMatchingRow_ShouldReturnNil(t *testing.T) {
-	p := &Plugin{}
-	p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Deposed: "00000001"}}})
+func TestAnalyze_GivenOnlyDeposedRowAtAddress_ShouldNotJoinItToTheCurrentObject(t *testing.T) {
+	high := sdk.RiskHigh
+	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate}}}
+	p, _, _ := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_instance.web", Deposed: "00000001", Actions: []string{"delete"}, Status: sdk.ResourceClassified, Level: &high},
+	}})
+	runLifecycleCmd(p, p.Activate())
 
-	if row := p.resourceAssessment(sdk.InstanceKey{Address: "aws_instance.web"}); row != nil {
-		t.Errorf("resourceAssessment(current object) = %+v, want nil when only the deposed row exists", row)
+	if len(p.items) != 0 {
+		t.Errorf("items = %+v, want none when only the deposed row exists", p.items)
 	}
 }
 
