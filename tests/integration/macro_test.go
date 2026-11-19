@@ -48,6 +48,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "risk retry from a failed assessment",
+			tapeFile: tape("risk_retry.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},
+			wantExit: 0,
+		},
+		{
 			name:     "risk empty assessment excludes no-op and read",
 			tapeFile: tape("risk_empty.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-empty-plan.json")},
