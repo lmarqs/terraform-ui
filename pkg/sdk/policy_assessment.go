@@ -1,6 +1,9 @@
 package sdk
 
-import "slices"
+import (
+	"cmp"
+	"slices"
+)
 
 // PolicyAssessment contains classifications from one selected policy and reviewed plan.
 // Only a complete assessment has an overall level. The host may dispatch the
@@ -51,6 +54,11 @@ func (a PolicyAssessment) Usable() bool {
 type InstanceKey struct {
 	Address string
 	Deposed string
+}
+
+// Compare orders keys by address, then deposed key, so the current object precedes its deposed objects.
+func (k InstanceKey) Compare(other InstanceKey) int {
+	return cmp.Or(cmp.Compare(k.Address, other.Address), cmp.Compare(k.Deposed, other.Deposed))
 }
 
 // AssessmentRows indexes an assessment's rows by instance object.

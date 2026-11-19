@@ -278,6 +278,31 @@ func TestResource_InstanceKey_WhenDeposed_ShouldCarryAddressAndDeposedKey(t *tes
 	}
 }
 
+func TestInstanceKey_Compare_WhenKeys_ShouldOrderByAddressThenDeposedKey(t *testing.T) {
+	tests := []struct {
+		name string
+		a, b InstanceKey
+		want int
+	}{
+		{"EqualKeys", InstanceKey{Address: "a.x", Deposed: "01"}, InstanceKey{Address: "a.x", Deposed: "01"}, 0},
+		{"EqualCurrentKeys", InstanceKey{Address: "a.x"}, InstanceKey{Address: "a.x"}, 0},
+		{"SmallerAddress", InstanceKey{Address: "a.x"}, InstanceKey{Address: "b.x"}, -1},
+		{"LargerAddress", InstanceKey{Address: "b.x"}, InstanceKey{Address: "a.x"}, 1},
+		{"AddressBeatsDeposedKey", InstanceKey{Address: "a.x", Deposed: "ff"}, InstanceKey{Address: "b.x", Deposed: "00"}, -1},
+		{"CurrentBeforeDeposed", InstanceKey{Address: "a.x"}, InstanceKey{Address: "a.x", Deposed: "00"}, -1},
+		{"DeposedAfterCurrent", InstanceKey{Address: "a.x", Deposed: "00"}, InstanceKey{Address: "a.x"}, 1},
+		{"SmallerDeposedKey", InstanceKey{Address: "a.x", Deposed: "01"}, InstanceKey{Address: "a.x", Deposed: "02"}, -1},
+		{"LargerDeposedKey", InstanceKey{Address: "a.x", Deposed: "02"}, InstanceKey{Address: "a.x", Deposed: "01"}, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.a.Compare(tt.b); got != tt.want {
+				t.Errorf("%+v.Compare(%+v) = %d, want %d", tt.a, tt.b, got, tt.want)
+			}
+		})
+	}
+}
+
 func BenchmarkApplyAssessment(b *testing.B) {
 	const n = 10000
 	summary := &PlanSummary{Changes: make([]PlanChange, 0, n)}
