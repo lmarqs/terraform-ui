@@ -45,6 +45,8 @@ Press `B` to open the Blast Radius view. It requires a completed plan to analyze
 |-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
 | `Enter` / `i` | Expand/collapse module changes | List |
+| `Ctrl+r` | Request the assessment again for the same plan | Cancelled or unusable assessment |
+| `Esc` | Back to Home | Loading, or cancelled or unusable assessment |
 | `q` | Back to Home | Always |
 
 ### Flow
