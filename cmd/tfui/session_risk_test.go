@@ -48,7 +48,7 @@ func TestSession_GivenSeededRepositoryFixtures_ShouldShareExactSelectedPolicyCla
 			var risk *tfuirisk.Plugin
 			err = session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd {
 				risk = p.(*tfuirisk.Plugin)
-				return risk.Activate()
+				return risk.Activate(tfuirisk.Input{})
 			})
 			if err != nil {
 				t.Fatalf("seeded Risk failed: %v; assessment %+v; stderr %q", err, risk.Assessment(), session.effects.Stderr)

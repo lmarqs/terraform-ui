@@ -11,10 +11,10 @@ import (
 )
 
 func TestListFrame_GivenNoReviewedMutation_ShouldKeepListOnEnter(t *testing.T) {
-	for _, status := range []sdk.Status{sdk.StatusIdle, sdk.StatusLoading, sdk.StatusDone, sdk.StatusError} {
-		t.Run(map[sdk.Status]string{sdk.StatusIdle: "idle", sdk.StatusLoading: "loading", sdk.StatusDone: "done", sdk.StatusError: "error"}[status], func(t *testing.T) {
+	for _, kind := range []outcomeKind{outcomeIdle, outcomeLoading, outcomeDone, outcomeUnusable} {
+		t.Run(map[outcomeKind]string{outcomeIdle: "idle", outcomeLoading: "loading", outcomeDone: "done", outcomeUnusable: "error"}[kind], func(t *testing.T) {
 			p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-			p.status = status
+			p.outcome.kind = kind
 			_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 			runLifecycleCmd(p, cmd)
 			if p.Stack().Peek().ID() != "list" {
@@ -25,7 +25,7 @@ func TestListFrame_GivenNoReviewedMutation_ShouldKeepListOnEnter(t *testing.T) {
 			}
 			for _, hint := range p.Hints() {
 				if hint.Description == "inspect" {
-					t.Errorf("empty/status %v offers inspect", status)
+					t.Errorf("empty/outcome %v offers inspect", kind)
 				}
 			}
 		})
@@ -47,8 +47,7 @@ func TestListFrame_WhenEscapePressed_ShouldRequestDeactivation(t *testing.T) {
 }
 
 func TestFrames_GivenNonKeyMessage_ShouldPreserveCurrentView(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(lifecycleSummary("aws_instance.web"))
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
 	for _, inspect := range []bool{false, true} {
 		if inspect {
 			_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -64,15 +63,15 @@ func TestFrames_GivenNonKeyMessage_ShouldPreserveCurrentView(t *testing.T) {
 }
 
 func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedReasons(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{
+	low, high := sdk.RiskLow, sdk.RiskHigh
+	p, _, _ := newAssessedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_db_instance.main"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
 		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate, Risk: sdk.RiskLow, AttributeDiffs: []sdk.AttributeDiff{{Key: "size", OldValue: "small", NewValue: "large"}}},
+	}}, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_db_instance.main", Status: sdk.ResourceClassified, Level: &high, Reasons: []sdk.PolicyReason{{Message: "Database deletion"}}},
+		{Address: "aws_instance.web", Status: sdk.ResourceClassified, Level: &low, Reasons: []sdk.PolicyReason{{Message: "Memory size changed"}}},
 	}})
-	p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{
-		{Address: "aws_db_instance.main", Reasons: []sdk.PolicyReason{{Message: "Database deletion"}}},
-		{Address: "aws_instance.web", Reasons: []sdk.PolicyReason{{Message: "Memory size changed"}}},
-	}})
+	runLifecycleCmd(p, p.Activate(Input{}))
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	runLifecycleCmd(p, cmd)
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -103,7 +102,7 @@ func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedRe
 func TestInspect_GivenPlanInvalidatedAndLateResult_ShouldCloseOldDetails(t *testing.T) {
 	summary := lifecycleSummary("aws_instance.stale")
 	p, _, h := newAssessedPlugin(t, summary, classifiedAs("aws_instance.stale", sdk.RiskLow, "Stale classification."))
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	runLifecycleCmd(p, cmd)
 	if p.Stack().Peek().ID() != "inspect" {
@@ -120,8 +119,7 @@ func TestInspect_GivenPlanInvalidatedAndLateResult_ShouldCloseOldDetails(t *test
 }
 
 func TestInspect_WhenWrapToggled_ShouldShowCurrentWrapMode(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(lifecycleSummary("aws_instance.web"))
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	runLifecycleCmd(p, cmd)
 	for _, want := range []string{"wrap(on)", "wrap(off)"} {

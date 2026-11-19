@@ -34,21 +34,19 @@ func TestPlugin_Lifecycle(t *testing.T) {
 }
 
 func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	p.Analyze(nil)
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
+	p, _, _ := newAssessedPlugin(t, nil, sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
+	runLifecycleCmd(p, p.Activate(Input{}))
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.Status())
 	}
 	if p.groups != nil {
 		t.Error("groups = non-nil, want nil")
 	}
-	if p.overall != sdk.RiskNone {
-		t.Errorf("overall = %v, want RiskNone", p.overall)
+	if p.overall() != sdk.RiskNone {
+		t.Errorf("overall = %v, want RiskNone", p.overall())
 	}
-	if p.total != 0 {
-		t.Errorf("total = %d, want 0", p.total)
+	if len(p.items) != 0 {
+		t.Errorf("total = %d, want 0", len(p.items))
 	}
 	if !p.Ready() {
 		t.Error("Ready() = false after Analyze, want true")
@@ -56,12 +54,10 @@ func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
 }
 
 func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilGroups(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	p.Analyze(&sdk.PlanSummary{Changes: []sdk.PlanChange{}})
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
+	p, _, _ := newAssessedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
+	runLifecycleCmd(p, p.Activate(Input{}))
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.Status())
 	}
 	if p.groups != nil {
 		t.Error("groups = non-nil after empty changes, want nil")
@@ -69,9 +65,6 @@ func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilGroups(t *testing.T) {
 }
 
 func TestAnalyze_WhenChangesPresent_ShouldGroupByRiskLevelDescending(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
 			{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow},
@@ -82,16 +75,16 @@ func TestAnalyze_WhenChangesPresent_ShouldGroupByRiskLevelDescending(t *testing.
 		},
 	}
 
-	p.Analyze(summary)
+	p := newAnalyzedPlugin(t, summary)
 
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.Status())
 	}
-	if p.total != 5 {
-		t.Errorf("total = %d, want 5", p.total)
+	if len(p.items) != 5 {
+		t.Errorf("total = %d, want 5", len(p.items))
 	}
-	if p.overall != sdk.RiskCritical {
-		t.Errorf("overall = %v, want RiskCritical", p.overall)
+	if p.overall() != sdk.RiskCritical {
+		t.Errorf("overall = %v, want RiskCritical", p.overall())
 	}
 	if len(p.groups) == 0 {
 		t.Error("groups is empty, want non-empty")
@@ -101,26 +94,23 @@ func TestAnalyze_WhenChangesPresent_ShouldGroupByRiskLevelDescending(t *testing.
 	}
 
 	// Verify ordering: highest risk first
-	if p.groups[0].Level != sdk.RiskCritical {
-		t.Errorf("groups[0].Level = %v, want RiskCritical", p.groups[0].Level)
+	if p.groups[0].level != sdk.RiskCritical {
+		t.Errorf("groups[0].level = %v, want RiskCritical", p.groups[0].level)
 	}
 }
 
 func TestAnalyze_WhenAllRiskLevels_ShouldCreateOneGroupPerLevel(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
 	summary := &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
-			{Risk: sdk.RiskCritical},
-			{Risk: sdk.RiskHigh},
-			{Risk: sdk.RiskMedium},
-			{Risk: sdk.RiskLow},
-			{Risk: sdk.RiskNone},
+			{Resource: sdk.Resource{Address: "a"}, Risk: sdk.RiskCritical},
+			{Resource: sdk.Resource{Address: "b"}, Risk: sdk.RiskHigh},
+			{Resource: sdk.Resource{Address: "c"}, Risk: sdk.RiskMedium},
+			{Resource: sdk.Resource{Address: "d"}, Risk: sdk.RiskLow},
+			{Resource: sdk.Resource{Address: "e"}, Risk: sdk.RiskNone},
 		},
 	}
 
-	p.Analyze(summary)
+	p := newAnalyzedPlugin(t, summary)
 	if len(p.groups) != 5 {
 		t.Errorf("len(groups) = %d, want 5 (one per risk level)", len(p.groups))
 	}
@@ -143,25 +133,32 @@ func TestSelected_WhenSet_ShouldReturnCurrentIndex(t *testing.T) {
 	}
 }
 
-func TestOverall_WhenSet_ShouldReturnHighestRiskLevel(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.overall = sdk.RiskHigh
-	if p.Overall() != sdk.RiskHigh {
-		t.Errorf("Overall() = %v, want RiskHigh", p.Overall())
+func TestOverall_GivenAssessment_ShouldReturnItsOverallLevel(t *testing.T) {
+	high := sdk.RiskHigh
+	for _, tt := range []struct {
+		name       string
+		assessment sdk.PolicyAssessment
+		want       sdk.RiskLevel
+	}{
+		{"complete", sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high}, sdk.RiskHigh},
+		{"without overall level", sdk.PolicyAssessment{Status: sdk.AssessmentPartial}, sdk.RiskNone},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			p := New(&sdktest.MockService{}).(*Plugin)
+			p.assessment = &tt.assessment
+			if got := p.overall(); got != tt.want {
+				t.Errorf("overall() = %v, want %v", got, tt.want)
+			}
+		})
 	}
 }
 
 func TestUpdate_WhenJKPressed_ShouldNavigateUpAndDown(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-
-	// Setup groups to have items to navigate
-	p.Analyze(&sdk.PlanSummary{
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{
 		Changes: []sdk.PlanChange{
-			{Risk: sdk.RiskHigh},
-			{Risk: sdk.RiskLow},
-			{Risk: sdk.RiskLow},
+			{Resource: sdk.Resource{Address: "a"}, Risk: sdk.RiskHigh},
+			{Resource: sdk.Resource{Address: "b"}, Risk: sdk.RiskLow},
+			{Resource: sdk.Resource{Address: "c"}, Risk: sdk.RiskLow},
 		},
 	})
 
@@ -201,40 +198,36 @@ func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 
-	// With a group that has items
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
-		{Level: sdk.RiskLow, Changes: []sdk.PlanChange{{}}},
-	}
+	p.items = make([]riskItem, 3)
 
-	p.MoveDown()
+	p.moveDown()
 	if p.selected != 1 {
 		t.Errorf("MoveDown: selected = %d, want 1", p.selected)
 	}
 
-	p.MoveDown()
-	p.MoveDown()
-	p.MoveDown()
+	p.moveDown()
+	p.moveDown()
+	p.moveDown()
 	// should be at 2 (max)
 	if p.selected != 2 {
 		t.Errorf("MoveDown multiple: selected = %d, want 2", p.selected)
 	}
 
 	// Should not go past max
-	p.MoveDown()
+	p.moveDown()
 	if p.selected != 2 {
 		t.Errorf("MoveDown boundary: selected = %d, want 2", p.selected)
 	}
 
 	// Move up
-	p.MoveUp()
+	p.moveUp()
 	if p.selected != 1 {
 		t.Errorf("MoveUp: selected = %d, want 1", p.selected)
 	}
 
 	// Move up to 0
 	p.selected = 0
-	p.MoveUp()
+	p.moveUp()
 	if p.selected != 0 {
 		t.Errorf("MoveUp boundary: selected = %d, want 0", p.selected)
 	}
@@ -243,9 +236,9 @@ func TestNavigation_WhenMoving_ShouldUpdateSelectionWithBounds(t *testing.T) {
 func TestNavigation_WhenEmptyGroups_ShouldNotMoveSelection(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.groups = nil
+	p.items = nil
 
-	p.MoveDown()
+	p.moveDown()
 	if p.selected != 0 {
 		t.Errorf("MoveDown empty: selected = %d, want 0", p.selected)
 	}
@@ -254,7 +247,7 @@ func TestNavigation_WhenEmptyGroups_ShouldNotMoveSelection(t *testing.T) {
 func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.StatusIdle
+	p.outcome.kind = outcomeIdle
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "plan") || !strings.Contains(view, "risk") {
@@ -265,7 +258,7 @@ func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = nil
 
 	view := p.View(80, 24)
@@ -277,8 +270,8 @@ func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
 func TestView_WhenDoneWithEmptyGroups_ShouldRenderNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.groups = []RiskGroup{}
+	p.outcome.kind = outcomeDone
+	p.groups = []riskGroup{}
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "No eligible mutations") {
@@ -287,31 +280,11 @@ func TestView_WhenDoneWithEmptyGroups_ShouldRenderNonEmpty(t *testing.T) {
 }
 
 func TestView_WhenDoneWithGroups_ShouldRenderRiskGroupList(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskHigh
-	p.total = 3
-	p.groups = []RiskGroup{
-		{
-			Level: sdk.RiskCritical,
-			Changes: []sdk.PlanChange{
-				{Resource: sdk.Resource{Address: "aws_s3_bucket.data"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical},
-			},
-		},
-		{
-			Level: sdk.RiskHigh,
-			Changes: []sdk.PlanChange{
-				{Resource: sdk.Resource{Address: "aws_iam_role.admin"}, Action: sdk.ActionUpdate, Risk: sdk.RiskHigh},
-			},
-		},
-		{
-			Level: sdk.RiskLow,
-			Changes: []sdk.PlanChange{
-				{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow, IsPhantom: true},
-			},
-		},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{
+		{Resource: sdk.Resource{Address: "aws_s3_bucket.data"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical},
+		{Resource: sdk.Resource{Address: "aws_iam_role.admin"}, Action: sdk.ActionUpdate, Risk: sdk.RiskHigh},
+		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionCreate, Risk: sdk.RiskLow, IsPhantom: true},
+	}})
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "aws_s3_bucket.data") {
@@ -328,7 +301,7 @@ func TestView_WhenDoneWithGroups_ShouldRenderRiskGroupList(t *testing.T) {
 func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.Status(99)
+	p.outcome.kind = outcomeKind(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -337,14 +310,7 @@ func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
 }
 
 func TestView_WhenSmallHeight_ShouldStillRender(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskMedium
-	p.total = 1
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskMedium, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Risk: sdk.RiskMedium}}})
 
 	// verifies rendering completes without panic
 	view := p.View(80, 5)
@@ -368,7 +334,7 @@ func TestRenderOverallBanner_GivenRiskLevel_ShouldReturnStyledBanner(t *testing.
 	}
 
 	for _, tt := range tests {
-		p.overall = tt.overall
+		p.assessment = &sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &tt.overall}
 		result := p.renderOverallBanner()
 		if result == "" {
 			t.Errorf("renderOverallBanner(risk=%v): got empty", tt.overall)
@@ -389,33 +355,10 @@ func TestRenderGroupHeader_GivenRiskLevel_ShouldReturnFormattedHeader(t *testing
 	}
 
 	for _, level := range levels {
-		group := RiskGroup{Level: level, Changes: []sdk.PlanChange{{}}}
+		group := riskGroup{level: level, items: []riskItem{{}}}
 		result := p.renderGroupHeader(group)
 		if result == "" {
 			t.Errorf("renderGroupHeader(level=%v): got empty", level)
-		}
-	}
-}
-
-func TestRiskReason_GivenChange_ShouldReturnExplanation(t *testing.T) {
-	tests := []struct {
-		change  sdk.PlanChange
-		wantNon bool
-	}{
-		{sdk.PlanChange{Action: sdk.ActionDelete}, true},
-		{sdk.PlanChange{Action: sdk.ActionDeleteThenCreate}, true},
-		{sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskHigh}, true},
-		{sdk.PlanChange{IsPhantom: true}, true},
-		{sdk.PlanChange{Action: sdk.ActionCreate, Risk: sdk.RiskLow}, false},
-	}
-
-	for _, tt := range tests {
-		result := riskReason(tt.change)
-		if tt.wantNon && result == "" {
-			t.Errorf("riskReason(%v): got empty, want non-empty", tt.change.Action)
-		}
-		if !tt.wantNon && result != "" {
-			t.Errorf("riskReason(%v): got %q, want empty", tt.change.Action, result)
 		}
 	}
 }
@@ -442,9 +385,7 @@ func TestActionSymbol_GivenAction_ShouldReturnNonEmptySymbol(t *testing.T) {
 func TestUpdate_WhenArrowKeysPressed_ShouldNavigateUpAndDown(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
-	}
+	p.items = make([]riskItem, 2)
 
 	// Test "down" key in addition to "j"
 	p.Update(tea.KeyMsg{Type: tea.KeyDown})
@@ -474,7 +415,7 @@ func TestRenderChangeRow_GivenChange_ShouldReturnFormattedRow(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		result := p.renderChangeRow(tt.change)
+		result := p.renderChangeRow(riskItem{change: tt.change})
 		if result == "" {
 			t.Errorf("renderChangeRow(%v): got empty", tt.change.Resource.Address)
 		}
@@ -484,10 +425,9 @@ func TestRenderChangeRow_GivenChange_ShouldReturnFormattedRow(t *testing.T) {
 func TestRenderStats_WhenGroupsPresent_ShouldReturnStatsSummary(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.total = 5
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
-		{Level: sdk.RiskLow, Changes: []sdk.PlanChange{{}, {}, {}}},
+	p.groups = []riskGroup{
+		{level: sdk.RiskHigh, items: make([]riskItem, 2)},
+		{level: sdk.RiskLow, items: make([]riskItem, 3)},
 	}
 
 	result := p.renderStats()
@@ -497,23 +437,16 @@ func TestRenderStats_WhenGroupsPresent_ShouldReturnStatsSummary(t *testing.T) {
 }
 
 func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskHigh
-	p.total = 30
-
 	// Create groups with many items to trigger scrolling
 	changes := make([]sdk.PlanChange, 20)
 	for i := range changes {
 		changes[i] = sdk.PlanChange{
 			Resource: sdk.Resource{Address: "res_" + string(rune('a'+i%26))},
 			Action:   sdk.ActionCreate,
+			Risk:     sdk.RiskHigh,
 		}
 	}
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: changes},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: changes})
 	p.selected = 15
 
 	// verifies rendering completes without panic under scrolling
@@ -523,25 +456,8 @@ func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
 	}
 }
 
-func TestRiskReason_WhenUpdateWithHighRisk_ShouldDescribeUpdate(t *testing.T) {
-	change := sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskHigh}
-	result := riskReason(change)
-	if result != "resource update" {
-		t.Errorf("riskReason(update+high) = %q, want %q", result, "resource update")
-	}
-}
-
-func TestRiskReason_WhenUpdateWithCriticalRisk_ShouldDescribeUpdate(t *testing.T) {
-	change := sdk.PlanChange{Action: sdk.ActionUpdate, Risk: sdk.RiskCritical}
-	result := riskReason(change)
-	if result != "resource update" {
-		t.Errorf("riskReason(update+critical) = %q, want %q", result, "resource update")
-	}
-}
-
 func TestHints_WhenStatusDoneWithGroups_ShouldOfferInspectAndQuit(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
-	p.Analyze(lifecycleSummary("aws_instance.web"))
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
 	hints := p.Hints()
 	want := (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
 	if len(hints) != len(want) {
@@ -556,7 +472,7 @@ func TestHints_WhenStatusDoneWithGroups_ShouldOfferInspectAndQuit(t *testing.T) 
 
 func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusIdle
+	p.outcome.kind = outcomeIdle
 
 	hints := p.Hints()
 	if len(hints) == 0 {
@@ -569,7 +485,7 @@ func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
 
 func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = nil
 
 	hints := p.Hints()
@@ -582,18 +498,9 @@ func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
 }
 
 func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) {
-	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskHigh
-	p.total = 2
-	p.groups = []RiskGroup{
-		{
-			Level: sdk.RiskHigh,
-			Changes: []sdk.PlanChange{
-				{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
-			},
-		},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{
+		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
+	}})
 	p.selected = 0
 
 	view := p.View(80, 24)
@@ -603,22 +510,15 @@ func TestRenderAnalysis_WhenChangeRowIsSelected_ShouldHighlightIt(t *testing.T) 
 }
 
 func TestView_WhenMaxVisibleOverflow_ShouldTruncateRenderedItems(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskHigh
-	p.total = 50
-
 	changes := make([]sdk.PlanChange, 30)
 	for i := range changes {
 		changes[i] = sdk.PlanChange{
 			Resource: sdk.Resource{Address: "r_" + string(rune('a'+i%26))},
 			Action:   sdk.ActionCreate,
+			Risk:     sdk.RiskHigh,
 		}
 	}
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: changes},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: changes})
 
 	// verifies rendering completes without panic under overflow
 	view := p.View(80, 15)
@@ -628,25 +528,16 @@ func TestView_WhenMaxVisibleOverflow_ShouldTruncateRenderedItems(t *testing.T) {
 }
 
 func TestView_WhenMultipleGroupsOverflow_ShouldHandleGracefully(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskCritical
-	p.total = 20
-
 	// Two groups where first group fills the visible area completely
 	changes1 := make([]sdk.PlanChange, 10)
 	for i := range changes1 {
-		changes1[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g1_" + string(rune('a'+i%26))}}
+		changes1[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g1_" + string(rune('a'+i%26))}, Risk: sdk.RiskCritical}
 	}
 	changes2 := make([]sdk.PlanChange, 5)
 	for i := range changes2 {
-		changes2[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g2_" + string(rune('a'+i%26))}}
+		changes2[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g2_" + string(rune('a'+i%26))}, Risk: sdk.RiskLow}
 	}
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskCritical, Changes: changes1},
-		{Level: sdk.RiskLow, Changes: changes2},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: append(changes1, changes2...)})
 
 	// verifies rendering completes without panic under overflow
 	view := p.View(80, 15)
@@ -656,24 +547,15 @@ func TestView_WhenMultipleGroupsOverflow_ShouldHandleGracefully(t *testing.T) {
 }
 
 func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
-	svc := &sdktest.MockService{}
-	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
-	p.overall = sdk.RiskHigh
-	p.total = 10
-
 	changes1 := make([]sdk.PlanChange, 4)
 	for i := range changes1 {
-		changes1[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g1_" + string(rune('a'+i))}}
+		changes1[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g1_" + string(rune('a'+i))}, Risk: sdk.RiskHigh}
 	}
 	changes2 := make([]sdk.PlanChange, 2)
 	for i := range changes2 {
-		changes2[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g2_" + string(rune('a'+i))}}
+		changes2[i] = sdk.PlanChange{Resource: sdk.Resource{Address: "g2_" + string(rune('a'+i))}, Risk: sdk.RiskLow}
 	}
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: changes1},
-		{Level: sdk.RiskLow, Changes: changes2},
-	}
+	p := newAnalyzedPlugin(t, &sdk.PlanSummary{Changes: append(changes1, changes2...)})
 
 	// verifies rendering completes without panic when header overflows
 	view := p.View(80, 15)
@@ -684,11 +566,8 @@ func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
 
 func TestCursorPosition_WhenDoneWithGroups_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
-	p.groups = []RiskGroup{
-		{Level: sdk.RiskHigh, Changes: []sdk.PlanChange{{}, {}}},
-		{Level: sdk.RiskLow, Changes: []sdk.PlanChange{{}}},
-	}
+	p.outcome.kind = outcomeDone
+	p.items = make([]riskItem, 3)
 	p.selected = 0
 
 	pos, total := p.CursorPosition()
@@ -711,10 +590,20 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 		t.Errorf("CursorPosition() idle = (%d, %d), want (0, 0)", pos, total)
 	}
 
-	p.status = sdk.StatusDone
-	p.groups = []RiskGroup{}
+	p.outcome.kind = outcomeDone
+	p.groups = []riskGroup{}
 	pos, total = p.CursorPosition()
 	if pos != 0 || total != 0 {
 		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
+	}
+}
+
+func TestAnalyze_WhenCalledAgain_ShouldRebuildRatherThanAppend(t *testing.T) {
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
+
+	p.analyze(p.summary, p.assessment.Rows())
+
+	if len(p.groups) != 1 || len(p.items) != 1 {
+		t.Errorf("after a second analyze: %d groups, %d items; want 1 group, 1 item", len(p.groups), len(p.items))
 	}
 }

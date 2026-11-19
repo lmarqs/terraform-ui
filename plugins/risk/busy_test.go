@@ -28,7 +28,7 @@ func TestBusy_GivenPendingRequest_ShouldBeBusyOnlyWhenHostRunsTerraformPlan(t *t
 				p, _ = newLifecyclePlugin(t, &sdktest.MockService{})
 			}
 
-			p.Activate()
+			p.Activate(Input{})
 
 			if p.Status() != sdk.StatusLoading || p.Ready() {
 				t.Fatalf("setup: status=%v ready=%v; want a pending request that is not ready", p.Status(), p.Ready())

@@ -1,8 +1,6 @@
 package plan
 
 import (
-	"cmp"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -117,7 +115,7 @@ func (e *Plugin) assessmentDiagnostic() sdk.ErrorCode {
 	var first sdk.InstanceKey
 	for _, row := range e.assessment.Resources {
 		key := sdk.InstanceKey{Address: row.Address, Deposed: row.Deposed}
-		if row.ErrorCode != "" && (first.Address == "" || cmp.Or(cmp.Compare(key.Address, first.Address), cmp.Compare(key.Deposed, first.Deposed)) < 0) {
+		if row.ErrorCode != "" && (first.Address == "" || key.Compare(first) < 0) {
 			first, diagnostic = key, row.ErrorCode
 		}
 	}

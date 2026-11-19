@@ -2,10 +2,12 @@ package risk
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -53,7 +55,7 @@ func reportStdout(t *testing.T, p *Plugin) ([]byte, error) {
 
 func TestReport_GivenCompleteAssessment_ShouldEmitDeterministicPlainText(t *testing.T) {
 	p := newReportPlugin(t, reportAssessment(sdk.RiskLow))
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	got, err := reportStdout(t, p)
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +92,7 @@ func TestReport_GivenThreshold_ShouldCompareInclusivelyWithoutTreatingEmptyAsNon
 			if err := p.Configure(map[string]interface{}{"threshold": tc.threshold}); err != nil {
 				t.Fatal(err)
 			}
-			runLifecycleCmd(p, p.Activate())
+			runLifecycleCmd(p, p.Activate(Input{}))
 			if got := p.ExitCode(); got != tc.exit {
 				t.Fatalf("threshold %s at %s exit = %d, want %d", tc.threshold, tc.level, got, tc.exit)
 			}
@@ -114,7 +116,7 @@ func TestReport_GivenEmptyAssessment_ShouldEmitRequiredJSONFieldsAndEmptyArrays(
 			a := reportAssessment(sdk.RiskNone)
 			a.Status, a.OverallLevel, a.Resources = "empty", nil, nil
 			p := newReportPlugin(t, a)
-			runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: &threshold}))
+			runLifecycleCmd(p, p.Activate(Input{JSON: true, Threshold: &threshold}))
 			out, err := reportStdout(t, p)
 			if err != nil {
 				t.Fatal(err)
@@ -138,10 +140,11 @@ func TestReport_GivenEmptyAssessment_ShouldEmitRequiredJSONFieldsAndEmptyArrays(
 }
 
 func TestReport_GivenNoAssessment_ShouldEmitNoReport(t *testing.T) {
-	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
 	for _, done := range []bool{false, true} {
 		if done {
-			p.Analyze(nil)
+			h.AssessmentEvent = sdk.RiskAssessedEvent{Err: errors.New("terraform planning failed")}
+			runLifecycleCmd(p, p.Activate(Input{}))
 		}
 		out, err := reportStdout(t, p)
 		if err != nil || len(out) != 0 {
@@ -155,7 +158,7 @@ func TestReport_GivenGlobalFailure_ShouldPreferGlobalDiagnosticAndEmitNoJSON(t *
 	a.Status, a.OverallLevel, a.ErrorCode = "unavailable", nil, "input_incomplete"
 	a.Resources = []sdk.PolicyResourceAssessment{{Address: "aws_instance.bad\x1b[31m", Status: "unavailable", ErrorCode: "result_invalid"}}
 	p := newReportPlugin(t, a)
-	runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: ptr("off")}))
+	runLifecycleCmd(p, p.Activate(Input{JSON: true, Threshold: ptr("off")}))
 	out, err := reportStdout(t, p)
 	if err != nil || len(out) != 0 || p.ExitCode() != 1 || string(p.Stderr()) != "risk unavailable: input_incomplete\n" {
 		t.Fatalf("global failure stdout %q stderr %q exit %d error %v", out, p.Stderr(), p.ExitCode(), err)
@@ -167,7 +170,7 @@ func TestReport_GivenUntrustedResourceAddress_ShouldEscapeTerminalControlsInDiag
 	a.Status, a.OverallLevel = "partial", nil
 	a.Resources = append(a.Resources, sdk.PolicyResourceAssessment{Address: "aws_instance.bad\x1b[31m", Status: "unavailable", ErrorCode: "result_invalid"})
 	p := newReportPlugin(t, a)
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	if got := string(p.Stderr()); got != "risk unavailable: result_invalid for \"aws_instance.bad\\x1b[31m\"\n" {
 		t.Fatalf("unsafe diagnostic = %q", got)
 	}
@@ -177,7 +180,7 @@ func TestReport_GivenUntrustedResourceAddress_ShouldEscapeTerminalControlsInText
 	a := reportAssessment(sdk.RiskLow)
 	a.Resources[0].Address = "aws_instance.bad\x1b[31m"
 	p := newReportPlugin(t, a)
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	out, err := reportStdout(t, p)
 	if err != nil {
 		t.Fatal(err)
@@ -194,7 +197,7 @@ func TestReport_GivenPartialAssessment_ShouldEmitNoStdoutAndFirstFailureByAddres
 		sdk.PolicyResourceAssessment{Address: "aws_instance.z_failed", Status: "unavailable", ErrorCode: "evaluation_failed"},
 		sdk.PolicyResourceAssessment{Address: "aws_instance.a_failed", Status: "unavailable", ErrorCode: "result_invalid"})
 	p := newReportPlugin(t, a)
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	out, _ := reportStdout(t, p)
 	if len(out) != 0 || p.ExitCode() != 1 {
 		t.Fatalf("partial assessment emitted %q with exit %d", out, p.ExitCode())
@@ -210,7 +213,7 @@ func TestConfigure_GivenInvalidRiskSettings_ShouldRejectConfiguration(t *testing
 		if err := configureAsHost(t, p, settings); err == nil {
 			t.Errorf("Configure(%v) accepted unsupported risk settings", settings)
 		}
-		runLifecycleCmd(p, p.Activate())
+		runLifecycleCmd(p, p.Activate(Input{}))
 		if p.ExitCode() != 1 || !strings.HasPrefix(string(p.Stderr()), "risk unavailable: configuration_invalid") {
 			t.Errorf("invalid settings did not remain unavailable: exit %d stderr %q", p.ExitCode(), p.Stderr())
 		}
@@ -220,12 +223,12 @@ func TestConfigure_GivenInvalidRiskSettings_ShouldRejectConfiguration(t *testing
 	}
 }
 
-func TestActivateInput_GivenLegacySettingAndInvalidOverride_ShouldRetainMigrationHint(t *testing.T) {
+func TestActivate_GivenLegacySettingAndInvalidOverride_ShouldRetainMigrationHint(t *testing.T) {
 	p := newReportPlugin(t, reportAssessment(sdk.RiskLow))
 	if err := configureAsHost(t, p, map[string]interface{}{"level": "high"}); err == nil {
 		t.Fatal("legacy level must be rejected")
 	}
-	runLifecycleCmd(p, p.ActivateInput(Input{Threshold: ptr("urgent")}))
+	runLifecycleCmd(p, p.Activate(Input{Threshold: ptr("urgent")}))
 	want := "risk unavailable: configuration_invalid\n\nhint: risk setting level is unsupported; use threshold\n"
 	if got := string(p.Stderr()); got != want {
 		t.Fatalf("invalid override replaced actionable legacy diagnostic: got %q, want %q", got, want)
@@ -242,7 +245,7 @@ func TestReport_GivenJSONInput_ShouldPreserveProvenanceContextAndStatusSpecificR
 	current.Workspace = "production"
 	p.GetCtx = func() *sdk.Context { return &current }
 	project := "../project"
-	runLifecycleCmd(p, p.ActivateInput(Input{JSON: true, Threshold: ptr("high"), Project: &project, Chdir: "members/api"}))
+	runLifecycleCmd(p, p.Activate(Input{JSON: true, Threshold: ptr("high"), Project: &project, Chdir: "members/api"}))
 	// The report must retain the acquisition Context even if the host has since replaced it.
 	next := current
 	next.Workspace = "later"
@@ -279,7 +282,7 @@ func TestReport_GivenJSONInput_ShouldPreserveProvenanceContextAndStatusSpecificR
 
 func ptr(value string) *string { return &value }
 
-func TestActivateInput_GivenThresholdOverride_ShouldOverrideSettingsAndRejectExplicitEmpty(t *testing.T) {
+func TestActivate_GivenThresholdOverride_ShouldOverrideSettingsAndRejectExplicitEmpty(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
 		override   *string
@@ -297,10 +300,57 @@ func TestActivateInput_GivenThresholdOverride_ShouldOverrideSettingsAndRejectExp
 			if err := p.Configure(map[string]interface{}{"threshold": "low"}); err != nil {
 				t.Fatal(err)
 			}
-			runLifecycleCmd(p, p.ActivateInput(Input{Threshold: tc.override}))
+			runLifecycleCmd(p, p.Activate(Input{Threshold: tc.override}))
 			if p.ExitCode() != tc.exit || string(p.Stderr()) != tc.diagnostic {
 				t.Fatalf("override exit %d stderr %q, want exit %d stderr %q", p.ExitCode(), p.Stderr(), tc.exit, tc.diagnostic)
 			}
 		})
+	}
+}
+
+func TestStderr_GivenFailedRowsWithoutGlobalCode_ShouldReportFirstRowErrorCode(t *testing.T) {
+	for _, status := range []sdk.AssessmentStatus{sdk.AssessmentPartial, sdk.AssessmentUnavailable} {
+		t.Run(string(status), func(t *testing.T) {
+			a := reportAssessment(sdk.RiskHigh)
+			a.Status, a.OverallLevel = status, nil
+			failed := []sdk.PolicyResourceAssessment{
+				{Address: "aws_instance.z_failed", Status: "unavailable", ErrorCode: "evaluation_failed"},
+				{Address: "aws_instance.a_failed", Status: "unavailable", ErrorCode: "result_invalid"},
+			}
+			if status == sdk.AssessmentUnavailable {
+				a.Resources = failed
+			} else {
+				a.Resources = append(a.Resources, failed...)
+			}
+			summary := &sdk.PlanSummary{}
+			for _, row := range a.Resources {
+				summary.Changes = append(summary.Changes, sdk.PlanChange{Resource: sdk.Resource{Address: row.Address}, Action: sdk.ActionUpdate})
+			}
+			p, _, _ := newAssessedPlugin(t, summary, a)
+			runLifecycleCmd(p, p.Activate(Input{}))
+			if got := string(p.Stderr()); got != "risk unavailable: result_invalid for aws_instance.a_failed\n" || p.ExitCode() != 1 {
+				t.Fatalf("%s without a global code: exit %d stderr %q; want the first failed row's code", status, p.ExitCode(), got)
+			}
+			view := ansi.Strip(p.View(120, 30))
+			for _, want := range []string{
+				"Risk unavailable: 2 of " + map[sdk.AssessmentStatus]string{sdk.AssessmentPartial: "4 eligible mutations failed; 2 classified.", sdk.AssessmentUnavailable: "2 eligible mutations failed."}[status],
+				"--- Risk unavailable (2) ---",
+				"~ aws_instance.a_failed  risk unavailable: result_invalid",
+				"~ aws_instance.z_failed  risk unavailable: evaluation_failed",
+			} {
+				if !strings.Contains(view, want) {
+					t.Errorf("%s view lacks %q:\n%s", status, want, view)
+				}
+			}
+		})
+	}
+}
+
+// The policy evaluator and the host always give an unusable assessment a global
+// code or failed rows with codes; this pins the input that has neither.
+func TestFailureDiagnostic_GivenNoGlobalCodeAndNoFailedRow_ShouldBeEmpty(t *testing.T) {
+	a := sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, Resources: []sdk.PolicyResourceAssessment{{Address: "output.name", Status: sdk.ResourceNotAssessed, Exclusion: "output_only"}}}
+	if got := failureDiagnostic(a, "unused hint"); got != "" {
+		t.Fatalf("failureDiagnostic = %q, want empty", got)
 	}
 }

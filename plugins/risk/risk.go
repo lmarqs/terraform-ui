@@ -1,7 +1,6 @@
 package risk
 
 import (
-	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -12,11 +11,17 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-// RiskGroup holds changes grouped by risk level.
-type RiskGroup struct {
-	Level       sdk.RiskLevel
-	Changes     []sdk.PlanChange
-	Unavailable bool
+// riskItem is one reviewed change joined to its assessment row.
+type riskItem struct {
+	change sdk.PlanChange
+	row    sdk.PolicyResourceAssessment
+}
+
+// riskGroup holds the items classified at one level, or those whose assessment failed.
+type riskGroup struct {
+	level       sdk.RiskLevel
+	unavailable bool
+	items       []riskItem
 }
 
 // Plugin implements the risk analysis feature.
@@ -25,22 +30,19 @@ type Plugin struct {
 	stack           *sdk.Stack
 	panel           *ui.ContentPanel
 	offset          int
-	status          sdk.Status
-	groups          []RiskGroup
-	overall         sdk.RiskLevel
+	outcome         outcome
+	groups          []riskGroup
+	items           []riskItem
 	selected        int
-	total           int
-	riskDiagnostic  string
 	summary         *sdk.PlanSummary
 	assessment      *sdk.PolicyAssessment
-	rows            sdk.AssessmentRows
 	requestRisk     func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
 	pending         sdk.AssessmentID
-	planError       string
+	requested       *sdk.Context
 	input           Input
-	threshold       string
+	configured      *sdk.RiskLevel
+	threshold       *sdk.RiskLevel
 	settingsInvalid bool
-	reportContext   reportContext
 }
 
 // New creates a new risk analysis plugin.
@@ -54,11 +56,27 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone || e.status == sdk.StatusError }
-func (e *Plugin) Status() sdk.Status { return e.status }
-func (e *Plugin) Selected() int      { return e.selected }
-func (e *Plugin) Overall() sdk.RiskLevel {
-	return e.overall
+func (e *Plugin) Ready() bool   { return e.outcome.kind > outcomeLoading }
+func (e *Plugin) Selected() int { return e.selected }
+
+func (e *Plugin) Status() sdk.Status {
+	switch e.outcome.kind {
+	case outcomeIdle:
+		return sdk.StatusIdle
+	case outcomeLoading:
+		return sdk.StatusLoading
+	case outcomeDone:
+		return sdk.StatusDone
+	}
+	return sdk.StatusError
+}
+
+// overall is the assessment's aggregate level, which only a complete assessment has.
+func (e *Plugin) overall() sdk.RiskLevel {
+	if e.assessment.OverallLevel == nil {
+		return sdk.RiskNone
+	}
+	return *e.assessment.OverallLevel
 }
 
 // Hints returns context-sensitive key hints for the status bar.
@@ -79,84 +97,57 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 }
 
 // Activate requests the host assessment of the retained reviewed plan, or of a
-// plan the host acquires when none is retained.
-func (e *Plugin) Activate() tea.Cmd {
-	if e.status == sdk.StatusLoading {
+// plan the host acquires when none is retained, with input's output and
+// comparison options.
+func (e *Plugin) Activate(input Input) tea.Cmd {
+	if e.outcome.kind == outcomeLoading {
 		return nil
 	}
+	e.input = input
 	e.resetDerived()
-	if err := e.overrideError(); err != nil {
-		e.status = sdk.StatusError
-		e.riskDiagnostic = err.Error()
-		return nil
+	e.threshold = e.configured
+	// The host never sees the CLI threshold. Invalid settings defer to the host,
+	// whose answer carries their hint.
+	if input.Threshold != nil && !e.settingsInvalid {
+		threshold, valid := parseThreshold(*input.Threshold)
+		if !valid {
+			e.outcome = outcome{kind: outcomeInvalidThreshold, diagnostic: unavailable(string(sdk.ErrorConfigurationInvalid))}
+			return nil
+		}
+		e.threshold = threshold
 	}
 	return e.requestAssessment()
 }
 
-// overrideError validates the CLI threshold, which the host never sees. Invalid
-// settings defer to the host, whose answer carries their hint.
-func (e *Plugin) overrideError() error {
-	if e.settingsInvalid {
-		return nil
-	}
-	return sdk.RiskSettingsError(map[string]interface{}{"threshold": e.selectedThreshold()})
-}
-
-// Analyze processes a plan summary and groups changes by risk.
-func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
-	if summary == nil || len(summary.Changes) == 0 {
-		e.status = sdk.StatusDone
-		e.groups = nil
-		e.overall = sdk.RiskNone
-		e.total = 0
-		return
-	}
-
-	e.overall = sdk.OverallRisk(summary.Changes)
-	e.total = len(summary.Changes)
-
-	// Group changes by risk level (highest first)
-	byLevel := map[sdk.RiskLevel][]sdk.PlanChange{
-		sdk.RiskCritical: {},
-		sdk.RiskHigh:     {},
-		sdk.RiskMedium:   {},
-		sdk.RiskLow:      {},
-		sdk.RiskNone:     {},
-	}
-
-	var unavailable []sdk.PlanChange
-	for _, c := range summary.Changes {
-		if row := e.resourceAssessment(c.Resource.InstanceKey()); row != nil && row.Status == sdk.ResourceUnavailable {
-			unavailable = append(unavailable, c)
-			continue
-		}
-		byLevel[c.Risk] = append(byLevel[c.Risk], c)
-	}
-
-	e.groups = make([]RiskGroup, 0)
-	if len(unavailable) > 0 {
-		slices.SortFunc(unavailable, compareChanges)
-		e.groups = append(e.groups, RiskGroup{Changes: unavailable, Unavailable: true})
-	}
-	levels := []sdk.RiskLevel{
-		sdk.RiskCritical,
-		sdk.RiskHigh,
-		sdk.RiskMedium,
-		sdk.RiskLow,
-		sdk.RiskNone,
-	}
-	for _, level := range levels {
-		if len(byLevel[level]) > 0 {
-			slices.SortFunc(byLevel[level], compareChanges)
-			e.groups = append(e.groups, RiskGroup{
-				Level:   level,
-				Changes: byLevel[level],
-			})
+// analyze joins each change to its assessment row and groups the changes the
+// assessment classified or failed, failures first, then by level.
+func (e *Plugin) analyze(summary *sdk.PlanSummary, rows sdk.AssessmentRows) {
+	var unavailable []riskItem
+	byLevel := map[sdk.RiskLevel][]riskItem{}
+	if summary != nil {
+		for _, change := range summary.Changes {
+			row, ok := rows[change.Resource.InstanceKey()]
+			switch {
+			case !ok:
+			case row.Status == sdk.ResourceUnavailable:
+				unavailable = append(unavailable, riskItem{change: change, row: row})
+			case row.Level != nil:
+				byLevel[*row.Level] = append(byLevel[*row.Level], riskItem{change: change, row: row})
+			}
 		}
 	}
-
-	e.status = sdk.StatusDone
-	e.selected = 0
+	groups := []riskGroup{{unavailable: true, items: unavailable}}
+	for _, level := range []sdk.RiskLevel{sdk.RiskCritical, sdk.RiskHigh, sdk.RiskMedium, sdk.RiskLow, sdk.RiskNone} {
+		groups = append(groups, riskGroup{level: level, items: byLevel[level]})
+	}
+	e.groups, e.items = nil, nil
+	for _, group := range groups {
+		if len(group.items) > 0 {
+			slices.SortFunc(group.items, compareItems)
+			e.groups = append(e.groups, group)
+			e.items = append(e.items, group.items...)
+		}
+	}
 }
 
 // Update processes messages and returns the updated plugin.
@@ -171,40 +162,29 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 func (e *Plugin) handleKey(msg tea.KeyMsg) {
 	switch msg.String() {
 	case "j", "down":
-		e.MoveDown()
+		e.moveDown()
 	case "k", "up":
-		e.MoveUp()
+		e.moveUp()
 	}
 }
 
-// MoveUp moves selection up.
-func (e *Plugin) MoveUp() {
+func (e *Plugin) moveUp() {
 	if e.selected > 0 {
 		e.selected--
 	}
 }
 
-// MoveDown moves selection down.
-func (e *Plugin) MoveDown() {
-	max := e.totalItems() - 1
-	if e.selected < max {
+func (e *Plugin) moveDown() {
+	if e.selected < len(e.items)-1 {
 		e.selected++
 	}
 }
 
-func (e *Plugin) totalItems() int {
-	count := 0
-	for _, g := range e.groups {
-		count += len(g.Changes)
-	}
-	return count
-}
-
 func (e *Plugin) CursorPosition() (int, int) {
-	if !e.Ready() || len(e.groups) == 0 {
+	if !e.Ready() || len(e.items) == 0 {
 		return 0, 0
 	}
-	return e.selected + 1, e.totalItems()
+	return e.selected + 1, len(e.items)
 }
 
 // View renders the risk analysis plugin.
@@ -212,22 +192,21 @@ func (e *Plugin) View(width, height int) string {
 	if e.stack.Depth() > 1 {
 		return e.stack.View(width, height)
 	}
-	switch e.status {
-	case sdk.StatusIdle:
+	switch e.outcome.kind {
+	case outcomeIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
-	case sdk.StatusLoading:
+	case outcomeLoading:
 		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
 
-	case sdk.StatusDone:
+	case outcomeDone:
 		return e.renderAnalysis(width, height)
-	case sdk.StatusError:
-		if len(e.groups) > 0 {
+	case outcomeUnusable:
+		if len(e.items) > 0 {
 			return e.renderAnalysis(width, height)
 		}
-		if e.planError != "" {
-			return sdk.StyleError.Render(e.planError)
-		}
-		return sdk.StyleError.Render("risk unavailable: " + e.riskDiagnostic)
+		return sdk.StyleError.Render(e.outcome.diagnostic)
+	case outcomeInvalidThreshold, outcomePlanFailed:
+		return sdk.StyleError.Render(e.outcome.diagnostic)
 
 	default:
 		return ""
@@ -235,25 +214,28 @@ func (e *Plugin) View(width, height int) string {
 }
 
 func (e *Plugin) renderAnalysis(width, height int) string {
-	if len(e.groups) == 0 {
-		return sdk.StyleFaint.Render(fmt.Sprintf("No eligible mutations (%d changes not assessed).", e.excludedCount()))
+	if len(e.items) == 0 {
+		return sdk.StyleFaint.Render(fmt.Sprintf("No eligible mutations (%d changes not assessed).", countRows(e.assessment).notAssessed))
 	}
 
 	rows := []string{}
-	starts := []int{}
-	ends := []int{}
+	selected := min(e.selected, len(e.items)-1)
+	index, start, end := 0, 0, 0
 	for _, group := range e.groups {
 		rows = append(rows, e.renderGroupHeader(group))
-		for _, change := range group.Changes {
-			starts = append(starts, len(rows))
-			rows = append(rows, e.renderChangeRow(change))
-			rows = append(rows, sdk.RenderCompactAttributeDiffs(change.AttributeDiffs, max(0, width-ui.GutterWidth))...)
-			ends = append(ends, len(rows))
+		for _, item := range group.items {
+			if index == selected {
+				start = len(rows)
+			}
+			rows = append(rows, e.renderChangeRow(item))
+			rows = append(rows, sdk.RenderCompactAttributeDiffs(item.change.AttributeDiffs, max(0, width-ui.GutterWidth))...)
+			if index == selected {
+				end = len(rows)
+			}
+			index++
 		}
 	}
 	available := max(1, height-4)
-	selected := min(e.selected, len(starts)-1)
-	start, end := starts[selected], ends[selected]
 	if start < e.offset {
 		e.offset = start
 	}
@@ -271,63 +253,50 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 }
 
 func (e *Plugin) renderOverallBanner() string {
-	if e.assessment != nil && (e.assessment.Status == sdk.AssessmentPartial || e.assessment.Status == sdk.AssessmentUnavailable) {
-		failed, classified := 0, 0
-		for _, row := range e.assessment.Resources {
-			if row.Status == sdk.ResourceUnavailable {
-				failed++
-			}
-			if row.Status == sdk.ResourceClassified {
-				classified++
-			}
-		}
-		message := fmt.Sprintf("Risk unavailable: %d of %d eligible mutations failed", failed, failed+classified)
-		if classified > 0 {
-			message += fmt.Sprintf("; %d classified", classified)
+	if e.assessment.Status == sdk.AssessmentPartial || e.assessment.Status == sdk.AssessmentUnavailable {
+		counts := countRows(e.assessment)
+		message := fmt.Sprintf("Risk unavailable: %d of %d eligible mutations failed", counts.unavailable, counts.unavailable+counts.classified)
+		if counts.classified > 0 {
+			message += fmt.Sprintf("; %d classified", counts.classified)
 		}
 		return sdk.StyleError.Render(message + ".")
 	}
-	return "Risk: " + e.overall.String() + " — explicit policy classifications."
+	return "Risk: " + e.overall().String() + " — explicit policy classifications."
 }
 
-func (e *Plugin) renderGroupHeader(group RiskGroup) string {
-	if group.Unavailable {
-		return "--- " + sdk.StyleError.Render(fmt.Sprintf("Risk unavailable (%d)", len(group.Changes))) + " ---"
+func (e *Plugin) renderGroupHeader(group riskGroup) string {
+	if group.unavailable {
+		return "--- " + sdk.StyleError.Render(fmt.Sprintf("Risk unavailable (%d)", len(group.items))) + " ---"
 	}
 	var label string
-	switch group.Level {
+	switch group.level {
 	case sdk.RiskCritical:
-		label = sdk.StyleRiskCritical.Render(fmt.Sprintf("CRITICAL (%d)", len(group.Changes)))
+		label = sdk.StyleRiskCritical.Render(fmt.Sprintf("CRITICAL (%d)", len(group.items)))
 	case sdk.RiskHigh:
-		label = sdk.StyleRiskHigh.Render(fmt.Sprintf("HIGH (%d)", len(group.Changes)))
+		label = sdk.StyleRiskHigh.Render(fmt.Sprintf("HIGH (%d)", len(group.items)))
 	case sdk.RiskMedium:
-		label = sdk.StyleRiskMedium.Render(fmt.Sprintf("MEDIUM (%d)", len(group.Changes)))
+		label = sdk.StyleRiskMedium.Render(fmt.Sprintf("MEDIUM (%d)", len(group.items)))
 	case sdk.RiskLow:
-		label = sdk.StyleRiskLow.Render(fmt.Sprintf("LOW (%d)", len(group.Changes)))
+		label = sdk.StyleRiskLow.Render(fmt.Sprintf("LOW (%d)", len(group.items)))
 	default:
-		label = sdk.StyleFaint.Render(fmt.Sprintf("NONE (%d)", len(group.Changes)))
+		label = sdk.StyleFaint.Render(fmt.Sprintf("NONE (%d)", len(group.items)))
 	}
 	return "--- " + label + " ---"
 }
 
-func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
-	symbol := sdk.ActionSymbol(change.Action)
-	address := change.Resource.Address
-	reason := riskReason(change)
-	if row := e.resourceAssessment(change.Resource.InstanceKey()); row != nil {
-		reason = ""
-		if row.Status == sdk.ResourceUnavailable {
-			reason = "risk unavailable: " + string(row.ErrorCode)
+func (e *Plugin) renderChangeRow(item riskItem) string {
+	reason := ""
+	if item.row.Status == sdk.ResourceUnavailable {
+		reason = "risk unavailable: " + string(item.row.ErrorCode)
+	}
+	for _, evidence := range item.row.Reasons {
+		if reason != "" {
+			reason += "; "
 		}
-		for _, evidence := range row.Reasons {
-			if reason != "" {
-				reason += "; "
-			}
-			reason += evidence.Message
-		}
+		reason += evidence.Message
 	}
 
-	row := fmt.Sprintf("   %s %s", symbol, address)
+	row := fmt.Sprintf("   %s %s", sdk.ActionSymbol(item.change.Action), item.change.Resource.Address)
 	if reason != "" {
 		row += "  " + sdk.StyleFaint.Render(reason)
 	}
@@ -337,51 +306,39 @@ func (e *Plugin) renderChangeRow(change sdk.PlanChange) string {
 func (e *Plugin) renderStats() string {
 	var parts []string
 	for _, g := range e.groups {
-		label := g.Level.String()
-		if g.Unavailable {
+		label := g.level.String()
+		if g.unavailable {
 			label = string(sdk.ResourceUnavailable)
 		}
-		parts = append(parts, fmt.Sprintf("%s: %d", label, len(g.Changes)))
+		parts = append(parts, fmt.Sprintf("%s: %d", label, len(g.items)))
 	}
-	return sdk.StyleFaint.Render(fmt.Sprintf("Total: %d changes  [%s]", e.total, strings.Join(parts, " | ")))
+	return sdk.StyleFaint.Render(fmt.Sprintf("Total: %d changes  [%s]", len(e.items), strings.Join(parts, " | ")))
 }
 
-func riskReason(change sdk.PlanChange) string {
-	switch {
-	case change.Action == sdk.ActionDelete || change.Action == sdk.ActionDeleteThenCreate:
-		return "destructive operation"
-	case change.Action == sdk.ActionUpdate && change.Risk >= sdk.RiskHigh:
-		return "resource update"
-	case change.IsPhantom:
-		return "phantom change"
-	default:
-		return ""
-	}
+func compareItems(x, y riskItem) int {
+	return x.change.Resource.InstanceKey().Compare(y.change.Resource.InstanceKey())
 }
 
-func (e *Plugin) resourceAssessment(key sdk.InstanceKey) *sdk.PolicyResourceAssessment {
-	if e.assessment == nil {
-		return nil
-	}
-	row, ok := e.rows[key]
-	if !ok {
-		return nil
-	}
-	return &row
+// rowCounts is how many of an assessment's rows were classified, failed or left out.
+type rowCounts struct {
+	classified, unavailable, notAssessed int
 }
 
-func compareChanges(a, b sdk.PlanChange) int {
-	return cmp.Or(cmp.Compare(a.Resource.Address, b.Resource.Address), cmp.Compare(a.Resource.Deposed, b.Resource.Deposed))
-}
-
-func (e *Plugin) excludedCount() int {
-	count := 0
-	if e.assessment != nil {
-		for _, row := range e.assessment.Resources {
-			if row.Status == sdk.ResourceNotAssessed {
-				count++
-			}
+// countRows counts a.Resources by status; a nil assessment has no rows.
+func countRows(a *sdk.PolicyAssessment) rowCounts {
+	var counts rowCounts
+	if a == nil {
+		return counts
+	}
+	for _, row := range a.Resources {
+		switch row.Status {
+		case sdk.ResourceClassified:
+			counts.classified++
+		case sdk.ResourceUnavailable:
+			counts.unavailable++
+		case sdk.ResourceNotAssessed:
+			counts.notAssessed++
 		}
 	}
-	return count
+	return counts
 }

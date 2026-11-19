@@ -1,35 +1,56 @@
 package risk
 
 import (
+	"fmt"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
+// outcomeKind is where the latest Risk run stands: idle, loading, or how it ended.
+type outcomeKind int
+
+const (
+	outcomeIdle outcomeKind = iota
+	outcomeLoading
+	outcomeInvalidThreshold
+	outcomePlanFailed
+	outcomeUnusable
+	outcomeDone
+)
+
+// outcome is the latest Risk run's state, decided by activation and
+// acceptAssessment, with the line Stderr reports for it.
+type outcome struct {
+	kind       outcomeKind
+	diagnostic string
+	threshold  string // a done run's threshold result
+}
+
+// unavailable is the diagnostic line for a run that produced no usable assessment.
+func unavailable(detail string) string { return "risk unavailable: " + detail }
+
 // Busy reports that the host runs terraform plan for the pending request, which
 // it does only when Risk retains no reviewed plan. Ready covers headless waiting.
-func (e *Plugin) Busy() bool { return e.status == sdk.StatusLoading && e.summary == nil }
+func (e *Plugin) Busy() bool { return e.outcome.kind == outcomeLoading && e.summary == nil }
 
 // Assessment returns the current assessment, or nil after invalidation.
 func (e *Plugin) Assessment() *sdk.PolicyAssessment { return e.assessment }
 
 func (e *Plugin) resetDerived() {
-	e.Cancel()
 	e.stack.Clear()
 	e.offset = 0
 	e.panel.ResetScroll()
-	e.status = sdk.StatusIdle
-	e.setAssessment(nil)
-	e.groups = nil
-	e.overall = sdk.RiskNone
-	e.selected, e.total = 0, 0
-	e.riskDiagnostic, e.planError = "", ""
+	e.outcome = outcome{}
+	e.assessment = nil
+	e.groups, e.items = nil, nil
+	e.selected = 0
 }
 
 // Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
-	if e.status == sdk.StatusLoading {
-		e.status = sdk.StatusError
-		e.riskDiagnostic = string(sdk.ErrorCancelled)
+	if e.outcome.kind == outcomeLoading {
+		e.outcome = outcome{kind: outcomeUnusable, diagnostic: unavailable(string(sdk.ErrorCancelled))}
 	}
 }
 
@@ -55,15 +76,8 @@ func (e *Plugin) HandlePlanCompleted(ev sdk.PlanCompletedEvent) tea.Cmd {
 }
 
 func (e *Plugin) requestAssessment() tea.Cmd {
-	e.status = sdk.StatusLoading
-	current := e.GetCtx()
-	e.reportContext = reportContext{Project: e.input.Project, Chdir: e.input.Chdir, Workspace: current.Workspace.String()}
-	if e.reportContext.Chdir == "" {
-		e.reportContext.Chdir = current.Chdir.String()
-	}
-	if e.reportContext.Chdir == "" {
-		e.reportContext.Chdir = "."
-	}
+	e.outcome = outcome{kind: outcomeLoading}
+	e.requested = e.GetCtx()
 	var cmd tea.Cmd
 	e.pending, cmd = e.requestRisk(e.summary)
 	return cmd
@@ -72,48 +86,28 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
 // pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if e.status != sdk.StatusLoading || ev.Request != e.pending {
+	if e.outcome.kind != outcomeLoading || ev.Request != e.pending {
 		return nil
 	}
 	e.acceptAssessment(ev)
 	return nil
 }
 
-// setAssessment keeps rows indexing the assessment's rows.
-func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
-	e.assessment, e.rows = assessment, nil
-	if assessment != nil {
-		e.rows = assessment.Rows()
-	}
-}
-
 func (e *Plugin) acceptAssessment(ev sdk.RiskAssessedEvent) {
 	if ev.Err != nil {
-		e.status = sdk.StatusError
-		e.planError = ev.Err.Error()
+		e.outcome = outcome{kind: outcomePlanFailed, diagnostic: ev.Err.Error()}
 		return
 	}
 	e.summary = ev.Summary
 	assessment := ev.Assessment
-	e.setAssessment(&assessment)
-
-	// Render a copy so selected-policy classifications never mutate Plan's summary.
-	summary := sdk.ApplyAssessment(ev.Summary, e.rows)
-	if summary != nil {
-		changes := summary.Changes[:0]
-		for _, change := range summary.Changes {
-			if row, ok := e.rows[change.Resource.InstanceKey()]; ok && (row.Level != nil || row.Status == sdk.ResourceUnavailable) {
-				changes = append(changes, change)
-			}
-		}
-		summary.Changes = changes
-	}
-	e.Analyze(summary)
+	e.assessment = &assessment
+	e.analyze(ev.Summary, assessment.Rows())
 	if !assessment.Usable() {
-		e.status = sdk.StatusError
-		e.riskDiagnostic = string(assessment.Status)
-		if assessment.ErrorCode != "" {
-			e.riskDiagnostic = sdk.DiagnosticError{Code: assessment.ErrorCode, Hint: ev.Hint}.Error()
-		}
+		e.outcome = outcome{kind: outcomeUnusable, diagnostic: unavailable(failureDiagnostic(assessment, ev.Hint))}
+		return
+	}
+	e.outcome = outcome{kind: outcomeDone, threshold: thresholdResult(assessment, e.threshold)}
+	if e.outcome.threshold == "met" {
+		e.outcome.diagnostic = fmt.Sprintf("risk threshold met: %s >= %s", assessment.OverallLevel.String(), thresholdName(e.threshold))
 	}
 }

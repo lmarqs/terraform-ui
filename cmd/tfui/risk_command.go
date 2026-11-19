@@ -41,7 +41,7 @@ func buildRiskCommand(s *Session) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("resolving chdir: %w", err)
 			}
-			return s.RunPlugin(cmd.Context(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).ActivateInput(input) })
+			return s.RunPlugin(cmd.Context(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).Activate(input) })
 		},
 	}
 	cmd.Flags().StringVar(&threshold, riskThresholdFlag, "off", "Risk comparison threshold: off, none, low, medium, high, critical")

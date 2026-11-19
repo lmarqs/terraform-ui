@@ -33,7 +33,7 @@ func TestRunPlugin_GivenSeededRiskAssessment_ShouldWriteReportWithoutTerraform(t
 		sources: PreseedSources{Plan: filepath.Join(dir, "plan.json")}, silentStderr: true,
 		effects: Effects{Stdout: &stdout, Stderr: &stderr},
 	}
-	if err := session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).Activate() }); err != nil {
+	if err := session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).Activate(tfuirisk.Input{}) }); err != nil {
 		t.Fatalf("seeded Risk failed: %v; stderr %q", err, stderr.String())
 	}
 	if got := stdout.String(); !strings.HasPrefix(got, "Risk: ") || !strings.Contains(got, "update aws_lambda_function.worker:") || !strings.Contains(got, "Threshold: off (disabled)\n") {
