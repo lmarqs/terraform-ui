@@ -35,6 +35,7 @@ type interruptGuard struct {
 	shutdown        func()
 	exit            func(int)
 	done            chan struct{}
+	watching        bool
 
 	mu           sync.Mutex
 	received     os.Signal
@@ -71,6 +72,7 @@ func newInterruptGuard(runs terraformRuns, signals <-chan os.Signal, ownProcessG
 // when terraform has finished, exits after plugin cleanup without the
 // forced-exit note. Watch closes done when it stops reading.
 func (g *interruptGuard) Watch(endRun func()) {
+	g.watching = true
 	go func() {
 		defer close(g.done)
 		for sig := range g.signals {
@@ -131,10 +133,13 @@ func (g *interruptGuard) shutdownOnce() {
 // to give the signals back and close their channel, and waits for the watcher.
 // A signal that arrived before release is still handled: its watcher exits the
 // process during that wait, so the run cannot end with its own exit code.
+// Without a watcher, as after a panic before Watch, it does not wait.
 func (g *interruptGuard) stop(release func()) {
 	g.shutdownOnce()
 	release()
-	<-g.done
+	if g.watching {
+		<-g.done
+	}
 }
 
 // Finish runs once the program or headless driver returned. Without a prior
