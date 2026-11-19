@@ -28,6 +28,7 @@ type Session struct {
 	effects      Effects
 	jsonStdout   bool
 	ciMode       bool
+	dryRun       bool
 	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || agent env || !isStderrTTY
 }
 
@@ -35,6 +36,11 @@ func (s *Session) Run() error {
 	if err := s.validate(); err != nil {
 		return err
 	}
+	return s.runApp()
+}
+
+// runApp runs the full TUI once validate has passed.
+func (s *Session) runApp() error {
 	tape, err := s.macro.LoadTape()
 	if err != nil {
 		return err
@@ -80,14 +86,20 @@ func (s *Session) buildService() (sdk.Service, *terraform.MacroService, error) {
 			return nil, nil, err
 		}
 	}
-	if s.macro.Active() {
-		logging.Logger().Debug("session.backend", "type", "recording", "reason", "macro")
+	if s.recordsCommands() {
+		logging.Logger().Debug("session.backend", "type", "recording", "macro", s.macro.Active(), "dry_run", s.dryRun)
 		svc := terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
 		return svc, svc, nil
 	}
 	logging.Logger().Debug("session.backend", "type", "exec")
 	svc := tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
 	return svc, nil, nil
+}
+
+// recordsCommands reports whether the session records terraform commands
+// instead of running them: a macro tape or -dry-run.
+func (s *Session) recordsCommands() bool {
+	return s.macro.Active() || s.dryRun
 }
 
 func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
@@ -112,6 +124,13 @@ func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuar
 	}
 
 	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithoutSignalHandler()}
+	if s.effects.Stdin != nil {
+		opts = append(opts, tea.WithInput(s.effects.Stdin))
+	}
+	if s.dryRun {
+		// stdout carries the recorded commands, so `tfui -dry-run | sh` works.
+		opts = append(opts, tea.WithOutput(s.effects.Stderr))
+	}
 
 	if s.macro.RecordDir != "" {
 		rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
@@ -224,19 +243,9 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 		return err
 	}
 
-	cache := terraform.NewServiceCache()
-	if !s.sources.Empty() {
-		if err := s.sources.Seed(cache); err != nil {
-			return err
-		}
-	}
-	var svc sdk.Service
-	var recorder *terraform.MacroService
-	if s.macro.Active() {
-		recorder = terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
-		svc = recorder
-	} else {
-		svc = tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
+	svc, recorder, err := s.buildService()
+	if err != nil {
+		return err
 	}
 
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)

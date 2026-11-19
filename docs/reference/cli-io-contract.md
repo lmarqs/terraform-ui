@@ -23,7 +23,7 @@ and pipe composability at once.
 |------|-----|--------|-------------|
 | **Standalone** | Alt-screen on stderr; the user reviews and confirms | Plugin output on exit | Default: `tfui <command>` with a TTY on stderr |
 | **Headless** | None, no keyboard input | Plugin output as soon as it is done | `-ci`, `CI=1`, an AI agent environment, or a stderr that is not a TTY |
-| **Full TUI** | Alt-screen on stdout, all plugins | Nothing | `tfui` with no command |
+| **Full TUI** | Alt-screen on stdout, all plugins; on stderr with `-dry-run` | Nothing; the recorded commands with `-dry-run` | `tfui` with no command |
 
 ### Mode resolution
 
@@ -125,6 +125,7 @@ the Terraform error on stderr; Risk policy failures use fixed diagnostics as spe
 | `tfui -plan file` | (alt-screen) | — | 0/1 |
 | `tfui -state file` | (alt-screen) | — | 0/1 |
 | `tfui -macro tape -plan file` | Commands | — | 0/1 |
+| `tfui -dry-run` | Recorded commands, on exit | TUI (alt-screen) | 0/1 |
 
 ### Pre-seeded data on subcommands
 
@@ -291,4 +292,4 @@ Recorded in [ADR-0022](../adr/0022-agent-environments-imply-headless.md). [Terra
 
 ### Why full TUI (`tfui` no args) uses stdout?
 
-The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split.
+The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split, and `tfui -dry-run`, whose result is the recorded commands.
