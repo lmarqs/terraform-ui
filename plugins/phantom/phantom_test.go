@@ -482,7 +482,7 @@ func TestExplainPhantom_GivenChange_ShouldReturnAppropriateExplanation(t *testin
 	}
 }
 
-func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectAndBack(t *testing.T) {
+func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectWrapAndQuit(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 	p.phantoms = []PhantomChange{
@@ -490,14 +490,17 @@ func TestHints_WhenStatusDoneWithPhantoms_ShouldIncludeInspectAndBack(t *testing
 	}
 
 	hints := p.Hints()
-	if len(hints) != 2 {
-		t.Fatalf("Hints() len = %d, want 2", len(hints))
+	if len(hints) != 3 {
+		t.Fatalf("Hints() len = %d, want 3", len(hints))
 	}
 	if hints[0].Key != "Enter" || hints[0].Description != "inspect" {
 		t.Errorf("Hints()[0] = {%q, %q}, want {Enter, inspect}", hints[0].Key, hints[0].Description)
 	}
-	if hints[1].Key != "q" || hints[1].Description != "quit" {
-		t.Errorf("Hints()[1] = {%q, %q}, want {q, back}", hints[1].Key, hints[1].Description)
+	if hints[1].Key != "^w" || hints[1].Description != "wrap(off)" {
+		t.Errorf("Hints()[1] = {%q, %q}, want {^w, wrap(off)}", hints[1].Key, hints[1].Description)
+	}
+	if hints[2].Key != "q" || hints[2].Description != "quit" {
+		t.Errorf("Hints()[2] = {%q, %q}, want {q, quit}", hints[2].Key, hints[2].Description)
 	}
 }
 

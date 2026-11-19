@@ -5,7 +5,9 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // PhantomChange holds a phantom change with its explanation.
@@ -24,6 +26,8 @@ type Plugin struct {
 	expanded map[int]bool
 	total    int
 	real     int
+	panel    *ui.ContentPanel
+	offset   int
 }
 
 // New creates a new phantom change detection plugin.
@@ -31,7 +35,9 @@ func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
 		PluginBase: sdk.NewPluginBase("phantom", "Phantom Changes", "Detect and explain phantom (no-op) changes"),
 		expanded:   make(map[int]bool),
+		panel:      ui.NewContentPanel(),
 	}
+	p.panel.SelectedStyle = func(s string, width int) string { return sdk.StyleSelected.Width(width).Render(s) }
 	p.Svc = svc
 	return p
 }
@@ -51,8 +57,8 @@ func (e *Plugin) CursorPosition() (int, int) {
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
-	if e.status == sdk.StatusDone && len(e.phantoms) > 0 {
-		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
+	if e.navigable() {
+		return (sdk.HintSetInspect | sdk.HintSetWrap | sdk.HintSetQuit).Hints(sdk.HintSetOpts{WrapMode: e.panel.WrapMode()})
 	}
 	return (sdk.HintSetQuit).Hints()
 }
@@ -75,6 +81,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 		e.phantoms = nil
 		e.total = 0
 		e.real = 0
+		e.resetView()
 		return
 	}
 
@@ -96,6 +103,7 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 	e.status = sdk.StatusDone
 	e.selected = 0
 	e.expanded = make(map[int]bool)
+	e.resetView()
 }
 
 // Update processes messages and returns the updated plugin.
@@ -116,7 +124,20 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) {
 		e.MoveUp()
 	case "enter", "i":
 		e.ToggleExpand()
+	case "left", "right", "ctrl+w":
+		if e.navigable() {
+			e.panel.HandleKey(msg)
+		}
 	}
+}
+
+// navigable reports whether the list shows phantoms to move through and pan.
+func (e *Plugin) navigable() bool { return e.status == sdk.StatusDone && len(e.phantoms) > 0 }
+
+// resetView returns the window and the pan to the top left of the list.
+func (e *Plugin) resetView() {
+	e.offset = 0
+	e.panel.ResetScroll()
 }
 
 // MoveUp moves selection up.
@@ -159,51 +180,44 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		return noPhantoms + "\n" + summary
 	}
 
-	var b strings.Builder
+	rows := []string{}
+	cursor, cursorEnd := 0, 0
+	for i, pc := range e.phantoms {
+		if i == e.selected {
+			cursor = len(rows)
+		}
+		rows = append(rows, e.renderPhantomRow(pc, i))
+		if e.expanded[i] {
+			rows = append(rows, e.renderPhantomDetails(pc, width)...)
+		}
+		if i == e.selected {
+			cursorEnd = len(rows)
+		}
+	}
 
-	// Summary banner
+	// The banner, its note and the blank line under them take three rows, unless the
+	// cursor's phantom is taller than what is left: it gets them, so its last line shows.
+	listHeight, header := height-3, e.renderBanner(width)
+	if cursorEnd-cursor > listHeight {
+		listHeight, header = height, ""
+	}
+	content, offset := e.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, listHeight), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: e.offset})
+	e.offset = offset
+
+	lines := strings.Split(header+content, "\n")
+	return strings.Join(lines[:min(max(0, height), len(lines))], "\n")
+}
+
+// renderBanner is the summary and its note, each cut to width, and the blank line under them.
+func (e *Plugin) renderBanner(width int) string {
 	banner := sdk.StylePhantom.Render(fmt.Sprintf(
 		"Detected %d phantom change(s) out of %d total",
 		len(e.phantoms), e.total,
 	))
-	b.WriteString(banner)
-	b.WriteString("\n")
-	b.WriteString(sdk.StyleFaint.Render(
+	note := sdk.StyleFaint.Render(
 		"These changes appear in the plan but result in no actual infrastructure modification.",
-	))
-	b.WriteString("\n\n")
-
-	// Calculate visible area
-	maxVisible := height - 10
-	if maxVisible < 3 {
-		maxVisible = 3
-	}
-
-	startIdx := 0
-	if e.selected >= maxVisible {
-		startIdx = e.selected - maxVisible + 1
-	}
-	endIdx := startIdx + maxVisible
-	if endIdx > len(e.phantoms) {
-		endIdx = len(e.phantoms)
-	}
-
-	for i := startIdx; i < endIdx; i++ {
-		pc := e.phantoms[i]
-		row := e.renderPhantomRow(pc, i)
-		if i == e.selected {
-			row = sdk.StyleSelected.Width(width).Render(row)
-		}
-		b.WriteString(row)
-		b.WriteByte('\n')
-
-		// Show expanded details
-		if e.expanded[i] {
-			b.WriteString(e.renderPhantomDetails(pc, width))
-		}
-	}
-
-	return b.String()
+	)
+	return ansi.Truncate(banner, max(0, width), "") + "\n" + ansi.Truncate(note, max(0, width), "") + "\n\n"
 }
 
 func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {
@@ -218,27 +232,23 @@ func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {
 	return fmt.Sprintf(" %s %s %s  %s", indicator, sdk.StylePhantom.Render("~"), address, attrCount)
 }
 
-func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) string {
-	var b strings.Builder
-
-	// Explanation
-	b.WriteString("   ")
-	b.WriteString(sdk.StyleFaintItalic.Render("Reason: " + pc.Explanation))
-	b.WriteByte('\n')
+// renderPhantomDetails returns the rows of an expanded phantom's reason and attribute diffs,
+// ending in a blank row.
+func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) []string {
+	rows := []string{"   " + sdk.StyleFaintItalic.Render("Reason: "+pc.Explanation)}
 
 	// Show attribute diffs that are cosmetic
 	for _, diff := range pc.Attributes {
 		key := sdk.StyleKey.Render("     " + diff.Key)
 		if diff.Sensitive {
-			b.WriteString(key + ": " + sdk.StyleFaintItalic.Render("(sensitive)") + "\n")
+			rows = append(rows, key+": "+sdk.StyleFaintItalic.Render("(sensitive)"))
 			continue
 		}
 		old := sdk.Truncate(diff.OldValue, width/4)
 		new := sdk.Truncate(diff.NewValue, width/4)
-		b.WriteString(key + ": " + sdk.StyleFaint.Render(old+" = "+new) + "\n")
+		rows = append(rows, key+": "+sdk.StyleFaint.Render(old+" = "+new))
 	}
-	b.WriteByte('\n')
-	return b.String()
+	return append(rows, "")
 }
 
 func explainPhantom(change sdk.PlanChange) string {
