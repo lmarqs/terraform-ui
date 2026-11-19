@@ -1,9 +1,9 @@
 ---
 layout: default
-title: "ADR-0026: The content panel windows a list when wrap is on"
+title: "ADR-0027: The content panel windows a list when wrap is on"
 grand_parent: Development
 parent: Architecture
-nav_order: 0026
+nav_order: 0027
 seo:
   description: Decision that ui.ContentPanel can pick a list's visible window, because only it knows how tall wrapped rows are
 description: "Records why ui.ContentPanel.RenderWindow picks which rows a list shows, amending ADR-0015's axis split."
