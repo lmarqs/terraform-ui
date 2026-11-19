@@ -209,3 +209,21 @@ func TestCancel_GivenRequestedAgain_ShouldDispatchEachResultUnderItsOwnID(t *tes
 		}
 	}
 }
+
+// Cancelling one requester and requesting for it again must not drop another
+// requester's pending result.
+func TestCancel_GivenOtherRequesterPendingAndRequestedAgain_ShouldKeepTheOtherResultCurrent(t *testing.T) {
+	h := newHarness(t, t.TempDir(), &sdktest.MockService{})
+	_, pending := h.coord.Request("b", h.current, reviewedRiskSummary())
+	h.coord.Cancel("a")
+	h.coord.Request("a", h.current, reviewedRiskSummary())
+
+	result := pending().(Result)
+
+	if !h.coord.Current(result) {
+		t.Fatal("b's pending result is dropped after a was cancelled and requested again")
+	}
+	if !result.Event.Assessment.Usable() {
+		t.Fatalf("b's result = %+v, want its usable assessment", result.Event.Assessment)
+	}
+}

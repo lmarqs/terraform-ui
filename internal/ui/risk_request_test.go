@@ -281,9 +281,10 @@ func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_Sho
 	}
 }
 
-// Blast Radius requests every assessment for the reviewed summary, so the
-// result of a request cancelled before an identical one is issued arrives
-// under the cancelled ID, never the new one.
+// A request cancelled before an identical one is issued for the same summary
+// still delivers its result, under the cancelled ID, never the new one. That a
+// requester ignores it by ID is tested per plugin, e.g. Blast Radius's "older own
+// ID after a newer request" case.
 func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgain_ShouldDispatchEachResultUnderItsOwnID(t *testing.T) {
 	root := t.TempDir()
 	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)

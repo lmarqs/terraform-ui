@@ -131,34 +131,55 @@ func riskResult(t *testing.T, cmd tea.Cmd) riskassess.Result {
 }
 
 // Navigation cancels the plugin's policy-only assessment without advancing the
-// generation, so its late result reaches every plugin; the requester ignores it
-// by AssessmentID.
+// generation, and the plugin it opens issues its own request. The cancelled
+// request's late result still reaches every plugin and its requester ignores it
+// by AssessmentID; the new request's result is neither dropped nor ignored.
 func TestNavigate_GivenPendingPolicyOnlyAssessment_ShouldDeliverLateResultThatThePluginIgnores(t *testing.T) {
-	for _, pluginID := range []string{"blastradius", "risk"} {
-		t.Run(pluginID, func(t *testing.T) {
-			app, request := newPendingAssessmentAppWithRequest(t, pluginID, true)
+	for _, tc := range []struct{ from, to string }{
+		{"blastradius", "risk"},
+		{"risk", "blastradius"},
+	} {
+		t.Run(tc.from+" to "+tc.to, func(t *testing.T) {
+			app, request := newPendingAssessmentAppWithRequest(t, tc.from, true)
 			requester := app.ActivePlugin()
-			model, _ := app.Update(sdk.NavigateMsg{PluginID: "state"})
+			model, next := app.Update(sdk.NavigateMsg{PluginID: tc.to})
 			app = model.(App)
-			if app.ActivePlugin().ID() != "state" {
+			if app.ActivePlugin().ID() != tc.to {
 				t.Fatalf("navigation refused: %q", app.commandError)
+			}
+			target := app.ActivePlugin()
+			if target.Ready() {
+				t.Fatalf("setup: %s is ready, want its own assessment request pending", tc.to)
 			}
 			before := requester.View(120, 40)
 
 			late := riskResult(t, request)
+			current := riskResult(t, next)
 			if !app.risk.Current(late) {
-				t.Fatal("late result of a cancelled policy-only assessment is not delivered")
+				t.Fatalf("late result of %s's cancelled request is dropped after %s requested", tc.from, tc.to)
+			}
+			if !app.risk.Current(current) {
+				t.Fatalf("%s's pending result is dropped", tc.to)
 			}
 			model, _ = app.Update(late)
 			app = model.(App)
 
 			if after := requester.View(120, 40); after != before {
-				t.Fatalf("%s accepted the late result of its cancelled request:\nbefore:\n%s\nafter:\n%s", pluginID, before, after)
+				t.Fatalf("%s accepted the late result of its cancelled request:\nbefore:\n%s\nafter:\n%s", tc.from, before, after)
 			}
 			// Risk renders its own cancellation like a cancelled result, so its
 			// retained assessment tells whether it accepted the result.
 			if assessed, ok := requester.(interface{ Assessment() *sdk.PolicyAssessment }); ok && assessed.Assessment() != nil {
-				t.Fatalf("%s retained the late result's assessment %+v", pluginID, assessed.Assessment())
+				t.Fatalf("%s retained the late result's assessment %+v", tc.from, assessed.Assessment())
+			}
+			if target.Ready() {
+				t.Fatalf("%s accepted the result of %s's cancelled request", tc.to, tc.from)
+			}
+
+			model, _ = app.Update(current)
+			app = model.(App)
+			if !target.Ready() {
+				t.Fatalf("%s ignored the result of its own pending request", tc.to)
 			}
 		})
 	}
