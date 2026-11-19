@@ -151,14 +151,14 @@ func (e *Plugin) report() riskReport {
 		r.Threshold.Level = &level
 	}
 	r.Threshold.Result = e.outcome.threshold
+	counts := countRows(a)
+	r.Counts.Eligible, r.Counts.Classified, r.Counts.NotAssessed = counts.classified, counts.classified, counts.notAssessed
 	for _, row := range a.Resources {
 		resource := reportResource{Address: row.Address, Actions: row.Actions, Status: row.Status, Exclusion: row.Exclusion}
 		if row.Deposed != "" {
 			resource.Deposed = &row.Deposed
 		}
 		if row.Status == sdk.ResourceClassified {
-			r.Counts.Eligible++
-			r.Counts.Classified++
 			level := row.Level.String()
 			resource.Level = &level
 			r.Levels[level]++
@@ -171,8 +171,6 @@ func (e *Plugin) report() riskReport {
 				reasons = append(reasons, reportReason{Code: reason.Code, Message: reason.Message, Paths: paths})
 			}
 			resource.Reasons = &reasons
-		} else {
-			r.Counts.NotAssessed++
 		}
 		r.Resources = append(r.Resources, resource)
 	}

@@ -215,7 +215,7 @@ func (e *Plugin) View(width, height int) string {
 
 func (e *Plugin) renderAnalysis(width, height int) string {
 	if len(e.items) == 0 {
-		return sdk.StyleFaint.Render(fmt.Sprintf("No eligible mutations (%d changes not assessed).", e.excludedCount()))
+		return sdk.StyleFaint.Render(fmt.Sprintf("No eligible mutations (%d changes not assessed).", countRows(e.assessment).notAssessed))
 	}
 
 	rows := []string{}
@@ -254,18 +254,10 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 
 func (e *Plugin) renderOverallBanner() string {
 	if e.assessment.Status == sdk.AssessmentPartial || e.assessment.Status == sdk.AssessmentUnavailable {
-		failed, classified := 0, 0
-		for _, row := range e.assessment.Resources {
-			if row.Status == sdk.ResourceUnavailable {
-				failed++
-			}
-			if row.Status == sdk.ResourceClassified {
-				classified++
-			}
-		}
-		message := fmt.Sprintf("Risk unavailable: %d of %d eligible mutations failed", failed, failed+classified)
-		if classified > 0 {
-			message += fmt.Sprintf("; %d classified", classified)
+		counts := countRows(e.assessment)
+		message := fmt.Sprintf("Risk unavailable: %d of %d eligible mutations failed", counts.unavailable, counts.unavailable+counts.classified)
+		if counts.classified > 0 {
+			message += fmt.Sprintf("; %d classified", counts.classified)
 		}
 		return sdk.StyleError.Render(message + ".")
 	}
@@ -327,14 +319,26 @@ func compareItems(x, y riskItem) int {
 	return x.change.Resource.InstanceKey().Compare(y.change.Resource.InstanceKey())
 }
 
-func (e *Plugin) excludedCount() int {
-	count := 0
-	if e.assessment != nil {
-		for _, row := range e.assessment.Resources {
-			if row.Status == sdk.ResourceNotAssessed {
-				count++
-			}
+// rowCounts is how many of an assessment's rows were classified, failed or left out.
+type rowCounts struct {
+	classified, unavailable, notAssessed int
+}
+
+// countRows counts a.Resources by status; a nil assessment has no rows.
+func countRows(a *sdk.PolicyAssessment) rowCounts {
+	var counts rowCounts
+	if a == nil {
+		return counts
+	}
+	for _, row := range a.Resources {
+		switch row.Status {
+		case sdk.ResourceClassified:
+			counts.classified++
+		case sdk.ResourceUnavailable:
+			counts.unavailable++
+		case sdk.ResourceNotAssessed:
+			counts.notAssessed++
 		}
 	}
-	return count
+	return counts
 }
