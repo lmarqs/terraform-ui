@@ -85,6 +85,7 @@ Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit        terraform
 - `DeactivateMsg` with empty navStack: quits the app
 - `NavigateMsg` to non-NavPush plugins: rejected
 - NavPush sub-navigation works normally (plan can push apply, state can push taint)
+- `ctrl+r` works as in the full TUI: it reloads or retries the current screen in place and never navigates to another plugin, so a screen with nothing to reload shows no `^r`
 
 ## 2. Information Architecture
 

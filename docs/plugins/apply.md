@@ -48,8 +48,7 @@ Press `a` in Plan after reviewing changes; if resources are pinned, apply target
 | `n` / `N` / `Esc` | Cancel and return to Plan | Confirming |
 | `l` | Show the terraform log | Done, Error |
 | `ctrl+r` | Retry | Error, after `tfui apply -auto-approve` |
-| `ctrl+r` | Back to Plan | Done |
-| `Esc` | Back | Done, Error |
+| `Esc` | Back to Plan; quits a standalone `tfui apply` | Done, Error |
 | `q` | Back to home | Always |
 
 ### Flow

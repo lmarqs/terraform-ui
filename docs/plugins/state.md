@@ -64,7 +64,7 @@ Press `s` from the home menu. The plugin loads the current terraform state.
 | `n` | Import → navigates to import plugin | List (cursor item) |
 | `e` | Edit in $EDITOR | List (cursor item) |
 | `!` | Batch action palette | List (when pins > 0) |
-| `ctrl+r` | Reload state | List, once loading finished or failed |
+| `ctrl+r` | Reload state | List, except while loading |
 | `u` | Force-unlock | Error (locked) |
 | `Esc` / `q` | Back / exit detail | Any |
 

@@ -617,21 +617,18 @@ func TestUpdate_WhenKeyInLoading_ShouldDoNothing(t *testing.T) {
 	}
 }
 
-func TestUpdate_WhenCtrlRInDone_ShouldNavigateToPlan(t *testing.T) {
+// Apply's result has nothing to reload, and ctrl+r never navigates (tui-ux.md,
+// Standalone navigation rules).
+func TestUpdate_WhenCtrlRInDone_ShouldDoNothing(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
-	if cmd == nil {
-		t.Fatal("after ctrl+r in success: cmd = nil, want NavigateMsg")
+	if cmd != nil {
+		t.Errorf("after ctrl+r in success: cmd emits %T, want nil", cmd())
 	}
-	msg := cmd()
-	nav, ok := msg.(sdk.NavigateMsg)
-	if !ok {
-		t.Fatalf("cmd() = %T, want sdk.NavigateMsg", msg)
-	}
-	if nav.PluginID != "plan" {
-		t.Errorf("NavigateMsg.PluginID = %q, want %q", nav.PluginID, "plan")
+	if p.status != sdk.StatusDone {
+		t.Errorf("after ctrl+r in success: status = %v, want StatusDone", p.status)
 	}
 }
 
@@ -714,16 +711,13 @@ func TestHints_WhenLoading_ShouldReturnCancel(t *testing.T) {
 	}
 }
 
-func TestHints_WhenDone_ShouldReturnRefreshAndCancel(t *testing.T) {
+func TestHints_WhenDone_ShouldReturnCancelOnly(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone
 
 	hints := p.Hints()
-	if len(hints) != 2 {
-		t.Fatalf("Hints() length = %d, want 2", len(hints))
-	}
-	if hints[0].Key != "^r" {
-		t.Errorf("Hints()[0].Key = %q, want ^r", hints[0].Key)
+	if len(hints) != 1 || hints[0] != sdk.HintCancel {
+		t.Errorf("Hints() = %v, want [%v]", hints, sdk.HintCancel)
 	}
 }
 

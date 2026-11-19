@@ -70,7 +70,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		})
 		return f, nil
 	case "ctrl+r":
-		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
+		if f.plugin.status != sdk.StatusLoading {
 			return f, f.plugin.Refresh()
 		}
 	case "u":
