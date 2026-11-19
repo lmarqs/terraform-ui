@@ -114,3 +114,62 @@ func TestRequestAssessment_GivenUnchangedEvidenceAndSource_ShouldReuseAssessment
 		t.Fatalf("replaced Context reused previous Context assessment: %d evaluations", calls)
 	}
 }
+
+func TestRequestAssessment_GivenCachedAssessmentAndSummary_ShouldReturnItWithoutCompilingPolicy(t *testing.T) {
+	root := t.TempDir()
+	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
+	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n")
+	h := newHarness(t, root, &sdktest.MockService{})
+	compiles := 0
+	h.coord.compile = func(ctx context.Context, snapshot riskpolicy.Snapshot) riskpolicy.Policy {
+		compiles++
+		return riskpolicy.Compile(ctx, snapshot)
+	}
+	summary := reviewedRiskSummary()
+	first := requestRisk(t, h, h.request(summary))
+	second := requestRisk(t, h, h.request(summary))
+	if compiles != 1 {
+		t.Fatalf("second identical request compiled the policy: %d compiles, want 1", compiles)
+	}
+	if second.Assessment.Status != first.Assessment.Status || second.Assessment.ErrorCode != first.Assessment.ErrorCode {
+		t.Fatalf("cached assessment %+v differs from the first %+v", second.Assessment, first.Assessment)
+	}
+}
+
+func TestRequestAssessment_GivenCachedAssessmentAndSourceEdit_ShouldCompileAgain(t *testing.T) {
+	root := t.TempDir()
+	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
+	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n")
+	h := newHarness(t, root, &sdktest.MockService{})
+	compiles := 0
+	h.coord.compile = func(ctx context.Context, snapshot riskpolicy.Snapshot) riskpolicy.Policy {
+		compiles++
+		return riskpolicy.Compile(ctx, snapshot)
+	}
+	summary := reviewedRiskSummary()
+	requestRisk(t, h, h.request(summary))
+	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n# edited source\n")
+	requestRisk(t, h, h.request(summary))
+	if compiles != 2 {
+		t.Fatalf("an edited source compiled %d times, want 2: the source is re-read at every boundary", compiles)
+	}
+}
+
+func TestRequestAssessment_GivenCachedAssessmentAndNilSummary_ShouldCompileBeforePlanning(t *testing.T) {
+	root := t.TempDir()
+	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
+	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n")
+	svc := &sdktest.MockService{}
+	svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return reviewedRiskSummary(), nil }
+	h := newHarness(t, root, svc)
+	compiles := 0
+	h.coord.compile = func(ctx context.Context, snapshot riskpolicy.Snapshot) riskpolicy.Policy {
+		compiles++
+		return riskpolicy.Compile(ctx, snapshot)
+	}
+	requestRisk(t, h, h.request(reviewedRiskSummary()))
+	requestRisk(t, h, h.request(nil))
+	if compiles != 2 {
+		t.Fatalf("a nil-summary request compiled %d times in total, want 2: it compiles before planning", compiles)
+	}
+}

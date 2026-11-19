@@ -46,13 +46,14 @@ type Coordinator struct {
 	issued     uint64
 	requests   map[string]context.CancelFunc
 
-	// assess is replaced only by this package's tests.
-	assess Evaluator
+	// assess and compile are replaced only by this package's tests.
+	assess  Evaluator
+	compile func(context.Context, riskpolicy.Snapshot) riskpolicy.Policy
 }
 
 // New returns a Coordinator reading policy selection and risk settings from cfg.
 func New(cfg config.Config) *Coordinator {
-	return &Coordinator{cfg: cfg, requests: map[string]context.CancelFunc{}, assess: assessPolicy}
+	return &Coordinator{cfg: cfg, requests: map[string]context.CancelFunc{}, assess: assessPolicy, compile: riskpolicy.Compile}
 }
 
 func assessPolicy(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
@@ -72,6 +73,27 @@ type cache struct {
 	mu     sync.Mutex
 	key    cacheKey
 	result sdk.PolicyAssessment
+}
+
+func evidenceOf(summary *sdk.PlanSummary) sdk.PolicyEvidence {
+	if summary != nil && summary.PolicyEvidence != nil {
+		return *summary.PolicyEvidence
+	}
+	return sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
+}
+
+func (c *Coordinator) key(current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, digest string) cacheKey {
+	return cacheKey{current: current, planID: evidenceOf(summary).PlanID, selection: selection, digest: digest}
+}
+
+// cached returns the stored result for key unless ctx is already done.
+func (c *Coordinator) cached(ctx context.Context, key cacheKey) (sdk.PolicyAssessment, bool) {
+	if ctx.Err() != nil {
+		return sdk.PolicyAssessment{}, false
+	}
+	c.cache.mu.Lock()
+	defer c.cache.mu.Unlock()
+	return c.cache.result, c.cache.key == key
 }
 
 // Cancel ends requester's pending request. Its result is still dispatched, and
@@ -125,7 +147,8 @@ func (c *Coordinator) RequestWith(requester string, current *sdk.Context, summar
 	}
 }
 
-// run loads and compiles the policy before any plan, so a broken policy never runs Terraform.
+// run loads the policy at every call and compiles it before any plan, so a broken policy never runs Terraform.
+// A cached assessment for a given summary needs only the loaded source's digest, so it skips the compile.
 func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) sdk.RiskAssessedEvent {
 	event := sdk.RiskAssessedEvent{Summary: summary}
 	selection, snapshot, failure := c.loadPolicy(current)
@@ -134,7 +157,13 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 		event.Hint = sdk.DiagnosticHint(sdk.RiskSettingsError(c.cfg.Plugins["risk"].Options))
 		return event
 	}
-	policy := riskpolicy.Compile(ctx, snapshot)
+	if summary != nil {
+		if result, ok := c.cached(ctx, c.key(current, summary, selection, snapshot.Digest())); ok {
+			event.Assessment = result
+			return event
+		}
+	}
+	policy := c.compile(ctx, snapshot)
 	if summary == nil {
 		if !policy.Compiled() {
 			event.Assessment = assess(ctx, policy, sdk.PolicyEvidence{})
@@ -198,21 +227,11 @@ func (c *Coordinator) loadPolicy(current *sdk.Context) (config.RiskPolicySelecti
 // evaluate publishes a result only when the source it was computed from is still the one selected.
 func (c *Coordinator) evaluate(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, policy riskpolicy.Policy, assess Evaluator) sdk.PolicyAssessment {
 	snapshot := policy.Snapshot()
-	evidence := sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
-	if summary != nil && summary.PolicyEvidence != nil {
-		evidence = *summary.PolicyEvidence
+	key := c.key(current, summary, selection, snapshot.Digest())
+	if result, ok := c.cached(ctx, key); ok {
+		return result
 	}
-	key := cacheKey{current: current, planID: evidence.PlanID, selection: selection, digest: snapshot.Digest()}
-	if ctx.Err() == nil {
-		c.cache.mu.Lock()
-		cached := c.cache.key == key
-		result := c.cache.result
-		c.cache.mu.Unlock()
-		if cached {
-			return result
-		}
-	}
-	result := assess(ctx, policy, evidence)
+	result := assess(ctx, policy, evidenceOf(summary))
 	if ctx.Err() != nil {
 		return result
 	}
