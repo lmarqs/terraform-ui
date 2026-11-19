@@ -136,12 +136,6 @@ func TestUpdate_GivenCtrlROutsideErrorState_ShouldDoNothing(t *testing.T) {
 			assessAtPlanRisk(p, h, lifecycleSummary("aws_instance.a"))
 			return p, h
 		}},
-		{"invalid threshold", func(t *testing.T) (*Plugin, *sdktest.PluginDepsHarness) {
-			p, h := newLifecyclePlugin(t, &sdktest.MockService{})
-			bogus := "bogus"
-			p.Activate(Input{Threshold: &bogus})
-			return p, h
-		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p, h := tc.setup(t)
@@ -155,6 +149,21 @@ func TestUpdate_GivenCtrlROutsideErrorState_ShouldDoNothing(t *testing.T) {
 					before, p.Status(), len(h.AssessmentRequests)-requests, cmd != nil)
 			}
 		})
+	}
+}
+
+func TestUpdate_GivenCtrlRWithInvalidThreshold_ShouldDoNothing(t *testing.T) {
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
+	bogus := "bogus"
+	p.Activate(Input{Threshold: &bogus})
+	before := p.Status()
+	requests := len(h.AssessmentRequests)
+
+	_, cmd := p.Update(ctrlR)
+
+	if cmd != nil || p.Status() != before || len(h.AssessmentRequests) != requests {
+		t.Fatalf("ctrl+r moved status %v to %v, issued %d requests, cmd %v; want nothing",
+			before, p.Status(), len(h.AssessmentRequests)-requests, cmd != nil)
 	}
 }
 
