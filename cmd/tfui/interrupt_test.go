@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"reflect"
 	"strconv"
@@ -513,5 +514,22 @@ func TestInterruptGuard_SecondSignalWhileEndRunBlocks_ShouldForceExit(t *testing
 	want := []string{"interrupt", "endRun", "stderr:" + forcedExitNote, "shutdown", "exit:143"}
 	if got := h.snapshot(); !reflect.DeepEqual(got, want) {
 		t.Errorf("events = %v, want %v", got, want)
+	}
+}
+
+func TestInterruptGuard_StopWithoutWatch_ShouldRunShutdownAndReturn(t *testing.T) {
+	signals := make(chan os.Signal, 1)
+	shutdowns := 0
+	guard := newInterruptGuard(noTerraformRuns{}, signals, false, func() bool { return false }, io.Discard,
+		func() { shutdowns++ }, func(code int) { t.Errorf("exit(%d) without a signal", code) })
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		guard.stop(func() { close(signals) })
+	}()
+
+	awaitInterrupt(t, stopped, "stop to return without a watcher")
+	if shutdowns != 1 {
+		t.Errorf("shutdown ran %d times, want 1", shutdowns)
 	}
 }
