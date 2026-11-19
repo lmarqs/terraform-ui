@@ -398,7 +398,8 @@ source digest and an assessment generation. None of these Context values becomes
 Choose reload at assessment boundaries, without a watcher or a new keybinding. At initial assessment, Context
 change, new plan completion, explicit existing refresh, and Risk activation, reread effective configuration and
 selected modules. Compare snapshots before reusing a cached assessment. Risk activation after Plan with unchanged
-evidence/source reuses the assessment and performs no second Terraform plan. Pin-only Context changes invalidate
+evidence/source reuses a usable assessment and performs no second Terraform plan; an unusable one (partial or
+unavailable) is evaluated again on the next request. Pin-only Context changes invalidate
 publication according to existing Context events; acquisition retains existing target/cache rules.
 
 | Event | Required result |
