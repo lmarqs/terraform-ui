@@ -34,9 +34,16 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return nil
 }
 
+// HandlePlanCompleted keeps the completed plan. A request in flight is replaced
+// by one for that plan: Plan publishes the event after it frees the directory,
+// so a cold open can start in between and would otherwise be reset to idle.
 func (e *Plugin) HandlePlanCompleted(ev sdk.PlanCompletedEvent) tea.Cmd {
+	inFlight := e.status == sdk.StatusLoading
 	e.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
 	e.summary = ev.Summary
+	if inFlight {
+		return e.Activate()
+	}
 	return nil
 }
 

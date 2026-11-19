@@ -125,3 +125,29 @@ func TestHandleContextChanged_GivenEventWithoutContext_ShouldKeepTheRequestInFli
 		t.Fatalf("empty context event while the host plans: status=%v busy=%v; want the request kept", p.Status(), p.Busy())
 	}
 }
+
+// Plan clears its busy state before it publishes PlanCompletedEvent, so a cold
+// open can start in the gap and see the event land while its request runs.
+func TestHandlePlanCompleted_GivenColdRequestInFlight_ShouldAssessTheCompletedPlanInstead(t *testing.T) {
+	planned := eventSummary()
+	p, h, _ := coldBlast(t, classifiedEvent(planned, sdk.RiskLow, "Completed plan classification."))
+	cold := p.Activate()
+
+	completed := p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: planned})
+
+	if p.Status() != sdk.StatusLoading || p.Busy() {
+		t.Fatalf("status=%v busy=%v; want a pending policy-only request for the completed plan, not the idle prompt", p.Status(), p.Busy())
+	}
+	runBlastCmd(p, cold)
+	if p.Ready() {
+		t.Fatalf("the replaced cold request settled the view: %q", p.View(120, 40))
+	}
+	runBlastCmd(p, completed)
+	if len(h.AssessmentRequests) != 2 || h.AssessmentRequests[0] != nil || h.AssessmentRequests[1] != planned {
+		t.Fatalf("assessment requests = %v; want the cold nil request, then one for the completed plan %p", h.AssessmentRequests, planned)
+	}
+	p.ToggleExpand()
+	if view := p.View(120, 40); !p.Ready() || !strings.Contains(view, "Completed plan classification.") {
+		t.Fatalf("Ready=%v view=%q; want the completed plan's assessment", p.Ready(), view)
+	}
+}
