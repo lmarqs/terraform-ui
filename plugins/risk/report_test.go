@@ -346,11 +346,45 @@ func TestStderr_GivenFailedRowsWithoutGlobalCode_ShouldReportFirstRowErrorCode(t
 	}
 }
 
-// The policy evaluator and the host always give an unusable assessment a global
-// code or failed rows with codes; this pins the input that has neither.
-func TestFailureDiagnostic_GivenNoGlobalCodeAndNoFailedRow_ShouldBeEmpty(t *testing.T) {
-	a := sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, Resources: []sdk.PolicyResourceAssessment{{Address: "output.name", Status: sdk.ResourceNotAssessed, Exclusion: "output_only"}}}
-	if got := failureDiagnostic(a, "unused hint"); got != "" {
-		t.Fatalf("failureDiagnostic = %q, want empty", got)
+// unusableWithoutReason has no global code and no failed row: nothing in it
+// names why it is unusable.
+func unusableWithoutReason(status sdk.AssessmentStatus) sdk.PolicyAssessment {
+	return sdk.PolicyAssessment{Status: status, Resources: []sdk.PolicyResourceAssessment{{Address: "output.name", Status: sdk.ResourceNotAssessed, Exclusion: "output_only"}}}
+}
+
+var fallbackReasons = []struct {
+	status sdk.AssessmentStatus
+	want   string
+}{
+	{sdk.AssessmentUnavailable, "unavailable"},
+	{sdk.AssessmentPartial, "partial"},
+	{"", "assessment unusable"},
+}
+
+func TestFailureDiagnostic_GivenNoGlobalCodeAndNoFailedRow_ShouldFallBackToStatus(t *testing.T) {
+	for _, tc := range fallbackReasons {
+		if got := failureDiagnostic(unusableWithoutReason(tc.status), "unused hint"); got != tc.want {
+			t.Errorf("failureDiagnostic(status %q) = %q, want %q", tc.status, got, tc.want)
+		}
+	}
+}
+
+func TestRisk_GivenUnusableAssessmentWithoutReason_ShouldNameFallbackInViewAndStderr(t *testing.T) {
+	for _, tc := range fallbackReasons {
+		t.Run(string(tc.status), func(t *testing.T) {
+			p, _, _ := newAssessedPlugin(t, nil, unusableWithoutReason(tc.status))
+			runLifecycleCmd(p, p.Activate(Input{}))
+
+			for channel, got := range map[string]string{"view": ansi.Strip(p.View(120, 30)), "stderr": string(p.Stderr())} {
+				if !strings.Contains(got, "risk unavailable: "+tc.want) {
+					t.Errorf("%s lacks the fallback reason %q:\n%s", channel, tc.want, got)
+				}
+				for _, line := range strings.Split(got, "\n") {
+					if strings.HasSuffix(line, "risk unavailable: ") {
+						t.Errorf("%s ends a line with an empty diagnostic:\n%s", channel, got)
+					}
+				}
+			}
+		})
 	}
 }

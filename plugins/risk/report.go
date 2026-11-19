@@ -85,7 +85,7 @@ func sortedRows(a sdk.PolicyAssessment) []sdk.PolicyResourceAssessment {
 }
 
 // failureDiagnostic names why an assessment is unusable: its global code with
-// the host's hint, or else its first failed row by address.
+// the host's hint, else its first failed row by address, else its status.
 func failureDiagnostic(a sdk.PolicyAssessment, hint string) string {
 	if a.ErrorCode != "" {
 		return sdk.DiagnosticError{Code: a.ErrorCode, Hint: hint}.Error()
@@ -95,7 +95,10 @@ func failureDiagnostic(a sdk.PolicyAssessment, hint string) string {
 			return string(row.ErrorCode) + " for " + instanceLabel(row.Address, row.Deposed)
 		}
 	}
-	return ""
+	if a.Status != "" {
+		return string(a.Status)
+	}
+	return "assessment unusable"
 }
 
 type reportContext struct {

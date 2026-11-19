@@ -694,7 +694,8 @@ Policy/config/input failures use fixed lowercase diagnostics `risk unavailable: 
 `result_invalid`, `result_cardinality`, `evaluation_conflict`, `evaluation_failed`.
 Use `configuration_invalid` for the unsupported `level` key and append
 `\n\nhint: risk setting level is unsupported; use threshold`. For unavailable/partial command results choose
-the first failure by address (global failures take priority), with no partial stdout. TUI retains every valid row
+the first failure by address (global failures take priority), with no partial stdout. An unusable result with
+neither names its status, or `assessment unusable` when it has none. TUI retains every valid row
 and a summary count. Escape terminal controls in source metadata; public diagnostics never interpolate raw values,
 source paths or compiler messages. Terraform acquisition errors retain their existing pass-through error behavior.
 
