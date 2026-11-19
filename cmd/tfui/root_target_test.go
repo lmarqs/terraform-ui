@@ -84,6 +84,11 @@ func TestRootTarget_GivenAModulePath_ShouldRejectItAndPointAtPlanTarget(t *testi
 		{target: "aws_instance.web"},
 		{target: "aws_instance.web[0]"},
 		{target: "data.aws_ami.module"},
+		{target: "module . networking", wantReject: true},
+		{target: `module.app [ "blue" ]`, wantReject: true},
+		{target: "module.a . module.b[1]", wantReject: true},
+		{target: "module . a . aws_instance . x"},
+		{target: "not a [ traversal"},
 	} {
 		t.Run(tc.target, func(t *testing.T) {
 			root, session, _ := buildRoot()
@@ -94,6 +99,9 @@ func TestRootTarget_GivenAModulePath_ShouldRejectItAndPointAtPlanTarget(t *testi
 			if !tc.wantReject {
 				if err != nil {
 					t.Fatalf("Execute() error = %v, want the resource address accepted", err)
+				}
+				if want := []string{"aws_s3_bucket.ok", tc.target}; !slices.Equal(session.cfg.Pins, want) {
+					t.Errorf("session.cfg.Pins = %q, want %q verbatim", session.cfg.Pins, want)
 				}
 				return
 			}

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/spf13/cobra"
@@ -113,36 +115,38 @@ func rejectModuleTargets(targets []string) error {
 	return nil
 }
 
-// isModulePath reports whether address is a module path (module.a,
-// module.a["k"], module.a.module.b) rather than a resource address.
-func isModulePath(address string) bool {
-	steps := addressSteps(address)
-	if len(steps)%2 != 0 {
+// isModulePath reports whether target, read as terraform reads -target, is a
+// module path (module.a, module.a["k"], module.a.module.b) rather than a
+// resource address. A target that does not parse is left for terraform to
+// reject.
+func isModulePath(target string) bool {
+	traversal, diags := hclsyntax.ParseTraversalAbs([]byte(target), "", hcl.InitialPos)
+	if diags.HasErrors() {
 		return false
 	}
-	for i := 0; i < len(steps); i += 2 {
-		if steps[i] != "module" {
+	for i := 0; i < len(traversal); {
+		if stepName(traversal[i]) != "module" || i+1 == len(traversal) {
 			return false
+		}
+		if _, ok := traversal[i+1].(hcl.TraverseAttr); !ok {
+			return false
+		}
+		i += 2
+		if i < len(traversal) {
+			if _, ok := traversal[i].(hcl.TraverseIndex); ok {
+				i++
+			}
 		}
 	}
 	return true
 }
 
-// addressSteps splits address at the dots outside an instance key, so a key
-// like ["x.y"] stays whole.
-func addressSteps(address string) []string {
-	var steps []string
-	depth, start := 0, 0
-	for i, r := range address {
-		switch {
-		case r == '[':
-			depth++
-		case r == ']':
-			depth--
-		case r == '.' && depth == 0:
-			steps = append(steps, address[start:i])
-			start = i + 1
-		}
+func stepName(step hcl.Traverser) string {
+	switch s := step.(type) {
+	case hcl.TraverseRoot:
+		return s.Name
+	case hcl.TraverseAttr:
+		return s.Name
 	}
-	return append(steps, address[start:])
+	return ""
 }
