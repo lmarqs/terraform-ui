@@ -32,6 +32,8 @@ Press `P` (uppercase) to open the Phantom Changes view. It requires a completed 
 |-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
 | `Enter` / `i` | Expand/collapse phantom details | List |
+| `←` / `→` | Scroll the list horizontally when wrapping is off | List |
+| `Ctrl+w` | Toggle wrapping | List |
 | `q` | Back to Home | Always |
 
 ### Flow

@@ -480,7 +480,7 @@ pre-windowed rows.
   its detail rows), the size, and the offset it returned last frame. It picks the window, clips it and places the
   gutter thumb, in rows with wrap off and in wrapped lines with wrap on. The offset it returns is the window's top row
   in both modes, so a wrap toggle or a resize never reads it in the wrong unit. With wrap off its
-  output equals windowing in the plugin and calling `Render`. Risk uses it. The Plan, State and Workspace lists
+  output equals windowing in the plugin and calling `Render`. Risk, Blast Radius and Phantom use it. The Plan, State and Workspace lists
   still pass slices to `Render`, so with wrap on their window and gutter thumb count rows outside the slice as one
   line each ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
 
