@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -15,29 +16,29 @@ type TimerTickMsg struct{}
 type Timer struct {
 	startTime time.Time
 	elapsed   time.Duration
-	running   bool
+	running   atomic.Bool // read by tick Cmds, which run off the Update loop
 }
 
 // Start begins tracking elapsed time and returns a tick command.
 func (t *Timer) Start() tea.Cmd {
 	t.startTime = time.Now()
 	t.elapsed = 0
-	t.running = true
+	t.running.Store(true)
 	return t.tick()
 }
 
 // Stop halts the timer.
 func (t *Timer) Stop() {
-	if t.running {
+	if t.running.Load() {
 		t.elapsed = time.Since(t.startTime)
-		t.running = false
+		t.running.Store(false)
 	}
 }
 
 // Tick updates elapsed time. Call from Update when TimerTickMsg is received.
 // Returns the next tick command if still running, nil otherwise.
 func (t *Timer) Tick() tea.Cmd {
-	if !t.running {
+	if !t.running.Load() {
 		return nil
 	}
 	t.elapsed = time.Since(t.startTime)
@@ -46,7 +47,7 @@ func (t *Timer) Tick() tea.Cmd {
 
 // Elapsed returns the current elapsed duration.
 func (t *Timer) Elapsed() time.Duration {
-	if t.running {
+	if t.running.Load() {
 		return time.Since(t.startTime)
 	}
 	return t.elapsed
@@ -54,7 +55,7 @@ func (t *Timer) Elapsed() time.Duration {
 
 // Running returns whether the timer is active.
 func (t *Timer) Running() bool {
-	return t.running
+	return t.running.Load()
 }
 
 // FormatElapsed returns a human-readable elapsed string (e.g., "5s", "1m30s").
@@ -62,10 +63,18 @@ func (t *Timer) FormatElapsed() string {
 	return FormatDuration(t.Elapsed())
 }
 
+// tick waits a second, unless the timer already stopped: a synchronous driver
+// runs it after the command it started has finished, and must not wait.
 func (t *Timer) tick() tea.Cmd {
-	return tea.Tick(time.Second, func(_ time.Time) tea.Msg {
+	wait := tea.Tick(time.Second, func(_ time.Time) tea.Msg {
 		return TimerTickMsg{}
 	})
+	return func() tea.Msg {
+		if !t.running.Load() {
+			return nil
+		}
+		return wait()
+	}
 }
 
 // FormatDuration formats a duration as a compact string.

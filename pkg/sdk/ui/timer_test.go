@@ -50,7 +50,7 @@ func TestTimer_Tick_WhenStopped(t *testing.T) {
 func TestTimer_FormatElapsed(t *testing.T) {
 	var timer Timer
 	timer.startTime = time.Now().Add(-5 * time.Second)
-	timer.running = true
+	timer.running.Store(true)
 
 	result := timer.FormatElapsed()
 	if result != "5s" && result != "4s" {
@@ -108,5 +108,24 @@ func TestTimer_Tick_WhenCalledWhileRunning_ShouldReturnCmdThatProducesTimerTickM
 	msg := cmd()
 	if _, ok := msg.(TimerTickMsg); !ok {
 		t.Errorf("tick cmd should produce TimerTickMsg, got %T", msg)
+	}
+}
+
+// Drivers that run Cmds synchronously, such as the macro driver and headless
+// sessions, run a tick only after the command it started has answered and
+// stopped the timer. That tick must end at once instead of sleeping a second.
+func TestTimer_Tick_WhenStoppedBeforeTheTickRuns_ShouldProduceNoMsgWithoutWaiting(t *testing.T) {
+	var timer Timer
+	cmd := timer.Start()
+	timer.Stop()
+
+	begin := time.Now()
+	msg := cmd()
+
+	if msg != nil {
+		t.Errorf("tick cmd of a stopped timer produced %T, want nil", msg)
+	}
+	if waited := time.Since(begin); waited > 500*time.Millisecond {
+		t.Errorf("tick cmd of a stopped timer waited %v, want it to return at once", waited)
 	}
 }
