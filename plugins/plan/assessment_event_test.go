@@ -287,8 +287,7 @@ func TestView_GivenPlanDoneAndAssessmentPending_ShouldShowRiskAssessmentInProgre
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			assessed := sdk.RiskAssessedEvent{Summary: tc.summary, Assessment: allHigh(tc.summary)}
-			p, _, h := newAssessedPlugin(t, tc.summary, assessed.Assessment)
-			h.AssessmentEvent.Summary = &sdk.PlanSummary{}
+			p, _, _ := newAssessedPlugin(t, tc.summary, assessed.Assessment, withholdAssessment(&assessed.Request))
 			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 			if p.Status() != sdk.StatusDone || !p.Busy() {
 				t.Fatalf("setup: status=%v busy=%v; want Done and busy while the assessment is pending", p.Status(), p.Busy())

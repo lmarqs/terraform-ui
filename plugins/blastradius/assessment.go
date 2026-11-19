@@ -45,14 +45,15 @@ func (e *Plugin) Activate() tea.Cmd {
 	e.modules = nil
 	e.setAssessment(nil)
 	e.status = sdk.StatusLoading
-	return e.requestRisk(e.summary)
+	var cmd tea.Cmd
+	e.pending, cmd = e.requestRisk(e.summary)
+	return cmd
 }
 
-// HandleRiskAssessed implements sdk.RiskAssessedHandler. The host neither
-// supersedes requests for an older plan nor stops evaluating after Cancel, so
-// only a result for the reviewed plan while a request is pending counts.
+// HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
+// pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if !e.Busy() || ev.Summary != e.summary {
+	if !e.Busy() || ev.Request != e.pending {
 		return nil
 	}
 	e.setAssessment(&ev.Assessment)

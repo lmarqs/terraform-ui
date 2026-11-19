@@ -63,14 +63,15 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 	if e.reportContext.Chdir == "" {
 		e.reportContext.Chdir = "."
 	}
-	return e.requestRisk(e.summary)
+	var cmd tea.Cmd
+	e.pending, cmd = e.requestRisk(e.summary)
+	return cmd
 }
 
-// HandleRiskAssessed implements sdk.RiskAssessedHandler. A request without a
-// retained summary has the host plan one Risk has never seen, so the pending
-// request alone identifies its answer.
+// HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
+// pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if !e.Busy() || (e.summary != nil && ev.Summary != e.summary) {
+	if !e.Busy() || ev.Request != e.pending {
 		return nil
 	}
 	e.acceptAssessment(ev)

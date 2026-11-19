@@ -28,6 +28,18 @@ func newAssessedPlugin(t *testing.T, summary *sdk.PlanSummary, assessment sdk.Po
 	return p, svc, h
 }
 
+// withholdAssessment leaves every request pending: the host issues its ID,
+// recorded in last, but never answers it.
+func withholdAssessment(last *sdk.AssessmentID) func(*sdktest.PluginDepsHarness) {
+	return func(h *sdktest.PluginDepsHarness) {
+		request := h.Deps.RequestAssessment
+		h.Deps.RequestAssessment = func(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+			*last, _ = request(summary)
+			return *last, nil
+		}
+	}
+}
+
 // drainAssessmentPlan runs cmd depth-first like the macro driver. Plugin
 // messages go to Update; events go through an EventBus, as the App dispatches
 // them. PlanCompletedEvents are recorded instead of dispatched.
