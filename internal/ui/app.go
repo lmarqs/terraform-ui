@@ -296,7 +296,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.activeWorkspace = workspace
 		a.lockInfo = nil
 		a.staleState = false
-		if a.rootCfg != nil && chdir != "" {
+		if a.rootCfg != nil {
 			childCfg, err := config.LoadChild(absChdir)
 			if err != nil {
 				logging.Logger().Debug("config.load_child", "dir", absChdir, "err", err)

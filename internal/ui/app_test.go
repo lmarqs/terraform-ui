@@ -1525,28 +1525,32 @@ func TestApp_Update_WhenStateRefreshedEvent_ShouldClearStaleBadge(t *testing.T) 
 }
 
 func TestApp_Update_WhenWorkspaceChanged_ShouldResolveOptions(t *testing.T) {
-	rootCfg := &config.RootConfig{
-		Defaults: config.DefaultsConfig{
-			VarFiles: []string{"common.tfvars"},
-		},
-	}
-	childCfg := &config.ChildConfig{
-		Workspaces: []config.WorkspaceConfig{
-			{Name: "staging", VarFiles: []string{"staging.tfvars"}, Vars: map[string]string{"env": "stg"}},
-			{Name: "production", VarFiles: []string{"prod.tfvars"}, Vars: map[string]string{"env": "prd"}},
-		},
+	root := t.TempDir()
+	writePolicyFile(t, root, "tfui.hcl", "defaults {\n  var_file \"common.tfvars\" {}\n}\n")
+	writePolicyFile(t, root, "member/tfui.hcl", `
+workspace "staging" {
+  var_file "staging.tfvars" {}
+  var "env" { value = "stg" }
+}
+workspace "production" {
+  var_file "prod.tfvars" {}
+  var "env" { value = "prd" }
+}
+`)
+	rootCfg, err := config.LoadRoot(root)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	cfg := config.Config{Dir: "/test", Terraform: config.TerraformConfig{Bin: "terraform"}}
+	cfg := config.Config{Dir: root, Terraform: config.TerraformConfig{Bin: "terraform"}}
 	svc := newMockService("default", nil)
 	registry := plugin.NewRegistry()
 	registry.Build(nil, nil)
 
 	app := NewApp(cfg, svc, registry, rootCfg)
-	app.childCfg = childCfg
 
 	// Workspace switch to staging
-	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "staging"})
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "member", Workspace: "staging"})
 	app = model.(App)
 
 	ctx := app.holder.current
@@ -1558,7 +1562,7 @@ func TestApp_Update_WhenWorkspaceChanged_ShouldResolveOptions(t *testing.T) {
 	}
 
 	// Workspace switch to production
-	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "production"})
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "member", Workspace: "production"})
 	app = model.(App)
 
 	ctx = app.holder.current
@@ -6048,5 +6052,67 @@ func TestApp_View_WhenHomeScreen_ShouldKeepQAsQuit(t *testing.T) {
 	statusBar := lastLine(app.View())
 	if !strings.Contains(statusBar, "quit") {
 		t.Errorf("home status bar = %q, want q labelled \"quit\"", statusBar)
+	}
+}
+
+func TestApp_Update_WhenSwitchingBackToRootChdir_ShouldDropMemberConfig(t *testing.T) {
+	root := t.TempDir()
+	writePolicyFile(t, root, "tfui.hcl", `
+defaults {
+  parallelism = 5
+  lock        = true
+  risk_policy = "root.rego"
+  var_file "root.tfvars" {}
+}
+`)
+	writePolicyFile(t, root, "member/tfui.hcl", `
+risk_policy = "member.rego"
+var_file "member.tfvars" {}
+var "env" { value = "member" }
+workspace "default" {
+  lock_timeout = "30s"
+}
+`)
+	rootCfg, err := config.LoadRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry := plugin.NewRegistry()
+	registry.Build(nil, nil)
+	app := NewApp(config.Config{Dir: root}, newMockService("default", nil), registry, rootCfg)
+	app.Init()
+
+	model, _ := app.Update(sdk.ContextSwitchRequestMsg{Chdir: "member", Workspace: "default"})
+	app = model.(App)
+	member := app.holder.current
+	if !reflect.DeepEqual(member.VarFiles, []string{"root.tfvars", "member.tfvars"}) || member.Vars["env"] != "member" || member.LockTimeout != "30s" {
+		t.Fatalf("member Context = var-files %v, vars %v, lock-timeout %q; the fixture does not layer the member config", member.VarFiles, member.Vars, member.LockTimeout)
+	}
+
+	model, _ = app.Update(sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: "default"})
+	app = model.(App)
+	got := app.holder.current
+
+	if !reflect.DeepEqual(got.VarFiles, []string{"root.tfvars"}) {
+		t.Errorf("VarFiles = %v, want [root.tfvars]", got.VarFiles)
+	}
+	if len(got.Vars) != 0 {
+		t.Errorf("Vars = %v, want none", got.Vars)
+	}
+	if got.Parallelism != 5 {
+		t.Errorf("Parallelism = %d, want 5", got.Parallelism)
+	}
+	if got.Lock != sdk.LockEnabled {
+		t.Errorf("Lock = %v, want LockEnabled", got.Lock)
+	}
+	if got.LockTimeout != "" {
+		t.Errorf("LockTimeout = %q, want empty", got.LockTimeout)
+	}
+	selection, err := config.ResolveRiskPolicy(app.cfg.Dir, got.WorkingDir, got.Workspace.String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.Base(selection.Path) != "root.rego" {
+		t.Errorf("risk policy = %q, want the root's root.rego", selection.Path)
 	}
 }
