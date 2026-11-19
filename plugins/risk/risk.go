@@ -33,6 +33,7 @@ type Plugin struct {
 	riskDiagnostic  string
 	summary         *sdk.PlanSummary
 	assessment      *sdk.PolicyAssessment
+	rows            sdk.AssessmentRows
 	requestRisk     func(*sdk.PlanSummary) tea.Cmd
 	planError       string
 	input           Input
@@ -361,7 +362,7 @@ func (e *Plugin) resourceAssessment(key sdk.InstanceKey) *sdk.PolicyResourceAsse
 	if e.assessment == nil {
 		return nil
 	}
-	row, ok := e.assessment.Resource(key)
+	row, ok := e.rows[key]
 	if !ok {
 		return nil
 	}

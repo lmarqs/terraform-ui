@@ -72,6 +72,7 @@ type Plugin struct {
 	filtering    bool
 	errMsg       string
 	assessment   *sdk.PolicyAssessment
+	rows         sdk.AssessmentRows
 	assessedRisk sdk.RiskLevel
 	assessing    bool
 	riskHint     string
@@ -213,6 +214,7 @@ func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 func (e *Plugin) reset() {
 	e.cancelInflight()
 	e.assessment = nil
+	e.rows = nil
 	e.assessing = false
 	e.planFile.Cleanup()
 	e.planFile = sdk.PlanFile{}
@@ -445,6 +447,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.status = sdk.StatusDone
 			e.summary = msg.Summary
 			e.assessment = nil
+			e.rows = nil
 			var pruneCmd tea.Cmd
 			if msg.Summary != nil {
 				e.filtered = e.summary.Changes
@@ -707,7 +710,7 @@ func (e *Plugin) buildInspectContent(change *sdk.PlanChange) string {
 	}
 
 	if e.assessment != nil {
-		if row, ok := e.assessment.Resource(change.Resource.InstanceKey()); ok {
+		if row, ok := e.rows[change.Resource.InstanceKey()]; ok {
 			for _, reason := range row.Reasons {
 				fmt.Fprintf(&b, "\n%s\n", reason.Message)
 			}
@@ -1117,6 +1120,7 @@ func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
 func (e *Plugin) startReplan() tea.Cmd {
 	e.status = sdk.StatusLoading
 	e.assessment = nil
+	e.rows = nil
 	e.assessing = false
 	e.summary = nil
 	e.filtered = nil

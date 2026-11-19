@@ -19,7 +19,8 @@ func (e *Plugin) Shutdown() { e.Cancel() }
 
 func (e *Plugin) HandlePlanInvalidated(_ sdk.PlanInvalidatedEvent) tea.Cmd {
 	e.Cancel()
-	e.summary, e.assessment, e.modules = nil, nil, nil
+	e.summary, e.modules = nil, nil
+	e.setAssessment(nil)
 	e.status, e.total, e.selected = sdk.StatusIdle, 0, 0
 	return nil
 }
@@ -41,7 +42,8 @@ func (e *Plugin) Activate() tea.Cmd {
 	if e.Busy() || e.summary == nil {
 		return nil
 	}
-	e.assessment, e.modules = nil, nil
+	e.modules = nil
+	e.setAssessment(nil)
 	e.status = sdk.StatusLoading
 	return e.requestRisk(e.summary)
 }
@@ -53,17 +55,24 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 	if !e.Busy() || ev.Summary != e.summary {
 		return nil
 	}
-	assessment := ev.Assessment
-	e.assessment = &assessment
+	e.setAssessment(&ev.Assessment)
 	e.analyzeAssessment()
 	return nil
+}
+
+// setAssessment keeps rows indexing the assessment's rows.
+func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
+	e.assessment, e.rows = assessment, nil
+	if assessment != nil {
+		e.rows = assessment.Rows()
+	}
 }
 
 func (e *Plugin) resourceAssessment(key sdk.InstanceKey) sdk.PolicyResourceAssessment {
 	if e.assessment.ErrorCode != "" {
 		return sdk.PolicyResourceAssessment{Status: sdk.ResourceUnavailable, ErrorCode: e.assessment.ErrorCode}
 	}
-	if row, ok := e.assessment.Resource(key); ok {
+	if row, ok := e.rows[key]; ok {
 		return row
 	}
 	return sdk.PolicyResourceAssessment{Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorInputIncomplete}

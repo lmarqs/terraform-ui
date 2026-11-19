@@ -52,6 +52,7 @@ type Plugin struct {
 	total       int
 	summary     *sdk.PlanSummary
 	assessment  *sdk.PolicyAssessment
+	rows        sdk.AssessmentRows
 	requestRisk func(*sdk.PlanSummary) tea.Cmd
 }
 

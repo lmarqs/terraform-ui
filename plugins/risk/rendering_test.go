@@ -86,7 +86,7 @@ func TestInspect_GivenReplacementWithSensitiveAndUnknownDiffs_ShouldShowEveryPat
 				{Key: "password", OldValue: "secret-before", NewValue: "secret-after", Sensitive: true},
 				{Key: "tags.Owner", OldValue: "ops", NewValue: "platform"},
 			}}}})
-			p.assessment = &sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Reasons: []sdk.PolicyReason{{Code: "replacement", Message: "The image change requires replacement."}}}}}
+			p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Reasons: []sdk.PolicyReason{{Code: "replacement", Message: "The image change requires replacement."}}}}})
 			compact := ansi.Strip(p.View(42, 18))
 			symbol := "-/+"
 			if action == sdk.ActionCreateThenDelete {

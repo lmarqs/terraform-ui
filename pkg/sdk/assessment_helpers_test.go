@@ -1,6 +1,7 @@
 package sdk
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 )
@@ -67,31 +68,34 @@ func TestPolicyAssessment_Usable_WhenStatus_ShouldBeTrueOnlyForCompleteAndEmpty(
 
 func levelPtr(l RiskLevel) *RiskLevel { return &l }
 
-func TestPolicyAssessment_Resource_WhenKeysShareAddress_ShouldMatchByDeposedKey(t *testing.T) {
+func TestPolicyAssessment_Rows_WhenKeysShareAddress_ShouldIndexByDeposedKey(t *testing.T) {
 	a := PolicyAssessment{Resources: []PolicyResourceAssessment{
 		{Address: "aws_instance.web", Status: ResourceClassified, Level: levelPtr(RiskLow)},
 		{Address: "aws_instance.web", Deposed: "0a1b2c3d", Status: ResourceClassified, Level: levelPtr(RiskCritical)},
 		{Address: "aws_instance.db", Status: ResourceNotAssessed, Exclusion: ExclusionNoOp},
 	}}
 
-	current, ok := a.Resource(InstanceKey{Address: "aws_instance.web"})
+	rows := a.Rows()
+
+	current, ok := rows[InstanceKey{Address: "aws_instance.web"}]
 	if !ok || current.Deposed != "" || current.Level == nil || *current.Level != RiskLow {
 		t.Errorf("current object row = (%+v, %v), want the low row with empty Deposed", current, ok)
 	}
-	deposed, ok := a.Resource(InstanceKey{Address: "aws_instance.web", Deposed: "0a1b2c3d"})
+	deposed, ok := rows[InstanceKey{Address: "aws_instance.web", Deposed: "0a1b2c3d"}]
 	if !ok || deposed.Deposed != "0a1b2c3d" || deposed.Level == nil || *deposed.Level != RiskCritical {
 		t.Errorf("deposed object row = (%+v, %v), want the critical row", deposed, ok)
 	}
-	other, ok := a.Resource(InstanceKey{Address: "aws_instance.db"})
+	other, ok := rows[InstanceKey{Address: "aws_instance.db"}]
 	if !ok || other.Status != ResourceNotAssessed || other.Exclusion != ExclusionNoOp {
 		t.Errorf("db row = (%+v, %v), want the not_assessed no_op row", other, ok)
 	}
 }
 
-func TestPolicyAssessment_Resource_WhenNoRowMatches_ShouldReportNotFound(t *testing.T) {
+func TestPolicyAssessment_Rows_WhenNoRowMatches_ShouldReportNotFound(t *testing.T) {
 	a := PolicyAssessment{Resources: []PolicyResourceAssessment{
 		{Address: "aws_instance.web", Deposed: "0a1b2c3d", Status: ResourceClassified},
 	}}
+	rows := a.Rows()
 	tests := []struct {
 		name string
 		key  InstanceKey
@@ -102,18 +106,18 @@ func TestPolicyAssessment_Resource_WhenNoRowMatches_ShouldReportNotFound(t *test
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			row, ok := a.Resource(tt.key)
+			row, ok := rows[tt.key]
 			if ok || !reflect.DeepEqual(row, PolicyResourceAssessment{}) {
-				t.Errorf("Resource(%+v) = (%+v, %v), want zero row and false", tt.key, row, ok)
+				t.Errorf("rows[%+v] = (%+v, %v), want zero row and false", tt.key, row, ok)
 			}
 		})
 	}
 }
 
-func TestPolicyAssessment_Resource_WhenNoResources_ShouldReportNotFound(t *testing.T) {
+func TestPolicyAssessment_Rows_WhenNoResources_ShouldReportNotFound(t *testing.T) {
 	var a PolicyAssessment
-	if _, ok := a.Resource(InstanceKey{Address: "aws_instance.web"}); ok {
-		t.Error("Resource on an empty assessment found a row")
+	if _, ok := a.Rows()[InstanceKey{Address: "aws_instance.web"}]; ok {
+		t.Error("Rows on an empty assessment found a row")
 	}
 }
 
@@ -253,5 +257,20 @@ func TestResource_InstanceKey_WhenDeposed_ShouldCarryAddressAndDeposedKey(t *tes
 	}
 	if got := deposed.InstanceKey(); got != (InstanceKey{Address: "aws_instance.web", Deposed: "0a1b2c3d"}) {
 		t.Errorf("deposed InstanceKey = %+v, want address and deposed key", got)
+	}
+}
+
+func BenchmarkApplyAssessment(b *testing.B) {
+	const n = 10000
+	summary := &PlanSummary{Changes: make([]PlanChange, 0, n)}
+	assessment := &PolicyAssessment{Status: AssessmentComplete, Resources: make([]PolicyResourceAssessment, 0, n)}
+	for i := range n {
+		address := fmt.Sprintf("aws_instance.web[%d]", i)
+		summary.Changes = append(summary.Changes, planChange(address, "", RiskCritical))
+		assessment.Resources = append(assessment.Resources, PolicyResourceAssessment{Address: address, Status: ResourceClassified, Level: levelPtr(RiskLow)})
+	}
+	b.ResetTimer()
+	for range b.N {
+		ApplyAssessment(summary, assessment)
 	}
 }

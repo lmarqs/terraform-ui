@@ -259,7 +259,7 @@ func TestView_WhenDoneWithNilModules_ShouldRenderNonEmpty(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = nil
-	p.assessment = &sdk.PolicyAssessment{Status: sdk.AssessmentEmpty}
+	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "No changes") || !strings.Contains(view, "zero") {
@@ -272,7 +272,7 @@ func TestView_WhenDoneWithEmptyModules_ShouldRenderNonEmpty(t *testing.T) {
 	p := New(svc).(*Plugin)
 	p.status = sdk.StatusDone
 	p.modules = []ModuleImpact{}
-	p.assessment = &sdk.PolicyAssessment{Status: sdk.AssessmentEmpty}
+	p.setAssessment(&sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "No changes") || !strings.Contains(view, "zero") {
@@ -350,7 +350,7 @@ func TestView_WhenModuleExpanded_ShouldShowChanges(t *testing.T) {
 		},
 	}
 	p.expanded = map[int]bool{0: true}
-	p.assessment = classifiedLow(p.modules)
+	p.setAssessment(classifiedLow(p.modules))
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "aws_subnet.a") {
@@ -382,7 +382,7 @@ func TestView_WhenExpandedWithReplaceAction_ShouldRenderReplaceSymbol(t *testing
 		},
 	}
 	p.expanded = map[int]bool{0: true}
-	p.assessment = classifiedLow(p.modules)
+	p.setAssessment(classifiedLow(p.modules))
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "aws_instance.web") {

@@ -33,7 +33,9 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 
 func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
 	e.assessment = assessment
+	e.rows = nil
 	if assessment != nil {
+		e.rows = assessment.Rows()
 		e.assessedRisk = e.highestRisk()
 	}
 	if e.detailAddr == "" || e.summary == nil {
@@ -60,7 +62,7 @@ func (e *Plugin) riskCell(change sdk.PlanChange) (sdk.RiskLevel, sdk.ErrorCode) 
 	if e.assessment.ErrorCode != "" {
 		return sdk.RiskNone, e.assessment.ErrorCode
 	}
-	row, ok := e.assessment.Resource(change.Resource.InstanceKey())
+	row, ok := e.rows[change.Resource.InstanceKey()]
 	if ok && row.ErrorCode != "" {
 		return sdk.RiskNone, row.ErrorCode
 	}

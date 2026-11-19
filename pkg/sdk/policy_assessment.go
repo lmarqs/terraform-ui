@@ -52,14 +52,16 @@ type InstanceKey struct {
 	Deposed string
 }
 
-// Resource returns the row for key, or false when the assessment has none.
-func (a PolicyAssessment) Resource(key InstanceKey) (PolicyResourceAssessment, bool) {
+// AssessmentRows indexes an assessment's rows by instance object.
+type AssessmentRows map[InstanceKey]PolicyResourceAssessment
+
+// Rows indexes the assessment's rows, so per-change lookups stay constant time on large plans.
+func (a PolicyAssessment) Rows() AssessmentRows {
+	rows := make(AssessmentRows, len(a.Resources))
 	for _, row := range a.Resources {
-		if row.Address == key.Address && row.Deposed == key.Deposed {
-			return row, true
-		}
+		rows[InstanceKey{Address: row.Address, Deposed: row.Deposed}] = row
 	}
-	return PolicyResourceAssessment{}, false
+	return rows
 }
 
 // ApplyAssessment returns a copy of summary whose changes carry the level of their classified row.
@@ -73,10 +75,11 @@ func ApplyAssessment(summary *PlanSummary, assessment *PolicyAssessment) *PlanSu
 	if assessment == nil {
 		return &result
 	}
+	rows := assessment.Rows()
 	for i := range result.Changes {
 		change := &result.Changes[i]
 		change.Risk = RiskNone
-		row, ok := assessment.Resource(change.Resource.InstanceKey())
+		row, ok := rows[change.Resource.InstanceKey()]
 		if ok && row.Status == ResourceClassified && row.Level != nil {
 			change.Risk = *row.Level
 		}

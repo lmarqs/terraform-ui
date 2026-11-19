@@ -118,7 +118,8 @@ func TestReport_GivenDeposedRowsAtSameAddress_ShouldSortCurrentFirstAndLabelDepo
 }
 
 func TestResourceAssessment_GivenAssessmentWithoutMatchingRow_ShouldReturnNil(t *testing.T) {
-	p := &Plugin{assessment: &sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Deposed: "00000001"}}}}
+	p := &Plugin{}
+	p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.web", Deposed: "00000001"}}})
 
 	if row := p.resourceAssessment(sdk.InstanceKey{Address: "aws_instance.web"}); row != nil {
 		t.Errorf("resourceAssessment(current object) = %+v, want nil when only the deposed row exists", row)

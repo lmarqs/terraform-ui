@@ -69,10 +69,10 @@ func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedRe
 		{Resource: sdk.Resource{Address: "aws_db_instance.main"}, Action: sdk.ActionDelete, Risk: sdk.RiskHigh},
 		{Resource: sdk.Resource{Address: "aws_instance.web"}, Action: sdk.ActionUpdate, Risk: sdk.RiskLow, AttributeDiffs: []sdk.AttributeDiff{{Key: "size", OldValue: "small", NewValue: "large"}}},
 	}})
-	p.assessment = &sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{
+	p.setAssessment(&sdk.PolicyAssessment{Resources: []sdk.PolicyResourceAssessment{
 		{Address: "aws_db_instance.main", Reasons: []sdk.PolicyReason{{Message: "Database deletion"}}},
 		{Address: "aws_instance.web", Reasons: []sdk.PolicyReason{{Message: "Memory size changed"}}},
-	}}
+	}})
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	runLifecycleCmd(p, cmd)
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEnter})
