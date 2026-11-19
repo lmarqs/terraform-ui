@@ -31,20 +31,19 @@ type Plugin struct {
 	stack           *sdk.Stack
 	panel           *ui.ContentPanel
 	offset          int
-	status          sdk.Status
+	outcome         outcome
 	groups          []riskGroup
 	items           []riskItem
 	selected        int
-	riskDiagnostic  string
 	summary         *sdk.PlanSummary
 	assessment      *sdk.PolicyAssessment
 	requestRisk     func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
 	pending         sdk.AssessmentID
-	planError       string
+	requested       *sdk.Context
 	input           Input
-	threshold       string
+	configured      *sdk.RiskLevel
+	threshold       *sdk.RiskLevel
 	settingsInvalid bool
-	reportContext   reportContext
 }
 
 // New creates a new risk analysis plugin.
@@ -58,9 +57,20 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone || e.status == sdk.StatusError }
-func (e *Plugin) Status() sdk.Status { return e.status }
-func (e *Plugin) Selected() int      { return e.selected }
+func (e *Plugin) Ready() bool   { return e.outcome.kind > outcomeLoading }
+func (e *Plugin) Selected() int { return e.selected }
+
+func (e *Plugin) Status() sdk.Status {
+	switch e.outcome.kind {
+	case outcomeIdle:
+		return sdk.StatusIdle
+	case outcomeLoading:
+		return sdk.StatusLoading
+	case outcomeDone:
+		return sdk.StatusDone
+	}
+	return sdk.StatusError
+}
 
 // overall is the assessment's aggregate level, which only a complete assessment has.
 func (e *Plugin) overall() sdk.RiskLevel {
@@ -91,26 +101,23 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 // plan the host acquires when none is retained, with input's output and
 // comparison options.
 func (e *Plugin) Activate(input Input) tea.Cmd {
-	e.input = input
-	if e.status == sdk.StatusLoading {
+	if e.outcome.kind == outcomeLoading {
 		return nil
 	}
+	e.input = input
 	e.resetDerived()
-	if err := e.overrideError(); err != nil {
-		e.status = sdk.StatusError
-		e.riskDiagnostic = err.Error()
-		return nil
+	e.threshold = e.configured
+	// The host never sees the CLI threshold. Invalid settings defer to the host,
+	// whose answer carries their hint.
+	if input.Threshold != nil && !e.settingsInvalid {
+		threshold, valid := parseThreshold(*input.Threshold)
+		if !valid {
+			e.outcome = outcome{kind: outcomeInvalidThreshold, diagnostic: unavailable(string(sdk.ErrorConfigurationInvalid))}
+			return nil
+		}
+		e.threshold = threshold
 	}
 	return e.requestAssessment()
-}
-
-// overrideError validates the CLI threshold, which the host never sees. Invalid
-// settings defer to the host, whose answer carries their hint.
-func (e *Plugin) overrideError() error {
-	if e.settingsInvalid {
-		return nil
-	}
-	return sdk.RiskSettingsError(map[string]interface{}{"threshold": e.selectedThreshold()})
 }
 
 // analyze joins each change to its assessment row and groups the changes the
@@ -142,7 +149,6 @@ func (e *Plugin) analyze(summary *sdk.PlanSummary, rows sdk.AssessmentRows) {
 			e.items = append(e.items, group.items...)
 		}
 	}
-	e.status = sdk.StatusDone
 }
 
 // Update processes messages and returns the updated plugin.
@@ -187,22 +193,21 @@ func (e *Plugin) View(width, height int) string {
 	if e.stack.Depth() > 1 {
 		return e.stack.View(width, height)
 	}
-	switch e.status {
-	case sdk.StatusIdle:
+	switch e.outcome.kind {
+	case outcomeIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
-	case sdk.StatusLoading:
+	case outcomeLoading:
 		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
 
-	case sdk.StatusDone:
+	case outcomeDone:
 		return e.renderAnalysis(width, height)
-	case sdk.StatusError:
+	case outcomeUnusable:
 		if len(e.items) > 0 {
 			return e.renderAnalysis(width, height)
 		}
-		if e.planError != "" {
-			return sdk.StyleError.Render(e.planError)
-		}
-		return sdk.StyleError.Render("risk unavailable: " + e.riskDiagnostic)
+		return sdk.StyleError.Render(e.outcome.diagnostic)
+	case outcomeInvalidThreshold, outcomePlanFailed:
+		return sdk.StyleError.Render(e.outcome.diagnostic)
 
 	default:
 		return ""
@@ -249,7 +254,7 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 }
 
 func (e *Plugin) renderOverallBanner() string {
-	if e.assessment != nil && (e.assessment.Status == sdk.AssessmentPartial || e.assessment.Status == sdk.AssessmentUnavailable) {
+	if e.assessment.Status == sdk.AssessmentPartial || e.assessment.Status == sdk.AssessmentUnavailable {
 		failed, classified := 0, 0
 		for _, row := range e.assessment.Resources {
 			if row.Status == sdk.ResourceUnavailable {

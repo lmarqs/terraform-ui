@@ -36,8 +36,8 @@ func TestPlugin_Lifecycle(t *testing.T) {
 func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
 	p, _, _ := newAssessedPlugin(t, nil, sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
 	runLifecycleCmd(p, p.Activate(Input{}))
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.Status())
 	}
 	if p.groups != nil {
 		t.Error("groups = non-nil, want nil")
@@ -56,8 +56,8 @@ func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
 func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilGroups(t *testing.T) {
 	p, _, _ := newAssessedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
 	runLifecycleCmd(p, p.Activate(Input{}))
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.Status())
 	}
 	if p.groups != nil {
 		t.Error("groups = non-nil after empty changes, want nil")
@@ -77,8 +77,8 @@ func TestAnalyze_WhenChangesPresent_ShouldGroupByRiskLevelDescending(t *testing.
 
 	p := newAnalyzedPlugin(t, summary)
 
-	if p.status != sdk.StatusDone {
-		t.Errorf("status = %v, want sdk.StatusDone", p.status)
+	if p.Status() != sdk.StatusDone {
+		t.Errorf("status = %v, want sdk.StatusDone", p.Status())
 	}
 	if len(p.items) != 5 {
 		t.Errorf("total = %d, want 5", len(p.items))
@@ -247,7 +247,7 @@ func TestNavigation_WhenEmptyGroups_ShouldNotMoveSelection(t *testing.T) {
 func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.StatusIdle
+	p.outcome.kind = outcomeIdle
 
 	view := p.View(80, 24)
 	if !strings.Contains(view, "plan") || !strings.Contains(view, "risk") {
@@ -258,7 +258,7 @@ func TestView_WhenIdle_ShouldShowWaitingMessage(t *testing.T) {
 func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = nil
 
 	view := p.View(80, 24)
@@ -270,7 +270,7 @@ func TestView_WhenDoneWithNilGroups_ShouldRenderNonEmpty(t *testing.T) {
 func TestView_WhenDoneWithEmptyGroups_ShouldRenderNonEmpty(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = []riskGroup{}
 
 	view := p.View(80, 24)
@@ -301,7 +301,7 @@ func TestView_WhenDoneWithGroups_ShouldRenderRiskGroupList(t *testing.T) {
 func TestView_WhenInvalidStatus_ShouldReturnEmptyString(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
-	p.status = sdk.Status(99)
+	p.outcome.kind = outcomeKind(99)
 
 	view := p.View(80, 24)
 	if view != "" {
@@ -472,7 +472,7 @@ func TestHints_WhenStatusDoneWithGroups_ShouldOfferInspectAndQuit(t *testing.T) 
 
 func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusIdle
+	p.outcome.kind = outcomeIdle
 
 	hints := p.Hints()
 	if len(hints) == 0 {
@@ -485,7 +485,7 @@ func TestHints_WhenStatusIdle_ShouldReturnBackHint(t *testing.T) {
 
 func TestHints_WhenStatusDoneNoGroups_ShouldReturnBackHint(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = nil
 
 	hints := p.Hints()
@@ -566,7 +566,7 @@ func TestView_WhenHeaderBeyondMaxVisible_ShouldNotRenderOverflow(t *testing.T) {
 
 func TestCursorPosition_WhenDoneWithGroups_ShouldReturnOneBasedPositionAndTotal(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.items = make([]riskItem, 3)
 	p.selected = 0
 
@@ -590,7 +590,7 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 		t.Errorf("CursorPosition() idle = (%d, %d), want (0, 0)", pos, total)
 	}
 
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = []riskGroup{}
 	pos, total = p.CursorPosition()
 	if pos != 0 || total != 0 {

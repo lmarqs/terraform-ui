@@ -15,14 +15,14 @@ func newGoldenPlugin() *Plugin {
 
 func TestView_Given_Idle_ShouldRender_NoPlanMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = sdk.StatusIdle
+	p.outcome.kind = outcomeIdle
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
 
 func TestView_Given_NoChanges_ShouldRender_NoRiskMessage(t *testing.T) {
 	p := newGoldenPlugin()
-	p.status = sdk.StatusDone
+	p.outcome.kind = outcomeDone
 	p.groups = nil
 
 	sdktest.AssertGolden(t, p.View(80, 18))

@@ -21,46 +21,81 @@ type Input struct {
 }
 
 func (e *Plugin) configureReport(cfg map[string]interface{}) error {
-	e.threshold, e.settingsInvalid = "off", false
+	e.configured, e.settingsInvalid = nil, false
 	if err := sdk.RiskSettingsError(cfg); err != nil {
 		e.settingsInvalid = true
 		return err
 	}
-	if value, exists := cfg["threshold"]; exists {
-		e.threshold = value.(string)
+	// RiskSettingsError accepts only a valid threshold name.
+	if name, ok := cfg["threshold"].(string); ok {
+		e.configured, _ = parseThreshold(name)
 	}
 	return nil
 }
 
-func (e *Plugin) selectedThreshold() string {
-	if e.input.Threshold != nil {
-		return *e.input.Threshold
+// parseThreshold reads a threshold name; off, a nil level, disables the comparison.
+func parseThreshold(name string) (*sdk.RiskLevel, bool) {
+	if name == "off" {
+		return nil, true
 	}
-	if e.threshold == "" {
-		return "off"
-	}
-	return e.threshold
+	level, valid := sdk.ParseRiskLevel(name)
+	return &level, valid
 }
 
-func (e *Plugin) thresholdResult() string {
-	if e.assessment.Status == sdk.AssessmentEmpty {
+func thresholdName(threshold *sdk.RiskLevel) string {
+	if threshold == nil {
+		return "off"
+	}
+	return threshold.String()
+}
+
+func thresholdResult(a sdk.PolicyAssessment, threshold *sdk.RiskLevel) string {
+	switch {
+	case a.Status == sdk.AssessmentEmpty:
 		return "not_applicable"
-	}
-	threshold := e.selectedThreshold()
-	if threshold == "off" {
+	case threshold == nil:
 		return "disabled"
-	}
-	level, _ := sdk.ParseRiskLevel(threshold)
-	if *e.assessment.OverallLevel >= level {
+	case *a.OverallLevel >= *threshold:
 		return "met"
 	}
 	return "below"
+}
+
+// failureDiagnostic names why an assessment is unusable: its global code with
+// the host's hint, or else its first failed row by address.
+func failureDiagnostic(a sdk.PolicyAssessment, hint string) string {
+	if a.ErrorCode != "" {
+		return sdk.DiagnosticError{Code: a.ErrorCode, Hint: hint}.Error()
+	}
+	rows := slices.Clone(a.Resources)
+	slices.SortFunc(rows, func(a, b sdk.PolicyResourceAssessment) int {
+		return cmp.Or(cmp.Compare(a.Address, b.Address), cmp.Compare(a.Deposed, b.Deposed))
+	})
+	for _, row := range rows {
+		if row.ErrorCode != "" {
+			return string(row.ErrorCode) + " for " + instanceLabel(row.Address, row.Deposed)
+		}
+	}
+	return ""
 }
 
 type reportContext struct {
 	Project   *string `json:"project"`
 	Chdir     string  `json:"chdir"`
 	Workspace string  `json:"workspace"`
+}
+
+// reportedContext is the Context the assessment was requested in, with the
+// command's chdir in place of the selected one when it gave one.
+func (e *Plugin) reportedContext() reportContext {
+	c := reportContext{Project: e.input.Project, Chdir: e.input.Chdir, Workspace: e.requested.Workspace.String()}
+	if c.Chdir == "" {
+		c.Chdir = e.requested.Chdir.String()
+	}
+	if c.Chdir == "" {
+		c.Chdir = "."
+	}
+	return c
 }
 
 type reportReason struct {
@@ -106,17 +141,17 @@ type riskReport struct {
 
 func (e *Plugin) report() riskReport {
 	a := e.assessment
-	r := riskReport{SchemaVersion: "tfui.risk.report/v1", InputSchemaVersion: "tfui.risk.input/v1", Context: e.reportContext, PlanID: a.PlanID, Status: a.Status, Levels: map[string]int{"none": 0, "low": 0, "medium": 0, "high": 0, "critical": 0}, Resources: []reportResource{}}
+	r := riskReport{SchemaVersion: "tfui.risk.report/v1", InputSchemaVersion: "tfui.risk.input/v1", Context: e.reportedContext(), PlanID: a.PlanID, Status: a.Status, Levels: map[string]int{"none": 0, "low": 0, "medium": 0, "high": 0, "critical": 0}, Resources: []reportResource{}}
 	r.Policy.Kind, r.Policy.ID, r.Policy.Digest = a.Policy.Kind, a.Policy.ID, a.Policy.Digest
 	if a.OverallLevel != nil {
 		level := a.OverallLevel.String()
 		r.OverallLevel = &level
 	}
-	threshold := e.selectedThreshold()
-	if threshold != "off" {
-		r.Threshold.Level = &threshold
+	if e.threshold != nil {
+		level := e.threshold.String()
+		r.Threshold.Level = &level
 	}
-	r.Threshold.Result = e.thresholdResult()
+	r.Threshold.Result = e.outcome.threshold
 	for _, row := range a.Resources {
 		resource := reportResource{Address: row.Address, Actions: row.Actions, Status: row.Status, Exclusion: row.Exclusion}
 		if row.Deposed != "" {
@@ -150,7 +185,7 @@ func (e *Plugin) report() riskReport {
 
 // Stdout emits only a complete or empty versioned assessment report.
 func (e *Plugin) Stdout() ([]byte, error) {
-	if e.status != sdk.StatusDone || e.assessment == nil {
+	if e.outcome.kind != outcomeDone {
 		return nil, nil
 	}
 	r := e.report()
@@ -164,7 +199,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	} else {
 		fmt.Fprintf(&out, "Risk: %s\n", *r.OverallLevel)
 	}
-	fmt.Fprintf(&out, "Policy: %s\nMutations: %d eligible, %d classified; %d changes not assessed\nThreshold: %s (%s)\n", r.Policy.ID, r.Counts.Eligible, r.Counts.Classified, r.Counts.NotAssessed, e.selectedThreshold(), r.Threshold.Result)
+	fmt.Fprintf(&out, "Policy: %s\nMutations: %d eligible, %d classified; %d changes not assessed\nThreshold: %s (%s)\n", r.Policy.ID, r.Counts.Eligible, r.Counts.Classified, r.Counts.NotAssessed, thresholdName(e.threshold), r.Threshold.Result)
 	for _, row := range r.Resources {
 		if row.Status != sdk.ResourceClassified {
 			continue
@@ -211,37 +246,20 @@ func escapedAddress(address string) string {
 }
 
 func (e *Plugin) Stderr() []byte {
-	if e.planError != "" {
-		return []byte(e.planError + "\n")
+	if e.outcome.diagnostic == "" {
+		return nil
 	}
-	if e.riskDiagnostic != "" {
-		diagnostic := e.riskDiagnostic
-		if e.assessment != nil && e.assessment.ErrorCode == "" {
-			rows := append([]sdk.PolicyResourceAssessment(nil), e.assessment.Resources...)
-			slices.SortFunc(rows, func(a, b sdk.PolicyResourceAssessment) int {
-				return cmp.Or(cmp.Compare(a.Address, b.Address), cmp.Compare(a.Deposed, b.Deposed))
-			})
-			for _, row := range rows {
-				if row.ErrorCode != "" {
-					diagnostic = string(row.ErrorCode) + " for " + instanceLabel(row.Address, row.Deposed)
-					break
-				}
-			}
-		}
-		return []byte("risk unavailable: " + diagnostic + "\n")
-	}
-	if e.status == sdk.StatusDone && e.assessment != nil && e.thresholdResult() == "met" {
-		return []byte(fmt.Sprintf("risk threshold met: %s >= %s\n", e.assessment.OverallLevel.String(), e.selectedThreshold()))
-	}
-	return nil
+	return []byte(e.outcome.diagnostic + "\n")
 }
 
 func (e *Plugin) ExitCode() int {
-	if e.status == sdk.StatusError {
+	switch e.outcome.kind {
+	case outcomeInvalidThreshold, outcomePlanFailed, outcomeUnusable:
 		return 1
-	}
-	if e.status == sdk.StatusDone && e.assessment != nil && e.thresholdResult() == "met" {
-		return 3
+	case outcomeDone:
+		if e.outcome.threshold == "met" {
+			return 3
+		}
 	}
 	return 0
 }
