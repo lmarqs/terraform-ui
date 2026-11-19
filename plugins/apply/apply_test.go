@@ -617,7 +617,8 @@ func TestUpdate_WhenKeyInLoading_ShouldDoNothing(t *testing.T) {
 	}
 }
 
-// Apply's result has nothing to reload, and ctrl+r never navigates (tui-ux §16).
+// Apply's result has nothing to reload, and ctrl+r never navigates (tui-ux.md,
+// Standalone navigation rules).
 func TestUpdate_WhenCtrlRInDone_ShouldDoNothing(t *testing.T) {
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusDone

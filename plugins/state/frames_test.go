@@ -3,6 +3,7 @@ package state
 import (
 	"context"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -1723,14 +1724,25 @@ func TestListFrame_Update_WhenUnrecognizedKey_ShouldDoNothing(t *testing.T) {
 	}
 }
 
-func TestListFrame_Update_WhenCtrlRInIdle_ShouldDoNothing(t *testing.T) {
-	p := newTestPlugin(nil)
-	p.status = sdk.StatusIdle
+// An edit that changes the source invalidates the plan while State is open,
+// which resets State to Idle on screen; ^r is still shown, so it must load.
+func TestListFrame_Update_WhenCtrlRAfterInvalidationWhileOpen_ShouldLoadState(t *testing.T) {
+	svc := &sdktest.MockService{}
+	p := New(svc).(*Plugin)
+	p.Init(sdktest.NewDeps(svc).Deps)
+	p.status = sdk.StatusDone
+	p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
+	if p.status != sdk.StatusIdle {
+		t.Fatalf("status after PlanInvalidatedEvent = %v, want StatusIdle", p.status)
+	}
 	f := &listFrame{plugin: p}
+	if !slices.Contains(f.Hints(), sdk.HintRefresh) {
+		t.Fatalf("Hints() = %v, want ^r refresh", f.Hints())
+	}
 
 	_, cmd := f.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
-	if cmd != nil {
-		t.Error("expected nil cmd for ctrl+r in idle state")
+	if cmd == nil || p.status != sdk.StatusLoading {
+		t.Errorf("ctrl+r in Idle: cmd = %v, status = %v, want a load and StatusLoading", cmd, p.status)
 	}
 }
 
