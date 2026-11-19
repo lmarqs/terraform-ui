@@ -112,7 +112,7 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 			sdk.HintCancel,
 		}
 	case sdk.StatusDone:
-		hints := (sdk.HintSetRefresh | sdk.HintSetCancel).Hints()
+		hints := sdk.HintSetCancel.Hints()
 		if e.lastStream != nil {
 			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
 		}
@@ -323,8 +323,6 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	case sdk.StatusDone:
 		switch msg.String() {
-		case "ctrl+r":
-			return func() tea.Msg { return sdk.NavigateMsg{PluginID: "plan"} }
 		case "esc":
 			return func() tea.Msg { return sdk.DeactivateMsg{} }
 		case "l":

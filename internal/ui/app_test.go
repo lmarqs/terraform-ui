@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/editor"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
@@ -4247,6 +4248,32 @@ func TestApp_Update_WhenApplyRequestMsgCarriesLockOverrides_ShouldApplyWithThem(
 	if got.Lock != sdk.LockDisabled || got.LockTimeout != sdk.LockTimeout("30s") {
 		t.Errorf("ApplyOptions Lock = %v, LockTimeout = %q, want LockDisabled, \"30s\" (the plan's overrides)",
 			got.Lock, got.LockTimeout)
+	}
+}
+
+// `tfui apply` drops a NavigateMsg to plan, so a ^r that navigated would show a
+// key that does nothing. ctrl+r reloads in place; apply's result has nothing to
+// reload, so it offers no ^r.
+func TestApp_Update_WhenStandaloneApplyDone_ShouldShowNoRefreshAndIgnoreCtrlR(t *testing.T) {
+	app := newStandaloneApplyViaPlanApp(t, &sdktest.MockService{}, func(sdk.Plugin) tea.Cmd { return nil })
+	model, _ := app.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+	model, _ = model.(App).Update(tfuiplan.ApplyRequestMsg{PlanFile: "x.tfplan"})
+	model, _ = model.(App).Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
+	model, _ = model.(App).Update(tfuiapply.ApplyResultMsg{})
+	app = model.(App)
+	if p, ok := app.ActivePlugin().(*tfuiapply.Plugin); !ok || p.Status() != sdk.StatusDone {
+		t.Fatalf("ActivePlugin() = %v, want apply in StatusDone", app.ActivePlugin())
+	}
+
+	if view := ansi.Strip(app.View()); strings.Contains(view, "^r") {
+		t.Errorf("apply's result screen shows a ^r hint:\n%s", view)
+	}
+	model, cmd := app.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	if cmd != nil {
+		t.Errorf("ctrl+r on apply's result screen returned a cmd, emits %T, want a no-op", cmd())
+	}
+	if got := model.(App).ActivePlugin(); got == nil || got.ID() != "apply" {
+		t.Errorf("ActivePlugin() = %v after ctrl+r, want apply", got)
 	}
 }
 
