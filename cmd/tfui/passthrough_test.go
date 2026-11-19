@@ -4,24 +4,24 @@ import "testing"
 
 func TestPassthroughWarning_WhenArgsAndMode_ShouldWarnOnlyForLiveRuns(t *testing.T) {
 	tests := []struct {
-		name        string
-		extraArgs   []string
+		name      string
+		extraArgs []string
 		recording bool
-		want        string
+		want      string
 	}{
 		{name: "no args on a live run", extraArgs: nil, recording: false, want: ""},
 		{name: "no args on a recording run", extraArgs: nil, recording: true, want: ""},
 		{
-			name:        "args on a recording run",
-			extraArgs:   []string{"-compact-warnings", "-no-color"},
+			name:      "args on a recording run",
+			extraArgs: []string{"-compact-warnings", "-no-color"},
 			recording: true,
-			want:        "",
+			want:      "",
 		},
 		{
-			name:        "args on a live run",
-			extraArgs:   []string{"-compact-warnings", "-no-color"},
+			name:      "args on a live run",
+			extraArgs: []string{"-compact-warnings", "-no-color"},
 			recording: false,
-			want:        "warning: ignoring arguments after --: -compact-warnings -no-color; only a -macro or -dry-run run records them\n",
+			want:      "warning: ignoring arguments after --: -compact-warnings -no-color; only a -macro or -dry-run run records them\n",
 		},
 	}
 
