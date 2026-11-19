@@ -26,6 +26,9 @@ The authoring contract is expensive to reverse: policy source and automation bec
 input meanings or output expectations would require migration. The evaluator implementation is more replaceable
 than that public boundary, so prototype evidence must precede a stable interface.
 
+The baseline below and the "What exists today" table describe tfui before [#121](https://github.com/lmarqs/terraform-ui/pull/121).
+What ships now is in the [Risk plugin page](../plugins/risk.md) and the [v1 contract](../reference/risk-policy-contract.md).
+
 The current classifier uses action and fixed resource-type lists in `internal/terraform/risk.go`. Plan displays
 its levels. Risk can group an explicitly supplied summary, but its production activation/event path and dedicated
 command are absent; `Configure` ignores options. The gap is observed capability, not measured usage or performance.

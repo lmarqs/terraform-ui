@@ -10,6 +10,9 @@ audience: "Contributors changing the risk authoring contract, reports or consume
 
 # Publish the first-version risk contract
 
+The 2026-11-15 decision below accepted a planned interface. The v1 contract and `tfui risk` shipped in
+[#121](https://github.com/lmarqs/terraform-ui/pull/121); later fixes are listed in [ADR-0025](0025-classify-resource-mutations-explicitly.md).
+
 Publish the [v1 contract](../reference/risk-policy-contract.md) for dependent implementation, with tagged
 single-mutation input, a complete Rego document, explicit source replacement and validated classifications.
 The coordinator makes this first-version choice under the owner's explicit delegation on 2026-11-15; the exact
