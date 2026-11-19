@@ -71,8 +71,9 @@ for each pin, and apply runs the plan file that plan produced. Repeat the flag p
 verbatim, as on `tfui plan`. tfui does not check the addresses against the state or the plan: after a plan, a pin
 with no change in it is dropped, as with pins set by hand. The pins belong to the first chdir the session opens,
 `-chdir` or the one you pick at startup, and end on the next chdir or workspace switch, like every pin. With
-`-dry-run`, the recorded `terraform plan` carries the pins as `-target` flags. On `tfui plan` and `tfui apply`,
-`-target` is the terraform target of that command, not a pin.
+`-dry-run`, the recorded `terraform plan` carries the pins as `-target` flags. The command on the line decides
+the meaning: with no command it pins (`tfui -target X`); with `plan` or `apply` it is that command's terraform
+target (`tfui plan -target X`), wherever it sits on the line. Any other command rejects it as an unknown flag.
 
 ### `tfui plan`
 
