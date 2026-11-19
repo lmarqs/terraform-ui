@@ -654,7 +654,7 @@ func TestContentPanel_Render_GivenWrapModeCursorBelowHeight_ShouldDrawCursorRowF
 
 	output := panel.Render(ui.RenderParams{
 		Rows:       threeLineRows("abc"),
-		Width:      10,
+		Width:      12,
 		Height:     5,
 		TotalItems: 3,
 		Cursor:     2,
@@ -809,5 +809,22 @@ func TestContentPanel_RenderWindow_GivenZeroHeight_ShouldRenderNothing(t *testin
 		if output, offset := panel.RenderWindow(ui.RenderParams{Rows: []string{"a"}, Width: 10, Cursor: 0}); output != "" || offset != 0 {
 			t.Errorf("wrap=%v: RenderWindow = %q, %d, want empty, 0", wrap, output, offset)
 		}
+	}
+}
+
+func TestContentPanel_Render_GivenWrapModeScrolledPastLinesAbove_ShouldDrawGutter(t *testing.T) {
+	panel := wrapPanel()
+
+	output := panel.Render(ui.RenderParams{
+		Rows:       threeLineRows("abc"),
+		Width:      12,
+		Height:     5,
+		TotalItems: 3,
+		Cursor:     2,
+	})
+
+	lines := strings.Split(output, "\n")
+	if len(lines) != 5 || !strings.HasSuffix(lines[0], "▲") || !strings.HasSuffix(lines[4], "▼") {
+		t.Fatalf("wrapped lines hidden above the cursor should draw the gutter, got:\n%s", output)
 	}
 }
