@@ -154,3 +154,27 @@ func waitFor(t *testing.T, screen *lockedBuffer, text string) {
 		time.Sleep(10 * time.Millisecond)
 	}
 }
+
+// A dry run draws on stderr, and the program only sizes itself, and so leaves
+// "Loading...", when stderr is a terminal.
+func TestValidate_GivenDryRun_ShouldRequireATerminalOnStderr(t *testing.T) {
+	_, terminal := openPTY(t)
+	for _, tc := range []struct {
+		name    string
+		session Session
+		wantErr bool
+	}{
+		{name: "dry run, stderr redirected", session: Session{dryRun: true, effects: Effects{Stderr: &bytes.Buffer{}}}, wantErr: true},
+		{name: "dry run, stderr a terminal", session: Session{dryRun: true, effects: Effects{Stderr: terminal}}},
+		{name: "live run, stderr redirected", session: Session{effects: Effects{Stderr: &bytes.Buffer{}}}},
+		{name: "dry run under a macro tape", session: Session{dryRun: true, macro: MacroSpec{TapeURI: "tape.txt"}, effects: Effects{Stderr: &bytes.Buffer{}}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.session.validate()
+			gotErr := err != nil && strings.Contains(err.Error(), "-dry-run draws the TUI on stderr")
+			if gotErr != tc.wantErr {
+				t.Errorf("validate() error = %v, want the stderr-terminal error: %v", err, tc.wantErr)
+			}
+		})
+	}
+}

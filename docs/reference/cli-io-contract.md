@@ -127,6 +127,7 @@ the Terraform error on stderr; Risk policy failures use fixed diagnostics as spe
 | `tfui -macro tape -plan file` | Commands | — | 0/1 |
 | `tfui -dry-run` | Recorded commands, one per line, on exit | TUI (alt-screen) | 0/1 |
 | `tfui -dry-run -json` | Recorded commands as a JSON array, on exit | TUI (alt-screen) | 0/1 |
+| `tfui -dry-run` (stderr not a terminal) | — | `no TTY on stderr` error | 1 |
 | `tfui -ci` | (alt-screen) | — | 0/1 |
 
 `-ci` has no effect on the full TUI: `tfui -ci` runs the same TUI as `tfui`, and still needs a terminal. Mode

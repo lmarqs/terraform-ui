@@ -44,8 +44,9 @@ tfui -dry-run                  # Full TUI that records terraform commands instea
 
 `-dry-run` runs the same interactive TUI against the recording service that `-macro` uses, so no terraform command
 runs and no state changes. The Console plugin runs `terraform console` itself, so a dry run leaves it out of the
-menu. The TUI renders on stderr, and on exit stdout gets the recorded commands, one per line, or a JSON array with
-`-json`. A signal ends the run with no stdout, as it does for every command.
+menu. Editing a resource's source (`e`) still opens your configured editor. The TUI renders on stderr, so stderr
+must be a terminal (tfui exits 1 otherwise), and on exit stdout gets the recorded commands, one per line, or a JSON
+array with `-json`. A signal ends the run with no stdout, as it does for every command.
 
 Reads come only from `-plan` and `-state`: without them the plan, the state, the outputs and the diagnostics are
 empty, which does not mean there is nothing to change.

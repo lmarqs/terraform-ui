@@ -73,6 +73,9 @@ func (s *Session) validate() error {
 			return err
 		}
 	}
+	if s.dryRun && !s.macro.Active() && !isTerminal(s.effects.Stderr) {
+		return fmt.Errorf("no TTY on stderr: -dry-run draws the TUI on stderr and prints the commands on stdout\n\nKeep stderr on the terminal; redirect stdout only:\n  tfui -dry-run > commands.txt")
+	}
 	if !s.macro.Active() && !hasTTY() {
 		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --ci            (CI mode, no TUI)\n  CI=1 tfui plan            (same via env var)")
 	}
