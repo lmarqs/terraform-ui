@@ -37,10 +37,10 @@ func TestHandleRiskAssessed_GivenRequestIdentity_ShouldAcceptOnlyThePendingReque
 			runLifecycleCmd(p, p.Init(h.Deps))
 			summary := lifecycleSummary("aws_instance.retained")
 			runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
-			runLifecycleCmd(p, p.Activate(Input{}))
+			p.Activate(Input{})
 			if tc.reissue {
 				p.Cancel()
-				runLifecycleCmd(p, p.Activate(Input{}))
+				p.Activate(Input{})
 			}
 			if want := map[bool]int{false: 1, true: 2}[tc.reissue]; len(issued) != want {
 				t.Fatalf("issued %d requests; want %d", len(issued), want)

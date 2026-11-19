@@ -37,10 +37,10 @@ func TestHandleRiskAssessed_GivenRequestIdentity_ShouldAcceptOnlyThePendingReque
 			p.Init(h.Deps)
 			summary := eventSummary()
 			runBlastCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
-			runBlastCmd(p, p.Activate())
+			p.Activate()
 			if tc.reissue {
 				p.Cancel()
-				runBlastCmd(p, p.Activate())
+				p.Activate()
 			}
 			if want := map[bool]int{false: 1, true: 2}[tc.reissue]; len(issued) != want {
 				t.Fatalf("issued %d requests; want %d", len(issued), want)
