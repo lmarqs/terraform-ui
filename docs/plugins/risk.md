@@ -46,7 +46,7 @@ gutter appears when the list exceeds the viewport.
 | `↑` / `↓`, `g` / `G` | Scroll detail; jump to start/end | Inspection |
 | `←` / `→` | Scroll horizontally when wrapping is off | Inspection |
 | `Ctrl+w` | Toggle wrapping | Inspection |
-| `Ctrl+r` | Request the assessment again for the same plan | Plan failed or assessment unusable (not an invalid `--threshold`, which a retry cannot change) |
+| `Ctrl+r` | Request the assessment again for the same plan | Plan failed or assessment unusable (not an invalid `-risk-threshold`, which a retry cannot change) |
 | `Esc` | Close inspection; leave Risk from the list | Inspection or list |
 | `q` | Close inspection first; from the list, return Home (quit in standalone mode) | Inspection or list |
 

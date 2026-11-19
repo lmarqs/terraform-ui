@@ -53,9 +53,14 @@ Press `B` to open the Blast Radius view. It requires a completed plan to analyze
 
 ```
 Home ──B──→ Blast Radius (loading) ──→ Blast Radius (list)
-                                          │
-                                          ├── Enter/i → Expand module changes
-                                          └── q → Home
+                  │                         │
+                  │                         ├── Enter/i → Expand module changes
+                  │                         └── q → Home
+                  ├── Esc → Home (cancels the request)
+                  │
+                  └──→ Blast Radius (error: cancelled or unusable assessment)
+                          ├── Ctrl+r → Blast Radius (loading)   (request again)
+                          └── Esc → Home
 ```
 
 ## Command Line (CLI)
