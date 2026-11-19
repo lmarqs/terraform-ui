@@ -85,6 +85,21 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 	return tea.Batch(cmd, e.timer.Start())
 }
 
+// retryable reports a run that ended in a failure a new request can recover
+// from. An invalid CLI threshold stays invalid, so it is not retryable.
+func (e *Plugin) retryable() bool {
+	return e.outcome.kind == outcomePlanFailed || e.outcome.kind == outcomeUnusable
+}
+
+// retry asks the host again for the same assessment the failed run asked for.
+func (e *Plugin) retry() tea.Cmd {
+	if !e.retryable() {
+		return nil
+	}
+	e.resetDerived()
+	return e.requestAssessment()
+}
+
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
 // pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
