@@ -45,6 +45,8 @@ failure, as Risk does. Issue #156 tracks a plan-only request.
 |-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
 | `Enter` / `i` | Expand/collapse phantom details | List |
+| `←` / `→` | Scroll the list horizontally when wrapping is off | List |
+| `Ctrl+w` | Toggle wrapping | List |
 | `Ctrl+r` | Ask for the plan again | Plan unavailable |
 | `Esc` | Back to Home, cancelling a running plan | Loading, or plan unavailable |
 | `q` | Back to Home | Always |
