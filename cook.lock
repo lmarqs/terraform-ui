@@ -2,8 +2,8 @@
 version: 1
 recipes:
   - name: "io.github.lmarqs.cookbook:agents#connect"
-    source: "io.github.lmarqs.cookbook:agents:12.2.0#connect"
-    sha256: "dad8240e2658b050b40b6646019dd5532af547ccf66ea95d952dd46168390ced"
+    source: "io.github.lmarqs.cookbook:agents:13.0.0#connect"
+    sha256: "1f32f8eb5a0f69cafd524e5503a11c2afc5eda10feabccd81b3b53ae62645032"
     arguments:
       "harness": ["claude","codex"]
       "worktree-setup": [".worktrees/setup"]
@@ -65,8 +65,8 @@ recipes:
         - ".codex/hooks.json"
         - ".codex/rules"
   - name: "io.github.lmarqs.cookbook:agents#seed"
-    source: "io.github.lmarqs.cookbook:agents:12.2.0#seed"
-    sha256: "dad8240e2658b050b40b6646019dd5532af547ccf66ea95d952dd46168390ced"
+    source: "io.github.lmarqs.cookbook:agents:13.0.0#seed"
+    sha256: "1f32f8eb5a0f69cafd524e5503a11c2afc5eda10feabccd81b3b53ae62645032"
     arguments: {}
     owns:
       files:
@@ -74,11 +74,13 @@ recipes:
         - ".agents/skills/agents-layout/agents/openai.yaml"
         - ".agents/skills/agents-layout/references/adopt.md"
         - ".agents/skills/agents-layout/references/agents-md.md"
+        - ".agents/skills/agents-layout/references/changes.md"
         - ".agents/skills/agents-layout/references/claude.md"
         - ".agents/skills/agents-layout/references/codex.md"
         - ".agents/skills/agents-layout/references/design.md"
         - ".agents/skills/agents-layout/references/glossary.md"
         - ".agents/skills/agents-layout/references/investigate.md"
+        - ".agents/skills/agents-layout/references/memory.md"
         - ".agents/skills/agents-layout/references/policy.md"
         - ".agents/skills/agents-layout/references/review.md"
         - ".agents/skills/agents-layout/references/subagents.md"
@@ -87,7 +89,7 @@ recipes:
         - ".agents/skills/agents-layout/templates/README.template.md"
         - ".agents/skills/agents-layout/templates/policy.template.yaml"
   - name: "io.github.lmarqs.cookbook:beads#tracker"
-    source: "io.github.lmarqs.cookbook:beads:12.2.0#tracker"
+    source: "io.github.lmarqs.cookbook:beads:13.0.0#tracker"
     sha256: "7f225ec8337c8f67567bd20d12801a5993f8e70df030e8797cc7ba9f8481313c"
     arguments:
       "share": ["team"]
@@ -110,7 +112,7 @@ recipes:
         - file: ".beads/config.yaml"
           path: ["no-git-ops"]
   - name: "io.github.lmarqs.cookbook:beads#viewer"
-    source: "io.github.lmarqs.cookbook:beads:12.2.0#viewer"
+    source: "io.github.lmarqs.cookbook:beads:13.0.0#viewer"
     sha256: "7f225ec8337c8f67567bd20d12801a5993f8e70df030e8797cc7ba9f8481313c"
     arguments:
       "instructions": [".agents/skills/beads-ralph/SKILL.md"]
@@ -121,8 +123,8 @@ recipes:
         - file: ".gitignore"
           id: "io.github.lmarqs.cookbook:beads#viewer/viewer"
   - name: "io.github.lmarqs.cookbook:docs#layout"
-    source: "io.github.lmarqs.cookbook:docs:12.2.0#layout"
-    sha256: "bc5ab118fee287f201b87b7da2993b4cbc670bda34ebd515ad80d4725ff3bb76"
+    source: "io.github.lmarqs.cookbook:docs:13.0.0#layout"
+    sha256: "7a8b6b904373344c866254ed18937ae0e8272299c75fa7dd026a9e66318a79c6"
     arguments:
       "skills-root": [".agents/skills"]
     owns:
@@ -141,7 +143,7 @@ recipes:
         - ".agents/skills/docs-layout/references/runbooks.md"
         - ".agents/skills/docs-layout/references/standards.md"
   - name: "io.github.lmarqs.cookbook:git#worktrees"
-    source: "io.github.lmarqs.cookbook:git:12.2.0#worktrees"
+    source: "io.github.lmarqs.cookbook:git:13.0.0#worktrees"
     sha256: "f7423fc4a23e095201def4311c844448e8038c33a269028eff185c9a19d86130"
     arguments:
       "instructions": ["AGENTS.md"]

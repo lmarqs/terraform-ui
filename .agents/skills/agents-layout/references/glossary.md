@@ -19,6 +19,7 @@ the same thing, the term lists it under Avoid.
 | Render | A file or key Cook writes into an adapter from a source in `.agents/`, which the next cook rewrites | Generated file |
 | Link | A committed symbolic link in a harness directory that points into a shared directory or an adapter | |
 | Personal file | Any file in a harness directory that is not a link; git ignores it | Local file |
+| Trap | Something in the repository that looks right and is not, so a run that does the plain thing gets a wrong result. One any task can hit is a gotcha, in `AGENTS.md`; one of working in a single area is in `.agents/memory/`; one of the product is in the documentation | |
 
 Cook's own terms, such as owner, recipe and cooking, are in its glossary,
 `docs/features/glossary.md` in the-cook's repository.

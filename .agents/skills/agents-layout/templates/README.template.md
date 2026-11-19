@@ -16,7 +16,7 @@ for what any harness can use, `adapters/<harness>/` for one harness's own files,
 | `/AGENTS.md` | Instructions for every agent, whatever its harness or role. Each harness reads it natively | The team |
 | `skills/` | One directory per skill with its `SKILL.md`. Codex reads it natively; Claude through `/.claude/skills` | The team |
 | `hooks/` | Scripts that each harness's hook settings run, by their path from the repository root, and the files they load. Each `session-start.d/*.sh` prints context that every harness adds to a session as it starts, with the harness name as `$1` | The team; Cook owns the `session-start` dispatcher |
-| `memory/` | Durable facts the code and `README.md` do not show, read when `AGENTS.md` points to them; no secrets | The team |
+| `memory/` | The traps sessions met in one area, a file each, read when `AGENTS.md` points to them; no secrets | The team |
 | `agents/` | One Markdown file per subagent. Cook renders each into `adapters/<harness>/agents/`, which `/.claude/agents` and `/.codex/agents` link to | The team |
 | `permission/policy.yaml` | What agents may run: `commands` and `tools` for every session, `roles` that narrow it | The team |
 | `adapters/<harness>/` | Each harness's settings. Cook renders the policy into `permissions` in `claude/settings.json`, `sandbox_mode`, `approval_policy` and `sandbox_workspace_write.network_access` in `codex/config.toml`, and `codex/rules/cook.rules`, and owns `hooks.SessionStart` in `claude/settings.json` and `codex/hooks.json`, which runs `hooks/session-start` | Cook |
@@ -40,7 +40,7 @@ Cook's own options.
 | Axis | Examples | Chosen | Lives in |
 | --- | --- | --- | --- |
 | Role | developer, worker, reviewer | Per run, at launch | `permission/policy.yaml` `roles`, rendered to `adapters/claude/roles/` |
-| Mode | attended, unattended | Per run, at launch | Launch flags: unattended runs refuse what would ask |
+| Mode | attended, unattended; for Claude, asking or auto | Per run, at launch | Launch flags: unattended runs refuse what would ask; in auto mode Claude's classifier decides what the policy does not list |
 | Harness | Claude, Codex | Per person or loop runner | `adapters/<harness>/` |
 | Model | Opus, Sonnet, GPT | Per person, or per role in a loop runner | Personal settings or the runner's configuration, never the policy |
 
@@ -55,6 +55,7 @@ a role exists when `permission/policy.yaml` defines it.
 | Claude | attended | reviewer | `claude --settings .agents/adapters/claude/roles/reviewer.json` |
 | Claude | unattended | developer | `claude -p --permission-prompts none "<task>"` |
 | Claude | unattended | worker | `claude -p --permission-prompts none --settings .agents/adapters/claude/roles/worker.json "<task>"` |
+| Claude | unattended, auto | worker | `claude -p --permission-mode auto --settings .agents/adapters/claude/roles/worker.json "<task>"` |
 | Codex | attended | developer | `codex` |
 | Codex | unattended | developer | `codex exec -c approval_policy=never "<task>"` |
 
@@ -80,6 +81,9 @@ are.
   `--permission-mode bypassPermissions`, which many runners pass by default. Codex keeps its rules under its bypass
   flag, but `--ignore-rules`, `--ignore-user-config` and a clone nobody trusted skip them, and `--approve-for-me` lets
   a reviewer approve the asks; configure Codex runners without them.
+- A Claude worker that meets commands the policy does not list can run in auto mode, the `unattended, auto` line,
+  where Claude's classifier decides them and the policy's `deny` and `ask` still hold; that is a narrower step than
+  bypass. `auto: refuse` in the policy turns the mode off.
 - How a worktree becomes runnable and how one is removed are in the Worktrees line of `/AGENTS.md`'s Quick
   reference.
 

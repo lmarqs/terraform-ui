@@ -10,7 +10,7 @@ What makes a good architecture page:
 
 - It names each part as the repository names it, with the directory it lives in, so a reader goes from the page to
   the code.
-- It shows the dependencies and main flows as they are, with a diagram where one helps.
+- It shows the dependencies and main flows, with a diagram where one helps.
 
 ## Example
 
