@@ -188,11 +188,32 @@ func TestCompat_StandaloneApplyWithTarget(t *testing.T) {
 func TestCompat_LockFlagsReachTerraform(t *testing.T) {
 	tests := []struct {
 		name    string
+		hcl     string
 		args    []string
 		command string
+		want    map[string]string
 	}{
-		{name: "plan", args: []string{"plan", "--lock=false", "--lock-timeout=30s"}, command: "plan"},
-		{name: "apply", args: []string{"apply", "--auto-approve", "--lock=false", "--lock-timeout=30s"}, command: "apply"},
+		{
+			name:    "plan",
+			hcl:     "defaults {\n  parallelism = 3\n}\n",
+			args:    []string{"plan", "--lock=false", "--lock-timeout=30s"},
+			command: "plan",
+			want:    map[string]string{"-lock": "false", "-lock-timeout": "30s", "-parallelism": "3"},
+		},
+		{
+			name:    "apply",
+			hcl:     "defaults {\n  parallelism = 3\n}\n",
+			args:    []string{"apply", "--auto-approve", "--lock=false", "--lock-timeout=30s"},
+			command: "apply",
+			want:    map[string]string{"-lock": "false", "-lock-timeout": "30s", "-parallelism": "3"},
+		},
+		{
+			name:    "apply flag overrides configured lock",
+			hcl:     "defaults {\n  lock = false\n}\n",
+			args:    []string{"apply", "--auto-approve", "--lock=true"},
+			command: "apply",
+			want:    map[string]string{"-lock": "true"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -200,8 +221,10 @@ func TestCompat_LockFlagsReachTerraform(t *testing.T) {
 			dir := t.TempDir()
 			calls := filepath.Join(dir, "calls")
 			stub := filepath.Join(dir, "terraform")
+			// One argument per line, each call opened by a separator line, so the
+			// test sees argument boundaries and every call.
 			script := `#!/bin/sh
-printf '%s\n' "$*" >> '` + calls + `'
+printf '%s\n' '--call--' "$@" >> '` + calls + `'
 case "$1" in
 version) printf '%s\n' '{"terraform_version":"1.14.0","platform":"linux_amd64","provider_selections":{}}' ;;
 show) printf '%s\n' '{"format_version":"1.0"}' ;;
@@ -210,7 +233,7 @@ esac
 			if err := os.WriteFile(stub, []byte(script), 0o700); err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(filepath.Join(dir, "tfui.hcl"), []byte("defaults {\n  parallelism = 3\n}\n"), 0o600); err != nil {
+			if err := os.WriteFile(filepath.Join(dir, "tfui.hcl"), []byte(tt.hcl), 0o600); err != nil {
 				t.Fatal(err)
 			}
 
@@ -224,19 +247,26 @@ esac
 			if err != nil {
 				t.Fatalf("stub terraform was never called: %v\nstderr: %s", err, stderr)
 			}
-			var line string
-			for _, l := range strings.Split(string(logged), "\n") {
-				if strings.HasPrefix(l, tt.command+" ") {
-					line = l
-					break
+			var matching [][]string
+			for _, call := range strings.Split(string(logged), "--call--\n")[1:] {
+				argv := strings.Split(strings.TrimSuffix(call, "\n"), "\n")
+				if argv[0] == tt.command {
+					matching = append(matching, argv)
 				}
 			}
-			if line == "" {
-				t.Fatalf("expected a terraform %s call, got: %q", tt.command, logged)
+			if len(matching) != 1 {
+				t.Fatalf("expected exactly one terraform %s call, got %d: %q", tt.command, len(matching), logged)
 			}
-			for _, want := range []string{"-lock=false", "-lock-timeout=30s", "-parallelism=3"} {
-				if !strings.Contains(line, want) {
-					t.Errorf("expected %q on the terraform %s call, got: %q", want, tt.command, line)
+			argv := matching[0]
+			for flag, value := range tt.want {
+				var got []string
+				for _, arg := range argv {
+					if strings.HasPrefix(arg, flag+"=") {
+						got = append(got, arg)
+					}
+				}
+				if len(got) != 1 || got[0] != flag+"="+value {
+					t.Errorf("expected exactly one %s=%s on the terraform %s call, got %q in %q", flag, value, tt.command, got, argv)
 				}
 			}
 		})

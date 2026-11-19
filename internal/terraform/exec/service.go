@@ -461,7 +461,6 @@ func buildTfexecPlanOptions(opts sdk.PlanOptions, planFilePath string) []tfexec.
 	return planOpts
 }
 
-// lockOption is a tfexec option that plan and apply both accept.
 type lockOption interface {
 	tfexec.PlanOption
 	tfexec.ApplyOption
