@@ -438,7 +438,7 @@ A view that scrolls splits its rendering by axis: the plugin decides which rows 
 `ui.ContentPanel` (`pkg/sdk/ui/content_panel.go`) formats them. Vertical navigation needs domain semantics that differ
 per plugin; horizontal formatting is the same everywhere ([ADR-0015](../adr/0015-content-panel-axis-split.md)). A list
 can also let the panel pick its visible window, because with wrap on only the panel knows how tall a row is
-([ADR-0026](../adr/0026-content-panel-windows-wrapped-lists.md)).
+([ADR-0027](../adr/0027-content-panel-windows-wrapped-lists.md)).
 
 ```
 ┌──────────────────── Border (app) ─────────────────────┐

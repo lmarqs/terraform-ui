@@ -12,7 +12,7 @@ audience: "Contributors writing a View() or a scrollable panel"
 
 # Axis-split box model for content rendering
 
-Amended by [ADR-0026](0026-content-panel-windows-wrapped-lists.md) on 2026-11-19: `ui.ContentPanel.RenderWindow` picks a list's visible window from every row, because with wrap on only the panel knows how tall a row is; the plugin keeps the rows, the cursor and the offset the panel returns.
+Amended by [ADR-0027](0027-content-panel-windows-wrapped-lists.md) on 2026-11-19: `ui.ContentPanel.RenderWindow` picks a list's visible window from every row, because with wrap on only the panel knows how tall a row is; the plugin keeps the rows, the cursor and the offset the panel returns.
 
 **The component that decides WHICH rows are visible must not also decide HOW those rows are formatted for display.** These are always separate responsibilities.
 
