@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -375,18 +376,21 @@ func TestRiskCommand_GivenUnresolvablePaths_ShouldNameTheFailingStep(t *testing.
 		rootCfg *config.RootConfig
 		want    string
 	}{
-		{"project", &config.RootConfig{}, "resolve project directory: Rel: can't make relative/dir relative to "},
-		{"chdir", nil, "resolve chdir: Rel: can't make relative/dir relative to "},
+		{"project", &config.RootConfig{}, "resolving project directory: "},
+		{"chdir", nil, "resolving chdir: "},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			session := &Session{cfg: config.Config{Dir: "relative/dir"}, rootCfg: tt.rootCfg}
 			cmd := buildRiskCommand(session)
-			cmd.SetArgs(nil)
+			cmd.SetArgs([]string{})
 			cmd.SilenceUsage, cmd.SilenceErrors = true, true
 			err := cmd.Execute()
 			if err == nil || !strings.HasPrefix(err.Error(), tt.want) {
 				t.Fatalf("risk error = %v, want prefix %q", err, tt.want)
+			}
+			if errors.Unwrap(err) == nil {
+				t.Fatalf("risk error %q does not wrap the cause", err)
 			}
 		})
 	}
