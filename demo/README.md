@@ -27,8 +27,8 @@ tape + fixtures → tfui --macro --record → frames/ + manifest.json → stitch
 ## Exit status
 
 `generate.sh` records and stitches every tape even when one fails, then exits 1 and prints `FAILED: <names>` on
-stderr, listing every tape that did not record or stitch. A failed tape's GIF is not copied to `docs/assets/demo/`;
-the rest are. It exits 0 only when every tape recorded and stitched. Pass a tape name as the second argument to run
+stderr, listing every tape that did not record, stitch or copy. A failed tape's GIF is not copied to `docs/assets/demo/`;
+the rest are. It exits 0 only when every tape recorded, stitched and copied. Pass a tape name as the second argument to run
 one: `./demo/generate.sh ./path/to/tfui hero`.
 
 ## Recording your own sessions

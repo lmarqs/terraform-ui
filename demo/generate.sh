@@ -5,7 +5,7 @@ set -euo pipefail
 # Produces frame directories in demo/output/<name>/
 # Then stitches them into GIFs.
 #
-# A tape that fails to record or stitch is skipped, the rest still run, and the
+# A tape that fails to record, stitch or copy is skipped, the rest still run, and the
 # script exits 1 after naming every failure.
 #
 # Prerequisites:
@@ -81,8 +81,12 @@ DOCS_ASSETS="$PROJECT_DIR/docs/assets/demo"
 mkdir -p "$DOCS_ASSETS"
 copied=0
 for name in ${stitched[@]+"${stitched[@]}"}; do
-  cp "$OUTPUT/$name.gif" "$DOCS_ASSETS/"
-  copied=1
+  if cp "$OUTPUT/$name.gif" "$DOCS_ASSETS/"; then
+    copied=1
+  else
+    echo "  FAILED: $name did not copy"
+    failed+=("$name")
+  fi
 done
 [ "$copied" -eq 0 ] || { echo ""; echo "Copied GIFs to docs/assets/demo/"; }
 
