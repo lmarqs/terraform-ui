@@ -1,3 +1,20 @@
+# [1.34.0](https://github.com/lmarqs/terraform-ui/compare/v1.33.0...v1.34.0) (2026-11-19)
+
+
+### Bug Fixes
+
+* **blastradius:** retry a failed assessment with ctrl+r and let Esc leave ([a666ee4](https://github.com/lmarqs/terraform-ui/commit/a666ee4a13fd71d6dd1332f694d6c3587efdd43d))
+* **blastradius:** show elapsed time, only Esc back, and let Esc leave while loading ([0898697](https://github.com/lmarqs/terraform-ui/commit/0898697d4f3018a63bee6c1fa6b8b5870737efab))
+* **risk:** retry a failed assessment with ctrl+r and hint it with Esc back ([70372de](https://github.com/lmarqs/terraform-ui/commit/70372de8cdc4e04cb5e7785b23f0f04c9b608a3e))
+* **risk:** show elapsed time and only Esc back while loading ([b9a2a47](https://github.com/lmarqs/terraform-ui/commit/b9a2a47d16457cc297a6593c3262531174452fb1))
+* **ui:** end a stopped timer's tick at once ([08652fa](https://github.com/lmarqs/terraform-ui/commit/08652fa45a74e6cb7f51231cb93ec172ac222480))
+* **ui:** keep one tick per timer so stale ticks cannot start a second chain ([c2d6d0a](https://github.com/lmarqs/terraform-ui/commit/c2d6d0afca7a2540c13830077fca1e1ee7f2c92a))
+
+
+### Features
+
+* **risk:** navigate the Risk list like Plan's list ([1835b91](https://github.com/lmarqs/terraform-ui/commit/1835b91735101cb45e8d53cf873697c0a009687f)), closes [#123](https://github.com/lmarqs/terraform-ui/issues/123)
+
 # [1.33.0](https://github.com/lmarqs/terraform-ui/compare/v1.32.1...v1.33.0) (2026-11-19)
 
 
