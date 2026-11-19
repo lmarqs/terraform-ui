@@ -24,6 +24,7 @@ import (
 	tfuiinit "github.com/lmarqs/terraform-ui/plugins/init"
 	tfuioutput "github.com/lmarqs/terraform-ui/plugins/output"
 	tfuiplan "github.com/lmarqs/terraform-ui/plugins/plan"
+	tfuirisk "github.com/lmarqs/terraform-ui/plugins/risk"
 	tfuistate "github.com/lmarqs/terraform-ui/plugins/state"
 	tfuitaint "github.com/lmarqs/terraform-ui/plugins/taint"
 	tfuiuntaint "github.com/lmarqs/terraform-ui/plugins/untaint"
@@ -973,6 +974,8 @@ func (a App) activate(p sdk.Plugin) tea.Cmd {
 		return tp.Activate(tfuiinit.Input{})
 	case *tfuistate.Plugin:
 		return tp.Activate(tfuistate.Input{})
+	case *tfuirisk.Plugin:
+		return tp.Activate(tfuirisk.Input{})
 	}
 	if activatable, ok := p.(sdk.Activatable); ok {
 		return activatable.Activate()

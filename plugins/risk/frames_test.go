@@ -71,7 +71,7 @@ func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedRe
 		{Address: "aws_db_instance.main", Status: sdk.ResourceClassified, Level: &high, Reasons: []sdk.PolicyReason{{Message: "Database deletion"}}},
 		{Address: "aws_instance.web", Status: sdk.ResourceClassified, Level: &low, Reasons: []sdk.PolicyReason{{Message: "Memory size changed"}}},
 	}})
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyDown})
 	runLifecycleCmd(p, cmd)
 	_, cmd = p.Update(tea.KeyMsg{Type: tea.KeyEnter})
@@ -102,7 +102,7 @@ func TestInspect_GivenSelectedResourceInSecondGroup_ShouldShowOnlyItsValidatedRe
 func TestInspect_GivenPlanInvalidatedAndLateResult_ShouldCloseOldDetails(t *testing.T) {
 	summary := lifecycleSummary("aws_instance.stale")
 	p, _, h := newAssessedPlugin(t, summary, classifiedAs("aws_instance.stale", sdk.RiskLow, "Stale classification."))
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	runLifecycleCmd(p, cmd)
 	if p.Stack().Peek().ID() != "inspect" {

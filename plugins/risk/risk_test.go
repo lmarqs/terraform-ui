@@ -35,7 +35,7 @@ func TestPlugin_Lifecycle(t *testing.T) {
 
 func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
 	p, _, _ := newAssessedPlugin(t, nil, sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	if p.status != sdk.StatusDone {
 		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}
@@ -55,7 +55,7 @@ func TestAnalyze_WhenNilSummary_ShouldSetDoneWithNoData(t *testing.T) {
 
 func TestAnalyze_WhenEmptyChanges_ShouldSetDoneWithNilGroups(t *testing.T) {
 	p, _, _ := newAssessedPlugin(t, &sdk.PlanSummary{Changes: []sdk.PlanChange{}}, sdk.PolicyAssessment{Status: sdk.AssessmentEmpty})
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 	if p.status != sdk.StatusDone {
 		t.Errorf("status = %v, want sdk.StatusDone", p.status)
 	}

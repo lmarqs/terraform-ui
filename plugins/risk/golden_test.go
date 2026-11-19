@@ -50,7 +50,7 @@ func TestView_Given_MixedRisk_ShouldRender_GroupedChanges(t *testing.T) {
 		goldenRow("aws_instance.web", sdk.RiskLow, ""),
 		goldenRow("aws_s3_bucket.logs", sdk.RiskLow, ""),
 	}})
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }
@@ -62,7 +62,7 @@ func TestView_Given_CriticalRisk_ShouldRender_CriticalBanner(t *testing.T) {
 	}}, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &critical, Resources: []sdk.PolicyResourceAssessment{
 		goldenRow("aws_rds_cluster.production", sdk.RiskCritical, "destructive operation"),
 	}})
-	runLifecycleCmd(p, p.Activate())
+	runLifecycleCmd(p, p.Activate(Input{}))
 
 	sdktest.AssertGolden(t, p.View(80, 18))
 }

@@ -51,7 +51,7 @@ esac
 		{Address: "aws_lambda_function.worker", Actions: []string{"update"}, Status: sdk.ResourceClassified, Level: &low},
 	}}}
 	risk.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: live})
-	risk.HandleRiskAssessed(risk.Activate()().(sdk.RiskAssessedEvent))
+	risk.HandleRiskAssessed(risk.Activate(tfuirisk.Input{})().(sdk.RiskAssessedEvent))
 	if !risk.Ready() || !strings.Contains(risk.View(100, 30), "aws_lambda_function.worker") {
 		t.Fatalf("Risk did not review the acquired plan: %q", risk.View(100, 30))
 	}

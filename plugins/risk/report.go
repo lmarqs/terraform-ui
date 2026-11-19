@@ -9,7 +9,6 @@ import (
 	"strings"
 	"unicode"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
@@ -19,12 +18,6 @@ type Input struct {
 	Threshold *string
 	Project   *string
 	Chdir     string
-}
-
-// ActivateInput starts Risk with command-specific output and comparison options.
-func (e *Plugin) ActivateInput(input Input) tea.Cmd {
-	e.input = input
-	return e.Activate()
 }
 
 func (e *Plugin) configureReport(cfg map[string]interface{}) error {

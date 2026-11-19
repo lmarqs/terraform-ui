@@ -56,7 +56,7 @@ func TestRunPlugin_GivenSeededPlan_ShouldAnalyzeWithoutTerraformInInitialContext
 					if got := risk.GetCtx().WorkingDir; got != workDir {
 						t.Errorf("initial working directory = %q, want %q", got, workDir)
 					}
-					return risk.Activate()
+					return risk.Activate(tfuirisk.Input{})
 				})
 				var exitErr *exitError
 				if err != nil && (id != "plan" || !errors.As(err, &exitErr) || exitErr.code != 2) {
@@ -210,7 +210,7 @@ func TestRunPlugin_GivenRiskSourceFailure_ShouldTerminateWithFixedDiagnosticWith
 	}
 	done := make(chan error, 1)
 	go func() {
-		done <- session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).Activate() })
+		done <- session.RunPlugin(context.Background(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).Activate(tfuirisk.Input{}) })
 	}()
 	select {
 	case err = <-done:
