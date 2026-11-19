@@ -366,8 +366,10 @@ func TestPumpOutputPort_WhenInterrupted_ShouldSkipStdoutKeepStderrAndExitWithSig
 
 // TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130 covers both
 // macro call sites: tfui --macro (Run) and a headless verb with --macro
-// (RunPlugin). The tape's first screenshot is a FIFO, so reading it to EOF
-// proves the guard is watching and playback is past that command. The test
+// (RunPlugin). The tape's first screenshot is a FIFO, so reading its first
+// byte proves the guard is watching and playback has reached that command. The
+// test opens the FIFO read-write, so neither its open nor the session's ever
+// blocks, and closing it releases a pending read. The test
 // holds SIGINT for its whole run, so a signal that no guard takes cannot reach
 // the default handler. A session that outlives its subtest still watches
 // SIGINT and would take the next subtest's signal as its second, which exits
@@ -408,25 +410,28 @@ func TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130(t *testing.T
 				macro:        MacroSpec{TapeURI: writeTempTape(t, "screenshot "+started+"\nsleep 1h\nscreenshot "+later+"\n")},
 				effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
 			}
+			fifo, err := os.OpenFile(started, os.O_RDWR, 0)
+			if err != nil {
+				t.Fatalf("open %s: %v", started, err)
+			}
+			defer func() { _ = fifo.Close() }()
+			read := make(chan error, 1)
+			go func() {
+				_, err := fifo.Read(make([]byte, 1))
+				read <- err
+			}()
 			done := make(chan error, 1)
 			go func() { done <- tt.run(session) }()
 
-			read := make(chan error, 1)
-			go func() {
-				_, err := os.ReadFile(started)
-				read <- err
-			}()
 			select {
 			case err := <-read:
 				if err != nil {
 					t.Fatalf("read %s: %v", started, err)
 				}
 			case err := <-done:
-				releaseFIFOReader(started, read)
 				t.Fatalf("session returned before its first screenshot: %v", err)
 			case <-time.After(10 * time.Second):
 				leaked = tt.name
-				releaseFIFOReader(started, read)
 				t.Fatal("session never reached its first screenshot")
 			}
 			if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
@@ -446,14 +451,4 @@ func TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130(t *testing.T
 			}
 		})
 	}
-}
-
-// releaseFIFOReader opens the FIFO for writing and closes it, so a reader
-// still blocked in open sees EOF and its goroutine ends. The open does not
-// block: it fails with ENXIO when the reader has already gone.
-func releaseFIFOReader(fifo string, read <-chan error) {
-	if f, err := os.OpenFile(fifo, os.O_WRONLY|syscall.O_NONBLOCK, 0); err == nil {
-		_ = f.Close()
-	}
-	<-read
 }
