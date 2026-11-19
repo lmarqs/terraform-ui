@@ -51,7 +51,7 @@ How the parts fit together: the SDK, the app internals, the plugins, the event b
 directory each lives in. A fact belongs here when it is about the whole and no single file shows it. A good page
 lets a reader go from a box on the diagram to the code, and links the decision behind each shape.
 
-The [risk policy design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) owns its requirements, alternatives and intended
+The [risk policy design](development/risk-policy-design.md) owns its requirements, alternatives and intended
 component boundaries; [runtime evidence](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-runtime-research.md) records versioned research.
 A design labels accepted decisions and unresolved choices; it does not present them as shipped functionality or
 store implementation checklists. The PRD owns implementation sequencing; issues own progress.

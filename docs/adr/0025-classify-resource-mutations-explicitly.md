@@ -31,7 +31,7 @@ that mutation. These exclusions are not safety claims.
 
 Policy failure leaves Plan review available with risk marked unavailable and the error visible. The risk command
 returns an error outcome. Apply behavior does not change. The [contract reference](../reference/risk-policy-contract.md)
-owns these definitions; the [architecture design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) holds the alternatives,
+owns these definitions; the [architecture design](../development/risk-policy-design.md) holds the alternatives,
 evidence, remaining decisions and confirmation criteria.
 
 ## Consequences

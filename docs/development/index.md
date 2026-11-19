@@ -17,7 +17,7 @@ the docs site: its layout, the sidebar, icons, and how to build and preview it. 
 
 - [Agentic development](agentic.md) — Coordinator responsibilities, Ralph runs, and delivery review
 - [Architecture](architecture.md) — Plugin system, event bus, navigation model
-- [Risk policy design](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-design.md) — Accepted boundaries, alternatives and remaining interface decisions
+- [Risk policy design](risk-policy-design.md) — Accepted boundaries, alternatives and remaining interface decisions
 - [Risk runtime evidence](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-runtime-research.md) — Versioned evaluator behavior and unmeasured limits
 - [Testing](testing.md) — Behavioral testing standard and layered test architecture
 - [Backlog Maintenance](backlog.md) — Project board, status workflow, and label taxonomy
