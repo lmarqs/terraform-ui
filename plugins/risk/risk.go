@@ -81,7 +81,7 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 // Activate requests the host assessment of the retained reviewed plan, or of a
 // plan the host acquires when none is retained.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.Busy() {
+	if e.status == sdk.StatusLoading {
 		return nil
 	}
 	e.resetDerived()

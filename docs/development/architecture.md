@@ -221,8 +221,10 @@ The app keeps the active plugin and a `navStack` of plugins to return to
   each other.
 
 **Busy-guard.** Every action that may start a terraform call or change its inputs goes through `requireIdle(reason)`:
-while any plugin is `Busy()` (holding the directory lock, [ADR-0016](../adr/0016-non-reentrant-dir-lock.md), or awaiting
-a risk assessment), the action is refused with a message pointing to `:q!`. The chokepoints are
+while any plugin is `Busy()` (Terraform runs for it, holding the directory lock,
+[ADR-0016](../adr/0016-non-reentrant-dir-lock.md)), the action is refused with a message pointing to `:q!`. A risk
+assessment the host evaluates against a plan it already has runs no Terraform: it keeps the plugin's `Ready()` false so
+headless output waits, but it is not `Busy()`, so the action proceeds and cancels it. The chokepoints are
 `ContextSwitchRequestMsg`, `navigateTo` and `:q`. UI-only actions such as scrolling, filtering and esc bypass it. `:q!`
 skips the guard and cancels every cancellable plugin.
 

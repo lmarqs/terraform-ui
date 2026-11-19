@@ -21,7 +21,7 @@ func TestHandleRiskAssessed_GivenEventForAnotherPlan_ShouldNotClassifyCurrentRev
 	}{
 		{"pending own request", func(t *testing.T, p *Plugin, _ *sdktest.PluginDepsHarness) {
 			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
-		}, func(p *Plugin) bool { return p.Busy() && !p.Ready() }, []func(*sdktest.PluginDepsHarness){withholdAssessment(new(sdk.AssessmentID))}},
+		}, func(p *Plugin) bool { return p.Status() == sdk.StatusDone && !p.Busy() && !p.Ready() }, []func(*sdktest.PluginDepsHarness){withholdAssessment(new(sdk.AssessmentID))}},
 		{"context switch", func(t *testing.T, p *Plugin, h *sdktest.PluginDepsHarness) {
 			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 			h.Ctx = &sdk.Context{WorkingDir: "/different", Service: h.Deps.Service}
@@ -105,8 +105,8 @@ func TestActivate_GivenCachedPlanReassessment_ShouldHideOldRiskUntilCurrentResul
 		t.Fatalf("initial review=%q; want HIGH from the host assessment", view)
 	}
 	pending := p.Activate(Input{})
-	if !p.Busy() || p.Ready() {
-		t.Fatalf("reassessment status=%v ready=%v; must wait for current assessment", p.Status(), p.Ready())
+	if p.Busy() || p.Ready() {
+		t.Fatalf("reassessment status=%v busy=%v ready=%v; must wait for current assessment without holding the Terraform lock", p.Status(), p.Busy(), p.Ready())
 	}
 	if view := p.View(100, 30); strings.Contains(view, "HIGH") {
 		t.Fatalf("reassessment exposes obsolete high classification: %q", view)

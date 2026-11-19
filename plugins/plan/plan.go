@@ -133,7 +133,7 @@ func New(svc sdk.Service) sdk.Plugin {
 
 func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone && !e.assessing }
 func (e *Plugin) Status() sdk.Status { return e.status }
-func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading || e.assessing }
+func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
 func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary

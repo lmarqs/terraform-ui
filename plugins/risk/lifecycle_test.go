@@ -191,8 +191,8 @@ func TestHandleRiskAssessed_GivenStaleEvent_ShouldIgnoreIt(t *testing.T) {
 		p, _, _ := newAssessedPlugin(t, retained, classifiedAs("aws_instance.retained", sdk.RiskLow, "Retained plan classification."))
 		cmd := p.Activate()
 		deliver(p, otherEvent)
-		if !p.Busy() || p.Ready() || strings.Contains(p.View(100, 30), "aws_instance.other") {
-			t.Fatalf("event for another plan settled the request: busy=%v ready=%v view %q", p.Busy(), p.Ready(), p.View(100, 30))
+		if p.Busy() || p.Status() != sdk.StatusLoading || p.Ready() || strings.Contains(p.View(100, 30), "aws_instance.other") {
+			t.Fatalf("event for another plan settled the request: busy=%v status=%v ready=%v view %q; want a pending policy-only request, not busy", p.Busy(), p.Status(), p.Ready(), p.View(100, 30))
 		}
 		runLifecycleCmd(p, cmd)
 		if view := p.View(100, 30); !p.Ready() || !strings.Contains(view, "Retained plan classification.") {
