@@ -1,3 +1,23 @@
+## [1.32.1](https://github.com/lmarqs/terraform-ui/compare/v1.32.0...v1.32.1) (2026-11-19)
+
+
+### Bug Fixes
+
+* **cli:** name the failing step in tfui risk path errors ([6469859](https://github.com/lmarqs/terraform-ui/commit/646985920100f5af5d7d4bd0046b37acdef83269)), closes [#124](https://github.com/lmarqs/terraform-ui/issues/124)
+* **cli:** use gerund step names and stop pinning Rel text in risk path tests ([488e906](https://github.com/lmarqs/terraform-ui/commit/488e90685e5b944d115ec6e222cdb6bbb26ecfff)), closes [#124](https://github.com/lmarqs/terraform-ui/issues/124)
+* **plan:** ignore a stale plan --json result ([bfa5862](https://github.com/lmarqs/terraform-ui/commit/bfa5862ccc3b68be3fb2607af1f6169ebd5745c4))
+* **plan:** show the known keys of a partly unknown attribute ([00a442c](https://github.com/lmarqs/terraform-ui/commit/00a442cbb3c3dacbe8160dd3ea80b6d988c52972))
+* **risk:** cancel only a plugin's own assessment, including its evaluation ([84b5f8b](https://github.com/lmarqs/terraform-ui/commit/84b5f8b1c64028982177118c7c02df1ba70af561)), closes [#124](https://github.com/lmarqs/terraform-ui/issues/124)
+* **risk:** follow symlinks when loading a custom policy ([8b83d72](https://github.com/lmarqs/terraform-ui/commit/8b83d72cf41bb55f9402bd97ae40f52df405303f)), closes [#126](https://github.com/lmarqs/terraform-ui/issues/126)
+* **risk:** stop a policy-only assessment from blocking navigation ([7050910](https://github.com/lmarqs/terraform-ui/commit/70509101add62627b335702366ee41f5802c27c5)), closes [#128](https://github.com/lmarqs/terraform-ui/issues/128)
+* **ui:** drop the last member's tfui.hcl settings on return to the root chdir ([7a3200a](https://github.com/lmarqs/terraform-ui/commit/7a3200a50096be58b3c0acb8afff93442a8af4da)), closes [#125](https://github.com/lmarqs/terraform-ui/issues/125)
+
+
+### Performance Improvements
+
+* **risk:** return a cached assessment without compiling the policy ([df03525](https://github.com/lmarqs/terraform-ui/commit/df035255dee72cfd46acfec362c9554c8843552f))
+* **sdk:** ApplyAssessment takes the built assessment rows instead of indexing again ([30bf419](https://github.com/lmarqs/terraform-ui/commit/30bf419244e3cdc70f969bb1dff6f1460193de89))
+
 # [1.32.0](https://github.com/lmarqs/terraform-ui/compare/v1.31.0...v1.32.0) (2026-11-19)
 
 
