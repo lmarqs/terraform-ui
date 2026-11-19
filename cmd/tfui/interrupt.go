@@ -34,6 +34,7 @@ type interruptGuard struct {
 	stderr          io.Writer
 	shutdown        func()
 	exit            func(int)
+	done            chan struct{}
 
 	mu           sync.Mutex
 	received     os.Signal
@@ -56,18 +57,22 @@ func newInterruptGuard(runs terraformRuns, signals <-chan os.Signal, ownProcessG
 		stderr:          stderr,
 		shutdown:        shutdown,
 		exit:            exit,
+		done:            make(chan struct{}),
 	}
 }
 
 // Watch reads signals until the channel closes. A signal while an editor
 // holds the terminal is dropped: it is the user's Ctrl+C for the editor. The
 // first other signal is recorded, interrupts terraform when it has its own
-// process group (otherwise the terminal already signalled it), and calls
-// endRun. A later signal, or any signal while Finish runs, forces the exit.
-// A signal after Finish returned, when terraform has finished, exits after
-// plugin cleanup without the forced-exit note.
+// process group (otherwise the terminal already signalled it), and starts
+// endRun without waiting for it: program.Quit blocks while the program runs an
+// editor, and a later signal must still force the exit. A later signal, or any
+// signal while Finish runs, forces the exit. A signal after Finish returned,
+// when terraform has finished, exits after plugin cleanup without the
+// forced-exit note. Watch closes done when it stops reading.
 func (g *interruptGuard) Watch(endRun func()) {
 	go func() {
+		defer close(g.done)
 		for sig := range g.signals {
 			if g.terminalHeld() {
 				continue
@@ -77,7 +82,7 @@ func (g *interruptGuard) Watch(endRun func()) {
 				if g.ownProcessGroup {
 					g.runs.Interrupt()
 				}
-				endRun()
+				go endRun()
 			case signalWhileTerraformMayRun:
 				_, _ = io.WriteString(g.stderr, forcedExitMessage)
 				g.exitBy(sig)
@@ -123,10 +128,13 @@ func (g *interruptGuard) shutdownOnce() {
 }
 
 // stop runs plugin cleanup unless a signal already ran it, then calls release
-// to give the signals back and close their channel.
+// to give the signals back and close their channel, and waits for the watcher.
+// A signal that arrived before release is still handled: its watcher exits the
+// process during that wait, so the run cannot end with its own exit code.
 func (g *interruptGuard) stop(release func()) {
 	g.shutdownOnce()
 	release()
+	<-g.done
 }
 
 // Finish runs once the program or headless driver returned. Without a prior
