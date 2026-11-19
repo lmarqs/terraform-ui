@@ -58,6 +58,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		f.plugin.MoveToEnd()
 	case "g":
 		f.plugin.MoveToStart()
+	case "left", "right", "ctrl+w":
+		if len(f.plugin.filtered) > 0 {
+			f.plugin.panel.HandleKey(keyMsg)
+		}
 	}
 	return f, nil
 }
@@ -74,7 +78,11 @@ func (f *listFrame) Hints() []sdk.KeyHint {
 	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
 	case sdk.StatusDone:
-		return (sdk.HintSetFilter | sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
+		set := sdk.HintSetFilter | sdk.HintSetRefresh | sdk.HintSetQuit
+		if len(f.plugin.filtered) > 0 {
+			set |= sdk.HintSetWrap
+		}
+		return set.Hints(sdk.HintSetOpts{WrapMode: f.plugin.panel.WrapMode()})
 	default:
 		return (sdk.HintSetQuit).Hints()
 	}

@@ -1279,8 +1279,13 @@ func TestRenderOutputs_WhenNarrowWidth_ShouldUseMinimumContentWidth(t *testing.T
 	if view == "" {
 		t.Error("View with narrow width returned empty string")
 	}
-	if !strings.Contains(view, "vpc-abc123") {
-		t.Error("View with narrow width should still show output value")
+	if strings.Contains(view, "vpc-abc123") {
+		t.Error("View with narrow width should clip the row, as every list does")
+	}
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+	if view := p.View(20, 24); !strings.Contains(strings.ReplaceAll(view, "\n", ""), "vpc-abc123") {
+		t.Error("View with narrow width and wrap on should still show output value")
 	}
 }
 

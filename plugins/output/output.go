@@ -28,6 +28,8 @@ type Plugin struct {
 	sdk.PluginBase
 	stack     *sdk.Stack
 	fuzzy     *ui.FuzzyFilter[sdk.OutputValue]
+	panel     *ui.ContentPanel
+	offset    int
 	timer     ui.Timer
 	status    sdk.Status
 	outputs   []sdk.OutputValue
@@ -46,7 +48,9 @@ func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
 		PluginBase: sdk.NewPluginBase("output", "Outputs", "View terraform outputs"),
 		fuzzy:      ui.NewFuzzyFilter(func(o sdk.OutputValue) string { return o.Name }),
+		panel:      ui.NewContentPanel(),
 	}
+	p.panel.SelectedStyle = func(s string, width int) string { return sdk.StyleSelected.Width(width).Render(s) }
 	p.Svc = svc
 	p.stack = sdk.NewStack()
 	p.stack.Push(&listFrame{plugin: p})
@@ -100,6 +104,7 @@ func (p *Plugin) reset() {
 	p.filtering = false
 	p.errMsg = ""
 	p.selected = 0
+	p.offset = 0
 	p.fuzzy.SetItems(nil)
 }
 
@@ -284,31 +289,16 @@ func (p *Plugin) renderOutputs(width, height int) string {
 		return filterLine + sdk.StyleFaintItalic.Render("No outputs found.")
 	}
 
-	var b strings.Builder
-
-	// Calculate visible area
-	maxVisible := height - 5
-	if maxVisible < 3 {
-		maxVisible = 3
-	}
-
-	startIdx := 0
-	if p.selected >= maxVisible {
-		startIdx = p.selected - maxVisible + 1
-	}
-	endIdx := startIdx + maxVisible
-	if endIdx > len(p.filtered) {
-		endIdx = len(p.filtered)
-	}
-
-	for i := startIdx; i < endIdx; i++ {
-		o := p.filtered[i]
-		row := p.renderOutputRow(o)
+	var rows []string
+	cursor, cursorEnd := 0, 0
+	for i, o := range p.filtered {
 		if i == p.selected {
-			row = sdk.StyleSelected.Width(width).Render(row)
+			cursor = len(rows)
 		}
-		b.WriteString(row)
-		b.WriteByte('\n')
+		rows = append(rows, strings.Split(p.renderOutputRow(o), "\n")...)
+		if i == p.selected {
+			cursorEnd = len(rows)
+		}
 	}
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d outputs", len(p.filtered)))
@@ -316,7 +306,12 @@ func (p *Plugin) renderOutputs(width, height int) string {
 		count = sdk.StyleFaint.Render(fmt.Sprintf("%d/%d outputs", len(p.filtered), len(p.outputs)))
 	}
 
-	return filterLine + b.String() + "\n" + count
+	// The filter line, the blank line above the count and the count itself are not rows.
+	reserved := strings.Count(filterLine, "\n") + 2
+	content, offset := p.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, height-reserved), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: p.offset})
+	p.offset = offset
+
+	return filterLine + content + "\n\n" + count
 }
 
 // Stdout produces stdout content for standalone/CI mode.
