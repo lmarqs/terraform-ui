@@ -306,3 +306,26 @@ func TestActivateInput_GivenThresholdOverride_ShouldOverrideSettingsAndRejectExp
 		})
 	}
 }
+
+func TestStderr_GivenFailedRowsWithoutGlobalCode_ShouldReportFirstRowErrorCode(t *testing.T) {
+	for _, status := range []sdk.AssessmentStatus{sdk.AssessmentPartial, sdk.AssessmentUnavailable} {
+		t.Run(string(status), func(t *testing.T) {
+			a := reportAssessment(sdk.RiskHigh)
+			a.Status, a.OverallLevel = status, nil
+			failed := []sdk.PolicyResourceAssessment{
+				{Address: "aws_instance.z_failed", Status: "unavailable", ErrorCode: "evaluation_failed"},
+				{Address: "aws_instance.a_failed", Status: "unavailable", ErrorCode: "result_invalid"},
+			}
+			if status == sdk.AssessmentUnavailable {
+				a.Resources = failed
+			} else {
+				a.Resources = append(a.Resources, failed...)
+			}
+			p := newReportPlugin(t, a)
+			runLifecycleCmd(p, p.Activate())
+			if got := string(p.Stderr()); got != "risk unavailable: result_invalid for aws_instance.a_failed\n" || p.ExitCode() != 1 {
+				t.Fatalf("%s without a global code: exit %d stderr %q; want the first failed row's code", status, p.ExitCode(), got)
+			}
+		})
+	}
+}
