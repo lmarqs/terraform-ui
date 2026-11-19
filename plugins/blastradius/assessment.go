@@ -5,12 +5,13 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Busy reports a pending assessment request, so headless output waits for it.
-func (e *Plugin) Busy() bool { return e.status == sdk.StatusLoading }
+// Busy is always false: Blast Radius assesses a plan it holds, so the host runs
+// no Terraform for it. Ready covers headless waiting for the assessment.
+func (e *Plugin) Busy() bool { return false }
 
 // Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
-	if e.Busy() {
+	if e.status == sdk.StatusLoading {
 		e.status = sdk.StatusError
 	}
 }
@@ -39,20 +40,21 @@ func (e *Plugin) HandlePlanCompleted(ev sdk.PlanCompletedEvent) tea.Cmd {
 }
 
 func (e *Plugin) Activate() tea.Cmd {
-	if e.Busy() || e.summary == nil {
+	if e.status == sdk.StatusLoading || e.summary == nil {
 		return nil
 	}
 	e.modules = nil
 	e.setAssessment(nil)
 	e.status = sdk.StatusLoading
-	return e.requestRisk(e.summary)
+	var cmd tea.Cmd
+	e.pending, cmd = e.requestRisk(e.summary)
+	return cmd
 }
 
-// HandleRiskAssessed implements sdk.RiskAssessedHandler. The host neither
-// supersedes requests for an older plan nor stops evaluating after Cancel, so
-// only a result for the reviewed plan while a request is pending counts.
+// HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
+// pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if !e.Busy() || ev.Summary != e.summary {
+	if e.status != sdk.StatusLoading || ev.Request != e.pending {
 		return nil
 	}
 	e.setAssessment(&ev.Assessment)

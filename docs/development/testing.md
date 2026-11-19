@@ -539,7 +539,7 @@ func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
 | `h.Ctx` | The `*sdk.Context` that `deps.Context()` returns; set `h.Ctx.Pins` to simulate existing pins |
 | `h.PinRequests` | Every address passed to `deps.Pin()` |
 | `h.ClearPinsCount` | How many times `deps.ClearPins()` ran |
-| `h.AssessmentEvent` | The `RiskAssessedEvent` that the Cmd returned by `deps.RequestAssessment()` emits as is |
+| `h.AssessmentEvent` | The `RiskAssessedEvent` that the Cmd returned by `deps.RequestAssessment()` emits, with `Request` set to the ID that call returned |
 | `h.AssessmentRequests` | The summary of every `deps.RequestAssessment()` Cmd that ran |
 
 The harness records pin requests without replaying them onto `h.Ctx`: a test that needs the next snapshot to show a

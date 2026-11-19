@@ -11,6 +11,7 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/editor"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
+	"github.com/lmarqs/terraform-ui/internal/riskassess"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/internal/ui/components"
 	"github.com/lmarqs/terraform-ui/internal/ui/views"
@@ -55,19 +56,18 @@ type contextHolder struct {
 }
 
 type App struct {
-	cfg          config.Config
-	svc          sdk.Service
-	registry     *plugin.Registry
-	holder       *contextHolder
-	riskCache    *riskAssessmentCache
-	riskRequests *riskRequests
-	bus          *sdk.EventBus
-	sourceIndex  *terraform.SourceIndex
-	rootCfg      *config.RootConfig
-	childCfg     *config.ChildConfig
-	standalone   *StandaloneConfig
-	width        int
-	height       int
+	cfg         config.Config
+	svc         sdk.Service
+	registry    *plugin.Registry
+	holder      *contextHolder
+	risk        *riskassess.Coordinator
+	bus         *sdk.EventBus
+	sourceIndex *terraform.SourceIndex
+	rootCfg     *config.RootConfig
+	childCfg    *config.ChildConfig
+	standalone  *StandaloneConfig
+	width       int
+	height      int
 
 	header        components.Header
 	contentBorder components.ContentBorder
@@ -120,8 +120,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		svc:           svc,
 		registry:      registry,
 		holder:        &contextHolder{},
-		riskCache:     &riskAssessmentCache{},
-		riskRequests:  &riskRequests{},
+		risk:          riskassess.New(cfg),
 		bus:           bus,
 		sourceIndex:   sourceIndex,
 		rootCfg:       rootCfg,
@@ -156,10 +155,12 @@ func (a App) Init() tea.Cmd {
 
 	holder := a.holder
 	deps := &plugin.PluginDeps{
-		Logger:            logging.Logger(),
-		Service:           a.holder.current.Service,
-		Context:           func() *sdk.Context { return holder.current },
-		RequestAssessment: a.requestAssessment,
+		Logger:  logging.Logger(),
+		Service: a.holder.current.Service,
+		Context: func() *sdk.Context { return holder.current },
+		RequestAssessment: func(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+			return a.risk.Request(holder.current, summary)
+		},
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
@@ -310,14 +311,14 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case sdk.PlanCompletedEvent:
 		return a, a.bus.Dispatch(msg)
 
-	case riskAssessedMsg:
-		if !a.riskRequests.current(msg.request) {
+	case riskassess.Result:
+		if !a.risk.Current(msg) {
 			return a, nil
 		}
-		return a, a.bus.Dispatch(msg.event)
+		return a, a.bus.Dispatch(msg.Event)
 
 	case sdk.PlanInvalidatedEvent:
-		a.riskRequests.advance()
+		a.risk.Advance()
 		a.staleState = true
 		a.header = a.header.WithStale(true)
 		return a, a.bus.Dispatch(msg)
@@ -882,6 +883,15 @@ func (a *App) startupChdir() sdk.Chdir {
 	return sdk.Chdir(a.cfg.BaseDir)
 }
 
+// cancelPlugin cancels p's operation, including any plan the host runs on a
+// plugin's behalf, which would otherwise keep Terraform and its state lock busy.
+func (a App) cancelPlugin(p sdk.Plugin) {
+	if c, ok := p.(sdk.Cancellable); ok {
+		c.Cancel()
+	}
+	a.risk.CancelPlans()
+}
+
 // replaceContext atomically swaps the active Context and returns a Cmd that
 // dispatches a single ContextChangedEvent carrying both snapshots and the
 // reason for the change. Callers must build `next` via rebuildContext (or
@@ -893,7 +903,7 @@ func (a *App) startupChdir() sdk.Chdir {
 func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
-	a.riskRequests.advance()
+	a.risk.Advance()
 	logging.Logger().Debug("context.replaced",
 		"prev_chdir", contextChdir(prev),
 		"next_chdir", contextChdir(next),
@@ -981,10 +991,12 @@ var builtinCommands = []builtinCommand{
 // requireIdle is the universal busy-guard chokepoint. Every action that
 // would mutate terraform inputs, replace the active Context, or start a
 // new terraform call routes through this. While ANY registered plugin is
-// Busy — holding a terraform operation (DirLock per ADR-0016) or awaiting a
-// risk assessment — the action is rejected and `commandError` is set to a uniform message instructing the
-// user to escape via `:q!`. UI-only actions (scrolling, filtering, esc)
-// bypass this on purpose — see `docs/development/architecture.md` § Navigation.
+// Busy — holding a terraform operation (DirLock per ADR-0016) — the action is
+// rejected and `commandError` is set to a uniform message instructing the user
+// to escape via `:q!`. A pending policy-only assessment holds no lock, so the
+// action proceeds and cancelPlugin or the Context change cancels it. UI-only
+// actions (scrolling, filtering, esc) bypass this on purpose — see
+// `docs/development/architecture.md` § Navigation.
 //
 // reason is a short label used in the rejection message ("plan", "chdir",
 // "quit", …) so the user knows which action was refused.

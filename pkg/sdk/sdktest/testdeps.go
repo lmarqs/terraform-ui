@@ -24,10 +24,12 @@ type PluginDepsHarness struct {
 	Deps           *sdk.PluginDeps
 	PinRequests    []string
 	ClearPinsCount int
-	// AssessmentEvent is the canned result deps.RequestAssessment emits as is.
+	// AssessmentEvent is the canned result deps.RequestAssessment emits, its
+	// Request set to the ID that call returned.
 	AssessmentEvent sdk.RiskAssessedEvent
 	// AssessmentRequests records the summary of every deps.RequestAssessment run.
 	AssessmentRequests []*sdk.PlanSummary
+	lastAssessment     sdk.AssessmentID
 }
 
 // NewDeps returns a harness whose Context is seeded from the supplied
@@ -57,10 +59,14 @@ func NewDeps(svc sdk.Service) *PluginDepsHarness {
 				return sdk.PinClearRequestMsg{}
 			}
 		},
-		RequestAssessment: func(summary *sdk.PlanSummary) tea.Cmd {
-			return func() tea.Msg {
+		RequestAssessment: func(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+			h.lastAssessment++
+			id := h.lastAssessment
+			return id, func() tea.Msg {
 				h.AssessmentRequests = append(h.AssessmentRequests, summary)
-				return h.AssessmentEvent
+				ev := h.AssessmentEvent
+				ev.Request = id
+				return ev
 			}
 		},
 	}

@@ -17,21 +17,21 @@ func TestHandleRiskAssessed_GivenEventForAnotherPlan_ShouldNotClassifyCurrentRev
 		// arrange leaves the plugin with a review that the stale event does not belong to.
 		arrange func(t *testing.T, p *Plugin, h *sdktest.PluginDepsHarness)
 		settled func(p *Plugin) bool
+		opts    []func(*sdktest.PluginDepsHarness)
 	}{
-		{"pending own request", func(t *testing.T, p *Plugin, h *sdktest.PluginDepsHarness) {
-			h.AssessmentEvent.Summary = &sdk.PlanSummary{}
+		{"pending own request", func(t *testing.T, p *Plugin, _ *sdktest.PluginDepsHarness) {
 			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
-		}, func(p *Plugin) bool { return p.Busy() && !p.Ready() }},
+		}, func(p *Plugin) bool { return p.Status() == sdk.StatusDone && !p.Busy() && !p.Ready() }, []func(*sdktest.PluginDepsHarness){withholdAssessment(new(sdk.AssessmentID))}},
 		{"context switch", func(t *testing.T, p *Plugin, h *sdktest.PluginDepsHarness) {
 			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 			h.Ctx = &sdk.Context{WorkingDir: "/different", Service: h.Deps.Service}
 			drainAssessmentPlan(t, p, func() tea.Msg { return sdk.ContextChangedEvent{Next: h.Ctx} }, nil)
-		}, func(p *Plugin) bool { return p.Status() == sdk.StatusIdle }},
+		}, func(p *Plugin) bool { return p.Status() == sdk.StatusIdle }, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			summary := &sdk.PlanSummary{ToDelete: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.reviewed"}, Action: sdk.ActionDelete}}}
 			stale := sdk.RiskAssessedEvent{Summary: &sdk.PlanSummary{}, Assessment: sdk.PolicyAssessment{Status: "complete", OverallLevel: &critical, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.reviewed", Status: "classified", Level: &critical}}}}
-			p, _, h := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: "complete"})
+			p, _, h := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: "complete"}, tc.opts...)
 			tc.arrange(t, p, h)
 			drainAssessmentPlan(t, p, func() tea.Msg { return stale }, nil)
 			if view := p.View(100, 30); strings.Contains(view, "CRITICAL") {
@@ -105,8 +105,8 @@ func TestActivate_GivenCachedPlanReassessment_ShouldHideOldRiskUntilCurrentResul
 		t.Fatalf("initial review=%q; want HIGH from the host assessment", view)
 	}
 	pending := p.Activate(Input{})
-	if !p.Busy() || p.Ready() {
-		t.Fatalf("reassessment status=%v ready=%v; must wait for current assessment", p.Status(), p.Ready())
+	if p.Busy() || p.Ready() {
+		t.Fatalf("reassessment status=%v busy=%v ready=%v; must wait for current assessment without holding the Terraform lock", p.Status(), p.Busy(), p.Ready())
 	}
 	if view := p.View(100, 30); strings.Contains(view, "HIGH") {
 		t.Fatalf("reassessment exposes obsolete high classification: %q", view)

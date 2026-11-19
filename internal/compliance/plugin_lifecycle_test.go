@@ -85,7 +85,7 @@ func initPlugin(p sdk.Plugin) {
 		Context:           func() *sdk.Context { return bootCtx },
 		Pin:               func(_ ...string) tea.Cmd { return nil },
 		ClearPins:         func() tea.Cmd { return nil },
-		RequestAssessment: func(*sdk.PlanSummary) tea.Cmd { return nil },
+		RequestAssessment: func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) { return 1, nil },
 	})
 }
 

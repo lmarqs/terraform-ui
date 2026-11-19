@@ -99,55 +99,44 @@ func TestActivate_GivenFinishedPlan_ShouldNeverShowRunningPlanWhileReassessing(t
 }
 
 // TestCancel_GivenReassessmentPending_ShouldKeepPlanDoneAndReuseItOnNextEntry
-// models the App during a reassessment: Esc cancels only a plugin that is not
-// Busy (app.go Esc handling), while DeactivateMsg and :q! always cancel.
+// models the App during a reassessment: no Terraform runs, so Plan is not Busy
+// and Esc (app.go Esc handling), DeactivateMsg and :q! all cancel it.
 func TestCancel_GivenReassessmentPending_ShouldKeepPlanDoneAndReuseItOnNextEntry(t *testing.T) {
-	for _, tc := range []struct {
-		name  string
-		leave func(p *Plugin)
-	}{
-		{"esc", func(p *Plugin) {
-			if !p.Busy() {
-				p.Cancel()
-			}
-		}},
-		{"deactivate or force quit", func(p *Plugin) { p.Cancel() }},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			summary := moduleSummary()
-			p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary))
-			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
-			pending := p.Activate(Input{})
+	summary := moduleSummary()
+	p, svc, _ := newAssessedPlugin(t, summary, allHigh(summary))
+	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
+	pending := p.Activate(Input{})
+	if p.Busy() {
+		t.Fatal("Plan is Busy during a reassessment; Esc would leave it pending instead of cancelling it")
+	}
 
-			tc.leave(p)
+	p.Cancel()
 
-			if p.Status() != sdk.StatusDone || p.ExitCode() != 2 {
-				t.Fatalf("leaving during reassessment: status=%v exit=%d; want the good plan to stay Done", p.Status(), p.ExitCode())
-			}
-			if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "cancelled") || !strings.Contains(view, "aws_s3_bucket.logs") {
-				t.Fatalf("leaving during reassessment view = %q; want the reviewed rows", view)
-			}
-			drainAssessmentPlan(t, p, pending, nil)
-			next := p.Activate(Input{})
-			if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "Running terraform plan") {
-				t.Fatalf("next entry view = %q; want no running plan", view)
-			}
-			drainAssessmentPlan(t, p, next, nil)
-			if len(svc.PlanCalls) != 1 {
-				t.Fatalf("next entry after leaving planned %d times; want 1", len(svc.PlanCalls))
-			}
-		})
+	if p.Status() != sdk.StatusDone || p.ExitCode() != 2 {
+		t.Fatalf("leaving during reassessment: status=%v exit=%d; want the good plan to stay Done", p.Status(), p.ExitCode())
+	}
+	if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "cancelled") || !strings.Contains(view, "aws_s3_bucket.logs") {
+		t.Fatalf("leaving during reassessment view = %q; want the reviewed rows", view)
+	}
+	drainAssessmentPlan(t, p, pending, nil)
+	next := p.Activate(Input{})
+	if view := ansi.Strip(p.View(120, 40)); strings.Contains(view, "Running terraform plan") {
+		t.Fatalf("next entry view = %q; want no running plan", view)
+	}
+	drainAssessmentPlan(t, p, next, nil)
+	if len(svc.PlanCalls) != 1 {
+		t.Fatalf("next entry after leaving planned %d times; want 1", len(svc.PlanCalls))
 	}
 }
 
-func TestCancel_GivenReassessmentPending_ShouldReleaseBusy(t *testing.T) {
+func TestCancel_GivenReassessmentPending_ShouldReleasePendingAssessment(t *testing.T) {
 	summary := moduleSummary()
 	p, _, _ := newAssessedPlugin(t, summary, allHigh(summary))
 	drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
 	p.Activate(Input{})
 	p.Cancel()
-	if p.Busy() {
-		t.Fatal("Plan stays busy after Cancel; DeactivateMsg and :q! could not release it")
+	if p.Busy() || !p.Ready() {
+		t.Fatalf("after Cancel busy=%v ready=%v; DeactivateMsg and :q! must release the pending assessment", p.Busy(), p.Ready())
 	}
 }
 
@@ -193,10 +182,10 @@ func TestHandlePlanInvalidated_GivenIdleOrError_ShouldNotMarkPlanDone(t *testing
 	}
 }
 
-// TestActivate_GivenFreshPlan_ShouldStayBusyUntilAssessmentArrives walks the
+// TestActivate_GivenFreshPlan_ShouldStayUnreadyUntilAssessmentArrives walks the
 // Cmds depth-first, as the macro driver does for headless `tfui plan`, which
 // prints Stdout and Stderr as soon as Ready() turns true.
-func TestActivate_GivenFreshPlan_ShouldStayBusyUntilAssessmentArrives(t *testing.T) {
+func TestActivate_GivenFreshPlan_ShouldStayUnreadyUntilAssessmentArrives(t *testing.T) {
 	low := sdk.RiskLow
 	summary := &sdk.PlanSummary{ToDelete: 1, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_db_instance.database"}, Action: sdk.ActionDelete, Risk: sdk.RiskCritical}}}
 	p, svc, h := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_db_instance.database", Status: sdk.ResourceClassified, Level: &low}}})
@@ -227,8 +216,8 @@ func TestActivate_GivenFreshPlan_ShouldStayBusyUntilAssessmentArrives(t *testing
 		}
 		if _, ok := msg.(PlanResultMsg); ok {
 			sawResult = true
-			if !p.Busy() || p.Ready() {
-				t.Errorf("after the plan result, before its assessment: busy=%v ready=%v; want busy and not ready", p.Busy(), p.Ready())
+			if p.Busy() || p.Ready() {
+				t.Errorf("after the plan result, before its assessment: busy=%v ready=%v; want not ready, and not busy since terraform plan finished", p.Busy(), p.Ready())
 			}
 		}
 		if !sawReady && p.Ready() {
@@ -248,8 +237,8 @@ func TestActivate_GivenFreshPlan_ShouldStayBusyUntilAssessmentArrives(t *testing
 	if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != summary || len(svc.PlanCalls) != 1 {
 		t.Fatalf("assessment requests=%v plan calls=%d; want one host request for the planned summary", h.AssessmentRequests, len(svc.PlanCalls))
 	}
-	if p.Busy() {
-		t.Fatal("Plan still busy after its assessment arrived")
+	if p.Busy() || !p.Ready() {
+		t.Fatalf("after its assessment arrived busy=%v ready=%v; want ready and not busy", p.Busy(), p.Ready())
 	}
 }
 
@@ -287,11 +276,10 @@ func TestView_GivenPlanDoneAndAssessmentPending_ShouldShowRiskAssessmentInProgre
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			assessed := sdk.RiskAssessedEvent{Summary: tc.summary, Assessment: allHigh(tc.summary)}
-			p, _, h := newAssessedPlugin(t, tc.summary, assessed.Assessment)
-			h.AssessmentEvent.Summary = &sdk.PlanSummary{}
+			p, _, _ := newAssessedPlugin(t, tc.summary, assessed.Assessment, withholdAssessment(&assessed.Request))
 			drainAssessmentPlan(t, p, p.Activate(Input{}), nil)
-			if p.Status() != sdk.StatusDone || !p.Busy() {
-				t.Fatalf("setup: status=%v busy=%v; want Done and busy while the assessment is pending", p.Status(), p.Busy())
+			if p.Status() != sdk.StatusDone || p.Busy() || p.Ready() {
+				t.Fatalf("setup: status=%v busy=%v ready=%v; want Done, not busy and not ready while the assessment is pending", p.Status(), p.Busy(), p.Ready())
 			}
 			if tc.filter != "" {
 				p.SetFilter(tc.filter)

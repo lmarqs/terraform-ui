@@ -147,7 +147,7 @@ Plugins are:
 | `Context` | `func() *Context` returning the current snapshot |
 | `Pin` | Toggles a group of pin addresses; triggers a Context replacement |
 | `ClearPins` | Removes every pin |
-| `RequestAssessment` | Asks the host to assess a plan summary against the risk policy; the result arrives as a `RiskAssessedEvent` |
+| `RequestAssessment` | Asks the host to assess a plan summary against the risk policy; returns the request's `AssessmentID`, and the result arrives as a `RiskAssessedEvent` carrying it |
 
 `sdk.Context` (`pkg/sdk/context.go`) is an immutable snapshot of everything that shapes a terraform command: `Chdir`,
 `WorkingDir`, `Workspace`, a `Service` scoped to the working directory, `Pins`, `VarFiles`, `Vars`, `ExtraArgs`,
@@ -182,14 +182,17 @@ state, mark stale) from a chdir or workspace switch (full reset).
 ### Risk assessment
 
 `PluginDeps.RequestAssessment` is the only way a plugin gets risk; no plugin runs a plan for it or reads the policy. The
-host owns each request: it loads the policy the active Context selects, runs the plan when the summary is nil, evaluates
-the summary, re-checks that the policy source did not change, and publishes a `RiskAssessedEvent` to every
-`RiskAssessedHandler`. A plugin calls `RequestAssessment` only on the Update loop, because the request captures the
-active Context. The event carries the assessed `Summary`, so a plugin keeps only the result for the summary it holds.
+host owns each request in `internal/riskassess`: it loads and compiles the policy the active Context selects, runs the
+plan when the summary is nil, evaluates the summary, re-checks that the policy source did not change, and publishes a
+`RiskAssessedEvent` to every `RiskAssessedHandler`. A plugin calls `RequestAssessment` only on the Update loop, because
+the request captures the active Context.
 
-The host drops a result whose request preceded a Context change or a plan invalidation, and a result whose request
-preceded a cancel that a later request followed. Cancelling a plugin also cancels the plans the host runs for
-nil-summary requests; a supplied summary keeps evaluating.
+`RequestAssessment` returns the request's `AssessmentID` at once, and the event carries it as `Request`. IDs are
+nonzero and never reused, so a plugin records the ID of its pending request and keeps only the event carrying it.
+
+The App routes: it starts requests, drops a result whose request preceded a Context change or a plan invalidation, and
+a result whose request preceded a cancel that a later request followed. Cancelling a plugin also cancels the plans the
+host runs for nil-summary requests; a supplied summary keeps evaluating.
 
 ## Plugin Loading
 
@@ -218,8 +221,10 @@ The app keeps the active plugin and a `navStack` of plugins to return to
   each other.
 
 **Busy-guard.** Every action that may start a terraform call or change its inputs goes through `requireIdle(reason)`:
-while any plugin is `Busy()` (holding the directory lock, [ADR-0016](../adr/0016-non-reentrant-dir-lock.md), or awaiting
-a risk assessment), the action is refused with a message pointing to `:q!`. The chokepoints are
+while any plugin is `Busy()` (Terraform runs for it, holding the directory lock,
+[ADR-0016](../adr/0016-non-reentrant-dir-lock.md)), the action is refused with a message pointing to `:q!`. A risk
+assessment the host evaluates against a plan it already has runs no Terraform: it keeps the plugin's `Ready()` false so
+headless output waits, but it is not `Busy()`, so the action proceeds and cancels it. The chokepoints are
 `ContextSwitchRequestMsg`, `navigateTo` and `:q`. UI-only actions such as scrolling, filtering and esc bypass it. `:q!`
 skips the guard and cancels every cancellable plugin.
 

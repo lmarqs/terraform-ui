@@ -34,7 +34,8 @@ type Plugin struct {
 	summary         *sdk.PlanSummary
 	assessment      *sdk.PolicyAssessment
 	rows            sdk.AssessmentRows
-	requestRisk     func(*sdk.PlanSummary) tea.Cmd
+	requestRisk     func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
+	pending         sdk.AssessmentID
 	planError       string
 	input           Input
 	threshold       string
@@ -80,7 +81,7 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 // Activate requests the host assessment of the retained reviewed plan, or of a
 // plan the host acquires when none is retained.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.Busy() {
+	if e.status == sdk.StatusLoading {
 		return nil
 	}
 	e.resetDerived()

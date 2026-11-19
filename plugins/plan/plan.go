@@ -78,7 +78,8 @@ type Plugin struct {
 	assessedRisk sdk.RiskLevel
 	assessing    bool
 	riskHint     string
-	requestRisk  func(*sdk.PlanSummary) tea.Cmd
+	requestRisk  func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
+	pending      sdk.AssessmentID
 	lockInfo     *sdk.StateLock
 	stale        bool
 	listPanel    *ui.ContentPanel
@@ -134,7 +135,7 @@ func New(svc sdk.Service) sdk.Plugin {
 
 func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone && !e.assessing }
 func (e *Plugin) Status() sdk.Status { return e.status }
-func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading || e.assessing }
+func (e *Plugin) Busy() bool         { return e.status == sdk.StatusLoading }
 func (e *Plugin) Stack() *sdk.Stack  { return e.stack }
 func (e *Plugin) Summary() *sdk.PlanSummary {
 	return e.summary
