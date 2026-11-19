@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -364,6 +365,32 @@ default classification := {"level":"low","reasons":[{"code":"default","message":
 			}
 			if report.Context.Project == nil || *report.Context.Project != project || report.Context.Chdir != "." || report.Context.Workspace != "default" {
 				t.Fatalf("project report context = %+v", report.Context)
+			}
+		})
+	}
+}
+
+func TestRiskCommand_GivenUnresolvablePaths_ShouldNameTheFailingStep(t *testing.T) {
+	tests := []struct {
+		name    string
+		rootCfg *config.RootConfig
+		want    string
+	}{
+		{"project", &config.RootConfig{}, "resolving project directory: "},
+		{"chdir", nil, "resolving chdir: "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			session := &Session{cfg: config.Config{Dir: "relative/dir"}, rootCfg: tt.rootCfg}
+			cmd := buildRiskCommand(session)
+			cmd.SetArgs([]string{})
+			cmd.SilenceUsage, cmd.SilenceErrors = true, true
+			err := cmd.Execute()
+			if err == nil || !strings.HasPrefix(err.Error(), tt.want) {
+				t.Fatalf("risk error = %v, want prefix %q", err, tt.want)
+			}
+			if errors.Unwrap(err) == nil {
+				t.Fatalf("risk error %q does not wrap the cause", err)
 			}
 		})
 	}
