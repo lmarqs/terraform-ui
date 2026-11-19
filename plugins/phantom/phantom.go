@@ -6,6 +6,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // PhantomChange holds a phantom change with its explanation.
@@ -24,6 +25,11 @@ type Plugin struct {
 	expanded map[int]bool
 	total    int
 	real     int
+
+	requestPlan func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
+	pending     sdk.AssessmentID
+	timer       ui.Timer
+	failure     string
 }
 
 // New creates a new phantom change detection plugin.
@@ -36,7 +42,7 @@ func New(svc sdk.Service) sdk.Plugin {
 	return p
 }
 
-func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone }
+func (e *Plugin) Ready() bool        { return e.status == sdk.StatusDone || e.status == sdk.StatusError }
 func (e *Plugin) Status() sdk.Status { return e.status }
 func (e *Plugin) Selected() int      { return e.selected }
 func (e *Plugin) PhantomCount() int  { return len(e.phantoms) }
@@ -51,6 +57,12 @@ func (e *Plugin) CursorPosition() (int, int) {
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
+	if e.status == sdk.StatusLoading {
+		return sdk.HintSetBack.Hints()
+	}
+	if e.status == sdk.StatusError {
+		return (sdk.HintSetRetry | sdk.HintSetBack).Hints()
+	}
 	if e.status == sdk.StatusDone && len(e.phantoms) > 0 {
 		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
 	}
@@ -65,6 +77,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
+	e.requestPlan = deps.RequestAssessment
 	return nil
 }
 
@@ -101,7 +114,15 @@ func (e *Plugin) Analyze(summary *sdk.PlanSummary) {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
 	case tea.KeyMsg:
+		switch {
+		case msg.String() == "esc" && (e.status == sdk.StatusLoading || e.status == sdk.StatusError):
+			return e, func() tea.Msg { return sdk.DeactivateMsg{} }
+		case msg.String() == "ctrl+r" && e.status == sdk.StatusError:
+			return e, e.Activate()
+		}
 		e.handleKey(msg)
 		return e, nil
 	}
@@ -143,6 +164,12 @@ func (e *Plugin) View(width, height int) string {
 	switch e.status {
 	case sdk.StatusIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to detect phantom changes...")
+
+	case sdk.StatusLoading:
+		return sdk.StyleFaintItalic.Render("Loading plan... " + e.timer.FormatElapsed())
+
+	case sdk.StatusError:
+		return sdk.StyleError.Render(e.failure)
 
 	case sdk.StatusDone:
 		return e.renderPhantoms(width, height)
