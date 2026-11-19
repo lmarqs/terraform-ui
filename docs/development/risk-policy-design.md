@@ -212,7 +212,7 @@ calls `UpdateFunctionCode`. This supports the mechanism, not a reproduction agai
 version. An unchanged/null hash does not establish placeholder contents, lifecycle-ignore configuration or
 external deployment ownership. Neither blanket lowering of non-code updates nor layer classifications is accepted.
 
-The [versioned OPA research](risk-policy-runtime-research.md) establishes that an undefined query may return no Go
+The [versioned OPA research](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-runtime-research.md) establishes that an undefined query may return no Go
 error; strict builtin error handling is explicit; print suppression cannot prevent secrets in returned values;
 and cancellation is cooperative. It originally identified a Go-compatible declaration only. Subsequent D-03b/c evidence below tests the
 selected v1.19.1 runtime boundary and combined builds/costs; the original research alone did not establish them.
@@ -226,15 +226,15 @@ implementation story. Production implementation and regression proof remain sepa
 
 | Boundary / original decision ticket | First-version outcome and authoritative definition | Evidence / remaining implementation proof |
 | --- | --- | --- |
-| Input, #109 | [Tagged single-mutation envelope](../reference/risk-policy-contract.md#input-v1), exact numeric tokens, ordered actions/lists, opaque unknown/sensitive subtrees. | [D-02a](risk-policy-evidence/input-fidelity.md): display strings lose numbers; validate masks before collapse in production. |
-| Source, #110 | [Dedicated declaration-relative selector](../reference/risk-policy-contract.md#source-selection), complete replacement, immutable framed digest, reload boundaries and generation guard. | [D-02c](risk-policy-evidence/context-source-identity.md): model supports identity; real strict selector/reload/race integration remains US-002/004. |
-| Trust, #112 | [Trusted local authors, redaction, reduced positive capabilities](../reference/risk-policy-contract.md#runtime-and-trust-boundary); no sandbox or hard termination promise. | [D-03b](risk-policy-evidence/boundary-controls.md): forty bounded cases; print needs AST rejection, raw errors disclose authored text. |
+| Input, #109 | [Tagged single-mutation envelope](../reference/risk-policy-contract.md#input-v1), exact numeric tokens, ordered actions/lists, opaque unknown/sensitive subtrees. | [D-02a](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/input-fidelity.md): display strings lose numbers; validate masks before collapse in production. |
+| Source, #110 | [Dedicated declaration-relative selector](../reference/risk-policy-contract.md#source-selection), complete replacement, immutable framed digest, reload boundaries and generation guard. | [D-02c](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/context-source-identity.md): model supports identity; real strict selector/reload/race integration remains US-002/004. |
+| Trust, #112 | [Trusted local authors, redaction, reduced positive capabilities](../reference/risk-policy-contract.md#runtime-and-trust-boundary); no sandbox or hard termination promise. | [D-03b](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/boundary-controls.md): forty bounded cases; print needs AST rejection, raw errors disclose authored text. |
 | Result, #114 | [One complete-document result](../reference/risk-policy-contract.md#result-v1-and-rule-resolution), strict shape, conflicting objects fail; partial rows retained only in review. | D-03b separates undefined, invalid, conflict and executed builtin errors; full reason/path validator tests remain US-003. |
 | Packaging, #115 | [Explicit vendored helpers/templates](../reference/risk-policy-contract.md#helpers-templates-and-upgrades); current built-in severities retained, including [Lambda choices](../reference/risk-policy-contract.md#lambda-first-version-choices). | Source inspection and D-01b rationale; complete attribute templates and author tests remain US-007. |
-| Runtime, #116 | OPA v1.19.1 initial integration pin; accept measured cost under delegated authority, without security/support or numerical-budget claim. | [D-03c](risk-policy-evidence/release-costs.md): all four release builds; native runtime only Linux/amd64. Review advisories and regression-test MVS upgrades in US-003. |
+| Runtime, #116 | OPA v1.19.1 initial integration pin; accept measured cost under delegated authority, without security/support or numerical-budget claim. | [D-03c](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/release-costs.md): all four release builds; native runtime only Linux/amd64. Review advisories and regression-test MVS upgrades in US-003. |
 | Reporting, #117 | [Maximum only for complete nonempty assessment, inclusive opt-in threshold, report v1](../reference/risk-policy-contract.md#command-threshold-and-report-v1); [channel/exit extension](../reference/cli-io-contract.md#risk-command-v1). | Exact identities, empty/none/partial distinctions and level migration published; command/session proof remains US-006/008. |
 | Consumers/review, #118 | [Selected-policy Blast Radius inputs](../reference/risk-policy-contract.md#blast-radius-compatibility-decision), unchanged impact arithmetic, explicit unavailable groups/banner. | Current arithmetic reviewed; validity representation and regression tests remain US-004. |
-| Architecture map, #107 | [ADR-0026](../adr/0026-publish-first-version-risk-contract.md) publishes the first version under delegation. | [Publication review](risk-policy-evidence/contract-publication.md) consolidates decisions and residual risks; no feature completion claim. |
+| Architecture map, #107 | [ADR-0026](../adr/0026-publish-first-version-risk-contract.md) publishes the first version under delegation. | [Publication review](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/contract-publication.md) consolidates decisions and residual risks; no feature completion claim. |
 
 ## Consequences and confirmation
 
@@ -249,7 +249,7 @@ evidence base. Maintainers own dependency upgrades, input fidelity and public co
 N=1000 warm evaluation median is 23.049µs per mutation with maximum observed RSS 28.375MiB. Accept these costs
 for the first version's single binary and explicit policies, without inventing a budget. These are small-policy
 Linux/amd64 results, not worst-case complete-policy or non-host runtime guarantees. See full ranges/method in
-[D-03c](risk-policy-evidence/release-costs.md).
+[D-03c](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/release-costs.md).
 
 | Residual risk | Mitigation and confirmation | If it materializes |
 | --- | --- | --- |

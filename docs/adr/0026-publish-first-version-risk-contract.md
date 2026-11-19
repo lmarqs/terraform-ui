@@ -21,7 +21,7 @@ left authors and consumers unable to implement interoperable policies. D-01a/b s
 reproduced numeric/display loss, same-plan acquisition and source/Context identity limits. D-03 reproduced
 result/capability controls and built all four release targets in a combined disposable tfui/OPA binary.
 The [design](../development/risk-policy-design.md#first-version-decision-map) records each outcome and alternative;
-the [publication review](../development/risk-policy-evidence/contract-publication.md) preserves evidence limits.
+the [publication review](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/contract-publication.md) preserves evidence limits.
 
 Choose OPA v1.19.1 as the measured initial integration pin and accept its observed binary/build costs for the
 single-binary approach. This is neither current-support nor security approval. Trusted local authors,
