@@ -54,7 +54,7 @@ func TestLambdaTemplate_GivenIsolatedFixtures_ShouldExplainReviewedLevelsWithout
 			if !reflect.DeepEqual(input.Change.Actions, tc.actions) {
 				t.Fatalf("fixture actions = %v, want %v", input.Change.Actions, tc.actions)
 			}
-			result := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{{
+			result := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{{
 				Address: input.Resource.Address, Actions: input.Change.Actions, Input: &input,
 			}}})
 			if result.Status != "complete" || len(result.Resources) != 1 {

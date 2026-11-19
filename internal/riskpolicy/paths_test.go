@@ -42,7 +42,7 @@ func TestAssess_GivenReasonPaths_ShouldResolveResourceNodesWithoutTraversingOpaq
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			snapshot := evaluationSnapshot(t, fmt.Sprintf(`classification := {"level":"high","reasons":[{"code":"observed-change","message":"Observed mutation.","paths":[%s]}]}`, tc.path))
-			assessment := Assess(context.Background(), snapshot, *summary.PolicyEvidence)
+			assessment := Compile(context.Background(), snapshot).Assess(context.Background(), *summary.PolicyEvidence)
 			row := assessment.Resources[0]
 			if !tc.valid {
 				if row.Status != "unavailable" || row.ErrorCode != "result_invalid" || row.Level != nil {
@@ -80,7 +80,7 @@ func TestAssess_GivenAbsentSide_ShouldAllowItsRootButRejectChildren(t *testing.T
 					path = fmt.Sprintf(`[%q,"missing"]`, tc.root)
 				}
 				snapshot := evaluationSnapshot(t, fmt.Sprintf(`classification := {"level":"low","reasons":[{"code":"action","message":"Action evidence.","paths":[%s]}]}`, path))
-				result := Assess(context.Background(), snapshot, *evidence)
+				result := Compile(context.Background(), snapshot).Assess(context.Background(), *evidence)
 				if !child && result.Status != "complete" {
 					t.Fatalf("absent side root is a node: %+v", result)
 				}
@@ -112,12 +112,12 @@ func TestAssess_GivenPreciseRedactedPhantomEvidence_ShouldEvaluateOriginalTagged
  input.change.after.entries.both == {"kind":"sensitive_unknown"}
  count(object.keys(input)) == 3
  }`)
-	result := Assess(context.Background(), snapshot, *summary.PolicyEvidence)
+	result := Compile(context.Background(), snapshot).Assess(context.Background(), *summary.PolicyEvidence)
 	if result.Status != "complete" || result.Resources[0].Level == nil || *result.Resources[0].Level != sdk.RiskHigh {
 		t.Fatalf("precise input did not reach selected policy: %+v", result)
 	}
 	phantomPolicy := evaluationSnapshot(t, `classification := {"level":"high","reasons":[{"code":"ordered-change","message":"List order changed.","paths":[["before","ordered",0],["after","ordered",0]]}]} if {input.change.before.entries.ordered.items[0].value == "1"; input.change.after.entries.ordered.items[0].value == "2"}`)
-	result = Assess(context.Background(), phantomPolicy, *phantom.PolicyEvidence)
+	result = Compile(context.Background(), phantomPolicy).Assess(context.Background(), *phantom.PolicyEvidence)
 	if result.Status != "complete" || result.Resources[0].Level == nil || *result.Resources[0].Level != sdk.RiskHigh {
 		t.Fatalf("eligible phantom was exempted or normalized: %+v", result)
 	}
@@ -125,7 +125,7 @@ func TestAssess_GivenPreciseRedactedPhantomEvidence_ShouldEvaluateOriginalTagged
 
 func TestAssess_GivenCustomLambdaOnlyPolicy_ShouldLeaveDatabaseUndefined(t *testing.T) {
 	snapshot := evaluationSnapshot(t, `classification := {"level":"low","reasons":[{"code":"lambda-only","message":"Selected Lambda rule.","paths":[]}]} if {input.resource.type == "aws_lambda_function"}`)
-	result := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function"), evaluationResource("aws_db_instance.worker", "aws_db_instance")}})
+	result := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function"), evaluationResource("aws_db_instance.worker", "aws_db_instance")}})
 	if result.Status != "partial" || result.OverallLevel != nil || result.Resources[1].ErrorCode != "result_undefined" || result.Resources[1].Level != nil {
 		t.Fatalf("custom policy gained hidden database fallback: %+v", result)
 	}

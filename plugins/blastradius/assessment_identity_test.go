@@ -49,8 +49,8 @@ func TestHandleRiskAssessed_GivenRequestIdentity_ShouldAcceptOnlyThePendingReque
 			ev.Request = tc.result(issued)
 			deliverBlast(p, ev)
 
-			if applied := !p.Busy() && p.Ready(); applied != tc.wantApplied {
-				t.Fatalf("applied=%v busy=%v ready=%v; want applied=%v", applied, p.Busy(), p.Ready(), tc.wantApplied)
+			if applied := p.Ready(); applied != tc.wantApplied {
+				t.Fatalf("applied=%v ready=%v; want applied=%v", applied, p.Ready(), tc.wantApplied)
 			}
 		})
 	}

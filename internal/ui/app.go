@@ -154,13 +154,10 @@ func (a App) Init() tea.Cmd {
 	a.holder.current = a.startupContext(sdk.WorkspaceDefault)
 
 	holder := a.holder
-	deps := &plugin.PluginDeps{
+	deps := plugin.PluginDeps{
 		Logger:  logging.Logger(),
 		Service: a.holder.current.Service,
 		Context: func() *sdk.Context { return holder.current },
-		RequestAssessment: func(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
-			return a.risk.Request(holder.current, summary)
-		},
 		Pin: func(addresses ...string) tea.Cmd {
 			return func() tea.Msg { return sdk.PinToggleRequestMsg{Addresses: addresses} }
 		},
@@ -170,7 +167,12 @@ func (a App) Init() tea.Cmd {
 	}
 
 	for _, p := range a.registry.All() {
-		if cmd := p.Init(deps); cmd != nil {
+		pluginDeps := deps
+		requester := p.ID()
+		pluginDeps.RequestAssessment = func(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+			return a.risk.Request(requester, holder.current, summary)
+		}
+		if cmd := p.Init(&pluginDeps); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
 	}
@@ -883,13 +885,13 @@ func (a *App) startupChdir() sdk.Chdir {
 	return sdk.Chdir(a.cfg.BaseDir)
 }
 
-// cancelPlugin cancels p's operation, including any plan the host runs on a
-// plugin's behalf, which would otherwise keep Terraform and its state lock busy.
+// cancelPlugin cancels p's operation and p's pending risk assessment, whose
+// host-run plan would otherwise keep Terraform and its state lock busy.
 func (a App) cancelPlugin(p sdk.Plugin) {
 	if c, ok := p.(sdk.Cancellable); ok {
 		c.Cancel()
 	}
-	a.risk.CancelPlans()
+	a.risk.Cancel(p.ID())
 }
 
 // replaceContext atomically swaps the active Context and returns a Cmd that

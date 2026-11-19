@@ -16,8 +16,11 @@ func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(
 			p, h, svc := newBlastHarness(t, summary, sdk.PolicyAssessment{Status: "complete", Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.old", Status: "classified", Level: &high}}})
 			p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary})
 			cmd := p.Activate()
-			if p.Busy() || p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(80, 20), "Loading risk assessment") {
-				t.Fatalf("activation should show assessment loading, pending and not busy: busy=%v status=%v ready=%v", p.Busy(), p.Status(), p.Ready())
+			if _, busy := any(p).(sdk.Busy); busy {
+				t.Fatal("Blast Radius implements sdk.Busy; a policy-only assessment runs no Terraform")
+			}
+			if p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(80, 20), "Loading risk assessment") {
+				t.Fatalf("activation should show assessment loading and pending: status=%v ready=%v", p.Status(), p.Ready())
 			}
 			if p.Activate() != nil {
 				t.Fatal("activation while loading should not launch duplicate assessment")
@@ -39,7 +42,7 @@ func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(
 			if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != summary {
 				t.Fatalf("assessment requests = %v; want one request for the reviewed summary %p", h.AssessmentRequests, summary)
 			}
-			if p.Busy() || strings.Contains(p.View(80, 20), "aws_instance.old") {
+			if strings.Contains(p.View(80, 20), "aws_instance.old") {
 				t.Fatalf("late result restored obsolete assessment: status=%v view=%q", p.Status(), p.View(80, 20))
 			}
 			if tc == "cancel" || tc == "shutdown" {
@@ -56,7 +59,7 @@ func TestActivate_GivenNoReviewedPlan_ShouldWaitForPlan(t *testing.T) {
 	h := sdktest.NewDeps(svc)
 	p := New(svc).(*Plugin)
 	p.Init(h.Deps)
-	if p.Activate() != nil || p.Busy() || !strings.Contains(p.View(80, 20), "Run a plan first") {
+	if p.Activate() != nil || !strings.Contains(p.View(80, 20), "Run a plan first") {
 		t.Fatal("without reviewed plan Blast Radius should remain idle")
 	}
 	p.HandleContextChanged(sdk.ContextChangedEvent{})

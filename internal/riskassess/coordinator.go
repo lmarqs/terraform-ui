@@ -28,17 +28,14 @@ type Result struct {
 	Event      sdk.RiskAssessedEvent
 }
 
-// Coordinator is shared by App copies. Request, CancelPlans, Advance and
-// Current run only on the Update loop; request Cmds run concurrently and share
-// only the cache.
+// Coordinator is shared by App copies. Request, Cancel, Advance and Current
+// run only on the Update loop; request Cmds run concurrently and share only the
+// cache.
 //
-// Every request made since the last Advance shares one generation and one
-// cancellable context. Plans run for those requests share a child context,
-// which CancelPlans also ends.
-//
-// Requests are numbered in issue order, and the number is the request's ID. A
-// CancelPlans followed by a new request supersedes every request issued before
-// that cancel.
+// Every request made since the last Advance shares one generation, and its
+// context derives from that generation's context. Each requester holds at most
+// one pending request context, which covers both the host-run plan and the
+// policy evaluation.
 type Coordinator struct {
 	cfg   config.Config
 	cache cache
@@ -46,17 +43,21 @@ type Coordinator struct {
 	generation uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
-	planCtx    context.Context
-	cancelPlan context.CancelFunc
+	issued     uint64
+	requests   map[string]context.CancelFunc
 
-	issued            uint64
-	cancelledThrough  uint64
-	supersededThrough uint64
+	// assess and compile are replaced only by this package's tests.
+	assess  Evaluator
+	compile func(context.Context, riskpolicy.Snapshot) riskpolicy.Policy
 }
 
 // New returns a Coordinator reading policy selection and risk settings from cfg.
 func New(cfg config.Config) *Coordinator {
-	return &Coordinator{cfg: cfg}
+	return &Coordinator{cfg: cfg, requests: map[string]context.CancelFunc{}, assess: assessPolicy, compile: riskpolicy.Compile}
+}
+
+func assessPolicy(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+	return policy.Assess(ctx, evidence)
 }
 
 type cacheKey struct {
@@ -66,7 +67,7 @@ type cacheKey struct {
 	digest    string
 }
 
-// cache holds one result; superseded evaluations may finish in either order,
+// cache holds one result; concurrent evaluations may finish in either order,
 // but their captured Context identities never share a key.
 type cache struct {
 	mu     sync.Mutex
@@ -74,37 +75,42 @@ type cache struct {
 	result sdk.PolicyAssessment
 }
 
-func (c *Coordinator) begin() (uint64, context.Context) {
-	if c.cancel == nil {
-		c.ctx, c.cancel = context.WithCancel(context.Background())
+func evidenceOf(summary *sdk.PlanSummary) sdk.PolicyEvidence {
+	if summary != nil && summary.PolicyEvidence != nil {
+		return *summary.PolicyEvidence
 	}
-	c.supersededThrough = c.cancelledThrough
-	c.issued++
-	return c.issued, c.ctx
+	return sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
 }
 
-func (c *Coordinator) beginPlan() (uint64, context.Context) {
-	number, ctx := c.begin()
-	if c.cancelPlan == nil {
-		c.planCtx, c.cancelPlan = context.WithCancel(ctx)
-	}
-	return number, c.planCtx
+func (c *Coordinator) key(current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, digest string) cacheKey {
+	return cacheKey{current: current, planID: evidenceOf(summary).PlanID, selection: selection, digest: digest}
 }
 
-// CancelPlans ends every plan run for a request issued so far, and marks those
-// requests superseded once a new request follows.
-func (c *Coordinator) CancelPlans() {
-	c.cancelledThrough = c.issued
-	if c.cancelPlan != nil {
-		c.cancelPlan()
-		c.cancelPlan = nil
+// cached returns the stored result for key unless ctx is already done.
+func (c *Coordinator) cached(ctx context.Context, key cacheKey) (sdk.PolicyAssessment, bool) {
+	if ctx.Err() != nil {
+		return sdk.PolicyAssessment{}, false
+	}
+	c.cache.mu.Lock()
+	defer c.cache.mu.Unlock()
+	return c.cache.result, c.cache.key == key
+}
+
+// Cancel ends requester's pending request. Its result is still dispatched, and
+// the requester ignores it by AssessmentID.
+func (c *Coordinator) Cancel(requester string) {
+	if cancel, ok := c.requests[requester]; ok {
+		cancel()
+		delete(c.requests, requester)
 	}
 }
 
 // Advance cancels every request issued so far and makes their results stale,
 // for a Context change or a plan invalidation.
 func (c *Coordinator) Advance() {
-	c.CancelPlans()
+	for requester := range c.requests {
+		c.Cancel(requester)
+	}
 	if c.cancel != nil {
 		c.cancel()
 		c.cancel = nil
@@ -112,37 +118,33 @@ func (c *Coordinator) Advance() {
 	c.generation++
 }
 
-// Current reports whether r belongs to a request neither advanced past nor
-// superseded.
+// Current reports whether r belongs to a request issued since the last Advance.
 func (c *Coordinator) Current(r Result) bool {
-	return r.generation == c.generation && uint64(r.Event.Request) > c.supersededThrough
+	return r.generation == c.generation
 }
 
-// Request assesses summary under the policy current selects; a nil summary
-// plans current first.
-func (c *Coordinator) Request(current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
-	return c.RequestWith(current, summary, func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
-		return policy.Assess(ctx, evidence)
-	})
-}
-
-// RequestWith is Request with assess as the evaluator.
-func (c *Coordinator) RequestWith(current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) (sdk.AssessmentID, tea.Cmd) {
-	begin := c.begin
-	if summary == nil {
-		begin = c.beginPlan
+// Request assesses summary for requester under the policy current selects; a
+// nil summary plans current first. It cancels requester's previous request.
+func (c *Coordinator) Request(requester string, current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+	if c.cancel == nil {
+		c.ctx, c.cancel = context.WithCancel(context.Background())
 	}
-	number, ctx := begin()
-	id, generation := sdk.AssessmentID(number), c.generation
+	c.Cancel(requester)
+	ctx, cancel := context.WithCancel(c.ctx)
+	c.requests[requester] = cancel
+	c.issued++
+	id, generation := sdk.AssessmentID(c.issued), c.generation
 	return id, func() tea.Msg {
-		event := c.run(ctx, current, summary, assess)
+		defer cancel()
+		event := c.run(ctx, current, summary)
 		event.Request = id
 		return Result{generation: generation, Event: event}
 	}
 }
 
-// run loads and compiles the policy before any plan, so a broken policy never runs Terraform.
-func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) sdk.RiskAssessedEvent {
+// run loads the policy at every call and compiles it before any plan, so a broken policy never runs Terraform.
+// A cached assessment for a given summary needs only the loaded source's digest, so it skips the compile.
+func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary) sdk.RiskAssessedEvent {
 	event := sdk.RiskAssessedEvent{Summary: summary}
 	selection, snapshot, failure := c.loadPolicy(current)
 	if failure != "" {
@@ -150,10 +152,16 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 		event.Hint = sdk.DiagnosticHint(sdk.RiskSettingsError(c.cfg.Plugins["risk"].Options))
 		return event
 	}
-	policy := riskpolicy.Compile(ctx, snapshot)
+	if summary != nil {
+		if result, ok := c.cached(ctx, c.key(current, summary, selection, snapshot.Digest())); ok {
+			event.Assessment = result
+			return event
+		}
+	}
+	policy := c.compile(ctx, snapshot)
 	if summary == nil {
 		if !policy.Compiled() {
-			event.Assessment = assess(ctx, policy, sdk.PolicyEvidence{})
+			event.Assessment = c.assess(ctx, policy, sdk.PolicyEvidence{})
 			return event
 		}
 		event.Summary, event.Err = planForAssessment(ctx, current)
@@ -161,11 +169,14 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 			return event
 		}
 	}
-	event.Assessment = c.evaluate(ctx, current, event.Summary, selection, policy, assess)
+	event.Assessment = c.evaluate(ctx, current, event.Summary, selection, policy)
 	return event
 }
 
 func planForAssessment(ctx context.Context, current *sdk.Context) (*sdk.PlanSummary, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	dir, err := os.MkdirTemp("", "tfui-risk-*")
 	if err != nil {
 		return nil, err
@@ -209,23 +220,13 @@ func (c *Coordinator) loadPolicy(current *sdk.Context) (config.RiskPolicySelecti
 }
 
 // evaluate publishes a result only when the source it was computed from is still the one selected.
-func (c *Coordinator) evaluate(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, policy riskpolicy.Policy, assess Evaluator) sdk.PolicyAssessment {
+func (c *Coordinator) evaluate(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, policy riskpolicy.Policy) sdk.PolicyAssessment {
 	snapshot := policy.Snapshot()
-	evidence := sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
-	if summary != nil && summary.PolicyEvidence != nil {
-		evidence = *summary.PolicyEvidence
+	key := c.key(current, summary, selection, snapshot.Digest())
+	if result, ok := c.cached(ctx, key); ok {
+		return result
 	}
-	key := cacheKey{current: current, planID: evidence.PlanID, selection: selection, digest: snapshot.Digest()}
-	if ctx.Err() == nil {
-		c.cache.mu.Lock()
-		cached := c.cache.key == key
-		result := c.cache.result
-		c.cache.mu.Unlock()
-		if cached {
-			return result
-		}
-	}
-	result := assess(ctx, policy, evidence)
+	result := c.assess(ctx, policy, evidenceOf(summary))
 	if ctx.Err() != nil {
 		return result
 	}

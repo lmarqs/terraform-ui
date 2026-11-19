@@ -10,7 +10,7 @@ import (
 )
 
 func TestAssess_GivenMissingSnapshot_ShouldNotReportEmptySuccess(t *testing.T) {
-	result := Assess(context.Background(), Snapshot{}, sdk.PolicyEvidence{})
+	result := Compile(context.Background(), Snapshot{}).Assess(context.Background(), sdk.PolicyEvidence{})
 	if result.Status != "unavailable" || result.ErrorCode != "compilation_failed" || result.OverallLevel != nil {
 		t.Fatalf("missing snapshot returned success: %+v", result)
 	}
@@ -49,7 +49,7 @@ classification := {"level":"high","reasons":[{"code":"large-input","message":"La
 	slow.Input.Change.Before = sdk.PolicyValue{Kind: "array", Items: &items}
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	result := Assess(ctx, snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{
+	result := Compile(ctx, snapshot).Assess(ctx, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{
 		evaluationResource("aws_db_instance.worker", "aws_db_instance"), slow,
 	}})
 	if ctx.Err() == nil || result.Status != "cancelled" || result.ErrorCode != "cancelled" || len(result.Resources) != 0 || result.OverallLevel != nil {

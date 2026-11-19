@@ -3,7 +3,8 @@ package sdk
 import "slices"
 
 // PolicyAssessment contains classifications from one selected policy and reviewed plan.
-// Only a complete assessment has an overall level; cancelled results cannot be published.
+// Only a complete assessment has an overall level. The host may dispatch the
+// result of a cancelled request; the requester ignores it by AssessmentID.
 type PolicyAssessment struct {
 	Status       AssessmentStatus
 	PlanID       string
@@ -64,18 +65,17 @@ func (a PolicyAssessment) Rows() AssessmentRows {
 	return rows
 }
 
-// ApplyAssessment returns a copy of summary whose changes carry the level of their classified row.
-// A nil assessment keeps each change's existing Risk; otherwise changes without a classified level get RiskNone.
-func ApplyAssessment(summary *PlanSummary, assessment *PolicyAssessment) *PlanSummary {
+// ApplyAssessment returns a copy of summary whose changes carry the level of their classified row in rows.
+// Nil rows keep each change's existing Risk; otherwise changes without a classified level get RiskNone.
+func ApplyAssessment(summary *PlanSummary, rows AssessmentRows) *PlanSummary {
 	if summary == nil {
 		return nil
 	}
 	result := *summary
 	result.Changes = slices.Clone(summary.Changes)
-	if assessment == nil {
+	if rows == nil {
 		return &result
 	}
-	rows := assessment.Rows()
 	for i := range result.Changes {
 		change := &result.Changes[i]
 		change.Risk = RiskNone

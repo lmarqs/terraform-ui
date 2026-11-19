@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -157,54 +156,25 @@ func TestCancel_GivenHostPlanForNilSummary_ShouldCancelTerraformContext(t *testi
 	}
 }
 
-func TestCancel_GivenSuppliedSummary_ShouldKeepEvaluatingIt(t *testing.T) {
-	app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
-	evaluating := make(chan context.Context, 1)
-	release := make(chan struct{})
-	cmd := cmdOf(app.risk.RequestWith(app.holder.current, reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
-		evaluating <- ctx
-		<-release
-		return sdk.PolicyAssessment{Status: sdk.AssessmentEmpty}
-	}))
-	done := make(chan tea.Msg, 1)
-	go func() { done <- cmd() }()
-	ctx := <-evaluating
-
-	app.cmdForceQuit()
-	close(release)
-
-	if ctx.Err() != nil {
-		t.Fatalf("Cancel cancelled evaluation of a supplied summary: %v", ctx.Err())
-	}
-	drainPolicyAppCommand(&app, func() tea.Msg { return <-done })
-	if event := onlyRiskEvent(t, recorder); event.Assessment.Status != sdk.AssessmentEmpty {
-		t.Fatalf("supplied summary result = %+v, want the evaluated assessment", event.Assessment)
-	}
-}
-
-func TestRequestAssessment_GivenContextChangeDuringSuppliedSummaryEvaluation_ShouldCancelEvaluationContext(t *testing.T) {
+func TestRequestAssessment_GivenContextChangeDuringHostPlan_ShouldCancelTerraformContextAndDropResult(t *testing.T) {
 	for name, change := range map[string]tea.Msg{
 		"context switch": sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: sdk.NewWorkspace("other")},
 		"pin change":     sdk.PinToggleRequestMsg{Addresses: []string{"aws_db_instance.database"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
-			evaluating := make(chan context.Context, 1)
-			cmd := cmdOf(app.risk.RequestWith(app.holder.current, reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
-				evaluating <- ctx
-				<-ctx.Done()
-				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-			}))
+			svc, started := blockingPlanService()
+			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
+			cmd := cmdOf(deps.RequestAssessment(nil))
 			done := make(chan tea.Msg, 1)
 			go func() { done <- cmd() }()
-			ctx := <-evaluating
+			planCtx := <-started
 
 			drainPolicyAppCommand(&app, func() tea.Msg { return change })
 
 			select {
-			case <-ctx.Done():
+			case <-planCtx.Done():
 			case <-time.After(5 * time.Second):
-				t.Fatalf("%s did not cancel the evaluation context of a supplied summary", name)
+				t.Fatalf("%s did not cancel the Terraform service Context of the host plan", name)
 			}
 			drainPolicyAppCommand(&app, func() tea.Msg { return <-done })
 			if len(recorder.events) != 0 {
@@ -219,7 +189,24 @@ func deactivateActivePlugin(app *App) {
 	*app = model.(App)
 }
 
-func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_ShouldDispatchOnlyTheNewResult(t *testing.T) {
+// assessmentFor returns the one dispatched event carrying id.
+func assessmentFor(t *testing.T, recorder *riskEventRecorder, id sdk.AssessmentID) sdk.RiskAssessedEvent {
+	t.Helper()
+	var found []sdk.RiskAssessedEvent
+	for _, ev := range recorder.events {
+		if ev.Request == id {
+			found = append(found, ev)
+		}
+	}
+	if len(found) != 1 {
+		t.Fatalf("dispatched %d events for request %d, want 1: %+v", len(found), id, recorder.events)
+	}
+	return found[0]
+}
+
+// A cancelled request's result is dispatched under its own ID; a requester
+// that requested again keeps only the event carrying the new ID.
+func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_ShouldDispatchEachResultUnderItsOwnID(t *testing.T) {
 	planned := reviewedRiskSummary()
 	svc := newMockService("default", nil)
 	svc.PlanFn = func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
@@ -230,44 +217,38 @@ func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_Sho
 	}
 	for _, tc := range []struct {
 		name      string
-		cancelled func(*App) tea.Cmd
+		cancelled func(*App) (sdk.AssessmentID, tea.Cmd)
 	}{
-		{"cancelled during host plan", func(app *App) tea.Cmd {
-			cmd := cmdOf(app.risk.Request(app.holder.current, nil))
+		{"cancelled during host plan", func(app *App) (sdk.AssessmentID, tea.Cmd) {
+			id, cmd := app.risk.Request("riskprobe", app.holder.current, nil)
 			deactivateActivePlugin(app)
-			return cmd
-		}},
-		{"cancelled during evaluation", func(app *App) tea.Cmd {
-			return cmdOf(app.risk.RequestWith(app.holder.current, nil, func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
-				deactivateActivePlugin(app)
-				<-ctx.Done()
-				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-			}))
+			return id, cmd
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
-			stale := tc.cancelled(&app)()
-			current := cmdOf(deps.RequestAssessment(nil))
+			staleID, staleCmd := tc.cancelled(&app)
+			stale := staleCmd()
+			currentID, current := deps.RequestAssessment(nil)
 
 			drainPolicyAppCommand(&app, func() tea.Msg { return stale })
-			if len(recorder.events) != 0 {
-				t.Fatalf("cancelled request's result dispatched to the request issued after cancel: %+v", recorder.events)
-			}
 			deliverAssessment(&app, current)
 
-			ev := onlyRiskEvent(t, recorder)
-			if ev.Err != nil || ev.Summary != planned || !ev.Assessment.Usable() {
-				t.Fatalf("dispatched event = %+v, want the new request's usable assessment of %p", ev, planned)
+			if ev := assessmentFor(t, recorder, staleID); ev.Err == nil && ev.Assessment.Status != sdk.AssessmentCancelled {
+				t.Fatalf("cancelled request's result = %+v, want a cancellation", ev)
+			}
+			if ev := assessmentFor(t, recorder, currentID); ev.Err != nil || ev.Summary != planned || !ev.Assessment.Usable() {
+				t.Fatalf("new request's result = %+v, want its usable assessment of %p", ev, planned)
 			}
 		})
 	}
 }
 
-// Blast Radius requests every assessment for the reviewed summary, so a request
-// cancelled before an identical one is issued must not settle the new request
-// with a result computed under the policy it replaced.
-func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgain_ShouldDispatchOnlyTheNewResult(t *testing.T) {
+// A request cancelled before an identical one is issued for the same summary
+// still delivers its result, under the cancelled ID, never the new one. That a
+// requester ignores it by ID is tested per plugin, e.g. Blast Radius's "older own
+// ID after a newer request" case.
+func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgain_ShouldDispatchEachResultUnderItsOwnID(t *testing.T) {
 	root := t.TempDir()
 	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
 	classifyAll := func(level string) string {
@@ -277,20 +258,20 @@ func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgai
 	app, deps, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
 	summary := reviewedRiskSummary()
 
-	stale := cmdOf(deps.RequestAssessment(summary))()
+	staleID, staleCmd := deps.RequestAssessment(summary)
+	stale := staleCmd()
 	deactivateActivePlugin(&app)
 	writePolicyFile(t, root, "policy.rego", classifyAll("high"))
-	current := cmdOf(deps.RequestAssessment(summary))
+	currentID, current := deps.RequestAssessment(summary)
 
 	drainPolicyAppCommand(&app, func() tea.Msg { return stale })
-	if len(recorder.events) != 0 {
-		t.Fatalf("cancelled request's result dispatched to the request issued after cancel: %+v", recorder.events)
-	}
 	deliverAssessment(&app, current)
 
-	ev := onlyRiskEvent(t, recorder)
-	if ev.Assessment.OverallLevel == nil || *ev.Assessment.OverallLevel != sdk.RiskHigh {
-		t.Fatalf("dispatched assessment = %+v, want the new request's high classification", ev.Assessment)
+	if ev := assessmentFor(t, recorder, staleID); ev.Assessment.OverallLevel == nil || *ev.Assessment.OverallLevel != sdk.RiskLow {
+		t.Fatalf("cancelled request's assessment = %+v, want the low classification it computed", ev.Assessment)
+	}
+	if ev := assessmentFor(t, recorder, currentID); ev.Assessment.OverallLevel == nil || *ev.Assessment.OverallLevel != sdk.RiskHigh {
+		t.Fatalf("new request's assessment = %+v, want the high classification", ev.Assessment)
 	}
 }
 
@@ -326,3 +307,38 @@ func TestQuitKey_GivenIdlePluginWithHostPlan_ShouldCancelTerraformContext(t *tes
 
 // cmdOf drops the request ID for callers that only run the request.
 func cmdOf(_ sdk.AssessmentID, cmd tea.Cmd) tea.Cmd { return cmd }
+
+func TestCancelPlugin_GivenHostPlanForNilSummary_ShouldCancelOnlyThatPluginsRequest(t *testing.T) {
+	svc, started := blockingPlanService()
+	deps := map[string]*sdk.PluginDeps{}
+	registry := plugin.NewRegistry()
+	probes := map[string]sdk.Plugin{}
+	for _, id := range []string{"requester", "other"} {
+		probe := &mockPluginWithInit{
+			mockPlugin: mockPlugin{id: id},
+			initFn:     func(d *sdk.PluginDeps) tea.Cmd { deps[id] = d; return nil },
+		}
+		probes[id] = probe
+		registry.RegisterFactory(id, func(_ sdk.Service) sdk.Plugin { return probe }, plugin.PluginMeta{})
+	}
+	registry.Build(nil, nil)
+	app := NewApp(config.Config{Dir: t.TempDir()}, svc, registry, nil)
+	drainPolicyAppCommand(&app, app.Init())
+	done := make(chan tea.Msg, 1)
+	cmd := cmdOf(deps["requester"].RequestAssessment(nil))
+	go func() { done <- cmd() }()
+	planCtx := <-started
+
+	app.cancelPlugin(probes["other"])
+	if planCtx.Err() != nil {
+		t.Fatalf("cancelling another plugin cancelled the requester's host plan: %v", planCtx.Err())
+	}
+	app.cancelPlugin(probes["requester"])
+
+	select {
+	case <-planCtx.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelling the requester did not cancel its host plan")
+	}
+	<-done
+}
