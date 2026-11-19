@@ -66,7 +66,7 @@ Compare each page with the map, and report where it differs from these signs:
 - It achieves what the map describes for its kind, and its kind was not forced: no part had to be invented to fit.
 - Each fact is stated on its owner, in the glossary's terms.
 - Its front matter tells a reader from a listing whether to open it, and the body bears it out.
-- Each reason tells what happened first, and the claims hold against the code.
+- Each reason tells what happened first.
 - It holds no placeholder.
 - Its shape did not change in a commit that changed no fact.
 

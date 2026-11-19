@@ -14,7 +14,6 @@ the fact, as `wait out [the rate limit](api/orders.md)`.
 
 - What the repository shows nowhere else: a reason, a rule, a convention and its scope. Code, contracts and history
   hold their own facts, and a page links them.
-- What is true now. A tracker holds plans and state that change faster than a page.
 - Reasons told as **what happened**: the situation, what it cost, what was tried, then the conclusion. "We need a
   queue" is a conclusion; "the payment call timed out and customers who retried were charged twice" is a reason a
   reader can test.
@@ -47,9 +46,9 @@ Most misplaced facts are one of these:
 
 ## A new kind
 
-Which part of each kind's description do the facts miss? Do they have another owner, as an FAQ's answers
-belong to the features they explain? Are they true now, and shown nowhere else? Can a good page of the kind be
-described, so a review can compare a page with it?
+Which part of each kind's description do the facts miss? Do they have another owner, as an FAQ's answers belong to
+the features they explain? Are they shown nowhere else? Can a good page of the kind be described, so a review can
+compare a page with it?
 
 ## A good map
 

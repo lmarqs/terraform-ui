@@ -11,7 +11,7 @@ rest to each run.
 
 | Axis | Examples | Decided | Lives in |
 | --- | --- | --- | --- |
-| Knowledge | Instructions, skills, hook scripts, durable facts | By the team, in review | `AGENTS.md`, `.agents/skills/`, `hooks/`, `memory/` |
+| Knowledge | Instructions, skills, hook scripts, traps by area | By the team, in review | `AGENTS.md`, `.agents/skills/`, `hooks/`, `memory/` |
 | Policy | What may run without asking, what asks, what never runs | By the team, in review | `.agents/permission/policy.yaml`, rendered to `.agents/adapters/` |
 | Harness | Claude Code, Codex | Per person, or per role in a loop runner | Which program is started |
 | Mode | Attended, unattended | Per run | Launch flags |
@@ -190,7 +190,9 @@ happens to an ask: a person answers it, or an unattended run refuses it (`claude
 `codex exec -c approval_policy=never`).
 
 For the same reason the shared Claude settings hold no `defaultMode`: how a session asks is each person's choice, and
-a shared value would override everyone's.
+a shared value would override everyone's. Claude's auto mode is such a choice: a classifier answers for the commands
+the policy does not list ([claude.md](claude.md#auto-mode)). What the policy holds is whether that choice is open at
+all, as it does for bypass: [Why auto mode is allowed by default](#why-auto-mode-is-allowed-by-default).
 
 ## Why the policy holds no model, and nobody has a personal policy
 
@@ -274,6 +276,29 @@ of the policy.
 
 Codex has no such setting, and needs one less: its rules hold under its bypass flag, and what steps outside them is
 listed in `cook.rules` itself while `bypass` is `refuse` ([codex.md](codex.md#unattended-runs)).
+
+## Why auto mode is allowed by default
+
+Claude Code made auto mode the mode its interactive sessions start in. The layout was written when an unlisted
+command asked the person, and its pages said so; a team reading them believed a person saw every command the policy
+left out, while a classifier was deciding them.
+
+Auto mode keeps what the policy states: a `deny` refuses and an `ask` asks, before the classifier is consulted. It
+replaces only the answer for unlisted commands, and adds a check where bypass removes one. So `auto` is `allow` when
+absent, and a cook changes nobody's session. A policy that refused it by default would take the harness's own default
+from every person on the next cook, to protect a guarantee the policy never gave: it lists what is agreed, not
+everything an agent may meet.
+
+`auto: refuse` writes `permissions.disableAutoMode: "disable"`, for a team that wants a person to answer for every
+unlisted command. The other options were weighed against one force, that the choice is made once, in review:
+
+| Option | Why not |
+| --- | --- |
+| Say nothing about auto mode | The pages keep promising that unlisted commands ask |
+| Share the classifier's rules through the adapter | Claude does not read `autoMode` from project settings |
+| Set `defaultMode` for everyone | Claude gives `auto` no effect there, and a mode is each person's choice |
+
+A team that wants a checkpoint in auto mode writes an `ask` entry, which reaches Codex too.
 
 There is no launcher, a script that would start each harness with the right flags. Claude already refuses bypass
 from its settings, whatever starts it. Codex keeps its rules under its bypass flag, and has no roles for a launcher to

@@ -1,3 +1,58 @@
+# [1.32.0](https://github.com/lmarqs/terraform-ui/compare/v1.31.0...v1.32.0) (2026-11-19)
+
+
+### Bug Fixes
+
+* **app:** cancel the host plan when a plugin is cancelled ([2527cc1](https://github.com/lmarqs/terraform-ui/commit/2527cc13fcba8f3c50bf34322d40da28b05b660f))
+* **plan:** ignore nil-summary risk events while holding no summary ([2005783](https://github.com/lmarqs/terraform-ui/commit/2005783bcf21240e063df43791b3f14417941060))
+* **plan:** keep the level hint in risk diagnostics ([45d52fe](https://github.com/lmarqs/terraform-ui/commit/45d52fe97a448c6d0a21550e36b5e98116f90bd2))
+* **plan:** leave Loading when the stream frame cancels the run ([1ba3b1e](https://github.com/lmarqs/terraform-ui/commit/1ba3b1ed7795342a65047970d16092cc666819a7))
+* **plan:** show risk assessment progress on empty and filtered-out plans ([3a1c4af](https://github.com/lmarqs/terraform-ui/commit/3a1c4af05608253318dcb8d6e06351b339a6a6a8))
+* **plan:** show risk assessment progress while Plan waits for it ([eddadb1](https://github.com/lmarqs/terraform-ui/commit/eddadb10a0484fb88dee94721ccccdf87af43924))
+* **risk:** compile the policy before running terraform plan ([227c343](https://github.com/lmarqs/terraform-ui/commit/227c343b2637ef8cc5a042afee7335205d8831f2))
+* **risk:** escape deposed keys and order failures by instance ([24134b7](https://github.com/lmarqs/terraform-ui/commit/24134b70a49a626f7f26c71a5d7e8d45c0c19e45))
+* **risk:** match assessment rows by address and deposed key ([9737212](https://github.com/lmarqs/terraform-ui/commit/97372129e5c833655e8ab5c2dcdbe49f3c7e2ac8))
+* **risk:** name a failed deposed instance by its key on stderr ([faa0ad7](https://github.com/lmarqs/terraform-ui/commit/faa0ad7a064e4f0a5a49070680b8e7d3ea5ceb8a))
+* **terraform:** accept empty masks on null and scalar policy values ([27a2952](https://github.com/lmarqs/terraform-ui/commit/27a2952387d61d3af58d969985adce92bb2372e9))
+* **terraform:** exclude forget changes from policy input ([f63c760](https://github.com/lmarqs/terraform-ui/commit/f63c7605721357851eac0cebc077ced68eb0382e))
+* **terraform:** keep replace_paths for display by decoding the plan directly ([5f95472](https://github.com/lmarqs/terraform-ui/commit/5f95472a777ed334f98349cec5978f495ec1bb50))
+* **terraform:** pass a known import ID to policies redacted ([0e94ea9](https://github.com/lmarqs/terraform-ui/commit/0e94ea9f2d0a612af0c0d399637089ab3c3ab049))
+* **ui:** drop risk results of requests superseded by a cancel ([a5ed978](https://github.com/lmarqs/terraform-ui/commit/a5ed9781e1bba9b85d031c6836daaec1bec6b5e1))
+* **ui:** end host plans when q leaves an idle plugin ([4388126](https://github.com/lmarqs/terraform-ui/commit/438812677fe3fc601a974c60618f3f32f72839a0))
+
+
+### Features
+
+* **cli:** scope the risk threshold flag to tfui risk as -risk-threshold ([3198f04](https://github.com/lmarqs/terraform-ui/commit/3198f040b2d3262bd287c9c7d587cf3d38181688))
+* **terraform-ui-4xa.10:** US-001a: Preserve approved evidence and eligibility ([1e78224](https://github.com/lmarqs/terraform-ui/commit/1e7822493d093e221101d61530b040ac86fbca1a))
+* **terraform-ui-4xa.11:** US-001b: Verify cache, seeded sessions and single-plan preservation ([bb14a1d](https://github.com/lmarqs/terraform-ui/commit/bb14a1db02dd1f1c455b09e433f8481c2723219d))
+* **terraform-ui-4xa.12:** US-002a: Implement selected source parsing and snapshot identity ([eadabc2](https://github.com/lmarqs/terraform-ui/commit/eadabc23271cb3b0f6b63892c0bcd2dd2dff2431))
+* **terraform-ui-4xa.13:** US-002b: Integrate source failures and reload edge cases ([6c5bd2a](https://github.com/lmarqs/terraform-ui/commit/6c5bd2af40e6f3d0bc7af129091378dc21c2bc0e))
+* **terraform-ui-4xa.14:** US-003a: Embed evaluator behind accepted SDK results ([ca8276e](https://github.com/lmarqs/terraform-ui/commit/ca8276e7a9724872f5f37a9712ca80643b757615))
+* **terraform-ui-4xa.15:** US-003b: Validate independent complete mutation classifications ([d7f3705](https://github.com/lmarqs/terraform-ui/commit/d7f37056f62424e5d3301f2167f9795a2576142a))
+* **terraform-ui-4xa.16:** US-003c: Preserve compilation/evaluation/validation failure states ([5948ba3](https://github.com/lmarqs/terraform-ui/commit/5948ba38797f1c2bc8d4c33ddfb29212fa4e9155))
+* **terraform-ui-4xa.17:** US-004a: Integrate invalidation, Context races and terminal lifecycle ([68ab1af](https://github.com/lmarqs/terraform-ui/commit/68ab1af6a69e7e7c8f612018c163e572d9c471c8))
+* **terraform-ui-4xa.18:** US-004b: Integrate Plan/Blast Radius assessment failure boundaries ([4d67257](https://github.com/lmarqs/terraform-ui/commit/4d67257f23497b2873153c020623c82298024241))
+* **terraform-ui-4xa.19:** US-005a: Share mutation/diff rendering and navigate long plans ([5c9b602](https://github.com/lmarqs/terraform-ui/commit/5c9b602ea7a151732e43f94f26d5ae0587a353db))
+* **terraform-ui-4xa.20:** US-005b: Present assessment states and prove TUI behavior ([0a8435d](https://github.com/lmarqs/terraform-ui/commit/0a8435d50786aac8817ac9a4253c83959474782e))
+* **terraform-ui-4xa.21:** US-006a: Register risk command and accepted reporting ([47e121c](https://github.com/lmarqs/terraform-ui/commit/47e121c048fade72fdc2f2cf55354682ff0ee6ad))
+* **terraform-ui-4xa.22:** US-006b: Verify thresholds, failure I/O and Terraform pass-through ([299ef70](https://github.com/lmarqs/terraform-ui/commit/299ef70dcc688a13ad3d59688196e931215d8836))
+* **terraform-ui-4xa.23:** US-007: Provide complete policy templates and isolated author tests ([f34db8e](https://github.com/lmarqs/terraform-ui/commit/f34db8e9bf36c05fb30066e1b35e306b9fc21093))
+* **terraform-ui-4xa.24:** US-008a: Exercise real seeded/live session and source-change paths ([5a0f09e](https://github.com/lmarqs/terraform-ui/commit/5a0f09ee48f9af4a772d073fd031dc07f5151e43))
+* **terraform-ui-4xa.25:** US-008b: Verify preservation and all integration gates ([42f65c0](https://github.com/lmarqs/terraform-ui/commit/42f65c01c4acee31066162452c70099d8db3a6b9))
+* **terraform-ui-4xa.26:** US-009a: Publish verified guides, references and accepted records ([803ca35](https://github.com/lmarqs/terraform-ui/commit/803ca357498f6e5781642b23bf10fdc0951aa4bc))
+* **terraform-ui-4xa.27:** US-009b: Synchronize authoritative summaries and verify completion ([3761caf](https://github.com/lmarqs/terraform-ui/commit/3761caff1adef1236729114a030a0ea49fb2f2b3))
+* **terraform-ui-4xa.7:** D-03b: Reproduce result and capability boundary controls ([170c6c1](https://github.com/lmarqs/terraform-ui/commit/170c6c11763b408eac9ae526ad181b5e9d6df78f))
+* **terraform-ui-4xa.8:** D-03c: Measure release-target costs and record first-version cost judgment ([ab1113f](https://github.com/lmarqs/terraform-ui/commit/ab1113f5090d6a3ee030699744ec0659b93fa828))
+* **terraform-ui-4xa.9:** D-01c: Publish the first-version public contract ([7736dfa](https://github.com/lmarqs/terraform-ui/commit/7736dfa7293f74613044e0e2cd362a093e0da6e2))
+* **terraform:** expose the deposed key in the plan model and policy input ([938b6b4](https://github.com/lmarqs/terraform-ui/commit/938b6b4f7f873c17ed65907521f06d5a9bbadec0))
+* **ui:** host-owned risk assessment request and event ([63d827b](https://github.com/lmarqs/terraform-ui/commit/63d827b796e4fa5ef6c910d4de2cc07a4a3297ca))
+
+
+### Performance Improvements
+
+* **risk:** index assessment rows by instance once per assessment ([47139cd](https://github.com/lmarqs/terraform-ui/commit/47139cd6de30de805d17e46ac32ae49e84b8e575))
+
 # [1.31.0](https://github.com/lmarqs/terraform-ui/compare/v1.30.2...v1.31.0) (2026-11-15)
 
 

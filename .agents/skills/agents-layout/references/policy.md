@@ -2,7 +2,8 @@
 
 `.agents/permission/policy.yaml` says which commands and tools coding agents may use in this repository. Cooking
 `io.github.lmarqs.cookbook:agents#connect` renders it into each harness's own settings under `.agents/adapters/`. It is the only
-file to edit for permissions. Tested with Claude Code 2.1.303 and Codex 0.160.1.
+file to edit for permissions. Tested with Claude Code 2.1.303 and Codex 0.160.1, and `auto` with Claude Code
+2.1.326.
 
 ## Top level
 
@@ -10,6 +11,7 @@ file to edit for permissions. Tested with Claude Code 2.1.303 and Codex 0.160.1.
 | --- | --- | --- | --- |
 | `version` | `2` | Yes | The schema version this page describes |
 | `bypass` | `refuse` or `allow` | No | Whether a Claude run may start in bypass mode, which runs every command that is not denied without asking; `refuse` when absent |
+| `auto` | `allow` or `refuse` | No | Whether a Claude session may use [auto mode](claude.md#auto-mode), where Claude's classifier, instead of a person, decides each command no entry lists; `allow` when absent |
 | `commands` | [Decisions](#decisions) of [entries](#entries) | No | Shell commands, in every session |
 | `tools` | [Decisions](#decisions) of [harness entries](#harness-entry) | No | Tools other than the shell, such as web fetches or MCP tools |
 | `roles` | Map from a role name to a [role](#role) | No | Denies added for one kind of run |
@@ -25,7 +27,9 @@ Cook refuses another version or any other top-level field, naming it.
 | `deny` | List of entries | `permissions.deny` | `decision = "forbidden"` | Never runs |
 
 When several entries match one command, `deny` wins over `ask` and `ask` over `allow`, in both harnesses and across
-every settings file. A command that no entry matches gets the harness's own behavior for unlisted commands.
+every settings file. A command that no entry matches gets the harness's own behavior for unlisted commands: Codex
+follows its approval policy, and Claude asks, or in [auto mode](claude.md#auto-mode), where its interactive sessions
+start, lets its classifier decide, which changes what `ask` and a broad `allow` entry do there.
 
 ## Entries
 
@@ -142,4 +146,5 @@ Cook stops before writing anything and names the file and the field. Each messag
 | `roles: {Worker: ...}` | `roles: Worker is not a role name; use lower-case letters, digits and hyphens, starting with a letter` | `worker` |
 | `model: opus` | `unknown field [model]` | Personal settings, or the loop runner's configuration |
 | `bypass: maybe` | `bypass must be refuse or allow` | `refuse`, or `allow` when every agent runs in a container |
+| `auto: maybe` | `auto must be allow or refuse` | `allow`, or `refuse` when a person answers for every unlisted command |
 | `version: 1` | `version must be 2` | Move it by [adopt.md](adopt.md#a-version-1-agentspolicyyaml) |
