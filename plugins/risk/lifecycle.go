@@ -98,7 +98,7 @@ func (e *Plugin) acceptAssessment(ev sdk.RiskAssessedEvent) {
 	e.setAssessment(&assessment)
 
 	// Render a copy so selected-policy classifications never mutate Plan's summary.
-	summary := sdk.ApplyAssessment(ev.Summary, e.assessment)
+	summary := sdk.ApplyAssessment(ev.Summary, e.rows)
 	if summary != nil {
 		changes := summary.Changes[:0]
 		for _, change := range summary.Changes {
