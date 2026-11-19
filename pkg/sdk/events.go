@@ -113,8 +113,9 @@ type AssessmentID uint64
 // RiskAssessedEvent carries the result of PluginDeps.RequestAssessment. Every
 // plugin receives it, so a requester accepts only the event whose Request is the
 // ID its call returned. The App dispatches it only while no Context change or
-// plan invalidation happened since the request, and no cancel that a later
-// request followed. Err reports a failed plan fetch, which leaves Assessment empty.
+// plan invalidation happened since the request; it may dispatch the result of a
+// request its requester cancelled. Err reports a failed plan fetch, which leaves
+// Assessment empty.
 // Hint tells how to resolve the failure behind Assessment.ErrorCode, or is
 // empty; DiagnosticError renders the two together.
 type RiskAssessedEvent struct {

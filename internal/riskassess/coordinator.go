@@ -28,17 +28,14 @@ type Result struct {
 	Event      sdk.RiskAssessedEvent
 }
 
-// Coordinator is shared by App copies. Request, CancelPlans, Advance and
-// Current run only on the Update loop; request Cmds run concurrently and share
-// only the cache.
+// Coordinator is shared by App copies. Request, Cancel, Advance and Current
+// run only on the Update loop; request Cmds run concurrently and share only the
+// cache.
 //
-// Every request made since the last Advance shares one generation and one
-// cancellable context. Plans run for those requests share a child context,
-// which CancelPlans also ends.
-//
-// Requests are numbered in issue order, and the number is the request's ID. A
-// CancelPlans followed by a new request supersedes every request issued before
-// that cancel.
+// Every request made since the last Advance shares one generation, and its
+// context derives from that generation's context. Each requester holds at most
+// one pending request context, which covers both the host-run plan and the
+// policy evaluation.
 type Coordinator struct {
 	cfg   config.Config
 	cache cache
@@ -46,17 +43,20 @@ type Coordinator struct {
 	generation uint64
 	ctx        context.Context
 	cancel     context.CancelFunc
-	planCtx    context.Context
-	cancelPlan context.CancelFunc
+	issued     uint64
+	requests   map[string]context.CancelFunc
 
-	issued            uint64
-	cancelledThrough  uint64
-	supersededThrough uint64
+	// assess is replaced only by this package's tests.
+	assess Evaluator
 }
 
 // New returns a Coordinator reading policy selection and risk settings from cfg.
 func New(cfg config.Config) *Coordinator {
-	return &Coordinator{cfg: cfg}
+	return &Coordinator{cfg: cfg, requests: map[string]context.CancelFunc{}, assess: assessPolicy}
+}
+
+func assessPolicy(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+	return policy.Assess(ctx, evidence)
 }
 
 type cacheKey struct {
@@ -66,7 +66,7 @@ type cacheKey struct {
 	digest    string
 }
 
-// cache holds one result; superseded evaluations may finish in either order,
+// cache holds one result; concurrent evaluations may finish in either order,
 // but their captured Context identities never share a key.
 type cache struct {
 	mu     sync.Mutex
@@ -74,37 +74,21 @@ type cache struct {
 	result sdk.PolicyAssessment
 }
 
-func (c *Coordinator) begin() (uint64, context.Context) {
-	if c.cancel == nil {
-		c.ctx, c.cancel = context.WithCancel(context.Background())
-	}
-	c.supersededThrough = c.cancelledThrough
-	c.issued++
-	return c.issued, c.ctx
-}
-
-func (c *Coordinator) beginPlan() (uint64, context.Context) {
-	number, ctx := c.begin()
-	if c.cancelPlan == nil {
-		c.planCtx, c.cancelPlan = context.WithCancel(ctx)
-	}
-	return number, c.planCtx
-}
-
-// CancelPlans ends every plan run for a request issued so far, and marks those
-// requests superseded once a new request follows.
-func (c *Coordinator) CancelPlans() {
-	c.cancelledThrough = c.issued
-	if c.cancelPlan != nil {
-		c.cancelPlan()
-		c.cancelPlan = nil
+// Cancel ends requester's pending request. Its result is still dispatched, and
+// the requester ignores it by AssessmentID.
+func (c *Coordinator) Cancel(requester string) {
+	if cancel, ok := c.requests[requester]; ok {
+		cancel()
+		delete(c.requests, requester)
 	}
 }
 
 // Advance cancels every request issued so far and makes their results stale,
 // for a Context change or a plan invalidation.
 func (c *Coordinator) Advance() {
-	c.CancelPlans()
+	for requester := range c.requests {
+		c.Cancel(requester)
+	}
 	if c.cancel != nil {
 		c.cancel()
 		c.cancel = nil
@@ -112,29 +96,29 @@ func (c *Coordinator) Advance() {
 	c.generation++
 }
 
-// Current reports whether r belongs to a request neither advanced past nor
-// superseded.
+// Current reports whether r belongs to a request issued since the last Advance.
 func (c *Coordinator) Current(r Result) bool {
-	return r.generation == c.generation && uint64(r.Event.Request) > c.supersededThrough
+	return r.generation == c.generation
 }
 
-// Request assesses summary under the policy current selects; a nil summary
-// plans current first.
-func (c *Coordinator) Request(current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
-	return c.RequestWith(current, summary, func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
-		return policy.Assess(ctx, evidence)
-	})
+// Request assesses summary for requester under the policy current selects; a
+// nil summary plans current first. It cancels requester's previous request.
+func (c *Coordinator) Request(requester string, current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+	return c.RequestWith(requester, current, summary, c.assess)
 }
 
 // RequestWith is Request with assess as the evaluator.
-func (c *Coordinator) RequestWith(current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) (sdk.AssessmentID, tea.Cmd) {
-	begin := c.begin
-	if summary == nil {
-		begin = c.beginPlan
+func (c *Coordinator) RequestWith(requester string, current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) (sdk.AssessmentID, tea.Cmd) {
+	if c.cancel == nil {
+		c.ctx, c.cancel = context.WithCancel(context.Background())
 	}
-	number, ctx := begin()
-	id, generation := sdk.AssessmentID(number), c.generation
+	c.Cancel(requester)
+	ctx, cancel := context.WithCancel(c.ctx)
+	c.requests[requester] = cancel
+	c.issued++
+	id, generation := sdk.AssessmentID(c.issued), c.generation
 	return id, func() tea.Msg {
+		defer cancel()
 		event := c.run(ctx, current, summary, assess)
 		event.Request = id
 		return Result{generation: generation, Event: event}
@@ -166,6 +150,9 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 }
 
 func planForAssessment(ctx context.Context, current *sdk.Context) (*sdk.PlanSummary, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	dir, err := os.MkdirTemp("", "tfui-risk-*")
 	if err != nil {
 		return nil, err

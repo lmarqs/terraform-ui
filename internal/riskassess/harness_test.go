@@ -38,14 +38,21 @@ func (h *harness) switchContext(chdir, workspace string) {
 	h.coord.Advance()
 }
 
+// requester is the plugin a harness request is made for unless a test names another.
+const requester = "requester"
+
 func (h *harness) request(summary *sdk.PlanSummary) tea.Cmd {
-	_, cmd := h.coord.Request(h.current, summary)
+	return h.requestAs(requester, summary)
+}
+
+func (h *harness) requestAs(plugin string, summary *sdk.PlanSummary) tea.Cmd {
+	_, cmd := h.coord.Request(plugin, h.current, summary)
 	return cmd
 }
 
 func (h *harness) requestWith(summary *sdk.PlanSummary, assess Evaluator) tea.Cmd {
-	_, cmd := h.coord.RequestWith(h.current, summary, assess)
-	return cmd
+	h.coord.assess = assess
+	return h.request(summary)
 }
 
 // deliver runs cmd off the Update loop, as bubbletea does, then dispatches its

@@ -15,7 +15,7 @@ func TestRequestAssessment_GivenInvalidationOrInvalidConfiguration_ShouldCancelO
 	root := t.TempDir()
 	app, _, recorder := newAssessmentRequestApp(t, root, false, newMockService("default", nil))
 	var evaluated error
-	cmd := cmdOf(app.risk.RequestWith(app.holder.current, reviewedRiskSummary(), func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+	cmd := cmdOf(app.risk.RequestWith("riskprobe", app.holder.current, reviewedRiskSummary(), func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
 		evaluated = ctx.Err()
 		return policy.Assess(ctx, evidence)
 	}))
@@ -25,7 +25,7 @@ func TestRequestAssessment_GivenInvalidationOrInvalidConfiguration_ShouldCancelO
 		t.Fatalf("invalidated request ran with ctx err %v and assessed %+v, want cancelled", evaluated, result.Event.Assessment)
 	}
 	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = `)
-	got := requestRisk(t, &app, recorder, cmdOf(app.risk.Request(app.holder.current, reviewedRiskSummary()))).Assessment
+	got := requestRisk(t, &app, recorder, cmdOf(app.risk.Request("riskprobe", app.holder.current, reviewedRiskSummary()))).Assessment
 	if got.Status != "unavailable" || got.ErrorCode != "configuration_invalid" {
 		t.Fatalf("invalid configuration = %+v", got)
 	}

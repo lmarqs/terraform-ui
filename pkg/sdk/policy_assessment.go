@@ -3,7 +3,8 @@ package sdk
 import "slices"
 
 // PolicyAssessment contains classifications from one selected policy and reviewed plan.
-// Only a complete assessment has an overall level; cancelled results cannot be published.
+// Only a complete assessment has an overall level. The host may dispatch the
+// result of a cancelled request; the requester ignores it by AssessmentID.
 type PolicyAssessment struct {
 	Status       AssessmentStatus
 	PlanID       string

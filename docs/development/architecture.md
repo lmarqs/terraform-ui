@@ -190,9 +190,11 @@ the request captures the active Context.
 `RequestAssessment` returns the request's `AssessmentID` at once, and the event carries it as `Request`. IDs are
 nonzero and never reused, so a plugin records the ID of its pending request and keeps only the event carrying it.
 
-The App routes: it starts requests, drops a result whose request preceded a Context change or a plan invalidation, and
-a result whose request preceded a cancel that a later request followed. Cancelling a plugin also cancels the plans the
-host runs for nil-summary requests; a supplied summary keeps evaluating.
+The App routes: it starts requests and drops a result whose request preceded a Context change or a plan invalidation,
+which also cancel every pending request. Each plugin holds at most one pending request: a new request cancels its
+previous one, and cancelling a plugin cancels its own request, both the plan the host runs for a nil summary and the
+policy evaluation, and no other plugin's. The App still dispatches a cancelled request's result; the requester ignores
+it by `AssessmentID`.
 
 ## Plugin Loading
 
