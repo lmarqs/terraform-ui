@@ -48,6 +48,12 @@ func (e *Plugin) Activate() tea.Cmd {
 	return tea.Batch(cmd, e.timer.Start())
 }
 
+// failed reports a run a new request can recover from: one cancelled, or one
+// whose assessment is not usable.
+func (e *Plugin) failed() bool {
+	return e.status == sdk.StatusError || (e.status == sdk.StatusDone && e.assessment != nil && !e.assessment.Usable())
+}
+
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
 // pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {

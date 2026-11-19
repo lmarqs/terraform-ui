@@ -87,10 +87,14 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 	if e.status == sdk.StatusLoading {
 		return sdk.HintSetBack.Hints()
 	}
+	var set sdk.HintSet
 	if e.status == sdk.StatusDone && len(e.modules) > 0 {
-		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
+		set |= sdk.HintSetInspect
 	}
-	return (sdk.HintSetQuit).Hints()
+	if e.failed() {
+		return (set | sdk.HintSetRetry | sdk.HintSetBack).Hints()
+	}
+	return (set | sdk.HintSetQuit).Hints()
 }
 
 // Configure applies plugin-specific options from config.
@@ -111,8 +115,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	case ui.TimerTickMsg:
 		return e, e.timer.Tick()
 	case tea.KeyMsg:
-		if e.status == sdk.StatusLoading && msg.String() == "esc" {
+		switch {
+		case msg.String() == "esc" && (e.status == sdk.StatusLoading || e.failed()):
 			return e, func() tea.Msg { return sdk.DeactivateMsg{} }
+		case msg.String() == "ctrl+r" && e.failed():
+			return e, e.Activate()
 		}
 		e.handleKey(msg)
 		return e, nil
