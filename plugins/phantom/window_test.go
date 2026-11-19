@@ -234,3 +234,59 @@ func TestView_GivenOnePhantomTallerThanTheListBudget_ShouldStillShowItsLastLine(
 		})
 	}
 }
+
+func TestAnalyze_GivenScrolledList_ShouldReturnTheWindowOffsetToTheTop(t *testing.T) {
+	phantoms := numberedPhantoms(30)
+	p := doneWith(t, phantoms)
+	p.View(80, 16)
+	for range 29 {
+		p.Update(keyDown)
+	}
+	p.View(80, 16)
+	if p.offset == 0 {
+		t.Fatal("scrolling to the last row should move the window offset")
+	}
+
+	p.Analyze(summaryOf(phantoms))
+
+	if p.offset != 0 {
+		t.Fatalf("offset = %d, want 0 once the list is replaced", p.offset)
+	}
+}
+
+func TestView_GivenLongAttributeValuesAndWrap_ShouldShowThemInFull(t *testing.T) {
+	oldValue := "old-" + strings.Repeat("abcdefghij", 5) + "-oldend"
+	newValue := "new-" + strings.Repeat("klmnopqrst", 5) + "-newend"
+	phantoms := numberedPhantoms(1)
+	phantoms[0].Attributes = []sdk.AttributeDiff{{Key: "policy", OldValue: oldValue, NewValue: newValue}}
+	p := doneWith(t, phantoms)
+	p.Update(keyEnter)
+
+	p.Update(keyWrap)
+	view := strings.ReplaceAll(ansi.Strip(p.View(40, 16)), "\n", "")
+
+	for _, want := range []string{oldValue, newValue} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("wrap on should show %q in full:\n%s", want, view)
+		}
+	}
+}
+
+func TestView_GivenLongAttributeValueAndRight_ShouldPanToItsEnd(t *testing.T) {
+	newValue := "new-" + strings.Repeat("klmnopqrst", 5) + "-newend"
+	phantoms := numberedPhantoms(1)
+	phantoms[0].Attributes = []sdk.AttributeDiff{{Key: "policy", OldValue: "a", NewValue: newValue}}
+	p := doneWith(t, phantoms)
+	p.Update(keyEnter)
+	if strings.Contains(ansi.Strip(p.View(40, 16)), "-newend") {
+		t.Fatal("the unpanned view should clip the long value")
+	}
+
+	for range 6 {
+		p.Update(keyRight)
+	}
+
+	if view := ansi.Strip(p.View(40, 16)); !strings.Contains(view, "-newend") {
+		t.Fatalf("panning right should reveal the end of the value:\n%s", view)
+	}
+}
