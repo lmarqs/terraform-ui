@@ -105,6 +105,7 @@ func (p *Plugin) reset() {
 	p.errMsg = ""
 	p.selected = 0
 	p.offset = 0
+	p.panel.ResetScroll()
 	p.fuzzy.SetItems(nil)
 }
 

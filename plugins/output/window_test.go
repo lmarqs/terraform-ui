@@ -185,3 +185,27 @@ func TestUpdate_GivenReload_ShouldStartTheWindowAtTheTop(t *testing.T) {
 		t.Fatalf("a reload should start at the first row:\n%s", view)
 	}
 }
+
+func TestUpdate_GivenPannedListAndReloadOrReset_ShouldPanBackToTheStart(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		start func(p *Plugin)
+	}{
+		{"refresh", func(p *Plugin) { p.Refresh() }},
+		{"reset", func(p *Plugin) { p.reset() }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := doneWith(t, numberedOutputs(3))
+			press(p, keyRight)
+			if p.panel.HScroll() == 0 {
+				t.Fatal("right should pan the list")
+			}
+
+			tc.start(p)
+
+			if got := p.panel.HScroll(); got != 0 {
+				t.Fatalf("hscroll = %d, want 0", got)
+			}
+		})
+	}
+}

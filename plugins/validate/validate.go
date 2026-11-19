@@ -106,6 +106,7 @@ func (p *Plugin) reset() {
 	p.errMsg = ""
 	p.selected = 0
 	p.offset = 0
+	p.panel.ResetScroll()
 	p.expander.CollapseAll()
 }
 
@@ -128,6 +129,7 @@ func (p *Plugin) Refresh() tea.Cmd {
 	p.errMsg = ""
 	p.selected = 0
 	p.offset = 0
+	p.panel.ResetScroll()
 	p.expander.CollapseAll()
 	return tea.Batch(p.runValidate(), p.timer.Start())
 }
