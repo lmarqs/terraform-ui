@@ -1981,3 +1981,62 @@ func TestListFrame_WhenNKeyCmdExecuted_ShouldProduceImportRequestMsg(t *testing.
 		t.Fatal("cmd() returned nil")
 	}
 }
+
+// A load still in flight when an invalidation resets State to Idle is
+// superseded by the ctrl+r load: its late result must not overwrite the newer one.
+func TestListFrame_Update_WhenSupersededLoadLandsLast_ShouldKeepRefreshResult(t *testing.T) {
+	fresh := []sdk.Resource{{Address: "aws_instance.fresh", Type: "aws_instance"}}
+	tests := []struct {
+		name  string
+		first func(context.Context) ([]sdk.Resource, error)
+	}{
+		{name: "WhenOlderData", first: func(context.Context) ([]sdk.Resource, error) {
+			return []sdk.Resource{{Address: "aws_instance.old", Type: "aws_instance"}}, nil
+		}},
+		{name: "WhenCancelled", first: func(ctx context.Context) ([]sdk.Resource, error) {
+			return nil, ctx.Err()
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{StateListFn: func(ctx context.Context, opts ...sdk.StateListOption) ([]sdk.Resource, error) {
+				if len(opts) == 0 { // Activate's load; Refresh passes SkipCache
+					return tt.first(ctx)
+				}
+				return fresh, nil
+			}}
+			p := New(svc).(*Plugin)
+			p.Init(sdktest.NewDeps(svc).Deps)
+			first := p.Activate(Input{})
+			p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
+			f := &listFrame{plugin: p}
+			_, refresh := f.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+
+			p.Update(stateListMsgIn(t, refresh))
+			p.Update(stateListMsgIn(t, first))
+
+			if p.status != sdk.StatusDone || len(p.resources) != 1 || p.resources[0].Address != "aws_instance.fresh" {
+				t.Errorf("status = %v, resources = %v, want StatusDone with the refresh's result", p.status, p.resources)
+			}
+		})
+	}
+}
+
+func stateListMsgIn(t *testing.T, cmd tea.Cmd) StateListMsg {
+	t.Helper()
+	msg := cmd()
+	if m, ok := msg.(StateListMsg); ok {
+		return m
+	}
+	batch, _ := msg.(tea.BatchMsg)
+	for _, c := range batch {
+		if c == nil {
+			continue
+		}
+		if m, ok := c().(StateListMsg); ok {
+			return m
+		}
+	}
+	t.Fatal("load cmd emits no StateListMsg")
+	return StateListMsg{}
+}

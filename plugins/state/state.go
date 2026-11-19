@@ -17,6 +17,9 @@ const StatusShowingDetail = sdk.Status(10)
 type StateListMsg struct {
 	Resources []sdk.Resource
 	Err       error
+	// read numbers the load that produced the message; zero marks a mutation's
+	// error, which no later load supersedes.
+	read uint64
 }
 
 // ResourceDetailMsg is sent when resource detail loads.
@@ -59,6 +62,8 @@ func (r resourceItem) Address() string { return r.resource.Address }
 // Plugin implements the state browser feature.
 type Plugin struct {
 	sdk.PluginBase
+	// reads counts loads started; only the latest one's result is applied.
+	reads        uint64
 	stack        *sdk.Stack
 	fuzzy        *ui.FuzzyFilter[sdk.Resource]
 	timer        ui.Timer
@@ -282,9 +287,11 @@ func (e *Plugin) loadState(opts ...sdk.StateListOption) tea.Cmd {
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn = cancel
 	svc := e.Svc
+	e.reads++
+	read := e.reads
 	return func() tea.Msg {
 		resources, err := svc.StateList(ctx, opts...)
-		return StateListMsg{Resources: resources, Err: err}
+		return StateListMsg{Resources: resources, Err: err, read: read}
 	}
 }
 
@@ -306,6 +313,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, e.timer.Tick()
 
 	case StateListMsg:
+		if msg.read != 0 && msg.read != e.reads {
+			return e, nil
+		}
 		e.timer.Stop()
 		e.mutating = false
 		if msg.Err != nil {
