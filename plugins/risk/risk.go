@@ -132,6 +132,7 @@ func (e *Plugin) analyze(summary *sdk.PlanSummary, rows sdk.AssessmentRows) {
 	for _, level := range []sdk.RiskLevel{sdk.RiskCritical, sdk.RiskHigh, sdk.RiskMedium, sdk.RiskLow, sdk.RiskNone} {
 		groups = append(groups, riskGroup{level: level, items: byLevel[level]})
 	}
+	e.groups, e.items = nil, nil
 	for _, group := range groups {
 		if len(group.items) > 0 {
 			slices.SortFunc(group.items, compareItems)

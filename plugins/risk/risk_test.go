@@ -597,3 +597,13 @@ func TestCursorPosition_WhenNotDoneOrEmpty_ShouldReturnZeros(t *testing.T) {
 		t.Errorf("CursorPosition() done+empty = (%d, %d), want (0, 0)", pos, total)
 	}
 }
+
+func TestAnalyze_WhenCalledAgain_ShouldRebuildRatherThanAppend(t *testing.T) {
+	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
+
+	p.analyze(p.summary, p.assessment.Rows())
+
+	if len(p.groups) != 1 || len(p.items) != 1 {
+		t.Errorf("after a second analyze: %d groups, %d items; want 1 group, 1 item", len(p.groups), len(p.items))
+	}
+}
