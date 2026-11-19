@@ -33,8 +33,9 @@ panel clipped away, and Enter opened a row nobody could see
   block in view.
 - With wrap off, `RenderWindow` gives the same output as windowing in the plugin and calling `Render`.
 - `Render` with wrap on also scrolls inside the slice it was given until the cursor row's first line shows, and
-  counts rows outside the slice as one line each for the gutter. Lists that pass a slice move to `RenderWindow` to
-  get a line-accurate window and thumb.
+  counts rows outside the slice as one line each for the gutter. Risk uses `RenderWindow`; the Plan, State and
+  Workspace lists still pass slices to `Render`, so with wrap on their window and gutter thumb are only line-accurate
+  inside the slice ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
 - The contracts are in [TUI UX § Scrollable content](../reference/tui-ux.md#scrollable-content-split-by-axis).
 
 ## Considered Options
