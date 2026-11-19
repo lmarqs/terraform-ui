@@ -9,6 +9,9 @@ import (
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	tfuichdir "github.com/lmarqs/terraform-ui/plugins/chdir"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func newStartupPinsApp(t *testing.T, cfg config.Config) (App, *sdktest.MockService) {
@@ -174,5 +177,45 @@ func TestStartupPins_GivenThePickerPicksAMember_ShouldCarryThemIntoThatMember(t 
 	app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: sdk.WorkspaceDefault})
 	if got, want := app.holder.current.Pins, (sdk.Pins{"aws_instance.web"}); !reflect.DeepEqual(got, want) {
 		t.Errorf("Pins after the startup pick = %#v, want %#v", got, want)
+	}
+}
+
+func newPushedPickerApp(t *testing.T) App {
+	t.Helper()
+	cfg := config.Config{Dir: t.TempDir(), Terraform: config.TerraformConfig{Bin: "terraform"}, Pins: []string{"aws_instance.web"}}
+	registry := plugin.NewRegistry()
+	registry.RegisterFactory("chdir", tfuichdir.New, plugin.PluginMeta{Nav: plugin.NavPush})
+	registry.Build(nil, nil)
+	picker, _ := registry.ByID("chdir")
+	picker.(*tfuichdir.Plugin).SetMembers([]string{"modules/vpc", "modules/ecs"})
+	app := NewApp(cfg, newMockService("default", nil), registry, nil)
+	app.Init()
+	app = update(t, app, openContextOnStartupMsg{})
+	if app.activePlugin == nil || app.activePlugin.ID() != "chdir" || len(app.navStack) == 0 {
+		t.Fatal("startup did not push the chdir picker")
+	}
+	return app
+}
+
+func TestStartupPins_GivenEnterOnThePushedPicker_ShouldCarryThemIntoThatMember(t *testing.T) {
+	app := newPushedPickerApp(t)
+
+	model, cmd := app.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	app = update(t, model.(App), cmd())
+	if got, want := app.holder.current.Pins, (sdk.Pins{"aws_instance.web"}); !reflect.DeepEqual(got, want) {
+		t.Errorf("Pins after picking a member = %#v, want %#v", got, want)
+	}
+}
+
+func TestStartupPins_GivenEscOnThePushedPicker_ShouldNotFollowALaterWorkspaceSwitch(t *testing.T) {
+	app := newPushedPickerApp(t)
+
+	app = update(t, app, tea.KeyMsg{Type: tea.KeyEsc})
+	if app.activePlugin != nil {
+		t.Fatalf("Esc left %q active, want home", app.activePlugin.ID())
+	}
+	app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: app.holder.current.Chdir, Workspace: sdk.NewWorkspace("staging")})
+	if got := app.holder.current.Pins; got != nil {
+		t.Errorf("Pins after Esc and a workspace switch = %#v, want none", got)
 	}
 }

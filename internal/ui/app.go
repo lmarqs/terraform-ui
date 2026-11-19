@@ -776,10 +776,7 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 		from = a.activePlugin.ID()
 		a.cancelPlugin(a.activePlugin)
 	}
-	// Leaving the startup picker unpicked ends the -target pins, as Esc does.
-	if from == "chdir" {
-		a.startupPins = nil
-	}
+	a.leaveStartupPicker(from)
 	switch nav {
 	case plugin.NavPush:
 		a.navStack = append(a.navStack, a.activePlugin)
@@ -797,6 +794,7 @@ func (a *App) navigateBack() {
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
 	}
+	a.leaveStartupPicker(from)
 	if len(a.navStack) == 0 {
 		a.activePlugin = nil
 		logging.Logger().Debug("view.transition", "from", from, "to", "home")
@@ -810,6 +808,14 @@ func (a *App) navigateBack() {
 		to = prev.ID()
 	}
 	logging.Logger().Debug("view.transition", "from", from, "to", to)
+}
+
+// leaveStartupPicker ends the pending -target pins when the user leaves the
+// chdir picker: only a member pick, handled before the picker pops, carries them.
+func (a *App) leaveStartupPicker(from string) {
+	if from == "chdir" {
+		a.startupPins = nil
+	}
 }
 
 // goHome resets navigation to the app root and requests a pin clear: leaving
