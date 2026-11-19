@@ -40,7 +40,7 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `j` / `k` / `↑` / `↓` | Navigate up/down | List |
 | `g` / `G` | Jump to first/last change | List |
 | `Enter` / `i` | Expand/collapse a module, or inspect a change's attribute diffs | List |
-| `/` | Filter (fuzzy search) | List |
+| `/` | Filter by address (fuzzy), or by action when the text is only an action symbol | List |
 | `Space` | Pin/unpin selected resource | List & detail |
 | `Ctrl+p` | Toggle pinned-only view | List |
 | `Ctrl+u` | Clear all pins | List |
@@ -58,6 +58,19 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `ctrl+r` | Re-run plan (refresh) | Plan finished or failed |
 | `u` | Force-unlock | Locked error |
 | `Esc` / `q` | Back to home | Always |
+
+### Filter by action
+
+When the whole filter text is one of these symbols, the list keeps only the changes of that action:
+
+| Type | Keeps |
+|------|-------|
+| `+` | creates |
+| `~` | updates |
+| `-` | deletes |
+| `-/+` | replacements, both delete-then-create and create-then-delete |
+
+Any other text is a fuzzy match on the resource address, so `+aws` or `-/` search addresses. The action filter combines with `Ctrl+p` (pinned only) and with tree view.
 
 ### Flow
 

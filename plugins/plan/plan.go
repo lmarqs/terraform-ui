@@ -573,6 +573,14 @@ func (e *Plugin) SetFilter(filter string) {
 		return
 	}
 
+	if isActionFilter(filter) {
+		e.filtered = changesWithSymbol(source, filter)
+		e.filterScores = nil
+		e.rebuildTree()
+		e.Log.Debug("plan.filter", "filter", filter, "results", len(e.filtered))
+		return
+	}
+
 	e.fuzzy.SetItems(source)
 	e.fuzzy.SetQuery(filter)
 	if e.treeMode {
@@ -589,6 +597,27 @@ func (e *Plugin) SetFilter(filter string) {
 
 	e.rebuildTree()
 	e.Log.Debug("plan.filter", "filter", filter, "results", len(e.filtered))
+}
+
+// isActionFilter reports whether the whole filter text is an action symbol.
+// "-/+" keeps both replace variants (delete-then-create and create-then-delete),
+// which plainActionSymbol groups under one symbol.
+func isActionFilter(filter string) bool {
+	switch filter {
+	case "+", "~", "-", "-/+":
+		return true
+	}
+	return false
+}
+
+func changesWithSymbol(changes []sdk.PlanChange, symbol string) []sdk.PlanChange {
+	var result []sdk.PlanChange
+	for _, c := range changes {
+		if plainActionSymbol(c.Action) == symbol {
+			result = append(result, c)
+		}
+	}
+	return result
 }
 
 // --- Tree ---
