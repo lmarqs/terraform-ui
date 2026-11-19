@@ -757,7 +757,8 @@ func TestContentPanel_RenderWindow_GivenWrapModeOffsetPastEnd_ShouldClampToLastP
 		ScrollOffset: 9,
 	})
 
-	if lines := strings.Split(output, "\n"); offset != 0 || !strings.HasPrefix(lines[2], "b") {
+	lines := strings.Split(output, "\n")
+	if offset != 0 || len(lines) != 5 || !strings.HasPrefix(lines[1], "a") || !strings.HasPrefix(lines[2], "b") {
 		t.Errorf("offset = %d, want 0 and the last page, from line 1 of row a:\n%s", offset, output)
 	}
 }
@@ -910,5 +911,20 @@ func TestContentPanel_RenderWindow_GivenWidthChangeWithWrapOn_ShouldKeepTheTopRo
 
 	if offset != 9 || !strings.HasPrefix(output, "row09") {
 		t.Fatalf("offset after widening = %d, want 9 (same top row):\n%s", offset, output)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapModeOffsetPassedBack_ShouldReadItAsTheTopRow(t *testing.T) {
+	panel := wrapPanel()
+	params := ui.RenderParams{Rows: twoLineRows(20), Width: 12, Height: 4, Cursor: 4, ScrollOffset: 4}
+
+	for frame := range 2 {
+		output, offset := panel.RenderWindow(params)
+
+		lines := strings.Split(ansi.Strip(output), "\n")
+		if offset != 4 || len(lines) != 4 || !strings.HasPrefix(lines[0], "[SEL]row04") || !strings.HasPrefix(lines[2], "row05") {
+			t.Fatalf("frame %d: offset = %d, want 4 with rows 4 and 5 on screen:\n%s", frame, offset, output)
+		}
+		params.ScrollOffset = offset
 	}
 }
