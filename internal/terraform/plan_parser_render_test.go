@@ -126,7 +126,7 @@ func TestParsePlan_GivenPartlySensitiveAndPartlyUnknownMap_ShouldMaskTheWholeVal
 		t.Fatalf("diffs = %+v, want one wholly sensitive diff", diffs)
 	}
 	view := sdk.RenderAttributeDiffs(diffs)
-	if strings.Contains(view, "env") || strings.Contains(view, "secret\"") {
+	if strings.Contains(view, "env") || strings.Contains(view, "before-secret") || strings.Contains(view, "after-secret") {
 		t.Errorf("partly sensitive map must stay wholly masked:\n%s", view)
 	}
 }

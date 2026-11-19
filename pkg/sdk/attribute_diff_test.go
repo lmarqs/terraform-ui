@@ -150,3 +150,12 @@ func TestRenderCompactAttributeDiffs_GivenPartlyUnknownValue_ShouldKeepItsKnownK
 		t.Fatalf("rows = %q, want %q", got, want)
 	}
 }
+
+func TestRenderCompactAttributeDiffs_GivenPartlyUnknownValueAtNarrowWidth_ShouldTruncateLikeAnyOtherValue(t *testing.T) {
+	diffs := []AttributeDiff{{Key: "tags", OldValue: `{"env":"prod","id":"a"}`, NewValue: `{"env":"stage","id":(known after apply)}`}}
+	got := RenderCompactAttributeDiffs(diffs, 40)
+	want := []string{`    tags: {"env":"prod… → {"env":"stage…`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("rows = %q, want %q", got, want)
+	}
+}
