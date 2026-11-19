@@ -296,3 +296,34 @@ func TestCompat_DestroyModeRiskClassification(t *testing.T) {
 		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
 	}
 }
+
+// TestCompat_RootTargetStartsPinned verifies that `tfui -target X` opens the
+// TUI with X pinned: Plan shows the row's pin marker, and the pin reaches
+// terraform only as the target of the plan the user opened, with or without
+// -dry-run.
+func TestCompat_RootTargetStartsPinned(t *testing.T) {
+	projectRoot := findProjectRoot()
+	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
+	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
+	tapeFile := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat", "root_target_pins.tape")
+
+	for _, tc := range []struct {
+		name string
+		args []string
+	}{
+		{name: "live", args: []string{"-target", "aws_instance.web"}},
+		{name: "dry run", args: []string{"-dry-run", "-target=aws_instance.web"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			args := append([]string{"-plan", planFixture, "-state", stateFixture, "-macro", tapeFile}, tc.args...)
+			stdout, stderr, err := runTfui(args...)
+			if err != nil {
+				t.Fatalf("macro failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
+			}
+			lines := strings.Split(strings.TrimSpace(stdout), "\n")
+			if len(lines) != 1 || !strings.HasPrefix(lines[0], "terraform plan ") || !strings.HasSuffix(lines[0], " -target=aws_instance.web") {
+				t.Errorf("recorded commands = %q, want one terraform plan targeting aws_instance.web", stdout)
+			}
+		})
+	}
+}
