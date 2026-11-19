@@ -239,6 +239,24 @@ func TestApplyAssessment_WhenRowsNil_ShouldKeepExistingRisk(t *testing.T) {
 	}
 }
 
+func TestApplyAssessment_WhenRowsEmpty_ShouldResetUnclassifiedChangesToRiskNone(t *testing.T) {
+	input := &PlanSummary{Changes: []PlanChange{
+		planChange("aws_instance.web", "", RiskHigh),
+		planChange("aws_instance.web", "0a1b2c3d", RiskLow),
+	}}
+
+	got := ApplyAssessment(input, AssessmentRows{})
+
+	for i, change := range got.Changes {
+		if change.Risk != RiskNone {
+			t.Errorf("Changes[%d].Risk = %v, want %v", i, change.Risk, RiskNone)
+		}
+	}
+	if input.Changes[0].Risk != RiskHigh || input.Changes[1].Risk != RiskLow {
+		t.Errorf("input mutated: %+v", input.Changes)
+	}
+}
+
 func TestApplyAssessment_WhenSummaryNil_ShouldReturnNil(t *testing.T) {
 	if got := ApplyAssessment(nil, AssessmentRows{}); got != nil {
 		t.Errorf("ApplyAssessment(nil, assessment) = %+v, want nil", got)
