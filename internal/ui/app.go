@@ -994,8 +994,9 @@ var builtinCommands = []builtinCommand{
 // Busy — holding a terraform operation (DirLock per ADR-0016) — the action is
 // rejected and `commandError` is set to a uniform message instructing the user
 // to escape via `:q!`. A pending policy-only assessment holds no lock, so the
-// action proceeds and cancelPlugin or the Context change cancels it. UI-only actions (scrolling, filtering, esc)
-// bypass this on purpose — see `docs/development/architecture.md` § Navigation.
+// action proceeds and cancelPlugin or the Context change cancels it. UI-only
+// actions (scrolling, filtering, esc) bypass this on purpose — see
+// `docs/development/architecture.md` § Navigation.
 //
 // reason is a short label used in the rejection message ("plan", "chdir",
 // "quit", …) so the user knows which action was refused.
