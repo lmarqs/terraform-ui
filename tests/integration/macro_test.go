@@ -36,6 +36,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "blast radius opened cold requests its assessment",
+			tapeFile: tape("blastradius_render.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json")},
+			wantExit: 0,
+		},
+		{
 			name:     "risk list jumps pans and wraps like plan",
 			tapeFile: tape("risk_navigation.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-render-plan.json")},

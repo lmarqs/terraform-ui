@@ -5,11 +5,15 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
+// Busy reports that the host runs terraform plan for the pending request, which
+// it does only when Blast Radius retains no reviewed plan.
+func (e *Plugin) Busy() bool { return e.status == sdk.StatusLoading && e.summary == nil }
+
 // Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
 	if e.status == sdk.StatusLoading {
 		e.timer.Stop()
-		e.status = sdk.StatusError
+		e.status, e.failure = sdk.StatusError, "risk unavailable: cancelled"
 	}
 }
 
@@ -36,8 +40,10 @@ func (e *Plugin) HandlePlanCompleted(ev sdk.PlanCompletedEvent) tea.Cmd {
 	return nil
 }
 
+// Activate requests an assessment of the reviewed plan, or of the plan the host
+// runs when none was reviewed in this session.
 func (e *Plugin) Activate() tea.Cmd {
-	if e.status == sdk.StatusLoading || e.summary == nil {
+	if e.status == sdk.StatusLoading {
 		return nil
 	}
 	e.modules = nil
@@ -55,15 +61,33 @@ func (e *Plugin) failed() bool {
 }
 
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
-// pending request counts.
+// pending request counts. It keeps the summary the host planned, so a retry
+// assesses that plan instead of planning again.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 	if e.status != sdk.StatusLoading || ev.Request != e.pending {
 		return nil
 	}
 	e.timer.Stop()
+	if ev.Summary == nil {
+		e.status, e.failure = sdk.StatusError, hostFailure(ev)
+		return nil
+	}
+	e.summary = ev.Summary
 	e.setAssessment(&ev.Assessment)
 	e.analyzeAssessment()
 	return nil
+}
+
+// hostFailure says why the host returned no plan: terraform's own error, or the
+// code of the policy failure that stopped the host before it planned.
+func hostFailure(ev sdk.RiskAssessedEvent) string {
+	switch {
+	case ev.Err != nil:
+		return "plan unavailable: " + ev.Err.Error()
+	case ev.Assessment.ErrorCode != "":
+		return "risk unavailable: " + sdk.DiagnosticError{Code: ev.Assessment.ErrorCode, Hint: ev.Hint}.Error()
+	}
+	return "risk unavailable"
 }
 
 // setAssessment keeps rows indexing the assessment's rows.

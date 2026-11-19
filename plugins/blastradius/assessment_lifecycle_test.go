@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
-	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
 func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(t *testing.T) {
@@ -16,8 +15,8 @@ func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(
 			p, h, svc := newBlastHarness(t, summary, sdk.PolicyAssessment{Status: "complete", Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.old", Status: "classified", Level: &high}}})
 			p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary})
 			cmd := p.Activate()
-			if _, busy := any(p).(sdk.Busy); busy {
-				t.Fatal("Blast Radius implements sdk.Busy; a policy-only assessment runs no Terraform")
+			if p.Busy() {
+				t.Fatal("Blast Radius is Busy; a policy-only assessment runs no Terraform")
 			}
 			if p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(80, 20), "Loading risk assessment") {
 				t.Fatalf("activation should show assessment loading and pending: status=%v ready=%v", p.Status(), p.Ready())
@@ -51,20 +50,6 @@ func TestAssessment_GivenCancelledOrInvalidatedOperation_ShouldRejectLateResult(
 				}
 			}
 		})
-	}
-}
-
-func TestActivate_GivenNoReviewedPlan_ShouldWaitForPlan(t *testing.T) {
-	svc := &sdktest.MockService{}
-	h := sdktest.NewDeps(svc)
-	p := New(svc).(*Plugin)
-	p.Init(h.Deps)
-	if p.Activate() != nil || !strings.Contains(p.View(80, 20), "Run a plan first") {
-		t.Fatal("without reviewed plan Blast Radius should remain idle")
-	}
-	p.HandleContextChanged(sdk.ContextChangedEvent{})
-	if p.Status() != sdk.StatusIdle {
-		t.Fatalf("empty context event changed status=%v", p.Status())
 	}
 }
 

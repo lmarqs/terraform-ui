@@ -56,6 +56,7 @@ type Plugin struct {
 	rows        sdk.AssessmentRows
 	requestRisk func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
 	pending     sdk.AssessmentID
+	failure     string // the line shown in the error state
 	timer       ui.Timer
 }
 
@@ -174,7 +175,7 @@ func (e *Plugin) View(width, height int) string {
 	case sdk.StatusLoading:
 		return sdk.StyleFaintItalic.Render("Loading risk assessment... " + e.timer.FormatElapsed())
 	case sdk.StatusError:
-		return sdk.StyleError.Render("risk unavailable: cancelled")
+		return sdk.StyleError.Render(e.failure)
 	case sdk.StatusDone:
 		return e.renderBlastRadius(width, height)
 
