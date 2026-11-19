@@ -1,11 +1,18 @@
 package main
 
 import (
+	"io"
 	"slices"
+	"strings"
 	"testing"
+	"time"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
+	"github.com/lmarqs/terraform-ui/internal/macro"
+	"github.com/lmarqs/terraform-ui/internal/ui"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/plugins/apply"
 	"github.com/spf13/cobra"
 )
@@ -99,6 +106,56 @@ func TestRequireApplyConfirmable(t *testing.T) {
 				t.Fatalf("requireApplyConfirmable() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestStandaloneApply_GivenStagedPlanAndNoAutoApprove_ShouldApplyOnlyAfterY(t *testing.T) {
+	svc := &sdktest.MockService{}
+	cfg := config.Config{}
+	registry := buildRegistry(svc, cfg, nil)
+	standalone := &ui.StandaloneConfig{
+		PluginID: "apply",
+		Activate: func(p sdk.Plugin) tea.Cmd {
+			ap := p.(*apply.Plugin)
+			ap.SetPlanFile("tfui.tfplan")
+			return ap.Activate(apply.Input{AutoApprove: false})
+		},
+	}
+	d := macro.NewDriver(ui.NewApp(cfg, svc, registry, nil, standalone), 80, 24)
+
+	d.Init()
+
+	if !strings.Contains(d.View(), "Are you sure") {
+		t.Errorf("view lacks the confirmation prompt:\n%s", d.View())
+	}
+	if len(svc.ApplyCalls) != 0 {
+		t.Fatalf("Apply called %d time(s) before any confirmation", len(svc.ApplyCalls))
+	}
+
+	d.SendKey("y")
+
+	if len(svc.ApplyCalls) != 1 {
+		t.Errorf("Apply called %d time(s) after y, want 1", len(svc.ApplyCalls))
+	}
+}
+
+func TestApplyCommand_GivenNonInteractiveWithoutAutoApprove_ShouldRejectWithoutRunning(t *testing.T) {
+	session := &Session{cfg: config.Config{Dir: t.TempDir()}, silentStderr: true}
+	c := buildApplyCommand(session)
+	c.SetArgs([]string{})
+	c.SetOut(io.Discard)
+	c.SetErr(io.Discard)
+
+	done := make(chan error, 1)
+	go func() { done <- c.Execute() }()
+
+	select {
+	case err := <-done:
+		if err == nil || !strings.Contains(err.Error(), "apply not allowed for non-interactive use") {
+			t.Fatalf("Execute() error = %v, want the non-interactive rejection", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("apply ran instead of being rejected")
 	}
 }
 
