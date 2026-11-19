@@ -90,6 +90,7 @@ func TestUpdate_GivenCtrlRInErrorState_ShouldRestartTheElapsedTimer(t *testing.T
 	if cmd == nil {
 		t.Fatal("ctrl+r returned no command")
 	}
+	sdktest.LandTick(t, cmd)
 	if _, next := p.Update(ui.TimerTickMsg{}); next == nil {
 		t.Fatal("tick after ctrl+r returned no next tick, so the retry's elapsed time would freeze")
 	}

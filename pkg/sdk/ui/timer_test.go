@@ -3,6 +3,8 @@ package ui
 import (
 	"testing"
 	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestTimer_Start(t *testing.T) {
@@ -31,8 +33,9 @@ func TestTimer_Stop(t *testing.T) {
 }
 
 func TestTimer_Tick_WhenRunning(t *testing.T) {
+	t.Parallel()
 	var timer Timer
-	timer.Start()
+	landTick(t, timer.Start())
 	cmd := timer.Tick()
 	if cmd == nil {
 		t.Error("Tick() returned nil when running, want next tick cmd")
@@ -87,6 +90,7 @@ func TestTimer_StopWhenNotRunning(t *testing.T) {
 }
 
 func TestTimer_Tick_WhenRunning_ShouldReturnCmdThatProducesTimerTickMsg(t *testing.T) {
+	t.Parallel()
 	var timer Timer
 	cmd := timer.Start()
 	if cmd == nil {
@@ -99,8 +103,9 @@ func TestTimer_Tick_WhenRunning_ShouldReturnCmdThatProducesTimerTickMsg(t *testi
 }
 
 func TestTimer_Tick_WhenCalledWhileRunning_ShouldReturnCmdThatProducesTimerTickMsg(t *testing.T) {
+	t.Parallel()
 	var timer Timer
-	timer.Start()
+	landTick(t, timer.Start())
 	cmd := timer.Tick()
 	if cmd == nil {
 		t.Fatal("Tick() should return next tick cmd when running")
@@ -127,5 +132,88 @@ func TestTimer_Tick_WhenStoppedBeforeTheTickRuns_ShouldProduceNoMsgWithoutWaitin
 	}
 	if waited := time.Since(begin); waited > 500*time.Millisecond {
 		t.Errorf("tick cmd of a stopped timer waited %v, want it to return at once", waited)
+	}
+}
+
+// landTick runs a tick Cmd to completion, as the runtime does, and checks it
+// delivered a TimerTickMsg. It waits the real second.
+func landTick(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	if cmd == nil {
+		t.Fatal("tick cmd is nil")
+	}
+	if _, ok := cmd().(TimerTickMsg); !ok {
+		t.Fatal("tick cmd did not produce TimerTickMsg")
+	}
+}
+
+// A tick that is still waiting is the timer's one chain: a restart must leave
+// it to continue instead of starting a second chain beside it.
+func TestTimer_Start_WhenStoppedAndRestartedWhileATickIsOutstanding_ShouldContinueTheOutstandingChain(t *testing.T) {
+	t.Parallel()
+	var timer Timer
+	outstanding := timer.Start()
+	timer.Stop()
+
+	if restart := timer.Start(); restart != nil {
+		t.Fatal("Start() returned a second tick cmd while one is outstanding, want nil")
+	}
+	if !timer.Running() {
+		t.Fatal("Running() = false after the restart, want true")
+	}
+
+	if _, ok := outstanding().(TimerTickMsg); !ok {
+		t.Fatal("outstanding tick cmd did not produce TimerTickMsg after the restart")
+	}
+	successor := timer.Tick()
+	if successor == nil {
+		t.Fatal("Tick() returned nil after the outstanding tick landed, want one successor")
+	}
+	if extra := timer.Tick(); extra != nil {
+		t.Error("a second Tick() returned a cmd, want nil: the successor is already outstanding")
+	}
+}
+
+// A tick that was already delivered no longer waits, so a restart before it
+// reaches Update starts the chain that the delivered tick then joins.
+func TestTimer_Start_WhenTheTickIsInFlight_ShouldStartTheChainAndTheLateTickJoinsIt(t *testing.T) {
+	t.Parallel()
+	var timer Timer
+	inFlight := timer.Start()
+	if _, ok := inFlight().(TimerTickMsg); !ok {
+		t.Fatal("tick cmd did not produce TimerTickMsg")
+	}
+	timer.Stop()
+
+	restart := timer.Start()
+	if restart == nil {
+		t.Fatal("Start() returned nil with no tick outstanding, want a tick cmd")
+	}
+	if late := timer.Tick(); late != nil {
+		t.Error("Tick() for the in-flight tick returned a cmd, want nil: the restart's tick is outstanding")
+	}
+}
+
+// A tick that belongs to another timer (the App routes unscoped ticks to the
+// active plugin) must not start a second chain on a timer that already waits.
+func TestTimer_Tick_WhenThisTimersTickIsOutstanding_ShouldReturnNil(t *testing.T) {
+	var timer Timer
+	timer.Start()
+
+	if cmd := timer.Tick(); cmd != nil {
+		t.Error("Tick() returned a cmd while this timer's tick is outstanding, want nil")
+	}
+}
+
+func TestTimer_Start_WhenTheStoppedTickEndedAtOnce_ShouldReturnFreshTick(t *testing.T) {
+	var timer Timer
+	stopped := timer.Start()
+	timer.Stop()
+	if msg := stopped(); msg != nil {
+		t.Fatalf("tick cmd of a stopped timer produced %T, want nil", msg)
+	}
+
+	if cmd := timer.Start(); cmd == nil {
+		t.Error("Start() returned nil after the stopped tick ended, want a fresh tick cmd")
 	}
 }

@@ -412,7 +412,8 @@ func TestUpdate_TimerTickAndUnhandled(t *testing.T) {
 	p, _ := newTestPlugin(&sdktest.MockService{})
 
 	// Running timer ticks again; idle tick is handled with no cmd.
-	p.Update(ForceUnlockStartMsg{LockID: "x"}) // starts the timer
+	_, start := p.Update(ForceUnlockStartMsg{LockID: "x"}) // starts the timer
+	sdktest.LandTick(t, start)
 	if _, cmd := p.Update(ui.TimerTickMsg{}); cmd == nil {
 		t.Error("running timer tick should return a tick cmd")
 	}

@@ -1404,9 +1404,10 @@ func TestUpdate_WhenUnhandledMsgType_ShouldPassThrough(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	t.Parallel()
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
-	p.timer.Start()
+	sdktest.LandTick(t, p.timer.Start())
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
 	if cmd == nil {

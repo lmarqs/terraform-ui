@@ -800,8 +800,9 @@ func TestPlugin_WhenEnterOnTextField_ShouldSubmitNotEdit(t *testing.T) {
 }
 
 func TestResultFrame_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	t.Parallel()
 	var timer ui.Timer
-	timer.Start()
+	sdktest.LandTick(t, timer.Start())
 	rf := newTestResultFrame(&timer)
 
 	_, cmd := rf.Update(ui.TimerTickMsg{})

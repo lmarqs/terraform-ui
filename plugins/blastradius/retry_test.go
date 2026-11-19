@@ -29,8 +29,9 @@ func failedBlast(t *testing.T, kind string) (*Plugin, *sdktest.PluginDepsHarness
 	runBlastCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
 	switch kind {
 	case "cancelled":
-		p.Activate()
+		activation := p.Activate()
 		p.Cancel()
+		runBlastCmd(p, activation) // the runtime runs it all: the tick of a stopped timer ends at once, freeing the next Start
 	case "unusable assessment":
 		runBlastCmd(p, p.Activate())
 	}
@@ -62,7 +63,8 @@ func TestUpdate_GivenCtrlRInErrorState_ShouldIssueOneRequestForTheSameSummaryAnd
 func TestUpdate_GivenCtrlRInErrorState_ShouldRestartTheElapsedTimer(t *testing.T) {
 	p, _, _ := failedBlast(t, "cancelled")
 
-	p.Update(ctrlR)
+	_, retry := p.Update(ctrlR)
+	sdktest.LandTick(t, retry)
 
 	if _, next := p.Update(ui.TimerTickMsg{}); next == nil {
 		t.Fatal("tick after ctrl+r returned no next tick, so the retry's elapsed time would freeze")

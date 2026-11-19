@@ -117,9 +117,10 @@ func TestActivateWhileLoadingRestartsTick(t *testing.T) {
 	p.Init(h.Deps)
 
 	pp := p.(*Plugin)
-	pp.Activate(Input{})
+	sdktest.LandTick(t, pp.Activate(Input{JSON: true}))
 
-	// Simulate re-entering the plugin while plan is still loading
+	// Simulate re-entering the plugin while plan is still loading, after the
+	// first tick landed elsewhere and left the timer without one
 	cmd := pp.Activate(Input{})
 	if cmd == nil {
 		t.Error("Activate() while loading returned nil cmd, want tick cmd")

@@ -21,6 +21,9 @@ func runResult(t *testing.T, cmd tea.Cmd) actionResultMsg {
 		t.Fatal("Start() returned nil cmd")
 	}
 	msg := cmd()
+	if r, ok := msg.(actionResultMsg); ok {
+		return r // a restart inside the previous tick's second reuses that tick, so only the work remains
+	}
 	batch, ok := msg.(tea.BatchMsg)
 	if !ok {
 		t.Fatalf("Start() cmd produced %T, want tea.BatchMsg", msg)
@@ -35,6 +38,33 @@ func runResult(t *testing.T, cmd tea.Cmd) actionResultMsg {
 	}
 	t.Fatal("batch did not contain an actionResultMsg")
 	return actionResultMsg{}
+}
+
+// landTick runs cmd, descending into batches, until a tick comes back: a Timer
+// ignores a TimerTickMsg while its own tick Cmd is outstanding. It waits the
+// tick's real second.
+func landTick(t *testing.T, cmd tea.Cmd) {
+	t.Helper()
+	var land func(tea.Cmd) bool
+	land = func(c tea.Cmd) bool {
+		if c == nil {
+			return false
+		}
+		switch msg := c().(type) {
+		case ui.TimerTickMsg:
+			return true
+		case tea.BatchMsg:
+			landed := false
+			for _, child := range msg {
+				landed = land(child) || landed
+			}
+			return landed
+		}
+		return false
+	}
+	if !land(cmd) {
+		t.Fatal("cmd produced no ui.TimerTickMsg")
+	}
 }
 
 func taintLikeSpec(run func(ctx context.Context) ([]string, error)) ActionSpec {
@@ -162,7 +192,7 @@ func TestActionRunner_WhenNoOnSuccess_ShouldReturnNilOnDone(t *testing.T) {
 
 func TestActionRunner_WhenTimerTicks_ShouldHandleAndContinue(t *testing.T) {
 	a := newRunner(taintLikeSpec(func(context.Context) ([]string, error) { return nil, nil }))
-	a.Start() // starts the timer
+	landTick(t, a.Start()) // starts the timer; its tick lands before the message does
 
 	handled, cmd := a.Update(ui.TimerTickMsg{})
 	if !handled {

@@ -7,19 +7,28 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func pendingBlast(t *testing.T) (*Plugin, *sdk.PlanSummary) {
 	t.Helper()
+	p, summary, _ := pendingBlastActivation(t)
+	return p, summary
+}
+
+// pendingBlastActivation also returns the Cmd Activate answered with, for a
+// test that needs the first tick to land.
+func pendingBlastActivation(t *testing.T) (*Plugin, *sdk.PlanSummary, tea.Cmd) {
+	t.Helper()
 	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.a"}, Action: sdk.ActionUpdate}}}
 	p, _, _ := newBlastHarness(t, summary, sdk.PolicyAssessment{})
 	p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary})
-	p.Activate()
+	cmd := p.Activate()
 	if p.Status() != sdk.StatusLoading {
 		t.Fatalf("setup: status = %v, want loading", p.Status())
 	}
-	return p, summary
+	return p, summary, cmd
 }
 
 func TestView_GivenPendingAssessment_ShouldShowElapsedTimeInFaintItalic(t *testing.T) {
@@ -44,7 +53,8 @@ func TestHints_GivenPendingAssessment_ShouldShowOnlyEscBack(t *testing.T) {
 }
 
 func TestUpdate_GivenTimerTick_ShouldKeepTickingOnlyWhilePending(t *testing.T) {
-	p, summary := pendingBlast(t)
+	p, summary, activation := pendingBlastActivation(t)
+	sdktest.LandTick(t, activation)
 	if _, cmd := p.Update(ui.TimerTickMsg{}); cmd == nil {
 		t.Fatal("tick while pending returned no next tick, so the elapsed time would freeze")
 	}
