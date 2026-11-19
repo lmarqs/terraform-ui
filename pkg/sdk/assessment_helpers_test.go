@@ -146,7 +146,7 @@ func TestApplyAssessment_WhenRowsClassified_ShouldSetRiskByAddressAndDeposedKey(
 		{Address: "aws_instance.db", Status: ResourceNotAssessed, Exclusion: ExclusionNoOp, Level: levelPtr(RiskHigh)},
 	}}
 
-	got := ApplyAssessment(input, assessment)
+	got := ApplyAssessment(input, assessment.Rows())
 
 	want := []RiskLevel{RiskLow, RiskHigh, RiskNone, RiskNone}
 	if got == nil || len(got.Changes) != len(want) {
@@ -169,7 +169,7 @@ func TestApplyAssessment_WhenClassifiedRowHasNoLevel_ShouldSetRiskNone(t *testin
 		{Address: "aws_instance.web", Status: ResourceClassified},
 	}}
 
-	got := ApplyAssessment(input, assessment)
+	got := ApplyAssessment(input, assessment.Rows())
 
 	if got.Changes[0].Risk != RiskNone {
 		t.Errorf("Risk = %v, want %v", got.Changes[0].Risk, RiskNone)
@@ -199,7 +199,7 @@ func TestApplyAssessment_WhenCalled_ShouldNotMutateInput(t *testing.T) {
 		{Address: "aws_instance.web", Deposed: "0a1b2c3d", Status: ResourceClassified, Level: levelPtr(RiskMedium)},
 	}}
 
-	got := ApplyAssessment(input, assessment)
+	got := ApplyAssessment(input, assessment.Rows())
 
 	if got == input {
 		t.Fatal("ApplyAssessment returned the input pointer, want a copy")
@@ -219,7 +219,7 @@ func TestApplyAssessment_WhenCalled_ShouldNotMutateInput(t *testing.T) {
 	}
 }
 
-func TestApplyAssessment_WhenAssessmentNil_ShouldKeepExistingRisk(t *testing.T) {
+func TestApplyAssessment_WhenRowsNil_ShouldKeepExistingRisk(t *testing.T) {
 	input := &PlanSummary{Changes: []PlanChange{
 		planChange("aws_instance.web", "", RiskHigh),
 		planChange("aws_instance.web", "0a1b2c3d", RiskLow),
@@ -239,8 +239,26 @@ func TestApplyAssessment_WhenAssessmentNil_ShouldKeepExistingRisk(t *testing.T) 
 	}
 }
 
+func TestApplyAssessment_WhenRowsEmpty_ShouldResetUnclassifiedChangesToRiskNone(t *testing.T) {
+	input := &PlanSummary{Changes: []PlanChange{
+		planChange("aws_instance.web", "", RiskHigh),
+		planChange("aws_instance.web", "0a1b2c3d", RiskLow),
+	}}
+
+	got := ApplyAssessment(input, AssessmentRows{})
+
+	for i, change := range got.Changes {
+		if change.Risk != RiskNone {
+			t.Errorf("Changes[%d].Risk = %v, want %v", i, change.Risk, RiskNone)
+		}
+	}
+	if input.Changes[0].Risk != RiskHigh || input.Changes[1].Risk != RiskLow {
+		t.Errorf("input mutated: %+v", input.Changes)
+	}
+}
+
 func TestApplyAssessment_WhenSummaryNil_ShouldReturnNil(t *testing.T) {
-	if got := ApplyAssessment(nil, &PolicyAssessment{}); got != nil {
+	if got := ApplyAssessment(nil, AssessmentRows{}); got != nil {
 		t.Errorf("ApplyAssessment(nil, assessment) = %+v, want nil", got)
 	}
 	if got := ApplyAssessment(nil, nil); got != nil {
@@ -269,8 +287,9 @@ func BenchmarkApplyAssessment(b *testing.B) {
 		summary.Changes = append(summary.Changes, planChange(address, "", RiskCritical))
 		assessment.Resources = append(assessment.Resources, PolicyResourceAssessment{Address: address, Status: ResourceClassified, Level: levelPtr(RiskLow)})
 	}
+	rows := assessment.Rows()
 	b.ResetTimer()
 	for range b.N {
-		ApplyAssessment(summary, assessment)
+		ApplyAssessment(summary, rows)
 	}
 }

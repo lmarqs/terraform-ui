@@ -77,7 +77,7 @@ func (e *Plugin) resourceAssessment(key sdk.InstanceKey) sdk.PolicyResourceAsses
 }
 
 func (e *Plugin) analyzeAssessment() {
-	changes := sdk.ApplyAssessment(e.summary, e.assessment).Changes
+	changes := sdk.ApplyAssessment(e.summary, e.rows).Changes
 	e.total = len(changes)
 	e.modules = nil
 	for _, group := range sdk.GroupByModule(changes) {
