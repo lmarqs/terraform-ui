@@ -36,11 +36,13 @@ tfui -project ./infra         # Full TUI rooted at ./infra
 tfui -plan ./plan.json        # Full TUI with a pre-seeded plan (see Pre-seeded data)
 tfui -state ./terraform.tfstate  # Full TUI with pre-loaded state
 tfui -dry-run                  # Full TUI that records terraform commands instead of running them
+tfui -target aws_instance.web  # Full TUI with aws_instance.web already pinned
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
 | `-dry-run` | `false` | Record terraform commands instead of running them; print them to stdout on exit |
+| `-target` | | Start with this resource address pinned (repeatable, taken verbatim) |
 
 `-dry-run` runs the same interactive TUI against the recording service that `-macro` uses, so no terraform command
 runs and no state changes. The Console plugin runs `terraform console` itself, so a dry run leaves it out of the
@@ -62,6 +64,15 @@ tfui -dry-run -record ./session/                      # frames, tape and command
 ```
 
 `-dry-run` belongs to `tfui` with no command; a subcommand rejects it as an unknown flag.
+
+`-target` on `tfui` with no command pins each address, so the session starts with that selection and you add or
+remove pins as usual. A pin is not a target until you plan: opening Plan runs `terraform plan -target=<address>`
+for each pin, and apply runs the plan file that plan produced. Repeat the flag per address; each value is taken
+verbatim, as on `tfui plan`. tfui does not check the addresses against the state or the plan: after a plan, a pin
+with no change in it is dropped, as with pins set by hand. The pins belong to the first chdir the session opens,
+`-chdir` or the one you pick at startup, and end on the next chdir or workspace switch, like every pin. With
+`-dry-run`, the recorded `terraform plan` carries the pins as `-target` flags. On `tfui plan` and `tfui apply`,
+`-target` is the terraform target of that command, not a pin.
 
 ### `tfui plan`
 
