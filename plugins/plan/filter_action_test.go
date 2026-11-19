@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
-// actionFilterChanges gives every address a hyphen and a plus-free name so a
-// fuzzy match on "-" would keep creates and updates too: only the action filter
-// keeps just the deletes.
+// actionFilterChanges gives every address a hyphen, so a fuzzy match on "-"
+// would keep all of them: only the action filter keeps just the delete.
 func actionFilterChanges() []sdk.PlanChange {
 	return []sdk.PlanChange{
 		{Resource: sdk.Resource{Address: "aws_instance.web-1"}, Action: sdk.ActionCreate},
@@ -151,5 +151,49 @@ func TestPlugin_SetFilter_WhenNoChangeHasTheAction_ShouldShowNoMatches(t *testin
 	view := p.View(80, 20)
 	if !strings.Contains(view, "No matching changes.") || !strings.Contains(view, "~") {
 		t.Errorf("View() = %q, want the filter indicator and \"No matching changes.\"", view)
+	}
+}
+
+func TestPlugin_FilterFrame_WhenTypingActionSymbolKeyByKey_ShouldSwitchBetweenActionAndFuzzy(t *testing.T) {
+	p := newActionFilterPlugin()
+	p.status = sdk.StatusDone
+	key := func(r rune) { p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}}) }
+
+	key('/')
+	for _, step := range []struct {
+		typed rune
+		want  []string
+	}{
+		{'-', []string{"aws_instance.web-3"}},
+		{'/', nil},
+		{'+', []string{"aws_instance.db-1", "aws_instance.db-2"}},
+	} {
+		key(step.typed)
+		if step.want != nil {
+			if got := filteredAddresses(p); !reflect.DeepEqual(got, step.want) {
+				t.Fatalf("after typing %q (filter %q): filtered = %v, want %v", step.typed, p.filter, got, step.want)
+			}
+			continue
+		}
+		if p.filter != "-/" || len(p.filtered) != 0 {
+			t.Fatalf("after typing %q: filter = %q, filtered = %v, want \"-/\" matching no address", step.typed, p.filter, filteredAddresses(p))
+		}
+	}
+
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyBackspace})
+	if got := filteredAddresses(p); !reflect.DeepEqual(got, []string{"aws_instance.web-3"}) {
+		t.Errorf("after backspacing to %q: filtered = %v, want the delete", p.filter, got)
+	}
+
+	// Esc leaves filter mode and keeps the filter applied, as for a fuzzy filter.
+	p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	if p.filtering || p.filter != "-" || !reflect.DeepEqual(filteredAddresses(p), []string{"aws_instance.web-3"}) {
+		t.Errorf("after esc: filtering = %v, filter = %q, filtered = %v, want the delete kept", p.filtering, p.filter, filteredAddresses(p))
+	}
+
+	key('/')
+	if p.filter != "" || len(p.filtered) != 6 || p.filterScores != nil {
+		t.Errorf("after reopening the filter: filter = %q, rows = %d, scores = %v, want an empty filter and all 6 rows", p.filter, len(p.filtered), p.filterScores)
 	}
 }
