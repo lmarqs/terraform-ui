@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	sdkui "github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func drainPolicyAppCommand(app *App, cmd tea.Cmd) {
@@ -18,6 +19,9 @@ func drainPolicyAppCommand(app *App, cmd tea.Cmd) {
 			drainPolicyAppCommand(app, sub)
 		}
 		return
+	}
+	if _, ok := msg.(sdkui.TimerTickMsg); ok {
+		return // a tick advances the clock, not the assessment, and would chain forever while one is pending
 	}
 	model, next := app.Update(msg)
 	*app = model.(App)

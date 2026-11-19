@@ -27,6 +27,9 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 }
 func (f *listFrame) View(width, height int) string { return f.plugin.View(width, height) }
 func (f *listFrame) Hints() []sdk.KeyHint {
+	if f.plugin.outcome.kind == outcomeLoading {
+		return sdk.HintSetBack.Hints()
+	}
 	if f.plugin.Ready() && len(f.plugin.items) > 0 {
 		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
 	}

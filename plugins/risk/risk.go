@@ -43,6 +43,7 @@ type Plugin struct {
 	configured      *sdk.RiskLevel
 	threshold       *sdk.RiskLevel
 	settingsInvalid bool
+	timer           ui.Timer
 }
 
 // New creates a new risk analysis plugin.
@@ -153,6 +154,8 @@ func (e *Plugin) analyze(summary *sdk.PlanSummary, rows sdk.AssessmentRows) {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
 	case tea.KeyMsg:
 		return e, e.stack.Update(msg)
 	}
@@ -196,8 +199,7 @@ func (e *Plugin) View(width, height int) string {
 	case outcomeIdle:
 		return sdk.StyleFaintItalic.Render("Run a plan first to analyze risk...")
 	case outcomeLoading:
-		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
-
+		return sdk.StyleFaintItalic.Render("Loading risk assessment... " + e.timer.FormatElapsed())
 	case outcomeDone:
 		return e.renderAnalysis(width, height)
 	case outcomeUnusable:
