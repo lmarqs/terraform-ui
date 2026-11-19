@@ -81,13 +81,14 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 // hostFailure says why the host returned no plan: terraform's own error, or the
 // code of the policy failure that stopped the host before it planned.
 func hostFailure(ev sdk.RiskAssessedEvent) string {
+	const prefix = "plan unavailable"
 	switch {
 	case ev.Err != nil:
-		return "plan unavailable: " + ev.Err.Error()
+		return prefix + ": " + ev.Err.Error()
 	case ev.Assessment.ErrorCode != "":
-		return "risk unavailable: " + sdk.DiagnosticError{Code: ev.Assessment.ErrorCode, Hint: ev.Hint}.Error()
+		return prefix + ": " + sdk.DiagnosticError{Code: ev.Assessment.ErrorCode, Hint: ev.Hint}.Error()
 	}
-	return "risk unavailable"
+	return prefix
 }
 
 // setAssessment keeps rows indexing the assessment's rows.

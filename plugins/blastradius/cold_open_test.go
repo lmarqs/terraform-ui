@@ -67,8 +67,8 @@ func TestHandleRiskAssessed_GivenHostFailureWithoutPlan_ShouldShowItWithRetryAnd
 		{"policy failure", sdk.RiskAssessedEvent{
 			Assessment: sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorConfigurationInvalid},
 			Hint:       "fix tfui.hcl",
-		}, []string{"risk unavailable: configuration_invalid", "hint: fix tfui.hcl"}},
-		{"no reason", sdk.RiskAssessedEvent{}, []string{"risk unavailable"}},
+		}, []string{"plan unavailable: configuration_invalid", "hint: fix tfui.hcl"}},
+		{"no reason", sdk.RiskAssessedEvent{}, []string{"plan unavailable"}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p, h, _ := coldBlast(t, tc.ev)
@@ -109,5 +109,19 @@ func TestUpdate_GivenEscOrCancelWhileHostPlans_ShouldLeaveAndIgnoreTheLateResult
 
 	if view := ansi.Strip(p.View(120, 40)); p.Status() != sdk.StatusError || view != "risk unavailable: cancelled" {
 		t.Fatalf("status=%v view=%q; want the cancellation kept after a late host result", p.Status(), view)
+	}
+}
+
+func TestHandleContextChanged_GivenEventWithoutContext_ShouldKeepTheRequestInFlight(t *testing.T) {
+	p, _, _ := coldBlast(t, classifiedEvent(eventSummary(), sdk.RiskLow, "Host classification."))
+	if cmd := p.HandleContextChanged(sdk.ContextChangedEvent{}); cmd != nil || p.Status() != sdk.StatusIdle {
+		t.Fatalf("empty context event on an idle plugin: cmd=%v status=%v; want nothing", cmd != nil, p.Status())
+	}
+	p.Activate()
+
+	p.HandleContextChanged(sdk.ContextChangedEvent{})
+
+	if p.Status() != sdk.StatusLoading || !p.Busy() {
+		t.Fatalf("empty context event while the host plans: status=%v busy=%v; want the request kept", p.Status(), p.Busy())
 	}
 }

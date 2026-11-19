@@ -58,10 +58,14 @@ Home ──B──→ Blast Radius (loading) ──→ Blast Radius (list)
                   │                         └── Esc / q → Home
                   ├── Esc → Home (cancels the request)
                   │
-                  └──→ Blast Radius (error: cancelled or unusable assessment)
+                  └──→ Blast Radius (error: cancelled, unusable assessment,
+                       or, with no plan run, "plan unavailable: ..." for a
+                       terraform error or a policy failure with its hint)
                           ├── Ctrl+r → Blast Radius (loading)   (request again)
                           └── Esc → Home
 ```
+
+While the host runs `terraform plan` for a cold open, `Esc` cancels the request and goes Home; `q` goes Home without cancelling it, as in Risk.
 
 ## Command Line (CLI)
 
