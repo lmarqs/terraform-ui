@@ -1,3 +1,15 @@
+# [1.33.0](https://github.com/lmarqs/terraform-ui/compare/v1.32.1...v1.33.0) (2026-11-19)
+
+
+### Bug Fixes
+
+* **risk:** rebuild the groups on every analyze instead of appending ([bbb551b](https://github.com/lmarqs/terraform-ui/commit/bbb551be6d4cdac5e1be720b65b38c285123c394))
+
+
+### Features
+
+* **sdk:** order instance keys by address then deposed key ([99b9d0a](https://github.com/lmarqs/terraform-ui/commit/99b9d0a30859e237ea866b64a15baa52aa721a33))
+
 ## [1.32.1](https://github.com/lmarqs/terraform-ui/compare/v1.32.0...v1.32.1) (2026-11-19)
 
 
