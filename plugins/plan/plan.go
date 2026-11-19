@@ -659,11 +659,11 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 }
 
 // selects reports whether pin, read as a terraform -target, selects address:
-// the address itself, a module above it, or its resource without the
-// instance key. A root -target pin can be any of these.
+// the address itself, or its resource when a root -target pin omits the
+// instance key.
 func selects(pin, address string) bool {
 	rest, ok := strings.CutPrefix(address, pin)
-	return ok && (rest == "" || rest[0] == '.' || rest[0] == '[')
+	return ok && (rest == "" || rest[0] == '[')
 }
 
 func (e *Plugin) clearAllPins() tea.Cmd {

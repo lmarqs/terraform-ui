@@ -9,13 +9,13 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
 
-// A -target pin can be a terraform selector (a module path, or a resource
-// without its instance key) rather than one changed address.
-func TestPlugin_WhenPruneStalePinsWithSelectorPins_ShouldKeepThoseThatCoverAChange(t *testing.T) {
+// A root -target pin can name a resource without its instance key, which
+// terraform reads as all of that resource's instances.
+func TestPlugin_WhenPruneStalePinsWithResourcePins_ShouldKeepThoseOverChangedInstances(t *testing.T) {
 	changes := []sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "module.networking.aws_vpc.main"}},
 		{Resource: sdk.Resource{Address: `module.app["blue"].aws_instance.api`}},
 		{Resource: sdk.Resource{Address: "aws_instance.web[0]"}},
+		{Resource: sdk.Resource{Address: `aws_s3_bucket.logs["k"]`}},
 		{Resource: sdk.Resource{Address: "aws_instance.webserver"}},
 	}
 	tests := []struct {
@@ -23,13 +23,12 @@ func TestPlugin_WhenPruneStalePinsWithSelectorPins_ShouldKeepThoseThatCoverAChan
 		pin       string
 		wantStale bool
 	}{
-		{name: "module path", pin: "module.networking"},
-		{name: "module path over keyed instances", pin: "module.app"},
 		{name: "resource over its indexed instances", pin: "aws_instance.web"},
+		{name: "resource over its keyed instances", pin: "aws_s3_bucket.logs"},
 		{name: "exact address", pin: "aws_instance.webserver"},
-		{name: "prefix without a boundary", pin: "module.net", wantStale: true},
+		{name: "exact address in a module instance", pin: `module.app["blue"].aws_instance.api`},
 		{name: "resource name prefix", pin: "aws_instance.webs", wantStale: true},
-		{name: "no change under it", pin: "module.storage", wantStale: true},
+		{name: "no change under it", pin: "aws_instance.db", wantStale: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -46,16 +45,16 @@ func TestPlugin_WhenPruneStalePinsWithSelectorPins_ShouldKeepThoseThatCoverAChan
 	}
 }
 
-// Pruning a module pin marks the plan stale, so `A` would replan untargeted
+// Pruning a resource pin over its instances marks the plan stale, so `A` would replan untargeted
 // and auto-apply the wider plan.
-func TestPlugin_WhenModulePinPlanCompletes_ShouldAutoApplyThatPlanWithoutReplanning(t *testing.T) {
+func TestPlugin_WhenResourcePinPlanCompletes_ShouldAutoApplyThatPlanWithoutReplanning(t *testing.T) {
 	p, h := newTestPluginWithHarness(&sdktest.MockService{})
-	h.Ctx.Pins = []string{"module.networking"}
+	h.Ctx.Pins = []string{"aws_instance.web"}
 	p.status = sdk.StatusLoading
-	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-module-pin.tfplan")
+	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-resource-pin.tfplan")
 
 	_, cmd := p.Update(PlanResultMsg{Summary: &sdk.PlanSummary{
-		Changes:  []sdk.PlanChange{{Resource: sdk.Resource{Address: "module.networking.aws_vpc.main"}, Action: sdk.ActionCreate}},
+		Changes:  []sdk.PlanChange{{Resource: sdk.Resource{Address: "aws_instance.web[0]"}, Action: sdk.ActionCreate}},
 		ToCreate: 1,
 	}})
 	if batch, ok := cmd().(tea.BatchMsg); ok {
@@ -66,11 +65,11 @@ func TestPlugin_WhenModulePinPlanCompletes_ShouldAutoApplyThatPlanWithoutReplann
 		}
 	}
 	if len(h.PinRequests) != 0 {
-		t.Fatalf("plan completion toggled pins %q, want the module pin kept", h.PinRequests)
+		t.Fatalf("plan completion toggled pins %q, want the resource pin kept", h.PinRequests)
 	}
 
 	req, ok := p.requestAutoApply()().(ApplyRequestMsg)
-	if !ok || req.PlanFile != "/tmp/tfui-module-pin.tfplan" || !req.AutoApprove {
+	if !ok || req.PlanFile != "/tmp/tfui-resource-pin.tfplan" || !req.AutoApprove {
 		t.Errorf("A emitted %#v, want an auto-approved apply of the reviewed plan file", req)
 	}
 	if p.pendingApply {
