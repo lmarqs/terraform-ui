@@ -120,8 +120,9 @@ flow. Older browser mockups are visual experiments, not authority for Apply beha
 Group headings are not navigable resources. Show the standard scroll gutter and `[cursor/navigable]` title
 counter. Show at most two changed attribute paths under each resource, with `+N more` for overflow; inspection
 shows every diff and validated reason. Collapse long values to fit, preserving action/replacement order,
-`(known after apply)` and `(sensitive)` notation. Group unavailable resources first, then critical through none;
-within groups sort by address. Explicit `none`, `No eligible mutations`, and `Risk unavailable` have distinct
+`(sensitive)` notation and the `(known after apply)` of a wholly unknown value; a partly unknown value truncates
+like any other. Group unavailable resources first, then critical through none; within groups sort by address.
+Explicit `none`, `No eligible mutations`, and `Risk unavailable` have distinct
 headings. Narrow layouts may wrap or truncate display values, never replace an unavailable badge with a level.
 
 ## Input v1
@@ -364,9 +365,8 @@ established, mark assessment unavailable. This task does not change global handl
 
 Accept a regular `.rego` file as one module, or a directory's immediate regular `.rego` files sorted by filename.
 Exclude `*_test.rego`; ignore other regular files and subdirectories. No recursion, bundles, JSON/YAML data or
-implicit import lookup. Reject a selected test file, a directory with no production modules, and symlinks at the
-selected path, any ancestor path component, or an eligible module entry. This deliberately modest local-loader
-boundary is not a hostile-filesystem sandbox. Resolve lexical absolute paths without following symlinks.
+implicit import lookup. Reject a selected test file and a directory with no production modules. This deliberately
+modest local-loader boundary is not a hostile-filesystem sandbox.
 
 A file's logical module name is its basename; directory modules use immediate filenames. Read exact bytes into
 an immutable snapshot before compiling. Imports resolve only against that snapshot. Missing helper imports,

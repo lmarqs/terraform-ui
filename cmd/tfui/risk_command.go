@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -31,14 +32,14 @@ func buildRiskCommand(s *Session) *cobra.Command {
 			if s.rootCfg != nil {
 				project, err := filepath.Rel(cwd, s.cfg.Dir)
 				if err != nil {
-					return err
+					return fmt.Errorf("resolving project directory: %w", err)
 				}
 				input.Project = &project
 				origin = s.cfg.Dir
 			}
 			input.Chdir, err = filepath.Rel(origin, effectiveWorkDir(s.cfg))
 			if err != nil {
-				return err
+				return fmt.Errorf("resolving chdir: %w", err)
 			}
 			return s.RunPlugin(cmd.Context(), "risk", func(p sdk.Plugin) tea.Cmd { return p.(*tfuirisk.Plugin).ActivateInput(input) })
 		},

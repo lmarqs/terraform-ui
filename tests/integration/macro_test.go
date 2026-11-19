@@ -36,6 +36,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "partly unknown attribute keeps its known keys",
+			tapeFile: tape("partly_unknown.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "partly-unknown-plan.json")},
+			wantExit: 0,
+		},
+		{
 			name:     "risk selected policy unavailable",
 			tapeFile: tape("risk-policy-unavailable.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},
