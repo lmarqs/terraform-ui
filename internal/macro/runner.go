@@ -1,6 +1,7 @@
 package macro
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -48,13 +49,17 @@ func (r *Runner) WithRecorder(rec *Recorder) {
 	r.recorder = rec
 }
 
-func (r *Runner) Execute(commands []Command) error {
+func (r *Runner) Execute(ctx context.Context, commands []Command) error {
 	r.driver.Init()
 	r.captureFrame()
 
 	var execErr error
 	for _, cmd := range commands {
-		if err := r.executeOne(cmd); err != nil {
+		if err := ctx.Err(); err != nil {
+			execErr = err
+			break
+		}
+		if err := r.executeOne(ctx, cmd); err != nil {
 			execErr = err
 			break
 		}
@@ -78,28 +83,21 @@ func (r *Runner) captureFrame() {
 	r.recorder.CaptureView(r.driver.View())
 }
 
-func (r *Runner) executeOne(cmd Command) error {
+func (r *Runner) executeOne(ctx context.Context, cmd Command) error {
 	switch cmd.Type {
 	case CmdKey:
 		r.driver.SendKey(cmd.Args[0])
 
 	case CmdWaitReady:
-		err := r.driver.WaitUntil(func(v string) bool {
+		return r.wait(ctx, cmd.Line, "timeout waiting for ready", func(v string) bool {
 			return v != "" && !strings.Contains(v, "Loading")
-		}, r.timeout)
-		if err != nil {
-			return &RunError{Code: ExitTimeout, Line: cmd.Line, Message: "timeout waiting for ready"}
-		}
+		})
 
 	case CmdWaitView:
 		substr := cmd.Args[0]
-		err := r.driver.WaitUntil(func(v string) bool {
+		return r.wait(ctx, cmd.Line, fmt.Sprintf("timeout waiting for view to contain %q", substr), func(v string) bool {
 			return strings.Contains(v, substr)
-		}, r.timeout)
-		if err != nil {
-			return &RunError{Code: ExitTimeout, Line: cmd.Line,
-				Message: fmt.Sprintf("timeout waiting for view to contain %q", substr)}
-		}
+		})
 
 	case CmdAssertView:
 		substr := cmd.Args[0]
@@ -125,13 +123,29 @@ func (r *Runner) executeOne(cmd Command) error {
 
 	case CmdSleep:
 		dur, _ := time.ParseDuration(cmd.Args[0])
-		time.Sleep(dur)
+		timer := time.NewTimer(dur)
+		defer timer.Stop()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-timer.C:
+		}
 
 	case CmdEmit:
 		r.driver.SendMsg(buildEmitMsg(cmd.Args))
 	}
 
 	return nil
+}
+
+// wait runs a wait command: a cancelled ctx ends it with ctx's error, the
+// timeout with a RunError.
+func (r *Runner) wait(ctx context.Context, line int, timeoutMessage string, predicate func(view string) bool) error {
+	err := r.driver.WaitUntil(ctx, predicate, r.timeout)
+	if err == nil || ctx.Err() != nil {
+		return err
+	}
+	return &RunError{Code: ExitTimeout, Line: line, Message: timeoutMessage}
 }
 
 func buildEmitMsg(args []string) tea.Msg {

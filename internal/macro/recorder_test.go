@@ -1,6 +1,7 @@
 package macro
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -400,7 +401,7 @@ func TestRunner_WhenRecorderAttached_ShouldCaptureFrames(t *testing.T) {
 		{Type: CmdKey, Args: []string{"s"}},
 	}
 
-	if err := runner.Execute(commands); err != nil {
+	if err := runner.Execute(context.Background(), commands); err != nil {
 		t.Fatal(err)
 	}
 

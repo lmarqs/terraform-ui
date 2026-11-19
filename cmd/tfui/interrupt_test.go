@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"io"
 	"os"
 	"reflect"
 	"strconv"
@@ -26,6 +27,7 @@ type interruptHarness struct {
 	running      bool
 	terminalHeld atomic.Bool
 	heldChecks   chan struct{}
+	heldGate     chan struct{}
 
 	shutdownBlock   chan struct{}
 	shutdownStarted chan struct{}
@@ -86,8 +88,14 @@ func (h *interruptHarness) endRun() {
 }
 
 // held reports terminalHeld and, while it is set, tells the test that a
-// signal was checked against it.
+// signal was checked against it. With heldGate set, it tells the test and
+// holds the signal until the gate closes, then reports the terminal free.
 func (h *interruptHarness) held() bool {
+	if h.heldGate != nil {
+		h.heldChecks <- struct{}{}
+		<-h.heldGate
+		return false
+	}
 	if !h.terminalHeld.Load() {
 		return false
 	}
@@ -445,5 +453,62 @@ func TestInterruptGuard_ShutdownAfterForcedExit_ShouldNotRunShutdownAgain(t *tes
 	want := []string{"interrupt", "endRun", "stderr:" + forcedExitNote, "shutdown", "exit:130"}
 	if got := h.snapshot(); !reflect.DeepEqual(got, want) {
 		t.Errorf("events = %v, want %v", got, want)
+	}
+}
+
+func TestInterruptGuard_SignalPendingWhenStopRuns_ShouldExitBeforeStopReturns(t *testing.T) {
+	tests := []struct {
+		name     string
+		sig      os.Signal
+		wantCode int
+		wantExit string
+	}{
+		{"SIGINT exits 130", syscall.SIGINT, 130, "exit:130"},
+		{"SIGTERM exits 143", syscall.SIGTERM, 143, "exit:143"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h := newInterruptHarness(t, true, false, false)
+			h.heldGate = make(chan struct{})
+			h.guard.Finish()
+			h.signals <- tt.sig
+			awaitInterrupt(t, h.heldChecks, "watcher to take the signal")
+
+			stopped := make(chan struct{})
+			go func() {
+				defer close(stopped)
+				h.guard.stop(func() { close(h.signals) })
+				h.record("stopped")
+			}()
+			select {
+			case <-stopped:
+				t.Fatal("stop returned before the watcher handled the pending signal")
+			case <-time.After(50 * time.Millisecond):
+			}
+			close(h.heldGate)
+
+			awaitInterrupt(t, stopped, "stop to return")
+			want := []string{"interrupt", "shutdown", tt.wantExit, "stopped"}
+			if got := h.snapshot(); !reflect.DeepEqual(got, want) {
+				t.Errorf("events = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func TestInterruptGuard_StopWithoutWatch_ShouldRunShutdownAndReturn(t *testing.T) {
+	signals := make(chan os.Signal, 1)
+	shutdowns := 0
+	guard := newInterruptGuard(noTerraformRuns{}, signals, false, func() bool { return false }, io.Discard,
+		func() { shutdowns++ }, func(code int) { t.Errorf("exit(%d) without a signal", code) })
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		guard.stop(func() { close(signals) })
+	}()
+
+	awaitInterrupt(t, stopped, "stop to return without a watcher")
+	if shutdowns != 1 {
+		t.Errorf("shutdown ran %d times, want 1", shutdowns)
 	}
 }

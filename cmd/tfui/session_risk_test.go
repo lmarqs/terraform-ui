@@ -93,7 +93,7 @@ esac
 	driver := macro.NewDriver(app, 120, 40)
 	driver.Init()
 	driver.SendMsg(sdk.NavigateMsg{PluginID: "plan"})
-	if err := driver.WaitUntil(func(string) bool { return plan.Assessment() != nil }, 5*time.Second); err != nil {
+	if err := driver.WaitUntil(context.Background(), func(string) bool { return plan.Assessment() != nil }, 5*time.Second); err != nil {
 		t.Fatalf("live Plan did not finish: %v; view %q", err, driver.View())
 	}
 	planAssessment := plan.Assessment()
@@ -101,7 +101,7 @@ esac
 	driver.SendMsg(sdk.NavigateMsg{PluginID: "risk"})
 	p, _ := registry.ByID("risk")
 	risk := p.(*tfuirisk.Plugin)
-	if err := driver.WaitUntil(func(string) bool { return risk.Ready() }, 5*time.Second); err != nil {
+	if err := driver.WaitUntil(context.Background(), func(string) bool { return risk.Ready() }, 5*time.Second); err != nil {
 		t.Fatalf("live Risk did not finish: %v; view %q", err, driver.View())
 	}
 	assertSelectedSessionAssessment(t, planAssessment, risk.Assessment(), []byte(sessionPlanJSON))

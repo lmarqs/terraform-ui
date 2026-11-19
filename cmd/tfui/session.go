@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"sync/atomic"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -127,9 +126,9 @@ func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
 
 func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuard) (ui.App, error) {
 	if s.macro.Active() {
-		// A tape runs against MacroService, which starts no terraform and
-		// whose steps time out on their own, so the run ends by itself.
-		guard.Watch(func() {})
+		playback, stopPlayback := context.WithCancel(context.Background())
+		defer stopPlayback()
+		guard.Watch(stopPlayback)
 		driver := macro.NewDriver(app, 80, 24)
 		if tape != nil {
 			runner := macro.NewRunner(driver)
@@ -137,7 +136,7 @@ func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuar
 				rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
 				runner.WithRecorder(rec)
 			}
-			return app, runner.Execute(tape)
+			return app, runner.Execute(playback, tape)
 		}
 		return app, nil
 	}
@@ -309,8 +308,9 @@ func (s *Session) runStandalone(app ui.App, registry *plugin.Registry, pluginID 
 		return err
 	}
 
-	var interrupted atomic.Bool
-	guard.Watch(func() { interrupted.Store(true) })
+	run, endRun := context.WithCancel(context.Background())
+	defer endRun()
+	guard.Watch(endRun)
 	driver := macro.NewDriver(app, 80, 24)
 	if tape != nil {
 		runner := macro.NewRunner(driver)
@@ -318,13 +318,10 @@ func (s *Session) runStandalone(app ui.App, registry *plugin.Registry, pluginID 
 			rec := macro.NewRecorder(nil, s.macro.RecordDir, 80, 24)
 			runner.WithRecorder(rec)
 		}
-		return runner.Execute(tape)
+		return runner.Execute(run, tape)
 	}
 	driver.Init()
-	return driver.WaitUntil(func(_ string) bool {
-		if interrupted.Load() {
-			return true
-		}
+	return driver.WaitUntil(run, func(_ string) bool {
 		if p, ok := registry.ByID(pluginID); ok {
 			return p.Ready() || terminalStatus(p)
 		}

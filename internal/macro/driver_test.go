@@ -1,6 +1,7 @@
 package macro
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -90,13 +91,13 @@ func TestDriver_WhenWaitUntilConditionMet_ShouldSucceed(t *testing.T) {
 	d := NewDriver(model, 80, 24)
 
 	// Already satisfied
-	err := d.WaitUntil(func(v string) bool { return v == "waiting" }, 100*time.Millisecond)
+	err := d.WaitUntil(context.Background(), func(v string) bool { return v == "waiting" }, 100*time.Millisecond)
 	if err != nil {
 		t.Errorf("should succeed immediately: %v", err)
 	}
 
 	// Timeout
-	err = d.WaitUntil(func(v string) bool { return v == "never" }, 50*time.Millisecond)
+	err = d.WaitUntil(context.Background(), func(v string) bool { return v == "never" }, 50*time.Millisecond)
 	if err == nil {
 		t.Error("should timeout")
 	}
@@ -239,7 +240,7 @@ func TestDriver_WhenWaitUntilCalled_ShouldPumpTicksToModel(t *testing.T) {
 	model := delayedProgressModel{}
 	d := NewDriver(model, 80, 24)
 
-	err := d.WaitUntil(func(v string) bool { return strings.Contains(v, "ready") }, 500*time.Millisecond)
+	err := d.WaitUntil(context.Background(), func(v string) bool { return strings.Contains(v, "ready") }, 500*time.Millisecond)
 	if err != nil {
 		t.Errorf("WaitUntil should succeed by pumping ticks into the model, but got: %v", err)
 	}

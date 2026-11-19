@@ -34,6 +34,8 @@ type interruptGuard struct {
 	stderr          io.Writer
 	shutdown        func()
 	exit            func(int)
+	done            chan struct{}
+	watching        bool
 
 	mu           sync.Mutex
 	received     os.Signal
@@ -56,6 +58,7 @@ func newInterruptGuard(runs terraformRuns, signals <-chan os.Signal, ownProcessG
 		stderr:          stderr,
 		shutdown:        shutdown,
 		exit:            exit,
+		done:            make(chan struct{}),
 	}
 }
 
@@ -65,9 +68,12 @@ func newInterruptGuard(runs terraformRuns, signals <-chan os.Signal, ownProcessG
 // process group (otherwise the terminal already signalled it), and calls
 // endRun. A later signal, or any signal while Finish runs, forces the exit.
 // A signal after Finish returned, when terraform has finished, exits after
-// plugin cleanup without the forced-exit note.
+// plugin cleanup without the forced-exit note. Watch closes done when it
+// stops reading.
 func (g *interruptGuard) Watch(endRun func()) {
+	g.watching = true
 	go func() {
+		defer close(g.done)
 		for sig := range g.signals {
 			if g.terminalHeld() {
 				continue
@@ -120,6 +126,20 @@ func (g *interruptGuard) exitBy(sig os.Signal) {
 // call waits for that run to end.
 func (g *interruptGuard) shutdownOnce() {
 	g.shutdownDone.Do(g.shutdown)
+}
+
+// stop runs plugin cleanup unless a signal already ran it, then calls release
+// to give the signals back and close their channel, and waits for the watcher.
+// A signal that arrived before release is still handled: its watcher exits the
+// process during that wait, so the run cannot end with its own exit code.
+// Without a watcher, as after a panic before Watch, it does not wait.
+// A stderr that is never drained can stall the wait, as it stalls the TUI.
+func (g *interruptGuard) stop(release func()) {
+	g.shutdownOnce()
+	release()
+	if g.watching {
+		<-g.done
+	}
 }
 
 // Finish runs once the program or headless driver returned. Without a prior
@@ -180,8 +200,9 @@ func startInterruptGuard(svc sdk.Service, stderr io.Writer, cleanup func()) (*in
 	guard := newInterruptGuard(terraformRunsOf(svc), signals, tfexec.TerraformHasOwnProcessGroup,
 		editor.HoldsTerminal, stderr, cleanup, os.Exit)
 	return guard, func() {
-		guard.shutdownOnce()
-		signal.Stop(signals)
-		close(signals)
+		guard.stop(func() {
+			signal.Stop(signals)
+			close(signals)
+		})
 	}
 }
