@@ -36,6 +36,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "risk list jumps pans and wraps like plan",
+			tapeFile: tape("risk_navigation.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-render-plan.json")},
+			wantExit: 0,
+		},
+		{
 			name:     "partly unknown attribute keeps its known keys",
 			tapeFile: tape("partly_unknown.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "partly-unknown-plan.json")},

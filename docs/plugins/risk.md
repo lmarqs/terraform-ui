@@ -38,7 +38,10 @@ gutter appears when the list exceeds the viewport.
 
 | Key | Action | When |
 |-----|--------|------|
-| `j` / `k` / arrows | Navigate resources | Mutation list |
+| `j` / `k` / `↑` / `↓` | Navigate resources | Mutation list |
+| `g` / `G` | Jump to the first / last mutation | Mutation list |
+| `←` / `→` | Scroll the list horizontally when wrapping is off | Mutation list |
+| `Ctrl+w` | Toggle wrapping | Mutation list |
 | `Enter` | Inspect the selected mutation's full diff and reasons | Mutation list |
 | `↑` / `↓`, `g` / `G` | Scroll detail; jump to start/end | Inspection |
 | `←` / `→` | Scroll horizontally when wrapping is off | Inspection |

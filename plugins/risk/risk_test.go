@@ -459,7 +459,7 @@ func TestView_WhenManyChanges_ShouldHandleScrolling(t *testing.T) {
 func TestHints_WhenStatusDoneWithGroups_ShouldOfferInspectAndQuit(t *testing.T) {
 	p := newAnalyzedPlugin(t, lifecycleSummary("aws_instance.web"))
 	hints := p.Hints()
-	want := (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
+	want := (sdk.HintSetInspect | sdk.HintSetWrap | sdk.HintSetQuit).Hints()
 	if len(hints) != len(want) {
 		t.Fatalf("Hints() = %v, want %v", hints, want)
 	}

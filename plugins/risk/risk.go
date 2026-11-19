@@ -168,8 +168,19 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) {
 		e.moveDown()
 	case "k", "up":
 		e.moveUp()
+	case "g":
+		e.selected = 0
+	case "G":
+		e.selected = max(0, len(e.items)-1)
+	case "left", "right", "ctrl+w":
+		if e.navigable() {
+			e.panel.HandleKey(msg)
+		}
 	}
 }
+
+// navigable reports whether the list shows rows to move through and pan.
+func (e *Plugin) navigable() bool { return e.Ready() && len(e.items) > 0 }
 
 func (e *Plugin) moveUp() {
 	if e.selected > 0 {

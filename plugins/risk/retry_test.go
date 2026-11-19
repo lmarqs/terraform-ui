@@ -167,7 +167,7 @@ func TestHints_GivenErrorState_ShouldOfferOnlyKeysThatWork(t *testing.T) {
 	}{
 		{"plan failed", "plan failed", retryBack},
 		{"unusable", "unusable", retryBack},
-		{"unusable with items", "unusable with items", (sdk.HintSetInspect | sdk.HintSetRetry | sdk.HintSetBack).Hints()},
+		{"unusable with items", "unusable with items", (sdk.HintSetInspect | sdk.HintSetWrap | sdk.HintSetRetry | sdk.HintSetBack).Hints()},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			p, _, _ := failedRisk(t, tc.kind)
