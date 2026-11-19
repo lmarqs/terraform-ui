@@ -5,10 +5,6 @@ import (
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
-// Busy is always false: Blast Radius assesses a plan it holds, so the host runs
-// no Terraform for it. Ready covers headless waiting for the assessment.
-func (e *Plugin) Busy() bool { return false }
-
 // Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
 	if e.status == sdk.StatusLoading {

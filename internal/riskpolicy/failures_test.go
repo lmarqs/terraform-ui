@@ -38,7 +38,7 @@ classification := {"level":"high","reasons":[]} if { input.resource.name == "wor
 				{"all eligible fail", []sdk.PolicyResourceEvidence{failed, excluded}, "unavailable"},
 			} {
 				t.Run(scenario.name, func(t *testing.T) {
-					assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{PlanID: "sha256:reviewed-plan", Resources: scenario.resources})
+					assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{PlanID: "sha256:reviewed-plan", Resources: scenario.resources})
 					if assessment.Status != sdk.AssessmentStatus(scenario.status) || assessment.OverallLevel != nil || len(assessment.Resources) != len(scenario.resources) {
 						t.Fatalf("resource failure became successful, lost review rows, or produced aggregate: %+v", assessment)
 					}
@@ -99,7 +99,7 @@ classification(value) := value`},
 				{"no changes", nil},
 			} {
 				t.Run(scenario.name, func(t *testing.T) {
-					assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{PlanID: "sha256:reviewed-plan", Resources: scenario.resources})
+					assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{PlanID: "sha256:reviewed-plan", Resources: scenario.resources})
 					if assessment.Status != "unavailable" || assessment.ErrorCode != "compilation_failed" || assessment.OverallLevel != nil || len(assessment.Resources) != 0 {
 						t.Fatalf("invalid source became neutral, empty success, or resource classifications: %+v", assessment)
 					}

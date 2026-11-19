@@ -32,11 +32,6 @@ func (p Policy) Compiled() bool { return p.err == nil }
 // Snapshot returns the source the policy was compiled from.
 func (p Policy) Snapshot() Snapshot { return p.snapshot }
 
-// Assess compiles snapshot and assesses evidence with it.
-func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
-	return Compile(ctx, snapshot).Assess(ctx, evidence)
-}
-
 // Assess evaluates each eligible resource independently. It does not acquire
 // plans, reload source or publish lifecycle events.
 func (p Policy) Assess(ctx context.Context, evidence sdk.PolicyEvidence) (result sdk.PolicyAssessment) {

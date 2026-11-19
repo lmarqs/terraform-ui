@@ -38,8 +38,8 @@ func TestActivate_GivenReviewedPlan_ShouldRequestOneHostAssessmentOfThatSummary(
 		t.Fatalf("Blast Radius ran terraform plan %d times; want the reviewed summary assessed by the host", len(svc.PlanCalls))
 	}
 	view := p.View(120, 40)
-	if p.Busy() || !p.Ready() || !strings.Contains(view, "Minimal blast radius") || strings.Contains(view, "CRITICAL") {
-		t.Fatalf("Busy=%v Ready=%v view=%q; want the host's low classification, not the raw critical risk", p.Busy(), p.Ready(), view)
+	if !p.Ready() || !strings.Contains(view, "Minimal blast radius") || strings.Contains(view, "CRITICAL") {
+		t.Fatalf("Ready=%v view=%q; want the host's low classification, not the raw critical risk", p.Ready(), view)
 	}
 	p.ToggleExpand()
 	if view = p.View(120, 40); !strings.Contains(view, "Host classification.") {
@@ -54,8 +54,8 @@ func TestHandleRiskAssessed_GivenEventForAnotherSummary_ShouldIgnoreIt(t *testin
 	pending := p.Activate()
 
 	deliverBlast(p, classifiedEvent(other, sdk.RiskCritical, "Other plan classification."))
-	if p.Busy() || p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(120, 40), "Loading risk assessment") {
-		t.Fatalf("another plan's event settled the pending request: Busy=%v Status=%v Ready=%v view=%q", p.Busy(), p.Status(), p.Ready(), p.View(120, 40))
+	if p.Status() != sdk.StatusLoading || p.Ready() || !strings.Contains(p.View(120, 40), "Loading risk assessment") {
+		t.Fatalf("another plan's event settled the pending request: Status=%v Ready=%v view=%q", p.Status(), p.Ready(), p.View(120, 40))
 	}
 
 	runBlastCmd(p, pending)
@@ -97,8 +97,8 @@ func TestHandleRiskAssessed_GivenFailedOrUnavailableEvent_ShouldShowUnavailableI
 				t.Fatalf("assessment requests = %v; want one request for %p", h.AssessmentRequests, summary)
 			}
 			view := p.View(120, 40)
-			if p.Busy() || !p.Ready() || !strings.Contains(view, "Blast radius unavailable: incomplete risk assessment") {
-				t.Fatalf("Busy=%v Ready=%v view=%q; want the unavailable banner", p.Busy(), p.Ready(), view)
+			if !p.Ready() || !strings.Contains(view, "Blast radius unavailable: incomplete risk assessment") {
+				t.Fatalf("Ready=%v view=%q; want the unavailable banner", p.Ready(), view)
 			}
 			if strings.Contains(view, "CRITICAL") || strings.Contains(view, "[minimal]") {
 				t.Fatalf("view = %q; want no impact from raw risk or a minimal fallback", view)

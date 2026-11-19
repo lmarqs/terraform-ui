@@ -8,7 +8,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/plugin"
-	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -157,54 +156,25 @@ func TestCancel_GivenHostPlanForNilSummary_ShouldCancelTerraformContext(t *testi
 	}
 }
 
-func TestCancel_GivenSuppliedSummary_ShouldCancelItsEvaluation(t *testing.T) {
-	app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
-	evaluating := make(chan context.Context, 1)
-	id, cmd := app.risk.RequestWith("riskprobe", app.holder.current, reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
-		evaluating <- ctx
-		<-ctx.Done()
-		return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-	})
-	done := make(chan tea.Msg, 1)
-	go func() { done <- cmd() }()
-	ctx := <-evaluating
-
-	app.cmdForceQuit()
-
-	select {
-	case <-ctx.Done():
-	case <-time.After(5 * time.Second):
-		t.Fatal("Cancel did not cancel the evaluation context of a supplied summary")
-	}
-	drainPolicyAppCommand(&app, func() tea.Msg { return <-done })
-	if event := onlyRiskEvent(t, recorder); event.Request != id || event.Assessment.Status != sdk.AssessmentCancelled {
-		t.Fatalf("dispatched %+v, want the cancelled assessment under ID %d", event, id)
-	}
-}
-
-func TestRequestAssessment_GivenContextChangeDuringSuppliedSummaryEvaluation_ShouldCancelEvaluationContext(t *testing.T) {
+func TestRequestAssessment_GivenContextChangeDuringHostPlan_ShouldCancelTerraformContextAndDropResult(t *testing.T) {
 	for name, change := range map[string]tea.Msg{
 		"context switch": sdk.ContextSwitchRequestMsg{Chdir: "", Workspace: sdk.NewWorkspace("other")},
 		"pin change":     sdk.PinToggleRequestMsg{Addresses: []string{"aws_db_instance.database"}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
-			evaluating := make(chan context.Context, 1)
-			cmd := cmdOf(app.risk.RequestWith("riskprobe", app.holder.current, reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
-				evaluating <- ctx
-				<-ctx.Done()
-				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-			}))
+			svc, started := blockingPlanService()
+			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
+			cmd := cmdOf(deps.RequestAssessment(nil))
 			done := make(chan tea.Msg, 1)
 			go func() { done <- cmd() }()
-			ctx := <-evaluating
+			planCtx := <-started
 
 			drainPolicyAppCommand(&app, func() tea.Msg { return change })
 
 			select {
-			case <-ctx.Done():
+			case <-planCtx.Done():
 			case <-time.After(5 * time.Second):
-				t.Fatalf("%s did not cancel the evaluation context of a supplied summary", name)
+				t.Fatalf("%s did not cancel the Terraform service Context of the host plan", name)
 			}
 			drainPolicyAppCommand(&app, func() tea.Msg { return <-done })
 			if len(recorder.events) != 0 {
@@ -253,13 +223,6 @@ func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_Sho
 			id, cmd := app.risk.Request("riskprobe", app.holder.current, nil)
 			deactivateActivePlugin(app)
 			return id, cmd
-		}},
-		{"cancelled during evaluation", func(app *App) (sdk.AssessmentID, tea.Cmd) {
-			return app.risk.RequestWith("riskprobe", app.holder.current, nil, func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
-				deactivateActivePlugin(app)
-				<-ctx.Done()
-				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-			})
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

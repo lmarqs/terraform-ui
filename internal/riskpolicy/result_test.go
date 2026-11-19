@@ -54,7 +54,7 @@ func TestAssess_GivenMalformedAuthoredResult_ShouldRejectInsteadOfDisplayingClas
 				t.Fatal(err)
 			}
 			snapshot := evaluationSnapshot(t, "classification := "+string(encoded))
-			assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+			assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 			if assessment.Status != "unavailable" || assessment.OverallLevel != nil || len(assessment.Resources) != 1 {
 				t.Fatalf("malformed authored output should remain unavailable: %+v", assessment)
 			}
@@ -69,7 +69,7 @@ func TestAssess_GivenMalformedAuthoredResult_ShouldRejectInsteadOfDisplayingClas
 func TestAssess_GivenCriticalClassificationWithMaximumUnicodeMessage_ShouldPreserveReason(t *testing.T) {
 	message := strings.Repeat("界", 512)
 	snapshot := evaluationSnapshot(t, fmt.Sprintf(`classification := {"level":"critical","reasons":[{"code":"critical-mutation","message":%q,"paths":[]}]}`, message))
-	assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+	assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 	if assessment.Status != "complete" || assessment.OverallLevel == nil || *assessment.OverallLevel != sdk.RiskCritical || len(assessment.Resources) != 1 {
 		t.Fatalf("valid critical output should classify: %+v", assessment)
 	}
@@ -81,7 +81,7 @@ func TestAssess_GivenCriticalClassificationWithMaximumUnicodeMessage_ShouldPrese
 
 func TestAssess_GivenEligibleMutationWithoutEvidence_ShouldInvalidateWholePlan(t *testing.T) {
 	snapshot := evaluationSnapshot(t, projectDefault)
-	assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{
+	assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{
 		evaluationResource("aws_lambda_function.worker", "aws_lambda_function"),
 		{Address: "aws_db_instance.worker", Actions: []string{"update"}},
 	}})
@@ -94,7 +94,7 @@ func TestAssess_GivenNestedOutputCallInUnusedRule_ShouldRejectWholeSource(t *tes
 	for _, call := range []string{`print("private constant")`, `trace("private constant")`} {
 		t.Run(call, func(t *testing.T) {
 			snapshot := evaluationSnapshot(t, projectDefault+"\nunused := {\"nested\": ["+call+"]}")
-			assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+			assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 			if assessment.Status != "unavailable" || assessment.ErrorCode != "compilation_failed" || assessment.OverallLevel != nil {
 				t.Fatalf("nested output builtin should invalidate unused code too: %+v", assessment)
 			}

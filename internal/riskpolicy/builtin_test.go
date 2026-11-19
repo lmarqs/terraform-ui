@@ -44,7 +44,7 @@ func TestAssess_GivenBuiltinPolicy_ShouldPreserveFixedTypeAndActionSeverities(t 
 						resource := evaluationResource(typ+".worker", typ)
 						resource.Actions = action.actions
 						resource.Input.Change.Actions = action.actions
-						result := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{resource}})
+						result := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{resource}})
 						if result.Status != "complete" || result.Resources[0].Level == nil || *result.Resources[0].Level != action.level || len(result.Resources[0].Reasons) != 1 {
 							t.Fatalf("%s %v lost fixed severity %s: %+v", typ, action.actions, action.level, result)
 						}
@@ -89,7 +89,7 @@ func TestAssess_GivenBuiltinLambdaEvidence_ShouldExplainInContractPriorityOrder(
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			summary := acquiredEvidence(t, fmt.Sprintf(`{"actions":%s,"before":%s,"after":%s%s}`, tc.actions, tc.before, tc.after, tc.masks))
-			result := Assess(context.Background(), snapshot, *summary.PolicyEvidence)
+			result := Compile(context.Background(), snapshot).Assess(context.Background(), *summary.PolicyEvidence)
 			if result.Status != "complete" || result.Resources[0].Level == nil || *result.Resources[0].Level != tc.level || len(result.Resources[0].Reasons) != 1 {
 				t.Fatalf("Lambda evidence was not classified at %s: %+v", tc.level, result)
 			}

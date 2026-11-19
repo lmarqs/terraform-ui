@@ -7,22 +7,17 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/riskassess"
-	"github.com/lmarqs/terraform-ui/internal/riskpolicy"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 func TestRequestAssessment_GivenInvalidationOrInvalidConfiguration_ShouldCancelOrPublishTerminalFailure(t *testing.T) {
 	root := t.TempDir()
 	app, _, recorder := newAssessmentRequestApp(t, root, false, newMockService("default", nil))
-	var evaluated error
-	cmd := cmdOf(app.risk.RequestWith("riskprobe", app.holder.current, reviewedRiskSummary(), func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
-		evaluated = ctx.Err()
-		return policy.Assess(ctx, evidence)
-	}))
+	cmd := cmdOf(app.risk.Request("riskprobe", app.holder.current, reviewedRiskSummary()))
 	drainPolicyAppCommand(&app, func() tea.Msg { return sdk.PlanInvalidatedEvent{} })
 	result := cmd().(riskassess.Result)
-	if !errors.Is(evaluated, context.Canceled) || result.Event.Assessment.Status != "cancelled" || result.Event.Assessment.OverallLevel != nil {
-		t.Fatalf("invalidated request ran with ctx err %v and assessed %+v, want cancelled", evaluated, result.Event.Assessment)
+	if result.Event.Assessment.Status != "cancelled" || result.Event.Assessment.OverallLevel != nil {
+		t.Fatalf("invalidated request assessed %+v, want cancelled", result.Event.Assessment)
 	}
 	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = `)
 	got := requestRisk(t, &app, recorder, cmdOf(app.risk.Request("riskprobe", app.holder.current, reviewedRiskSummary()))).Assessment

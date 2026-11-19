@@ -46,8 +46,8 @@ classification := {"level":"high","reasons":[{"code":"lambda-update","message":"
 `)
 	lambda := evaluationResource("aws_lambda_function.worker", "aws_lambda_function")
 	database := evaluationResource("aws_db_instance.worker", "aws_db_instance")
-	first := Assess(context.Background(), snapshot, sdk.PolicyEvidence{PlanID: "sha256:reviewed", Resources: []sdk.PolicyResourceEvidence{lambda}})
-	combined := Assess(context.Background(), snapshot, sdk.PolicyEvidence{PlanID: "sha256:reviewed", Resources: []sdk.PolicyResourceEvidence{lambda, database}})
+	first := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{PlanID: "sha256:reviewed", Resources: []sdk.PolicyResourceEvidence{lambda}})
+	combined := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{PlanID: "sha256:reviewed", Resources: []sdk.PolicyResourceEvidence{lambda, database}})
 	if first.Status != "complete" || combined.Status != "complete" || len(first.Resources) != 1 || len(combined.Resources) != 2 {
 		t.Fatalf("assessments = %+v / %+v; want complete independent classifications", first, combined)
 	}
@@ -74,7 +74,7 @@ func TestAssess_GivenPureBuiltins_ShouldReturnAuthoredClassification(t *testing.
     count(object.keys(input.resource)) > 0
     message := concat(" ", [upper("pure"), lower("BUILTINS")])
 }`)
-	assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+	assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 	if assessment.Status != "complete" || len(assessment.Resources) != 1 || len(assessment.Resources[0].Reasons) != 1 || assessment.Resources[0].Reasons[0].Message != "PURE builtins" {
 		t.Fatalf("allowed pure builtins did not classify: %+v", assessment)
 	}
@@ -100,7 +100,7 @@ func TestAssess_GivenForbiddenCallsInUnqueriedModules_ShouldRejectWholeSource(t 
 			if err != nil {
 				t.Fatal(err)
 			}
-			assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+			assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 			if assessment.Status != "unavailable" || assessment.ErrorCode != "compilation_failed" || assessment.OverallLevel != nil {
 				t.Fatalf("forbidden unqueried call yielded %+v; want fixed compilation failure", assessment)
 			}
@@ -114,7 +114,7 @@ classification := {"level":"high","reasons":[{"code":"number","message":"Number.
     input.resource.type == "aws_lambda_function"
     to_number("private source constant") == 7
 }`)
-	assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{
+	assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{
 		evaluationResource("aws_lambda_function.worker", "aws_lambda_function"),
 		evaluationResource("aws_db_instance.worker", "aws_db_instance"),
 	}})
@@ -147,7 +147,7 @@ classification := {"level":"high","reasons":[]} if {input.resource.name == "work
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			snapshot := evaluationSnapshot(t, tc.body)
-			assessment := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+			assessment := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 			if assessment.Status != "unavailable" || assessment.OverallLevel != nil || len(assessment.Resources) != 1 {
 				t.Fatalf("invalid output yielded successful or missing assessment: %+v", assessment)
 			}
@@ -163,7 +163,7 @@ func TestAssess_GivenCancelledContext_ShouldReturnNoPublishableClassifications(t
 	snapshot := evaluationSnapshot(t, projectDefault)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	assessment := Assess(ctx, snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
+	assessment := Compile(ctx, snapshot).Assess(ctx, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function")}})
 	if assessment.Status != "cancelled" || assessment.OverallLevel != nil || len(assessment.Resources) != 0 {
 		t.Fatalf("cancelled operation returned publishable assessment: %+v", assessment)
 	}
@@ -172,11 +172,11 @@ func TestAssess_GivenCancelledContext_ShouldReturnNoPublishableClassifications(t
 func TestAssess_GivenExcludedChanges_ShouldKeepExclusionsSeparateFromExplicitNone(t *testing.T) {
 	snapshot := evaluationSnapshot(t, `classification := {"level":"none","reasons":[{"code":"explicit-default","message":"Explicit none classification.","paths":[]}]}`)
 	excluded := sdk.PolicyResourceEvidence{Address: "aws_db_instance.existing", Actions: []string{"no-op"}, Exclusion: "no_op"}
-	empty := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{excluded}})
+	empty := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{excluded}})
 	if empty.Status != "empty" || empty.OverallLevel != nil || len(empty.Resources) != 1 || empty.Resources[0].Status != "not_assessed" || empty.Resources[0].Exclusion != "no_op" || empty.Resources[0].Level != nil {
 		t.Fatalf("excluded-only evidence became a neutral classification: %+v", empty)
 	}
-	complete := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function"), excluded}})
+	complete := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{evaluationResource("aws_lambda_function.worker", "aws_lambda_function"), excluded}})
 	if complete.Status != "complete" || complete.OverallLevel == nil || *complete.OverallLevel != sdk.RiskNone {
 		t.Fatalf("explicit none should be a complete classification: %+v", complete)
 	}
@@ -196,7 +196,7 @@ func TestAssess_GivenInvalidEvidenceOrEmptyPlanWithBrokenPolicy_ShouldRemainUnav
 		{"compile empty", invalid, sdk.PolicyEvidence{}, "compilation_failed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			assessment := Assess(context.Background(), tc.snapshot, tc.evidence)
+			assessment := Compile(context.Background(), tc.snapshot).Assess(context.Background(), tc.evidence)
 			if assessment.Status != "unavailable" || assessment.ErrorCode != sdk.ErrorCode(tc.code) || assessment.OverallLevel != nil {
 				t.Fatalf("invalid plan/source became an empty success: %+v", assessment)
 			}
@@ -211,7 +211,7 @@ func TestAssess_GivenDeposedEvidence_ShouldCopyDeposedKeyToRows(t *testing.T) {
 	deposed.Deposed = "0a1b2c3d"
 	excluded := sdk.PolicyResourceEvidence{Address: "aws_instance.web", Deposed: "ffffffff", Actions: []string{"forget"}, Exclusion: sdk.ExclusionForget}
 
-	got := Assess(context.Background(), snapshot, sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{current, deposed, excluded}})
+	got := Compile(context.Background(), snapshot).Assess(context.Background(), sdk.PolicyEvidence{Resources: []sdk.PolicyResourceEvidence{current, deposed, excluded}})
 
 	var keys []string
 	for _, row := range got.Resources {

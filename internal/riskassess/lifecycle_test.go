@@ -227,3 +227,90 @@ func TestCancel_GivenOtherRequesterPendingAndRequestedAgain_ShouldKeepTheOtherRe
 		t.Fatalf("b's result = %+v, want its usable assessment", result.Event.Assessment)
 	}
 }
+
+// A request cancelled before its Cmd runs still reaches the evaluator, which
+// sees a done context and reports the cancellation.
+func TestAdvance_GivenSuppliedSummaryRequestNotYetRun_ShouldEvaluateUnderCancelledContext(t *testing.T) {
+	h := newHarness(t, t.TempDir(), &sdktest.MockService{})
+	var evaluated error
+	cmd := h.requestWith(reviewedRiskSummary(), func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+		evaluated = ctx.Err()
+		return policy.Assess(ctx, evidence)
+	})
+	h.coord.Advance()
+
+	result := cmd().(Result)
+
+	if !errors.Is(evaluated, context.Canceled) || result.Event.Assessment.Status != "cancelled" || result.Event.Assessment.OverallLevel != nil {
+		t.Fatalf("invalidated request ran with ctx err %v and assessed %+v, want cancelled", evaluated, result.Event.Assessment)
+	}
+}
+
+func TestCancel_GivenSuppliedSummary_ShouldCancelItsEvaluation(t *testing.T) {
+	h := newHarness(t, t.TempDir(), &sdktest.MockService{})
+	evaluating := make(chan context.Context, 1)
+	h.coord.assess = func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+		evaluating <- ctx
+		<-ctx.Done()
+		return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
+	}
+	id, cmd := h.coord.Request(requester, h.current, reviewedRiskSummary())
+	done := make(chan tea.Msg, 1)
+	go func() { done <- cmd() }()
+	ctx := <-evaluating
+
+	h.coord.Cancel(requester)
+
+	select {
+	case <-ctx.Done():
+	case <-time.After(5 * time.Second):
+		t.Fatal("Cancel did not cancel the evaluation context of a supplied summary")
+	}
+	h.dispatch((<-done).(Result))
+	if event := onlyRiskEvent(t, h); event.Request != id || event.Assessment.Status != sdk.AssessmentCancelled {
+		t.Fatalf("dispatched %+v, want the cancelled assessment under ID %d", event, id)
+	}
+}
+
+// A request cancelled while evaluating a summary the host planned still
+// delivers its result under its own ID, never the new request's.
+func TestCancel_GivenRequestCancelledDuringEvaluationThenRequestedAgain_ShouldDispatchEachResultUnderItsOwnID(t *testing.T) {
+	planned := reviewedRiskSummary()
+	svc := &sdktest.MockService{}
+	svc.PlanFn = func(ctx context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		return planned, nil
+	}
+	h := newHarness(t, t.TempDir(), svc)
+	evaluating := make(chan struct{})
+	var calls atomic.Int32
+	h.coord.assess = func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+		if calls.Add(1) == 1 {
+			close(evaluating)
+			<-ctx.Done()
+			return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
+		}
+		return policy.Assess(ctx, evidence)
+	}
+	staleID, staleCmd := h.coord.Request(requester, h.current, nil)
+	stale := make(chan tea.Msg, 1)
+	go func() { stale <- staleCmd() }()
+	<-evaluating
+	h.coord.Cancel(requester)
+	currentID, current := h.coord.Request(requester, h.current, nil)
+
+	h.dispatch((<-stale).(Result))
+	h.deliver(current)
+
+	if len(h.events) != 2 || h.events[0].Request != staleID || h.events[1].Request != currentID || staleID == currentID {
+		t.Fatalf("dispatched %+v, want the cancelled result under ID %d then the new one under ID %d", h.events, staleID, currentID)
+	}
+	if ev := h.events[0]; ev.Err == nil && ev.Assessment.Status != sdk.AssessmentCancelled {
+		t.Fatalf("cancelled request's result = %+v, want a cancellation", ev)
+	}
+	if ev := h.events[1]; ev.Err != nil || ev.Summary != planned || !ev.Assessment.Usable() {
+		t.Fatalf("new request's result = %+v, want its usable assessment of %p", ev, planned)
+	}
+}

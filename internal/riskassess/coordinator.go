@@ -126,11 +126,6 @@ func (c *Coordinator) Current(r Result) bool {
 // Request assesses summary for requester under the policy current selects; a
 // nil summary plans current first. It cancels requester's previous request.
 func (c *Coordinator) Request(requester string, current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
-	return c.RequestWith(requester, current, summary, c.assess)
-}
-
-// RequestWith is Request with assess as the evaluator.
-func (c *Coordinator) RequestWith(requester string, current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) (sdk.AssessmentID, tea.Cmd) {
 	if c.cancel == nil {
 		c.ctx, c.cancel = context.WithCancel(context.Background())
 	}
@@ -141,7 +136,7 @@ func (c *Coordinator) RequestWith(requester string, current *sdk.Context, summar
 	id, generation := sdk.AssessmentID(c.issued), c.generation
 	return id, func() tea.Msg {
 		defer cancel()
-		event := c.run(ctx, current, summary, assess)
+		event := c.run(ctx, current, summary)
 		event.Request = id
 		return Result{generation: generation, Event: event}
 	}
@@ -149,7 +144,7 @@ func (c *Coordinator) RequestWith(requester string, current *sdk.Context, summar
 
 // run loads the policy at every call and compiles it before any plan, so a broken policy never runs Terraform.
 // A cached assessment for a given summary needs only the loaded source's digest, so it skips the compile.
-func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess Evaluator) sdk.RiskAssessedEvent {
+func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary) sdk.RiskAssessedEvent {
 	event := sdk.RiskAssessedEvent{Summary: summary}
 	selection, snapshot, failure := c.loadPolicy(current)
 	if failure != "" {
@@ -166,7 +161,7 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 	policy := c.compile(ctx, snapshot)
 	if summary == nil {
 		if !policy.Compiled() {
-			event.Assessment = assess(ctx, policy, sdk.PolicyEvidence{})
+			event.Assessment = c.assess(ctx, policy, sdk.PolicyEvidence{})
 			return event
 		}
 		event.Summary, event.Err = planForAssessment(ctx, current)
@@ -174,7 +169,7 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 			return event
 		}
 	}
-	event.Assessment = c.evaluate(ctx, current, event.Summary, selection, policy, assess)
+	event.Assessment = c.evaluate(ctx, current, event.Summary, selection, policy)
 	return event
 }
 
@@ -225,13 +220,13 @@ func (c *Coordinator) loadPolicy(current *sdk.Context) (config.RiskPolicySelecti
 }
 
 // evaluate publishes a result only when the source it was computed from is still the one selected.
-func (c *Coordinator) evaluate(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, policy riskpolicy.Policy, assess Evaluator) sdk.PolicyAssessment {
+func (c *Coordinator) evaluate(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, policy riskpolicy.Policy) sdk.PolicyAssessment {
 	snapshot := policy.Snapshot()
 	key := c.key(current, summary, selection, snapshot.Digest())
 	if result, ok := c.cached(ctx, key); ok {
 		return result
 	}
-	result := assess(ctx, policy, evidenceOf(summary))
+	result := c.assess(ctx, policy, evidenceOf(summary))
 	if ctx.Err() != nil {
 		return result
 	}
