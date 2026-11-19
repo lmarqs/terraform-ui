@@ -79,7 +79,7 @@ func TestRequestAssessment_GivenBrokenPolicyAndNilSummary_ShouldPublishUnavailab
 	}
 	app, deps, recorder := newAssessmentRequestApp(t, root, true, svc)
 
-	deliverAssessment(&app, deps.RequestAssessment(nil))
+	deliverAssessment(&app, cmdOf(deps.RequestAssessment(nil)))
 
 	ev := onlyRiskEvent(t, recorder)
 	if len(svc.PlanCalls) != 0 {
@@ -112,7 +112,7 @@ func TestRequestAssessment_GivenNilSummaryAndUncompilablePolicy_ShouldReportComp
 			}
 			app, deps, recorder := newAssessmentRequestApp(t, root, true, svc)
 
-			deliverAssessment(&app, deps.RequestAssessment(nil))
+			deliverAssessment(&app, cmdOf(deps.RequestAssessment(nil)))
 
 			ev := onlyRiskEvent(t, recorder)
 			if len(svc.PlanCalls) != 0 {
@@ -137,7 +137,7 @@ func TestRequestAssessment_GivenValidPolicyAndNilSummary_ShouldPlanOnceAndPublis
 	svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return planned, nil }
 	app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 
-	deliverAssessment(&app, deps.RequestAssessment(nil))
+	deliverAssessment(&app, cmdOf(deps.RequestAssessment(nil)))
 
 	ev := onlyRiskEvent(t, recorder)
 	if len(svc.PlanCalls) != 1 {
@@ -159,7 +159,7 @@ func TestRequestAssessment_GivenSummary_ShouldEvaluateItWithoutRunningPlan(t *te
 	svc := newMockService("default", nil)
 	app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 
-	deliverAssessment(&app, deps.RequestAssessment(given))
+	deliverAssessment(&app, cmdOf(deps.RequestAssessment(given)))
 
 	ev := onlyRiskEvent(t, recorder)
 	if len(svc.PlanCalls) != 0 {
@@ -176,7 +176,7 @@ func TestRequestAssessment_GivenPlanFailure_ShouldPublishErrorWithoutEvaluation(
 	svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return nil, planErr }
 	app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 
-	deliverAssessment(&app, deps.RequestAssessment(nil))
+	deliverAssessment(&app, cmdOf(deps.RequestAssessment(nil)))
 
 	ev := onlyRiskEvent(t, recorder)
 	if !errors.Is(ev.Err, planErr) {
@@ -196,13 +196,13 @@ func TestRequestAssessment_GivenContextChangeOrPlanInvalidationAfterRequest_Shou
 	for name, invalidate := range invalidations {
 		t.Run(name+" while request runs", func(t *testing.T) {
 			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
-			cmd := deps.RequestAssessment(reviewedRiskSummary())
+			cmd := cmdOf(deps.RequestAssessment(reviewedRiskSummary()))
 
 			drainPolicyAppCommand(&app, cmd) // positive control: a current result is dispatched
 			onlyRiskEvent(t, recorder)
 			recorder.events = nil
 
-			cmd = deps.RequestAssessment(reviewedRiskSummary())
+			cmd = cmdOf(deps.RequestAssessment(reviewedRiskSummary()))
 			drainPolicyAppCommand(&app, func() tea.Msg { return invalidate })
 			deliverAssessment(&app, cmd)
 
@@ -212,7 +212,7 @@ func TestRequestAssessment_GivenContextChangeOrPlanInvalidationAfterRequest_Shou
 		})
 		t.Run(name+" before delivery", func(t *testing.T) {
 			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
-			result := deps.RequestAssessment(reviewedRiskSummary())()
+			result := cmdOf(deps.RequestAssessment(reviewedRiskSummary()))()
 
 			drainPolicyAppCommand(&app, func() tea.Msg { return invalidate })
 			drainPolicyAppCommand(&app, func() tea.Msg { return result })
@@ -236,7 +236,7 @@ func TestRequestAssessment_GivenNilSummary_ShouldPlanWithActiveContextOptionsAnd
 	}
 	app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 
-	requestRisk(t, &app, recorder, deps.RequestAssessment(nil))
+	requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(nil)))
 
 	if len(svc.PlanCalls) != 1 {
 		t.Fatalf("Service.Plan called %d times, want 1", len(svc.PlanCalls))
@@ -280,7 +280,7 @@ func TestCancel_GivenHostPlanForNilSummary_ShouldCancelTerraformContext(t *testi
 			svc, started := blockingPlanService()
 			app, deps, _ := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 			done := make(chan tea.Msg, 1)
-			cmd := deps.RequestAssessment(nil)
+			cmd := cmdOf(deps.RequestAssessment(nil))
 			go func() { done <- cmd() }()
 			planCtx := <-started
 
@@ -300,11 +300,11 @@ func TestCancel_GivenSuppliedSummary_ShouldKeepEvaluatingIt(t *testing.T) {
 	app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
 	evaluating := make(chan context.Context, 1)
 	release := make(chan struct{})
-	cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+	cmd := cmdOf(app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
 		evaluating <- ctx
 		<-release
 		return sdk.PolicyAssessment{Status: sdk.AssessmentEmpty}
-	})
+	}))
 	done := make(chan tea.Msg, 1)
 	go func() { done <- cmd() }()
 	ctx := <-evaluating
@@ -329,11 +329,11 @@ func TestRequestAssessment_GivenContextChangeDuringSuppliedSummaryEvaluation_Sho
 		t.Run(name, func(t *testing.T) {
 			app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
 			evaluating := make(chan context.Context, 1)
-			cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+			cmd := cmdOf(app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
 				evaluating <- ctx
 				<-ctx.Done()
 				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-			})
+			}))
 			done := make(chan tea.Msg, 1)
 			go func() { done <- cmd() }()
 			ctx := <-evaluating
@@ -372,22 +372,22 @@ func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_Sho
 		cancelled func(*App) tea.Cmd
 	}{
 		{"cancelled during host plan", func(app *App) tea.Cmd {
-			cmd := app.requestAssessment(nil)
+			cmd := cmdOf(app.requestAssessment(nil))
 			deactivateActivePlugin(app)
 			return cmd
 		}},
 		{"cancelled during evaluation", func(app *App) tea.Cmd {
-			return app.requestAssessmentWith(nil, func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+			return cmdOf(app.requestAssessmentWith(nil, func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
 				deactivateActivePlugin(app)
 				<-ctx.Done()
 				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
-			})
+			}))
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 			stale := tc.cancelled(&app)()
-			current := deps.RequestAssessment(nil)
+			current := cmdOf(deps.RequestAssessment(nil))
 
 			drainPolicyAppCommand(&app, func() tea.Msg { return stale })
 			if len(recorder.events) != 0 {
@@ -416,10 +416,10 @@ func TestRequestAssessment_GivenSuppliedSummaryRequestCancelledThenRequestedAgai
 	app, deps, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
 	summary := reviewedRiskSummary()
 
-	stale := deps.RequestAssessment(summary)()
+	stale := cmdOf(deps.RequestAssessment(summary))()
 	deactivateActivePlugin(&app)
 	writePolicyFile(t, root, "policy.rego", classifyAll("high"))
-	current := deps.RequestAssessment(summary)
+	current := cmdOf(deps.RequestAssessment(summary))
 
 	drainPolicyAppCommand(&app, func() tea.Msg { return stale })
 	if len(recorder.events) != 0 {
@@ -448,7 +448,7 @@ func TestQuitKey_GivenIdlePluginWithHostPlan_ShouldCancelTerraformContext(t *tes
 	model, _ := app.Update(sdk.NavigateMsg{PluginID: "riskprobe"})
 	app = model.(App)
 	done := make(chan tea.Msg, 1)
-	cmd := deps.RequestAssessment(nil)
+	cmd := cmdOf(deps.RequestAssessment(nil))
 	go func() { done <- cmd() }()
 	planCtx := <-started
 
@@ -462,3 +462,6 @@ func TestQuitKey_GivenIdlePluginWithHostPlan_ShouldCancelTerraformContext(t *tes
 	}
 	<-done
 }
+
+// cmdOf drops the request ID for callers that only run the request.
+func cmdOf(_ sdk.AssessmentID, cmd tea.Cmd) tea.Cmd { return cmd }

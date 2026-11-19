@@ -76,7 +76,8 @@ type Plugin struct {
 	assessedRisk sdk.RiskLevel
 	assessing    bool
 	riskHint     string
-	requestRisk  func(*sdk.PlanSummary) tea.Cmd
+	requestRisk  func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
+	pending      sdk.AssessmentID
 	lockInfo     *sdk.StateLock
 	stale        bool
 	listPanel    *ui.ContentPanel

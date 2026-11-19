@@ -20,7 +20,10 @@ func TestNewDeps_RequestAssessmentRecordsSummaryAndEmitsCannedEvent(t *testing.T
 		t.Fatal("harness deps provide no RequestAssessment fake")
 	}
 
-	cmd := h.Deps.RequestAssessment(requested)
+	id, cmd := h.Deps.RequestAssessment(requested)
+	if id == 0 {
+		t.Fatal("RequestAssessment returned the zero ID")
+	}
 	if cmd == nil {
 		t.Fatal("RequestAssessment returned nil cmd")
 	}
@@ -30,6 +33,7 @@ func TestNewDeps_RequestAssessmentRecordsSummaryAndEmitsCannedEvent(t *testing.T
 	if !ok {
 		t.Fatalf("expected RiskAssessedEvent, got %T", msg)
 	}
+	canned.Request = id
 	if !reflect.DeepEqual(got, canned) || got.Summary != canned.Summary {
 		t.Errorf("event = %+v, want canned %+v", got, canned)
 	}

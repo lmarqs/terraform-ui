@@ -62,7 +62,7 @@ func TestRequestAssessment_GivenChangedSourceAtSamePath_ShouldReloadWithoutFallb
 			} else {
 				writePolicyFile(t, root, "policy.rego", step.source)
 			}
-			got := requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment
+			got := requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment
 			if got.ErrorCode != step.want || (step.want != "" && got.Status != sdk.AssessmentUnavailable) {
 				t.Fatalf("assessment = %+v, want error code %q", got, step.want)
 			}
@@ -80,7 +80,7 @@ workspace "dev" { risk_policy = "" }`)
 	writePolicyFile(t, root, "b/b.rego", "package member\n")
 	app, deps, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
 	request := func() sdk.ErrorCode {
-		return requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment.ErrorCode
+		return requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment.ErrorCode
 	}
 	for _, step := range []struct {
 		chdir, workspace string
@@ -120,7 +120,7 @@ func TestRequestAssessment_GivenNoSelectorOrExplicitReset_ShouldUseBuiltin(t *te
 			writePolicyFile(t, root, "member/tfui.hcl", tc.member)
 			app, deps, recorder := newAssessmentRequestApp(t, root, tc.loaded, newMockService("default", nil))
 			switchContext(&app, "member", "default")
-			got := requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment
+			got := requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment
 			if !got.Usable() || got.Policy.Kind != "builtin" {
 				t.Fatalf("builtin selection assessment = %+v", got)
 			}

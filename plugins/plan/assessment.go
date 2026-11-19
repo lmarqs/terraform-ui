@@ -15,14 +15,15 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 	}
 	e.assessing = true
 	e.setAssessment(nil)
-	return e.requestRisk(e.summary)
+	var cmd tea.Cmd
+	e.pending, cmd = e.requestRisk(e.summary)
+	return cmd
 }
 
-// HandleRiskAssessed implements sdk.RiskAssessedHandler. The host does not
-// supersede requests for an older plan, so only the reviewed plan's result counts;
-// a nil-summary event answers another plugin's host-planned request.
+// HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
+// pending request counts.
 func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
-	if ev.Summary == nil || ev.Summary != e.summary {
+	if !e.assessing || ev.Request != e.pending {
 		return nil
 	}
 	e.assessing = false

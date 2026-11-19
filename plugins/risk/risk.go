@@ -34,7 +34,8 @@ type Plugin struct {
 	summary         *sdk.PlanSummary
 	assessment      *sdk.PolicyAssessment
 	rows            sdk.AssessmentRows
-	requestRisk     func(*sdk.PlanSummary) tea.Cmd
+	requestRisk     func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
+	pending         sdk.AssessmentID
 	planError       string
 	input           Input
 	threshold       string

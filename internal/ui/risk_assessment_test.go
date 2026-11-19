@@ -47,7 +47,7 @@ func TestRequestAssessment_GivenInvalidComparisonSettings_ShouldPublishUnavailab
 		svc := failingPlanService(t)
 		app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
 		app.cfg.Plugins = map[string]config.PluginConfig{"risk": {Options: settings}}
-		ev := requestRisk(t, &app, recorder, app.requestAssessment(nil))
+		ev := requestRisk(t, &app, recorder, cmdOf(app.requestAssessment(nil)))
 		got := ev.Assessment
 		if got.Status != "unavailable" || got.ErrorCode != "configuration_invalid" || got.OverallLevel != nil || len(got.Resources) != 0 || ev.Err != nil {
 			t.Fatalf("invalid settings %v retained publishable classification or noncanonical code: %+v", settings, ev)
@@ -71,7 +71,7 @@ func TestRequestAssessment_GivenSelectedSourceEdits_ShouldReloadClassificationAn
 		want  sdk.RiskLevel
 	}{{"low", sdk.RiskLow}, {"high", sdk.RiskHigh}} {
 		writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\nimport rego.v1\ndefault classification := {\"level\":\""+step.level+"\",\"reasons\":[{\"code\":\"project-default\",\"message\":\"Explicit project default.\",\"paths\":[]}]}\n")
-		got := requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment
+		got := requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment
 		if got.Status != "complete" || got.OverallLevel == nil || *got.OverallLevel != step.want {
 			t.Fatalf("selected %s source assessment = %+v", step.level, got)
 		}
@@ -84,7 +84,7 @@ func TestRequestAssessment_GivenSelectedSourceEdits_ShouldReloadClassificationAn
 		previousDigest = got.Policy.Digest
 	}
 	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\nimport rego.v1\ndefault classification := {\"level\":\"not-a-level\",\"reasons\":[]}\n")
-	got := requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment
+	got := requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment
 	if got.Status == "complete" || got.OverallLevel != nil || (got.ErrorCode == "" && (len(got.Resources) != 1 || got.Resources[0].ErrorCode == "")) {
 		t.Fatalf("invalid policy silently retained a successful classification: %+v", got)
 	}
@@ -94,12 +94,12 @@ func TestRequestAssessment_GivenBuiltinSelectionOrMissingEvidence_ShouldDistingu
 	svc := newMockService("default", nil)
 	svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return &sdk.PlanSummary{}, nil }
 	app, deps, recorder := newAssessmentRequestApp(t, t.TempDir(), false, svc)
-	got := requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment
+	got := requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment
 	if got.Status != "complete" || got.Policy.Kind != "builtin" || got.OverallLevel == nil || *got.OverallLevel != sdk.RiskCritical {
 		t.Fatalf("built-in database deletion = %+v", got)
 	}
 	for _, summary := range []*sdk.PlanSummary{nil, {Changes: []sdk.PlanChange{{Action: sdk.ActionDelete, Risk: sdk.RiskCritical}}}} {
-		got = requestRisk(t, &app, recorder, deps.RequestAssessment(summary)).Assessment
+		got = requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(summary))).Assessment
 		if got.Status == "complete" || got.OverallLevel != nil || got.ErrorCode == "" {
 			t.Fatalf("missing evidence must be unavailable rather than neutral or display-risk fallback: %+v", got)
 		}
@@ -112,7 +112,7 @@ func TestRequestAssessment_GivenContextSwitchAfterRequest_ShouldEvaluateTheReque
 	writePolicyFile(t, root, "member/tfui.hcl", `risk_policy = ""`)
 	app, deps, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
 	switchContext(&app, "member", "default")
-	cmd := deps.RequestAssessment(reviewedRiskSummary())
+	cmd := cmdOf(deps.RequestAssessment(reviewedRiskSummary()))
 	switchContext(&app, "", "default")
 
 	result, ok := cmd().(riskAssessedMsg)
@@ -123,7 +123,7 @@ func TestRequestAssessment_GivenContextSwitchAfterRequest_ShouldEvaluateTheReque
 	if got := result.event.Assessment; got.Policy.Kind != "builtin" || got.Status != sdk.AssessmentCancelled {
 		t.Fatalf("superseded request did not keep the member Context it captured: %+v", got)
 	}
-	got := requestRisk(t, &app, recorder, deps.RequestAssessment(reviewedRiskSummary())).Assessment
+	got := requestRisk(t, &app, recorder, cmdOf(deps.RequestAssessment(reviewedRiskSummary()))).Assessment
 	if got.Status == "complete" || got.ErrorCode != "source_unreadable" {
 		t.Fatalf("root Context missing policy should remain unavailable: %+v", got)
 	}
@@ -142,18 +142,18 @@ func TestRequestAssessment_GivenUnchangedEvidenceAndSource_ShouldReuseAssessment
 	}
 	summary := reviewedRiskSummary()
 	for i := 0; i < 2; i++ {
-		requestRisk(t, &app, recorder, app.requestAssessmentWith(summary, evaluator))
+		requestRisk(t, &app, recorder, cmdOf(app.requestAssessmentWith(summary, evaluator)))
 	}
 	if calls != 1 {
 		t.Fatalf("unchanged reviewed evidence evaluated %d times, want one shared assessment", calls)
 	}
 	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n# edited source\n")
-	requestRisk(t, &app, recorder, app.requestAssessmentWith(summary, evaluator))
+	requestRisk(t, &app, recorder, cmdOf(app.requestAssessmentWith(summary, evaluator)))
 	if calls != 2 {
 		t.Fatalf("same-path source edit did not reevaluate: %d evaluations", calls)
 	}
 	switchContext(&app, "", "default")
-	requestRisk(t, &app, recorder, app.requestAssessmentWith(summary, evaluator))
+	requestRisk(t, &app, recorder, cmdOf(app.requestAssessmentWith(summary, evaluator)))
 	if calls != 3 {
 		t.Fatalf("replaced Context reused previous Context assessment: %d evaluations", calls)
 	}

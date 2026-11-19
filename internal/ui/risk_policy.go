@@ -118,7 +118,7 @@ func (a App) cancelPlugin(p sdk.Plugin) {
 	a.riskRequests.cancelPlans()
 }
 
-func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
+func (a App) requestAssessment(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
 	return a.requestAssessmentWith(summary, func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
 		return policy.Assess(ctx, evidence)
 	})
@@ -126,15 +126,18 @@ func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
 
 // requestAssessmentWith pairs the request's identity with its Context, so a result
 // for a superseded Context, plan or cancelled request never reaches plugins.
-func (a App) requestAssessmentWith(summary *sdk.PlanSummary, assess riskEvaluator) tea.Cmd {
+func (a App) requestAssessmentWith(summary *sdk.PlanSummary, assess riskEvaluator) (sdk.AssessmentID, tea.Cmd) {
 	current := a.holder.current
 	begin := a.riskRequests.begin
 	if summary == nil {
 		begin = a.riskRequests.beginPlan
 	}
 	request, ctx := begin()
-	return func() tea.Msg {
-		return riskAssessedMsg{request: request, event: a.runAssessment(ctx, current, summary, assess)}
+	id := sdk.AssessmentID(request.number)
+	return id, func() tea.Msg {
+		event := a.runAssessment(ctx, current, summary, assess)
+		event.Request = id
+		return riskAssessedMsg{request: request, event: event}
 	}
 }
 
