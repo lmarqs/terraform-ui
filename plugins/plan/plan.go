@@ -47,6 +47,8 @@ type PlanResultMsg struct {
 type planJSONMsg struct {
 	Data []byte
 	Err  error
+	// run identifies the plan run, as PlanResultMsg.run does.
+	run context.Context
 }
 
 // changeItem wraps sdk.PlanChange to implement tree.Item.
@@ -329,7 +331,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 		e.stack.Push(&listFrame{plugin: e})
 		return func() tea.Msg {
 			data, err := svc.PlanJSON(ctx, opts)
-			return planJSONMsg{Data: data, Err: err}
+			return planJSONMsg{Data: data, Err: err, run: ctx}
 		}
 	}
 
@@ -397,6 +399,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, e.timer.Tick()
 
 	case planJSONMsg:
+		if msg.run != nil && msg.run != e.run {
+			return e, nil
+		}
 		e.timer.Stop()
 		if msg.Err != nil {
 			e.clearPendingApply()
