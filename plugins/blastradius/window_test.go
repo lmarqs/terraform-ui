@@ -248,3 +248,21 @@ func TestView_GivenOneExpandedModuleTallerThanTheListBudget_ShouldStillShowItsLa
 		})
 	}
 }
+
+func TestSetAssessment_GivenScrolledList_ShouldReturnTheWindowOffsetToTheTop(t *testing.T) {
+	p := doneWith(t, numberedModules(30))
+	p.View(80, 16)
+	for range 29 {
+		p.Update(keyDown)
+	}
+	p.View(80, 16)
+	if p.offset == 0 {
+		t.Fatal("scrolling to the last row should move the window offset")
+	}
+
+	p.HandlePlanInvalidated(sdk.PlanInvalidatedEvent{})
+
+	if p.offset != 0 {
+		t.Fatalf("offset = %d, want 0 once the list is replaced", p.offset)
+	}
+}

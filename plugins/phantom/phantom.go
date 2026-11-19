@@ -188,7 +188,7 @@ func (e *Plugin) renderPhantoms(width, height int) string {
 		}
 		rows = append(rows, e.renderPhantomRow(pc, i))
 		if e.expanded[i] {
-			rows = append(rows, e.renderPhantomDetails(pc, width)...)
+			rows = append(rows, e.renderPhantomDetails(pc)...)
 		}
 		if i == e.selected {
 			cursorEnd = len(rows)
@@ -234,7 +234,7 @@ func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {
 
 // renderPhantomDetails returns the rows of an expanded phantom's reason and attribute diffs,
 // ending in a blank row.
-func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) []string {
+func (e *Plugin) renderPhantomDetails(pc PhantomChange) []string {
 	rows := []string{"   " + sdk.StyleFaintItalic.Render("Reason: "+pc.Explanation)}
 
 	// Show attribute diffs that are cosmetic
@@ -244,9 +244,7 @@ func (e *Plugin) renderPhantomDetails(pc PhantomChange, width int) []string {
 			rows = append(rows, key+": "+sdk.StyleFaintItalic.Render("(sensitive)"))
 			continue
 		}
-		old := sdk.Truncate(diff.OldValue, width/4)
-		new := sdk.Truncate(diff.NewValue, width/4)
-		rows = append(rows, key+": "+sdk.StyleFaint.Render(old+" = "+new))
+		rows = append(rows, key+": "+sdk.StyleFaint.Render(diff.OldValue+" = "+diff.NewValue))
 	}
 	return append(rows, "")
 }
