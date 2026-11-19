@@ -28,6 +28,7 @@ type Session struct {
 	effects      Effects
 	jsonStdout   bool
 	ciMode       bool
+	dryRun       bool
 	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || agent env || !isStderrTTY
 }
 
@@ -35,6 +36,11 @@ func (s *Session) Run() error {
 	if err := s.validate(); err != nil {
 		return err
 	}
+	return s.runApp()
+}
+
+// runApp runs the full TUI once validate has passed.
+func (s *Session) runApp() error {
 	tape, err := s.macro.LoadTape()
 	if err != nil {
 		return err
@@ -43,7 +49,7 @@ func (s *Session) Run() error {
 	if err != nil {
 		return err
 	}
-	registry := buildRegistry(svc, s.cfg, s.rootCfg)
+	registry := s.buildRegistry(svc)
 	guard, shutdown := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
 	defer shutdown()
 	app := s.buildApp(svc, registry)
@@ -67,6 +73,9 @@ func (s *Session) validate() error {
 			return err
 		}
 	}
+	if s.dryRun && !s.macro.Active() && !isTerminal(s.effects.Stderr) {
+		return fmt.Errorf("no TTY on stderr: -dry-run draws the TUI on stderr and prints the commands on stdout\n\nKeep stderr on the terminal; redirect stdout only:\n  tfui -dry-run > commands.txt")
+	}
 	if !s.macro.Active() && !hasTTY() {
 		return fmt.Errorf("no TTY detected (terminal required for interactive mode)\n\nFor non-interactive use:\n  tfui plan --ci            (CI mode, no TUI)\n  CI=1 tfui plan            (same via env var)")
 	}
@@ -80,14 +89,36 @@ func (s *Session) buildService() (sdk.Service, *terraform.MacroService, error) {
 			return nil, nil, err
 		}
 	}
-	if s.macro.Active() {
-		logging.Logger().Debug("session.backend", "type", "recording", "reason", "macro")
+	if s.recordsCommands() {
+		logging.Logger().Debug("session.backend", "type", "recording", "macro", s.macro.Active(), "dry_run", s.dryRun)
 		svc := terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
 		return svc, svc, nil
 	}
 	logging.Logger().Debug("session.backend", "type", "exec")
 	svc := tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
 	return svc, nil, nil
+}
+
+func (s *Session) recordsCommands() bool {
+	return s.macro.Active() || s.dryRun
+}
+
+// buildRegistry leaves Console out of a dry run: it runs `terraform console`
+// itself, outside the service, so the recording service cannot stop it.
+func (s *Session) buildRegistry(svc sdk.Service) *plugin.Registry {
+	if !s.dryRun {
+		return buildRegistry(svc, s.cfg, s.rootCfg)
+	}
+	cfg := s.cfg
+	cfg.Plugins = make(map[string]config.PluginConfig, len(s.cfg.Plugins)+1)
+	for id, pc := range s.cfg.Plugins {
+		cfg.Plugins[id] = pc
+	}
+	disabled := false
+	console := cfg.Plugins["console"]
+	console.Enabled = &disabled
+	cfg.Plugins["console"] = console
+	return buildRegistry(svc, cfg, s.rootCfg)
 }
 
 func (s *Session) buildApp(svc sdk.Service, registry *plugin.Registry) ui.App {
@@ -112,6 +143,13 @@ func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuar
 	}
 
 	opts := []tea.ProgramOption{tea.WithAltScreen(), tea.WithoutSignalHandler()}
+	if s.effects.Stdin != nil {
+		opts = append(opts, tea.WithInput(s.effects.Stdin))
+	}
+	if s.dryRun {
+		// stdout carries only the recorded commands, so it stays clean in a pipe.
+		opts = append(opts, tea.WithOutput(s.effects.Stderr))
+	}
 
 	if s.macro.RecordDir != "" {
 		rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
@@ -224,19 +262,9 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 		return err
 	}
 
-	cache := terraform.NewServiceCache()
-	if !s.sources.Empty() {
-		if err := s.sources.Seed(cache); err != nil {
-			return err
-		}
-	}
-	var svc sdk.Service
-	var recorder *terraform.MacroService
-	if s.macro.Active() {
-		recorder = terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
-		svc = recorder
-	} else {
-		svc = tfexec.NewExecService(effectiveWorkDir(s.cfg), s.cfg.TerraformBinary(), cache)
+	svc, recorder, err := s.buildService()
+	if err != nil {
+		return err
 	}
 
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)

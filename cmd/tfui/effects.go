@@ -11,6 +11,8 @@ import (
 // Effects owns the process I/O sinks. The struct is a test seam: prod code
 // uses DefaultEffects(); tests construct it with custom writers.
 type Effects struct {
+	// Stdin, when set, replaces the terminal as the TUI's key input.
+	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
 }

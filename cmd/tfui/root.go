@@ -17,6 +17,7 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	var macroSpec MacroSpec
 	var ciMode bool
 	var jsonStdout bool
+	var dryRun bool
 	var extraArgs []string
 
 	session := &Session{effects: DefaultEffects()}
@@ -60,7 +61,6 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			logging.Init(macroSpec.RecordDir != "", version, cfg.Dir, binary, macroSpec.RecordDir)
 
 			cfg.ExtraArgs = extraArgs
-			fmt.Fprint(os.Stderr, passthroughWarning(extraArgs, macroSpec.Active()))
 			cfg.PreloadedData = !sources.Empty()
 			session.cfg = cfg
 			session.rootCfg = rootCfg
@@ -68,7 +68,9 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			session.macro = macroSpec
 			session.ciMode = ciMode
 			session.jsonStdout = jsonStdout
+			session.dryRun = dryRun
 			session.silentStderr = session.resolveSilentStderr()
+			session.effects.WriteStderr([]byte(passthroughWarning(extraArgs, session.recordsCommands())))
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -86,6 +88,8 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	rootCmd.PersistentFlags().StringVar(&cfg.Chdir, "chdir", "", "Select member directory (validated against member blocks in project mode)")
 	rootCmd.PersistentFlags().BoolVar(&ciMode, "ci", false, "Suppress TUI (CI-friendly output)")
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
+
+	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Record terraform commands instead of running them; print them to stdout on exit")
 
 	return rootCmd, session, &extraArgs
 }

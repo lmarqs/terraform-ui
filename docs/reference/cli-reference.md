@@ -35,7 +35,33 @@ tfui                           # Full TUI in current directory
 tfui -project ./infra         # Full TUI rooted at ./infra
 tfui -plan ./plan.json        # Full TUI with a pre-seeded plan (see Pre-seeded data)
 tfui -state ./terraform.tfstate  # Full TUI with pre-loaded state
+tfui -dry-run                  # Full TUI that records terraform commands instead of running them
 ```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `-dry-run` | `false` | Record terraform commands instead of running them; print them to stdout on exit |
+
+`-dry-run` runs the same interactive TUI against the recording service that `-macro` uses, so no terraform command
+runs and no state changes. The Console plugin runs `terraform console` itself, so a dry run leaves it out of the
+menu. Editing a resource's source (`e`) still opens your configured editor. The TUI renders on stderr, so stderr
+must be a terminal (tfui exits 1 otherwise), and on exit stdout gets the recorded commands, one per line, or a JSON
+array with `-json`. A signal ends the run with no stdout, as it does for every command.
+
+Reads come only from `-plan` and `-state`: without them the plan, the state, the outputs and the diagnostics are
+empty, which does not mean there is nothing to change.
+
+The printed commands are for review. They are not shell-quoted and omit the member directory, so piping them to a
+shell can run the wrong command or run it in the wrong directory
+([#166](https://github.com/lmarqs/terraform-ui/issues/166)).
+
+```bash
+tfui -dry-run -plan ./plan.json -state ./state.json   # review the commands on exit
+tfui -dry-run -json                                   # the commands as a JSON array
+tfui -dry-run -record ./session/                      # frames, tape and commands
+```
+
+`-dry-run` belongs to `tfui` with no command; a subcommand rejects it as an unknown flag.
 
 ### `tfui plan`
 
@@ -270,8 +296,8 @@ These terraform flags take their value as the next argument when it is not joine
 argument: `json`, `lock`, `destroy`, `refresh-only`, `compact-warnings`, `upgrade`, `reconfigure`, `force-copy`,
 `backend`.
 
-Everything after `--` is passed through to terraform: under `-macro` it is appended to the recorded `terraform plan`
-and `terraform apply` commands. A live run does not forward it and says so on stderr.
+Everything after `--` is passed through to terraform: under `-macro` or `-dry-run` it is appended to the recorded
+`terraform plan` and `terraform apply` commands. A live run does not forward it and says so on stderr.
 
 ### Pre-seeded data (`-plan`, `-state`)
 

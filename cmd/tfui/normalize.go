@@ -98,9 +98,9 @@ func splitPassthrough(args []string) (before, after []string) {
 
 // passthroughWarning tells a live run that its `--` arguments go nowhere: only
 // MacroService records them, and ExecService has no way to forward them.
-func passthroughWarning(extraArgs []string, macroActive bool) string {
-	if len(extraArgs) == 0 || macroActive {
+func passthroughWarning(extraArgs []string, recording bool) string {
+	if len(extraArgs) == 0 || recording {
 		return ""
 	}
-	return "warning: ignoring arguments after --: " + strings.Join(extraArgs, " ") + "; only a -macro run records them\n"
+	return "warning: ignoring arguments after --: " + strings.Join(extraArgs, " ") + "; only a -macro or -dry-run run records them\n"
 }
