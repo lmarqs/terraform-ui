@@ -180,6 +180,12 @@ func (s *ExecService) Apply(ctx context.Context, opts sdk.ApplyOptions) error {
 	for k, v := range opts.Vars {
 		applyOpts = append(applyOpts, tfexec.Var(k+"="+v))
 	}
+	if opts.Parallelism > 0 {
+		applyOpts = append(applyOpts, tfexec.Parallelism(opts.Parallelism))
+	}
+	for _, o := range lockOptions(opts.Lock, opts.LockTimeout) {
+		applyOpts = append(applyOpts, o)
+	}
 
 	err = tf.Apply(ctx, applyOpts...)
 	if err != nil {
@@ -449,17 +455,30 @@ func buildTfexecPlanOptions(opts sdk.PlanOptions, planFilePath string) []tfexec.
 	if opts.Parallelism > 0 {
 		planOpts = append(planOpts, tfexec.Parallelism(opts.Parallelism))
 	}
-	switch opts.Lock {
-	case sdk.LockEnabled:
-		planOpts = append(planOpts, tfexec.Lock(true))
-	case sdk.LockDisabled:
-		planOpts = append(planOpts, tfexec.Lock(false))
-	case sdk.LockDefault:
-	}
-	if opts.LockTimeout != "" {
-		planOpts = append(planOpts, tfexec.LockTimeout(string(opts.LockTimeout)))
+	for _, o := range lockOptions(opts.Lock, opts.LockTimeout) {
+		planOpts = append(planOpts, o)
 	}
 	return planOpts
+}
+
+type lockOption interface {
+	tfexec.PlanOption
+	tfexec.ApplyOption
+}
+
+func lockOptions(mode sdk.LockMode, timeout sdk.LockTimeout) []lockOption {
+	var opts []lockOption
+	switch mode {
+	case sdk.LockEnabled:
+		opts = append(opts, tfexec.Lock(true))
+	case sdk.LockDisabled:
+		opts = append(opts, tfexec.Lock(false))
+	case sdk.LockDefault:
+	}
+	if timeout != "" {
+		opts = append(opts, tfexec.LockTimeout(string(timeout)))
+	}
+	return opts
 }
 
 // PlanJSON runs terraform plan, then `terraform show -json <planfile>`

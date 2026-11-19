@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -180,54 +181,93 @@ func TestCompat_StandaloneApplyWithTarget(t *testing.T) {
 	}
 }
 
-// TestCompat_LockFlagsReachTerraform verifies the per-invocation lock override:
-// `--lock=false --lock-timeout=30s` must appear on the terraform command line
-// for plan and apply alike (lmarqs/terraform-ui#58).
+// TestCompat_LockFlagsReachTerraform runs the exec adapter, not the macro
+// recorder, against a stub terraform that logs its arguments: the lock override
+// and the configured parallelism must reach terraform for plan and apply alike
+// (lmarqs/terraform-ui#58, #64).
 func TestCompat_LockFlagsReachTerraform(t *testing.T) {
-	projectRoot := findProjectRoot()
-	planFixture := filepath.Join(projectRoot, "tests", "fixtures", "plan.json")
-	stateFixture := filepath.Join(projectRoot, "tests", "fixtures", "state.json")
-	tapeDir := filepath.Join(projectRoot, "tests", "fixtures", "tapes", "compat")
-
 	tests := []struct {
 		name    string
+		hcl     string
 		args    []string
 		command string
+		want    map[string]string
 	}{
 		{
 			name:    "plan",
-			args:    []string{"plan", "--lock=false", "--lock-timeout=30s", "-plan", planFixture, "-macro", filepath.Join(tapeDir, "standalone_plan_lock.tape")},
-			command: "terraform plan",
+			hcl:     "defaults {\n  parallelism = 3\n}\n",
+			args:    []string{"plan", "--lock=false", "--lock-timeout=30s"},
+			command: "plan",
+			want:    map[string]string{"-lock": "false", "-lock-timeout": "30s", "-parallelism": "3"},
 		},
 		{
 			name:    "apply",
-			args:    []string{"apply", "--auto-approve", "--lock=false", "--lock-timeout=30s", "-state", stateFixture, "-macro", filepath.Join(tapeDir, "standalone_apply_target.tape")},
-			command: "terraform apply",
+			hcl:     "defaults {\n  parallelism = 3\n}\n",
+			args:    []string{"apply", "--auto-approve", "--lock=false", "--lock-timeout=30s"},
+			command: "apply",
+			want:    map[string]string{"-lock": "false", "-lock-timeout": "30s", "-parallelism": "3"},
+		},
+		{
+			name:    "apply flag overrides configured lock",
+			hcl:     "defaults {\n  lock = false\n}\n",
+			args:    []string{"apply", "--auto-approve", "--lock=true"},
+			command: "apply",
+			want:    map[string]string{"-lock": "true"},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			stdout, stderr, err := runTfui(tt.args...)
-			if err != nil {
-				t.Fatalf("macro run failed: %v\nstderr: %s\nstdout: %s", err, stderr, stdout)
+			dir := t.TempDir()
+			calls := filepath.Join(dir, "calls")
+			stub := filepath.Join(dir, "terraform")
+			// One argument per line, each call opened by a separator line, so the
+			// test sees argument boundaries and every call.
+			script := `#!/bin/sh
+printf '%s\n' '--call--' "$@" >> '` + calls + `'
+case "$1" in
+version) printf '%s\n' '{"terraform_version":"1.14.0","platform":"linux_amd64","provider_selections":{}}' ;;
+show) printf '%s\n' '{"format_version":"1.0"}' ;;
+esac
+`
+			if err := os.WriteFile(stub, []byte(script), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(filepath.Join(dir, "tfui.hcl"), []byte(tt.hcl), 0o600); err != nil {
+				t.Fatal(err)
 			}
 
-			var line string
-			for _, l := range strings.Split(stdout, "\n") {
-				if strings.Contains(l, tt.command) {
-					line = l
-					break
+			args := append([]string{"--terraform-bin", stub}, tt.args...)
+			stdout, stderr, err := runTfuiIn(dir, args...)
+			if err != nil {
+				t.Fatalf("tfui %s failed: %v\nstderr: %s\nstdout: %s", tt.name, err, stderr, stdout)
+			}
+
+			logged, err := os.ReadFile(calls)
+			if err != nil {
+				t.Fatalf("stub terraform was never called: %v\nstderr: %s", err, stderr)
+			}
+			var matching [][]string
+			for _, call := range strings.Split(string(logged), "--call--\n")[1:] {
+				argv := strings.Split(strings.TrimSuffix(call, "\n"), "\n")
+				if argv[0] == tt.command {
+					matching = append(matching, argv)
 				}
 			}
-			if line == "" {
-				t.Fatalf("expected %q in stdout, got: %q", tt.command, stdout)
+			if len(matching) != 1 {
+				t.Fatalf("expected exactly one terraform %s call, got %d: %q", tt.command, len(matching), logged)
 			}
-			if !strings.Contains(line, "-lock=false") {
-				t.Errorf("expected '-lock=false' on the %s line, got: %q", tt.name, line)
-			}
-			if !strings.Contains(line, "-lock-timeout=30s") {
-				t.Errorf("expected '-lock-timeout=30s' on the %s line, got: %q", tt.name, line)
+			argv := matching[0]
+			for flag, value := range tt.want {
+				var got []string
+				for _, arg := range argv {
+					if strings.HasPrefix(arg, flag+"=") {
+						got = append(got, arg)
+					}
+				}
+				if len(got) != 1 || got[0] != flag+"="+value {
+					t.Errorf("expected exactly one %s=%s on the terraform %s call, got %q in %q", flag, value, tt.command, got, argv)
+				}
 			}
 		})
 	}
