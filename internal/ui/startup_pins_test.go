@@ -121,3 +121,36 @@ func TestStartupPins_GivenPinToggles_ShouldAddAndRemoveLikeHandSetPins(t *testin
 		t.Errorf("Pins after unpinning the -target address = %#v, want %#v", got, want)
 	}
 }
+
+func TestStartupPins_GivenNoMemberSwitchAtStartup_ShouldNotFollowAWorkspaceSwitch(t *testing.T) {
+	tests := []struct {
+		name          string
+		chdirDisabled bool
+	}{
+		{name: "chdir plugin disabled", chdirDisabled: true},
+		{name: "picker left open", chdirDisabled: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := config.Config{Dir: t.TempDir(), Terraform: config.TerraformConfig{Bin: "terraform"}, Pins: []string{"aws_instance.web"}}
+			registry := plugin.NewRegistry()
+			if !tt.chdirDisabled {
+				registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+					return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+				}, plugin.PluginMeta{MenuVisible: false})
+			}
+			registry.Build(nil, nil)
+			app := NewApp(cfg, newMockService("default", nil), registry, nil)
+			app.Init()
+
+			app = update(t, app, openContextOnStartupMsg{})
+			if got, want := app.holder.current.Pins, (sdk.Pins{"aws_instance.web"}); !reflect.DeepEqual(got, want) {
+				t.Fatalf("Pins after startup = %#v, want %#v", got, want)
+			}
+			app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: app.holder.current.Chdir, Workspace: sdk.NewWorkspace("staging")})
+			if got := app.holder.current.Pins; got != nil {
+				t.Errorf("Pins after a workspace switch = %#v, want none: pins die on a context switch", got)
+			}
+		})
+	}
+}

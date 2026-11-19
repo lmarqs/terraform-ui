@@ -314,7 +314,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.childCfg = childCfg
 		}
 		a.header = a.header.WithChdir(chdir.String()).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
-		next := a.rebuildContext(chdir, absChdir, workspace).WithPins(a.startupPins)
+		next := a.rebuildContext(chdir, absChdir, workspace)
+		// A member selection requests the default workspace the startup Context
+		// is in; a switch to another workspace ends the -target pins.
+		if workspace == sdk.WorkspaceDefault {
+			next = next.WithPins(a.startupPins)
+		}
 		ctxCmd := a.replaceContext(next, sdk.ContextSwitched)
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
