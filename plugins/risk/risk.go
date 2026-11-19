@@ -309,7 +309,7 @@ func (e *Plugin) renderChangeRow(item riskItem) string {
 		reason += evidence.Message
 	}
 
-	row := fmt.Sprintf("   %s %s", sdk.ActionSymbol(item.change.Action), item.change.Resource.Address)
+	row := fmt.Sprintf("   %s %s", sdk.ActionSymbol(item.change.Action), instanceLabel(item.change.Resource.Address, item.change.Resource.Deposed))
 	if reason != "" {
 		row += "  " + sdk.StyleFaint.Render(reason)
 	}
