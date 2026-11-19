@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -358,6 +359,95 @@ func TestPumpOutputPort_WhenInterrupted_ShouldSkipStdoutKeepStderrAndExitWithSig
 			}
 			if got := stderr.String(); got != "terraform said why\n" {
 				t.Errorf("stderr = %q, want the plugin's stderr as is", got)
+			}
+		})
+	}
+}
+
+// TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130 covers both
+// macro call sites: tfui --macro (Run) and a headless verb with --macro
+// (RunPlugin). The tape's first screenshot is a FIFO, so reading its first
+// byte proves the guard is watching and playback has reached that command. The
+// test opens the FIFO read-write, so neither its open nor the session's ever
+// blocks, and closing it releases a pending read. The test
+// holds SIGINT for its whole run, so a signal that no guard takes cannot reach
+// the default handler. A session that outlives its subtest still watches
+// SIGINT and would take the next subtest's signal as its second, which exits
+// the binary, so the test stops there.
+func TestSession_FirstSignalDuringTape_ShouldStopPlaybackAndExit130(t *testing.T) {
+	keepAlive := make(chan os.Signal, 1)
+	signal.Notify(keepAlive, syscall.SIGINT)
+	defer signal.Stop(keepAlive)
+
+	tests := []struct {
+		name string
+		run  func(*Session) error
+	}{
+		{"Run", (*Session).Run},
+		{"RunPlugin", func(s *Session) error {
+			return runPluginWithCapturedStdout(s, "apply", apply.Input{AutoApprove: true})
+		}},
+	}
+	leaked := ""
+	for _, tt := range tests {
+		if leaked != "" {
+			t.Fatalf("not running %s: the %s session still watches SIGINT", tt.name, leaked)
+		}
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			if err := os.WriteFile(filepath.Join(dir, "main.tf"), []byte(`resource "null_resource" "x" {}`), 0644); err != nil {
+				t.Fatalf("write tf: %v", err)
+			}
+			started := filepath.Join(dir, "started")
+			if err := syscall.Mkfifo(started, 0600); err != nil {
+				t.Fatalf("mkfifo: %v", err)
+			}
+			later := filepath.Join(dir, "later")
+			session := &Session{
+				cfg:          config.Config{Dir: dir},
+				ciMode:       true,
+				silentStderr: true,
+				macro:        MacroSpec{TapeURI: writeTempTape(t, "screenshot "+started+"\nsleep 1h\nscreenshot "+later+"\n")},
+				effects:      Effects{Stdout: &bytes.Buffer{}, Stderr: &bytes.Buffer{}},
+			}
+			fifo, err := os.OpenFile(started, os.O_RDWR, 0)
+			if err != nil {
+				t.Fatalf("open %s: %v", started, err)
+			}
+			defer func() { _ = fifo.Close() }()
+			read := make(chan error, 1)
+			go func() {
+				_, err := fifo.Read(make([]byte, 1))
+				read <- err
+			}()
+			done := make(chan error, 1)
+			go func() { done <- tt.run(session) }()
+
+			select {
+			case err := <-read:
+				if err != nil {
+					t.Fatalf("read %s: %v", started, err)
+				}
+			case err := <-done:
+				t.Fatalf("session returned before its first screenshot: %v", err)
+			case <-time.After(10 * time.Second):
+				leaked = tt.name
+				t.Fatal("session never reached its first screenshot")
+			}
+			if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+				t.Fatalf("send SIGINT: %v", err)
+			}
+			select {
+			case err := <-done:
+				if code, _ := exitStatus(err); code != 130 {
+					t.Errorf("exit code = %d (err %v), want 130", code, err)
+				}
+			case <-time.After(10 * time.Second):
+				leaked = tt.name
+				t.Fatal("tape kept playing after the first signal")
+			}
+			if _, err := os.Stat(later); !errors.Is(err, os.ErrNotExist) {
+				t.Errorf("stat %s = %v, want the command after the signal not to run", later, err)
 			}
 		})
 	}

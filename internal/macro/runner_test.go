@@ -1,11 +1,14 @@
 package macro
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -16,7 +19,7 @@ func TestRunner_WhenTapeIsEmpty_ShouldSucceed(t *testing.T) {
 	d := NewDriver(model, 80, 24)
 	r := NewRunner(d)
 
-	err := r.Execute(nil)
+	err := r.Execute(context.Background(), nil)
 	if err != nil {
 		t.Errorf("empty commands should succeed, got %v", err)
 	}
@@ -30,7 +33,7 @@ func TestRunner_WhenKeyCommand_ShouldSendKeyToDriver(t *testing.T) {
 	commands := []Command{
 		{Type: CmdKey, Args: []string{"p"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -48,7 +51,7 @@ func TestRunner_WhenAssertViewMatches_ShouldPass(t *testing.T) {
 	commands := []Command{
 		{Type: CmdAssertView, Args: []string{"ready"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Errorf("assert should pass, got %v", err)
 	}
@@ -62,7 +65,7 @@ func TestRunner_WhenAssertViewNoMatch_ShouldFail(t *testing.T) {
 	commands := []Command{
 		{Type: CmdAssertView, Args: []string{"missing"}, Line: 3},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err == nil {
 		t.Fatal("assert should fail")
 	}
@@ -93,7 +96,7 @@ func TestRunner_WhenWaitReady_ShouldBlockUntilReady(t *testing.T) {
 		{Type: CmdWaitReady, Line: 1},
 		{Type: CmdAssertView, Args: []string{"ready"}, Line: 2},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Errorf("should succeed after init: %v", err)
 	}
@@ -108,7 +111,7 @@ func TestRunner_WhenWaitViewMatches_ShouldPass(t *testing.T) {
 	commands := []Command{
 		{Type: CmdWaitView, Args: []string{"ready"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Errorf("wait view should pass: %v", err)
 	}
@@ -123,7 +126,7 @@ func TestRunner_WhenWaitViewTimesOut_ShouldReturnTimeoutError(t *testing.T) {
 	commands := []Command{
 		{Type: CmdWaitView, Args: []string{"never appears"}, Line: 5},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err == nil {
 		t.Fatal("should timeout")
 	}
@@ -150,7 +153,7 @@ func TestRunner_WhenScreenshotCommand_ShouldWriteViewToFile(t *testing.T) {
 	commands := []Command{
 		{Type: CmdScreenshot, Args: []string{path}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -172,7 +175,7 @@ func TestRunner_WhenResizeCommand_ShouldSucceed(t *testing.T) {
 	commands := []Command{
 		{Type: CmdResize, Args: []string{"120", "40"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Errorf("resize should succeed: %v", err)
 	}
@@ -186,7 +189,7 @@ func TestRunner_WhenSleepCommand_ShouldSucceed(t *testing.T) {
 	commands := []Command{
 		{Type: CmdSleep, Args: []string{"10ms"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Errorf("sleep should succeed: %v", err)
 	}
@@ -202,7 +205,7 @@ func TestRunner_WhenFirstCommandFails_ShouldStopExecution(t *testing.T) {
 		{Type: CmdAssertView, Args: []string{"missing"}, Line: 1},
 		{Type: CmdKey, Args: []string{"p"}, Line: 2},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err == nil {
 		t.Fatal("should fail on first assertion")
 	}
@@ -273,7 +276,7 @@ func TestRunner_WhenResizeCommand_ShouldUpdateModelView(t *testing.T) {
 		{Type: CmdResize, Args: []string{"120", "40"}, Line: 1},
 		{Type: CmdAssertView, Args: []string{"120x40"}, Line: 2},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Errorf("should succeed: %v", err)
 	}
@@ -287,7 +290,7 @@ func TestRunner_WhenScreenshotWriteFails_ShouldReturnError(t *testing.T) {
 	commands := []Command{
 		{Type: CmdScreenshot, Args: []string{"/nonexistent-dir/subdir/file.txt"}, Line: 4},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err == nil {
 		t.Fatal("expected error for write to invalid path")
 	}
@@ -313,7 +316,7 @@ func TestRunner_WhenWaitReadyTimesOut_ShouldReturnTimeoutError(t *testing.T) {
 	commands := []Command{
 		{Type: CmdWaitReady, Line: 2},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err == nil {
 		t.Fatal("expected timeout error")
 	}
@@ -341,7 +344,7 @@ func TestRunner_WhenEmitStale_ShouldSendPlanInvalidatedEvent(t *testing.T) {
 	commands := []Command{
 		{Type: CmdEmit, Args: []string{"stale"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("emit stale should succeed: %v", err)
 	}
@@ -355,7 +358,7 @@ func TestRunner_WhenEmitRefreshed_ShouldSendStateRefreshedEvent(t *testing.T) {
 	commands := []Command{
 		{Type: CmdEmit, Args: []string{"refreshed"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("emit refreshed should succeed: %v", err)
 	}
@@ -369,7 +372,7 @@ func TestRunner_WhenEmitLock_ShouldSendLockDetectedEvent(t *testing.T) {
 	commands := []Command{
 		{Type: CmdEmit, Args: []string{"lock", "deploy-bot"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("emit lock should succeed: %v", err)
 	}
@@ -383,7 +386,7 @@ func TestRunner_WhenEmitLockClear_ShouldSendLockClearedEvent(t *testing.T) {
 	commands := []Command{
 		{Type: CmdEmit, Args: []string{"lock-clear"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("emit lock-clear should succeed: %v", err)
 	}
@@ -436,12 +439,62 @@ func TestRunner_WhenResizeCommand_ShouldUpdateRecorderDimensions(t *testing.T) {
 	commands := []Command{
 		{Type: CmdResize, Args: []string{"120", "40"}, Line: 1},
 	}
-	err := r.Execute(commands)
+	err := r.Execute(context.Background(), commands)
 	if err != nil {
 		t.Fatalf("should succeed: %v", err)
 	}
 
 	if rec.width != 120 || rec.height != 40 {
 		t.Errorf("recorder dimensions = %dx%d, want 120x40", rec.width, rec.height)
+	}
+}
+
+func TestRunner_WhenCancelledDuringBlockingCommand_ShouldReturnAtOnceAndRunNoLaterCommand(t *testing.T) {
+	tests := []struct {
+		name     string
+		blocking Command
+	}{
+		{"sleep", Command{Type: CmdSleep, Args: []string{"1h"}, Line: 1}},
+		{"wait", Command{Type: CmdWaitView, Args: []string{"never"}, Line: 1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				ctx, cancel := context.WithCancel(context.Background())
+				d := NewDriver(mockModel{content: "initial"}, 80, 24)
+				done := make(chan error, 1)
+				go func() {
+					done <- NewRunner(d).Execute(ctx, []Command{tt.blocking, {Type: CmdKey, Args: []string{"x"}, Line: 2}})
+				}()
+				synctest.Wait()
+
+				start := time.Now()
+				cancel()
+				err := <-done
+				if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+					t.Errorf("Execute returned %v after cancel, want within 100ms", elapsed)
+				}
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Execute error = %v, want context.Canceled", err)
+				}
+				if d.ViewContains("keys") {
+					t.Errorf("view = %q, want no key sent after cancel", d.View())
+				}
+			})
+		})
+	}
+}
+
+func TestRunner_WhenCancelledBetweenCommands_ShouldRunNoLaterCommand(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	d := NewDriver(mockModel{content: "initial"}, 80, 24)
+
+	err := NewRunner(d).Execute(ctx, []Command{{Type: CmdKey, Args: []string{"x"}, Line: 1}})
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Execute error = %v, want context.Canceled", err)
+	}
+	if d.ViewContains("keys") {
+		t.Errorf("view = %q, want no key sent after cancel", d.View())
 	}
 }
