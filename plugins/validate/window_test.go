@@ -17,7 +17,6 @@ var (
 	keyLeft  = tea.KeyMsg{Type: tea.KeyLeft}
 	keyRight = tea.KeyMsg{Type: tea.KeyRight}
 	keyEnter = tea.KeyMsg{Type: tea.KeyEnter}
-	keyG     = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
 	keyShift = tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'G'}}
 )
 
