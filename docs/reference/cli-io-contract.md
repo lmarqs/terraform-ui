@@ -72,6 +72,8 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly; `CI=tr
 | `tfui init` | "Initialized successfully." | TUI (alt-screen) | 0/1 |
 | `tfui version` | Version text | TUI (alt-screen) | 0 |
 | `tfui version -json` | Version JSON | TUI (alt-screen) | 0 |
+| `tfui risk` | Risk text report | TUI (alt-screen); after it, the threshold-met line or the failure diagnostic | 0/1/3 |
+| `tfui risk -json` | Risk JSON report | TUI (alt-screen); after it, the threshold-met line or the failure diagnostic | 0/1/3 |
 
 ### Headless mode
 
@@ -88,6 +90,9 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly; `CI=tr
 | `tfui output -ci -json` | Outputs JSON | — | 0 |
 | `tfui init -ci` | "Initialized successfully." | — | 0/1 |
 | `tfui version -ci` | Version text | — | 0 |
+| `tfui risk -ci` | Risk text report | — | 0 |
+| `tfui risk -ci -json` | Risk JSON report | — | 0 |
+| `tfui risk -ci -risk-threshold high` (threshold met) | Same complete report | `risk threshold met: high >= high` (actual levels substituted) | 3 |
 | `tfui taint addr -ci` | — | "✓ Tainted addr" | 0 |
 | `tfui untaint addr -ci` | — | "✓ Untainted addr" | 0 |
 | `tfui import addr id -ci` | — | "✓ Imported id as addr" | 0 |
@@ -109,6 +114,7 @@ the Terraform error on stderr; Risk policy failures use fixed diagnostics as spe
 | `tfui apply -ci -auto-approve` (fails) | — | terraform error | 1 |
 | `tfui taint/untaint/import ... -ci` (fails) | — | terraform error | 1 |
 | `tfui init -ci` (fails) | — | terraform error | 1 |
+| `tfui risk -ci` (policy failure) | — | fixed diagnostic | 1 |
 
 ### Full TUI mode (`tfui` no command)
 
