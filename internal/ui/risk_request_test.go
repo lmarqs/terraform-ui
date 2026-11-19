@@ -93,6 +93,44 @@ func TestRequestAssessment_GivenBrokenPolicyAndNilSummary_ShouldPublishUnavailab
 	}
 }
 
+func TestRequestAssessment_GivenNilSummaryAndUncompilablePolicy_ShouldReportCompilationFailedWithoutPlanning(t *testing.T) {
+	tests := []struct {
+		name   string
+		policy string
+	}{
+		{"SyntaxError", "package tfui.risk.v1\nimport rego.v1\nclassification := {"},
+		{"BuiltinOutsideCapabilities", "package tfui.risk.v1\nimport rego.v1\nclassification := http.send({\"method\": \"get\", \"url\": \"http://example.invalid\"})\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
+			writePolicyFile(t, root, "policy.rego", tt.policy)
+			svc := newMockService("default", nil)
+			svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) {
+				return reviewedRiskSummary(), nil
+			}
+			app, deps, recorder := newAssessmentRequestApp(t, root, true, svc)
+
+			deliverAssessment(&app, deps.RequestAssessment(nil))
+
+			ev := onlyRiskEvent(t, recorder)
+			if len(svc.PlanCalls) != 0 {
+				t.Errorf("Service.Plan called %d times, want 0 for a policy that cannot compile", len(svc.PlanCalls))
+			}
+			if ev.Err != nil {
+				t.Fatalf("compilation failure surfaced as plan error: %v", ev.Err)
+			}
+			if ev.Assessment.Status != sdk.AssessmentUnavailable || ev.Assessment.ErrorCode != sdk.ErrorCompilationFailed {
+				t.Errorf("assessment = %+v, want unavailable with compilation_failed", ev.Assessment)
+			}
+			if ev.Assessment.Policy.Digest == "" {
+				t.Error("assessment lost the policy identity, want a non-empty digest")
+			}
+		})
+	}
+}
+
 func TestRequestAssessment_GivenValidPolicyAndNilSummary_ShouldPlanOnceAndPublishThatSummary(t *testing.T) {
 	planned := reviewedRiskSummary()
 	svc := newMockService("default", nil)
@@ -262,7 +300,7 @@ func TestCancel_GivenSuppliedSummary_ShouldKeepEvaluatingIt(t *testing.T) {
 	app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
 	evaluating := make(chan context.Context, 1)
 	release := make(chan struct{})
-	cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Snapshot, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+	cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
 		evaluating <- ctx
 		<-release
 		return sdk.PolicyAssessment{Status: sdk.AssessmentEmpty}
@@ -291,7 +329,7 @@ func TestRequestAssessment_GivenContextChangeDuringSuppliedSummaryEvaluation_Sho
 		t.Run(name, func(t *testing.T) {
 			app, _, recorder := newAssessmentRequestApp(t, t.TempDir(), false, newMockService("default", nil))
 			evaluating := make(chan context.Context, 1)
-			cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Snapshot, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+			cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
 				evaluating <- ctx
 				<-ctx.Done()
 				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}
@@ -339,7 +377,7 @@ func TestRequestAssessment_GivenNilSummaryRequestCancelledThenRequestedAgain_Sho
 			return cmd
 		}},
 		{"cancelled during evaluation", func(app *App) tea.Cmd {
-			return app.requestAssessmentWith(nil, func(ctx context.Context, _ riskpolicy.Snapshot, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
+			return app.requestAssessmentWith(nil, func(ctx context.Context, _ riskpolicy.Policy, _ sdk.PolicyEvidence) sdk.PolicyAssessment {
 				deactivateActivePlugin(app)
 				<-ctx.Done()
 				return sdk.PolicyAssessment{Status: sdk.AssessmentCancelled}

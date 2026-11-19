@@ -11,9 +11,36 @@ import (
 	"github.com/open-policy-agent/opa/v1/topdown"
 )
 
-// Assess compiles one immutable snapshot once and evaluates each eligible resource
-// independently. It does not acquire plans, reload source or publish lifecycle events.
-func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence) (result sdk.PolicyAssessment) {
+// Policy is one immutable snapshot compiled once. Compiling before Terraform runs
+// lets a policy that cannot compile fail without acquiring a plan.
+type Policy struct {
+	snapshot Snapshot
+	query    rego.PreparedEvalQuery
+	err      error
+}
+
+// Compile prepares snapshot for evaluation. A Policy that failed to compile
+// assesses every plan as unavailable with compilation_failed.
+func Compile(ctx context.Context, snapshot Snapshot) Policy {
+	query, err := prepare(ctx, snapshot)
+	return Policy{snapshot: snapshot, query: query, err: err}
+}
+
+// Compiled reports whether the snapshot compiled.
+func (p Policy) Compiled() bool { return p.err == nil }
+
+// Snapshot returns the source the policy was compiled from.
+func (p Policy) Snapshot() Snapshot { return p.snapshot }
+
+// Assess compiles snapshot and assesses evidence with it.
+func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+	return Compile(ctx, snapshot).Assess(ctx, evidence)
+}
+
+// Assess evaluates each eligible resource independently. It does not acquire
+// plans, reload source or publish lifecycle events.
+func (p Policy) Assess(ctx context.Context, evidence sdk.PolicyEvidence) (result sdk.PolicyAssessment) {
+	snapshot := p.snapshot
 	result = sdk.PolicyAssessment{
 		Status: sdk.AssessmentUnavailable, PlanID: evidence.PlanID,
 		Policy: sdk.PolicyIdentity{Kind: snapshot.Kind(), ID: snapshot.ID(), Digest: snapshot.Digest(), EvaluatorVersion: evaluatorVersion, CapabilityDigest: capabilityDigest},
@@ -37,8 +64,7 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 			return result
 		}
 	}
-	query, err := prepare(ctx, snapshot)
-	if err != nil {
+	if p.err != nil {
 		result.ErrorCode = sdk.ErrorCompilationFailed
 		return result
 	}
@@ -50,7 +76,7 @@ func Assess(ctx context.Context, snapshot Snapshot, evidence sdk.PolicyEvidence)
 			row.Status = sdk.ResourceNotAssessed
 		} else {
 			row.Status = sdk.ResourceUnavailable
-			level, reasons, code := evaluate(ctx, query, resource.Input)
+			level, reasons, code := evaluate(ctx, p.query, resource.Input)
 			if ctx.Err() != nil {
 				return result
 			}

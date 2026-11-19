@@ -135,7 +135,7 @@ func TestRequestAssessment_GivenUnchangedEvidenceAndSource_ShouldReuseAssessment
 	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n")
 	app, _, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
 	calls := 0
-	evaluator := func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence) sdk.PolicyAssessment {
+	evaluator := func(context.Context, riskpolicy.Policy, sdk.PolicyEvidence) sdk.PolicyAssessment {
 		calls++
 		low := sdk.RiskLow
 		return sdk.PolicyAssessment{Status: "complete", OverallLevel: &low}

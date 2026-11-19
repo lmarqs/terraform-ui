@@ -19,7 +19,7 @@ func TestRequestAssessment_GivenSourceChangedDuringEvaluation_ShouldPublishSourc
 			writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
 			writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\nimport rego.v1\ndefault classification := {\"level\":\"low\",\"reasons\":[]}\n")
 			app, _, recorder := newAssessmentRequestApp(t, root, true, newMockService("default", nil))
-			ev := requestRisk(t, &app, recorder, app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, snapshot riskpolicy.Snapshot, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+			ev := requestRisk(t, &app, recorder, app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
 				switch change {
 				case "bytes":
 					writePolicyFile(t, root, "policy.rego", "package changed\n")
@@ -32,7 +32,7 @@ func TestRequestAssessment_GivenSourceChangedDuringEvaluation_ShouldPublishSourc
 						t.Fatal(err)
 					}
 				}
-				return riskpolicy.Assess(ctx, snapshot, evidence)
+				return policy.Assess(ctx, evidence)
 			}))
 			got := ev.Assessment
 			if got.Status != "unavailable" || got.ErrorCode != "source_changed" || got.OverallLevel != nil || len(got.Resources) != 0 {
@@ -46,9 +46,9 @@ func TestRequestAssessment_GivenInvalidationOrInvalidConfiguration_ShouldCancelO
 	root := t.TempDir()
 	app, _, recorder := newAssessmentRequestApp(t, root, false, newMockService("default", nil))
 	var evaluated error
-	cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, snapshot riskpolicy.Snapshot, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+	cmd := app.requestAssessmentWith(reviewedRiskSummary(), func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
 		evaluated = ctx.Err()
-		return riskpolicy.Assess(ctx, snapshot, evidence)
+		return policy.Assess(ctx, evidence)
 	})
 	drainPolicyAppCommand(&app, func() tea.Msg { return sdk.PlanInvalidatedEvent{} })
 	result := cmd().(riskAssessedMsg)

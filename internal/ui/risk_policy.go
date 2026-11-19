@@ -38,7 +38,7 @@ type riskAssessmentCache struct {
 	result sdk.PolicyAssessment
 }
 
-type riskEvaluator func(context.Context, riskpolicy.Snapshot, sdk.PolicyEvidence) sdk.PolicyAssessment
+type riskEvaluator func(context.Context, riskpolicy.Policy, sdk.PolicyEvidence) sdk.PolicyAssessment
 
 // riskRequests is shared by App copies and touched only on the Update loop. Every
 // request made since the last Context change or plan invalidation shares one
@@ -119,7 +119,9 @@ func (a App) cancelPlugin(p sdk.Plugin) {
 }
 
 func (a App) requestAssessment(summary *sdk.PlanSummary) tea.Cmd {
-	return a.requestAssessmentWith(summary, riskpolicy.Assess)
+	return a.requestAssessmentWith(summary, func(ctx context.Context, policy riskpolicy.Policy, evidence sdk.PolicyEvidence) sdk.PolicyAssessment {
+		return policy.Assess(ctx, evidence)
+	})
 }
 
 // requestAssessmentWith pairs the request's identity with its Context, so a result
@@ -136,7 +138,7 @@ func (a App) requestAssessmentWith(summary *sdk.PlanSummary, assess riskEvaluato
 	}
 }
 
-// runAssessment loads the policy before any plan, so a broken policy never runs Terraform.
+// runAssessment loads and compiles the policy before any plan, so a broken policy never runs Terraform.
 func (a App) runAssessment(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, assess riskEvaluator) sdk.RiskAssessedEvent {
 	event := sdk.RiskAssessedEvent{Summary: summary}
 	selection, snapshot, failure := a.loadRiskPolicy(current)
@@ -145,13 +147,18 @@ func (a App) runAssessment(ctx context.Context, current *sdk.Context, summary *s
 		event.Hint = sdk.DiagnosticHint(sdk.RiskSettingsError(a.cfg.Plugins["risk"].Options))
 		return event
 	}
+	policy := riskpolicy.Compile(ctx, snapshot)
 	if summary == nil {
+		if !policy.Compiled() {
+			event.Assessment = assess(ctx, policy, sdk.PolicyEvidence{})
+			return event
+		}
 		event.Summary, event.Err = planForAssessment(ctx, current)
 		if event.Err != nil {
 			return event
 		}
 	}
-	event.Assessment = a.evaluateRisk(ctx, current, event.Summary, selection, snapshot, assess)
+	event.Assessment = a.evaluateRisk(ctx, current, event.Summary, selection, policy, assess)
 	return event
 }
 
@@ -189,7 +196,8 @@ func (a App) loadRiskPolicy(current *sdk.Context) (config.RiskPolicySelection, r
 	return selection, snapshot, ""
 }
 
-func (a App) evaluateRisk(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, snapshot riskpolicy.Snapshot, assess riskEvaluator) sdk.PolicyAssessment {
+func (a App) evaluateRisk(ctx context.Context, current *sdk.Context, summary *sdk.PlanSummary, selection config.RiskPolicySelection, policy riskpolicy.Policy, assess riskEvaluator) sdk.PolicyAssessment {
+	snapshot := policy.Snapshot()
 	evidence := sdk.PolicyEvidence{ErrorCode: sdk.ErrorInputIncomplete}
 	if summary != nil && summary.PolicyEvidence != nil {
 		evidence = *summary.PolicyEvidence
@@ -204,7 +212,7 @@ func (a App) evaluateRisk(ctx context.Context, current *sdk.Context, summary *sd
 			return result
 		}
 	}
-	result := assess(ctx, snapshot, evidence)
+	result := assess(ctx, policy, evidence)
 	if ctx.Err() != nil {
 		return result
 	}
