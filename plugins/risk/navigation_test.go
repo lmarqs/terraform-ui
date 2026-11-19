@@ -137,3 +137,22 @@ func TestHints_GivenNoListedRows_ShouldNotOfferWrap(t *testing.T) {
 		})
 	}
 }
+
+func TestView_GivenWrapOnAndShiftGInNarrowView_ShouldKeepTheLastMutationVisibleAndInspectIt(t *testing.T) {
+	p := longRowPlugin(t)
+
+	p.Update(keyWrap)
+	p.Update(keyShift)
+	if view := ansi.Strip(p.View(32, 8)); !strings.Contains(view, "aws_instance.c") {
+		t.Fatalf("wrap on with the cursor on the third mutation should show it:\n%s", view)
+	}
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	runLifecycleCmd(p, cmd)
+	if p.Stack().Peek().ID() != "inspect" {
+		t.Fatal("Enter should open the inspector")
+	}
+	if view := ansi.Strip(p.View(32, 8)); !strings.Contains(view, "aws_instance.c") || strings.Contains(view, "tailmarker") {
+		t.Fatalf("Enter should inspect the third mutation:\n%s", view)
+	}
+}

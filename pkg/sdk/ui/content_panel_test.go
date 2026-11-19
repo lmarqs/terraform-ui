@@ -632,3 +632,182 @@ func BenchmarkContentPanel_RenderWithHScroll(b *testing.B) {
 		panel.Render(params)
 	}
 }
+
+func wrapPanel() *ui.ContentPanel {
+	panel := ui.NewContentPanel()
+	panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+	panel.SelectedStyle = func(s string, w int) string { return "[SEL]" + s }
+	return panel
+}
+
+// threeLineRows returns rows of 30 characters, each wrapping to three lines at width 10.
+func threeLineRows(letters string) []string {
+	rows := make([]string, len(letters))
+	for i, r := range letters {
+		rows[i] = strings.Repeat(string(r), 30)
+	}
+	return rows
+}
+
+func TestContentPanel_Render_GivenWrapModeCursorBelowHeight_ShouldDrawCursorRowFirstLineSelected(t *testing.T) {
+	panel := wrapPanel()
+
+	output := panel.Render(ui.RenderParams{
+		Rows:       threeLineRows("abc"),
+		Width:      10,
+		Height:     5,
+		TotalItems: 3,
+		Cursor:     2,
+	})
+
+	if !strings.Contains(output, "[SEL]"+strings.Repeat("c", 10)) {
+		t.Fatalf("cursor row's first wrapped line should be drawn selected, got:\n%s", output)
+	}
+	if lines := strings.Split(output, "\n"); len(lines) != 5 {
+		t.Errorf("expected 5 lines, got %d:\n%s", len(lines), output)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapModeCursorOnLastRow_ShouldPutThumbAtBottomOfTrack(t *testing.T) {
+	panel := wrapPanel()
+
+	output, offset := panel.RenderWindow(ui.RenderParams{
+		Rows:   threeLineRows("abcd"),
+		Width:  12,
+		Height: 8,
+		Cursor: 3,
+	})
+
+	lines := strings.Split(output, "\n")
+	if len(lines) != 8 {
+		t.Fatalf("expected 8 lines, got %d:\n%s", len(lines), output)
+	}
+	if !strings.HasSuffix(lines[1], "│") || !strings.HasSuffix(lines[6], "┃") || !strings.HasSuffix(lines[7], "▼") {
+		t.Errorf("thumb should sit at the bottom of the track, got:\n%s", output)
+	}
+	if !strings.Contains(output, "[SEL]"+strings.Repeat("d", 10)) {
+		t.Errorf("cursor row's first wrapped line should be drawn selected, got:\n%s", output)
+	}
+	if offset != 4 {
+		t.Errorf("offset = %d, want 4 (12 wrapped lines, height 8)", offset)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapModeCursorAboveOffset_ShouldScrollUpToCursorRow(t *testing.T) {
+	panel := wrapPanel()
+
+	output, offset := panel.RenderWindow(ui.RenderParams{
+		Rows:         threeLineRows("abcd"),
+		Width:        12,
+		Height:       5,
+		Cursor:       1,
+		ScrollOffset: 7,
+	})
+
+	if offset != 3 {
+		t.Errorf("offset = %d, want 3 (first line of row b)", offset)
+	}
+	if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, "[SEL]"+strings.Repeat("b", 10)) {
+		t.Errorf("first line should be the cursor row, got %q", first)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapModeBlockTallerThanHeight_ShouldShowBlockStart(t *testing.T) {
+	panel := wrapPanel()
+
+	output, offset := panel.RenderWindow(ui.RenderParams{
+		Rows:      threeLineRows("abcd"),
+		Width:     12,
+		Height:    4,
+		Cursor:    1,
+		CursorEnd: 4,
+	})
+
+	if offset != 3 {
+		t.Errorf("offset = %d, want 3 (block start)", offset)
+	}
+	if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, "[SEL]") {
+		t.Errorf("first line should be the cursor row, got %q", first)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapModeRowsFitWidth_ShouldUseFullWidthWithoutGutter(t *testing.T) {
+	panel := wrapPanel()
+
+	output, offset := panel.RenderWindow(ui.RenderParams{
+		Rows:   []string{strings.Repeat("a", 12), "b"},
+		Width:  12,
+		Height: 5,
+		Cursor: -1,
+	})
+
+	if want := strings.Repeat("a", 12) + "\nb"; output != want || offset != 0 {
+		t.Errorf("RenderWindow = %q, %d, want %q, 0", output, offset, want)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapModeOffsetPastEnd_ShouldClampToLastPage(t *testing.T) {
+	panel := wrapPanel()
+
+	_, offset := panel.RenderWindow(ui.RenderParams{
+		Rows:         threeLineRows("ab"),
+		Width:        12,
+		Height:       5,
+		Cursor:       -1,
+		ScrollOffset: 9,
+	})
+
+	if offset != 1 {
+		t.Errorf("offset = %d, want 1 (6 wrapped lines, height 5)", offset)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapOff_ShouldWindowRowsAroundCursorBlock(t *testing.T) {
+	rows := []string{"r0", "r1", "r2", "r3", "r4", "r5"}
+	tests := []struct {
+		name       string
+		params     ui.RenderParams
+		wantOffset int
+		wantFirst  string
+	}{
+		{"cursor below window scrolls down to block end", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 3, CursorEnd: 5}, 2, "r2"},
+		{"cursor above window scrolls up to cursor", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 1, ScrollOffset: 3}, 1, "[SEL]r1"},
+		{"block taller than height shows its start", ui.RenderParams{Rows: rows, Width: 10, Height: 2, Cursor: 1, CursorEnd: 5}, 1, "[SEL]r1"},
+		{"offset past end clamps to last page", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: -1, ScrollOffset: 9}, 3, "r3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			panel.SelectedStyle = func(s string, w int) string { return "[SEL]" + s }
+
+			output, offset := panel.RenderWindow(tt.params)
+
+			want := panel.Render(ui.RenderParams{
+				Rows:         rows[offset:min(len(rows), offset+tt.params.Height)],
+				Width:        tt.params.Width,
+				Height:       tt.params.Height,
+				TotalItems:   len(rows),
+				Cursor:       tt.params.Cursor - offset,
+				ScrollOffset: offset,
+			})
+			if offset != tt.wantOffset || output != want {
+				t.Fatalf("RenderWindow = %q, %d, want %q, %d", output, offset, want, tt.wantOffset)
+			}
+			if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, tt.wantFirst) {
+				t.Errorf("first line = %q, want prefix %q", first, tt.wantFirst)
+			}
+		})
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenZeroHeight_ShouldRenderNothing(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		panel := ui.NewContentPanel()
+		if wrap {
+			panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+		}
+		if output, offset := panel.RenderWindow(ui.RenderParams{Rows: []string{"a"}, Width: 10, Cursor: 0}); output != "" || offset != 0 {
+			t.Errorf("wrap=%v: RenderWindow = %q, %d, want empty, 0", wrap, output, offset)
+		}
+	}
+}

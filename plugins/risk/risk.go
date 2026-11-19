@@ -248,16 +248,8 @@ func (e *Plugin) renderAnalysis(width, height int) string {
 			index++
 		}
 	}
-	available := max(1, height-4)
-	if start < e.offset {
-		e.offset = start
-	}
-	if end > e.offset+available {
-		e.offset = min(start, end-available)
-	}
-	e.offset = max(0, min(e.offset, max(0, len(rows)-available)))
-	last := min(len(rows), e.offset+available)
-	content := e.panel.Render(ui.RenderParams{Rows: rows[e.offset:last], Width: width, Height: available, TotalItems: len(rows), Cursor: start - e.offset, ScrollOffset: e.offset})
+	content, offset := e.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, height-4), Cursor: start, CursorEnd: end, ScrollOffset: e.offset})
+	e.offset = offset
 	banner := ansi.Truncate(e.renderOverallBanner(), max(0, width), "")
 	stats := ansi.Truncate(e.renderStats(), max(0, width), "")
 	result := banner + "\n\n" + content + "\n\n" + stats
