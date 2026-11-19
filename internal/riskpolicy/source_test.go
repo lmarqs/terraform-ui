@@ -142,6 +142,30 @@ func TestLoadSource_GivenInvalidSelection_ShouldFailWithoutBuiltinFallback(t *te
 			writePolicyModule(t, filepath.Join(dir, "sub", "main.rego"), "package y")
 			return dir
 		}, "source_invalid"},
+		{"dangling selected link", func(t *testing.T, dir string) string {
+			path := filepath.Join(dir, "link.rego")
+			if err := os.Symlink(filepath.Join(dir, "missing.rego"), path); err != nil {
+				t.Fatal(err)
+			}
+			return path
+		}, "source_unreadable"},
+		{"dangling module link", func(t *testing.T, dir string) string {
+			writePolicyModule(t, filepath.Join(dir, "main.rego"), "package x")
+			if err := os.Symlink(filepath.Join(dir, "missing.rego"), filepath.Join(dir, "other.rego")); err != nil {
+				t.Fatal(err)
+			}
+			return dir
+		}, "source_unreadable"},
+		{"link cycle", func(t *testing.T, dir string) string {
+			first, second := filepath.Join(dir, "a.rego"), filepath.Join(dir, "b.rego")
+			if err := os.Symlink(second, first); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Symlink(first, second); err != nil {
+				t.Fatal(err)
+			}
+			return first
+		}, "source_unreadable"},
 		{"non UTF8 module", func(t *testing.T, dir string) string {
 			writePolicyModule(t, filepath.Join(dir, string([]byte{0xff})+".rego"), "package x")
 			return dir
