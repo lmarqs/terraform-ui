@@ -142,31 +142,6 @@ func TestLoadSource_GivenInvalidSelection_ShouldFailWithoutBuiltinFallback(t *te
 			writePolicyModule(t, filepath.Join(dir, "sub", "main.rego"), "package y")
 			return dir
 		}, "source_invalid"},
-		{"selected symlink", func(t *testing.T, dir string) string {
-			target := filepath.Join(dir, "real.rego")
-			writePolicyModule(t, target, "package x")
-			path := filepath.Join(dir, "link.rego")
-			if err := os.Symlink(target, path); err != nil {
-				t.Fatal(err)
-			}
-			return path
-		}, "source_invalid"},
-		{"ancestor symlink", func(t *testing.T, dir string) string {
-			real := filepath.Join(dir, "real")
-			writePolicyModule(t, filepath.Join(real, "main.rego"), "package x")
-			link := filepath.Join(dir, "link")
-			if err := os.Symlink(real, link); err != nil {
-				t.Fatal(err)
-			}
-			return filepath.Join(link, "main.rego")
-		}, "source_invalid"},
-		{"module symlink", func(t *testing.T, dir string) string {
-			writePolicyModule(t, filepath.Join(dir, "main.rego"), "package x")
-			if err := os.Symlink(filepath.Join(dir, "main.rego"), filepath.Join(dir, "other.rego")); err != nil {
-				t.Fatal(err)
-			}
-			return dir
-		}, "source_invalid"},
 		{"non UTF8 module", func(t *testing.T, dir string) string {
 			writePolicyModule(t, filepath.Join(dir, string([]byte{0xff})+".rego"), "package x")
 			return dir
@@ -179,6 +154,59 @@ func TestLoadSource_GivenInvalidSelection_ShouldFailWithoutBuiltinFallback(t *te
 			_, err := LoadSource(config.RiskPolicySelection{Path: path}, []Module{{Name: "builtin.rego", Source: "package builtin"}})
 			if err == nil || err.Error() != tt.code {
 				t.Fatalf("error=%v want fixed %q without fallback", err, tt.code)
+			}
+		})
+	}
+}
+
+func TestLoadSource_GivenSymlinkedSource_ShouldLoadTarget(t *testing.T) {
+	link := func(t *testing.T, target, path string) {
+		t.Helper()
+		if err := os.Symlink(target, path); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tests := []struct {
+		name  string
+		setup func(*testing.T, string) string
+		want  []Module
+	}{
+		{"linked selected file", func(t *testing.T, dir string) string {
+			target := filepath.Join(dir, "real.rego")
+			writePolicyModule(t, target, "package x")
+			path := filepath.Join(dir, "link.rego")
+			link(t, target, path)
+			return path
+		}, []Module{{Name: "link.rego", Source: "package x"}}},
+		{"linked ancestor directory", func(t *testing.T, dir string) string {
+			real := filepath.Join(dir, "real")
+			writePolicyModule(t, filepath.Join(real, "main.rego"), "package x")
+			linked := filepath.Join(dir, "link")
+			link(t, real, linked)
+			return filepath.Join(linked, "main.rego")
+		}, []Module{{Name: "main.rego", Source: "package x"}}},
+		{"linked selected directory", func(t *testing.T, dir string) string {
+			real := filepath.Join(dir, "real")
+			writePolicyModule(t, filepath.Join(real, "main.rego"), "package x")
+			linked := filepath.Join(dir, "link")
+			link(t, real, linked)
+			return linked
+		}, []Module{{Name: "main.rego", Source: "package x"}}},
+		{"linked module entry", func(t *testing.T, dir string) string {
+			writePolicyModule(t, filepath.Join(dir, "main.rego"), "package x")
+			link(t, filepath.Join(dir, "main.rego"), filepath.Join(dir, "other.rego"))
+			return dir
+		}, []Module{{Name: "main.rego", Source: "package x"}, {Name: "other.rego", Source: "package x"}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := tt.setup(t, t.TempDir())
+			snapshot, err := LoadSource(config.RiskPolicySelection{Path: path}, nil)
+			if err != nil {
+				t.Fatalf("LoadSource through a symlink returned %v, want the target loaded", err)
+			}
+			if snapshot.Kind() != "custom" || !reflect.DeepEqual(snapshot.Modules(), tt.want) {
+				t.Fatalf("kind=%q modules=%v, want custom %v", snapshot.Kind(), snapshot.Modules(), tt.want)
 			}
 		})
 	}
@@ -229,7 +257,7 @@ func TestLoadSource_WhenSelectedFilesChangeDuringCapture_ShouldRejectMixedSnapsh
 			dir := t.TempDir()
 			writePolicyModule(t, filepath.Join(dir, "main.rego"), "package original\n")
 			reads := 0
-			reader := sourceReader{lstat: os.Lstat, readFile: os.ReadFile, readDir: func(path string) ([]os.DirEntry, error) {
+			reader := sourceReader{stat: os.Stat, readFile: os.ReadFile, readDir: func(path string) ([]os.DirEntry, error) {
 				reads++
 				if reads == 2 {
 					tt.change(t, dir)
@@ -249,7 +277,7 @@ func TestLoadSource_WhenSelectedFileChangesBetweenReads_ShouldRejectSnapshot(t *
 	path := filepath.Join(dir, "main.rego")
 	writePolicyModule(t, path, "package original\n")
 	reads := 0
-	reader := sourceReader{lstat: os.Lstat, readDir: os.ReadDir, readFile: func(path string) ([]byte, error) {
+	reader := sourceReader{stat: os.Stat, readDir: os.ReadDir, readFile: func(path string) ([]byte, error) {
 		reads++
 		if reads == 2 {
 			writePolicyModule(t, path, "package changed\n")
@@ -268,31 +296,28 @@ func TestLoadSource_GivenFilesystemFailure_ShouldReturnFixedUnavailableDiagnosti
 		directory bool
 		configure func(*sourceReader, string)
 	}{
-		{"ancestor stat denied", false, func(r *sourceReader, _ string) {
-			r.lstat = func(string) (os.FileInfo, error) { return nil, os.ErrPermission }
+		{"selected stat denied", false, func(r *sourceReader, _ string) {
+			r.stat = func(string) (os.FileInfo, error) { return nil, os.ErrPermission }
 		}},
-		{"selected stat disappears after ancestor check", false, func(r *sourceReader, path string) {
+		{"selected file stat disappears before module read", false, func(r *sourceReader, path string) {
 			calls := 0
-			r.lstat = func(p string) (os.FileInfo, error) {
+			r.stat = func(p string) (os.FileInfo, error) {
 				if p == path {
 					calls++
 					if calls == 2 {
 						return nil, os.ErrNotExist
 					}
 				}
-				return os.Lstat(p)
+				return os.Stat(p)
 			}
 		}},
-		{"module stat disappears", false, func(r *sourceReader, path string) {
-			calls := 0
-			r.lstat = func(p string) (os.FileInfo, error) {
-				if p == path {
-					calls++
-					if calls == 3 {
-						return nil, os.ErrNotExist
-					}
+		{"directory module stat disappears", true, func(r *sourceReader, path string) {
+			module := filepath.Join(path, "main.rego")
+			r.stat = func(p string) (os.FileInfo, error) {
+				if p == module {
+					return nil, os.ErrNotExist
 				}
-				return os.Lstat(p)
+				return os.Stat(p)
 			}
 		}},
 		{"directory listing denied", true, func(r *sourceReader, _ string) {
@@ -313,7 +338,7 @@ func TestLoadSource_GivenFilesystemFailure_ShouldReturnFixedUnavailableDiagnosti
 			if tt.directory {
 				path = dir
 			}
-			reader := sourceReader{lstat: os.Lstat, readFile: os.ReadFile, readDir: os.ReadDir}
+			reader := sourceReader{stat: os.Stat, readFile: os.ReadFile, readDir: os.ReadDir}
 			tt.configure(&reader, path)
 			_, err := reader.load(config.RiskPolicySelection{Path: path}, nil)
 			if err == nil || err.Error() != "source_unreadable" {
@@ -337,8 +362,8 @@ func TestLoadSource_GivenNonregularSelectedFileOrModule_ShouldRejectWithoutReadi
 			if directory {
 				selected = dir
 			}
-			reader := sourceReader{lstat: func(path string) (os.FileInfo, error) {
-				info, err := os.Lstat(path)
+			reader := sourceReader{stat: func(path string) (os.FileInfo, error) {
+				info, err := os.Stat(path)
 				if err == nil && path == file {
 					return specialPolicyFileInfo{info}, nil
 				}

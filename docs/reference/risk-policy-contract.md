@@ -364,9 +364,8 @@ established, mark assessment unavailable. This task does not change global handl
 
 Accept a regular `.rego` file as one module, or a directory's immediate regular `.rego` files sorted by filename.
 Exclude `*_test.rego`; ignore other regular files and subdirectories. No recursion, bundles, JSON/YAML data or
-implicit import lookup. Reject a selected test file, a directory with no production modules, and symlinks at the
-selected path, any ancestor path component, or an eligible module entry. This deliberately modest local-loader
-boundary is not a hostile-filesystem sandbox. Resolve lexical absolute paths without following symlinks.
+implicit import lookup. Reject a selected test file and a directory with no production modules. This deliberately
+modest local-loader boundary is not a hostile-filesystem sandbox.
 
 A file's logical module name is its basename; directory modules use immediate filenames. Read exact bytes into
 an immutable snapshot before compiling. Imports resolve only against that snapshot. Missing helper imports,

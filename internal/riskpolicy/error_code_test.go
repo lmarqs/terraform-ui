@@ -34,7 +34,7 @@ func TestLoadSource_GivenFailure_ShouldCarryErrorCodeWithoutParsingText(t *testi
 			path := filepath.Join(dir, "main.rego")
 			writePolicyModule(t, path, "package original\n")
 			reads := 0
-			reader := sourceReader{lstat: os.Lstat, readDir: os.ReadDir, readFile: func(p string) ([]byte, error) {
+			reader := sourceReader{stat: os.Stat, readDir: os.ReadDir, readFile: func(p string) ([]byte, error) {
 				reads++
 				if reads == 2 {
 					writePolicyModule(t, p, "package changed\n")

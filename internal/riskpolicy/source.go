@@ -41,13 +41,13 @@ func (s Snapshot) Modules() []Module { return slices.Clone(s.modules) }
 // LoadSource captures a selected complete source. The evaluator supplies its embedded
 // modules for built-in selection; custom selection never mixes them into the snapshot.
 func LoadSource(selection config.RiskPolicySelection, builtin []Module) (Snapshot, error) {
-	return (sourceReader{os.Lstat, os.ReadFile, os.ReadDir}).load(selection, builtin)
+	return (sourceReader{os.Stat, os.ReadFile, os.ReadDir}).load(selection, builtin)
 }
 
 // Separate filesystem operations permit deterministic checks of observed edits and
 // read failures without relying on scheduler timing or changing global functions.
 type sourceReader struct {
-	lstat    func(string) (os.FileInfo, error)
+	stat     func(string) (os.FileInfo, error)
 	readFile func(string) ([]byte, error)
 	readDir  func(string) ([]os.DirEntry, error)
 }
@@ -105,10 +105,7 @@ func (r sourceReader) readSource(path string) ([]Module, error) {
 	if err != nil {
 		return nil, sdk.ErrorSourceUnreadable
 	}
-	if err := r.rejectSymlinks(path); err != nil {
-		return nil, err
-	}
-	info, err := r.lstat(path)
+	info, err := r.stat(path)
 	if err != nil {
 		return nil, sdk.ErrorSourceUnreadable
 	}
@@ -134,9 +131,6 @@ func (r sourceReader) readSource(path string) ([]Module, error) {
 		if !productionModule(entry.Name()) || entry.IsDir() {
 			continue
 		}
-		if entry.Type()&os.ModeSymlink != 0 {
-			return nil, sdk.ErrorSourceInvalid
-		}
 		module, err := r.readModule(filepath.Join(path, entry.Name()))
 		if err != nil {
 			return nil, err
@@ -147,7 +141,7 @@ func (r sourceReader) readSource(path string) ([]Module, error) {
 }
 
 func (r sourceReader) readModule(path string) (Module, error) {
-	info, err := r.lstat(path)
+	info, err := r.stat(path)
 	if err != nil {
 		return Module{}, sdk.ErrorSourceUnreadable
 	}
@@ -159,21 +153,4 @@ func (r sourceReader) readModule(path string) (Module, error) {
 		return Module{}, sdk.ErrorSourceUnreadable
 	}
 	return Module{Name: filepath.Base(path), Source: string(data)}, nil
-}
-
-func (r sourceReader) rejectSymlinks(path string) error {
-	for {
-		info, err := r.lstat(path)
-		if err != nil {
-			return sdk.ErrorSourceUnreadable
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return sdk.ErrorSourceInvalid
-		}
-		parent := filepath.Dir(path)
-		if parent == path {
-			return nil
-		}
-		path = parent
-	}
 }
