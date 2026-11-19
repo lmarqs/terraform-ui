@@ -688,15 +688,15 @@ paths append ` [paths: <compact JSON paths array>]`. A deposed object's row show
 Threshold text is `off (disabled)` when off for nonempty reports and `<level-or-off> (not_applicable)` for empty.
 A complete explicit-none report starts `Risk: none`; it does not imply safety. End every report with one LF.
 
-Policy/config/input failures use fixed lowercase diagnostics `risk unavailable: <code>` with an optional
+Policy/config/input failures use fixed lowercase diagnostics `risk unavailable: <code-or-reason>` with an optional
 ` for <escaped-address>`. Codes: `configuration_invalid`, `source_unreadable`, `source_invalid`,
 `source_changed`, `input_incomplete`, `input_invalid`, `compilation_failed`, `result_undefined`,
 `result_invalid`, `result_cardinality`, `evaluation_conflict`, `evaluation_failed`.
 Use `configuration_invalid` for the unsupported `level` key and append
 `\n\nhint: risk setting level is unsupported; use threshold`. For unavailable/partial command results choose
-the first failure by address (global failures take priority), with no partial stdout. An unusable result with
-neither names its status, or `assessment unusable` when it has none. TUI retains every valid row
-and a summary count. Escape terminal controls in source metadata; public diagnostics never interpolate raw values,
+the first failure by address (global failures take priority), with no partial stdout. An unusable assessment
+with no global code and no failed row names its status as the reason (`partial`, `unavailable`, `cancelled`), or
+`assessment unusable` when the status is empty. TUI retains every valid row and a summary count. Escape terminal controls in source metadata; public diagnostics never interpolate raw values,
 source paths or compiler messages. Terraform acquisition errors retain their existing pass-through error behavior.
 
 ### Empty report example

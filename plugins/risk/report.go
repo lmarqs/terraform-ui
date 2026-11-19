@@ -75,7 +75,6 @@ func compareThreshold(a sdk.PolicyAssessment, threshold *sdk.RiskLevel) threshol
 	return thresholdBelow
 }
 
-// sortedRows returns the assessment's rows ordered by instance object.
 func sortedRows(a sdk.PolicyAssessment) []sdk.PolicyResourceAssessment {
 	rows := slices.Clone(a.Resources)
 	slices.SortFunc(rows, func(a, b sdk.PolicyResourceAssessment) int {
@@ -215,7 +214,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	if a.Status == sdk.AssessmentEmpty {
 		fmt.Fprintf(&out, "No eligible mutations (%d changes not assessed).\n", counts.notAssessed)
 	} else {
-		fmt.Fprintf(&out, "Risk: %s\n", a.OverallLevel)
+		fmt.Fprintf(&out, "Risk: %s\n", a.OverallLevel.String())
 	}
 	fmt.Fprintf(&out, "Policy: %s\nMutations: %d eligible, %d classified; %d changes not assessed\nThreshold: %s (%s)\n", a.Policy.ID, counts.classified, counts.classified, counts.notAssessed, thresholdName(e.threshold), compareThreshold(*a, e.threshold))
 	rows := sortedRows(*a)
@@ -223,7 +222,7 @@ func (e *Plugin) Stdout() ([]byte, error) {
 		if row.Status != sdk.ResourceClassified {
 			continue
 		}
-		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, row.Deposed), row.Level)
+		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, row.Deposed), row.Level.String())
 		for _, reason := range row.Reasons {
 			fmt.Fprintf(&out, "  %s: %s", reason.Code, reason.Message)
 			if len(reason.Paths) > 0 {
@@ -259,7 +258,7 @@ func escapedAddress(address string) string {
 
 func (e *Plugin) Stderr() []byte {
 	if e.thresholdMet() {
-		return fmt.Appendf(nil, "risk threshold met: %s >= %s\n", e.assessment.OverallLevel, thresholdName(e.threshold))
+		return fmt.Appendf(nil, "risk threshold met: %s >= %s\n", e.assessment.OverallLevel.String(), thresholdName(e.threshold))
 	}
 	if e.outcome.diagnostic == "" {
 		return nil
