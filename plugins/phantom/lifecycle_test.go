@@ -309,6 +309,42 @@ func TestUpdate_GivenEsc_ShouldLeaveOnlyWhileLoading(t *testing.T) {
 	}
 }
 
+func TestUpdate_GivenEscInTheErrorState_ShouldLeave(t *testing.T) {
+	p, _ := newHarness(t, sdk.RiskAssessedEvent{Err: errors.New("boom")})
+	runCmd(p, p.Activate())
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEsc})
+
+	if cmd == nil {
+		t.Fatal("Esc on the error screen returned no cmd, so Esc back is a hint for a key that does nothing")
+	}
+	if _, ok := cmd().(sdk.DeactivateMsg); !ok {
+		t.Fatalf("Esc on the error screen returned %T, want sdk.DeactivateMsg", cmd())
+	}
+}
+
+func TestUpdate_GivenCtrlRInTheErrorState_ShouldAskTheHostAgain(t *testing.T) {
+	p, h := newHarness(t, sdk.RiskAssessedEvent{Err: errors.New("boom")})
+	runCmd(p, p.Activate())
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: phantomSummary()}
+
+	_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR})
+	runCmd(p, cmd)
+
+	if len(h.AssessmentRequests) != 2 || p.Status() != sdk.StatusDone || p.PhantomCount() != 1 {
+		t.Fatalf("requests=%d status=%v phantoms=%d; want ctrl+r to retry and fill the list", len(h.AssessmentRequests), p.Status(), p.PhantomCount())
+	}
+}
+
+func TestUpdate_GivenCtrlROutsideTheErrorState_ShouldDoNothing(t *testing.T) {
+	p, h := newHarness(t, sdk.RiskAssessedEvent{})
+	runCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: phantomSummary()}))
+
+	if _, cmd := p.Update(tea.KeyMsg{Type: tea.KeyCtrlR}); cmd != nil || len(h.AssessmentRequests) != 0 {
+		t.Fatal("ctrl+r on a settled list started a request, but no hint offers it")
+	}
+}
+
 func TestUpdate_GivenTimerTick_ShouldKeepTickingOnlyWhileLoading(t *testing.T) {
 	p, _, activation := pending(t)
 	sdktest.LandTick(t, activation)
@@ -344,7 +380,7 @@ func TestHints_ShouldFollowTheStatus(t *testing.T) {
 		want []sdk.KeyHint
 	}{
 		"loading": {loading, sdk.HintSetBack.Hints()},
-		"error":   {failed, sdk.HintSetQuit.Hints()},
+		"error":   {failed, (sdk.HintSetRetry | sdk.HintSetBack).Hints()},
 	} {
 		if got := tt.p.Hints(); !slices.Equal(got, tt.want) {
 			t.Errorf("%s: Hints() = %v, want %v", name, got, tt.want)

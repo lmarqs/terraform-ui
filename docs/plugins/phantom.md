@@ -28,14 +28,16 @@ Press `P` (uppercase) to open the Phantom Changes view. Its screen fills as soon
 
 - After a plan ran in this session (`:plan`), the view lists that plan's phantom changes at once.
 - With no plan in this session, opening the view asks tfui to run `terraform plan` for the active chdir and
-  workspace, and shows `Loading plan...` with the elapsed time until it ends. A plan loaded with `-plan` counts as
-  run, so it answers at once.
-- If that plan cannot be produced, the view shows `plan unavailable` with the reason, and `P` asks again.
+  workspace, and shows `Loading plan...` with the elapsed time until it ends. With `-plan`, the plan is served from
+  the loaded file instead of running terraform.
+- If that plan cannot be produced, the view shows `plan unavailable` with the reason. `Ctrl+r` retries, and `Esc`
+  goes back to Home.
 - A change of chdir, workspace or pins drops the plan, and the view returns to its empty state until the next plan
-  or the next `P`.
+  or the next opening with `P`.
 
-The request goes through the same host assessment that [Risk](risk.md) uses, so a risk policy that fails to load
-stops it before it plans and the view shows that failure instead.
+Known limitation: Phantom gets its plan through the host's assessment request, the one [Risk](risk.md) uses. A risk
+policy that fails to load stops that request before it plans, so Phantom shows `plan unavailable` with the policy's
+failure, as Risk does. Issue #156 tracks a plan-only request.
 
 ### Keybindings
 
@@ -43,7 +45,8 @@ stops it before it plans and the view shows that failure instead.
 |-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
 | `Enter` / `i` | Expand/collapse phantom details | List |
-| `Esc` | Back to Home, cancelling the plan | Loading |
+| `Ctrl+r` | Ask for the plan again | Plan unavailable |
+| `Esc` | Back to Home, cancelling a running plan | Loading, or plan unavailable |
 | `q` | Back to Home | Always |
 
 ### Flow
@@ -53,7 +56,8 @@ Home ──P──→ Phantom Changes (loading) ──→ Phantom Changes (list)
                   │                         │
                   │                         ├── Enter/i → Expand phantom details
                   │                         └── q → Home
-                  └── Esc → Home (cancels the plan)
+                  ├── Esc → Home (cancels the plan)
+                  └── plan unavailable → Ctrl+r retries, Esc → Home
 ```
 
 ## Command Line (CLI)
