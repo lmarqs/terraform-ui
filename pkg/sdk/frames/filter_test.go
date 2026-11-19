@@ -369,3 +369,27 @@ func TestFilterFrame_NonFilterCharsIgnored(t *testing.T) {
 
 // Verify FilterFrame satisfies the Frame interface at compile time.
 var _ sdk.Frame = (*FilterFrame)(nil)
+
+func TestFilterFrame_ActionSymbolCharsAreTextInput(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{})
+
+	for _, key := range []string{"-", "/", "+", "~"} {
+		f.Update(keyMsg(key))
+	}
+
+	if f.Query != "-/+~" {
+		t.Fatalf("expected query %q, got %q", "-/+~", f.Query)
+	}
+}
+
+func TestFilterFrame_NonFilterCharsAreIgnored(t *testing.T) {
+	f := NewFilterFrame(FilterOpts{})
+
+	for _, key := range []string{"!", "@", "#", "$", "%", "^", "&", "*", "(", ")", "=", ":", ";", "'", ",", "<", ">", "?", "\\", "|", "{", "}", "`", "\""} {
+		f.Update(keyMsg(key))
+	}
+
+	if f.Query != "" {
+		t.Fatalf("expected an empty query, got %q", f.Query)
+	}
+}

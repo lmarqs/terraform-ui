@@ -106,7 +106,8 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 
 func isFilterChar(c byte) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
-		(c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.'
+		(c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' ||
+		c == '+' || c == '~' || c == '/' // action symbols, so "-/+" can be typed
 }
 
 func (f *FilterFrame) View(width, height int) string {

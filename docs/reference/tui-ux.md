@@ -258,14 +258,14 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 |--------|-----------|-----------|
 | Algorithm | fzf FuzzyMatchV2 | fzf with score threshold (len*17) |
 | Sorting | By score (best first) | Preserves hierarchy order |
-| Input chars | Alphanumeric + `_` `-` `.` | Same |
+| Input chars | Alphanumeric + `_` `-` `.` `+` `~` `/` | Same |
 | Space key | Pin selected item | Pin selected item |
 | Results | Flat list | Auto-expanded tree showing matches |
 | Toggle | `ctrl+t` switches to tree | `ctrl+t` switches to flat |
 
 ### Filter rules
-- Only accept: `a-z A-Z 0-9 _ - .`
-- Brackets, special chars pass through to action handlers
+- Only accept: `a-z A-Z 0-9 _ - . + ~ /`
+- Brackets and other special chars pass through to action handlers
 - `Esc` exits filter mode
 - `Enter` inspects (leaf) or expands (branch)
 - Backspace on empty: stays in filter mode (doesn't exit)
