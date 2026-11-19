@@ -141,3 +141,21 @@ func TestRenderCompactAttributeDiffs_GivenLongValues_ShouldFillTheWidthExactly(t
 		t.Errorf("row width = %d, want 30", width)
 	}
 }
+
+func TestRenderCompactAttributeDiffs_GivenPartlyUnknownValue_ShouldKeepItsKnownKeys(t *testing.T) {
+	diffs := []AttributeDiff{{Key: "tags", OldValue: `{"env":"prod","id":"a"}`, NewValue: `{"env":"stage","id":(known after apply)}`}}
+	got := RenderCompactAttributeDiffs(diffs, 80)
+	want := []string{`    tags: {"env":"prod","id":"a"} → {"env":"stage","id":(known after apply)}`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("rows = %q, want %q", got, want)
+	}
+}
+
+func TestRenderCompactAttributeDiffs_GivenPartlyUnknownValueAtNarrowWidth_ShouldTruncateLikeAnyOtherValue(t *testing.T) {
+	diffs := []AttributeDiff{{Key: "tags", OldValue: `{"env":"prod","id":"a"}`, NewValue: `{"env":"stage","id":(known after apply)}`}}
+	got := RenderCompactAttributeDiffs(diffs, 40)
+	want := []string{`    tags: {"env":"prod… → {"env":"stage…`}
+	if len(got) != len(want) || got[0] != want[0] {
+		t.Fatalf("rows = %q, want %q", got, want)
+	}
+}

@@ -48,12 +48,10 @@ func RenderCompactAttributeDiffs(diffs []AttributeDiff, width int) []string {
 			budget := max(0, width-ansi.StringWidth(diff.Key)-compactRowFixedWidth-len(suffix))
 			oldWidth := min(ansi.StringWidth(oldValue), budget/2)
 			newWidth := max(0, budget-oldWidth)
-			if strings.Contains(oldValue, "(known after apply)") {
-				oldValue = "(known after apply)"
+			if oldValue == "(known after apply)" {
 				oldWidth = len(oldValue)
 			}
-			if strings.Contains(newValue, "(known after apply)") {
-				newValue = "(known after apply)"
+			if newValue == "(known after apply)" {
 				newWidth = len(newValue)
 			}
 			value = ansi.Truncate(oldValue, oldWidth, "…") + " → " + ansi.Truncate(newValue, newWidth, "…")

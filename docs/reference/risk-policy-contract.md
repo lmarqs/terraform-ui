@@ -120,8 +120,9 @@ flow. Older browser mockups are visual experiments, not authority for Apply beha
 Group headings are not navigable resources. Show the standard scroll gutter and `[cursor/navigable]` title
 counter. Show at most two changed attribute paths under each resource, with `+N more` for overflow; inspection
 shows every diff and validated reason. Collapse long values to fit, preserving action/replacement order,
-`(known after apply)` and `(sensitive)` notation. Group unavailable resources first, then critical through none;
-within groups sort by address. Explicit `none`, `No eligible mutations`, and `Risk unavailable` have distinct
+`(sensitive)` notation and the `(known after apply)` of a wholly unknown value; a partly unknown value truncates
+like any other. Group unavailable resources first, then critical through none; within groups sort by address.
+Explicit `none`, `No eligible mutations`, and `Risk unavailable` have distinct
 headings. Narrow layouts may wrap or truncate display values, never replace an unavailable badge with a level.
 
 ## Input v1
