@@ -133,6 +133,7 @@ func (g *interruptGuard) shutdownOnce() {
 // A signal that arrived before release is still handled: its watcher exits the
 // process during that wait, so the run cannot end with its own exit code.
 // Without a watcher, as after a panic before Watch, it does not wait.
+// A stderr that is never drained can stall the wait, as it stalls the TUI.
 func (g *interruptGuard) stop(release func()) {
 	g.shutdownOnce()
 	release()
