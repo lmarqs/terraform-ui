@@ -163,3 +163,26 @@ func TestUpdate_GivenEscInErrorState_ShouldRequestDeactivation(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdate_GivenEscInDoneState_ShouldRequestDeactivation(t *testing.T) {
+	low := sdk.RiskLow
+	complete := sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_instance.a", Status: sdk.ResourceClassified, Level: &low},
+	}}
+	summary := blastSummary()
+	p, _, _ := newBlastHarness(t, summary, complete)
+	runBlastCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+	runBlastCmd(p, p.Activate())
+	if p.Status() != sdk.StatusDone {
+		t.Fatalf("setup: status = %v, want done", p.Status())
+	}
+
+	_, cmd := p.Update(escKey)
+
+	if cmd == nil {
+		t.Fatal("Esc returned no command, so the result view would trap the user until q")
+	}
+	if _, ok := cmd().(sdk.DeactivateMsg); !ok {
+		t.Fatalf("Esc returned %T, want sdk.DeactivateMsg", cmd())
+	}
+}

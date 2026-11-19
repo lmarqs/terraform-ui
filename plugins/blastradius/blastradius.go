@@ -116,7 +116,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		return e, e.timer.Tick()
 	case tea.KeyMsg:
 		switch {
-		case msg.String() == "esc" && (e.status == sdk.StatusLoading || e.failed()):
+		case msg.String() == "esc":
 			return e, func() tea.Msg { return sdk.DeactivateMsg{} }
 		case msg.String() == "ctrl+r" && e.failed():
 			return e, e.Activate()
