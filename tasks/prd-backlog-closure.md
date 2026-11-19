@@ -60,12 +60,12 @@ Stories that only comment on or close issues (US-000 to US-003) run no gates.
 | PR | Branch | Stories | Issue line in the PR body |
 |----|--------|---------|---------------------------|
 | A | `docs/risk-policy-architecture-record` | US-004 | `Closes #118` |
-| B | `fix/blastradius-esc-done` | US-005 | `Closes #<I-1>` |
+| B | `fix/blastradius-esc-done` | US-005 | `Closes #143` |
 | C | `fix/content-panel-wrap-cursor` | US-006 | `Part of #142`, `Refs #97` |
 | D | `fix/risk-retry-reevaluates` | US-007 | `Part of #142` |
 | E | `fix/risk-deposed-identity` | US-008 | `Part of #142` |
 | F | `refactor/risk-report-boundary` | US-009, US-010 | `Closes #142` |
-| G | `test/risk-followup-hygiene` | US-011, US-012 | `Closes #<I-2>` |
+| G | `test/risk-followup-hygiene` | US-011, US-012 | `Closes #144` |
 | H | `fix/blastradius-cold-open` | US-013 | `Part of #76` |
 | I | `fix/phantom-receives-plan` | US-014 | `Closes #76` |
 | J | `fix/analysis-lists-content-panel` | US-015 | `Part of #97` |
@@ -80,7 +80,7 @@ Stories that only comment on or close issues (US-000 to US-003) run no gates.
 | S | `feat/dry-run-recording` | US-025 | `Closes #29` |
 | T | `feat/root-target-pins` | US-026 | `Closes #32` |
 
-`<I-1>`, `<I-2>` and `<I-3>` are the issues US-000 files. Replace the placeholders in this file once they have numbers.
+`143`, `144` and `145` are the issues US-000 files. Replace the placeholders in this file once they have numbers.
 
 **Order and dependencies**
 
@@ -96,14 +96,14 @@ A PR that says `Closes` for an issue spanning several PRs (#142, #76, #97) must 
 ## User Stories
 
 ### US-000: File the missing issues
-**Issue:** creates `<I-1>`, `<I-2>` and `<I-3>`.
+**Issue:** creates `143`, `144` and `145`.
 
 **Description:** As a maintainer, I want every story tied to a GitHub issue, so that each PR closes or advances a known issue.
 
 **Acceptance Criteria:**
-- [ ] `<I-1>`: Blast Radius ignores Esc on the result view, with the evidence from US-005.
-- [ ] `<I-2>`: Risk test hygiene, covering the weak tape assertion and the 1-second tick waits, with the evidence from US-011 and US-012.
-- [ ] `<I-3>`: `HandlePlanCompleted` does not cancel the host risk request. It states that no path reaches it today and proposes the one-line fix: call `a.risk.Advance()` on `sdk.PlanCompletedEvent` in `internal/ui/app.go`, matching `PlanInvalidatedEvent`. No story implements it.
+- [ ] `143`: Blast Radius ignores Esc on the result view, with the evidence from US-005.
+- [ ] `144`: Risk test hygiene, covering the weak tape assertion and the 1-second tick waits, with the evidence from US-011 and US-012.
+- [ ] `145`: `HandlePlanCompleted` does not cancel the host risk request. It states that no path reaches it today and proposes the one-line fix: call `a.risk.Advance()` on `sdk.PlanCompletedEvent` in `internal/ui/app.go`, matching `PlanInvalidatedEvent`. No story implements it.
 - [ ] Each issue is labelled as `docs/development/backlog.md` says.
 - [ ] A comment on #142 links this PRD's story list and notes that the empty diagnostic (US-010) ships with the reporting change.
 - [ ] The placeholders in this file are replaced with the issue numbers, and the change is committed.
@@ -170,7 +170,7 @@ A PR that says `Closes` for an issue spanning several PRs (#142, #76, #97) must 
 - [ ] After the merge, #107's "Decisions so far" is updated with the tickets closed by US-002, US-003 and #118. #107 is closed only if its own closing rule allows it with #116 open. Otherwise it stays open, with a comment saying #116 is the one remaining child.
 
 ### US-005: Esc leaves Blast Radius from the result view
-**Issue:** `<I-1>`
+**Issue:** `143`
 
 **Description:** As a TUI user, I want Esc to leave Blast Radius after the assessment completes, so that I am not stuck pressing `q`.
 
@@ -255,7 +255,7 @@ A PR that says `Closes` for an issue spanning several PRs (#142, #76, #97) must 
 - [ ] This story is built on US-009 in the same PR.
 
 ### US-011: risk-policy-unavailable.tape proves Risk is on screen
-**Issue:** `<I-2>`
+**Issue:** `144`
 
 **Description:** As a maintainer, I want the tape to fail if Risk is not shown, so that it cannot pass on Plan's copy of the same diagnostic.
 
@@ -267,7 +267,7 @@ A PR that says `Closes` for an issue spanning several PRs (#142, #76, #97) must 
 - [ ] Every existing assertion in the tape stays.
 
 ### US-012: The identity tests stop waiting on real timer ticks
-**Issue:** `<I-2>`
+**Issue:** `144`
 
 **Description:** As a maintainer, I want the assessment identity tests to run without real 1-second ticks, so that `t.Parallel()` stops hiding a 1–2s cost for each subtest.
 
@@ -493,7 +493,7 @@ A PR that says `Closes` for an issue spanning several PRs (#142, #76, #97) must 
 - **#33 (yank to filter):** its own open questions need a design first.
 - **Docs rewrites:** #72 (Diátaxis regrouping), #73 (one voice), #74 (diagrams).
 - **#116:** it stays open until the owner has reviewed the measured costs.
-- **`<I-3>`, the host cancel on `PlanCompletedEvent`:** no path reaches it, and a stale result is already ignored. The issue tracks it, with no code.
+- **`145`, the host cancel on `PlanCompletedEvent`:** no path reaches it, and a stale result is already ignored. The issue tracks it, with no code.
 - Changing the built-in Lambda severities (#106 closes at the current levels).
 - A `tfui phantom` command or per-change engine reasons.
 - Bringing back seed flags for outputs, diagnostics or workspaces.
@@ -513,8 +513,8 @@ A PR that says `Closes` for an issue spanning several PRs (#142, #76, #97) must 
 
 ## Success Metrics
 
-- 23 existing issues are closed: #23, #29, #32, #61, #64, #76, #77, #87, #90, #97, #102, #104, #105, #106, #109, #110, #112, #113, #114, #115, #117, #118 and #142. #107 makes 24 if its rule allows. The two issues this PRD files for its own PRs, `<I-1>` and `<I-2>`, also close.
-- The open count goes from 36 to 14, or 13 if #107 closes: the eleven Non-Goal issues, #116, #107 and the newly filed `<I-3>`.
+- 23 existing issues are closed: #23, #29, #32, #61, #64, #76, #77, #87, #90, #97, #102, #104, #105, #106, #109, #110, #112, #113, #114, #115, #117, #118 and #142. #107 makes 24 if its rule allows. The two issues this PRD files for its own PRs, `143` and `144`, also close.
+- The open count goes from 36 to 14, or 13 if #107 closes: the eleven Non-Goal issues, #116, #107 and the newly filed `145`.
 - 20 PRs are open or merged, each with every gate passing and a Codex adversarial review validated.
 
 ## Open Questions
