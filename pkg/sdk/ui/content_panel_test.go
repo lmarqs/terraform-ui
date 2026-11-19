@@ -688,8 +688,8 @@ func TestContentPanel_RenderWindow_GivenWrapModeCursorOnLastRow_ShouldPutThumbAt
 	if !strings.Contains(output, "[SEL]"+strings.Repeat("d", 10)) {
 		t.Errorf("cursor row's first wrapped line should be drawn selected, got:\n%s", output)
 	}
-	if offset != 4 {
-		t.Errorf("offset = %d, want 4 (12 wrapped lines, height 8)", offset)
+	if offset != 1 {
+		t.Errorf("offset = %d, want 1 (line 4 of 12 wrapped lines is in row b)", offset)
 	}
 }
 
@@ -701,11 +701,11 @@ func TestContentPanel_RenderWindow_GivenWrapModeCursorAboveOffset_ShouldScrollUp
 		Width:        12,
 		Height:       5,
 		Cursor:       1,
-		ScrollOffset: 7,
+		ScrollOffset: 3,
 	})
 
-	if offset != 3 {
-		t.Errorf("offset = %d, want 3 (first line of row b)", offset)
+	if offset != 1 {
+		t.Errorf("offset = %d, want 1 (row b)", offset)
 	}
 	if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, "[SEL]"+strings.Repeat("b", 10)) {
 		t.Errorf("first line should be the cursor row, got %q", first)
@@ -723,8 +723,8 @@ func TestContentPanel_RenderWindow_GivenWrapModeBlockTallerThanHeight_ShouldShow
 		CursorEnd: 4,
 	})
 
-	if offset != 3 {
-		t.Errorf("offset = %d, want 3 (block start)", offset)
+	if offset != 1 {
+		t.Errorf("offset = %d, want 1 (block start)", offset)
 	}
 	if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, "[SEL]") {
 		t.Errorf("first line should be the cursor row, got %q", first)
@@ -749,7 +749,7 @@ func TestContentPanel_RenderWindow_GivenWrapModeRowsFitWidth_ShouldUseFullWidthW
 func TestContentPanel_RenderWindow_GivenWrapModeOffsetPastEnd_ShouldClampToLastPage(t *testing.T) {
 	panel := wrapPanel()
 
-	_, offset := panel.RenderWindow(ui.RenderParams{
+	output, offset := panel.RenderWindow(ui.RenderParams{
 		Rows:         threeLineRows("ab"),
 		Width:        12,
 		Height:       5,
@@ -757,8 +757,8 @@ func TestContentPanel_RenderWindow_GivenWrapModeOffsetPastEnd_ShouldClampToLastP
 		ScrollOffset: 9,
 	})
 
-	if offset != 1 {
-		t.Errorf("offset = %d, want 1 (6 wrapped lines, height 5)", offset)
+	if lines := strings.Split(output, "\n"); offset != 0 || !strings.HasPrefix(lines[2], "b") {
+		t.Errorf("offset = %d, want 0 and the last page, from line 1 of row a:\n%s", offset, output)
 	}
 }
 
@@ -826,5 +826,89 @@ func TestContentPanel_Render_GivenWrapModeScrolledPastLinesAbove_ShouldDrawGutte
 	lines := strings.Split(output, "\n")
 	if len(lines) != 5 || !strings.HasSuffix(lines[0], "▲") || !strings.HasSuffix(lines[4], "▼") {
 		t.Fatalf("wrapped lines hidden above the cursor should draw the gutter, got:\n%s", output)
+	}
+}
+
+func TestContentPanel_Render_GivenWrapModeWithoutCursor_ShouldKeepRowGutterRule(t *testing.T) {
+	panel := wrapPanel()
+
+	output := panel.Render(ui.RenderParams{
+		Rows:       []string{"12345678", "second-long"},
+		Width:      8,
+		Height:     2,
+		TotalItems: 2,
+		Cursor:     -1,
+	})
+
+	if want := "12345678\nsecond-l"; output != want {
+		t.Fatalf("Render = %q, want %q", output, want)
+	}
+}
+
+// twoLineRows returns n rows of 16 characters, each wrapping to two lines at width 10
+// once the gutter takes its two columns.
+func twoLineRows(n int) []string {
+	rows := make([]string, n)
+	for i := range rows {
+		rows[i] = fmt.Sprintf("row%02d", i) + strings.Repeat(".", 11)
+	}
+	return rows
+}
+
+func TestContentPanel_RenderWindow_GivenWrapToggledOnAndOff_ShouldKeepTheOffsetInRows(t *testing.T) {
+	panel := ui.NewContentPanel()
+	params := ui.RenderParams{Rows: twoLineRows(20), Width: 12, Height: 4, Cursor: 10}
+
+	_, offset := panel.RenderWindow(params)
+	if offset != 7 {
+		t.Fatalf("wrap off offset = %d, want 7 (cursor at the bottom)", offset)
+	}
+
+	panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+	params.ScrollOffset = offset
+	wrapped, offset := panel.RenderWindow(params)
+	if offset != 9 || !strings.HasPrefix(ansi.Strip(wrapped), "row09") {
+		t.Fatalf("wrap on offset = %d, want 9, the window's top row:\n%s", offset, wrapped)
+	}
+
+	panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+	params.ScrollOffset = offset
+	output, offset := panel.RenderWindow(params)
+	lines := strings.Split(ansi.Strip(output), "\n")
+	if offset != 9 || !strings.HasPrefix(lines[0], "row09") || !strings.HasPrefix(lines[1], "row10") {
+		t.Fatalf("wrap off again offset = %d, want 9 with the cursor on the second line:\n%s", offset, output)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWrapRoundTripWithRowsThatFit_ShouldRestoreTheWrapOffOutput(t *testing.T) {
+	panel := ui.NewContentPanel()
+	rows := make([]string, 20)
+	for i := range rows {
+		rows[i] = fmt.Sprintf("row%02d", i)
+	}
+	params := ui.RenderParams{Rows: rows, Width: 12, Height: 4, Cursor: 10}
+
+	before, offset := panel.RenderWindow(params)
+	for range 2 {
+		panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+		params.ScrollOffset = offset
+		_, offset = panel.RenderWindow(params)
+	}
+	params.ScrollOffset = offset
+	if after, _ := panel.RenderWindow(params); after != before {
+		t.Fatalf("wrap off after a round trip:\n%s\nwant:\n%s", after, before)
+	}
+}
+
+func TestContentPanel_RenderWindow_GivenWidthChangeWithWrapOn_ShouldKeepTheTopRow(t *testing.T) {
+	panel := wrapPanel()
+	params := ui.RenderParams{Rows: twoLineRows(20), Width: 12, Height: 4, Cursor: 10, ScrollOffset: 9}
+
+	_, offset := panel.RenderWindow(params)
+	params.Width, params.ScrollOffset = 40, offset
+	output, offset := panel.RenderWindow(params)
+
+	if offset != 9 || !strings.HasPrefix(output, "row09") {
+		t.Fatalf("offset after widening = %d, want 9 (same top row):\n%s", offset, output)
 	}
 }
