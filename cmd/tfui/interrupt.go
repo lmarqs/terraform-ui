@@ -122,6 +122,13 @@ func (g *interruptGuard) shutdownOnce() {
 	g.shutdownDone.Do(g.shutdown)
 }
 
+// stop runs plugin cleanup unless a signal already ran it, then calls release
+// to give the signals back and close their channel.
+func (g *interruptGuard) stop(release func()) {
+	g.shutdownOnce()
+	release()
+}
+
 // Finish runs once the program or headless driver returned. Without a prior
 // signal it interrupts terraform; if terraform still runs, it says so on
 // stderr and waits for it. It returns the first signal received, or nil, and
@@ -180,8 +187,9 @@ func startInterruptGuard(svc sdk.Service, stderr io.Writer, cleanup func()) (*in
 	guard := newInterruptGuard(terraformRunsOf(svc), signals, tfexec.TerraformHasOwnProcessGroup,
 		editor.HoldsTerminal, stderr, cleanup, os.Exit)
 	return guard, func() {
-		guard.shutdownOnce()
-		signal.Stop(signals)
-		close(signals)
+		guard.stop(func() {
+			signal.Stop(signals)
+			close(signals)
+		})
 	}
 }
