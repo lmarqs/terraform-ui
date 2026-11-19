@@ -62,6 +62,9 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			logging.Init(macroSpec.RecordDir != "", version, cfg.Dir, binary, macroSpec.RecordDir)
 
 			cfg.ExtraArgs = extraArgs
+			if err := rejectModuleTargets(targets); err != nil {
+				return err
+			}
 			cfg.Pins = targets
 			cfg.PreloadedData = !sources.Empty()
 			session.cfg = cfg
@@ -96,4 +99,50 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	rootCmd.Flags().StringArrayVar(&targets, "target", nil, "Start with this resource address pinned (repeatable, taken verbatim)")
 
 	return rootCmd, session, &extraArgs
+}
+
+// rejectModuleTargets refuses a root -target that names a module: a pin is a
+// resource address (CONTEXT.md), so a module scope belongs on plan's -target.
+func rejectModuleTargets(targets []string) error {
+	for _, target := range targets {
+		if isModulePath(target) {
+			return fmt.Errorf("-target %s is a module path; a pin is a resource address\n\n"+
+				"Target a module on the plan command instead:\n  tfui plan -target '%s'", target, target)
+		}
+	}
+	return nil
+}
+
+// isModulePath reports whether address is a module path (module.a,
+// module.a["k"], module.a.module.b) rather than a resource address.
+func isModulePath(address string) bool {
+	steps := addressSteps(address)
+	if len(steps)%2 != 0 {
+		return false
+	}
+	for i := 0; i < len(steps); i += 2 {
+		if steps[i] != "module" {
+			return false
+		}
+	}
+	return true
+}
+
+// addressSteps splits address at the dots outside an instance key, so a key
+// like ["x.y"] stays whole.
+func addressSteps(address string) []string {
+	var steps []string
+	depth, start := 0, 0
+	for i, r := range address {
+		switch {
+		case r == '[':
+			depth++
+		case r == ']':
+			depth--
+		case r == '.' && depth == 0:
+			steps = append(steps, address[start:i])
+			start = i + 1
+		}
+	}
+	return append(steps, address[start:])
 }
