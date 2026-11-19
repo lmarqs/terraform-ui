@@ -67,6 +67,9 @@ type App struct {
 	rootCfg     *config.RootConfig
 	childCfg    *config.ChildConfig
 	standalone  *StandaloneConfig
+	// startupPins are the -target pins of the session's first Context: the
+	// startup member selection carries them, and any Context replacement ends them.
+	startupPins sdk.Pins
 	width       int
 	height      int
 
@@ -127,6 +130,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		rootCfg:       rootCfg,
 		childCfg:      childCfg,
 		standalone:    sc,
+		startupPins:   startupPinsFrom(cfg.Pins),
 		header:        header,
 		contentBorder: components.NewContentBorder(),
 		commandBar:    components.NewCommandBar(),
@@ -238,6 +242,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return sdk.ContextSwitchRequestMsg{Chdir: sdk.Chdir(a.cfg.Chdir), Workspace: sdk.WorkspaceDefault}
 				}
 			}
+			// No startup switch follows: the bootstrap Context keeps the pins.
+			a.startupPins = nil
 			if a.cfg.BaseDir != "" {
 				a.activeChdir = sdk.Chdir(a.cfg.BaseDir)
 			}
@@ -308,7 +314,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.childCfg = childCfg
 		}
 		a.header = a.header.WithChdir(chdir.String()).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
-		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace), sdk.ContextSwitched)
+		next := a.rebuildContext(chdir, absChdir, workspace).WithPins(a.startupPins)
+		ctxCmd := a.replaceContext(next, sdk.ContextSwitched)
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
@@ -866,7 +873,16 @@ func (a *App) startupContext(workspace sdk.Workspace) *sdk.Context {
 		Workspace:  workspace,
 		Service:    a.svc,
 		ExtraArgs:  a.cfg.ExtraArgs,
+		Pins:       a.startupPins.Clone(),
 	})
+}
+
+// startupPinsFrom pins each -target address once, in the order given.
+func startupPinsFrom(targets []string) sdk.Pins {
+	if len(targets) == 0 {
+		return nil
+	}
+	return sdk.Pins(nil).Toggle(targets...)
 }
 
 // startupDir is the directory the session starts in: the --chdir member, else
@@ -906,6 +922,7 @@ func (a App) cancelPlugin(p sdk.Plugin) {
 func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
+	a.startupPins = nil
 	a.risk.Advance()
 	logging.Logger().Debug("context.replaced",
 		"prev_chdir", contextChdir(prev),

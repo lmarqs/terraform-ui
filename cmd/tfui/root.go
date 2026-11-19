@@ -18,6 +18,7 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	var ciMode bool
 	var jsonStdout bool
 	var dryRun bool
+	var targets []string
 	var extraArgs []string
 
 	session := &Session{effects: DefaultEffects()}
@@ -61,6 +62,7 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			logging.Init(macroSpec.RecordDir != "", version, cfg.Dir, binary, macroSpec.RecordDir)
 
 			cfg.ExtraArgs = extraArgs
+			cfg.Pins = targets
 			cfg.PreloadedData = !sources.Empty()
 			session.cfg = cfg
 			session.rootCfg = rootCfg
@@ -90,6 +92,8 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
 
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Record terraform commands instead of running them; print them to stdout on exit")
+	// StringArrayVar, like plan's -target: a slice flag would split an address on commas.
+	rootCmd.Flags().StringArrayVar(&targets, "target", nil, "Start with this resource address pinned (repeatable, taken verbatim)")
 
 	return rootCmd, session, &extraArgs
 }
