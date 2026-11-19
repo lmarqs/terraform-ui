@@ -130,6 +130,7 @@ the Terraform error on stderr; Risk policy failures use fixed diagnostics as spe
 | `tfui -dry-run` (stderr not a terminal) | — | `no TTY on stderr` error | 1 |
 | `tfui -target addr` | (alt-screen), with `addr` pinned | — | 0/1 |
 | `tfui -target addr -dry-run` | Recorded commands on exit; a plan carries `-target=addr` | TUI (alt-screen) | 0/1 |
+| `tfui -target module.x` (a module path) | — | `is a module path` error | 1 |
 | `tfui -ci` | (alt-screen) | — | 0/1 |
 
 `-ci` has no effect on the full TUI: `tfui -ci` runs the same TUI as `tfui`, and still needs a terminal. Mode

@@ -68,9 +68,12 @@ tfui -dry-run -record ./session/                      # frames, tape and command
 `-target` on `tfui` with no command pins each address, so the session starts with that selection and you add or
 remove pins as usual. A pin is not a target until you plan: opening Plan runs `terraform plan -target=<address>`
 for each pin, and apply runs the plan file that plan produced. Repeat the flag per address; each value is taken
-verbatim, as on `tfui plan`, and can be anything terraform's `-target` selects: a resource instance, a resource
-(all its instances) or a module. tfui does not check the addresses against the state or the plan: after a plan, a
-pin that selects no change in it is dropped, as with pins set by hand. The pins belong to the first chdir the session opens,
+verbatim, as on `tfui plan`. Each value is a resource address, as you would pin in the TUI: a resource instance
+(`aws_instance.web[0]`) or a resource (`aws_instance.web`, all its instances). A module path (`module.networking`)
+is not a pin, so tfui exits 1 and points you at `tfui plan -target`, which takes module scopes. tfui does not check
+the addresses against the state or the plan: after a plan, a pin that selects no change in it is dropped, as with
+pins set by hand. A resource pinned without its instance key stays pinned while its instances change, but the pin
+marker and the pinned-only filter match only exact addresses, so its indexed rows show as unpinned. The pins belong to the first chdir the session opens,
 `-chdir` or the one you pick at startup, and end on the next chdir or workspace switch, like every pin. With
 `-dry-run`, the recorded `terraform plan` carries the pins as `-target` flags. The command on the line decides
 the meaning: with no command it pins (`tfui -target X`); with `plan` or `apply` it is that command's terraform
