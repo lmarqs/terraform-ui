@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
@@ -57,6 +58,8 @@ type Plugin struct {
 	requestRisk func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
 	pending     sdk.AssessmentID
 	timer       ui.Timer
+	panel       *ui.ContentPanel
+	offset      int
 }
 
 // New creates a new blast radius plugin.
@@ -64,7 +67,9 @@ func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
 		PluginBase: sdk.NewPluginBase("blastradius", "Blast Radius", "Visualize module-grouped changes with impact scores"),
 		expanded:   make(map[int]bool),
+		panel:      ui.NewContentPanel(),
 	}
+	p.panel.SelectedStyle = func(s string, width int) string { return sdk.StyleSelected.Width(width).Render(s) }
 	p.Svc = svc
 	return p
 }
@@ -88,13 +93,14 @@ func (e *Plugin) Hints() []sdk.KeyHint {
 		return sdk.HintSetBack.Hints()
 	}
 	var set sdk.HintSet
-	if e.status == sdk.StatusDone && len(e.modules) > 0 {
-		set |= sdk.HintSetInspect
+	if e.navigable() {
+		set |= sdk.HintSetInspect | sdk.HintSetWrap
 	}
+	opts := sdk.HintSetOpts{WrapMode: e.panel.WrapMode()}
 	if e.failed() {
-		return (set | sdk.HintSetRetry | sdk.HintSetBack).Hints()
+		return (set | sdk.HintSetRetry | sdk.HintSetBack).Hints(opts)
 	}
-	return (set | sdk.HintSetQuit).Hints()
+	return (set | sdk.HintSetQuit).Hints(opts)
 }
 
 // Configure applies plugin-specific options from config.
@@ -135,7 +141,20 @@ func (e *Plugin) handleKey(msg tea.KeyMsg) {
 		e.MoveUp()
 	case "enter", "i":
 		e.ToggleExpand()
+	case "left", "right", "ctrl+w":
+		if e.navigable() {
+			e.panel.HandleKey(msg)
+		}
 	}
+}
+
+// navigable reports whether the list shows modules to move through and pan.
+func (e *Plugin) navigable() bool { return e.status == sdk.StatusDone && len(e.modules) > 0 }
+
+// resetView returns the window and the pan to the top left of the list.
+func (e *Plugin) resetView() {
+	e.offset = 0
+	e.panel.ResetScroll()
 }
 
 // MoveUp moves selection up.
@@ -191,44 +210,32 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
 	}
 
-	var b strings.Builder
-
-	// Overall blast summary
-	overallLine := e.renderOverallSummary()
-	b.WriteString(overallLine)
-	b.WriteString("\n\n")
-
-	// Calculate visible area
-	maxVisible := height - 10
-	if maxVisible < 5 {
-		maxVisible = 5
-	}
-
-	startIdx := 0
-	if e.selected >= maxVisible {
-		startIdx = e.selected - maxVisible + 1
-	}
-	endIdx := startIdx + maxVisible
-	if endIdx > len(e.modules) {
-		endIdx = len(e.modules)
-	}
-
-	for i := startIdx; i < endIdx; i++ {
-		mi := e.modules[i]
-		row := e.renderModuleRow(mi, i)
+	rows := []string{}
+	cursor, cursorEnd := 0, 0
+	for i, mi := range e.modules {
 		if i == e.selected {
-			row = sdk.StyleSelected.Width(width).Render(row)
+			cursor = len(rows)
 		}
-		b.WriteString(row)
-		b.WriteByte('\n')
-
-		// Render expanded changes
+		rows = append(rows, e.renderModuleRow(mi, i))
 		if e.expanded[i] {
-			b.WriteString(e.renderModuleChanges(mi, width))
+			rows = append(rows, e.renderModuleChanges(mi)...)
+		}
+		if i == e.selected {
+			cursorEnd = len(rows)
 		}
 	}
 
-	return b.String()
+	// The summary and the blank line under it take two rows, unless the cursor's module
+	// is taller than what is left: it gets them, so its last line shows.
+	listHeight, header := height-2, ansi.Truncate(e.renderOverallSummary(), max(0, width), "")+"\n\n"
+	if cursorEnd-cursor > listHeight {
+		listHeight, header = height, ""
+	}
+	content, offset := e.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, listHeight), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: e.offset})
+	e.offset = offset
+
+	lines := strings.Split(header+content, "\n")
+	return strings.Join(lines[:min(max(0, height), len(lines))], "\n")
 }
 
 func (e *Plugin) renderOverallSummary() string {
@@ -279,8 +286,9 @@ func (e *Plugin) renderModuleRow(mi ModuleImpact, idx int) string {
 	return fmt.Sprintf(" %s %s %s  %s  %s", indicator, module, changeCount, impactBadge, bar)
 }
 
-func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
-	var b strings.Builder
+// renderModuleChanges returns the rows of an expanded module's changes, ending in a blank row.
+func (e *Plugin) renderModuleChanges(mi ModuleImpact) []string {
+	var rows []string
 	for _, change := range mi.Group.Changes {
 		symbol := sdk.ActionSymbol(change.Action)
 		address := change.Resource.Address
@@ -305,14 +313,12 @@ func (e *Plugin) renderModuleChanges(mi ModuleImpact, width int) string {
 		if change.IsPhantom {
 			row += " " + sdk.StylePhantom.Render("(phantom)")
 		}
-		b.WriteString(row)
+		rows = append(rows, row)
 		for _, reason := range resource.Reasons {
-			b.WriteString("\n       " + reason.Message)
+			rows = append(rows, "       "+reason.Message)
 		}
-		b.WriteByte('\n')
 	}
-	b.WriteByte('\n')
-	return b.String()
+	return append(rows, "")
 }
 
 func renderImpactBadge(score ImpactScore) string {
