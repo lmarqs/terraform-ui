@@ -212,24 +212,25 @@ func TestAnalyze_GivenPannedList_ShouldPanBackToTheStart(t *testing.T) {
 }
 
 func TestView_GivenOnePhantomTallerThanTheListBudget_ShouldStillShowItsLastLine(t *testing.T) {
-	// The list gives up the banner before it hides a line of the block.
-	for _, attrs := range []int{7, 8} {
-		t.Run(fmt.Sprintf("%d attributes", attrs), func(t *testing.T) {
+	// Three attributes make a 12-row block. The list gives up the banner before it hides a
+	// line of a block that fits the height.
+	for _, height := range []int{12, 13} {
+		t.Run(fmt.Sprintf("height %d", height), func(t *testing.T) {
 			phantoms := numberedPhantoms(1)
 			phantoms[0].Attributes = nil
-			for i := range attrs {
-				phantoms[0].Attributes = append(phantoms[0].Attributes, sdk.AttributeDiff{Key: fmt.Sprintf("attr%02d", i), OldValue: "a", NewValue: "b"})
+			for i := range 3 {
+				phantoms[0].Attributes = append(phantoms[0].Attributes, sdk.AttributeDiff{Key: fmt.Sprintf("attr%02d", i), OldValue: "a", NewValue: fmt.Sprintf("new%02d", i)})
 			}
 			p := doneWith(t, phantoms)
 			p.Update(keyEnter)
 
-			view := ansi.Strip(p.View(80, 12))
+			view := ansi.Strip(p.View(80, height))
 
-			if want := fmt.Sprintf("attr%02d", attrs-1); !strings.Contains(view, want) {
-				t.Fatalf("view should reach %q:\n%s", want, view)
+			if !strings.Contains(view, "new02") {
+				t.Fatalf("view should reach %q:\n%s", "new02", view)
 			}
-			if got := len(strings.Split(view, "\n")); got > 12 {
-				t.Fatalf("view is %d lines, want at most the height 12:\n%s", got, view)
+			if got := len(strings.Split(view, "\n")); got > height {
+				t.Fatalf("view is %d lines, want at most the height %d:\n%s", got, height, view)
 			}
 		})
 	}
@@ -288,5 +289,36 @@ func TestView_GivenLongAttributeValueAndRight_ShouldPanToItsEnd(t *testing.T) {
 
 	if view := ansi.Strip(p.View(40, 16)); !strings.Contains(view, "-newend") {
 		t.Fatalf("panning right should reveal the end of the value:\n%s", view)
+	}
+}
+
+func TestView_GivenLongOldValueAndShortNew_ShouldShowTheNewValueWithoutAKeyPress(t *testing.T) {
+	phantoms := numberedPhantoms(1)
+	phantoms[0].Attributes = []sdk.AttributeDiff{{Key: "policy", OldValue: strings.Repeat("o", 100), NewValue: "short-new-value"}}
+	p := doneWith(t, phantoms)
+	p.Update(keyEnter)
+
+	view := ansi.Strip(p.View(80, 16))
+
+	if !strings.Contains(view, "short-new-value") {
+		t.Fatalf("a long old value should not hide the new value:\n%s", view)
+	}
+}
+
+func TestView_GivenLongOldAndNewValuesAndWrap_ShouldShowBothInFullAtDefaultWidth(t *testing.T) {
+	oldValue := strings.Repeat("o", 100) + "-oldend"
+	newValue := strings.Repeat("n", 100) + "-newend"
+	phantoms := numberedPhantoms(1)
+	phantoms[0].Attributes = []sdk.AttributeDiff{{Key: "policy", OldValue: oldValue, NewValue: newValue}}
+	p := doneWith(t, phantoms)
+	p.Update(keyEnter)
+
+	p.Update(keyWrap)
+	view := strings.ReplaceAll(ansi.Strip(p.View(80, 24)), "\n", "")
+
+	for _, want := range []string{oldValue, newValue} {
+		if !strings.Contains(view, want) {
+			t.Fatalf("wrap on should show %q in full:\n%s", want, view)
+		}
 	}
 }

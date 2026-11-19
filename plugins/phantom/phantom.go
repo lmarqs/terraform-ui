@@ -233,7 +233,8 @@ func (e *Plugin) renderPhantomRow(pc PhantomChange, idx int) string {
 }
 
 // renderPhantomDetails returns the rows of an expanded phantom's reason and attribute diffs,
-// ending in a blank row.
+// ending in a blank row. Each value gets its own row so a long old value cannot push the new
+// one out of view.
 func (e *Plugin) renderPhantomDetails(pc PhantomChange) []string {
 	rows := []string{"   " + sdk.StyleFaintItalic.Render("Reason: "+pc.Explanation)}
 
@@ -244,7 +245,9 @@ func (e *Plugin) renderPhantomDetails(pc PhantomChange) []string {
 			rows = append(rows, key+": "+sdk.StyleFaintItalic.Render("(sensitive)"))
 			continue
 		}
-		rows = append(rows, key+": "+sdk.StyleFaint.Render(diff.OldValue+" = "+diff.NewValue))
+		rows = append(rows, key+":",
+			sdk.StyleFaint.Render("       - "+diff.OldValue),
+			sdk.StyleFaint.Render("       + "+diff.NewValue))
 	}
 	return append(rows, "")
 }
