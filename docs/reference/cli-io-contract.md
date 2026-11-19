@@ -93,6 +93,7 @@ Agent environment variables match on non-empty. `CI` matches `1` exactly; `CI=tr
 | `tfui risk -ci` (threshold off or not met) | Risk text report | — | 0 |
 | `tfui risk -ci -json` (threshold off or not met) | Risk JSON report | — | 0 |
 | `tfui risk -ci` (threshold met, from `-risk-threshold` or `tfui.hcl`) | Same complete report | `risk threshold met: high >= high` (actual levels substituted) | 3 |
+| `tfui risk -ci -json` (threshold met, from `-risk-threshold` or `tfui.hcl`) | Same complete JSON report | `risk threshold met: high >= high` (actual levels substituted) | 3 |
 | `tfui taint addr -ci` | — | "✓ Tainted addr" | 0 |
 | `tfui untaint addr -ci` | — | "✓ Untainted addr" | 0 |
 | `tfui import addr id -ci` | — | "✓ Imported id as addr" | 0 |
