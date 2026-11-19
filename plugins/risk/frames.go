@@ -55,13 +55,14 @@ func (e *Plugin) inspectSelected() {
 	if item.row.Status != sdk.ResourceUnavailable {
 		risk = item.row.Level.String()
 	}
+	label := instanceLabel(item.change.Resource.Address, item.change.Resource.Deposed)
 	var b strings.Builder
-	fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(item.change.Action), item.change.Action, item.change.Resource.Address, risk)
+	fmt.Fprintf(&b, "Action:   %s %s\nAddress:  %s\nRisk:     %s\n\nAttributes:\n", sdk.ActionSymbol(item.change.Action), item.change.Action, label, risk)
 	b.WriteString(sdk.RenderAttributeDiffs(item.change.AttributeDiffs))
 	for _, reason := range item.row.Reasons {
 		fmt.Fprintf(&b, "\n%s\n", reason.Message)
 	}
-	e.stack.Push(&inspectFrame{InspectFrame: frames.NewInspectFrame(frames.InspectOpts{Title: "Mutation", Address: item.change.Resource.Address, Content: b.String()})})
+	e.stack.Push(&inspectFrame{InspectFrame: frames.NewInspectFrame(frames.InspectOpts{Title: "Mutation", Address: label, Content: b.String()})})
 }
 
 type inspectFrame struct {

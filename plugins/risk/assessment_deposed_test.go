@@ -176,3 +176,51 @@ func TestStderr_GivenDeposedInstanceFailed_ShouldNameItsDeposedKey(t *testing.T)
 		})
 	}
 }
+
+func twoDeposedDeletesPlugin(t *testing.T) *Plugin {
+	t.Helper()
+	high := sdk.RiskHigh
+	summary := &sdk.PlanSummary{Changes: []sdk.PlanChange{
+		{Resource: sdk.Resource{Address: "aws_instance.web", Deposed: "00000001"}, Action: sdk.ActionDelete},
+		{Resource: sdk.Resource{Address: "aws_instance.web", Deposed: "00000002"}, Action: sdk.ActionDelete},
+	}}
+	p, _, _ := newAssessedPlugin(t, summary, sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_instance.web", Deposed: "00000001", Actions: []string{"delete"}, Status: sdk.ResourceClassified, Level: &high},
+		{Address: "aws_instance.web", Deposed: "00000002", Actions: []string{"delete"}, Status: sdk.ResourceClassified, Level: &high},
+	}})
+	runLifecycleCmd(p, p.Activate(Input{}))
+	return p
+}
+
+func TestView_GivenTwoDeposedDeletesAtSameAddress_ShouldLabelEachRowWithItsDeposedKey(t *testing.T) {
+	view := ansi.Strip(twoDeposedDeletesPlugin(t).View(120, 30))
+
+	for _, want := range []string{"aws_instance.web (deposed 00000001)", "aws_instance.web (deposed 00000002)"} {
+		if !strings.Contains(view, want) {
+			t.Errorf("view missing %q:\n%s", want, view)
+		}
+	}
+}
+
+func TestInspect_GivenTwoDeposedDeletesAtSameAddress_ShouldShowTheSelectedRowsDeposedKey(t *testing.T) {
+	for i, key := range []string{"00000001", "00000002"} {
+		p := twoDeposedDeletesPlugin(t)
+		for range i {
+			p.moveDown()
+		}
+		_, cmd := p.Update(tea.KeyMsg{Type: tea.KeyEnter})
+		runLifecycleCmd(p, cmd)
+
+		want := "aws_instance.web (deposed " + key + ")"
+		if view := ansi.Strip(p.View(120, 30)); !strings.Contains(view, "Address:  "+want) {
+			t.Errorf("row %d inspector missing %q in the Address line:\n%s", i, want, view)
+		}
+		frame, ok := p.Stack().Peek().(*inspectFrame)
+		if !ok {
+			t.Fatalf("row %d: top frame = %T, want *inspectFrame", i, p.Stack().Peek())
+		}
+		if frame.Address != want {
+			t.Errorf("row %d frame address = %q, want %q", i, frame.Address, want)
+		}
+	}
+}
