@@ -36,6 +36,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "risk list jumps pans and wraps like plan",
+			tapeFile: tape("risk_navigation.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "risk-render-plan.json")},
+			wantExit: 0,
+		},
+		{
 			name:     "partly unknown attribute keeps its known keys",
 			tapeFile: tape("partly_unknown.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "partly-unknown-plan.json")},
@@ -44,6 +50,12 @@ func TestMacro(t *testing.T) {
 		{
 			name:     "risk selected policy unavailable",
 			tapeFile: tape("risk-policy-unavailable.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},
+			wantExit: 0,
+		},
+		{
+			name:     "risk retry from a failed assessment",
+			tapeFile: tape("risk_retry.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},
 			wantExit: 0,
 		},

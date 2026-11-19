@@ -227,9 +227,10 @@ func TestUpdate_WhenApplyResultError_ShouldTransitionToErrorAndClearPins(t *test
 }
 
 func TestUpdate_WhenTimerTickWhileRunning_ShouldReturnNextTickCmd(t *testing.T) {
+	t.Parallel()
 	p := New(&sdktest.MockService{}).(*Plugin)
 	p.status = sdk.StatusLoading
-	p.timer.Start()
+	sdktest.LandTick(t, p.timer.Start())
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
 	if cmd == nil {

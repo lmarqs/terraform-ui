@@ -41,6 +41,7 @@ func (e *Plugin) resetDerived() {
 	e.stack.Clear()
 	e.offset = 0
 	e.panel.ResetScroll()
+	e.timer.Stop()
 	e.outcome = outcome{}
 	e.assessment = nil
 	e.groups, e.items = nil, nil
@@ -50,6 +51,7 @@ func (e *Plugin) resetDerived() {
 // Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
 	if e.outcome.kind == outcomeLoading {
+		e.timer.Stop()
 		e.outcome = outcome{kind: outcomeUnusable, diagnostic: unavailable(string(sdk.ErrorCancelled))}
 	}
 }
@@ -80,7 +82,22 @@ func (e *Plugin) requestAssessment() tea.Cmd {
 	e.requested = e.GetCtx()
 	var cmd tea.Cmd
 	e.pending, cmd = e.requestRisk(e.summary)
-	return cmd
+	return tea.Batch(cmd, e.timer.Start())
+}
+
+// retryable reports a run that ended in a failure a new request can recover
+// from. An invalid CLI threshold stays invalid, so it is not retryable.
+func (e *Plugin) retryable() bool {
+	return e.outcome.kind == outcomePlanFailed || e.outcome.kind == outcomeUnusable
+}
+
+// retry asks the host again for the same assessment the failed run asked for.
+func (e *Plugin) retry() tea.Cmd {
+	if !e.retryable() {
+		return nil
+	}
+	e.resetDerived()
+	return e.requestAssessment()
 }
 
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
@@ -94,6 +111,7 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 }
 
 func (e *Plugin) acceptAssessment(ev sdk.RiskAssessedEvent) {
+	e.timer.Stop()
 	if ev.Err != nil {
 		e.outcome = outcome{kind: outcomePlanFailed, diagnostic: ev.Err.Error()}
 		return

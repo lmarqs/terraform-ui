@@ -8,6 +8,7 @@ import (
 // Cancel abandons the pending request; its late result is then ignored.
 func (e *Plugin) Cancel() {
 	if e.status == sdk.StatusLoading {
+		e.timer.Stop()
 		e.status = sdk.StatusError
 	}
 }
@@ -44,7 +45,13 @@ func (e *Plugin) Activate() tea.Cmd {
 	e.status = sdk.StatusLoading
 	var cmd tea.Cmd
 	e.pending, cmd = e.requestRisk(e.summary)
-	return cmd
+	return tea.Batch(cmd, e.timer.Start())
+}
+
+// failed reports a run a new request can recover from: one cancelled, or one
+// whose assessment is not usable.
+func (e *Plugin) failed() bool {
+	return e.status == sdk.StatusError || (e.status == sdk.StatusDone && e.assessment != nil && !e.assessment.Usable())
 }
 
 // HandleRiskAssessed implements sdk.RiskAssessedHandler: only the result of the
@@ -53,6 +60,7 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 	if e.status != sdk.StatusLoading || ev.Request != e.pending {
 		return nil
 	}
+	e.timer.Stop()
 	e.setAssessment(&ev.Assessment)
 	e.analyzeAssessment()
 	return nil

@@ -1994,11 +1994,12 @@ func TestPanDetailRight_WhenViewWidthSmall_ShouldUseMinContentWidth(t *testing.T
 }
 
 func TestActivate_WhenLoadingAndTimerRunning_ShouldReturnTick(t *testing.T) {
+	t.Parallel()
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
-	p.timer.Start()
+	sdktest.LandTick(t, p.timer.Start())
 
 	cmd := p.Activate(Input{})
 	if cmd == nil {
@@ -2227,11 +2228,12 @@ func TestPlugin_WhenOutputText_ShouldReturnAddressList(t *testing.T) {
 }
 
 func TestUpdate_WhenTimerTickMsg_ShouldReturnTickCmd(t *testing.T) {
+	t.Parallel()
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Init(sdktest.NewDeps(svc).Deps)
 	p.status = sdk.StatusLoading
-	p.timer.Start()
+	sdktest.LandTick(t, p.timer.Start())
 
 	_, cmd := p.Update(ui.TimerTickMsg{})
 	if cmd == nil {

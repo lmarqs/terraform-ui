@@ -7,6 +7,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 // ImpactScore represents the calculated impact of a module group.
@@ -55,6 +56,7 @@ type Plugin struct {
 	rows        sdk.AssessmentRows
 	requestRisk func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
 	pending     sdk.AssessmentID
+	timer       ui.Timer
 }
 
 // New creates a new blast radius plugin.
@@ -82,10 +84,17 @@ func (e *Plugin) CursorPosition() (int, int) {
 
 // Hints returns context-sensitive key hints for the status bar.
 func (e *Plugin) Hints() []sdk.KeyHint {
-	if e.status == sdk.StatusDone && len(e.modules) > 0 {
-		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
+	if e.status == sdk.StatusLoading {
+		return sdk.HintSetBack.Hints()
 	}
-	return (sdk.HintSetQuit).Hints()
+	var set sdk.HintSet
+	if e.status == sdk.StatusDone && len(e.modules) > 0 {
+		set |= sdk.HintSetInspect
+	}
+	if e.failed() {
+		return (set | sdk.HintSetRetry | sdk.HintSetBack).Hints()
+	}
+	return (set | sdk.HintSetQuit).Hints()
 }
 
 // Configure applies plugin-specific options from config.
@@ -103,7 +112,15 @@ func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 // Update processes messages and returns the updated plugin.
 func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 	switch msg := msg.(type) {
+	case ui.TimerTickMsg:
+		return e, e.timer.Tick()
 	case tea.KeyMsg:
+		switch {
+		case msg.String() == "esc" && (e.status == sdk.StatusLoading || e.failed()):
+			return e, func() tea.Msg { return sdk.DeactivateMsg{} }
+		case msg.String() == "ctrl+r" && e.failed():
+			return e, e.Activate()
+		}
 		e.handleKey(msg)
 		return e, nil
 	}
@@ -155,7 +172,7 @@ func (e *Plugin) View(width, height int) string {
 		return sdk.StyleFaintItalic.Render("Run a plan first to visualize blast radius...")
 
 	case sdk.StatusLoading:
-		return sdk.StyleFaintItalic.Render("Loading risk assessment...")
+		return sdk.StyleFaintItalic.Render("Loading risk assessment... " + e.timer.FormatElapsed())
 	case sdk.StatusError:
 		return sdk.StyleError.Render("risk unavailable: cancelled")
 	case sdk.StatusDone:

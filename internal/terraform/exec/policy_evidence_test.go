@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/internal/terraform"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
@@ -51,7 +52,26 @@ esac
 		{Address: "aws_lambda_function.worker", Actions: []string{"update"}, Status: sdk.ResourceClassified, Level: &low},
 	}}}
 	risk.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: live})
-	risk.HandleRiskAssessed(risk.Activate(tfuirisk.Input{})().(sdk.RiskAssessedEvent))
+	// Activate batches the request with the elapsed-time tick, so scan for the request.
+	var assessed *sdk.RiskAssessedEvent
+	switch msg := risk.Activate(tfuirisk.Input{})().(type) {
+	case sdk.RiskAssessedEvent:
+		assessed = &msg
+	case tea.BatchMsg:
+		for _, sub := range msg {
+			if sub == nil {
+				continue
+			}
+			if event, ok := sub().(sdk.RiskAssessedEvent); ok {
+				assessed = &event
+				break
+			}
+		}
+	}
+	if assessed == nil {
+		t.Fatalf("Activate produced no assessment request")
+	}
+	risk.HandleRiskAssessed(*assessed)
 	if !risk.Ready() || !strings.Contains(risk.View(100, 30), "aws_lambda_function.worker") {
 		t.Fatalf("Risk did not review the acquired plan: %q", risk.View(100, 30))
 	}

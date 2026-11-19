@@ -38,11 +38,15 @@ gutter appears when the list exceeds the viewport.
 
 | Key | Action | When |
 |-----|--------|------|
-| `j` / `k` / arrows | Navigate resources | Mutation list |
+| `j` / `k` / `↑` / `↓` | Navigate resources | Mutation list |
+| `g` / `G` | Jump to the first / last mutation | Mutation list |
+| `←` / `→` | Scroll the list horizontally when wrapping is off | Mutation list |
+| `Ctrl+w` | Toggle wrapping | Mutation list |
 | `Enter` | Inspect the selected mutation's full diff and reasons | Mutation list |
 | `↑` / `↓`, `g` / `G` | Scroll detail; jump to start/end | Inspection |
 | `←` / `→` | Scroll horizontally when wrapping is off | Inspection |
 | `Ctrl+w` | Toggle wrapping | Inspection |
+| `Ctrl+r` | Request the assessment again for the same plan | Plan failed or assessment unusable (not an invalid `-risk-threshold`, which a retry cannot change) |
 | `Esc` | Close inspection; leave Risk from the list | Inspection or list |
 | `q` | Close inspection first; from the list, return Home (quit in standalone mode) | Inspection or list |
 

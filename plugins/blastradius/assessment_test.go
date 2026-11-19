@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
+	"github.com/lmarqs/terraform-ui/pkg/sdk/ui"
 )
 
 func TestActivate_GivenCustomAssessment_ShouldPreserveImpactArithmetic(t *testing.T) {
@@ -113,6 +114,9 @@ func runBlastCmd(p *Plugin, cmd tea.Cmd) {
 	if _, ok := msg.(sdk.Event); ok {
 		runBlastCmd(p, sdk.NewEventBus([]sdk.Plugin{p}).Dispatch(msg))
 		return
+	}
+	if _, ok := msg.(ui.TimerTickMsg); ok {
+		return // a tick advances the clock, not the assessment, and would chain forever while one is pending
 	}
 	_, next := p.Update(msg)
 	runBlastCmd(p, next)

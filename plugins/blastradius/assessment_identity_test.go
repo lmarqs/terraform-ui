@@ -24,6 +24,7 @@ func TestHandleRiskAssessed_GivenRequestIdentity_ShouldAcceptOnlyThePendingReque
 		{"newer own ID after a newer request", true, func(issued []sdk.AssessmentID) sdk.AssessmentID { return issued[1] }, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			svc := &sdktest.MockService{}
 			h := sdktest.NewDeps(svc)
 			var issued []sdk.AssessmentID

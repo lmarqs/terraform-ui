@@ -17,6 +17,8 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		switch key.String() {
 		case "enter":
 			f.plugin.inspectSelected()
+		case "ctrl+r":
+			return f, f.plugin.retry()
 		case "esc":
 			return f, func() tea.Msg { return sdk.DeactivateMsg{} }
 		default:
@@ -27,10 +29,21 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 }
 func (f *listFrame) View(width, height int) string { return f.plugin.View(width, height) }
 func (f *listFrame) Hints() []sdk.KeyHint {
-	if f.plugin.Ready() && len(f.plugin.items) > 0 {
-		return (sdk.HintSetInspect | sdk.HintSetQuit).Hints()
+	if f.plugin.outcome.kind == outcomeLoading {
+		return sdk.HintSetBack.Hints()
 	}
-	return sdk.HintSetQuit.Hints()
+	if f.plugin.outcome.kind == outcomeInvalidThreshold {
+		return sdk.HintSetBack.Hints()
+	}
+	var set sdk.HintSet
+	if f.plugin.navigable() {
+		set |= sdk.HintSetInspect | sdk.HintSetWrap
+	}
+	opts := sdk.HintSetOpts{WrapMode: f.plugin.panel.WrapMode()}
+	if f.plugin.retryable() {
+		return (set | sdk.HintSetRetry | sdk.HintSetBack).Hints(opts)
+	}
+	return (set | sdk.HintSetQuit).Hints(opts)
 }
 
 func (e *Plugin) inspectSelected() {
