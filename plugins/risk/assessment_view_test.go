@@ -145,3 +145,33 @@ func TestAssessment_GivenValidatedReasons_ShouldShowEvidenceWithoutInventedSafet
 		})
 	}
 }
+
+func TestOverallBanner_GivenAssessmentStatus_ShouldRenderTheBannerForThatStatus(t *testing.T) {
+	high := sdk.RiskHigh
+	classified := sdk.PolicyResourceAssessment{Address: "aws_instance.classified", Actions: []string{"update"}, Status: sdk.ResourceClassified, Level: &high, Reasons: []sdk.PolicyReason{{Code: "authored", Message: "Classified."}}}
+	failed := sdk.PolicyResourceAssessment{Address: "aws_instance.failed", Actions: []string{"update"}, Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorResultInvalid}
+	excluded := sdk.PolicyResourceAssessment{Address: "aws_instance.excluded", Actions: []string{"no-op"}, Status: sdk.ResourceNotAssessed, Exclusion: sdk.ExclusionNoOp}
+	for _, tt := range []struct {
+		name       string
+		assessment sdk.PolicyAssessment
+		want       string
+	}{
+		{"complete", sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &high, Resources: []sdk.PolicyResourceAssessment{classified, excluded}}, "Risk: high — explicit policy classifications."},
+		{"partial", sdk.PolicyAssessment{Status: sdk.AssessmentPartial, ErrorCode: sdk.ErrorResultInvalid, Resources: []sdk.PolicyResourceAssessment{classified, failed, excluded}}, "Risk unavailable: 1 of 2 eligible mutations failed; 1 classified."},
+		{"unavailable", sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorResultInvalid, Resources: []sdk.PolicyResourceAssessment{failed, excluded}}, "Risk unavailable: 1 of 1 eligible mutations failed."},
+		{"empty", sdk.PolicyAssessment{Status: sdk.AssessmentEmpty, Resources: []sdk.PolicyResourceAssessment{excluded}}, "No eligible mutations (1 changes not assessed)."},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			summary := &sdk.PlanSummary{}
+			for _, row := range tt.assessment.Resources {
+				summary.Changes = append(summary.Changes, sdk.PlanChange{Resource: sdk.Resource{Address: row.Address}, Action: sdk.ActionUpdate, Risk: sdk.RiskLow})
+			}
+			p, _, _ := newAssessedPlugin(t, summary, tt.assessment)
+			runLifecycleCmd(p, p.Activate())
+			banner, _, _ := strings.Cut(ansi.Strip(p.View(100, 30)), "\n")
+			if banner != tt.want {
+				t.Errorf("banner = %q, want %q", banner, tt.want)
+			}
+		})
+	}
+}
