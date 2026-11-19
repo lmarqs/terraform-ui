@@ -142,7 +142,7 @@ func TestStandaloneApply_GivenStagedPlanAndNoAutoApprove_ShouldApplyOnlyAfterY(t
 func TestApplyCommand_GivenNonInteractiveWithoutAutoApprove_ShouldRejectWithoutRunning(t *testing.T) {
 	session := &Session{cfg: config.Config{Dir: t.TempDir()}, silentStderr: true}
 	c := buildApplyCommand(session)
-	c.SetArgs(nil)
+	c.SetArgs([]string{})
 	c.SetOut(io.Discard)
 	c.SetErr(io.Discard)
 
