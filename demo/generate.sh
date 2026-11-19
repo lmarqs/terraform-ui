@@ -5,6 +5,9 @@ set -euo pipefail
 # Produces frame directories in demo/output/<name>/
 # Then stitches them into GIFs.
 #
+# A tape that fails to record or stitch is skipped, the rest still run, and the
+# script exits 1 after naming every failure.
+#
 # Prerequisites:
 #   - Built binary (mise run build)
 #   - Stitch tool (see demo/stitch.sh for options)
@@ -38,13 +41,13 @@ TAPE_FILTER="${2:-}"
 
 # Record all tapes (or a single one if specified)
 recorded=()
+failed=()
 for tape in "$SCRIPT_DIR"/tapes/*.tape; do
   name=$(basename "$tape" .tape)
   if [ -n "$TAPE_FILTER" ] && [ "$name" != "$TAPE_FILTER" ]; then
     continue
   fi
   echo "Recording $name..."
-  recorded+=("$name")
   rm -rf "$OUTPUT/$name"
   mkdir -p "$OUTPUT/$name"
   # Lipgloss drops colors when stdout is not a terminal; the GIFs need them.
@@ -53,7 +56,7 @@ for tape in "$SCRIPT_DIR"/tapes/*.tape; do
     --state "$STATE" \
     --macro "$tape" \
     --record "$OUTPUT/$name" \
-    >/dev/null 2>&1 || echo "  WARNING: $name exited with error (may be expected for partial flows)"
+    >/dev/null 2>&1 && recorded+=("$name") || { echo "  FAILED: $name did not record"; failed+=("$name"); }
 done
 
 echo ""
@@ -62,19 +65,30 @@ echo ""
 
 # Stitch into GIFs
 echo "Stitching GIFs..."
+stitched=()
 for name in ${recorded[@]+"${recorded[@]}"}; do
-  "$SCRIPT_DIR/stitch.sh" "$OUTPUT/$name/" "$OUTPUT/$name.gif" && echo "  $name.gif" || echo "  SKIP: $name (stitch failed)"
+  if "$SCRIPT_DIR/stitch.sh" "$OUTPUT/$name/" "$OUTPUT/$name.gif"; then
+    echo "  $name.gif"
+    stitched+=("$name")
+  else
+    echo "  FAILED: $name did not stitch"
+    failed+=("$name")
+  fi
 done
 
 # Copy to docs assets for GitHub Pages
 DOCS_ASSETS="$PROJECT_DIR/docs/assets/demo"
 mkdir -p "$DOCS_ASSETS"
 copied=0
-for name in ${recorded[@]+"${recorded[@]}"}; do
-  [ -f "$OUTPUT/$name.gif" ] || continue
-  cp "$OUTPUT/$name.gif" "$DOCS_ASSETS/" && copied=1
+for name in ${stitched[@]+"${stitched[@]}"}; do
+  cp "$OUTPUT/$name.gif" "$DOCS_ASSETS/"
+  copied=1
 done
 [ "$copied" -eq 0 ] || { echo ""; echo "Copied GIFs to docs/assets/demo/"; }
 
 echo ""
+if [ "${#failed[@]}" -gt 0 ]; then
+  echo "FAILED: ${failed[*]}" >&2
+  exit 1
+fi
 echo "Done. GIFs in: $OUTPUT/"
