@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	tfjson "github.com/hashicorp/terraform-json"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
@@ -90,7 +91,8 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 		keys[k] = true
 	}
 
-	for k := range jsonToMap(change.AfterUnknown) {
+	unknownMap := jsonToMap(change.AfterUnknown)
+	for k := range unknownMap {
 		keys[k] = true
 	}
 	sortedKeys := make([]string, 0, len(keys))
@@ -101,8 +103,8 @@ func parseAttributeDiffs(change *tfjson.Change) []AttributeDiff {
 	for _, key := range sortedKeys {
 		oldVal := marshalValue(beforeMap[key])
 		newVal := marshalValue(afterMap[key])
-		if maskMarked(change.AfterUnknown, key) {
-			newVal = "(known after apply)"
+		if markedValue(unknownMap[key]) {
+			newVal = marshalWithUnknown(afterMap[key], unknownMap[key])
 		}
 
 		if oldVal == newVal {
@@ -146,6 +148,44 @@ func marshalValue(v interface{}) string {
 		return fmt.Sprintf("%v", v)
 	}
 	return string(b)
+}
+
+// unknownLeaf marks an unknown leaf until marshalling, after which its quoted form is
+// replaced with the bare notation so it cannot be mistaken for a string value.
+const unknownLeaf = "\x00known after apply\x00"
+
+func marshalWithUnknown(value, unknown interface{}) string {
+	return strings.ReplaceAll(marshalValue(withUnknownLeaves(value, unknown)), `"\u0000known after apply\u0000"`, "(known after apply)")
+}
+
+// withUnknownLeaves adds each unknown leaf of the after_unknown mask to the known after
+// value: Terraform omits an unknown object key from after and nulls an unknown list element.
+func withUnknownLeaves(value, unknown interface{}) interface{} {
+	switch mask := unknown.(type) {
+	case map[string]interface{}:
+		object, _ := value.(map[string]interface{})
+		filled := make(map[string]interface{}, len(object))
+		for key, child := range object {
+			filled[key] = child
+		}
+		for key, child := range mask {
+			if markedValue(child) {
+				filled[key] = withUnknownLeaves(object[key], child)
+			}
+		}
+		return filled
+	case []interface{}:
+		list, _ := value.([]interface{})
+		filled := make([]interface{}, max(len(list), len(mask)))
+		copy(filled, list)
+		for i, child := range mask {
+			if markedValue(child) {
+				filled[i] = withUnknownLeaves(filled[i], child)
+			}
+		}
+		return filled
+	}
+	return unknownLeaf
 }
 
 func isKeySensitive(sensitive interface{}, key string) bool {

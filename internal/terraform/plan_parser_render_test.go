@@ -92,3 +92,55 @@ func TestParsePlan_GivenReplacementMetadataWithoutAttributePath_ShouldKeepDiffWi
 		t.Errorf("nonmatching metadata changed visible diff: %+v", diff)
 	}
 }
+
+func TestParsePlan_GivenPartlyUnknownAttribute_ShouldRenderKnownLeavesAndMarkOnlyUnknownOnes(t *testing.T) {
+	// The after/after_unknown shapes come from `terraform show -json` (1.14): an unknown
+	// object key is absent from after, an unknown list element is null in after.
+	for _, tc := range []struct{ name, before, after, unknown, sensitive, wantOld, wantNew string }{
+		{"map", `{"tags":{"env":"prod","id":"a"}}`, `{"tags":{"env":"stage"}}`, `{"tags":{"id":true}}`, `{}`,
+			`{"env":"prod","id":"a"}`, `{"env":"stage","id":(known after apply)}`},
+		{"nested-object", `{"input":{"nested":{"k":"v","u":"a"}}}`, `{"input":{"nested":{"k":"w"}}}`, `{"input":{"nested":{"u":true}}}`, `{}`,
+			`{"nested":{"k":"v","u":"a"}}`, `{"nested":{"k":"w","u":(known after apply)}}`},
+		{"list-of-objects", `{"input":{"list":[{"n":"1","u":"a"}]}}`, `{"input":{"list":[{"n":"2"}]}}`, `{"input":{"list":[{"u":true}]}}`, `{}`,
+			`{"list":[{"n":"1","u":"a"}]}`, `{"list":[{"n":"2","u":(known after apply)}]}`},
+		{"list-element", `{"ids":["a","x"]}`, `{"ids":[null,"y"]}`, `{"ids":[true,false]}`, `{}`,
+			`["a","x"]`, `[(known after apply),"y"]`},
+		{"wholly-unknown", `{"tags":{"env":"prod"}}`, `{}`, `{"tags":true}`, `{}`,
+			`{"env":"prod"}`, `(known after apply)`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			diffs := parseSingleChangeDiffs(t, tc.before, tc.after, tc.unknown, tc.sensitive)
+			if len(diffs) != 1 {
+				t.Fatalf("diffs = %+v, want one per top-level key", diffs)
+			}
+			if diffs[0].OldValue != tc.wantOld || diffs[0].NewValue != tc.wantNew {
+				t.Errorf("diff = %q → %q, want %q → %q", diffs[0].OldValue, diffs[0].NewValue, tc.wantOld, tc.wantNew)
+			}
+		})
+	}
+}
+
+func TestParsePlan_GivenPartlySensitiveAndPartlyUnknownMap_ShouldMaskTheWholeValue(t *testing.T) {
+	diffs := parseSingleChangeDiffs(t, `{"tags":{"env":"prod","secret":"before-secret"}}`, `{"tags":{"env":"stage","secret":"after-secret"}}`, `{"tags":{"id":true}}`, `{"tags":{"secret":true}}`)
+	if len(diffs) != 1 || !diffs[0].Sensitive {
+		t.Fatalf("diffs = %+v, want one wholly sensitive diff", diffs)
+	}
+	view := sdk.RenderAttributeDiffs(diffs)
+	if strings.Contains(view, "env") || strings.Contains(view, "secret\"") {
+		t.Errorf("partly sensitive map must stay wholly masked:\n%s", view)
+	}
+}
+
+func parseSingleChangeDiffs(t *testing.T, before, after, unknown, sensitive string) []sdk.AttributeDiff {
+	t.Helper()
+	source := `{"format_version":"1.2","resource_changes":[{"address":"terraform_data.b","mode":"managed","type":"terraform_data","name":"b","change":{"actions":["update"],"before":` + before + `,"after":` + after + `,"after_unknown":` + unknown + `,"before_sensitive":` + sensitive + `,"after_sensitive":` + sensitive + `}}]}`
+	var plan tfjson.Plan
+	if err := json.Unmarshal([]byte(source), &plan); err != nil {
+		t.Fatal(err)
+	}
+	summary := ParsePlan(&plan)
+	if len(summary.Changes) != 1 {
+		t.Fatalf("changes = %d, want 1", len(summary.Changes))
+	}
+	return summary.Changes[0].AttributeDiffs
+}
