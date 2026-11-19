@@ -13,8 +13,9 @@ audience: "Contributors changing policy scope, classification ownership or asses
 Risk policies independently classify planned resource mutations and explain their risk. They do not inspect
 other resources, issue plan-wide findings, or decide what to apply. tfui owns aggregation and threshold comparison;
 the caller decides what to do with the information. The repository owner accepted this boundary in the
-[assessment-purpose discussion](https://github.com/lmarqs/terraform-ui/issues/108). It records intended behavior,
-not an implemented policy API.
+[assessment-purpose discussion](https://github.com/lmarqs/terraform-ui/issues/108). The policy API shipped as the
+[v1 contract](../reference/risk-policy-contract.md) in [#121](https://github.com/lmarqs/terraform-ui/pull/121); [#130](https://github.com/lmarqs/terraform-ui/pull/130) and [#131](https://github.com/lmarqs/terraform-ui/pull/131) to [#141](https://github.com/lmarqs/terraform-ui/pull/141)
+followed with fixes and refactors.
 
 The owner chose independent resource classification as sufficient for the initial plugin. A broader plan-wide
 policy program would make a resource's level depend on other changes and expand the feature into decisions the
