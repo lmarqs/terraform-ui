@@ -67,8 +67,9 @@ type App struct {
 	rootCfg     *config.RootConfig
 	childCfg    *config.ChildConfig
 	standalone  *StandaloneConfig
-	// startupPins are the -target pins of the session's first Context: the
-	// startup member selection carries them, and any Context replacement ends them.
+	// startupPins are the -target pins of the session's first Context, pending
+	// while the startup member selection is: that switch carries them, and any
+	// Context replacement, or startup ending without one, ends them.
 	startupPins sdk.Pins
 	width       int
 	height      int
@@ -253,6 +254,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if p, ok := a.registry.ByID("chdir"); ok {
 			return a, a.navigateTo(p)
 		}
+		a.startupPins = nil
 		return a, nil
 
 	case sdk.PinToggleRequestMsg:
@@ -314,12 +316,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.childCfg = childCfg
 		}
 		a.header = a.header.WithChdir(chdir.String()).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
-		next := a.rebuildContext(chdir, absChdir, workspace)
-		// A member selection requests the default workspace the startup Context
-		// is in; a switch to another workspace ends the -target pins.
-		if workspace == sdk.WorkspaceDefault {
-			next = next.WithPins(a.startupPins)
-		}
+		next := a.rebuildContext(chdir, absChdir, workspace).WithPins(a.startupPins)
 		ctxCmd := a.replaceContext(next, sdk.ContextSwitched)
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
@@ -778,6 +775,10 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
 		a.cancelPlugin(a.activePlugin)
+	}
+	// Leaving the startup picker unpicked ends the -target pins, as Esc does.
+	if from == "chdir" {
+		a.startupPins = nil
 	}
 	switch nav {
 	case plugin.NavPush:

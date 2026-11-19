@@ -122,35 +122,57 @@ func TestStartupPins_GivenPinToggles_ShouldAddAndRemoveLikeHandSetPins(t *testin
 	}
 }
 
-func TestStartupPins_GivenNoMemberSwitchAtStartup_ShouldNotFollowAWorkspaceSwitch(t *testing.T) {
-	tests := []struct {
-		name          string
-		chdirDisabled bool
-	}{
-		{name: "chdir plugin disabled", chdirDisabled: true},
-		{name: "picker left open", chdirDisabled: false},
+func newStartupPinsAppWithout(t *testing.T, chdirPlugin bool) App {
+	t.Helper()
+	cfg := config.Config{Dir: t.TempDir(), Terraform: config.TerraformConfig{Bin: "terraform"}, Pins: []string{"aws_instance.web"}}
+	registry := plugin.NewRegistry()
+	if chdirPlugin {
+		registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
+			return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
+		}, plugin.PluginMeta{MenuVisible: false})
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			cfg := config.Config{Dir: t.TempDir(), Terraform: config.TerraformConfig{Bin: "terraform"}, Pins: []string{"aws_instance.web"}}
-			registry := plugin.NewRegistry()
-			if !tt.chdirDisabled {
-				registry.RegisterFactory("chdir", func(_ terraform.Service) plugin.Plugin {
-					return &mockPlugin{id: "chdir", name: "Chdir", viewOutput: "chdir view"}
-				}, plugin.PluginMeta{MenuVisible: false})
-			}
-			registry.Build(nil, nil)
-			app := NewApp(cfg, newMockService("default", nil), registry, nil)
-			app.Init()
+	registry.RegisterFactory("workspace", func(_ terraform.Service) plugin.Plugin {
+		return &mockPlugin{id: "workspace", name: "Workspace", viewOutput: "workspace view"}
+	}, plugin.PluginMeta{MenuVisible: false})
+	registry.Build(nil, nil)
+	app := NewApp(cfg, newMockService("default", nil), registry, nil)
+	app.Init()
+	return update(t, app, openContextOnStartupMsg{})
+}
 
-			app = update(t, app, openContextOnStartupMsg{})
+func TestStartupPins_GivenChdirDisabled_ShouldStayOnTheStartupContextAndNotFollowAWorkspaceSwitch(t *testing.T) {
+	for _, workspace := range []sdk.Workspace{sdk.NewWorkspace("staging"), sdk.WorkspaceDefault} {
+		t.Run(workspace.String(), func(t *testing.T) {
+			app := newStartupPinsAppWithout(t, false)
 			if got, want := app.holder.current.Pins, (sdk.Pins{"aws_instance.web"}); !reflect.DeepEqual(got, want) {
 				t.Fatalf("Pins after startup = %#v, want %#v", got, want)
 			}
-			app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: app.holder.current.Chdir, Workspace: sdk.NewWorkspace("staging")})
+			app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: app.holder.current.Chdir, Workspace: workspace})
 			if got := app.holder.current.Pins; got != nil {
 				t.Errorf("Pins after a workspace switch = %#v, want none: pins die on a context switch", got)
 			}
 		})
+	}
+}
+
+func TestStartupPins_GivenThePickerAbandoned_ShouldNotFollowALaterMemberPick(t *testing.T) {
+	app := newStartupPinsAppWithout(t, true)
+	if app.activePlugin == nil || app.activePlugin.ID() != "chdir" {
+		t.Fatalf("startup did not open the chdir picker")
+	}
+
+	app = update(t, app, sdk.NavigateMsg{PluginID: "workspace"})
+	app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: sdk.WorkspaceDefault})
+	if got := app.holder.current.Pins; got != nil {
+		t.Errorf("Pins after leaving the picker and picking a member = %#v, want none", got)
+	}
+}
+
+func TestStartupPins_GivenThePickerPicksAMember_ShouldCarryThemIntoThatMember(t *testing.T) {
+	app := newStartupPinsAppWithout(t, true)
+
+	app = update(t, app, sdk.ContextSwitchRequestMsg{Chdir: "modules/vpc", Workspace: sdk.WorkspaceDefault})
+	if got, want := app.holder.current.Pins, (sdk.Pins{"aws_instance.web"}); !reflect.DeepEqual(got, want) {
+		t.Errorf("Pins after the startup pick = %#v, want %#v", got, want)
 	}
 }
