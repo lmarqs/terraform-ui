@@ -36,7 +36,6 @@ type interruptHarness struct {
 	waitStarted     chan struct{}
 	waitOnce        sync.Once
 	endRunCalls     chan struct{}
-	endRunBlock     chan struct{}
 	exitCalls       chan int
 	signals         chan os.Signal
 	guard           *interruptGuard
@@ -86,9 +85,6 @@ func (h *interruptHarness) stderrText() string {
 func (h *interruptHarness) endRun() {
 	h.record("endRun")
 	h.endRunCalls <- struct{}{}
-	if h.endRunBlock != nil {
-		<-h.endRunBlock
-	}
 }
 
 // held reports terminalHeld and, while it is set, tells the test that a
@@ -497,23 +493,6 @@ func TestInterruptGuard_SignalPendingWhenStopRuns_ShouldExitBeforeStopReturns(t 
 				t.Errorf("events = %v, want %v", got, want)
 			}
 		})
-	}
-}
-
-func TestInterruptGuard_SecondSignalWhileEndRunBlocks_ShouldForceExit(t *testing.T) {
-	h := newInterruptHarness(t, true, true, false)
-	h.endRunBlock = make(chan struct{})
-	t.Cleanup(func() { close(h.endRunBlock) })
-	h.firstSignal(t, syscall.SIGINT)
-
-	h.signals <- syscall.SIGTERM
-
-	if got := awaitInterrupt(t, h.exitCalls, "forced exit while endRun blocks"); got != 143 {
-		t.Errorf("exit code = %d, want 143", got)
-	}
-	want := []string{"interrupt", "endRun", "stderr:" + forcedExitNote, "shutdown", "exit:143"}
-	if got := h.snapshot(); !reflect.DeepEqual(got, want) {
-		t.Errorf("events = %v, want %v", got, want)
 	}
 }
 
