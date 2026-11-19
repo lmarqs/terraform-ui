@@ -18,10 +18,6 @@ audience: "Users who need an output value of the current workspace, such as an e
 
 Lists the current workspace's outputs with their values, filterable by name. Sensitive values show as `(sensitive)`. Outputs are fetched via `terraform output -json`.
 
-## Screenshot
-
-![Outputs]({{ site.baseurl }}/assets/demo/output.gif)
-
 ## Interactive (TUI)
 
 Press `o` from the home menu. The plugin fetches outputs and displays them in a filterable list.

@@ -37,12 +37,14 @@ echo ""
 TAPE_FILTER="${2:-}"
 
 # Record all tapes (or a single one if specified)
+recorded=()
 for tape in "$SCRIPT_DIR"/tapes/*.tape; do
   name=$(basename "$tape" .tape)
   if [ -n "$TAPE_FILTER" ] && [ "$name" != "$TAPE_FILTER" ]; then
     continue
   fi
   echo "Recording $name..."
+  recorded+=("$name")
   rm -rf "$OUTPUT/$name"
   mkdir -p "$OUTPUT/$name"
   # Lipgloss drops colors when stdout is not a terminal; the GIFs need them.
@@ -60,16 +62,19 @@ echo ""
 
 # Stitch into GIFs
 echo "Stitching GIFs..."
-for dir in "$OUTPUT"/*/; do
-  [ -d "$dir" ] || continue
-  name=$(basename "$dir")
-  "$SCRIPT_DIR/stitch.sh" "$dir" "$OUTPUT/$name.gif" && echo "  $name.gif" || echo "  SKIP: $name (stitch failed)"
+for name in ${recorded[@]+"${recorded[@]}"}; do
+  "$SCRIPT_DIR/stitch.sh" "$OUTPUT/$name/" "$OUTPUT/$name.gif" && echo "  $name.gif" || echo "  SKIP: $name (stitch failed)"
 done
 
 # Copy to docs assets for GitHub Pages
 DOCS_ASSETS="$PROJECT_DIR/docs/assets/demo"
 mkdir -p "$DOCS_ASSETS"
-cp "$OUTPUT"/*.gif "$DOCS_ASSETS/" 2>/dev/null && echo "" && echo "Copied GIFs to docs/assets/demo/" || true
+copied=0
+for name in ${recorded[@]+"${recorded[@]}"}; do
+  [ -f "$OUTPUT/$name.gif" ] || continue
+  cp "$OUTPUT/$name.gif" "$DOCS_ASSETS/" && copied=1
+done
+[ "$copied" -eq 0 ] || { echo ""; echo "Copied GIFs to docs/assets/demo/"; }
 
 echo ""
 echo "Done. GIFs in: $OUTPUT/"

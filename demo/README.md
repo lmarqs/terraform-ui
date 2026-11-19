@@ -49,11 +49,7 @@ tfui --plan ./demo/fixtures/plan-large.json --macro ./my-session/recording.tape
   `✓` and `⚠`; without it they are left blank
 
 `generate.sh` sets `CLICOLOR_FORCE=1`, since the recorder writes stdout to `/dev/null` and Lipgloss drops colors
-without a terminal. Macro mode never runs terraform and can seed only a plan and a state, so the `output`,
-`validate` and `workspace` tapes record empty screens, and a full run overwrites their GIFs with them. Their GIFs in
-`docs/assets/demo/` are recorded with the binary built from commit `7d89c7a`, the last that accepts
-`--outputs`, `--validate-result` and `--workspaces`, fed `demo/fixtures/outputs.json`, `validate.json` and
-`workspaces.json` (issue #87).
+without a terminal.
 
 ## Docker demo
 
