@@ -18,10 +18,6 @@ default_enabled: true
 
 The Workspace plugin lists all terraform workspaces, highlights the current one, and lets you switch between them, create new workspaces, or delete unused ones. The current workspace is marked with an asterisk.
 
-## Screenshot
-
-![Workspace]({{ site.baseurl }}/assets/demo/workspace.gif)
-
 ## Interactive (TUI)
 
 Press `w`, or pick Workspace in [Context](context.md), to open the Workspace view. It loads the workspace list from the current terraform configuration.

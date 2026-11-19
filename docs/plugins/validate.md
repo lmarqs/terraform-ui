@@ -18,10 +18,6 @@ audience: "Users checking configuration before a plan"
 
 Run `terraform validate` and display diagnostics. Lists errors first, then warnings, each with its file and line. Expand a row to read terraform's detail.
 
-## Screenshot
-
-![Validate]({{ site.baseurl }}/assets/demo/validate.gif)
-
 ## Interactive (TUI)
 
 Press `v` from the home menu. The plugin runs validation and shows errors/warnings in an expandable list.
