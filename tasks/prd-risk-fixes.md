@@ -37,6 +37,9 @@ Work happens in two places:
 
 - **`main`:** US-001 to US-003, each pushed directly to `main`.
 - **`refactor/assessment-coordinator`:** US-004 to US-012. US-013 merges #131.
+- **`main` after #131:** US-014 to US-019, the older issues verified as still real: #125, #124 items 1 and 3, #123
+  and a leftover repro test. US-016 to US-018 rework the Risk and Blast Radius UI, so they follow the US-010 to
+  US-012 restructuring.
 
 ## Goals
 
@@ -50,6 +53,11 @@ Work happens in two places:
 - The Risk plugin builds its view from the assessment once and decides its outcome in one place, with unchanged
   output.
 - PR #131 lands on `main`, and issues #120, #122, #126, #127 and #128 close.
+- Returning to the root chdir drops the last member's `tfui.hcl` settings (#125).
+- `tfui risk` errors name the step that failed, and the CLI I/O table lists `tfui risk` (#124).
+- Risk and Blast Radius loading and error states follow TUI spec §5 and §13, and the Risk list navigates like Plan's
+  (#123).
+- A leftover sleep-polling repro test becomes a regular, deterministic test.
 
 ## Quality Gates
 
@@ -61,7 +69,8 @@ These commands must pass for every user story:
 - `mise run test:coverage`: 100% outside `cmd/` and `internal/terraform/exec`
 - `GOFLAGS=-count=1 mise run test:integration`: integration tests, uncached
 
-For stories that touch `View()`, hints, frames or rendered text (US-002, US-010, US-011, US-012), also:
+For stories that touch `View()`, hints, frames or rendered text (US-002, US-010, US-011, US-012, US-016, US-017,
+US-018), also:
 
 - `mise run build && mise run test:macro`: macro tapes against the built binary
 
@@ -383,8 +392,104 @@ US-012.
       stays only on `agent/risk-plugin-pr`.
 - [ ] #122, #126, #127 and #128 are closed; close any by hand whose keyword did not fire. Close the epic #120, which
       #121 delivered, with a comment naming the PR.
-- [ ] Edit #124: remove items 2 and 4 (fixed by US-011 and US-005) and leave items 1 and 3 open.
+- [ ] Edit #124: remove items 2 and 4 (fixed by US-011 and US-005) and leave items 1 and 3 open for US-015.
 - [ ] Do not delete branches or worktrees.
+
+### US-014: Drop a member's settings on return to the root chdir (`main`, #125)
+
+**Description:** As a user in a monorepo, I want switching back to the project root to stop applying the last
+member's `tfui.hcl`, so that root plans don't run with a member's var-files, vars, parallelism or lock settings.
+Confirmed: the chdir handler loads `childCfg` only when `chdir != ""` (`internal/ui/app.go:300-306`), so returning to
+the root keeps the old member config, and `withResolvedConfig` (`app.go:845`) layers it into the root Context.
+
+**Acceptance Criteria:**
+
+- [ ] A test, written first and failing before the fix: switch to a member whose `tfui.hcl` sets a var-file, switch
+      back to the root, and assert that the root Context has the root's `VarFiles`, `Vars`, `Parallelism`, `Lock`
+      and `LockTimeout`, not the member's.
+- [ ] On a switch to the root chdir, `childCfg` becomes what startup at the root would load (`app.go:108-110`).
+- [ ] The risk-policy selection at the root is checked by the same test, or a second one, since `ResolveRiskPolicy`
+      also layers member config.
+- [ ] One `fix(ui):` commit, pushed to `main`, with `Closes #125`.
+
+### US-015: Close the `tfui risk` CLI contract gaps (`main`, #124 items 1 and 3)
+
+**Description:** As a CLI user, I want `tfui risk` errors to say which step failed and the I/O contract to list the
+command, so that its behavior is documented where every other command's is.
+
+**Acceptance Criteria:**
+
+- [ ] The two `filepath.Rel` errors in `cmd/tfui/risk_command.go:32-35,39-42` are wrapped with the step that failed,
+      as `docs/reference/cli-ux.md:61` requires: `fmt.Errorf("<step>: %w", err)`, lowercase. A test, written first,
+      asserts the wrapped message for at least one path. If neither error can be triggered in a test, the report
+      says so and the story stops for a decision instead of adding an untestable branch.
+- [ ] The Full I/O Table in `docs/reference/cli-io-contract.md` (Standalone `:58-74`, Headless `:76-94`, Headless
+      failures `:99-111`) gains `tfui risk` rows that match the Risk command v1 table (`:158-176`): text, `-json`,
+      threshold met (exit 3) and policy failure (exit 1).
+- [ ] Commits: one `fix(cli):` and one `docs(cli):`, pushed to `main`, the last with `Closes #124`.
+
+### US-016: Honest loading states in Risk and Blast Radius (`main`, #123 items 1 and 2)
+
+**Description:** As a TUI user, I want the Risk and Blast Radius loading states to show elapsed time and only keys that
+work, as TUI spec §5 and §13 require.
+
+**Acceptance Criteria:**
+
+- [ ] Loading shows `Loading risk assessment... <n>s` in `sdk.StyleFaintItalic` (`docs/reference/tui-ux.md:189,206`)
+      in Risk (`plugins/risk/risk.go:219`) and Blast Radius (`plugins/blastradius/blastradius.go:158`), using the
+      plugin timer as `plugins/validate/validate.go:259` does (`p.timer.FormatElapsed()`).
+- [ ] While loading, the hint bar shows only `Esc back` (`tui-ux.md:546`). Today both show `q quit`
+      (`plugins/risk/frames.go:33`, `plugins/blastradius/blastradius.go:88`).
+- [ ] Esc while loading returns home in both plugins and cancels the plugin's own pending assessment (US-005). Since
+      #130, the App's go-home path (`internal/ui/app.go:688-701`) cancels a non-Busy plugin; the test pins that for
+      Blast Radius too, which has no Esc handling of its own.
+- [ ] Tests, written first: the loading view contains the elapsed time, the loading hints equal `Esc back` only, and
+      Esc during loading cancels the request (the request's context is done).
+- [ ] A macro tape covers one loading state, or an existing tape's assertions are extended.
+
+### US-017: Retry from the error state in Risk and Blast Radius (`main`, #123 item 3)
+
+**Description:** As a TUI user, I want `^r` to retry a failed assessment, so that I can recover from a fixed policy
+or a transient plan failure without leaving the view.
+
+**Acceptance Criteria:**
+
+- [ ] In the error state, both plugins handle `ctrl+r` by issuing a new `RequestAssessment` for the same summary
+      (nil when Risk planned for itself), and enter Loading (`tui-ux.md:237`).
+- [ ] The error-state hint bar shows `^r retry` and `Esc back` (`tui-ux.md:245,547`). Today it shows only `q quit`.
+- [ ] Tests, written first: `ctrl+r` in the error state issues exactly one request and enters Loading; `ctrl+r` in
+      any other state does nothing; the hints match.
+
+### US-018: Risk list navigates like Plan's list (`main`, #123 item 4)
+
+**Description:** As a TUI user, I want the Risk list to support the same panning, wrapping and jump keys as Plan's
+list, so that long rows are readable.
+
+**Acceptance Criteria:**
+
+- [ ] The Risk list frame handles `g`, `G`, left, right and `ctrl+w`. Today `handleKey` handles only j/k/up/down
+      (`plugins/risk/risk.go:171-178`). Delegate to the same SDK panel Plan's list frame uses rather than
+      reimplementing the keys.
+- [ ] The hint bar shows `^w wrap` with its mode, as Plan's list does.
+- [ ] Tests, written first, cover each key. The existing golden files stay unchanged at the default scroll and wrap
+      state.
+- [ ] One `feat(risk):` or `fix(risk):` commit; the last of US-016 to US-018 carries `Closes #123`.
+
+### US-019: Turn the apply confirmation repro into a regular test (`main`)
+
+**Description:** As a maintainer, I want the apply-confirmation regression test to read like every other test, so
+that it is found by name and does not wait on wall-clock time.
+
+**Acceptance Criteria:**
+
+- [ ] `cmd/tfui/zz_repro_test.go` (`TestRepro_StandaloneApplyTTY`, from f38a939) moves into the existing standalone
+      apply tests under a `Test<Unit>_Given<State>_Should<Outcome>` name.
+- [ ] The 2-second `time.Sleep` polling loop (`zz_repro_test.go:34-43`) goes away: `macro.Driver` runs Cmds
+      synchronously, so the test asserts right after `d.Init()`. If the assertion then fails, stop and report: the
+      loop was hiding asynchronous work.
+- [ ] The `t.Logf` debug output goes; the assertion stays: no `Apply` call without the confirmation prompt.
+- [ ] Confirm the test still fails with the f38a939 fix reverted, in a scratch copy, and record that in the report.
+- [ ] One `test(apply):` commit.
 
 ## Functional Requirements
 
@@ -417,16 +522,14 @@ US-012.
 - No change to built-in policy severities, the fixed classifier, the report schema or `policy.id`.
 - No change to `tfui plan --json` output, which stays raw Terraform JSON.
 - No rework of the accepted deviations from the PR #121 PRD listed in the Overview.
-- No fix for #125 (`childCfg` stale on return to the root chdir) or #123 (Risk and Blast Radius loading-state UX),
-  and no work on #124 items 1 and 3.
-- No change to `cmd/tfui/zz_repro_test.go` (`TestRepro_StandaloneApplyTTY`, from f38a939), which is unrelated.
 - No deletion of branches, worktrees, backup branches or scratch files.
 
 ## Technical Considerations
 
 - **Branches:** US-001 to US-003 run on the main checkout (`/home/lmarqs/Work/terraform-ui`) and push to
   `origin/main`; each `fix:` commit cuts a patch release. US-004 to US-013 run in
-  `.worktrees/refactor/assessment-coordinator`; pull first, and confirm it contains `d812051`.
+  `.worktrees/refactor/assessment-coordinator`; pull first, and confirm it contains `d812051`. US-014 to US-019 run
+  on the main checkout after #131 merges; pull first.
 - **Order:** stories run in ID order. US-005 creates the in-package seam that US-006 and US-008 use. US-007 changes
   Risk's `ApplyAssessment` call mechanically; US-010 removes it. US-011 runs after US-010 and US-012 after US-011,
   because each edits the same Risk files.
@@ -444,7 +547,7 @@ US-012.
 - Every quality gate passes on `main` after US-001 to US-003, and on #131 before it merges.
 - CI on `main` is green after #131 merges.
 - `BenchmarkApplyAssessment` reports fewer allocs/op than before US-007.
-- Issues #120, #122, #126, #127 and #128 are closed; #124 keeps only items 1 and 3.
+- Issues #120, #122, #123, #124, #125, #126, #127 and #128 are closed.
 
 ## Open Questions
 
