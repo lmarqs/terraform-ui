@@ -22,7 +22,7 @@ func runResult(t *testing.T, cmd tea.Cmd) actionResultMsg {
 	}
 	msg := cmd()
 	if r, ok := msg.(actionResultMsg); ok {
-		return r // a restart inside the previous tick's second reuses that tick, so only the work remains
+		return r // an earlier Start's tick Cmd was never run, so Start reuses it and returns only the work
 	}
 	batch, ok := msg.(tea.BatchMsg)
 	if !ok {

@@ -117,6 +117,7 @@ func TestActivateWhileLoadingRestartsTick(t *testing.T) {
 	p.Init(h.Deps)
 
 	pp := p.(*Plugin)
+	// JSON mode has no streaming WaitForLine Cmd for LandTick to block on
 	sdktest.LandTick(t, pp.Activate(Input{JSON: true}))
 
 	// Simulate re-entering the plugin while plan is still loading, after the
