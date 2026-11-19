@@ -317,3 +317,12 @@ func TestInspectFrame_WhenActionHandlerReturnsCmd_ShouldReturnCmd(t *testing.T) 
 
 // Verify InspectFrame satisfies the Frame interface at compile time.
 var _ sdk.Frame = (*InspectFrame)(nil)
+
+func TestInspectFrame_GivenWrapOnAndRowsFittingHeight_ShouldShowEveryRowStart(t *testing.T) {
+	f := NewInspectFrame(InspectOpts{Content: "12345678\nsecond-long"})
+	f.Update(tea.KeyMsg{Type: tea.KeyCtrlW})
+
+	if got, want := f.View(8, 2), "12345678\nsecond-l"; got != want {
+		t.Fatalf("View = %q, want %q: a view that scrolls by rows must keep every row reachable", got, want)
+	}
+}
