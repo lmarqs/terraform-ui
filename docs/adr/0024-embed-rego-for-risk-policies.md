@@ -18,7 +18,7 @@ The current classifier in `internal/terraform/risk.go` uses action and resource 
 
 [Field report #106](https://github.com/lmarqs/terraform-ui/issues/106) supplies an attribute-aware example: changing a Lambda package path can overwrite code deployed by another pipeline. The current AWS provider's `needsFunctionCodeUpdate` includes `filename`; its update path reads the file and calls `UpdateFunctionCode`. This supports a reason naming the code-source attribute, even with an unchanged hash. An unchanged or null hash does not by itself establish that the package is a placeholder or that its lifecycle ignores the hash. The report justifies attribute-aware input, not OPA uniquely. [Provider implementation](https://github.com/hashicorp/terraform-provider-aws/blob/main/internal/service/lambda/function.go), inspected 2026-11-14; the report does not identify a provider version for reproduction.
 
-The full analysis is in the [architecture design](../development/risk-policy-design.md). The [contract reference](../reference/risk-policy-contract.md) owns accepted definitions. [ADR-0025](0025-classify-resource-mutations-explicitly.md) subsequently narrows evaluation to independent resource mutations with explicit results and no custom-policy fallback.
+The full analysis is in the [risk policy architecture](../development/risk-policy-design.md). The [contract reference](../reference/risk-policy-contract.md) owns accepted definitions. [ADR-0025](0025-classify-resource-mutations-explicitly.md) subsequently narrows evaluation to independent resource mutations with explicit results and no custom-policy fallback.
 
 ## Consequences
 

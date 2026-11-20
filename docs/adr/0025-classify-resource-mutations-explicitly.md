@@ -40,8 +40,8 @@ empty, `none`, partial and unavailable stay distinct.
 
 Policy failure leaves Plan review available with risk marked unavailable and the error visible. The risk command
 returns an error outcome. Apply behavior does not change. The [contract reference](../reference/risk-policy-contract.md)
-owns these definitions; the [architecture design](../development/risk-policy-design.md) holds the alternatives,
-evidence, remaining decisions and confirmation criteria.
+owns these definitions; the [risk policy architecture](../development/risk-policy-design.md) holds the alternatives,
+evidence and how the parts fit.
 
 ## Consequences
 
