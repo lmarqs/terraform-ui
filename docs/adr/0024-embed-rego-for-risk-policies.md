@@ -10,7 +10,7 @@ audience: "Contributors designing risk policy evaluation, configuration and plan
 
 # Embed Rego for project risk policies
 
-Use Open Policy Agent (OPA), embedded through its Go evaluation API, to evaluate project risk policies written in Rego. HCL selects a local policy source; it does not define a second tfui-specific rule language. A member's selected policy replaces its parent's complete policy; tfui does not implicitly combine ancestor rules. Ship explicit policy templates rather than runtime named presets. The repository owner accepted this language and runtime decision on 2026-11-14. The first version shipped in [#121](https://github.com/lmarqs/terraform-ui/pull/121): Plan, Risk and `tfui risk` evaluate the selected policy with OPA v1.19.1 embedded. [#130](https://github.com/lmarqs/terraform-ui/pull/130) and [#131](https://github.com/lmarqs/terraform-ui/pull/131) to [#141](https://github.com/lmarqs/terraform-ui/pull/141) followed with fixes and refactors, among them assessment sharing, cancellation, policy loading, `tfui risk` errors and the Risk and Blast Radius screens.
+Use Open Policy Agent (OPA), embedded through its Go evaluation API, to evaluate project risk policies written in Rego. HCL selects a local policy source; it does not define a second tfui-specific rule language. A member's selected policy replaces its parent's complete policy; tfui does not implicitly combine ancestor rules. Ship explicit policy templates rather than runtime named presets. The repository owner accepted this language and runtime decision on 2026-11-14. Plan, Risk and `tfui risk` evaluate the selected policy with OPA embedded ([#121](https://github.com/lmarqs/terraform-ui/pull/121)).
 
 The decision covers Risk analysis and `tfui risk`. It does not add a gate to `tfui apply`, change confirmation, or change auto-approval behavior. Evaluation uses structured data from the same Terraform plan being reviewed. Evaluation failures and invalid policy results must be reported as errors, not passing assessments.
 
@@ -26,9 +26,10 @@ The full analysis is in the [architecture design](../development/risk-policy-des
 - Preserve structured plan values and unknown/sensitive metadata from the existing live or seeded acquisition path. `PlanSummary`'s display-string diffs are not a sufficient policy input. Do not run a second plan to acquire policy data.
 - Keep evaluator dependencies in app internals behind SDK-facing domain types. Plan and Risk use the same validated classifications and reasons; plugins do not import each other or OPA implementation details.
 - Source selection is whole-policy replacement. Switching member/workspace must resolve the applicable source and invalidate previous assessments; startup-only configuration is insufficient.
-- Rego's declarative semantics do not inherit the earlier proposed first-match-wins behavior. Result shape, multiple-rule resolution, tfui aggregation, threshold configuration, unknown-value handling and migration of the ignored `level` option require a reviewed contract before implementation. ADR-0025 subsequently settles complete custom-policy replacement without fallback and missing-result failure. Selecting the language does not settle those choices.
+- Rego's declarative semantics do not inherit the earlier proposed first-match-wins behavior: a policy returns one complete result document, and conflicting results fail ([contract](../reference/risk-policy-contract.md#result-v1-and-rule-resolution)).
+- Policy authors are trusted and local. Embedded OPA is not a sandbox for hostile code: tfui masks sensitive values before evaluation and exposes only an allowlist of builtins, and cancellation is cooperative, with no hard memory or time limit ([runtime and trust boundary](../reference/risk-policy-contract.md#runtime-and-trust-boundary)).
 - Use the Lambda case as an attribute-aware policy fixture and template candidate. Do not automatically lower non-code Lambda changes or assert external deployment ownership from hash equality alone.
-- Before production integration, demonstrate policy tests, same-plan evaluation, failure handling and supported builds. Measure binary-size, compilation, evaluation and memory costs against the existing binary. No performance figures or acceptable limits have been measured or agreed. Unacceptable costs reopen this decision before a stable policy interface is released.
+- Embedding OPA adds 15.0–16.2MiB to the release binary and about 13 seconds to a cold build, measured with a small policy on Linux/amd64 before #121 ([D-03c](https://github.com/lmarqs/terraform-ui/blob/research/risk-plugin/docs/development/risk-policy-evidence/release-costs.md)). These costs are accepted as measured, not set as budgets; growth the maintainers find unacceptable reopens this decision.
 
 ## Considered Options
 
@@ -47,6 +48,10 @@ A credible fit for per-change conditions with familiar expression syntax. Reject
 ### Invoke OPA or Conftest externally
 
 Lets organizations manage their evaluator independently. Rejected for the initial integration because it adds runtime installation, version and process-management requirements. Conftest uses Rego; it is an execution/reporting alternative, not another language. [Conftest](https://www.conftest.dev/).
+
+### Isolate untrusted policies in a separate process
+
+A separate process could contain hostile policy code with hard memory and time limits, at installation and lifecycle cost. Rejected: authors are trusted locals, and embedded OPA's cooperative cancellation is not such a boundary. Isolation needs its own design and evidence.
 
 ### Leave policy evaluation entirely in external CI
 
