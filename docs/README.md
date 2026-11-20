@@ -19,7 +19,9 @@ Every page except this map is published to [the site](https://lmarqs.github.io/t
 A record of one choice that shaped tfui and is costly to reverse: what forced it, the options weighed and what it
 costs. A fact belongs here when someone would otherwise argue the choice again. A good record lets a reader who
 wants to change the choice see what broke before it and what the change would bring back. Records keep their
-numbers. [The list](adr/index.md).
+numbers. A record states the choice as it stands: a later change edits that record, with what forced the change,
+and never leaves the current truth on another page for the reader to chase. A rule the choice implies, such as a
+component's contract, belongs to a standard that links the record. [The list](adr/index.md).
 
 ### Features: `features/` and `plugins/`
 

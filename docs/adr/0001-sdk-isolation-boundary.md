@@ -1,20 +1,18 @@
 ---
 layout: default
-title: "ADR-0001: SDK isolation: plugins import only pkg/sdk"
+title: "ADR-0001: SDK isolation: plugins reach the app only through pkg/sdk"
 grand_parent: Development
 parent: Architecture
 nav_order: 0001
 seo:
   description: Architecture decision to enforce plugin isolation through a public SDK boundary
-description: "Records why plugins import only pkg/sdk and never internal/."
+description: "Records why plugins reach the app only through pkg/sdk and never import internal/."
 audience: "Contributors adding a plugin or moving code across pkg/sdk"
 ---
 
-# SDK isolation: plugins import only pkg/sdk
+# SDK isolation: plugins reach the app only through pkg/sdk
 
-Amended by [ADR-0021](0021-plugins-as-use-cases.md): plugins also import BubbleTea, which owns their model and commands; `internal/` and cobra stay out of plugins.
-
-Plugins depend exclusively on `pkg/sdk/`. They cannot import `internal/` packages. This boundary exists for two reinforcing reasons: (1) hexagonal architecture -- separating core contract from infrastructure keeps the system refactorable without breaking plugins, and (2) third-party plugin enablement -- external developers need a stable, well-defined surface to build against.
+Plugins reach the app only through `pkg/sdk/`. Besides it they import BubbleTea, which owns their model and commands, and the standard library; they never import `internal/` packages or cobra ([ADR-0021](0021-plugins-as-use-cases.md) says why the driving adapters stay out). This boundary exists for two reinforcing reasons: (1) hexagonal architecture -- separating core contract from infrastructure keeps the system refactorable without breaking plugins, and (2) third-party plugin enablement -- external developers need a stable, well-defined surface to build against.
 
 ## Consequences
 
