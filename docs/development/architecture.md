@@ -181,6 +181,7 @@ state, mark stale) from a chdir or workspace switch (full reset).
 
 ### Risk assessment
 
+[Risk policy architecture](risk-policy-design.md) explains why the feature is shaped this way.
 `PluginDeps.RequestAssessment` is the only way a plugin gets risk; no plugin runs a plan for it or reads the policy. The
 host owns each request in `internal/riskassess`: it loads and compiles the policy the active Context selects, runs the
 plan when the summary is nil, evaluates the summary, re-checks that the policy source did not change, and publishes a
