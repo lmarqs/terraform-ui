@@ -48,34 +48,56 @@ func thresholdName(threshold *sdk.RiskLevel) string {
 	return threshold.String()
 }
 
-func thresholdResult(a sdk.PolicyAssessment, threshold *sdk.RiskLevel) string {
-	switch {
-	case a.Status == sdk.AssessmentEmpty:
-		return "not_applicable"
-	case threshold == nil:
-		return "disabled"
-	case *a.OverallLevel >= *threshold:
-		return "met"
-	}
-	return "below"
+// thresholdResult is how a usable assessment's overall level compares with the threshold.
+type thresholdResult int
+
+const (
+	thresholdNotApplicable thresholdResult = iota
+	thresholdDisabled
+	thresholdBelow
+	thresholdMet
+)
+
+// String is the result's v1 report value.
+func (r thresholdResult) String() string {
+	return [...]string{"not_applicable", "disabled", "below", "met"}[r]
 }
 
-// failureDiagnostic names why an assessment is unusable: its global code with
-// the host's hint, or else its first failed row by address.
-func failureDiagnostic(a sdk.PolicyAssessment, hint string) string {
-	if a.ErrorCode != "" {
-		return sdk.DiagnosticError{Code: a.ErrorCode, Hint: hint}.Error()
+func compareThreshold(a sdk.PolicyAssessment, threshold *sdk.RiskLevel) thresholdResult {
+	switch {
+	case a.Status == sdk.AssessmentEmpty:
+		return thresholdNotApplicable
+	case threshold == nil:
+		return thresholdDisabled
+	case *a.OverallLevel >= *threshold:
+		return thresholdMet
 	}
+	return thresholdBelow
+}
+
+func sortedRows(a sdk.PolicyAssessment) []sdk.PolicyResourceAssessment {
 	rows := slices.Clone(a.Resources)
 	slices.SortFunc(rows, func(a, b sdk.PolicyResourceAssessment) int {
 		return sdk.InstanceKey{Address: a.Address, Deposed: a.Deposed}.Compare(sdk.InstanceKey{Address: b.Address, Deposed: b.Deposed})
 	})
-	for _, row := range rows {
+	return rows
+}
+
+// failureDiagnostic names why an assessment is unusable: its global code with
+// the host's hint, else its first failed row by address, else its status.
+func failureDiagnostic(a sdk.PolicyAssessment, hint string) string {
+	if a.ErrorCode != "" {
+		return sdk.DiagnosticError{Code: a.ErrorCode, Hint: hint}.Error()
+	}
+	for _, row := range sortedRows(a) {
 		if row.ErrorCode != "" {
 			return string(row.ErrorCode) + " for " + instanceLabel(row.Address, row.Deposed)
 		}
 	}
-	return ""
+	if a.Status != "" {
+		return string(a.Status)
+	}
+	return "assessment unusable"
 }
 
 type reportContext struct {
@@ -150,10 +172,10 @@ func (e *Plugin) report() riskReport {
 		level := e.threshold.String()
 		r.Threshold.Level = &level
 	}
-	r.Threshold.Result = e.outcome.threshold
+	r.Threshold.Result = compareThreshold(*a, e.threshold).String()
 	counts := countRows(a)
 	r.Counts.Eligible, r.Counts.Classified, r.Counts.NotAssessed = counts.classified, counts.classified, counts.notAssessed
-	for _, row := range a.Resources {
+	for _, row := range sortedRows(*a) {
 		resource := reportResource{Address: row.Address, Actions: row.Actions, Status: row.Status, Exclusion: row.Exclusion}
 		if row.Deposed != "" {
 			resource.Deposed = &row.Deposed
@@ -174,9 +196,6 @@ func (e *Plugin) report() riskReport {
 		}
 		r.Resources = append(r.Resources, resource)
 	}
-	slices.SortFunc(r.Resources, func(a, b reportResource) int {
-		return sdk.InstanceKey{Address: a.Address, Deposed: deposedKey(a)}.Compare(sdk.InstanceKey{Address: b.Address, Deposed: deposedKey(b)})
-	})
 	return r
 }
 
@@ -185,24 +204,26 @@ func (e *Plugin) Stdout() ([]byte, error) {
 	if e.outcome.kind != outcomeDone {
 		return nil, nil
 	}
-	r := e.report()
 	if e.input.JSON {
-		data, err := json.MarshalIndent(r, "", "  ")
+		data, err := json.MarshalIndent(e.report(), "", "  ")
 		return append(data, '\n'), err
 	}
+	a := e.assessment
+	counts := countRows(a)
 	var out strings.Builder
-	if r.Status == sdk.AssessmentEmpty {
-		fmt.Fprintf(&out, "No eligible mutations (%d changes not assessed).\n", r.Counts.NotAssessed)
+	if a.Status == sdk.AssessmentEmpty {
+		fmt.Fprintf(&out, "No eligible mutations (%d changes not assessed).\n", counts.notAssessed)
 	} else {
-		fmt.Fprintf(&out, "Risk: %s\n", *r.OverallLevel)
+		fmt.Fprintf(&out, "Risk: %s\n", a.OverallLevel.String())
 	}
-	fmt.Fprintf(&out, "Policy: %s\nMutations: %d eligible, %d classified; %d changes not assessed\nThreshold: %s (%s)\n", r.Policy.ID, r.Counts.Eligible, r.Counts.Classified, r.Counts.NotAssessed, thresholdName(e.threshold), r.Threshold.Result)
-	for _, row := range r.Resources {
+	fmt.Fprintf(&out, "Policy: %s\nMutations: %d eligible, %d classified; %d changes not assessed\nThreshold: %s (%s)\n", a.Policy.ID, counts.classified, counts.classified, counts.notAssessed, thresholdName(e.threshold), compareThreshold(*a, e.threshold))
+	rows := sortedRows(*a)
+	for _, row := range rows {
 		if row.Status != sdk.ResourceClassified {
 			continue
 		}
-		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, deposedKey(row)), *row.Level)
-		for _, reason := range *row.Reasons {
+		fmt.Fprintf(&out, "%s %s: %s\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, row.Deposed), row.Level.String())
+		for _, reason := range row.Reasons {
 			fmt.Fprintf(&out, "  %s: %s", reason.Code, reason.Message)
 			if len(reason.Paths) > 0 {
 				// Assessment paths contain only validated JSON strings and integer indexes.
@@ -212,19 +233,12 @@ func (e *Plugin) Stdout() ([]byte, error) {
 			out.WriteByte('\n')
 		}
 	}
-	for _, row := range r.Resources {
+	for _, row := range rows {
 		if row.Status == sdk.ResourceNotAssessed {
-			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, deposedKey(row)), row.Exclusion)
+			fmt.Fprintf(&out, "%s %s: not assessed (%s)\n", strings.Join(row.Actions, "/"), instanceLabel(row.Address, row.Deposed), row.Exclusion)
 		}
 	}
 	return []byte(out.String()), nil
-}
-
-func deposedKey(row reportResource) string {
-	if row.Deposed == nil {
-		return ""
-	}
-	return *row.Deposed
 }
 
 func instanceLabel(address, deposed string) string {
@@ -243,6 +257,9 @@ func escapedAddress(address string) string {
 }
 
 func (e *Plugin) Stderr() []byte {
+	if e.thresholdMet() {
+		return fmt.Appendf(nil, "risk threshold met: %s >= %s\n", e.assessment.OverallLevel.String(), thresholdName(e.threshold))
+	}
 	if e.outcome.diagnostic == "" {
 		return nil
 	}
@@ -254,9 +271,14 @@ func (e *Plugin) ExitCode() int {
 	case outcomeInvalidThreshold, outcomePlanFailed, outcomeUnusable:
 		return 1
 	case outcomeDone:
-		if e.outcome.threshold == "met" {
+		if e.thresholdMet() {
 			return 3
 		}
 	}
 	return 0
+}
+
+// thresholdMet reports a done run whose overall level reached the threshold.
+func (e *Plugin) thresholdMet() bool {
+	return e.outcome.kind == outcomeDone && compareThreshold(*e.assessment, e.threshold) == thresholdMet
 }

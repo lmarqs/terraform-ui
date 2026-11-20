@@ -1,8 +1,6 @@
 package risk
 
 import (
-	"fmt"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -20,11 +18,10 @@ const (
 )
 
 // outcome is the latest Risk run's state, decided by activation and
-// acceptAssessment, with the line Stderr reports for it.
+// acceptAssessment, with the failure line Stderr reports for it.
 type outcome struct {
 	kind       outcomeKind
 	diagnostic string
-	threshold  string // a done run's threshold result
 }
 
 // unavailable is the diagnostic line for a run that produced no usable assessment.
@@ -124,8 +121,5 @@ func (e *Plugin) acceptAssessment(ev sdk.RiskAssessedEvent) {
 		e.outcome = outcome{kind: outcomeUnusable, diagnostic: unavailable(failureDiagnostic(assessment, ev.Hint))}
 		return
 	}
-	e.outcome = outcome{kind: outcomeDone, threshold: thresholdResult(assessment, e.threshold)}
-	if e.outcome.threshold == "met" {
-		e.outcome.diagnostic = fmt.Sprintf("risk threshold met: %s >= %s", assessment.OverallLevel.String(), thresholdName(e.threshold))
-	}
+	e.outcome = outcome{kind: outcomeDone}
 }
