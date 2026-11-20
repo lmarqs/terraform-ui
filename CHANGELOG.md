@@ -1,3 +1,23 @@
+## [1.35.1](https://github.com/lmarqs/terraform-ui/compare/v1.35.0...v1.35.1) (2026-11-20)
+
+
+### Bug Fixes
+
+* **blastradius,phantom:** render the lists through ContentPanel ([333e49e](https://github.com/lmarqs/terraform-ui/commit/333e49ee17fd5bc308acecdbfab25415033f031d)), closes [#97](https://github.com/lmarqs/terraform-ui/issues/97)
+* **demo:** exit non-zero when a recording or stitch fails ([559b5b5](https://github.com/lmarqs/terraform-ui/commit/559b5b56e0ef65d53cfa32f27098c053fe9ca9d0)), closes [#77](https://github.com/lmarqs/terraform-ui/issues/77)
+* **demo:** name a failed GIF copy in the summary instead of exiting early ([4145ec6](https://github.com/lmarqs/terraform-ui/commit/4145ec63a4dce9d6a6ff82e271cd6d6e0dc7438d))
+* **output:** render the outputs list through ContentPanel ([1434555](https://github.com/lmarqs/terraform-ui/commit/1434555bf92c383dad98701886f9c4c00c9afffb))
+* **phantom:** give each attribute value its own row ([d465e48](https://github.com/lmarqs/terraform-ui/commit/d465e48ae02f5d830963a30b5e984b4455632058)), closes [#97](https://github.com/lmarqs/terraform-ui/issues/97)
+* **phantom:** let the panel clip, pan and wrap attribute values ([b49e513](https://github.com/lmarqs/terraform-ui/commit/b49e513786b31b769997f7e7d4d3e310bdf8e20e)), closes [#97](https://github.com/lmarqs/terraform-ui/issues/97)
+* **risk:** cache only usable assessments so a retry evaluates again ([fcf6dd8](https://github.com/lmarqs/terraform-ui/commit/fcf6dd841552fe2109457ecbf71b16145f416c0b))
+* **risk:** name a fallback reason when an unusable assessment has none ([7e39f41](https://github.com/lmarqs/terraform-ui/commit/7e39f41e572ef610d7c146d1b241d18a70723c0c))
+* **ui:** draw the gutter when wrapped Render scrolls, and document RenderWindow ([97b7006](https://github.com/lmarqs/terraform-ui/commit/97b70065d20a9d528033a3ee76439b8a67c137d8))
+* **ui:** keep cursorless wrapped views reachable and the window offset in rows ([6f195f7](https://github.com/lmarqs/terraform-ui/commit/6f195f758e8911e5c67cde0e19ae587c94447682))
+* **ui:** keep the wrapped cursor row on screen ([c139efe](https://github.com/lmarqs/terraform-ui/commit/c139efe22d42ab555bffd9ec2f8156a48ba5f791)), closes [#142](https://github.com/lmarqs/terraform-ui/issues/142)
+* **validate,output:** keep a tall block's last line and reset the pan on a new filter ([28eb340](https://github.com/lmarqs/terraform-ui/commit/28eb3404701076745b10c51c86aa70a60b0f9470))
+* **validate,output:** pan back to the start on a reload or reset ([87ea773](https://github.com/lmarqs/terraform-ui/commit/87ea773b93575dadbb1728dc95b2204f7e1828d4))
+* **validate:** render the diagnostics list through ContentPanel ([a3c1e21](https://github.com/lmarqs/terraform-ui/commit/a3c1e219473f3e847683682ac6b1dee2fada8953))
+
 # [1.35.0](https://github.com/lmarqs/terraform-ui/compare/v1.34.0...v1.35.0) (2026-11-20)
 
 
