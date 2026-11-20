@@ -29,6 +29,8 @@ Press `v` from the home menu. The plugin runs validation and shows errors/warnin
 | `j` / `k` / `↑` / `↓` | Navigate up/down | List |
 | `g` / `G` | Jump to first/last | List |
 | `Enter` / `i` | Expand diagnostic detail | List |
+| `←` / `→` | Scroll the list horizontally when wrapping is off | List |
+| `Ctrl+w` | Toggle wrapping | List |
 | `ctrl+r` | Re-run validation | Validation finished or failed |
 | `q` | Back to home | Always |
 

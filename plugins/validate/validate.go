@@ -26,6 +26,8 @@ type validateJSONMsg struct {
 type Plugin struct {
 	sdk.PluginBase
 	expander    *ui.ExpandSet
+	panel       *ui.ContentPanel
+	offset      int
 	timer       ui.Timer
 	status      sdk.Status
 	diagnostics []sdk.Diagnostic
@@ -41,7 +43,9 @@ func New(svc sdk.Service) sdk.Plugin {
 	p := &Plugin{
 		PluginBase: sdk.NewPluginBase("validate", "Validate", "Run terraform validate"),
 		expander:   ui.NewExpandSet(),
+		panel:      ui.NewContentPanel(),
 	}
+	p.panel.SelectedStyle = func(s string, width int) string { return sdk.StyleSelected.Width(width).Render(s) }
 	p.Svc = svc
 	return p
 }
@@ -67,7 +71,7 @@ func (p *Plugin) Hints() []sdk.KeyHint {
 		if len(p.diagnostics) == 0 {
 			return (sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
 		}
-		return (sdk.HintSetInspect | sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
+		return (sdk.HintSetInspect | sdk.HintSetWrap | sdk.HintSetRefresh | sdk.HintSetQuit).Hints(sdk.HintSetOpts{WrapMode: p.panel.WrapMode()})
 	default:
 		return (sdk.HintSetQuit).Hints()
 	}
@@ -101,6 +105,8 @@ func (p *Plugin) reset() {
 	p.jsonBytes = nil
 	p.errMsg = ""
 	p.selected = 0
+	p.offset = 0
+	p.panel.ResetScroll()
 	p.expander.CollapseAll()
 }
 
@@ -122,6 +128,8 @@ func (p *Plugin) Refresh() tea.Cmd {
 	p.jsonBytes = nil
 	p.errMsg = ""
 	p.selected = 0
+	p.offset = 0
+	p.panel.ResetScroll()
 	p.expander.CollapseAll()
 	return tea.Batch(p.runValidate(), p.timer.Start())
 }
@@ -209,6 +217,10 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		p.MoveToEnd()
 	case "g":
 		p.MoveToStart()
+	case "left", "right", "ctrl+w":
+		if len(p.diagnostics) > 0 {
+			p.panel.HandleKey(msg)
+		}
 	}
 	return nil
 }
@@ -274,44 +286,33 @@ func (p *Plugin) renderResults(width, height int) string {
 		return sdk.StyleSuccess.Render("✓ Configuration is valid")
 	}
 
-	var b strings.Builder
-
-	// Calculate visible area
-	maxVisible := height - 6
-	if maxVisible < 3 {
-		maxVisible = 3
-	}
-
-	// Determine scroll window
-	startIdx := 0
-	if p.selected >= maxVisible {
-		startIdx = p.selected - maxVisible + 1
-	}
-	endIdx := startIdx + maxVisible
-	if endIdx > len(p.diagnostics) {
-		endIdx = len(p.diagnostics)
-	}
-
-	for i := startIdx; i < endIdx; i++ {
-		diag := p.diagnostics[i]
-		row := p.renderDiagnosticRow(diag)
+	var rows []string
+	cursor, cursorEnd := 0, 0
+	for i, diag := range p.diagnostics {
 		if i == p.selected {
-			row = sdk.StyleSelected.Width(width).Render(row)
+			cursor = len(rows)
 		}
-		b.WriteString(row)
-		b.WriteByte('\n')
-
-		// Render expanded detail
+		rows = append(rows, p.renderDiagnosticRow(diag))
 		if p.expander.IsExpanded(i) && diag.Detail != "" {
-			detail := sdk.StyleFaint.Render("    " + diag.Detail)
-			b.WriteString(detail)
-			b.WriteByte('\n')
+			for _, line := range strings.Split(diag.Detail, "\n") {
+				rows = append(rows, sdk.StyleFaint.Render("    "+line))
+			}
+		}
+		if i == p.selected {
+			cursorEnd = len(rows)
 		}
 	}
 
-	summary := p.renderSummaryLine()
+	// The blank line above the summary and the summary take two rows, unless the
+	// cursor's diagnostic is taller than what is left: it gets them, so its last line shows.
+	listHeight, footer := height-2, "\n\n"+p.renderSummaryLine()
+	if cursorEnd-cursor > listHeight {
+		listHeight, footer = height, ""
+	}
+	content, offset := p.panel.RenderWindow(ui.RenderParams{Rows: rows, Width: width, Height: max(1, listHeight), Cursor: cursor, CursorEnd: cursorEnd, ScrollOffset: p.offset})
+	p.offset = offset
 
-	return b.String() + "\n" + summary
+	return content + footer
 }
 
 func (p *Plugin) renderDiagnosticRow(diag sdk.Diagnostic) string {
