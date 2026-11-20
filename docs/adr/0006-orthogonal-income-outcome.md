@@ -12,9 +12,7 @@ audience: "Contributors adding a mode, an output format or a CLI flag"
 
 # Orthogonal axes: income and outcome are independent
 
-Amended by [ADR-0021](0021-plugins-as-use-cases.md): `-macro` selects both the tape input and the recording backend, so the recording outcome pairs only with macro income.
-
-The system has two axes -- income (how the user drives: TUI, CLI, macro tape) and outcome (what happens: live execution, command recording). These are independent. Plugins are unaware of both.
+The system has two axes -- income (how the user drives: TUI, CLI, macro tape) and outcome (what happens: live execution, command recording). Plugins are unaware of both, so a plugin works under any pairing; which pairings the CLI offers is wiring in `cmd/tfui/`, and the [CLI reference](../reference/cli-reference.md) lists the flags that select them.
 
 This falls directly from hexagonal architecture: plugins are the core, income is an input adapter, outcome is an output adapter. Coupling them inside a plugin would be a category error -- equivalent to saying "the HTTP adapter only works with PostgreSQL."
 
@@ -22,7 +20,7 @@ Most TUI tools (k9s, lazygit) are interactive-only -- they have no CLI axis and 
 
 ## Consequences
 
-- Plugins are unaware of both axes; which pairings exist is a wiring choice in `cmd/tfui/`.
+- Adding a pairing, or an input or outcome, changes only the wiring in `cmd/tfui/`; no plugin changes.
 
 ## Considered Options
 

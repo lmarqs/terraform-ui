@@ -28,11 +28,10 @@ func ContentWidth(width int, hasGutter bool) int {
 // concerns of a scrollable content area: truncation, horizontal scroll, wrap toggle,
 // cursor highlighting, and scroll gutter alignment.
 //
-// Vertical navigation (cursor position, viewport offset) is NOT owned by the panel —
-// these remain in the tree/list that understands the data structure. The panel takes
-// them as inputs for rendering.
-//
-// Plugins provide pre-windowed Rows and call Render(). The panel formats what it's given.
+// Vertical navigation (which rows exist, the cursor) stays with the tree or list that
+// understands the data structure. Callers either window the rows themselves and call
+// Render, or pass every row to RenderWindow, which picks the window from the offset it
+// returned last frame; the caller stores that offset.
 type ContentPanel struct {
 	hScroll  int
 	wrapMode bool
@@ -48,18 +47,24 @@ func NewContentPanel() *ContentPanel {
 
 // RenderParams holds the per-frame inputs needed for rendering.
 type RenderParams struct {
-	// Rows is the pre-windowed visible rows to render.
+	// Rows is the pre-windowed visible rows to render; RenderWindow takes every row instead.
 	Rows []string
 	// Width is the total available width (including gutter).
 	Width int
 	// Height is the maximum number of visual lines to render.
 	Height int
 	// TotalItems is the total number of items in the full list (for gutter thumb).
+	// RenderWindow ignores it and counts Rows.
 	TotalItems int
 	// Cursor is the index into Rows to highlight (-1 for none).
 	Cursor int
 	// ScrollOffset is the position in the full list (for gutter thumb positioning).
+	// For RenderWindow it is the offset RenderWindow returned last frame: the index of the
+	// window's top row.
 	ScrollOffset int
+	// CursorEnd is one past the last row of the cursor's block, such as a row and the
+	// detail rows under it. Zero or less means the block is the cursor row alone.
+	CursorEnd int
 }
 
 // HScroll returns the current horizontal scroll offset.
@@ -102,33 +107,28 @@ func (p *ContentPanel) ResetScroll() {
 
 // Render produces the final output string with all layout applied.
 func (p *ContentPanel) Render(params RenderParams) string {
-	if len(params.Rows) == 0 {
+	if len(params.Rows) == 0 || params.Height <= 0 {
 		return ""
 	}
 
+	if start, _ := blockRows(params.Cursor, params.CursorEnd, len(params.Rows)); p.wrapMode && start >= 0 {
+		// Rows outside the slice count as one line each: the panel never sees them wrapped.
+		above := max(0, params.ScrollOffset)
+		below := max(0, params.TotalItems-above-len(params.Rows))
+		output, _ := p.renderWrapped(params, 0, above, below)
+		return output
+	}
+
+	// Without a cursor the caller scrolls by rows, so the gutter counts rows: narrowing
+	// the content for wrapped lines would push lines past where the caller can scroll.
 	hasGutter := params.TotalItems > params.Height
 	contentWidth := ContentWidth(params.Width, hasGutter)
 
 	var lines []string
-	linesUsed := 0
-
-	for i, row := range params.Rows {
-		if linesUsed >= params.Height {
-			break
-		}
-
-		if p.wrapMode {
-			wrapped := wrapStyled(row, contentWidth)
-			remaining := params.Height - linesUsed
-			if len(wrapped) > remaining {
-				wrapped = wrapped[:remaining]
-			}
-			if i == params.Cursor && len(wrapped) > 0 {
-				wrapped[0] = p.applySelected(wrapped[0], contentWidth)
-			}
-			lines = append(lines, wrapped...)
-			linesUsed += len(wrapped)
-		} else {
+	if p.wrapMode {
+		lines, _ = p.wrapRows(params.Rows, -1, contentWidth)
+	} else {
+		for i, row := range params.Rows {
 			line := row
 			if p.hScroll > 0 {
 				line = scrollLeft(line, p.hScroll)
@@ -140,13 +140,9 @@ func (p *ContentPanel) Render(params RenderParams) string {
 			}
 
 			lines = append(lines, line)
-			linesUsed++
 		}
 	}
-
-	if len(lines) == 0 {
-		return ""
-	}
+	lines = lines[:min(len(lines), params.Height)]
 
 	if hasGutter {
 		lines = RenderScrollGutter(lines, ScrollGutterOpts{
@@ -158,6 +154,108 @@ func (p *ContentPanel) Render(params RenderParams) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// RenderWindow renders a list from every row rather than a pre-windowed slice. It reads
+// Rows, Cursor, CursorEnd, Width, Height and ScrollOffset, the offset it returned last frame.
+// It scrolls from that offset only as far as needed to show the cursor's block, so the
+// cursor row's first line is always drawn. With wrap on it measures in wrapped lines, so
+// the window can start partway through its top row, and the gutter thumb uses the same
+// measure. The returned offset is the index of the window's top row in both wrap modes;
+// the caller keeps it for the next frame.
+func (p *ContentPanel) RenderWindow(params RenderParams) (string, int) {
+	rows, height := params.Rows, params.Height
+	if height <= 0 {
+		return "", params.ScrollOffset
+	}
+	if !p.wrapMode {
+		start, end := blockRows(params.Cursor, params.CursorEnd, len(rows))
+		offset := scrollTo(params.ScrollOffset, start, end, height, len(rows))
+		return p.Render(RenderParams{
+			Rows:         rows[offset:min(len(rows), offset+height)],
+			Width:        params.Width,
+			Height:       height,
+			TotalItems:   len(rows),
+			Cursor:       params.Cursor - offset,
+			ScrollOffset: offset,
+		}), offset
+	}
+
+	return p.renderWrapped(params, params.ScrollOffset, 0, 0)
+}
+
+// renderWrapped draws params.Rows wrapped, starting from the first line of row top and
+// scrolling just far enough to show the cursor's block. above and below are lines outside
+// Rows, which place the gutter thumb and decide whether the gutter is drawn. It returns
+// the row at the top of the window.
+func (p *ContentPanel) renderWrapped(params RenderParams, top, above, below int) (string, int) {
+	rows, height := params.Rows, params.Height
+	width := params.Width
+	lines, starts := p.wrapRows(rows, params.Cursor, width)
+	hasGutter := above+len(lines)+below > height
+	if hasGutter {
+		width = ContentWidth(width, true)
+		lines, starts = p.wrapRows(rows, params.Cursor, width)
+	}
+	start, end := blockRows(params.Cursor, params.CursorEnd, len(rows))
+	if start >= 0 {
+		start, end = starts[start], starts[end]
+	}
+	offset := scrollTo(starts[min(max(0, top), len(rows))], start, end, height, len(lines))
+	visible := lines[offset:min(len(lines), offset+height)]
+	if hasGutter {
+		visible = RenderScrollGutter(visible, ScrollGutterOpts{
+			ViewOffset:     above + offset,
+			TotalItems:     above + len(lines) + below,
+			ViewportHeight: height,
+			Width:          params.Width - 1,
+		})
+	}
+	top = 0
+	for top+1 < len(rows) && starts[top+1] <= offset {
+		top++
+	}
+	return strings.Join(visible, "\n"), top
+}
+
+// blockRows returns the row span [start, end) of the cursor's block, with start -1 when
+// the cursor is outside the rows.
+func blockRows(cursor, cursorEnd, total int) (int, int) {
+	if cursor < 0 || cursor >= total {
+		return -1, -1
+	}
+	return cursor, min(total, max(cursorEnd, cursor+1))
+}
+
+// wrapRows wraps every row to width and styles the cursor row's first line as selected.
+// It returns the lines and, for each row, the index of its first line, followed by the
+// line count.
+func (p *ContentPanel) wrapRows(rows []string, cursor, width int) ([]string, []int) {
+	var lines []string
+	starts := make([]int, 0, len(rows)+1)
+	for i, row := range rows {
+		wrapped := wrapStyled(row, width)
+		if i == cursor {
+			wrapped[0] = p.applySelected(wrapped[0], width)
+		}
+		starts = append(starts, len(lines))
+		lines = append(lines, wrapped...)
+	}
+	return lines, append(starts, len(lines))
+}
+
+// scrollTo returns the offset nearest to offset that shows the span [start, end) within
+// height units of total, keeping start in view when the span is taller than height.
+func scrollTo(offset, start, end, height, total int) int {
+	if start >= 0 {
+		if start < offset {
+			offset = start
+		}
+		if end > offset+height {
+			offset = min(start, end-height)
+		}
+	}
+	return max(0, min(offset, total-height))
 }
 
 // wrapStyled breaks a styled string into multiple lines of at most width visible characters.

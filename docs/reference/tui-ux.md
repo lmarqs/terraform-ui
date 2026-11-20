@@ -434,9 +434,10 @@ Every plugin's `View(width, height)` must:
 
 ### Scrollable content: split by axis
 
-A view that scrolls splits its rendering by axis: the plugin decides which rows are visible, and `ui.ContentPanel`
-(`pkg/sdk/ui/content_panel.go`) formats them. Vertical navigation needs domain semantics that differ per plugin;
-horizontal formatting is the same everywhere ([ADR-0015](../adr/0015-content-panel-axis-split.md)).
+A view that scrolls splits its rendering by axis: the plugin decides which rows exist and where the cursor is, and
+`ui.ContentPanel` (`pkg/sdk/ui/content_panel.go`) formats them. Vertical navigation needs domain semantics that differ
+per plugin; horizontal formatting is the same everywhere. A list can also let the panel pick its visible window,
+because with wrap on only the panel knows how tall a row is ([ADR-0015](../adr/0015-content-panel-axis-split.md)).
 
 ```
 ┌──────────────────── Border (app) ─────────────────────┐
@@ -457,7 +458,7 @@ Layers stack vertically, and each keeps to its own rows: a component never draws
 
 **When it applies.** Every component that renders scrollable content: a tree, a flat list, a detail or inspect view,
 a log tail. A static view, such as a status message or a 3-line summary, has no axis to split. A new vertical
-paradigm (virtual scroll, pagination, an auto-scrolling log) puts its logic in the plugin; the panel still receives
+paradigm (virtual scroll, pagination, an auto-scrolling log) puts its logic in the plugin and passes the panel
 pre-windowed rows.
 
 **The panel promises:**
@@ -465,19 +466,29 @@ pre-windowed rows.
 - ANSI-safe truncation, horizontal scrolling (pan left/right) and wrapping, never breaking an escape sequence
 - the scroll gutter when content overflows the viewport
 - cursor row highlighting with the caller's style
+- with wrap on, the cursor row's first line is drawn whenever the cursor is within the rows
 - content width = total width minus the gutter budget
 
-**The panel requires** (`ui.RenderParams`):
+**The panel has two input paths**, both taking `ui.RenderParams`:
 
-- the visible rows, already windowed: the caller decides what is visible
-- the total item count, for the gutter thumb's proportion
-- the cursor index within the visible window, or none
-- the scroll offset of that window in the full list, for the gutter's position
+- `Render` takes pre-windowed rows: the visible rows, the total item count for the gutter thumb's proportion, the
+  cursor index within the window or none, and the window's offset in the full list for the gutter's position. With
+  wrap on, it scrolls inside the slice until the cursor row shows and counts rows outside the slice as one line each
+  for the gutter. Without a cursor it wraps within the slice and counts rows for the gutter, as a view that scrolls by
+  rows needs.
+- `RenderWindow` takes every row: the rows, the cursor and `CursorEnd`, one past the cursor's block (such as a row and
+  its detail rows), the size, and the offset it returned last frame. It picks the window, clips it and places the
+  gutter thumb, in rows with wrap off and in wrapped lines with wrap on. The offset it returns is the window's top row
+  in both modes, so a wrap toggle or a resize never reads it in the wrong unit. With wrap off its
+  output equals windowing in the plugin and calling `Render`. Risk, Blast Radius, Phantom, Validate and Output use
+  it. The Plan, State and Workspace lists still pass slices to `Render`, so with wrap on their window and gutter
+  thumb count rows outside the slice as one line each ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
 
 **The plugin owns:**
 
 - domain-aware traversal: collapse state, pin filtering, fuzzy scoring
-- viewport windowing: which items show, given the cursor and the data
+- viewport windowing for `Render`: which items show, given the cursor and the data; with `RenderWindow`, keeping the
+  returned offset and passing it back
 - the cursor: position, bounds, collapse-aware movement
 - the height budget: the space left after its sibling elements
 
@@ -485,10 +496,11 @@ pre-windowed rows.
 
 - No lifecycle. It has no Init/Update/View cycle; it renders when called and handles keys only when delegated, so a
   caller can place its output beside any sibling.
-- One input path. It takes pre-windowed rows only.
+- Rows in, lines out. It never reorders, filters or collapses rows; `RenderWindow` only picks which lines of the
+  given rows show.
 - State only where every caller agrees. It holds the horizontal offset and the wrap toggle, which mean the same for
   every caller; vertical state stays with the plugin because its meaning varies (tree offset, flat cursor, detail
-  scroll).
+  scroll), and the offset `RenderWindow` returns is the plugin's to store.
 
 **Anti-patterns:**
 

@@ -135,7 +135,7 @@ func TestHints_GivenErrorState_ShouldOfferRetryAndBackAndInspectWhenModulesShow(
 		want []sdk.KeyHint
 	}{
 		{"cancelled", (sdk.HintSetRetry | sdk.HintSetBack).Hints()},
-		{"unusable assessment", (sdk.HintSetInspect | sdk.HintSetRetry | sdk.HintSetBack).Hints()},
+		{"unusable assessment", (sdk.HintSetInspect | sdk.HintSetWrap | sdk.HintSetRetry | sdk.HintSetBack).Hints()},
 	} {
 		t.Run(tc.kind, func(t *testing.T) {
 			p, _, _ := failedBlast(t, tc.kind)

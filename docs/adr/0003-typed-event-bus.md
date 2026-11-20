@@ -12,8 +12,6 @@ audience: "Contributors adding an event or wiring plugins together"
 
 # Typed event bus for inter-plugin communication
 
-Amended by [ADR-0018](0018-atomic-context-replacement.md): pins moved from a shared PinService into the atomic Context, and a pin change is a `ContextChangedEvent` instead of a `PinsChangedEvent`.
-
 Plugins communicate through statically-typed events dispatched by the app. Each event is a struct in `pkg/sdk/events.go`; plugins declare interest by implementing a handler interface (e.g., `ContextChangedHandler`). The app mediates all dispatch -- plugins never reference each other.
 
 The events model the user's terraform working memory: "I'm in a different directory," "I have a plan to review," "something is locked." The TUI externalizes mental state that terraform's CLI forces users to carry manually (clipboard, recall). Events are the transitions of that mental model.

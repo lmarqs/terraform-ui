@@ -12,8 +12,6 @@ audience: "Contributors adding a CLI flag"
 
 # Novel flags must be orthogonal — no conditional validity
 
-Amended by [ADR-0021](0021-plugins-as-use-cases.md): the two activation paths became one method, `Activate(input Input)`, and the plugin's typed `Input` carries the difference.
-
 Every novel flag must produce valid behavior in combination with every other flag. A flag whose semantics depend on another flag's absence is a conditional flag — it introduces a hidden dependency between axes and must not be introduced.
 
 This extends ADR-0006 (orthogonal axes) to the flag surface specifically. The novel flags (`-ci`, `-json`, `-macro`, `-plan`, `-state`, `-record`) all combine freely. Any pairing is valid.
