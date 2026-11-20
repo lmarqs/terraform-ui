@@ -1,3 +1,36 @@
+# [1.35.0](https://github.com/lmarqs/terraform-ui/compare/v1.34.0...v1.35.0) (2026-11-20)
+
+
+### Bug Fixes
+
+* **apply:** drop ctrl+r from the result screen, since ctrl+r never navigates ([a69dd3f](https://github.com/lmarqs/terraform-ui/commit/a69dd3fbee20a50f10e62639f6e2e8f9474c86e5)), closes [#90](https://github.com/lmarqs/terraform-ui/issues/90)
+* **blastradius:** leave Blast Radius with Esc from the result view ([811ff6e](https://github.com/lmarqs/terraform-ui/commit/811ff6eae4edd5e6f137cc62c332b3b7a8a9fd30))
+* **cli:** keep Console out of -dry-run and drop the | sh advice ([5b468e5](https://github.com/lmarqs/terraform-ui/commit/5b468e5fa30674b112d9978526e6adcb7e6d2541)), closes [#166](https://github.com/lmarqs/terraform-ui/issues/166)
+* **cli:** require a terminal on stderr for -dry-run ([71ae28e](https://github.com/lmarqs/terraform-ui/commit/71ae28e7ebd2e0d1ceac1228de6b232f95532096))
+* **cli:** skip the watcher wait in stop when Watch never ran ([a386dd0](https://github.com/lmarqs/terraform-ui/commit/a386dd01a857430bba891b0b284786d2ad5b9e8b))
+* **cli:** stop macro playback on the first signal ([f491ca5](https://github.com/lmarqs/terraform-ui/commit/f491ca50428da084b45c6200f0ee3adafc619db5)), closes [#105](https://github.com/lmarqs/terraform-ui/issues/105)
+* **cli:** wait for the interrupt watcher on stop and run endRun without blocking it ([4a66a71](https://github.com/lmarqs/terraform-ui/commit/4a66a71c591df2489d111441d8e697420e40501b)), closes [#102](https://github.com/lmarqs/terraform-ui/issues/102) [#104](https://github.com/lmarqs/terraform-ui/issues/104)
+* **demo:** stitch and copy only the tapes recorded in this run ([0a1ef1c](https://github.com/lmarqs/terraform-ui/commit/0a1ef1c24fb6c5859bdea7cd1bc015f319f8e229)), closes [#87](https://github.com/lmarqs/terraform-ui/issues/87)
+* **exec:** forward lock and parallelism options to terraform apply ([86efda1](https://github.com/lmarqs/terraform-ui/commit/86efda1dc8e4418843c6142e5475988dcde41baa))
+* **frames:** let the filter frame take +, ~ and / so action symbols can be typed ([df360fd](https://github.com/lmarqs/terraform-ui/commit/df360fdd548f96a40c1f78c03a73465c2eee37ab))
+* **macro:** stop playback when the runner's context is cancelled ([c9aaf37](https://github.com/lmarqs/terraform-ui/commit/c9aaf37b280059cceaf5fb6db7a22c685362c4b5)), closes [#105](https://github.com/lmarqs/terraform-ui/issues/105)
+* **phantom:** analyze the plan a session reviewed or the host plans on open ([34d0522](https://github.com/lmarqs/terraform-ui/commit/34d0522200d271dff0918cb5b164a08d94f4aa45)), closes [#76](https://github.com/lmarqs/terraform-ui/issues/76)
+* **phantom:** offer retry and back on the plan-unavailable screen ([38df263](https://github.com/lmarqs/terraform-ui/commit/38df263389b58ebc280138247885ba7f41ae0c39)), closes [#156](https://github.com/lmarqs/terraform-ui/issues/156) [#76](https://github.com/lmarqs/terraform-ui/issues/76)
+* **risk:** label deposed objects with their deposed key in the list and inspector ([5ad2c65](https://github.com/lmarqs/terraform-ui/commit/5ad2c6521e5da9bcc818588a7f2721391a515d3f)), closes [#142](https://github.com/lmarqs/terraform-ui/issues/142)
+* **state:** apply only the latest load's result ([6732ba8](https://github.com/lmarqs/terraform-ui/commit/6732ba8f89ad063aabbfec8a70d1570c3fa5b555))
+* **state:** load on ctrl+r when an invalidation left State idle on screen ([36345c1](https://github.com/lmarqs/terraform-ui/commit/36345c140935028b7a99e16e2790c8fa7c53f3a9))
+
+
+### Features
+
+* **cli:** add -dry-run to run the full TUI against the recording service ([fecfe35](https://github.com/lmarqs/terraform-ui/commit/fecfe35d34f4cbbea29243336f79606595683b7f))
+* **plan:** filter changes by action when the filter is +, ~, - or -/+ ([6e43d46](https://github.com/lmarqs/terraform-ui/commit/6e43d4667c5aecbc2c87e838a9587192de2a390d))
+
+
+### Reverts
+
+* **cli:** run endRun inline in the interrupt watcher again ([0968ff4](https://github.com/lmarqs/terraform-ui/commit/0968ff467a358b2349a7bb5fb37c3f398a85de73)), closes [#104](https://github.com/lmarqs/terraform-ui/issues/104) [#104](https://github.com/lmarqs/terraform-ui/issues/104)
+
 # [1.34.0](https://github.com/lmarqs/terraform-ui/compare/v1.33.0...v1.34.0) (2026-11-19)
 
 
