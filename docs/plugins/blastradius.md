@@ -33,7 +33,7 @@ The Blast Radius plugin groups plan changes by terraform module and calculates a
 
 ## Interactive (TUI)
 
-Press `B` to open the Blast Radius view. It requires a completed plan to analyze. The view shows:
+Press `B` to open the Blast Radius view. It assesses the plan you reviewed; with no plan run in the session, it asks the host to run `terraform plan` first. The view shows:
 
 1. **Summary line** -- the highest module impact, the number of modules affected and the total changes
 2. **Module rows** -- one per module, each with its change count, impact badge and add/change/destroy/replace counts
@@ -45,7 +45,7 @@ Press `B` to open the Blast Radius view. It requires a completed plan to analyze
 |-----|--------|------|
 | `j` / `k` | Navigate up/down | List |
 | `Enter` / `i` | Expand/collapse module changes | List |
-| `Ctrl+r` | Request the assessment again for the same plan | Cancelled or unusable assessment |
+| `Ctrl+r` | Request the assessment again for the same plan, or plan again when none was retained | Cancelled, unusable or failed assessment |
 | `Esc` | Back to Home | Always |
 | `q` | Back to Home | Always |
 
@@ -58,10 +58,14 @@ Home ──B──→ Blast Radius (loading) ──→ Blast Radius (list)
                   │                         └── Esc / q → Home
                   ├── Esc → Home (cancels the request)
                   │
-                  └──→ Blast Radius (error: cancelled or unusable assessment)
+                  └──→ Blast Radius (error: cancelled, unusable assessment,
+                       or, with no plan run, "plan unavailable: ..." for a
+                       terraform error or a policy failure with its hint)
                           ├── Ctrl+r → Blast Radius (loading)   (request again)
                           └── Esc → Home
 ```
+
+While the host runs `terraform plan` for a cold open, `Esc` cancels the request and goes Home; `q` goes Home without cancelling it, as in Risk.
 
 ## Command Line (CLI)
 
