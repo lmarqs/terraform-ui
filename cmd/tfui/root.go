@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hashicorp/hcl/v2"
+	"github.com/hashicorp/hcl/v2/hclsyntax"
 	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/internal/logging"
 	"github.com/spf13/cobra"
@@ -18,6 +20,7 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	var ciMode bool
 	var jsonStdout bool
 	var dryRun bool
+	var targets []string
 	var extraArgs []string
 
 	session := &Session{effects: DefaultEffects()}
@@ -61,6 +64,10 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 			logging.Init(macroSpec.RecordDir != "", version, cfg.Dir, binary, macroSpec.RecordDir)
 
 			cfg.ExtraArgs = extraArgs
+			if err := rejectModuleTargets(targets); err != nil {
+				return err
+			}
+			cfg.Pins = targets
 			cfg.PreloadedData = !sources.Empty()
 			session.cfg = cfg
 			session.rootCfg = rootCfg
@@ -90,6 +97,56 @@ func buildRoot() (*cobra.Command, *Session, *[]string) {
 	rootCmd.PersistentFlags().BoolVar(&jsonStdout, "json", false, "Output JSON (terraform-compatible)")
 
 	rootCmd.Flags().BoolVar(&dryRun, "dry-run", false, "Record terraform commands instead of running them; print them to stdout on exit")
+	// StringArrayVar, like plan's -target: a slice flag would split an address on commas.
+	rootCmd.Flags().StringArrayVar(&targets, "target", nil, "Start with this resource address pinned (repeatable, taken verbatim)")
 
 	return rootCmd, session, &extraArgs
+}
+
+// rejectModuleTargets refuses a root -target that names a module: a pin is a
+// resource address (CONTEXT.md), so a module scope belongs on plan's -target.
+func rejectModuleTargets(targets []string) error {
+	for _, target := range targets {
+		if isModulePath(target) {
+			return fmt.Errorf("-target %s is a module path; a pin is a resource address\n\n"+
+				"Target a module on the plan command instead:\n  tfui plan -target '%s'", target, target)
+		}
+	}
+	return nil
+}
+
+// isModulePath reports whether target, read as terraform reads -target, is a
+// module path (module.a, module.a["k"], module.a.module.b) rather than a
+// resource address. A target that does not parse is left for terraform to
+// reject.
+func isModulePath(target string) bool {
+	traversal, diags := hclsyntax.ParseTraversalAbs([]byte(target), "", hcl.InitialPos)
+	if diags.HasErrors() {
+		return false
+	}
+	for i := 0; i < len(traversal); {
+		if stepName(traversal[i]) != "module" || i+1 == len(traversal) {
+			return false
+		}
+		if _, ok := traversal[i+1].(hcl.TraverseAttr); !ok {
+			return false
+		}
+		i += 2
+		if i < len(traversal) {
+			if _, ok := traversal[i].(hcl.TraverseIndex); ok {
+				i++
+			}
+		}
+	}
+	return true
+}
+
+func stepName(step hcl.Traverser) string {
+	switch s := step.(type) {
+	case hcl.TraverseRoot:
+		return s.Name
+	case hcl.TraverseAttr:
+		return s.Name
+	}
+	return ""
 }

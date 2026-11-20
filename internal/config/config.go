@@ -18,6 +18,8 @@ type Config struct {
 	Plugins       map[string]PluginConfig
 	Overrides     map[string]string
 	ExtraArgs     []string
+	// Pins are the root -target addresses the TUI session starts with pinned.
+	Pins []string
 }
 
 type LoggerConfig struct {

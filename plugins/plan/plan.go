@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 
@@ -637,22 +638,17 @@ func (e *Plugin) togglePin(addresses ...string) tea.Cmd {
 	return e.PinFn(addresses...)
 }
 
-// pruneStalePins drops pinned addresses no longer present in the latest plan
+// pruneStalePins drops pins that select no change in the latest plan
 // summary. Returns a Cmd that asks the App to clear-then-restore the
 // surviving subset (a single ContextChangedEvent), or nil if nothing to do.
 func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 	if !e.HasPins() {
 		return nil
 	}
-	pinned := e.PinnedAddresses()
-	valid := make(map[string]bool, len(changes))
-	for _, c := range changes {
-		valid[c.Resource.Address] = true
-	}
 	var stale []string
-	for _, addr := range pinned {
-		if !valid[addr] {
-			stale = append(stale, addr)
+	for _, pin := range e.PinnedAddresses() {
+		if !slices.ContainsFunc(changes, func(c sdk.PlanChange) bool { return selects(pin, c.Resource.Address) }) {
+			stale = append(stale, pin)
 		}
 	}
 	if len(stale) == 0 {
@@ -660,6 +656,14 @@ func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
 	}
 	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", e.PinnedCount()-len(stale))
 	return e.PinFn(stale...)
+}
+
+// selects reports whether pin, read as a terraform -target, selects address:
+// the address itself, or its resource when a root -target pin omits the
+// instance key.
+func selects(pin, address string) bool {
+	rest, ok := strings.CutPrefix(address, pin)
+	return ok && (rest == "" || rest[0] == '[')
 }
 
 func (e *Plugin) clearAllPins() tea.Cmd {

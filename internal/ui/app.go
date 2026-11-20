@@ -67,6 +67,10 @@ type App struct {
 	rootCfg     *config.RootConfig
 	childCfg    *config.ChildConfig
 	standalone  *StandaloneConfig
+	// startupPins are the -target pins of the session's first Context, pending
+	// while the startup member selection is: that switch carries them, and any
+	// Context replacement, or startup ending without one, ends them.
+	startupPins sdk.Pins
 	width       int
 	height      int
 
@@ -127,6 +131,7 @@ func NewApp(cfg config.Config, svc sdk.Service, registry *plugin.Registry, rootC
 		rootCfg:       rootCfg,
 		childCfg:      childCfg,
 		standalone:    sc,
+		startupPins:   startupPinsFrom(cfg.Pins),
 		header:        header,
 		contentBorder: components.NewContentBorder(),
 		commandBar:    components.NewCommandBar(),
@@ -238,6 +243,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return sdk.ContextSwitchRequestMsg{Chdir: sdk.Chdir(a.cfg.Chdir), Workspace: sdk.WorkspaceDefault}
 				}
 			}
+			// No startup switch follows: the bootstrap Context keeps the pins.
+			a.startupPins = nil
 			if a.cfg.BaseDir != "" {
 				a.activeChdir = sdk.Chdir(a.cfg.BaseDir)
 			}
@@ -247,6 +254,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if p, ok := a.registry.ByID("chdir"); ok {
 			return a, a.navigateTo(p)
 		}
+		a.startupPins = nil
 		return a, nil
 
 	case sdk.PinToggleRequestMsg:
@@ -308,7 +316,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.childCfg = childCfg
 		}
 		a.header = a.header.WithChdir(chdir.String()).WithWorkspace(workspace.String()).WithLockInfo(nil).WithStale(false)
-		ctxCmd := a.replaceContext(a.rebuildContext(chdir, absChdir, workspace), sdk.ContextSwitched)
+		next := a.rebuildContext(chdir, absChdir, workspace).WithPins(a.startupPins)
+		ctxCmd := a.replaceContext(next, sdk.ContextSwitched)
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
@@ -767,6 +776,7 @@ func (a *App) navigateTo(p sdk.Plugin) tea.Cmd {
 		from = a.activePlugin.ID()
 		a.cancelPlugin(a.activePlugin)
 	}
+	a.leaveStartupPicker(from)
 	switch nav {
 	case plugin.NavPush:
 		a.navStack = append(a.navStack, a.activePlugin)
@@ -784,6 +794,7 @@ func (a *App) navigateBack() {
 	if a.activePlugin != nil {
 		from = a.activePlugin.ID()
 	}
+	a.leaveStartupPicker(from)
 	if len(a.navStack) == 0 {
 		a.activePlugin = nil
 		logging.Logger().Debug("view.transition", "from", from, "to", "home")
@@ -797,6 +808,14 @@ func (a *App) navigateBack() {
 		to = prev.ID()
 	}
 	logging.Logger().Debug("view.transition", "from", from, "to", to)
+}
+
+// leaveStartupPicker ends the pending -target pins when the user leaves the
+// chdir picker: only a member pick, handled before the picker pops, carries them.
+func (a *App) leaveStartupPicker(from string) {
+	if from == "chdir" {
+		a.startupPins = nil
+	}
 }
 
 // goHome resets navigation to the app root and requests a pin clear: leaving
@@ -866,7 +885,16 @@ func (a *App) startupContext(workspace sdk.Workspace) *sdk.Context {
 		Workspace:  workspace,
 		Service:    a.svc,
 		ExtraArgs:  a.cfg.ExtraArgs,
+		Pins:       a.startupPins.Clone(),
 	})
+}
+
+// startupPinsFrom pins each -target address once, in the order given.
+func startupPinsFrom(targets []string) sdk.Pins {
+	if len(targets) == 0 {
+		return nil
+	}
+	return sdk.Pins(nil).Toggle(targets...)
 }
 
 // startupDir is the directory the session starts in: the --chdir member, else
@@ -906,6 +934,7 @@ func (a App) cancelPlugin(p sdk.Plugin) {
 func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
+	a.startupPins = nil
 	a.risk.Advance()
 	logging.Logger().Debug("context.replaced",
 		"prev_chdir", contextChdir(prev),

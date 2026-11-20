@@ -59,7 +59,8 @@ row per screen, each with the key that opens it. Press a key, or move with `j`/`
 2. Each change carries a risk badge: critical, high, medium or low. [Risk analysis](../features/risk-analysis.md)
    gives the rules.
 3. Move to a change and press `Enter` to expand its attribute diff.
-4. Press `Space` on a change to pin it: the next plan targets only pinned resources.
+4. Press `Space` on a change to pin it: the next plan targets only pinned resources. `tfui -target <address>` starts
+   with that address pinned.
 5. Press `q` to return to the home screen.
 
 Every screen and its keys are in the [plugin catalog](../plugins/index.md).
