@@ -238,8 +238,11 @@ func (c *Coordinator) evaluate(ctx context.Context, current *sdk.Context, summar
 	if err != nil || next != selection || verified.Digest() != snapshot.Digest() {
 		return unavailable(sdk.ErrorSourceChanged)
 	}
-	c.cache.mu.Lock()
-	c.cache.key, c.cache.result = key, result
-	c.cache.mu.Unlock()
+	// Only a usable assessment is cached: a retry after a partial or unavailable one must evaluate again.
+	if result.Usable() {
+		c.cache.mu.Lock()
+		c.cache.key, c.cache.result = key, result
+		c.cache.mu.Unlock()
+	}
 	return result
 }

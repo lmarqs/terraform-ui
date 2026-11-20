@@ -116,10 +116,7 @@ func TestRequestAssessment_GivenUnchangedEvidenceAndSource_ShouldReuseAssessment
 }
 
 func TestRequestAssessment_GivenCachedAssessmentAndSummary_ShouldReturnItWithoutCompilingPolicy(t *testing.T) {
-	root := t.TempDir()
-	writePolicyFile(t, root, "tfui.hcl", `defaults { risk_policy = "policy.rego" }`)
-	writePolicyFile(t, root, "policy.rego", "package tfui.risk.v1\n")
-	h := newHarness(t, root, &sdktest.MockService{})
+	h := newHarness(t, t.TempDir(), &sdktest.MockService{})
 	compiles := 0
 	h.coord.compile = func(ctx context.Context, snapshot riskpolicy.Snapshot) riskpolicy.Policy {
 		compiles++
@@ -127,6 +124,9 @@ func TestRequestAssessment_GivenCachedAssessmentAndSummary_ShouldReturnItWithout
 	}
 	summary := reviewedRiskSummary()
 	first := requestRisk(t, h, h.request(summary))
+	if !first.Assessment.Usable() {
+		t.Fatalf("first assessment %+v is unusable, so it is not cached", first.Assessment)
+	}
 	second := requestRisk(t, h, h.request(summary))
 	if compiles != 1 {
 		t.Fatalf("second identical request compiled the policy: %d compiles, want 1", compiles)
@@ -171,5 +171,81 @@ func TestRequestAssessment_GivenCachedAssessmentAndNilSummary_ShouldCompileBefor
 	requestRisk(t, h, h.request(nil))
 	if compiles != 2 {
 		t.Fatalf("a nil-summary request compiled %d times in total, want 2: it compiles before planning", compiles)
+	}
+}
+
+func TestRequestAssessment_GivenUnusableAssessment_ShouldEvaluateAgainOnTheNextRequest(t *testing.T) {
+	for _, status := range []sdk.AssessmentStatus{sdk.AssessmentPartial, sdk.AssessmentUnavailable} {
+		t.Run(string(status), func(t *testing.T) {
+			h := newHarness(t, t.TempDir(), &sdktest.MockService{})
+			calls := 0
+			evaluator := func(context.Context, riskpolicy.Policy, sdk.PolicyEvidence) sdk.PolicyAssessment {
+				calls++
+				if calls == 1 {
+					return sdk.PolicyAssessment{Status: status}
+				}
+				low := sdk.RiskLow
+				return sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low}
+			}
+			summary := reviewedRiskSummary()
+
+			first := requestRisk(t, h, h.requestWith(summary, evaluator))
+			second := requestRisk(t, h, h.request(summary))
+
+			if calls != 2 {
+				t.Fatalf("the %s assessment was served from the cache: %d evaluations, want 2", status, calls)
+			}
+			if first.Assessment.Usable() || !second.Assessment.Usable() {
+				t.Fatalf("first = %+v, second = %+v, want an unusable then a usable assessment", first.Assessment, second.Assessment)
+			}
+		})
+	}
+}
+
+func TestRequestAssessment_GivenCompleteAssessment_ShouldEvaluateOnceForRepeatedRequests(t *testing.T) {
+	h := newHarness(t, t.TempDir(), &sdktest.MockService{})
+	calls := 0
+	evaluator := func(context.Context, riskpolicy.Policy, sdk.PolicyEvidence) sdk.PolicyAssessment {
+		calls++
+		low := sdk.RiskLow
+		return sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low}
+	}
+	summary := reviewedRiskSummary()
+
+	requestRisk(t, h, h.requestWith(summary, evaluator))
+	requestRisk(t, h, h.request(summary))
+	requestRisk(t, h, h.request(summary))
+
+	if calls != 1 {
+		t.Fatalf("a complete assessment evaluated %d times for three requests, want 1", calls)
+	}
+}
+
+func TestRequestAssessment_GivenRetryOfUnusableAssessment_ShouldEvaluateTheReviewedPlanWithoutPlanning(t *testing.T) {
+	planned := reviewedRiskSummary()
+	svc := &sdktest.MockService{}
+	svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return planned, nil }
+	h := newHarness(t, t.TempDir(), svc)
+	var evidence []string
+	evaluator := func(_ context.Context, _ riskpolicy.Policy, e sdk.PolicyEvidence) sdk.PolicyAssessment {
+		evidence = append(evidence, e.PlanID)
+		if len(evidence) == 1 {
+			return sdk.PolicyAssessment{Status: sdk.AssessmentPartial}
+		}
+		low := sdk.RiskLow
+		return sdk.PolicyAssessment{Status: sdk.AssessmentComplete, OverallLevel: &low}
+	}
+
+	first := requestRisk(t, h, h.requestWith(nil, evaluator))
+	retry := requestRisk(t, h, h.request(first.Summary))
+
+	if len(svc.PlanCalls) != 1 {
+		t.Fatalf("Service.Plan ran %d times, want 1: the retry holds the reviewed plan", len(svc.PlanCalls))
+	}
+	if len(evidence) != 2 || evidence[0] != "reviewed-plan" || evidence[1] != "reviewed-plan" {
+		t.Fatalf("evaluated plans = %v, want the reviewed plan twice", evidence)
+	}
+	if retry.Summary != planned || !retry.Assessment.Usable() {
+		t.Fatalf("retry = %+v, want a usable assessment of the reviewed plan", retry)
 	}
 }
