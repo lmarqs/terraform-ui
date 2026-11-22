@@ -2040,3 +2040,39 @@ func stateListMsgIn(t *testing.T, cmd tea.Cmd) StateListMsg {
 	t.Fatal("load cmd emits no StateListMsg")
 	return StateListMsg{}
 }
+
+func TestStateFilterFrame_WhenTextArrivesAsOneEvent_ShouldApplyTheQueryOnce(t *testing.T) {
+	resources := []sdk.Resource{
+		{Address: "module.a.aws_instance.one", Type: "aws_instance"},
+		{Address: "module.b.aws_s3_bucket.data", Type: "aws_s3_bucket"},
+	}
+	tests := []struct {
+		name string
+		msg  tea.KeyMsg
+		want string
+		rows []string
+	}{
+		{"pasted address", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("module.b.aws_s3_bucket.data"), Paste: true}, "module.b.aws_s3_bucket.data", []string{"module.b.aws_s3_bucket.data"}},
+		{"grouped runes", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("one")}, "one", []string{"module.a.aws_instance.one"}},
+		{"pasted text named like a frame shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("left")}, "left", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestPlugin(resources)
+			p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+			p.Update(tt.msg)
+
+			if p.filter != tt.want {
+				t.Fatalf("filter = %q, want %q", p.filter, tt.want)
+			}
+			var got []string
+			for _, r := range p.filtered {
+				got = append(got, r.Address)
+			}
+			if tt.rows != nil && !reflect.DeepEqual(got, tt.rows) {
+				t.Errorf("filtered = %v, want %v", got, tt.rows)
+			}
+		})
+	}
+}

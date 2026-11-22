@@ -267,6 +267,7 @@ The app NEVER transitions out of `Idle` on its own. The app NEVER refreshes with
 ### Filter rules
 - Only accept: `a-z A-Z 0-9 _ - . + ~ /`
 - Brackets and other special chars pass through to action handlers
+- Pasted text, or several characters that arrive as one key event, is filtered to the same set and applied to the query once; its characters never trigger shortcuts, even when they spell one (`enter`, `left`)
 - `Esc` exits filter mode
 - `Enter` inspects (leaf) or expands (branch)
 - Backspace on empty: stays in filter mode (doesn't exit)

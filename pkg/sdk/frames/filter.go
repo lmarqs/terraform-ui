@@ -52,6 +52,11 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, nil
 	}
 
+	if IsTextInput(keyMsg) {
+		f.appendText(keyMsg.Runes)
+		return f, nil
+	}
+
 	switch keyMsg.String() {
 	case "esc":
 		return nil, nil
@@ -94,7 +99,7 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		return f, nil
 	default:
 		key := keyMsg.String()
-		if len(key) == 1 && isFilterChar(key[0]) {
+		if len(key) == 1 && isFilterChar(rune(key[0])) {
 			f.Query += key
 			if f.onFilter != nil {
 				f.onFilter(f.Query)
@@ -104,7 +109,30 @@ func (f *FilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	}
 }
 
-func isFilterChar(c byte) bool {
+// IsTextInput reports whether msg is text rather than a keypress: a paste, or several runes that arrived as one event.
+func IsTextInput(msg tea.KeyMsg) bool {
+	return msg.Type == tea.KeyRunes && !msg.Alt && (msg.Paste || len(msg.Runes) > 1)
+}
+
+// appendText adds the allowed runes to the query and applies it once, so
+// pasted text can never run a shortcut.
+func (f *FilterFrame) appendText(runes []rune) {
+	var kept []rune
+	for _, r := range runes {
+		if isFilterChar(r) {
+			kept = append(kept, r)
+		}
+	}
+	if len(kept) == 0 {
+		return
+	}
+	f.Query += string(kept)
+	if f.onFilter != nil {
+		f.onFilter(f.Query)
+	}
+}
+
+func isFilterChar(c rune) bool {
 	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') ||
 		(c >= '0' && c <= '9') || c == '_' || c == '-' || c == '.' ||
 		c == '+' || c == '~' || c == '/' // action symbols, so "-/+" can be typed

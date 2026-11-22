@@ -242,7 +242,7 @@ type stateFilterFrame struct {
 func (f *stateFilterFrame) ID() string { return "filter" }
 
 func (f *stateFilterFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
-	if keyMsg, ok := msg.(tea.KeyMsg); ok {
+	if keyMsg, ok := msg.(tea.KeyMsg); ok && !frames.IsTextInput(keyMsg) {
 		switch keyMsg.String() {
 		case "]":
 			if f.plugin.treeMode {

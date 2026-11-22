@@ -393,3 +393,91 @@ func TestFilterFrame_NonFilterCharsAreIgnored(t *testing.T) {
 		t.Fatalf("expected an empty query, got %q", f.Query)
 	}
 }
+
+func TestFilterFrame_TextEvents(t *testing.T) {
+	tests := []struct {
+		name      string
+		msg       tea.KeyMsg
+		wantQuery string
+		wantCalls int
+	}{
+		{"pasted address", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("aws_instance.web-3"), Paste: true}, "fooaws_instance.web-3", 1},
+		{"pasted action symbols", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+"), Paste: true}, "foo-/+", 1},
+		{"grouped runes in one event", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+")}, "foo-/+", 1},
+		{"disallowed runes are dropped", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a.b[0] c"), Paste: true}, "fooa.b0c", 1},
+		{"only disallowed runes leave the query alone", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("[]!"), Paste: true}, "foo", 0},
+		{"a pasted space is not the pin shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(" "), Paste: true}, "foo", 0},
+		{"alt-modified runes are not text", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ab"), Alt: true}, "foo", 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			calls, pins := 0, 0
+			var last string
+			f := NewFilterFrame(FilterOpts{
+				OnFilter: func(q string) { calls++; last = q },
+				OnPin:    func() tea.Cmd { pins++; return nil },
+			})
+			f.Query = "foo"
+
+			result, _ := f.Update(tt.msg)
+			if result == nil {
+				t.Fatal("text should not pop the frame")
+			}
+			if f.Query != tt.wantQuery {
+				t.Fatalf("query = %q, want %q", f.Query, tt.wantQuery)
+			}
+			if calls != tt.wantCalls || (calls > 0 && last != tt.wantQuery) {
+				t.Fatalf("OnFilter called %d times, last %q; want %d times, last %q", calls, last, tt.wantCalls, tt.wantQuery)
+			}
+			if pins != 0 {
+				t.Fatalf("pasted text must not call OnPin, called %d times", pins)
+			}
+		})
+	}
+}
+
+func TestFilterFrame_TextEqualToAShortcutNameIsText(t *testing.T) {
+	for _, text := range []string{"enter", "esc", "up", "down", "backspace", "ctrl+t"} {
+		t.Run(text, func(t *testing.T) {
+			selected, toggled, navigated := false, false, false
+			f := NewFilterFrame(FilterOpts{
+				OnSelect:   func() tea.Cmd { selected = true; return nil },
+				OnToggle:   func() { toggled = true },
+				OnNavigate: func(int) { navigated = true },
+			})
+
+			result, _ := f.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(text), Paste: true})
+			if result == nil {
+				t.Fatalf("pasting %q popped the frame", text)
+			}
+			if selected || toggled || navigated {
+				t.Fatalf("pasting %q ran a shortcut: select=%v toggle=%v navigate=%v", text, selected, toggled, navigated)
+			}
+			if f.Query != text {
+				t.Fatalf("query = %q, want %q", f.Query, text)
+			}
+		})
+	}
+}
+
+func TestIsTextInput(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  tea.KeyMsg
+		want bool
+	}{
+		{"single typed rune", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")}, false},
+		{"several runes in one event", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ab")}, true},
+		{"paste of one rune", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a"), Paste: true}, true},
+		{"alt with several runes", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("ab"), Alt: true}, false},
+		{"named key", tea.KeyMsg{Type: tea.KeyEnter}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsTextInput(tt.msg); got != tt.want {
+				t.Fatalf("IsTextInput(%+v) = %v, want %v", tt.msg, got, tt.want)
+			}
+		})
+	}
+}

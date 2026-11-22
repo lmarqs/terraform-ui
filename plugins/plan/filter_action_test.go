@@ -197,3 +197,33 @@ func TestPlugin_FilterFrame_WhenTypingActionSymbolKeyByKey_ShouldSwitchBetweenAc
 		t.Errorf("after reopening the filter: filter = %q, rows = %d, scores = %v, want an empty filter and all 6 rows", p.filter, len(p.filtered), p.filterScores)
 	}
 }
+
+func TestPlugin_FilterFrame_WhenTextArrivesAsOneEvent_ShouldApplyTheQueryOnce(t *testing.T) {
+	tests := []struct {
+		name string
+		msg  tea.KeyMsg
+		want string
+		rows []string
+	}{
+		{"pasted address", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("aws_instance.db-1"), Paste: true}, "aws_instance.db-1", []string{"aws_instance.db-1"}},
+		{"pasted action symbols", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+"), Paste: true}, "-/+", []string{"aws_instance.db-1", "aws_instance.db-2"}},
+		{"grouped action symbols", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+")}, "-/+", []string{"aws_instance.db-1", "aws_instance.db-2"}},
+		{"pasted text named like a frame shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("right")}, "right", nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newActionFilterPlugin()
+			p.status = sdk.StatusDone
+			p.stack.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
+
+			p.stack.Update(tt.msg)
+
+			if p.filter != tt.want {
+				t.Fatalf("filter = %q, want %q", p.filter, tt.want)
+			}
+			if got := filteredAddresses(p); tt.rows != nil && !reflect.DeepEqual(got, tt.rows) {
+				t.Errorf("filtered = %v, want %v", got, tt.rows)
+			}
+		})
+	}
+}
