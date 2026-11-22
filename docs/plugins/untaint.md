@@ -32,7 +32,7 @@ Untaint has no key on Home. Press `T` in State or Plan to untaint the resource u
 |-----|--------|------|
 | `y` / `Y` / `Enter` | Confirm untaint | Confirming |
 | `n` / `N` / `Esc` | Cancel | Confirming |
-| `p` | Navigate to plan | Done |
+| `p` | Navigate to plan (not offered by standalone `tfui untaint`, which has no Plan) | Done |
 | `ctrl+r` | Retry | Error |
 | `Esc` | Back to the screen you came from | Idle, Done, Error |
 

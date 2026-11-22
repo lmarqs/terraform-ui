@@ -248,12 +248,20 @@ func TestPlugin_Form(t *testing.T) {
 }
 
 func TestPlugin_Spec(t *testing.T) {
+	t.Run("Input.OfferPlan offers the plan shortcut on success", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.input = Input{OfferPlan: true}
+		if !p.spec().OfferPlan {
+			t.Error("spec.OfferPlan = false, want true when Input.OfferPlan is set")
+		}
+	})
+
 	t.Run("metadata wires terraform import semantics", func(t *testing.T) {
 		p, _ := newTestPlugin(&sdktest.MockService{})
 		p.address, p.id = "aws_instance.web", "i-1"
 		spec := p.spec()
-		if spec.Name != "import" || spec.ErrorLabel != "Import failed" || !spec.OfferPlan {
-			t.Errorf("spec metadata = %+v", spec)
+		if spec.Name != "import" || spec.ErrorLabel != "Import failed" || spec.OfferPlan {
+			t.Errorf("spec metadata = %+v, want no plan shortcut unless Input.OfferPlan is set", spec)
 		}
 		if len(spec.OnSuccess) != 2 {
 			t.Fatalf("OnSuccess len = %d, want 2", len(spec.OnSuccess))
@@ -397,9 +405,21 @@ func TestPlugin_Hints(t *testing.T) {
 		}
 	})
 
-	t.Run("done offers plan and cancel", func(t *testing.T) {
+	t.Run("done offers quit when Input.OfferPlan is off", func(t *testing.T) {
 		svc := &sdktest.MockService{}
 		p, _ := newTestPlugin(svc)
+		p.address, p.id = "a", "b"
+		driveToTerminal(t, p)
+		hints := p.Hints()
+		if len(hints) != 1 || hints[0].Description != "quit" {
+			t.Errorf("done hints = %+v, want [{q quit}]", hints)
+		}
+	})
+
+	t.Run("done offers plan and cancel when Input.OfferPlan is set", func(t *testing.T) {
+		svc := &sdktest.MockService{}
+		p, _ := newTestPlugin(svc)
+		p.input.OfferPlan = true
 		p.address, p.id = "a", "b"
 		driveToTerminal(t, p)
 		hints := p.Hints()

@@ -84,7 +84,7 @@ func (p *Plugin) spec() sdk.ActionSpec {
 		Running:    func() string { return "Tainting " + label(addrs) },
 		Done:       doneLabel,
 		ErrorLabel: "Taint failed",
-		OfferPlan:  true,
+		OfferPlan:  p.input.OfferPlan,
 	}
 }
 

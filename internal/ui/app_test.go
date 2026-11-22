@@ -4277,6 +4277,135 @@ func TestApp_Update_WhenStandaloneApplyDone_ShouldShowNoRefreshAndIgnoreCtrlR(t 
 	}
 }
 
+// `tfui taint`, `tfui untaint` and `tfui import` drop a NavigateMsg to plan, so a
+// Done screen offering `p plan` would show a key that does nothing. The cmd layer
+// activates each verb with a bare Input, which offers no plan.
+func TestApp_Update_WhenStandaloneVerbDone_ShouldOfferNoPlanAndIgnoreP(t *testing.T) {
+	tests := []struct {
+		name     string
+		factory  func(terraform.Service) plugin.Plugin
+		activate func(sdk.Plugin) tea.Cmd
+	}{
+		{
+			name:    "taint",
+			factory: func(s terraform.Service) plugin.Plugin { return tfuitaint.New(s) },
+			activate: func(p sdk.Plugin) tea.Cmd {
+				return p.(*tfuitaint.Plugin).Activate(tfuitaint.Input{Addrs: []string{"aws_instance.a"}, AutoConfirm: true})
+			},
+		},
+		{
+			name:    "untaint",
+			factory: func(s terraform.Service) plugin.Plugin { return tfuiuntaint.New(s) },
+			activate: func(p sdk.Plugin) tea.Cmd {
+				return p.(*tfuiuntaint.Plugin).Activate(tfuiuntaint.Input{Addrs: []string{"aws_instance.a"}, AutoConfirm: true})
+			},
+		},
+		{
+			name:    "import",
+			factory: func(s terraform.Service) plugin.Plugin { return tfuiimport.New(s) },
+			activate: func(p sdk.Plugin) tea.Cmd {
+				return p.(*tfuiimport.Plugin).Activate(tfuiimport.Input{Addr: "aws_instance.a", ID: "i-1", AutoConfirm: true})
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{}
+			registry := plugin.NewRegistry()
+			registry.RegisterFactory("plan", func(_ terraform.Service) plugin.Plugin {
+				return &mockPlugin{id: "plan", name: "Plan", viewOutput: "plan view"}
+			}, plugin.PluginMeta{Keybinding: "p", MenuVisible: true})
+			registry.RegisterFactory(tt.name, tt.factory, plugin.PluginMeta{})
+			registry.Build(svc, nil)
+			cfg := config.Config{Dir: "/test/dir", Terraform: config.TerraformConfig{Bin: "terraform"}}
+			app := NewApp(cfg, svc, registry, nil, &StandaloneConfig{PluginID: tt.name, Activate: tt.activate})
+			app.Init()
+			model, _ := app.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+			model, cmd := model.(App).Update(workspaceLoadedMsg{workspace: sdk.WorkspaceDefault})
+			batch, ok := cmd().(tea.BatchMsg)
+			if !ok {
+				t.Fatalf("activating %s returned %T, want the run batch", tt.name, cmd())
+			}
+			model, _ = model.(App).Update(batch[0]())
+			app = model.(App)
+			if p, ok := app.ActivePlugin().(sdk.Statusable); !ok || p.Status() != sdk.StatusDone {
+				t.Fatalf("ActivePlugin() = %v, want %s in StatusDone", app.ActivePlugin(), tt.name)
+			}
+
+			if view := ansi.Strip(app.View()); strings.Contains(view, "p plan") {
+				t.Errorf("standalone %s Done screen shows a p plan hint:\n%s", tt.name, view)
+			}
+			model, cmd = app.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+			if cmd != nil {
+				t.Errorf("p on the standalone %s Done screen returned a cmd, emits %T, want a no-op", tt.name, cmd())
+			}
+			if got := model.(App).ActivePlugin(); got == nil || got.ID() != tt.name {
+				t.Errorf("ActivePlugin() = %v after p, want %s", got, tt.name)
+			}
+		})
+	}
+}
+
+// In the full TUI the verbs sit on top of Plan, so Done offers `p` to open it.
+func TestApp_Update_WhenVerbDoneInFullTUI_ShouldOfferPlan(t *testing.T) {
+	tests := []struct {
+		name    string
+		factory func(terraform.Service) plugin.Plugin
+		request tea.Msg
+	}{
+		{"taint", func(s terraform.Service) plugin.Plugin { return tfuitaint.New(s) }, sdk.TaintRequestMsg{Addresses: []string{"aws_instance.a"}}},
+		{"untaint", func(s terraform.Service) plugin.Plugin { return tfuiuntaint.New(s) }, sdk.UntaintRequestMsg{Addresses: []string{"aws_instance.a"}}},
+		{"import", func(s terraform.Service) plugin.Plugin { return tfuiimport.New(s) }, sdk.ImportRequestMsg{Address: "aws_instance.a"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{}
+			registry := plugin.NewRegistry()
+			registry.RegisterFactory("state", func(_ terraform.Service) plugin.Plugin {
+				return &mockPlugin{id: "state", name: "State", viewOutput: "state view"}
+			}, plugin.PluginMeta{Keybinding: "s", MenuVisible: true})
+			registry.RegisterFactory(tt.name, tt.factory, plugin.PluginMeta{Nav: plugin.NavPush})
+			registry.Build(svc, nil)
+			cfg := config.Config{Dir: "/test/dir", Terraform: config.TerraformConfig{Bin: "terraform"}}
+			app := NewApp(cfg, svc, registry, nil)
+			app.Init()
+			app.activePlugin, _ = app.registry.ByID("state")
+			model, _ := app.Update(tea.WindowSizeMsg{Width: 100, Height: 30})
+			model, cmd := model.(App).Update(tt.request)
+
+			// Answer the verb's prompts the way a user would, until it settles.
+			for range 10 {
+				if p, ok := model.(App).ActivePlugin().(sdk.Statusable); ok && p.Status() == sdk.StatusDone {
+					break
+				}
+				if cmd == nil {
+					break
+				}
+				switch msg := cmd().(type) {
+				case sdk.RequestInputMsg:
+					answer := "y"
+					if msg.Request.Mode == sdk.InputRequestText {
+						answer = "i-1"
+					}
+					cmd = msg.Request.Callback(answer)
+				case tea.BatchMsg:
+					model, cmd = model.(App).Update(msg[0]())
+				default:
+					model, cmd = model.(App).Update(msg)
+				}
+			}
+			app = model.(App)
+			if p, ok := app.ActivePlugin().(sdk.Statusable); !ok || p.Status() != sdk.StatusDone {
+				t.Fatalf("ActivePlugin() = %v, want %s in StatusDone", app.ActivePlugin(), tt.name)
+			}
+
+			if view := ansi.Strip(app.View()); !strings.Contains(view, "p plan") {
+				t.Errorf("full TUI %s Done screen shows no p plan hint:\n%s", tt.name, view)
+			}
+		})
+	}
+}
+
 // --- Tests for TaintRequestMsg, UntaintRequestMsg, ImportRequestMsg ---
 
 func TestApp_Update_WhenReceivingTaintRequestMsg_ShouldActivateTaintPlugin(t *testing.T) {

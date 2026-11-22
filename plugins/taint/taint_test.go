@@ -217,8 +217,8 @@ func TestPlugin_Spec(t *testing.T) {
 		if spec.Name != "taint" {
 			t.Errorf("Name = %q, want taint", spec.Name)
 		}
-		if !spec.OfferPlan {
-			t.Error("taint should offer the plan shortcut on success")
+		if spec.OfferPlan {
+			t.Error("taint should offer no plan shortcut unless Input.OfferPlan is set")
 		}
 		if spec.ErrorLabel != "Taint failed" {
 			t.Errorf("ErrorLabel = %q", spec.ErrorLabel)
@@ -228,6 +228,14 @@ func TestPlugin_Spec(t *testing.T) {
 		}
 		if _, ok := spec.OnSuccess[0].(sdk.PlanInvalidatedEvent); !ok {
 			t.Errorf("OnSuccess[0] = %T, want PlanInvalidatedEvent", spec.OnSuccess[0])
+		}
+	})
+
+	t.Run("Input.OfferPlan offers the plan shortcut on success", func(t *testing.T) {
+		p, _ := newTestPlugin(&sdktest.MockService{})
+		p.input = Input{OfferPlan: true}
+		if !p.spec().OfferPlan {
+			t.Error("spec.OfferPlan = false, want true when Input.OfferPlan is set")
 		}
 	})
 

@@ -116,7 +116,7 @@ func (p *Plugin) spec() sdk.ActionSpec {
 		Running:    func() string { return "Importing " + address },
 		Done:       func([]string) string { return fmt.Sprintf("✓ Imported %s as %s", id, address) },
 		ErrorLabel: "Import failed",
-		OfferPlan:  true,
+		OfferPlan:  p.input.OfferPlan,
 	}
 }
 
@@ -146,6 +146,9 @@ func (p *Plugin) View(_, _ int) string {
 func (p *Plugin) Hints() []sdk.KeyHint {
 	switch p.Status() {
 	case sdk.StatusDone:
+		if !p.input.OfferPlan {
+			return (sdk.HintSetQuit).Hints()
+		}
 		return []sdk.KeyHint{{Key: "p", Description: "plan"}, sdk.HintCancel}
 	case sdk.StatusError:
 		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()

@@ -14,4 +14,7 @@ type Input struct {
 	// sets it for non-interactive (headless/macro) invocations, mirroring
 	// terraform's own prompt-free behavior for this verb.
 	AutoConfirm bool
+	// OfferPlan makes the Done screen offer `p` to open Plan. The full TUI sets
+	// it; standalone `tfui taint` leaves it off because it has no Plan to open.
+	OfferPlan bool
 }

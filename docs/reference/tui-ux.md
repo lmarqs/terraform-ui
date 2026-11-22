@@ -86,6 +86,7 @@ Enter inspect  / filter  Space pin  ^t tree  ^r refresh  q quit        terraform
 - `NavigateMsg` to non-NavPush plugins: rejected
 - NavPush sub-navigation works normally (plan can push apply, state can push taint)
 - `ctrl+r` works as in the full TUI: it reloads or retries the current screen in place and never navigates to another plugin, so a screen with nothing to reload shows no `^r`
+- A screen shows only keys that work in standalone: the Done screen of `tfui taint`, `tfui untaint` and `tfui import` offers no `p plan`, since Plan is not there to open
 
 ## 2. Information Architecture
 

@@ -33,7 +33,7 @@ Import has no key on Home. Press `n` in State to import with the address under t
 | `Enter` | Submit the address, then the ID; an empty answer cancels | Prompt |
 | `y` / `Y` / `Enter` | Confirm import | Confirming |
 | `n` / `N` / `Esc` | Cancel | Confirming |
-| `p` | Navigate to plan | Done |
+| `p` | Navigate to plan (not offered by standalone `tfui import`, which has no Plan) | Done |
 | `ctrl+r` | Retry | Error |
 | `Esc` | Back to the screen you came from | Idle, Done, Error |
 

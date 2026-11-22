@@ -32,7 +32,7 @@ Taint has no key on Home. Press `t` in State or Plan to taint the resource under
 |-----|--------|------|
 | `y` / `Y` / `Enter` | Confirm taint | Confirming |
 | `n` / `N` / `Esc` | Cancel | Confirming |
-| `p` | Navigate to plan | Done |
+| `p` | Navigate to plan (not offered by standalone `tfui taint`, which has no Plan) | Done |
 | `ctrl+r` | Retry | Error |
 | `Esc` | Back to the screen you came from | Idle, Done, Error |
 

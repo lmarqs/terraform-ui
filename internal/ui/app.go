@@ -429,7 +429,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "taint", "targets", len(msg.Addresses))
-			return a, taintPlugin.Activate(tfuitaint.Input{Addrs: msg.Addresses})
+			return a, taintPlugin.Activate(tfuitaint.Input{Addrs: msg.Addresses, OfferPlan: true})
 		}
 		return a, nil
 
@@ -439,7 +439,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "untaint", "targets", len(msg.Addresses))
-			return a, untaintPlugin.Activate(tfuiuntaint.Input{Addrs: msg.Addresses})
+			return a, untaintPlugin.Activate(tfuiuntaint.Input{Addrs: msg.Addresses, OfferPlan: true})
 		}
 		return a, nil
 
@@ -449,7 +449,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
 			logging.Logger().Debug("view.transition", "from", activeViewID(a.navStack), "to", "import")
-			return a, importPlugin.Activate(tfuiimport.Input{Addr: msg.Address})
+			return a, importPlugin.Activate(tfuiimport.Input{Addr: msg.Address, OfferPlan: true})
 		}
 		return a, nil
 
