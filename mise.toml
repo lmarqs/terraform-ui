@@ -1,6 +1,7 @@
 [tools]
 "github:lmarqs/the-cook" = "13.0.0"
 go = "1.25"
+"go:golang.org/x/tools/gopls" = "0.24"
 golangci-lint = "2.12"
 goreleaser = "2.15"
 node = "22.21"

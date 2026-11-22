@@ -156,5 +156,16 @@
       "Bash(mise * ::: *)"
     ],
     "disableBypassPermissionsMode": "disable"
+  },
+  "extraKnownMarketplaces": {
+    "claude-plugins-official": {
+      "source": {
+        "source": "github",
+        "repo": "anthropics/claude-plugins-official"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "gopls-lsp@claude-plugins-official": true
   }
 }
