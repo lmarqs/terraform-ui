@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -1023,5 +1025,49 @@ func TestMacroService_VersionJSON_RecordsCommand(t *testing.T) {
 	}
 	if cmds[0].String() != "terraform version -json" {
 		t.Errorf("got %q, want %q", cmds[0].String(), "terraform version -json")
+	}
+}
+
+func TestMacroService_PlanReread_ShouldServeTheRewrittenPlanFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(path, planJSONOf("null_resource.a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cache := NewServiceCache()
+	if err := cache.SeedPlan(path, nil); err != nil {
+		t.Fatal(err)
+	}
+	svc := NewMacroService("terraform", cache)
+	if err := os.WriteFile(path, planJSONOf("null_resource.a", "null_resource.b"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cached, err := svc.Plan(context.Background(), sdk.PlanOptions{})
+	if err != nil || len(cached.Changes) != 1 {
+		t.Fatalf("Plan() = %v, %v; want the 1 cached change", cached, err)
+	}
+	reread, err := svc.Plan(context.Background(), sdk.PlanOptions{Reread: true})
+	if err != nil || len(reread.Changes) != 2 {
+		t.Fatalf("Plan(Reread) = %v, %v; want the 2 changes of the rewritten file", reread, err)
+	}
+
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Plan(context.Background(), sdk.PlanOptions{Reread: true}); err == nil {
+		t.Error("Plan(Reread) of a removed plan file: error = nil, want the read error")
+	}
+}
+
+func TestMacroService_PlanSnapshot_ShouldBeTrueForAStdinPlan(t *testing.T) {
+	cache := NewServiceCache()
+	if err := cache.SeedPlan("", planJSONOf("null_resource.a")); err != nil {
+		t.Fatal(err)
+	}
+	if !NewMacroService("terraform", cache).PlanSnapshot() {
+		t.Error("PlanSnapshot() = false, want true for a stdin plan")
+	}
+	if NewMacroService("terraform", nil).PlanSnapshot() {
+		t.Error("PlanSnapshot() = true, want false without a seeded plan")
 	}
 }

@@ -55,6 +55,9 @@ func (s *ExecService) WithDir(dir string) sdk.Service {
 	}
 }
 
+// PlanSnapshot reports whether the seeded plan is an immutable stdin snapshot.
+func (s *ExecService) PlanSnapshot() bool { return s.cache.PlanSnapshot() }
+
 // Runs returns the tracker shared by this service and every WithDir copy.
 func (s *ExecService) Runs() *Runs { return s.runs }
 
@@ -99,8 +102,8 @@ func (s *ExecService) newTerraform() (*tfexec.Terraform, error) {
 func (s *ExecService) Plan(ctx context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	// A plan seeded with -plan is the session's plan (ADR-0005), as seeded
 	// state is in loadState.
-	if plan, ok := s.cache.GetPlan(); ok {
-		return plan, nil
+	if plan, ok, err := s.cache.SeededPlan(opts.Reread); ok {
+		return plan, err
 	}
 	ctx, done := s.runs.Track(ctx)
 	defer done()

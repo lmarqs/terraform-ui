@@ -1,8 +1,10 @@
 package terraform
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -1288,5 +1290,160 @@ func TestServiceCache_WhenInvalidateAll_ShouldClearExecSourcedWorkspaces(t *test
 	}
 	if ws != nil {
 		t.Errorf("GetWorkspaces() = %v, want nil", ws)
+	}
+}
+
+func planJSONOf(addresses ...string) []byte {
+	var changes []string
+	for _, addr := range addresses {
+		changes = append(changes, fmt.Sprintf(`{"address": %q, "type": "null_resource", "name": "n",
+		  "provider_name": "registry.terraform.io/hashicorp/null",
+		  "change": {"actions": ["create"], "before": null, "after": {}, "after_unknown": {}}}`, addr))
+	}
+	return []byte(fmt.Sprintf(`{"format_version": "1.0", "terraform_version": "1.5.0", "planned_values": {}, "resource_changes": [%s]}`, strings.Join(changes, ",")))
+}
+
+func TestServiceCache_ReloadPlan(t *testing.T) {
+	tests := []struct {
+		name        string
+		seed        func(t *testing.T, c *ServiceCache) (rewrite func(data []byte))
+		rewrite     []byte
+		remove      bool
+		wantOK      bool
+		wantErr     bool
+		wantChanges int
+	}{
+		{
+			name: "FileRewritten_ShouldReturnNewChanges",
+			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
+				return seedPlanFile(t, c, planJSONOf("null_resource.a"))
+			},
+			rewrite:     planJSONOf("null_resource.a", "null_resource.b"),
+			wantOK:      true,
+			wantChanges: 2,
+		},
+		{
+			name: "FileRemoved_ShouldReturnErrorAndKeepCachedPlan",
+			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
+				return seedPlanFile(t, c, planJSONOf("null_resource.a"))
+			},
+			remove:      true,
+			wantOK:      true,
+			wantErr:     true,
+			wantChanges: 1,
+		},
+		{
+			name: "FileUnparsable_ShouldReturnErrorAndKeepCachedPlan",
+			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
+				return seedPlanFile(t, c, planJSONOf("null_resource.a"))
+			},
+			rewrite:     []byte("not json"),
+			wantOK:      true,
+			wantErr:     true,
+			wantChanges: 1,
+		},
+		{
+			name: "Stdin_ShouldReturnSnapshot",
+			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
+				if err := c.SeedPlan("", planJSONOf("null_resource.a")); err != nil {
+					t.Fatal(err)
+				}
+				return nil
+			},
+			wantOK:      true,
+			wantChanges: 1,
+		},
+		{
+			name: "Exec_ShouldReturnCachedPlan",
+			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
+				c.SetPlan(&sdk.PlanSummary{Changes: []sdk.PlanChange{{}}})
+				return nil
+			},
+			wantOK:      true,
+			wantChanges: 1,
+		},
+		{
+			name: "Empty_ShouldReportNoPlan",
+			seed: func(*testing.T, *ServiceCache) func([]byte) { return nil },
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewServiceCache()
+			rewrite := tc.seed(t, c)
+			if tc.remove {
+				rewrite(nil)
+			} else if tc.rewrite != nil {
+				rewrite(tc.rewrite)
+			}
+
+			plan, ok, err := c.ReloadPlan()
+
+			if ok != tc.wantOK {
+				t.Fatalf("ReloadPlan() ok = %v, want %v", ok, tc.wantOK)
+			}
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("ReloadPlan() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantOK && len(plan.Changes) != tc.wantChanges {
+				t.Errorf("ReloadPlan() returned %d changes, want %d", len(plan.Changes), tc.wantChanges)
+			}
+			if tc.wantOK {
+				cached, _ := c.GetPlan()
+				if len(cached.Changes) != tc.wantChanges {
+					t.Errorf("cache holds %d changes after ReloadPlan(), want %d", len(cached.Changes), tc.wantChanges)
+				}
+			}
+		})
+	}
+}
+
+// seedPlanFile seeds c from a new plan file and returns a function that
+// rewrites it; a nil argument removes it.
+func seedPlanFile(t *testing.T, c *ServiceCache, data []byte) func([]byte) {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "plan.json")
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.SeedPlan(path, nil); err != nil {
+		t.Fatal(err)
+	}
+	return func(next []byte) {
+		if next == nil {
+			if err := os.Remove(path); err != nil {
+				t.Fatal(err)
+			}
+			return
+		}
+		if err := os.WriteFile(path, next, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func TestServiceCache_PlanSnapshot(t *testing.T) {
+	tests := []struct {
+		name string
+		seed func(t *testing.T, c *ServiceCache)
+		want bool
+	}{
+		{"Stdin", func(t *testing.T, c *ServiceCache) {
+			if err := c.SeedPlan("", planJSONOf("null_resource.a")); err != nil {
+				t.Fatal(err)
+			}
+		}, true},
+		{"File", func(t *testing.T, c *ServiceCache) { seedPlanFile(t, c, planJSONOf("null_resource.a")) }, false},
+		{"Exec", func(_ *testing.T, c *ServiceCache) { c.SetPlan(&sdk.PlanSummary{}) }, false},
+		{"Empty", func(*testing.T, *ServiceCache) {}, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewServiceCache()
+			tc.seed(t, c)
+			if got := c.PlanSnapshot(); got != tc.want {
+				t.Errorf("PlanSnapshot() = %v, want %v", got, tc.want)
+			}
+		})
 	}
 }

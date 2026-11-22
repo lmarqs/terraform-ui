@@ -21,6 +21,7 @@ Macro mode (MacroService) is a separate, orthogonal concept -- it records comman
 ## Consequences
 
 - If a mutation is attempted and there's no terraform binary or the cache has no plan file to apply, it fails the same way any failed terraform call would.
+- The one place a plugin asks where the plan came from: Plan hides `^r` for a plan seeded from stdin (`sdk.PlanSnapshotter`), since a snapshot cannot be read again. An explicit refresh sets `PlanOptions.Reread`, and the service reads a file-seeded plan from its file instead of the cache.
 - Any documentation or code referencing "read-only mode" as a distinct concept is wrong and gets cleaned up.
 
 ## Considered Options

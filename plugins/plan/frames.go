@@ -1,6 +1,8 @@
 package plan
 
 import (
+	"slices"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
@@ -111,7 +113,7 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 			f.plugin.stack.Push(f.plugin.lastStream)
 		}
 	case "ctrl+r":
-		if f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone {
+		if (f.plugin.status == sdk.StatusError || f.plugin.status == sdk.StatusDone) && f.plugin.refreshable() {
 			return f, f.plugin.Refresh()
 		}
 	case "ctrl+t":
@@ -149,6 +151,14 @@ func (f *listFrame) View(width, height int) string {
 }
 
 func (f *listFrame) Hints() []sdk.KeyHint {
+	hints := f.statusHints()
+	if f.plugin.refreshable() {
+		return hints
+	}
+	return slices.DeleteFunc(hints, func(h sdk.KeyHint) bool { return h.Key == "^r" })
+}
+
+func (f *listFrame) statusHints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()

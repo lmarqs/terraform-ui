@@ -317,7 +317,7 @@ terraform state pull | tfui state -state - -ci # addresses from piped state
 tfui -plan ./plan.json -macro ./review.tape    # macro over a pre-seeded plan
 ```
 
-A file is re-read when a mutation invalidates the data; stdin is read once.
+A file is re-read when a mutation invalidates the data, and `^r` in Plan re-reads the `-plan` file (a read or parse error shows in place); stdin is read once, so with `-plan -` Plan shows no `^r`.
 
 ### URI Resolution Rules
 

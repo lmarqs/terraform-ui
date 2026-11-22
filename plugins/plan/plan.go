@@ -248,10 +248,13 @@ func (e *Plugin) reset() {
 func (e *Plugin) Activate(input Input) tea.Cmd {
 	e.input = input
 	if e.status == sdk.StatusIdle || e.status == sdk.StatusError || e.stale {
+		// Re-entering after an error is a retry: a plan file that failed to
+		// read must not give way to the plan cached before it.
+		reread := e.status == sdk.StatusError
 		e.stale = false
 		e.status = sdk.StatusLoading
 		e.Log.Debug("plan.start", "json", input.JSON)
-		planCmd := e.runPlan()
+		planCmd := e.runPlan(reread)
 		if input.JSON {
 			return tea.Batch(planCmd, e.timer.Start())
 		}
@@ -266,11 +269,19 @@ func (e *Plugin) Activate(input Input) tea.Cmd {
 	return nil
 }
 
-// Refresh re-runs the plan. An explicit ctrl+r refresh discards any deferred
-// apply intent — the user is asking for a fresh look, not a deferred apply.
+// Refresh re-runs the plan; a plan seeded from a file is read from it again. An
+// explicit ctrl+r refresh discards any deferred apply intent — the user is
+// asking for a fresh look, not a deferred apply.
 func (e *Plugin) Refresh() tea.Cmd {
 	e.clearPendingApply()
-	return e.startReplan()
+	return e.startReplan(true)
+}
+
+// refreshable reports whether ctrl+r has anything to refresh. A plan seeded
+// from stdin is a snapshot that cannot be read again.
+func (e *Plugin) refreshable() bool {
+	snapshot, ok := e.Svc.(sdk.PlanSnapshotter)
+	return !ok || !snapshot.PlanSnapshot()
 }
 
 // Cancel aborts any in-flight terraform operation. Also drops any deferred
@@ -307,7 +318,7 @@ func (e *Plugin) cancelInflight() {
 	}
 }
 
-func (e *Plugin) runPlan() tea.Cmd {
+func (e *Plugin) runPlan(reread bool) tea.Cmd {
 	e.cancelInflight()
 	ctx, cancel := context.WithCancel(context.Background())
 	e.cancelFn, e.run = cancel, ctx
@@ -332,6 +343,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 	opts.Lock = e.input.Lock.Or(opts.Lock)
 	opts.LockTimeout = e.input.LockTimeout.Or(opts.LockTimeout)
 	opts.PlanFile = e.allocPlanFile()
+	opts.Reread = reread
 
 	if e.input.JSON {
 		e.showList()
@@ -1151,17 +1163,18 @@ func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
 		// The replan shows a plan the user has not reviewed: auto-approve ends
 		// here and a fresh A on the new plan applies it.
 		e.Log.Debug("plan.autoapply.replan")
-		return e.startReplan()
+		return e.startReplan(false)
 	}
 	e.pendingApply = true
 	e.Log.Debug("plan.apply.deferred")
-	return e.startReplan()
+	return e.startReplan(false)
 }
 
 // startReplan kicks off a fresh terraform plan, mirroring Refresh's reset
 // behavior so the StreamFrame appears the same way as an explicit ctrl+r
-// replan. Used both by Refresh and by the implicit replan-before-apply path.
-func (e *Plugin) startReplan() tea.Cmd {
+// replan. Used both by Refresh and by the implicit replan-before-apply path;
+// only Refresh sets reread.
+func (e *Plugin) startReplan(reread bool) tea.Cmd {
 	e.stale = false
 	e.status = sdk.StatusLoading
 	e.assessment = nil
@@ -1179,7 +1192,7 @@ func (e *Plugin) startReplan() tea.Cmd {
 	e.detail = ""
 	e.detailAddr = ""
 	e.fuzzy.SetItems(nil)
-	planCmd := e.runPlan()
+	planCmd := e.runPlan(reread)
 	return tea.Batch(planCmd, frames.WaitForLine(e.streamCh), e.timer.Start())
 }
 

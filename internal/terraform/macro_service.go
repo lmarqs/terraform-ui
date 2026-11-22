@@ -73,10 +73,13 @@ func (r *MacroService) record(verb string, args, flags []string) {
 	})
 }
 
+// PlanSnapshot reports whether the seeded plan is an immutable stdin snapshot.
+func (r *MacroService) PlanSnapshot() bool { return r.cache.PlanSnapshot() }
+
 func (r *MacroService) Plan(_ context.Context, opts sdk.PlanOptions) (*sdk.PlanSummary, error) {
 	r.record("plan", nil, buildPlanFlags(opts))
-	if plan, ok := r.cache.GetPlan(); ok {
-		return plan, nil
+	if plan, ok, err := r.cache.SeededPlan(opts.Reread); ok {
+		return plan, err
 	}
 	return &sdk.PlanSummary{}, nil
 }

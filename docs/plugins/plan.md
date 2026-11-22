@@ -55,7 +55,7 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `e` | Edit in $EDITOR | List & detail |
 | `!` | Batch action palette (apply, auto-apply, taint, untaint) | List (when pins > 0) |
 | `l` | Show the terraform log | After a plan ran |
-| `ctrl+r` | Re-run plan (refresh) | Plan finished or failed |
+| `ctrl+r` | Re-run plan (refresh). With `-plan <file>` it reads the file again and shows a read or parse error in place; with `-plan -` there is no `^r`, because the stdin snapshot cannot be read again | Plan finished or failed |
 | `u` | Force-unlock | Locked error |
 | `Esc` / `q` | Back to home | Always |
 

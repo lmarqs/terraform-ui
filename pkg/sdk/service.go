@@ -126,3 +126,10 @@ type Service interface {
 	// WithDir returns a new Service instance scoped to the given working directory.
 	WithDir(dir string) Service
 }
+
+// PlanSnapshotter is implemented by a Service that can hold a plan which cannot
+// be read again, such as one seeded from stdin with -plan -.
+type PlanSnapshotter interface {
+	// PlanSnapshot reports whether the plan the Service serves is such a snapshot.
+	PlanSnapshot() bool
+}

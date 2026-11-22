@@ -127,6 +127,47 @@ func (c *ServiceCache) GetPlan() (*sdk.PlanSummary, bool) {
 	return c.plan, c.plan != nil
 }
 
+// SeededPlan returns the cached plan, read from its file again when reread is
+// set; see ReloadPlan.
+func (c *ServiceCache) SeededPlan(reread bool) (*sdk.PlanSummary, bool, error) {
+	if reread {
+		return c.ReloadPlan()
+	}
+	plan, ok := c.GetPlan()
+	return plan, ok, nil
+}
+
+// ReloadPlan is GetPlan for an explicit refresh: a file-sourced plan is read
+// from its file again. A read or parse error comes back with ok true and leaves
+// the cached plan unchanged.
+func (c *ServiceCache) ReloadPlan() (*sdk.PlanSummary, bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.planSource.kind == sourceNone || c.plan == nil {
+		return nil, false, nil
+	}
+	if c.planSource.kind != sourceFile {
+		return c.plan, true, nil
+	}
+	raw, err := os.ReadFile(c.planSource.filePath)
+	if err != nil {
+		return c.plan, true, fmt.Errorf("reading plan file: %w", err)
+	}
+	plan, err := LoadPlan(raw)
+	if err != nil {
+		return c.plan, true, err
+	}
+	c.plan = plan
+	return plan, true, nil
+}
+
+// PlanSnapshot reports whether the plan was seeded from stdin and so cannot be read again.
+func (c *ServiceCache) PlanSnapshot() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.planSource.kind == sourceStdin
+}
+
 // SetPlan stores a plan from execution, setting sourceExec.
 func (c *ServiceCache) SetPlan(summary *sdk.PlanSummary) {
 	c.mu.Lock()
