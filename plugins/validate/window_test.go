@@ -232,3 +232,60 @@ func TestView_GivenOneExpandedDiagnosticThatFits_ShouldKeepTheSummaryLine(t *tes
 		}
 	}
 }
+
+func TestUpdate_GivenExpandedDiagnosticTallerThanTheView_ShouldReachItsLastLineByKeyboard(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		down, up tea.KeyMsg
+	}{
+		{"j and k", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}},
+		{"arrows", tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyUp}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := doneWith(t, []sdk.Diagnostic{
+				{Severity: "error", Summary: "tall one", Detail: detailLines(30)},
+				{Severity: "error", Summary: "next one"},
+			})
+			p.Update(keyEnter)
+			view := ansi.Strip(p.View(60, 12))
+
+			for range 30 {
+				if strings.Contains(view, "detail line 29") {
+					break
+				}
+				p.Update(tc.down)
+				view = ansi.Strip(p.View(60, 12))
+			}
+			if !strings.Contains(view, "detail line 29") || p.Selected() != 0 {
+				t.Fatalf("down should scroll the selected diagnostic to its last line, selected = %d:\n%s", p.Selected(), view)
+			}
+
+			p.Update(tc.down)
+			p.View(60, 12)
+			if p.Selected() != 1 {
+				t.Fatalf("down with the last line in view should select the next diagnostic, selected = %d", p.Selected())
+			}
+
+			p.Update(tc.up)
+			view = ansi.Strip(p.View(60, 12))
+			if p.Selected() != 0 || !strings.Contains(view, "tall one") {
+				t.Fatalf("up should select the tall diagnostic from its first line, selected = %d:\n%s", p.Selected(), view)
+			}
+		})
+	}
+}
+
+func TestUpdate_GivenOnlyOneDiagnosticTallerThanTheView_ShouldReachItsLastLineWithJ(t *testing.T) {
+	p := doneWith(t, []sdk.Diagnostic{{Severity: "error", Summary: "only one", Detail: detailLines(30)}})
+	p.Update(keyEnter)
+	p.View(60, 12)
+
+	for range 30 {
+		p.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		p.View(60, 12)
+	}
+
+	if view := ansi.Strip(p.View(60, 12)); !strings.Contains(view, "detail line 29") {
+		t.Fatalf("j should reach the diagnostic's last line:\n%s", view)
+	}
+}

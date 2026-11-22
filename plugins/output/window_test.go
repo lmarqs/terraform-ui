@@ -291,3 +291,58 @@ func TestFilter_GivenScrolledList_ShouldStartTheWindowAtTheTopWhenTheFilterRepla
 		t.Fatalf("opening the filter should show the first row:\n%s", view)
 	}
 }
+
+func TestUpdate_GivenMultiLineValueTallerThanTheView_ShouldReachItsLastLineByKeyboard(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		down, up tea.KeyMsg
+	}{
+		{"j and k", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'k'}}},
+		{"arrows", tea.KeyMsg{Type: tea.KeyDown}, tea.KeyMsg{Type: tea.KeyUp}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := doneWith(t, []sdk.OutputValue{
+				{Name: "tall", Type: "string", Value: multiLineValue(30)},
+				{Name: "next", Type: "string", Value: "v"},
+			})
+			view := ansi.Strip(p.View(60, 12))
+
+			for range 30 {
+				if strings.Contains(view, "value line 29") {
+					break
+				}
+				press(p, tc.down)
+				view = ansi.Strip(p.View(60, 12))
+			}
+			if !strings.Contains(view, "value line 29") || p.Selected() != 0 {
+				t.Fatalf("down should scroll the selected value to its last line, selected = %d:\n%s", p.Selected(), view)
+			}
+
+			press(p, tc.down)
+			p.View(60, 12)
+			if p.Selected() != 1 {
+				t.Fatalf("down with the last line in view should select the next output, selected = %d", p.Selected())
+			}
+
+			press(p, tc.up)
+			view = ansi.Strip(p.View(60, 12))
+			if p.Selected() != 0 || !strings.Contains(view, "tall") {
+				t.Fatalf("up should select the tall value from its first line, selected = %d:\n%s", p.Selected(), view)
+			}
+		})
+	}
+}
+
+func TestUpdate_GivenOnlyOneValueTallerThanTheView_ShouldReachItsLastLineWithJ(t *testing.T) {
+	p := doneWith(t, []sdk.OutputValue{{Name: "only", Type: "string", Value: multiLineValue(30)}})
+	p.View(60, 12)
+
+	for range 30 {
+		press(p, tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}})
+		p.View(60, 12)
+	}
+
+	if view := ansi.Strip(p.View(60, 12)); !strings.Contains(view, "value line 29") {
+		t.Fatalf("j should reach the value's last line:\n%s", view)
+	}
+}

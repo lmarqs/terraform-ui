@@ -1003,3 +1003,119 @@ func TestContentPanel_Render_GivenPanOffsetPastARow_ShouldShowTheRowsTailOrWhole
 		})
 	}
 }
+
+func TestContentPanel_ScrollBlock_GivenCursorBlockTallerThanHeight_ShouldScrollToItsLastLineAndBack(t *testing.T) {
+	detailRows := []string{"head", "d0", "d1", "d2", "d3", "d4", "d5", "next"}
+	tests := []struct {
+		name      string
+		wrap      bool
+		rows      []string
+		cursorEnd int
+		height    int
+		steps     int
+		wantTop   string
+		wantLast  string
+	}{
+		{"wrap off scrolls by rows", false, detailRows, 7, 3, 4, "[SEL]head", "d5"},
+		{"wrap on scrolls by wrapped lines", true, threeLineRows("abcz"), 3, 4, 5, "[SEL]aaaaaaaaaa", "cccccccccc"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			panel.SelectedStyle = func(s string, w int) string { return "[SEL]" + s }
+			if tt.wrap {
+				panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+			}
+			params := ui.RenderParams{Rows: tt.rows, Width: 12, Height: tt.height, Cursor: 0, CursorEnd: tt.cursorEnd}
+			render := func() []string {
+				output, offset := panel.RenderWindow(params)
+				params.ScrollOffset = offset
+				return strings.Split(ansi.Strip(output), "\n")
+			}
+
+			if lines := render(); !strings.HasPrefix(lines[0], tt.wantTop) {
+				t.Fatalf("first frame should show the block's first line:\n%s", strings.Join(lines, "\n"))
+			}
+			for step := range tt.steps {
+				if !panel.ScrollBlock(1) {
+					t.Fatalf("ScrollBlock(1) at step %d = false, want true while the tail is hidden", step)
+				}
+				render()
+			}
+			lines := render()
+			if last := lines[len(lines)-1]; !strings.HasPrefix(last, tt.wantLast) {
+				t.Fatalf("after %d steps the last line should be the block's last line %q:\n%s", tt.steps, tt.wantLast, strings.Join(lines, "\n"))
+			}
+			if panel.ScrollBlock(1) {
+				t.Fatal("ScrollBlock(1) with the tail in view = true, want false so the caller moves the cursor")
+			}
+			for step := range tt.steps {
+				if !panel.ScrollBlock(-1) {
+					t.Fatalf("ScrollBlock(-1) at step %d = false, want true while the head is hidden", step)
+				}
+				render()
+			}
+			if lines := render(); !strings.HasPrefix(lines[0], tt.wantTop) {
+				t.Fatalf("scrolling back should show the block's first line:\n%s", strings.Join(lines, "\n"))
+			}
+			if panel.ScrollBlock(-1) {
+				t.Fatal("ScrollBlock(-1) with the head in view = true, want false so the caller moves the cursor")
+			}
+		})
+	}
+}
+
+func TestContentPanel_ScrollBlock_GivenBlockThatFitsOrNoCursor_ShouldNotScroll(t *testing.T) {
+	rows := []string{"r0", "r1", "r2", "r3", "r4", "r5"}
+	tests := []struct {
+		name   string
+		params ui.RenderParams
+	}{
+		{"before any frame", ui.RenderParams{}},
+		{"block that fits", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 1, CursorEnd: 3}},
+		{"no cursor", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: -1}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			if tt.params.Rows != nil {
+				panel.RenderWindow(tt.params)
+			}
+
+			if panel.ScrollBlock(1) || panel.ScrollBlock(-1) {
+				t.Fatal("ScrollBlock = true, want false: nothing in the block is hidden")
+			}
+		})
+	}
+}
+
+func TestContentPanel_ScrollBlock_GivenCursorMovedOrScrollReset_ShouldShowTheBlockFromItsStart(t *testing.T) {
+	rows := []string{"a", "a1", "a2", "a3", "b", "b1", "b2", "b3"}
+	tests := []struct {
+		name      string
+		change    func(p *ui.ContentPanel, params *ui.RenderParams)
+		wantFirst string
+	}{
+		{"cursor moves to another block", func(_ *ui.ContentPanel, params *ui.RenderParams) {
+			params.Cursor, params.CursorEnd = 4, 8
+		}, "[SEL]b"},
+		{"reset scroll", func(p *ui.ContentPanel, _ *ui.RenderParams) { p.ResetScroll() }, "[SEL]a"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			panel.SelectedStyle = func(s string, w int) string { return "[SEL]" + s }
+			params := ui.RenderParams{Rows: rows, Width: 10, Height: 2, Cursor: 0, CursorEnd: 4}
+			_, params.ScrollOffset = panel.RenderWindow(params)
+			panel.ScrollBlock(1)
+			_, params.ScrollOffset = panel.RenderWindow(params)
+
+			tt.change(panel, &params)
+			output, _ := panel.RenderWindow(params)
+
+			if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, tt.wantFirst) {
+				t.Fatalf("first line = %q, want prefix %q", first, tt.wantFirst)
+			}
+		})
+	}
+}

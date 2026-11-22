@@ -32,10 +32,12 @@ func ContentWidth(width int, hasGutter bool) int {
 // Vertical navigation (which rows exist, the cursor) stays with the tree or list that
 // understands the data structure. Callers either window the rows themselves and call
 // Render, or pass every row to RenderWindow, which picks the window from the offset it
-// returned last frame; the caller stores that offset.
+// returned last frame; the caller stores that offset. ScrollBlock moves the window inside
+// a cursor block taller than it.
 type ContentPanel struct {
 	hScroll  int
 	wrapMode bool
+	block    blockScroll
 
 	// SelectedStyle applies cursor highlighting. If nil, uses default.
 	SelectedStyle func(s string, width int) string
@@ -66,6 +68,14 @@ type RenderParams struct {
 	// CursorEnd is one past the last row of the cursor's block, such as a row and the
 	// detail rows under it. Zero or less means the block is the cursor row alone.
 	CursorEnd int
+}
+
+// blockScroll is how far RenderWindow has moved into the cursor's block, in the unit it
+// measured the block in last frame: rows with wrap off, wrapped lines with wrap on.
+type blockScroll struct {
+	cursor int // the cursor the scroll belongs to; another cursor starts at the block's top
+	into   int
+	max    int // the block's height minus the window's, or 0 when the block fits
 }
 
 // HScroll returns the current horizontal scroll offset.
@@ -101,9 +111,23 @@ func (p *ContentPanel) HandleKey(msg tea.KeyMsg) bool {
 	return false
 }
 
-// ResetScroll resets horizontal scroll (e.g. on filter change or reload).
+// ResetScroll resets horizontal scroll and the scroll inside the cursor's block (e.g. on
+// filter change or reload).
 func (p *ContentPanel) ResetScroll() {
 	p.hScroll = 0
+	p.block = blockScroll{}
+}
+
+// ScrollBlock moves the next RenderWindow by delta lines inside the cursor's block when
+// the block drawn last frame is taller than the window. It returns false, moving nothing,
+// when that would pass the block's first or last line, so the caller moves the cursor.
+func (p *ContentPanel) ScrollBlock(delta int) bool {
+	into := p.block.into + delta
+	if into < 0 || into > p.block.max {
+		return false
+	}
+	p.block.into = into
+	return true
 }
 
 // Render produces the final output string with all layout applied.
@@ -159,7 +183,8 @@ func (p *ContentPanel) Render(params RenderParams) string {
 // RenderWindow renders a list from every row rather than a pre-windowed slice. It reads
 // Rows, Cursor, CursorEnd, Width, Height and ScrollOffset, the offset it returned last frame.
 // It scrolls from that offset only as far as needed to show the cursor's block, so the
-// cursor row's first line is always drawn. With wrap on it measures in wrapped lines, so
+// cursor row's first line is drawn unless ScrollBlock moved the window down a block taller
+// than it. With wrap on it measures in wrapped lines, so
 // the window can start partway through its top row, and the gutter thumb uses the same
 // measure. The returned offset is the index of the window's top row in both wrap modes;
 // the caller keeps it for the next frame.
@@ -168,9 +193,12 @@ func (p *ContentPanel) RenderWindow(params RenderParams) (string, int) {
 	if height <= 0 {
 		return "", params.ScrollOffset
 	}
+	if params.Cursor != p.block.cursor {
+		p.block = blockScroll{cursor: params.Cursor}
+	}
 	if !p.wrapMode {
 		start, end := blockRows(params.Cursor, params.CursorEnd, len(rows))
-		offset := scrollTo(params.ScrollOffset, start, end, height, len(rows))
+		offset := p.scrollTo(params.ScrollOffset, start, end, height, len(rows))
 		return p.Render(RenderParams{
 			Rows:         rows[offset:min(len(rows), offset+height)],
 			Width:        params.Width,
@@ -201,7 +229,7 @@ func (p *ContentPanel) renderWrapped(params RenderParams, top, above, below int)
 	if start >= 0 {
 		start, end = starts[start], starts[end]
 	}
-	offset := scrollTo(starts[min(max(0, top), len(rows))], start, end, height, len(lines))
+	offset := p.scrollTo(starts[min(max(0, top), len(rows))], start, end, height, len(lines))
 	visible := lines[offset:min(len(lines), offset+height)]
 	if hasGutter {
 		visible = RenderScrollGutter(visible, ScrollGutterOpts{
@@ -245,8 +273,17 @@ func (p *ContentPanel) wrapRows(rows []string, cursor, width int) ([]string, []i
 }
 
 // scrollTo returns the offset nearest to offset that shows the span [start, end) within
-// height units of total, keeping start in view when the span is taller than height.
-func scrollTo(offset, start, end, height, total int) int {
+// height units of total. A span taller than height shows from start, moved down as far as
+// ScrollBlock asked; scrollTo records the span's overflow for ScrollBlock.
+func (p *ContentPanel) scrollTo(offset, start, end, height, total int) int {
+	p.block.max = 0
+	if start >= 0 {
+		p.block.max = max(0, end-start-height)
+	}
+	p.block.into = min(p.block.into, p.block.max)
+	if p.block.into > 0 {
+		return start + p.block.into
+	}
 	if start >= 0 {
 		if start < offset {
 			offset = start

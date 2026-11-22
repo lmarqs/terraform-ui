@@ -26,7 +26,7 @@ Press `v` from the home menu. The plugin runs validation and shows errors/warnin
 
 | Key | Action | When |
 |-----|--------|------|
-| `j` / `k` / `↑` / `↓` | Navigate up/down | List |
+| `j` / `k` / `↑` / `↓` | Navigate up/down; inside a selected diagnostic taller than the view, scroll it a line first | List |
 | `g` / `G` | Jump to first/last | List |
 | `Enter` / `i` | Expand diagnostic detail | List |
 | `←` / `→` | Scroll the list horizontally when wrapping is off | List |

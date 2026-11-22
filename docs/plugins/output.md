@@ -26,7 +26,7 @@ Press `o` from the home menu. The plugin fetches outputs and displays them in a 
 
 | Key | Action | When |
 |-----|--------|------|
-| `j` / `k` / `↑` / `↓` | Navigate up/down | List |
+| `j` / `k` / `↑` / `↓` | Navigate up/down; inside a selected value taller than the view, scroll it a line first | List |
 | `g` / `G` | Jump to first/last | List |
 | `/` | Filter outputs by name | List |
 | `←` / `→` | Scroll the list horizontally when wrapping is off | List |

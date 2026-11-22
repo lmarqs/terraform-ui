@@ -472,7 +472,8 @@ pre-windowed rows.
 - wrapping and panning cut by display cells, so a wide character is kept whole or dropped whole
 - the scroll gutter when content overflows the viewport
 - cursor row highlighting with the caller's style
-- with wrap on, the cursor row's first line is drawn whenever the cursor is within the rows
+- with wrap on, the cursor row's first line is drawn whenever the cursor is within the rows, until `ScrollBlock` moves
+  the window down a cursor block taller than it
 - content width = total width minus the gutter budget
 
 **The panel has two input paths**, both taking `ui.RenderParams`:
@@ -490,6 +491,13 @@ pre-windowed rows.
   it. The Plan, State and Workspace lists still pass slices to `Render`, so with wrap on their window and gutter
   thumb count rows outside the slice as one line each ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
 
+**A cursor block taller than the window scrolls inside itself.** `ScrollBlock(delta)` moves the next `RenderWindow` by
+`delta` lines, rows with wrap off and wrapped lines with wrap on, inside the cursor's block as measured last frame. It
+returns false and moves nothing when the block fits or the move would pass its first or last line, so the plugin binds
+`j`/`k` to `ScrollBlock(±1)` and moves the cursor only when it returns false. A new cursor shows its block from the
+top, and `ResetScroll` clears the scroll; a block that fits renders as before. Validate and Output use it
+([#170](https://github.com/lmarqs/terraform-ui/issues/170)).
+
 **The plugin owns:**
 
 - domain-aware traversal: collapse state, pin filtering, fuzzy scoring
@@ -504,8 +512,9 @@ pre-windowed rows.
   caller can place its output beside any sibling.
 - Rows in, lines out. It never reorders, filters or collapses rows; `RenderWindow` only picks which lines of the
   given rows show.
-- State only where every caller agrees. It holds the horizontal offset and the wrap toggle, which mean the same for
-  every caller; vertical state stays with the plugin because its meaning varies (tree offset, flat cursor, detail
+- State only where every caller agrees. It holds the horizontal offset, the wrap toggle and the scroll inside an
+  oversized cursor block, which mean the same for every caller; the block scroll is measured in wrapped lines only the
+  panel knows. Other vertical state stays with the plugin because its meaning varies (tree offset, flat cursor, detail
   scroll), and the offset `RenderWindow` returns is the plugin's to store.
 
 **Anti-patterns:**

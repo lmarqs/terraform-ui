@@ -24,7 +24,8 @@ Where the visible window sits depends on both axes. With wrap off a row is one l
 - The rendering pipeline is fixed once (ANSI safety, gutter alignment, truncation) and benefits all components
 - New plugins or view types only implement vertical navigation — horizontal formatting is inherited
 - The formatting layer can evolve independently of domain components (new truncation strategies, gutter styles, etc.) without touching plugin code
-- The panel holds no vertical state. `RenderWindow` returns the window's top row in both wrap modes, and the plugin passes it back next frame, so a wrap toggle or a resize never reads it in the wrong unit.
+- The panel holds no vertical state but one: how far the window has scrolled inside a cursor block taller than it, which `ScrollBlock` moves. Whether the block's last line is in view depends on its wrapped height, which only the panel knows, so `j`/`k` ask the panel before moving the cursor; otherwise an expanded diagnostic or a multi-line output value taller than the view kept its tail out of reach ([#170](https://github.com/lmarqs/terraform-ui/issues/170)).
+- `RenderWindow` returns the window's top row in both wrap modes, and the plugin passes it back next frame, so a wrap toggle or a resize never reads it in the wrong unit.
 - Lists that still window their own rows for `Render` are line-accurate only inside their slice with wrap on ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
 - The contracts each side keeps, the rules for a new view and the anti-patterns are in [TUI UX § Scrollable content](../reference/tui-ux.md#scrollable-content-split-by-axis).
 

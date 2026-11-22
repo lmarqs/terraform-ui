@@ -42,9 +42,13 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 	case "esc":
 		return f, func() tea.Msg { return sdk.DeactivateMsg{} }
 	case "down", "j":
-		f.plugin.MoveDown()
+		if !f.plugin.panel.ScrollBlock(1) {
+			f.plugin.MoveDown()
+		}
 	case "up", "k":
-		f.plugin.MoveUp()
+		if !f.plugin.panel.ScrollBlock(-1) {
+			f.plugin.MoveUp()
+		}
 	case "/":
 		f.plugin.filtering = true
 		f.plugin.filter = ""

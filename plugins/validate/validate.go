@@ -204,9 +204,13 @@ func (p *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 	switch msg.String() {
 	case "j", "down":
-		p.MoveDown()
+		if !p.panel.ScrollBlock(1) {
+			p.MoveDown()
+		}
 	case "k", "up":
-		p.MoveUp()
+		if !p.panel.ScrollBlock(-1) {
+			p.MoveUp()
+		}
 	case "enter", "i":
 		p.ToggleExpand()
 	case "ctrl+r":
