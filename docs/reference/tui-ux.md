@@ -465,6 +465,9 @@ pre-windowed rows.
 **The panel promises:**
 
 - ANSI-safe truncation, horizontal scrolling (pan left/right) and wrapping, never breaking an escape sequence
+- the pan offset is shared by every row but clamped per row to `max(0, min(offset, rowWidth - viewWidth))`, so a row
+  shorter than the offset shows its tail, or its whole text when it fits, and the cursor row is never blank
+- wrapping and panning cut by display cells, so a wide character is kept whole or dropped whole
 - the scroll gutter when content overflows the viewport
 - cursor row highlighting with the caller's style
 - with wrap on, the cursor row's first line is drawn whenever the cursor is within the rows

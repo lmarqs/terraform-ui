@@ -439,24 +439,6 @@ func TestContentPanel_Render_GivenNilSelectedStyle_ShouldApplyDefaultHighlight(t
 	}
 }
 
-func TestContentPanel_Render_GivenHScrollExceedingRowWidth_ShouldRenderEmpty(t *testing.T) {
-	panel := ui.NewContentPanel()
-	panel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
-
-	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"ab"},
-		Width:      20,
-		Height:     5,
-		TotalItems: 1,
-		Cursor:     -1,
-	})
-	stripped := ansi.Strip(output)
-	// "ab" has width 2, hscroll=10, so scrollLeft returns "" → truncateStyled of ""
-	if strings.Contains(stripped, "a") || strings.Contains(stripped, "b") {
-		t.Errorf("content should be scrolled away completely, got %q", stripped)
-	}
-}
-
 func TestContentPanel_Render_GivenNegativeContentWidth_ShouldReturnEmptyTruncation(t *testing.T) {
 	panel := ui.NewContentPanel()
 
@@ -541,7 +523,7 @@ func TestContentPanel_Render_GivenStyledContentWithHScroll_ShouldPreserveTrailin
 	styled := "\x1b[31m" + "0123456789abcdef" + "\x1b[0m"
 	output := panel.Render(ui.RenderParams{
 		Rows:       []string{styled},
-		Width:      20,
+		Width:      6,
 		Height:     5,
 		TotalItems: 1,
 		Cursor:     -1,
@@ -940,8 +922,8 @@ func TestContentPanel_Render_GivenWideCharacters_ShouldKeepEveryCharacterAsValid
 		{"WrapSplitsAfterTheCellsThatFit", true, false, "abcde界z", 6, "abcde界z"},
 		{"WrapKeepsAWideCharacterThatStartsTheRow", true, false, "界界界", 4, "界界界"},
 		{"WrapKeepsStyledWideCharacters", true, false, red.Render("abcde界z"), 6, "abcde界z"},
-		{"ScrollLeftDropsWholeWideCharacters", false, true, "界界界界界界界界界界xyz", 20, "界界界界界xyz"},
-		{"ScrollLeftDropsAWideCharacterStraddlingTheOffset", false, true, "a界界界界界界界界界xyz", 20, "界界界界xyz"},
+		{"ScrollLeftDropsWholeWideCharacters", false, true, "界界界界界界界界界界xyz", 13, "界界界界界xyz"},
+		{"ScrollLeftDropsAWideCharacterStraddlingTheOffset", false, true, "a界界界界界界界界界xyz", 12, "界界界界xyz"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -971,6 +953,51 @@ func TestContentPanel_Render_GivenWideCharacters_ShouldKeepEveryCharacterAsValid
 			for i, line := range strings.Split(output, "\n") {
 				if lipgloss.Width(line) > tt.width {
 					t.Errorf("line %d is %d cells wide, over %d: %q", i, lipgloss.Width(line), tt.width, line)
+				}
+			}
+		})
+	}
+}
+
+func TestContentPanel_Render_GivenPanOffsetPastARow_ShouldShowTheRowsTailOrWholeText(t *testing.T) {
+	long := "0123456789abcdefghijklmnop" // 26 cells
+	tests := []struct {
+		name       string
+		pans       int
+		rows       []string
+		width      int
+		totalItems int
+		want       []string
+	}{
+		{"ShortRowShowsWholeText", 1, []string{long, "short"}, 10, 2, []string{"abcdefghij", "short"}},
+		{"RowWiderThanViewShowsItsTail", 1, []string{long, "abcdefghijklm"}, 10, 2, []string{"abcdefghij", "defghijklm"}},
+		{"RowEndingAtTheOffsetShowsItsTail", 1, []string{long, "0123456789"}, 10, 2, []string{"abcdefghij", "0123456789"}},
+		{"PanBeyondEveryRowStopsAtEachRowsEnd", 5, []string{long, "abcdefghijklm"}, 10, 2, []string{"ghijklmnop", "defghijklm"}},
+		{"WideCharactersKeepTheirCells", 1, []string{long, "界界界界界界"}, 10, 2, []string{"abcdefghij", "界界界界界"}},
+		{"GutterNarrowsTheView", 1, []string{long, "abcdefghijklm"}, 10, 5, []string{"abcdefgh", "fghijklm"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			for range tt.pans {
+				panel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
+			}
+
+			output := panel.Render(ui.RenderParams{
+				Rows:       tt.rows,
+				Width:      tt.width,
+				Height:     2,
+				TotalItems: tt.totalItems,
+				Cursor:     1,
+			})
+
+			lines := strings.Split(output, "\n")
+			if len(lines) != len(tt.want) {
+				t.Fatalf("got %d lines, want %d:\n%s", len(lines), len(tt.want), output)
+			}
+			for i, want := range tt.want {
+				if got := strings.TrimRight(ansi.Strip(lines[i]), " ▲▼┃│"); got != want {
+					t.Errorf("line %d = %q, want %q", i, got, want)
 				}
 			}
 		})

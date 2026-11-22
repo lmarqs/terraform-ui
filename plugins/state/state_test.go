@@ -1516,7 +1516,7 @@ func TestRenderFlatList_HorizontalPan_ShouldShiftContent(t *testing.T) {
 	t.Run("ShouldShiftContentWhenPanned", func(t *testing.T) {
 		p.listPanel.ResetScroll()
 		p.listPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll += 10
-		output := p.View(80, 10)
+		output := p.View(30, 10)
 		if strings.Contains(output, "module.ver") {
 			t.Error("expected beginning of address to be hidden after pan")
 		}

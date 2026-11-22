@@ -74,7 +74,7 @@ func TestRenderDetail_WhenHScrolled_ShouldShiftContent(t *testing.T) {
 	// HandleKey(Right) increments hScroll by 10; we need hscroll=10 (closest to 5)
 	p.detailPanel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 
-	view := p.renderDetail(80, 20)
+	view := p.renderDetail(20, 20)
 	if strings.Contains(view, "ABCDE") {
 		t.Error("expected first chars to be hidden with hscroll")
 	}

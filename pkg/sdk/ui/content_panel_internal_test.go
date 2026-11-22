@@ -51,3 +51,9 @@ func TestWrapStyled_GivenWidthNarrowerThanAWideCharacter_ShouldDropItAndTerminat
 		t.Errorf("wrapStyled = %q, want [\"a\"]", got)
 	}
 }
+
+func TestScrollLeft_GivenNAtOrBeyondTheWidth_ShouldReturnEmpty(t *testing.T) {
+	if result := scrollLeft("ab", 10); result != "" {
+		t.Errorf("expected empty string when n >= width, got %q", result)
+	}
+}

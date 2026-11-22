@@ -130,11 +130,10 @@ func (p *ContentPanel) Render(params RenderParams) string {
 		lines, _ = p.wrapRows(params.Rows, -1, contentWidth)
 	} else {
 		for i, row := range params.Rows {
-			line := row
-			if p.hScroll > 0 {
-				line = scrollLeft(line, p.hScroll)
-			}
-			line = truncateStyled(line, contentWidth)
+			// The offset is shared by every row; a row shorter than it shows its tail, so the
+			// cursor never lands on a blank line.
+			offset := min(p.hScroll, ansi.StringWidth(row)-contentWidth)
+			line := truncateStyled(scrollLeft(row, offset), contentWidth)
 
 			if i == params.Cursor {
 				line = p.applySelected(line, contentWidth)
