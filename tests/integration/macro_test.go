@@ -28,6 +28,7 @@ func TestMacro(t *testing.T) {
 		wantExit   int
 		wantStderr string
 		wantStdout string
+		wantCmd    string // recorded command after "terraform -chdir=<cwd> "
 	}{
 		{
 			name:     "risk actions nested attributes and long plan",
@@ -162,21 +163,21 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
-			name:       "apply outputs command to stdout",
-			tapeFile:   tape("apply_record.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform apply ",
+			name:     "apply outputs command to stdout",
+			tapeFile: tape("apply_record.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "apply ",
 		},
 		{
 			// ADR-0019: targets belong on plan, never on apply. Scoping a
 			// targeted apply means generating a targeted plan file first; the
 			// apply command itself only references the resulting plan file.
-			name:       "targeted plan records plan command with targets",
-			tapeFile:   tape("apply_targeted.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform plan -out=",
+			name:     "targeted plan records plan command with targets",
+			tapeFile: tape("apply_targeted.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "plan -out=",
 		},
 		{
 			// Plan owns all replanning: pinning AFTER an initial plan must
@@ -190,11 +191,11 @@ func TestMacro(t *testing.T) {
 			wantStdout: "-target=aws_instance.web",
 		},
 		{
-			name:       "plan records plan command",
-			tapeFile:   tape("plan_record.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform plan -out=",
+			name:     "plan records plan command",
+			tapeFile: tape("plan_record.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "plan -out=",
 		},
 		{
 			name:     "state list is a data fetch not recorded",
@@ -203,39 +204,39 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
-			name:       "state delete outputs state rm command",
-			tapeFile:   tape("state_delete.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform state rm aws_instance.web",
+			name:     "state delete outputs state rm command",
+			tapeFile: tape("state_delete.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "state rm aws_instance.web",
 		},
 		{
-			name:       "state taint outputs taint command",
-			tapeFile:   tape("state_taint.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform taint aws_instance.web",
+			name:     "state taint outputs taint command",
+			tapeFile: tape("state_taint.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "taint aws_instance.web",
 		},
 		{
-			name:       "state untaint outputs untaint command",
-			tapeFile:   tape("state_untaint.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform untaint aws_instance.web",
+			name:     "state untaint outputs untaint command",
+			tapeFile: tape("state_untaint.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "untaint aws_instance.web",
 		},
 		{
-			name:       "state import outputs import command",
-			tapeFile:   tape("state_import.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform import aws_instance.web i-123",
+			name:     "state import outputs import command",
+			tapeFile: tape("state_import.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "import aws_instance.web i-123",
 		},
 		{
-			name:       "state move outputs state mv command",
-			tapeFile:   tape("state_move.tape"),
-			args:       []string{"-plan", planFixture, "-state", stateFixture},
-			wantExit:   0,
-			wantStdout: "terraform state mv aws_instance.web aws_instance.new",
+			name:     "state move outputs state mv command",
+			tapeFile: tape("state_move.tape"),
+			args:     []string{"-plan", planFixture, "-state", stateFixture},
+			wantExit: 0,
+			wantCmd:  "state mv aws_instance.web aws_instance.new",
 		},
 	}
 
@@ -268,6 +269,12 @@ func TestMacro(t *testing.T) {
 
 			if tt.wantStderr != "" && !strings.Contains(stderr, tt.wantStderr) {
 				t.Errorf("stderr = %q, want to contain %q", stderr, tt.wantStderr)
+			}
+
+			if tt.wantCmd != "" {
+				if want := recorded(t, cwd, tt.wantCmd); !strings.Contains(stdout, want) {
+					t.Errorf("stdout = %q, want to contain %q", stdout, want)
+				}
 			}
 
 			if tt.wantStdout != "" && !strings.Contains(stdout, tt.wantStdout) {

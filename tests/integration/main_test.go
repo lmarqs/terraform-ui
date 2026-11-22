@@ -62,6 +62,20 @@ func fixtureDir(name string) string {
 	return filepath.Join(findProjectRoot(), "tests", "fixtures", name)
 }
 
+// recorded is the recorded command tfui prints for terraform run in dir: every
+// recorded command carries -chdir=<dir> after the binary. An empty dir is the
+// test process's working directory, which runTfui's child inherits.
+func recorded(t *testing.T, dir, command string) string {
+	t.Helper()
+	if dir == "" {
+		var err error
+		if dir, err = os.Getwd(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return "terraform -chdir=" + dir + " " + command
+}
+
 func runTfui(args ...string) (string, string, error) {
 	return runTfuiIn("", args...)
 }

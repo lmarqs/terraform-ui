@@ -53,9 +53,9 @@ empty, which does not mean there is nothing to change.
 
 Each printed command runs as written in a POSIX shell: arguments that need it are single-quoted
 (`terraform state rm 'aws_instance.web["a"]'`) and every command carries the
-directory it runs in as `-chdir=<dir>` right after the binary (`terraform -chdir=/work/modules/vpc plan`): the
-`-chdir` member, else the `-project` directory. Review them before piping them to
-a shell.
+directory it runs in as `-chdir=<dir>` right after the binary (`terraform -chdir=/work/modules/vpc plan`): the directory terraform runs
+in, which is the `-chdir` member, else the `basedir`, else the `-project` directory. Review them before piping them
+to a shell.
 
 ```bash
 tfui -dry-run -plan ./plan.json -state ./state.json   # review the commands on exit

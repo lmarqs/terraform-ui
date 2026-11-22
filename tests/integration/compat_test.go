@@ -29,8 +29,8 @@ func TestCompat_PlanWithTarget(t *testing.T) {
 	}
 
 	// Verify the plan command was emitted (basic sanity check)
-	if !strings.Contains(stdout, "terraform plan") {
-		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "plan")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "plan"), stdout)
 	}
 }
 
@@ -51,8 +51,8 @@ func TestCompat_DestroyModePlanDisplay(t *testing.T) {
 	}
 
 	// Plan command should have been recorded
-	if !strings.Contains(stdout, "terraform plan") {
-		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "plan")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "plan"), stdout)
 	}
 }
 
@@ -73,8 +73,8 @@ func TestCompat_DestroyModeApplyConfirmation(t *testing.T) {
 	}
 
 	// Should emit apply command
-	if !strings.Contains(stdout, "terraform apply") {
-		t.Errorf("expected 'terraform apply' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "apply")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "apply"), stdout)
 	}
 }
 
@@ -98,8 +98,8 @@ func TestCompat_VarFileInCommand(t *testing.T) {
 	}
 
 	// Basic apply command should be present
-	if !strings.Contains(stdout, "terraform apply") {
-		t.Errorf("expected 'terraform apply' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "apply")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "apply"), stdout)
 	}
 
 	// TODO: Once -var-file CLI flag is implemented, add this assertion:
@@ -126,18 +126,18 @@ func TestCompat_TargetedPlanEmitsTargetFlag(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(stdout, "terraform plan") {
-		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "plan")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "plan"), stdout)
 	}
 	if !strings.Contains(stdout, "-target=aws_instance.web") {
 		t.Errorf("expected '-target=aws_instance.web' on plan command, got: %q", stdout)
 	}
-	if !strings.Contains(stdout, "terraform apply") {
-		t.Errorf("expected 'terraform apply' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "apply")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "apply"), stdout)
 	}
 	// ADR-0019 (TUI flow): apply consumes only the plan file, no -target.
 	for _, line := range strings.Split(stdout, "\n") {
-		if strings.Contains(line, "terraform apply") && strings.Contains(line, "-target=") {
+		if strings.Contains(line, recorded(t, "", "apply")) && strings.Contains(line, "-target=") {
 			t.Errorf("TUI flow: apply must not contain -target= (ADR-0019); got: %q", line)
 		}
 	}
@@ -162,13 +162,13 @@ func TestCompat_StandaloneApplyWithTarget(t *testing.T) {
 	// Find the apply line and verify all flags appear together
 	var applyLine string
 	for _, line := range strings.Split(stdout, "\n") {
-		if strings.Contains(line, "terraform apply") {
+		if strings.Contains(line, recorded(t, "", "apply")) {
 			applyLine = line
 			break
 		}
 	}
 	if applyLine == "" {
-		t.Fatalf("expected 'terraform apply' in stdout, got: %q", stdout)
+		t.Fatalf("expected %q in stdout, got: %q", recorded(t, "", "apply"), stdout)
 	}
 	if !strings.Contains(applyLine, "-target=aws_instance.web") {
 		t.Errorf("expected '-target=aws_instance.web' on apply line, got: %q", applyLine)
@@ -291,8 +291,8 @@ func TestCompat_ExtraArgsPassthrough(t *testing.T) {
 	}
 
 	// Plan command recorded
-	if !strings.Contains(stdout, "terraform plan") {
-		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "plan")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "plan"), stdout)
 	}
 
 	// TODO: Once -- passthrough is implemented, verify:
@@ -332,7 +332,7 @@ func TestCompat_DestroyModeRiskClassification(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !strings.Contains(stdout, "terraform plan") {
-		t.Errorf("expected 'terraform plan' in stdout, got: %q", stdout)
+	if !strings.Contains(stdout, recorded(t, "", "plan")) {
+		t.Errorf("expected %q in stdout, got: %q", recorded(t, "", "plan"), stdout)
 	}
 }
