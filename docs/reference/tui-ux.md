@@ -482,14 +482,14 @@ pre-windowed rows.
   cursor index within the window or none, and the window's offset in the full list for the gutter's position. With
   wrap on, it scrolls inside the slice until the cursor row shows and counts rows outside the slice as one line each
   for the gutter. Without a cursor it wraps within the slice and counts rows for the gutter, as a view that scrolls by
-  rows needs.
+  rows needs. The Plan and State detail views, the inspect view and the stream view use it without a cursor; no list
+  passes it a cursor.
 - `RenderWindow` takes every row: the rows, the cursor and `CursorEnd`, one past the cursor's block (such as a row and
   its detail rows), the size, and the offset it returned last frame. It picks the window, clips it and places the
   gutter thumb, in rows with wrap off and in wrapped lines with wrap on. The offset it returns is the window's top row
   in both modes, so a wrap toggle or a resize never reads it in the wrong unit. With wrap off its
-  output equals windowing in the plugin and calling `Render`. Risk, Blast Radius, Phantom, Validate and Output use
-  it. The Plan, State and Workspace lists still pass slices to `Render`, so with wrap on their window and gutter
-  thumb count rows outside the slice as one line each ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
+  output equals windowing in the plugin and calling `Render`. Every list uses it: Plan, State, Workspace, Risk, Blast
+  Radius, Phantom, Validate and Output ([#159](https://github.com/lmarqs/terraform-ui/issues/159)).
 
 **A cursor block taller than the window scrolls inside itself.** `ScrollBlock(delta)` moves the next `RenderWindow` by
 `delta` lines, rows with wrap off and wrapped lines with wrap on, inside the cursor's block as measured last frame. It
@@ -598,7 +598,8 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 
 ## 14. Performance
 
-- Virtual scrolling: only render visible rows (viewport window)
+- Virtual scrolling: the panel draws only the visible window. A list builds every row's text each frame, since with
+  wrap on only the panel knows which rows fit, so building one row must cost O(1), as a tree row's lookup does
 - Tree flatten: O(visible nodes), not O(all nodes)
 - Filter: runs on every keystroke, with no debounce
 - State load: show elapsed time indicator after 2s

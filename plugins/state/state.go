@@ -80,6 +80,7 @@ type Plugin struct {
 	lockInfo     *sdk.StateLock
 	viewWidth    int
 	listPanel    *ui.ContentPanel
+	listOffset   int // the list's top row, as RenderWindow returned it
 	pinnedOnly   bool
 	detail       string
 	detailAddr   string
@@ -472,6 +473,7 @@ func (e *Plugin) rebuildTree() {
 	for i, r := range e.filtered {
 		items[i] = resourceItem{resource: r}
 	}
+	e.listOffset = 0
 	if e.treeMode {
 		e.tree = tree.New(items)
 	} else {
@@ -615,14 +617,9 @@ func (e *Plugin) renderResources(width, height int) string {
 	}
 	maxVisible := ui.HeightBudget(height, filterHeight, ui.ActionsBarHeight)
 
-	hasGutter := ui.NeedsGutter(e.tree.VisibleCount(), maxVisible)
-	contentWidth := ui.ContentWidth(width, hasGutter)
-
 	var rows []string
 	if e.treeMode {
 		rows = e.tree.RenderRows(tree.RenderOpts{
-			Width:  contentWidth,
-			Height: maxVisible,
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
 				r := node.Item.(resourceItem).resource
 				full := node.Label + "  " + r.Type
@@ -653,32 +650,24 @@ func (e *Plugin) renderResources(width, height int) string {
 			Pinned: e.PinnedLookup(),
 		})
 	} else {
-		rows = e.buildFlatRows(maxVisible)
+		rows = e.buildFlatRows()
 	}
 
-	viewOffset := e.tree.ViewOffset(maxVisible)
-	treeContent := e.listPanel.Render(ui.RenderParams{
+	treeContent, offset := e.listPanel.RenderWindow(ui.RenderParams{
+		Rows:         rows,
 		Width:        width,
 		Height:       maxVisible,
-		TotalItems:   e.tree.VisibleCount(),
-		Cursor:       e.tree.Cursor() - viewOffset,
-		ScrollOffset: viewOffset,
-		Rows:         rows,
+		Cursor:       e.tree.Cursor(),
+		ScrollOffset: e.listOffset,
 	})
+	e.listOffset = offset
 
 	return filterLine + treeContent + ui.RenderActionsBar(actions, width)
 }
 
-func (e *Plugin) buildFlatRows(maxVisible int) []string {
-	startIdx := e.tree.ViewOffset(maxVisible)
-	endIdx := startIdx + maxVisible
-	if endIdx > len(e.filtered) {
-		endIdx = len(e.filtered)
-	}
-
-	rows := make([]string, 0, endIdx-startIdx)
-	for i := startIdx; i < endIdx; i++ {
-		r := e.filtered[i]
+func (e *Plugin) buildFlatRows() []string {
+	rows := make([]string, 0, len(e.filtered))
+	for _, r := range e.filtered {
 		pinMark := "[ ] "
 		if e.IsPinned(r.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")

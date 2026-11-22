@@ -83,6 +83,7 @@ type Plugin struct {
 	lockInfo     *sdk.StateLock
 	stale        bool
 	listPanel    *ui.ContentPanel
+	listOffset   int // the list's top row, as RenderWindow returned it
 	pinnedOnly   bool
 	cancelFn     context.CancelFunc
 	run          context.Context     // the plan run whose result the plugin awaits
@@ -636,6 +637,7 @@ func (e *Plugin) rebuildTree() {
 	for i, c := range e.filtered {
 		items[i] = changeItem{change: c}
 	}
+	e.listOffset = 0
 	if e.treeMode {
 		e.tree = tree.New(items)
 	} else {
@@ -834,14 +836,9 @@ func (e *Plugin) renderResults(width, height int) string {
 	summaryHeight := 3
 	maxVisible := ui.HeightBudget(height, filterHeight, summaryHeight, ui.ActionsBarHeight)
 
-	hasGutter := ui.NeedsGutter(e.tree.VisibleCount(), maxVisible)
-	contentWidth := ui.ContentWidth(width, hasGutter)
-
 	var rows []string
 	if e.treeMode {
 		rows = e.tree.RenderRows(tree.RenderOpts{
-			Width:  contentWidth,
-			Height: maxVisible,
 			RenderLeaf: func(node *tree.Node, pinned bool) string {
 				c := node.Item.(changeItem).change
 				symbol := sdk.ActionSymbol(c.Action)
@@ -872,18 +869,17 @@ func (e *Plugin) renderResults(width, height int) string {
 			Pinned: e.PinnedLookup(),
 		})
 	} else {
-		rows = e.buildFlatRows(contentWidth, maxVisible)
+		rows = e.buildFlatRows()
 	}
 
-	viewOffset := e.tree.ViewOffset(maxVisible)
-	treeContent := e.listPanel.Render(ui.RenderParams{
+	treeContent, offset := e.listPanel.RenderWindow(ui.RenderParams{
+		Rows:         rows,
 		Width:        width,
 		Height:       maxVisible,
-		TotalItems:   e.tree.VisibleCount(),
-		Cursor:       e.tree.Cursor() - viewOffset,
-		ScrollOffset: viewOffset,
-		Rows:         rows,
+		Cursor:       e.tree.Cursor(),
+		ScrollOffset: e.listOffset,
 	})
+	e.listOffset = offset
 
 	summary := e.summary.SummaryLine()
 	riskLine := e.renderOverallRisk()
@@ -896,16 +892,9 @@ func (e *Plugin) renderResults(width, height int) string {
 	return content
 }
 
-func (e *Plugin) buildFlatRows(contentWidth, maxVisible int) []string {
-	startIdx := e.tree.ViewOffset(maxVisible)
-	endIdx := startIdx + maxVisible
-	if endIdx > len(e.filtered) {
-		endIdx = len(e.filtered)
-	}
-
-	rows := make([]string, 0, endIdx-startIdx)
-	for i := startIdx; i < endIdx; i++ {
-		change := e.filtered[i]
+func (e *Plugin) buildFlatRows() []string {
+	rows := make([]string, 0, len(e.filtered))
+	for _, change := range e.filtered {
 		pinMark := "[ ] "
 		if e.IsPinned(change.Resource.Address) {
 			pinMark = sdk.StyleSuccess.Render("[*] ")

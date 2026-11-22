@@ -221,11 +221,17 @@ func (t *Tree) getAncestorContinuations(node *Node) []bool {
 	return result
 }
 
+// indexOf finds node in the flattened rows. Every row is looked up once per render, and
+// lists render every row, so a scan per row would be quadratic.
 func (t *Tree) indexOf(node *Node) int {
-	for i, n := range t.flattened {
-		if n == node {
-			return i
+	if t.indices == nil {
+		t.indices = make(map[*Node]int, len(t.flattened))
+		for i, n := range t.flattened {
+			t.indices[n] = i
 		}
+	}
+	if i, ok := t.indices[node]; ok {
+		return i
 	}
 	return -1
 }

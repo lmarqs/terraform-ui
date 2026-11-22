@@ -346,18 +346,9 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	actions := e.workspaceActions()
 	maxVisible := ui.HeightBudget(height, 3, ui.ActionsBarHeight)
 
-	startIdx := 0
-	if e.selected >= maxVisible {
-		startIdx = e.selected - maxVisible + 1
-	}
-	endIdx := startIdx + maxVisible
-	if endIdx > len(e.workspaces) {
-		endIdx = len(e.workspaces)
-	}
-
-	rows := make([]string, 0, endIdx-startIdx)
-	for i := startIdx; i < endIdx; i++ {
-		rows = append(rows, e.renderWorkspaceRow(e.workspaces[i], i))
+	rows := make([]string, 0, len(e.workspaces))
+	for i, ws := range e.workspaces {
+		rows = append(rows, e.renderWorkspaceRow(ws, i))
 	}
 
 	panel := ui.NewContentPanel()
@@ -365,14 +356,15 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 		return sdk.StyleSelected.Width(w).Render(s)
 	}
 
-	b.WriteString(panel.Render(ui.RenderParams{
-		Rows:         rows,
-		Width:        width,
-		Height:       maxVisible,
-		TotalItems:   len(e.workspaces),
-		Cursor:       e.selected - startIdx,
-		ScrollOffset: startIdx,
-	}))
+	// Each frame windows from the top, so the window ends at the cursor once the cursor
+	// passes the height; the list has no wrap, so its offset is not kept.
+	content, _ := panel.RenderWindow(ui.RenderParams{
+		Rows:   rows,
+		Width:  width,
+		Height: maxVisible,
+		Cursor: e.selected,
+	})
+	b.WriteString(content)
 	b.WriteByte('\n')
 
 	count := sdk.StyleFaint.Render(fmt.Sprintf("%d workspace(s)", len(e.workspaces)))

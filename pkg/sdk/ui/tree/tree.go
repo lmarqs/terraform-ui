@@ -60,6 +60,7 @@ func (n *Node) Address() string {
 type Tree struct {
 	root          *treeNode
 	flattened     []*Node
+	indices       map[*Node]int // flattened's index of each row, built on first lookup
 	cursor        int
 	viewOffset    int
 	expanded      map[string]bool
@@ -168,6 +169,7 @@ func (t *Tree) countLeaves(node *treeNode) int {
 
 func (t *Tree) flatten() {
 	t.flattened = t.flattened[:0]
+	t.indices = nil
 	t.walkChildren(t.root, 0)
 	if t.cursor >= len(t.flattened) {
 		t.cursor = len(t.flattened) - 1
