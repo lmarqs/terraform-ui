@@ -284,6 +284,7 @@ func (e *Plugin) Cancel() {
 		e.timer.Stop()
 		e.status = sdk.StatusError
 		e.errMsg = "cancelled"
+		e.stale = true
 		e.showList()
 	}
 }
@@ -442,6 +443,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 		if msg.Err != nil {
 			e.clearPendingApply()
 			e.status = sdk.StatusError
+			// startReplan cleared stale, but no plan file was written: the next
+			// apply request must plan again, not hand Apply the missing file.
+			e.stale = true
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.Log.Debug("plan.error", "error", msg.Err.Error())

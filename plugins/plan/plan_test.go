@@ -3176,3 +3176,53 @@ func TestPlugin_WhenRunSettles_ShouldKeepASingleListFrame(t *testing.T) {
 		})
 	}
 }
+
+// TestPlugin_WhenStaleReplanEndsWithoutAPlan_ShouldReplanInsteadOfApplying
+// guards #176: a failed or cancelled replan leaves planFile pointing at a path
+// terraform never wrote, so the next apply request must plan again rather than
+// hand that path to Apply.
+func TestPlugin_WhenStaleReplanEndsWithoutAPlan_ShouldReplanInsteadOfApplying(t *testing.T) {
+	tests := []struct {
+		name string
+		end  func(p *Plugin)
+	}{
+		{name: "error", end: func(p *Plugin) { p.Update(PlanResultMsg{Err: errors.New("boom")}) }},
+		{name: "cancel", end: func(p *Plugin) { p.Cancel() }},
+	}
+	changes := []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}}
+	for _, tt := range tests {
+		for _, request := range []string{"requestApply", "requestAutoApply"} {
+			t.Run(tt.name+"/"+request, func(t *testing.T) {
+				svc := &sdktest.MockService{
+					PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
+						return &sdk.PlanSummary{Changes: changes}, nil
+					},
+				}
+				p := newTestPlugin(svc)
+				p.status = sdk.StatusDone
+				p.stale = true
+				p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
+				p.summary = &sdk.PlanSummary{Changes: changes}
+
+				p.requestAutoApply()
+				tt.end(p)
+				if p.status != sdk.StatusError {
+					t.Fatalf("status = %v after the replan ended, want Error", p.status)
+				}
+
+				apply := p.requestApply
+				if request == "requestAutoApply" {
+					apply = p.requestAutoApply
+				}
+				cmd := apply()
+				if cmd == nil {
+					t.Fatalf("%s() after a replan that produced no plan returned nil cmd, want a replan", request)
+				}
+				if p.status != sdk.StatusLoading {
+					t.Errorf("status = %v, want Loading: the request must replan", p.status)
+				}
+				drainAndAssertNoApply(t, cmd)
+			})
+		}
+	}
+}
