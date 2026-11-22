@@ -208,7 +208,7 @@ func TestPlugin_FilterFrame_WhenTextArrivesAsOneEvent_ShouldApplyTheQueryOnce(t 
 		{"pasted address", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("aws_instance.db-1"), Paste: true}, "aws_instance.db-1", []string{"aws_instance.db-1"}},
 		{"pasted action symbols", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+"), Paste: true}, "-/+", []string{"aws_instance.db-1", "aws_instance.db-2"}},
 		{"grouped action symbols", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+")}, "-/+", []string{"aws_instance.db-1", "aws_instance.db-2"}},
-		{"pasted text named like a frame shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("right")}, "right", nil},
+		{"grouped text named like a frame shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("right")}, "right", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

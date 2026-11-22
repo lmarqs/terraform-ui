@@ -2053,8 +2053,9 @@ func TestStateFilterFrame_WhenTextArrivesAsOneEvent_ShouldApplyTheQueryOnce(t *t
 		rows []string
 	}{
 		{"pasted address", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("module.b.aws_s3_bucket.data"), Paste: true}, "module.b.aws_s3_bucket.data", []string{"module.b.aws_s3_bucket.data"}},
+		{"pasted action symbols", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("-/+"), Paste: true}, "-/+", nil},
 		{"grouped runes", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("one")}, "one", []string{"module.a.aws_instance.one"}},
-		{"pasted text named like a frame shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("left")}, "left", nil},
+		{"grouped text named like a frame shortcut", tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("left")}, "left", nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
