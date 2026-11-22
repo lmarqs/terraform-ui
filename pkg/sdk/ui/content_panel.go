@@ -2,11 +2,11 @@ package ui
 
 import (
 	"strings"
-	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/rivo/uniseg"
 )
 
 // GutterWidth is the number of columns reserved for the scroll gutter and its margin.
@@ -363,7 +363,7 @@ func scrollLeft(s string, n int) string {
 }
 
 // truncateLeft removes the first n cells from an ANSI string, preserving escape sequences
-// that apply to remaining content. A wide character that starts before cell n is removed whole.
+// that apply to remaining content. A grapheme cluster that starts before cell n is removed whole.
 func truncateLeft(s string, n int) string {
 	if n <= 0 {
 		return s
@@ -403,12 +403,13 @@ func truncateLeft(s string, n int) string {
 			continue
 		}
 
-		r, size := utf8.DecodeRuneInString(s[i:])
+		// Walk grapheme clusters, as ansi.Truncate does, so a flag or ZWJ sequence is never split.
+		cluster, _, width, _ := uniseg.FirstGraphemeClusterInString(s[i:], -1)
 		if visibleCount >= n {
-			result.WriteString(s[i : i+size])
+			result.WriteString(cluster)
 		}
-		visibleCount += ansi.StringWidth(string(r))
-		i += size
+		visibleCount += width
+		i += len(cluster)
 	}
 
 	return result.String()
