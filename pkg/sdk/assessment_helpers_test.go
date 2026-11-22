@@ -313,8 +313,7 @@ func BenchmarkApplyAssessment(b *testing.B) {
 		assessment.Resources = append(assessment.Resources, PolicyResourceAssessment{Address: address, Status: ResourceClassified, Level: levelPtr(RiskLow)})
 	}
 	rows := assessment.Rows()
-	b.ResetTimer()
-	for range b.N {
+	for b.Loop() {
 		ApplyAssessment(summary, rows)
 	}
 }

@@ -63,7 +63,8 @@ func FormatLockInfo(lock *StateLock) string {
 
 	var b strings.Builder
 	b.WriteString("State Lock Detected\n")
-	b.WriteString(strings.Repeat("-", 40) + "\n")
+	b.WriteString(strings.Repeat("-", 40))
+	b.WriteString("\n")
 	fmt.Fprintf(&b, "  Lock ID:    %s\n", lock.ID)
 	if lock.Who != "" {
 		fmt.Fprintf(&b, "  Who:        %s\n", lock.Who)

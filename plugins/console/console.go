@@ -289,7 +289,8 @@ func (p *Plugin) renderREPL(width, height int) string {
 
 	var b strings.Builder
 	for _, line := range visible {
-		b.WriteString(line + "\n")
+		b.WriteString(line)
+		b.WriteString("\n")
 	}
 
 	// Input line

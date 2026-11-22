@@ -573,8 +573,7 @@ func BenchmarkContentPanel_RenderFlat(b *testing.B) {
 		ScrollOffset: 0,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		panel.Render(params)
 	}
 }
@@ -603,8 +602,7 @@ func BenchmarkContentPanel_RenderWithStyledContent(b *testing.B) {
 		ScrollOffset: 0,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		panel.Render(params)
 	}
 }
@@ -627,8 +625,7 @@ func BenchmarkContentPanel_RenderWithHScroll(b *testing.B) {
 		ScrollOffset: 0,
 	}
 
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		panel.Render(params)
 	}
 }
