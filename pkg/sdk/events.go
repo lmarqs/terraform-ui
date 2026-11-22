@@ -98,14 +98,15 @@ type ContextChangedHandler interface {
 // the plan ran against: the App drops the event once that Context is replaced,
 // and before dispatching it unpins the addresses the plan no longer changes.
 //
-// Assessment is the ID of the assessment Plan requested for the plan when it
-// finished. Host request IDs grow with every request, so the ID orders the plan
-// against other plans and against invalidations: the App also drops the event
-// when a newer plan's completion, a plan invalidation or a Context change came
-// after that request.
+// Request identifies the plan run: it is the ID of the RequestAssessment call
+// Plan made when the plan finished. That request's RiskAssessedEvent may never
+// be dispatched, so the ID serves only to identify the run. Host request IDs grow
+// with every request, so it orders the plan against other plans and against
+// invalidations: the App also drops the event when a newer plan's completion, a
+// plan invalidation or a Context change came after that request.
 type PlanCompletedEvent struct {
 	Context       *Context
-	Assessment    AssessmentID
+	Request       AssessmentID
 	Summary       *PlanSummary
 	ResourceCount int
 	PlanFile      string

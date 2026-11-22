@@ -90,7 +90,7 @@ type Plugin struct {
 	lastStream   *frames.StreamFrame // retained for L key re-display after success
 	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
 	planFile     sdk.PlanFile        // plan artifact produced by the most recent run
-	reviewed     sdk.AssessmentID    // identifies planFile's plan to the App, as PlanCompletedEvent.Assessment
+	reviewed     sdk.AssessmentID    // identifies planFile's plan to the App, as PlanCompletedEvent.Request
 	// pendingApply records that the user pressed `a` against a stale plan;
 	// the apply intent is held until the in-flight replan succeeds. Cleared on
 	// any cancel path so an aborted replan never silently fires apply later.
@@ -489,12 +489,12 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				// before its result: the active Context is the one it planned.
 				planned := e.GetCtx()
 				e.reviewed = e.pending
-				assessment := e.reviewed
+				run := e.reviewed
 				cmds = append(cmds,
 					func() tea.Msg {
 						return sdk.PlanCompletedEvent{
 							Context:       planned,
-							Assessment:    assessment,
+							Request:       run,
 							Summary:       msg.Summary,
 							ResourceCount: changes,
 							PlanFile:      planFilePath,
@@ -1010,11 +1010,11 @@ type PlanEditMsg struct {
 // most recent plan run. PlanFile is the path to the saved plan; AutoApprove
 // short-circuits the confirmation prompt when true. Lock and LockTimeout are
 // the per-run overrides the plan ran with, so the apply locks state the same way.
-// Assessment identifies the plan as its PlanCompletedEvent did: the App starts
+// Request identifies the plan run as its PlanCompletedEvent did: the App starts
 // no Apply once that plan is no longer current.
 type ApplyRequestMsg struct {
 	PlanFile    string
-	Assessment  sdk.AssessmentID
+	Request     sdk.AssessmentID
 	AutoApprove bool
 	Lock        sdk.LockMode
 	LockTimeout sdk.LockTimeout
@@ -1023,7 +1023,7 @@ type ApplyRequestMsg struct {
 func (e *Plugin) applyRequest(planFile string, autoApprove bool) ApplyRequestMsg {
 	return ApplyRequestMsg{
 		PlanFile:    planFile,
-		Assessment:  e.reviewed,
+		Request:     e.reviewed,
 		AutoApprove: autoApprove,
 		Lock:        e.input.Lock,
 		LockTimeout: e.input.LockTimeout,

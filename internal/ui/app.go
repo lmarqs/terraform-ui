@@ -322,10 +322,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
-		if msg.Context != a.holder.current || !a.planCurrent(msg.Assessment) {
+		if msg.Context != a.holder.current || !a.planCurrent(msg.Request) {
 			return a, nil
 		}
-		a.planShown = msg.Assessment
+		a.planShown = msg.Request
 		// The unpin is the plan's own Context change: it lands before the
 		// completion, so plugins that reset on it keep the plan.
 		prune := a.pruneStalePins(msg.Summary)
@@ -478,7 +478,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tfuiplan.ApplyRequestMsg:
-		if !a.planCurrent(msg.Assessment) {
+		if !a.planCurrent(msg.Request) {
 			// Plan marked the plan stale too, so the user's next A replans.
 			logging.Logger().Debug("apply.stale_plan", "plan", msg.PlanFile)
 			return a, nil
@@ -954,8 +954,8 @@ func (a *App) pruneStalePins(summary *sdk.PlanSummary) tea.Cmd {
 	return a.bus.Dispatch(unpin())
 }
 
-// planCurrent reports whether the plan whose completion requested assessment
-// id is still the one under review.
+// planCurrent reports whether the plan run identified by request id is still
+// the one under review.
 func (a *App) planCurrent(id sdk.AssessmentID) bool {
 	return id >= a.planFloor && id >= a.planShown
 }
