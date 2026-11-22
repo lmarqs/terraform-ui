@@ -139,6 +139,7 @@ Every other key, and the layer it belongs to: §16.
 Gutter rules:
 - Only appears when content overflows the viewport
 - Spans content rows only (not the blank separator or actions bar)
+- The thumb stays within the track between the caps: at the top its first cell is just below `▲`, at the bottom its last cell is just above `▼`
 - Lines are padded to a consistent width before appending gutter characters (prevents misalignment with styled rows)
 - `[cursor/navigable]` counter always visible in the title bar (even when content fits)
 - Counter reflects navigable items (respects tree collapse state and filter)

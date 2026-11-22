@@ -151,3 +151,41 @@ func TestRenderScrollGutter_WhenLineExceedsWidth_ShouldNotPad(t *testing.T) {
 		t.Errorf("long line should not be truncated, got %q", got[0])
 	}
 }
+
+func TestRenderScrollGutter_ShouldKeepTheThumbInsideTheTrackBetweenTheCaps(t *testing.T) {
+	tests := []struct {
+		name   string
+		height int
+		total  int
+		offset int
+		want   string
+	}{
+		{"OneCellThumbAtTop", 7, 70, 0, "▲┃││││▼"},
+		{"OneCellThumbInMiddle", 7, 70, 31, "▲│┃│││▼"},
+		{"OneCellThumbAtBottom", 7, 70, 63, "▲││││┃▼"},
+		{"TwoCellThumbAtTop", 7, 14, 0, "▲┃┃│││▼"},
+		{"TwoCellThumbInMiddle", 7, 14, 3, "▲│┃┃││▼"},
+		{"TwoCellThumbAtBottom", 7, 14, 7, "▲│││┃┃▼"},
+		{"SeveralCellThumbAtTop", 7, 10, 0, "▲┃┃┃││▼"},
+		{"SeveralCellThumbInMiddle", 7, 10, 2, "▲│┃┃┃│▼"},
+		{"SeveralCellThumbAtBottom", 7, 10, 3, "▲││┃┃┃▼"},
+		{"ThumbOfAShortTrackAtTop", 5, 6, 0, "▲┃┃│▼"},
+		{"ThumbOfAShortTrackAtBottom", 5, 6, 1, "▲│┃┃▼"},
+		{"ThreeLineViewportAtBottom", 3, 5, 2, "▲┃▼"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			lines := make([]string, tt.height)
+
+			got := ui.RenderScrollGutter(lines, ui.ScrollGutterOpts{
+				ViewOffset:     tt.offset,
+				TotalItems:     tt.total,
+				ViewportHeight: tt.height,
+			})
+
+			if joined := strings.Join(got, ""); joined != tt.want {
+				t.Errorf("gutter = %q, want %q", joined, tt.want)
+			}
+		})
+	}
+}

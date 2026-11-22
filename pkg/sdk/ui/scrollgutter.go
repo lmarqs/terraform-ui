@@ -36,21 +36,10 @@ func RenderScrollGutter(lines []string, opts ScrollGutterOpts) []string {
 		return lines
 	}
 
-	thumbSize := vpH * vpH / opts.TotalItems
-	if thumbSize < 1 {
-		thumbSize = 1
-	}
-
-	thumbStart := 0
-	if opts.TotalItems > vpH {
-		thumbStart = opts.ViewOffset * (vpH - thumbSize) / (opts.TotalItems - vpH)
-	}
-	if thumbStart < 0 {
-		thumbStart = 0
-	}
-	if thumbStart+thumbSize > vpH {
-		thumbStart = vpH - thumbSize
-	}
+	// The thumb moves within the cells between the caps: rows 1 to trackLen.
+	trackLen := min(vpH, len(lines)) - 2
+	thumbSize := max(1, min(trackLen, trackLen*vpH/opts.TotalItems))
+	thumbStart := max(0, min(trackLen-thumbSize, opts.ViewOffset*(trackLen-thumbSize)/(opts.TotalItems-vpH)))
 
 	result := make([]string, len(lines))
 	for i, line := range lines {

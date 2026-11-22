@@ -12,7 +12,7 @@ Attributes:                                                                    �
     + t3.small                                                                 ┃
   tags.Name:                                                                   ┃
     - web-old                                                                  ┃
-    + web-new                                                                  ┃
+    + web-new                                                                  │
   password: (sensitive)                                                        ▼
 
 e edit
