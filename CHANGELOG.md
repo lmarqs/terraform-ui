@@ -1,3 +1,11 @@
+## [1.35.4](https://github.com/lmarqs/terraform-ui/compare/v1.35.3...v1.35.4) (2026-11-22)
+
+
+### Bug Fixes
+
+* **plan:** re-read a file-backed -plan on ^r and hide ^r for a stdin plan ([01d764a](https://github.com/lmarqs/terraform-ui/commit/01d764a7f3d93963d3cca4dbf3b69e9c4c90225b)), closes [#183](https://github.com/lmarqs/terraform-ui/issues/183)
+* **ui:** hide p plan on the Done screen of standalone import, taint and untaint ([1eb8b7f](https://github.com/lmarqs/terraform-ui/commit/1eb8b7f0ccda7434b9a1a3b9b476a1413cba5059)), closes [#90](https://github.com/lmarqs/terraform-ui/issues/90) [#181](https://github.com/lmarqs/terraform-ui/issues/181)
+
 ## [1.35.3](https://github.com/lmarqs/terraform-ui/compare/v1.35.2...v1.35.3) (2026-11-22)
 
 
