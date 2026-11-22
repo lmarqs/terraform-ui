@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -923,5 +924,55 @@ func TestContentPanel_RenderWindow_GivenWrapModeOffsetPassedBack_ShouldReadItAsT
 			t.Fatalf("frame %d: offset = %d, want 4 with rows 4 and 5 on screen:\n%s", frame, offset, output)
 		}
 		params.ScrollOffset = offset
+	}
+}
+
+func TestContentPanel_Render_GivenWideCharacters_ShouldKeepEveryCharacterAsValidUTF8(t *testing.T) {
+	red := lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0000"))
+	tests := []struct {
+		name   string
+		wrap   bool
+		scroll bool
+		row    string
+		width  int
+		want   string
+	}{
+		{"WrapSplitsAfterTheCellsThatFit", true, false, "abcde界z", 6, "abcde界z"},
+		{"WrapKeepsAWideCharacterThatStartsTheRow", true, false, "界界界", 4, "界界界"},
+		{"WrapKeepsStyledWideCharacters", true, false, red.Render("abcde界z"), 6, "abcde界z"},
+		{"ScrollLeftDropsWholeWideCharacters", false, true, "界界界界界界界界界界xyz", 20, "界界界界界xyz"},
+		{"ScrollLeftDropsAWideCharacterStraddlingTheOffset", false, true, "a界界界界界界界界界xyz", 20, "界界界界xyz"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			if tt.wrap {
+				panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+			}
+			if tt.scroll {
+				panel.HandleKey(tea.KeyMsg{Type: tea.KeyRight}) // hscroll = 10
+			}
+
+			output := panel.Render(ui.RenderParams{
+				Rows:       []string{tt.row},
+				Width:      tt.width,
+				Height:     5,
+				TotalItems: 1,
+				Cursor:     -1,
+			})
+
+			if !utf8.ValidString(output) {
+				t.Fatalf("output is not valid UTF-8: %q", output)
+			}
+			got := strings.ReplaceAll(ansi.Strip(output), "\n", "")
+			if got != tt.want {
+				t.Errorf("content = %q, want %q", got, tt.want)
+			}
+			for i, line := range strings.Split(output, "\n") {
+				if lipgloss.Width(line) > tt.width {
+					t.Errorf("line %d is %d cells wide, over %d: %q", i, lipgloss.Width(line), tt.width, line)
+				}
+			}
+		})
 	}
 }

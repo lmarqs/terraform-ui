@@ -44,3 +44,10 @@ func TestTruncateLeft_GivenNExceedingWidth_ShouldReturnEmpty(t *testing.T) {
 		t.Errorf("expected empty string when n >= totalWidth, got %q", result)
 	}
 }
+
+func TestWrapStyled_GivenWidthNarrowerThanAWideCharacter_ShouldDropItAndTerminate(t *testing.T) {
+	got := wrapStyled("界a", 1)
+	if len(got) != 1 || got[0] != "a" {
+		t.Errorf("wrapStyled = %q, want [\"a\"]", got)
+	}
+}

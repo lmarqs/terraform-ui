@@ -245,7 +245,8 @@ func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
 	p.tree.ExpandAll()
 
 	view := p.View(40, 24)
-	if !strings.Contains(view, "very_long_name") {
+	// The 40-cell line breaks inside the name, so read the lines back to back.
+	if !strings.Contains(strings.ReplaceAll(view, "\n", ""), "very_long_name") {
 		t.Error("expected full content visible in tree mode with wrap enabled")
 	}
 }

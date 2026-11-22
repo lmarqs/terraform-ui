@@ -2,6 +2,7 @@ package ui
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -269,8 +270,16 @@ func wrapStyled(s string, width int) []string {
 	}
 	var result []string
 	for ansi.StringWidth(s) > width {
-		result = append(result, ansi.Truncate(s, width, ""))
-		s = truncateLeft(s, width)
+		prefix := ansi.Truncate(s, width, "")
+		// A wide character that does not fit stays out of the prefix, so cut where the prefix ends.
+		cut := ansi.StringWidth(prefix)
+		if cut == 0 {
+			// The first character is wider than the line: drop it, as truncateStyled does.
+			s = truncateLeft(s, 1)
+			continue
+		}
+		result = append(result, prefix)
+		s = truncateLeft(s, cut)
 	}
 	if ansi.StringWidth(s) > 0 {
 		result = append(result, s)
@@ -307,8 +316,8 @@ func scrollLeft(s string, n int) string {
 	return truncateLeft(s, n)
 }
 
-// truncateLeft removes the first n visible characters from an ANSI string,
-// preserving escape sequences that apply to remaining content.
+// truncateLeft removes the first n cells from an ANSI string, preserving escape sequences
+// that apply to remaining content. A wide character that starts before cell n is removed whole.
 func truncateLeft(s string, n int) string {
 	if n <= 0 {
 		return s
@@ -348,11 +357,12 @@ func truncateLeft(s string, n int) string {
 			continue
 		}
 
-		visibleCount++
-		if visibleCount > n {
-			result.WriteByte(b)
+		r, size := utf8.DecodeRuneInString(s[i:])
+		if visibleCount >= n {
+			result.WriteString(s[i : i+size])
 		}
-		i++
+		visibleCount += ansi.StringWidth(string(r))
+		i += size
 	}
 
 	return result.String()
