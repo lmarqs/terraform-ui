@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -123,5 +124,72 @@ func TestActivate_GivenMissingClassification_ShouldMarkGroupUnavailable(t *testi
 	p.ToggleExpand()
 	if view := p.View(100, 25); !strings.Contains(view, "[unavailable]") || !strings.Contains(view, "input_incomplete") {
 		t.Fatalf("missing classification=%q; want explicit incomplete input", view)
+	}
+}
+
+func TestActivate_GivenUnusableAssessment_ShouldShowFailureCodeAndHintOnBanner(t *testing.T) {
+	const hint = "the source changed after the plan; run plan again"
+	failedRow := sdk.PolicyAssessment{Status: sdk.AssessmentPartial, Resources: []sdk.PolicyResourceAssessment{
+		{Address: "aws_instance.a", Status: sdk.ResourceUnavailable, ErrorCode: sdk.ErrorResultInvalid},
+	}}
+	for _, tc := range []struct {
+		name       string
+		summary    *sdk.PlanSummary
+		assessment sdk.PolicyAssessment
+		hint       string
+		want       []string
+		notWant    []string
+	}{
+		{"global code with hint", blastSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceChanged}, hint,
+			[]string{"Blast radius unavailable: incomplete risk assessment (source_changed)", "hint: " + hint}, nil},
+		{"global code without hint", blastSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceChanged}, "",
+			[]string{"Blast radius unavailable: incomplete risk assessment (source_changed)"}, []string{"hint:"}},
+		{"empty plan with global code and hint", &sdk.PlanSummary{}, sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceChanged}, hint,
+			[]string{"Blast radius unavailable: incomplete risk assessment (source_changed)", "hint: " + hint}, nil},
+		{"failed row", blastSummary(), failedRow, "",
+			[]string{"Blast radius unavailable: incomplete risk assessment (result_invalid)"}, nil},
+		{"classified row without a level", blastSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentPartial, Resources: []sdk.PolicyResourceAssessment{{Address: "aws_instance.a", Status: sdk.ResourceClassified}}}, "",
+			[]string{"Blast radius unavailable: incomplete risk assessment  "}, []string{"assessment ("}},
+		{"row missing from the assessment", blastSummary(), sdk.PolicyAssessment{Status: sdk.AssessmentPartial}, "",
+			[]string{"Blast radius unavailable: incomplete risk assessment (input_incomplete)"}, nil},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p, h, _ := newBlastHarness(t, tc.summary, tc.assessment)
+			h.AssessmentEvent.Hint = tc.hint
+			runBlastCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: tc.summary}))
+			runBlastCmd(p, p.Activate())
+
+			view := ansi.Strip(p.View(120, 10))
+
+			for _, want := range tc.want {
+				if !strings.Contains(view, want) {
+					t.Errorf("view = %q; want %q", view, want)
+				}
+			}
+			for _, notWant := range tc.notWant {
+				if strings.Contains(view, notWant) {
+					t.Errorf("view = %q; want no %q", view, notWant)
+				}
+			}
+			if lines := strings.Count(view, "\n") + 1; lines > 10 {
+				t.Errorf("view has %d lines, want at most the height 10:\n%s", lines, view)
+			}
+		})
+	}
+}
+
+func TestHandleRiskAssessed_GivenRetryAfterFailureWithHint_ShouldDropTheHint(t *testing.T) {
+	summary := blastSummary()
+	p, h, _ := newBlastHarness(t, summary, sdk.PolicyAssessment{Status: sdk.AssessmentUnavailable, ErrorCode: sdk.ErrorSourceChanged})
+	h.AssessmentEvent.Hint = "run plan again"
+	runBlastCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+	runBlastCmd(p, p.Activate())
+	h.AssessmentEvent = classifiedEvent(summary, sdk.RiskLow, "Fresh classification.")
+
+	_, cmd := p.Update(ctrlR)
+	runBlastCmd(p, cmd)
+
+	if view := ansi.Strip(p.View(120, 10)); strings.Contains(view, "run plan again") || !strings.Contains(view, "Minimal blast radius") {
+		t.Fatalf("view after a successful retry = %q; want the result without the old hint", view)
 	}
 }

@@ -640,9 +640,10 @@ eligible mutations, retain action/count-only impact and label `Risk: not assesse
 unavailable input. If eligibility itself is uncertain, or any required classification is missing, mark that
 group's impact **unavailable**, retain counts/actions and available per-resource reasons, and suppress its numeric
 impact score. Never call the old formula with zero values standing in for missing risk. Other complete groups
-can retain their scores, but the overall banner reads `Blast radius unavailable: incomplete risk assessment`
-rather than a maximum over completed groups. List unavailable groups first, then existing score order for complete
-groups, address order to break ties. A global source/compile/evidence failure makes all affected groups unavailable.
+can retain their scores, but the overall banner reads `Blast radius unavailable: incomplete risk assessment`,
+followed by the failure's error code in parentheses and the host's hint on the next line, rather than a maximum
+over completed groups. List unavailable groups first, then existing score order for complete groups, address
+order to break ties. A global source/compile/evidence failure makes all affected groups unavailable.
 SDK-facing assessment values carry validity explicitly; no evaluator types cross the boundary.
 
 Regression examples: one custom-low database deletion yields minimal impact under existing arithmetic (no hidden

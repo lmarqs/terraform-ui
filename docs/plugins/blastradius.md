@@ -39,6 +39,11 @@ Press `B` to open the Blast Radius view. It requires a completed plan to analyze
 2. **Module rows** -- one per module, each with its change count, impact badge and add/change/destroy/replace counts
 3. **Expanded module** -- `Enter` lists the module's changes with their risk badges
 
+When the assessment is unusable, the summary line reads `Blast radius unavailable: incomplete risk assessment`
+followed by the error code in parentheses: the assessment's own code, else the code of the first failed change.
+A hint from the host for that code, such as how to recover from `source_changed`, appears on the line below.
+`Ctrl+r` requests the assessment again.
+
 ### Keybindings
 
 | Key | Action | When |

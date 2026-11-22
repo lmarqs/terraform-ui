@@ -62,13 +62,14 @@ func (e *Plugin) HandleRiskAssessed(ev sdk.RiskAssessedEvent) tea.Cmd {
 	}
 	e.timer.Stop()
 	e.setAssessment(&ev.Assessment)
+	e.hint = ev.Hint
 	e.analyzeAssessment()
 	return nil
 }
 
 // setAssessment keeps rows indexing the assessment's rows.
 func (e *Plugin) setAssessment(assessment *sdk.PolicyAssessment) {
-	e.assessment, e.rows = assessment, nil
+	e.assessment, e.rows, e.hint = assessment, nil, ""
 	e.resetView()
 	if assessment != nil {
 		e.rows = assessment.Rows()

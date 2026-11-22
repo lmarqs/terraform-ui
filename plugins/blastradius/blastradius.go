@@ -55,6 +55,7 @@ type Plugin struct {
 	summary     *sdk.PlanSummary
 	assessment  *sdk.PolicyAssessment
 	rows        sdk.AssessmentRows
+	hint        string
 	requestRisk func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
 	pending     sdk.AssessmentID
 	timer       ui.Timer
@@ -205,7 +206,10 @@ func (e *Plugin) View(width, height int) string {
 func (e *Plugin) renderBlastRadius(width, height int) string {
 	if len(e.modules) == 0 {
 		if !e.assessment.Usable() {
-			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment")
+			if e.hint != "" {
+				return sdk.StyleError.Render(e.unavailableBanner() + "\n\nhint: " + e.hint)
+			}
+			return sdk.StyleError.Render(e.unavailableBanner())
 		}
 		return sdk.StyleSuccess.Render("No changes. Blast radius is zero.")
 	}
@@ -225,9 +229,15 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 		}
 	}
 
-	// The summary and the blank line under it take two rows, unless the cursor's module
-	// is taller than what is left: it gets them, so its last line shows.
-	listHeight, header := height-2, ansi.Truncate(e.renderOverallSummary(), max(0, width), "")+"\n\n"
+	// The summary, the hint when the host gave one, and the blank line under them take
+	// their rows, unless the cursor's module is taller than what is left: it gets them,
+	// so its last line shows.
+	header := ansi.Truncate(e.renderOverallSummary(), max(0, width), "") + "\n"
+	if e.hint != "" {
+		header += ansi.Truncate(sdk.StyleError.Render("hint: "+e.hint), max(0, width), "") + "\n"
+	}
+	header += "\n"
+	listHeight := height - strings.Count(header, "\n")
 	if cursorEnd-cursor > listHeight {
 		listHeight, header = height, ""
 	}
@@ -238,12 +248,37 @@ func (e *Plugin) renderBlastRadius(width, height int) string {
 	return strings.Join(lines[:min(max(0, height), len(lines))], "\n")
 }
 
+// unavailableBanner names the code that made the assessment unusable.
+func (e *Plugin) unavailableBanner() string {
+	banner := "Blast radius unavailable: incomplete risk assessment"
+	if code := e.failureCode(); code != "" {
+		banner += " (" + string(code) + ")"
+	}
+	return banner
+}
+
+// failureCode is the assessment's global code, else the code of the first failed
+// change in the list's order.
+func (e *Plugin) failureCode() sdk.ErrorCode {
+	if e.assessment.ErrorCode != "" {
+		return e.assessment.ErrorCode
+	}
+	for _, m := range e.modules {
+		for _, change := range m.Group.Changes {
+			if code := e.resourceAssessment(change.Resource.InstanceKey()).ErrorCode; code != "" {
+				return code
+			}
+		}
+	}
+	return ""
+}
+
 func (e *Plugin) renderOverallSummary() string {
 	moduleCount := len(e.modules)
 	maxImpact := ImpactMinimal
 	for _, m := range e.modules {
 		if m.Unavailable {
-			return sdk.StyleError.Render("Blast radius unavailable: incomplete risk assessment") + "  " + sdk.StyleFaint.Render(fmt.Sprintf("%d module(s) affected, %d total change(s)", moduleCount, e.total))
+			return sdk.StyleError.Render(e.unavailableBanner()) + "  " + sdk.StyleFaint.Render(fmt.Sprintf("%d module(s) affected, %d total change(s)", moduleCount, e.total))
 		}
 		if m.Score > maxImpact {
 			maxImpact = m.Score
