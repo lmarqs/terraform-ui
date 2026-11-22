@@ -80,8 +80,11 @@ tfui -plan ./plan.json -state ./state.json -macro ./apply.tape -terraform-bin to
 # Preview what would run
 tfui -plan ./plan.json -state ./state.json -macro ./taint.tape
 # stdout:
-# terraform taint aws_instance.web
+# terraform -chdir=/work/project taint aws_instance.web
 ```
+
+Every recorded command carries `-chdir=<dir>` right after the binary, where `<dir>` is the directory terraform
+runs in: the `-chdir` member, else the `basedir`, else the `-project` directory.
 
 ## Safety
 

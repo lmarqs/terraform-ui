@@ -103,7 +103,9 @@ type ContextChangedHandler interface {
 // be dispatched, so the ID serves only to identify the run. Host request IDs grow
 // with every request, so it orders the plan against other plans and against
 // invalidations: the App also drops the event when a newer plan's completion, a
-// plan invalidation or a Context change came after that request.
+// plan invalidation or a Context change came after that request. The one
+// Context change that does not count is the unpin of addresses the plan no
+// longer changes, which the App makes itself before dispatching the event.
 type PlanCompletedEvent struct {
 	Context       *Context
 	Request       AssessmentID
@@ -119,7 +121,9 @@ type PlanInvalidatedEvent struct{}
 func (PlanInvalidatedEvent) event() {}
 
 // AssessmentID identifies one PluginDeps.RequestAssessment call. The host never
-// reuses one; zero identifies no request.
+// reuses one, and issues them from one counter shared with PlanRequestID, so a
+// later request always has the greater ID. The host never issues zero, and the App
+// does not special-case it.
 type AssessmentID uint64
 
 // RiskAssessedEvent carries the result of PluginDeps.RequestAssessment. Every
@@ -141,7 +145,8 @@ type RiskAssessedEvent struct {
 func (RiskAssessedEvent) event() {}
 
 // PlanRequestID identifies one PluginDeps.RequestPlan call. The host never
-// reuses one; zero identifies no request.
+// reuses one, and issues them from the counter it shares with AssessmentID, so a
+// later request always has the greater ID. The host never issues zero.
 type PlanRequestID uint64
 
 // PlanFetchedEvent carries the result of PluginDeps.RequestPlan: the plan the

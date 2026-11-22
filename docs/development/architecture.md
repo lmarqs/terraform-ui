@@ -440,7 +440,7 @@ User presses 'space' on resources → deps.Pin(...) → Context replaced with th
   → the next plan runs with -target for each pin
 
 User presses 'a' (or 'A' to auto-approve) → Plan emits ApplyRequestMsg{PlanFile, Request, AutoApprove}
-  → App drops it if the plan went stale since (a pin change other than the plan's own unpin, or an invalidation)
+  → App drops it if the plan went stale since (a pin change other than the plan's own unpin, an invalidation, or a newer plan completion)
   → App pushes plan onto navStack and activates Apply with the plan file
   → Apply shows the confirmation (skipped on AutoApprove)
 

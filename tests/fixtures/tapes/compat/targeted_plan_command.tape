@@ -12,8 +12,8 @@
 #   - Pin aws_instance.web (first resource in list)
 #   - Press 'a' to initiate apply
 #   - Single confirmation: "Are you sure"
-#   - stdout includes "terraform plan -target=aws_instance.web"
-#   - stdout includes "terraform apply <planfile>" (no -target=)
+#   - stdout includes "terraform -chdir=<dir> plan -target=aws_instance.web"
+#   - stdout includes "terraform -chdir=<dir> apply <planfile>" (no -target=)
 
 wait ready
 key p

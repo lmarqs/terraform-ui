@@ -479,7 +479,8 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tfuiplan.ApplyRequestMsg:
 		if !a.planCurrent(msg.Request) {
-			// Plan marked the plan stale too, so the user's next A replans.
+			// A pin change or invalidation also marked the plan stale in Plan, so the
+			// user's next A replans; a newer completion leaves Plan showing the newer plan.
 			logging.Logger().Debug("apply.stale_plan", "plan", msg.PlanFile)
 			return a, nil
 		}

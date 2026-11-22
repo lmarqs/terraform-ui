@@ -11,7 +11,7 @@
 #   - Navigate to plan, then trigger apply
 #   - First confirmation asks "Apply plan (2 changes)?"
 #   - Second confirmation warns "Are you sure you want to apply these changes?"
-#   - The emitted command should be "terraform apply"
+#   - The emitted command should be "terraform -chdir=<dir> apply"
 
 wait ready
 key p

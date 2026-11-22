@@ -1011,7 +1011,8 @@ type PlanEditMsg struct {
 // short-circuits the confirmation prompt when true. Lock and LockTimeout are
 // the per-run overrides the plan ran with, so the apply locks state the same way.
 // Request identifies the plan run as its PlanCompletedEvent did: the App starts
-// no Apply once that plan is no longer current.
+// no Apply once that plan is no longer current, which a pin change other than the
+// plan's own unpin, a plan invalidation or a newer plan completion causes.
 type ApplyRequestMsg struct {
 	PlanFile    string
 	Request     sdk.AssessmentID
