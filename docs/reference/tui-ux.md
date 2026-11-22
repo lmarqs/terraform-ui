@@ -598,8 +598,11 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 
 ## 14. Performance
 
-- Virtual scrolling: the panel draws only the visible window. A list builds every row's text each frame, since with
-  wrap on only the panel knows which rows fit, so building one row must cost O(1), as a tree row's lookup does
+- Virtual scrolling: the panel draws only the visible window, but a list builds every row's text each frame, since
+  with wrap on only the panel knows which rows fit. A row's cost must not depend on the rows around it: the tree
+  stores each row's connector columns when it flattens, so rendering does not search for a row's ancestors. Measured
+  for the State list, `View(120, 40)` with every row built: 20,000 resources take about 4 ms in one expanded module,
+  6 ms in a balanced expanded tree and 2 ms flat (`BenchmarkRenderRows_*` in `pkg/sdk/ui/tree` covers the tree alone)
 - Tree flatten: O(visible nodes), not O(all nodes)
 - Filter: runs on every keystroke, with no debounce
 - State load: show elapsed time indicator after 2s

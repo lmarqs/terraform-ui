@@ -179,59 +179,8 @@ func (t *Tree) buildConnectors(node *Node) string {
 	if node.Depth == 0 {
 		return ""
 	}
-
-	var connector string
 	if node.IsLast {
-		connector = "└─"
-	} else {
-		connector = "├─"
+		return node.prefix + "└─"
 	}
-
-	ancestors := t.getAncestorContinuations(node)
-	var prefix strings.Builder
-	for i := 0; i < node.Depth-1; i++ {
-		if i < len(ancestors) && ancestors[i] {
-			prefix.WriteString("│ ")
-		} else {
-			prefix.WriteString("  ")
-		}
-	}
-
-	return prefix.String() + connector
-}
-
-// getAncestorContinuations determines which ancestor levels have continuing siblings.
-func (t *Tree) getAncestorContinuations(node *Node) []bool {
-	result := make([]bool, node.Depth)
-	idx := t.indexOf(node)
-	// For each ancestor depth level, walk backwards to find the ancestor node
-	// and check if it's NOT the last child (meaning the vertical line continues).
-	for d := 0; d < node.Depth; d++ {
-		for i := idx - 1; i >= 0; i-- {
-			n := t.flattened[i]
-			if n.Depth == d {
-				result[d] = !n.IsLast
-				break
-			}
-			if n.Depth < d {
-				break
-			}
-		}
-	}
-	return result
-}
-
-// indexOf finds node in the flattened rows. Every row is looked up once per render, and
-// lists render every row, so a scan per row would be quadratic.
-func (t *Tree) indexOf(node *Node) int {
-	if t.indices == nil {
-		t.indices = make(map[*Node]int, len(t.flattened))
-		for i, n := range t.flattened {
-			t.indices[n] = i
-		}
-	}
-	if i, ok := t.indices[node]; ok {
-		return i
-	}
-	return -1
+	return node.prefix + "├─"
 }

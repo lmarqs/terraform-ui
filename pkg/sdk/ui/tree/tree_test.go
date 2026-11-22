@@ -1792,23 +1792,6 @@ func TestBuildConnectors_WhenDepthIsZero_ShouldReturnEmpty(t *testing.T) {
 	}
 }
 
-func TestIndexOf_WhenNodeNotInFlattened_ShouldReturnNegativeOne(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.main"},
-	}
-	tr := New(items)
-
-	fakeNode := &Node{
-		Kind:  KindLeaf,
-		Label: "fake",
-		Item:  testItem{"fake.path"},
-	}
-	idx := tr.indexOf(fakeNode)
-	if idx != -1 {
-		t.Fatalf("expected -1 for node not in tree, got %d", idx)
-	}
-}
-
 func TestMoveToEnd_WhenTreeIsEmpty_ShouldNotPanic(t *testing.T) {
 	tr := New([]Item{})
 	tr.MoveToEnd()
@@ -2077,31 +2060,6 @@ func TestViewOffset_WhenViewOffsetExceedsMaxAfterShrink_ShouldClamp(t *testing.T
 	}
 }
 
-func TestGetAncestorContinuations_DepthLessThanDBreak(t *testing.T) {
-	// The n.Depth < d break in getAncestorContinuations is a defensive guard
-	// that fires when walking backwards we hit a node at a shallower depth than
-	// what we're searching for. We exercise it by manipulating flattened directly.
-	items := []Item{
-		testItem{"module.a.module.b.aws_instance.one"},
-	}
-	tr := New(items)
-	tr.ExpandAll()
-
-	// Inject a fake node into flattened that creates a depth gap.
-	// Insert a depth-0 node just before a depth-2 leaf to force the break.
-	fakeShallow := &Node{Kind: KindBranch, Label: "fake", ModulePath: "fake", Depth: 0, IsLast: false}
-	deepLeaf := &Node{Kind: KindLeaf, Label: "test", Item: testItem{"test.leaf"}, Depth: 3, IsLast: true}
-
-	tr.flattened = append(tr.flattened, fakeShallow, deepLeaf)
-
-	// Call getAncestorContinuations on deepLeaf (depth 3)
-	// Walking back from deepLeaf's idx, for d=2, we'll hit fakeShallow (depth 0) which is < 2
-	result := tr.getAncestorContinuations(deepLeaf)
-	if len(result) != 3 {
-		t.Fatalf("expected 3 depth levels, got %d", len(result))
-	}
-}
-
 func TestRenderRows_WhenTreeIsEmpty_ShouldReturnNil(t *testing.T) {
 	tr := New([]Item{})
 	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 5})
@@ -2218,5 +2176,39 @@ func TestRenderRows_WhenHeightExceedsItems_ShouldReturnAllRows(t *testing.T) {
 	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 100})
 	if len(rows) != 2 {
 		t.Fatalf("expected 2 rows when height exceeds item count, got %d", len(rows))
+	}
+}
+
+// --- Benchmarks ---
+
+// benchmarkRenderAllRows renders every row of an expanded tree, as a list that windows
+// through ContentPanel.RenderWindow does each frame.
+func benchmarkRenderAllRows(b *testing.B, addr func(i int) string, n int) {
+	items := make([]Item, n)
+	for i := range items {
+		items[i] = testItem{addr(i)}
+	}
+	tr := New(items)
+	tr.ExpandAll()
+	for b.Loop() {
+		tr.RenderRows(RenderOpts{})
+	}
+}
+
+func BenchmarkRenderRows_OneModuleWithManyLeaves(b *testing.B) {
+	for _, n := range []int{1000, 5000, 20000} {
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			benchmarkRenderAllRows(b, func(i int) string { return fmt.Sprintf("module.app.aws_instance.r%d", i) }, n)
+		})
+	}
+}
+
+func BenchmarkRenderRows_Balanced(b *testing.B) {
+	for _, n := range []int{1000, 5000, 20000} {
+		b.Run(fmt.Sprint(n), func(b *testing.B) {
+			benchmarkRenderAllRows(b, func(i int) string {
+				return fmt.Sprintf("module.m%d.module.n%d.aws_instance.r%d", i%50, i%7, i)
+			}, n)
+		})
 	}
 }

@@ -42,6 +42,10 @@ type Node struct {
 	// row can answer questions about its descendants without being re-located
 	// by path.
 	branch *treeNode
+	// prefix is the connector columns left of the row's own connector: "│ " under each
+	// ancestor, its parent excepted, that has a later sibling, and "  " under one that does
+	// not. flatten sets it so a render never searches for the ancestors.
+	prefix string
 }
 
 // Address returns the resource address of a leaf row, taken from the Item the
@@ -60,7 +64,6 @@ func (n *Node) Address() string {
 type Tree struct {
 	root          *treeNode
 	flattened     []*Node
-	indices       map[*Node]int // flattened's index of each row, built on first lookup
 	cursor        int
 	viewOffset    int
 	expanded      map[string]bool
@@ -169,8 +172,7 @@ func (t *Tree) countLeaves(node *treeNode) int {
 
 func (t *Tree) flatten() {
 	t.flattened = t.flattened[:0]
-	t.indices = nil
-	t.walkChildren(t.root, 0)
+	t.walkChildren(t.root, 0, "", "")
 	if t.cursor >= len(t.flattened) {
 		t.cursor = len(t.flattened) - 1
 	}
@@ -179,7 +181,9 @@ func (t *Tree) flatten() {
 	}
 }
 
-func (t *Tree) walkChildren(node *treeNode, depth int) {
+// walkChildren appends node's children at depth. prefix is their connector columns, and
+// below is the columns of their children's: prefix plus the column under node.
+func (t *Tree) walkChildren(node *treeNode, depth int, prefix, below string) {
 	totalChildren := len(node.children) + len(node.items)
 	idx := 0
 
@@ -196,9 +200,10 @@ func (t *Tree) walkChildren(node *treeNode, depth int) {
 			Count:      t.countLeaves(child),
 			IsLast:     isLast,
 			branch:     child,
+			prefix:     prefix,
 		})
 		if expanded {
-			t.walkChildren(child, depth+1)
+			t.walkChildren(child, depth+1, below, below+continuation(isLast))
 		}
 	}
 
@@ -211,8 +216,17 @@ func (t *Tree) walkChildren(node *treeNode, depth int) {
 			Depth:  depth,
 			IsLast: isLast,
 			Item:   item,
+			prefix: prefix,
 		})
 	}
+}
+
+// continuation is the connector column under a row: a line while the row has a later sibling.
+func continuation(isLast bool) string {
+	if isLast {
+		return "  "
+	}
+	return "│ "
 }
 
 func leafLabel(address string, splitFn func(string) []string) string {
