@@ -49,7 +49,7 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `←` / `→` | Horizontal pan | List & detail |
 | `Ctrl+w` | Toggle line wrap | List & detail |
 | `a` | Apply (replans if pins changed, then confirms) | List |
-| `A` | Auto-approve (apply immediately, no confirmation) | List |
+| `A` | Auto-approve (apply immediately, no confirmation). After a pin change it replans and shows the new plan without applying; press `A` again on that plan | List |
 | `t` | Taint -- navigates to taint plugin | List |
 | `T` | Untaint -- navigates to untaint plugin | List |
 | `e` | Edit in $EDITOR | List & detail |

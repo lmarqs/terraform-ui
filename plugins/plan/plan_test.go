@@ -1873,42 +1873,43 @@ func TestPlugin_WhenRequestApply_WhileStale_ShouldReplanAndDeferApply(t *testing
 	}
 }
 
-func TestPlugin_WhenRequestAutoApply_WhileStale_ShouldPropagateAutoApprove(t *testing.T) {
-	svc := &sdktest.MockService{
-		PlanFn: func(_ context.Context, _ sdk.PlanOptions) (*sdk.PlanSummary, error) {
-			return &sdk.PlanSummary{
-				Changes: []sdk.PlanChange{
-					{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate},
-				},
-			}, nil
-		},
-	}
-	p := newTestPlugin(svc)
+// TestPlugin_WhenRequestAutoApply_WhileStale_ShouldReplanAndShowWithoutApplying
+// guards #176: the replan after a pin change shows a plan the user has not
+// reviewed, so it must not apply until a fresh A on that plan.
+func TestPlugin_WhenRequestAutoApply_WhileStale_ShouldReplanAndShowWithoutApplying(t *testing.T) {
+	changes := []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}}
+	p := newTestPlugin(&sdktest.MockService{})
 	p.status = sdk.StatusDone
 	p.stale = true
 	p.planFile = sdk.NewTempPlanFile("/tmp/tfui-stale.tfplan")
-	p.summary = &sdk.PlanSummary{
-		Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}},
-	}
+	p.summary = &sdk.PlanSummary{Changes: changes}
 
-	if cmd := p.requestAutoApply(); cmd == nil {
+	cmd := p.requestAutoApply()
+	if cmd == nil {
 		t.Fatal("requestAutoApply() while stale returned nil cmd, want replan batch")
 	}
-	if !p.pendingApply || !p.pendingAutoApprove {
-		t.Errorf("pending flags = (%v, %v), want both true", p.pendingApply, p.pendingAutoApprove)
+	if p.status != sdk.StatusLoading {
+		t.Errorf("status = %v after requestAutoApply while stale, want Loading", p.status)
+	}
+	if p.pendingApply {
+		t.Error("pendingApply = true, want false: the replan must not carry the apply intent")
 	}
 
-	_, doneCmd := p.Update(PlanResultMsg{
-		Summary: &sdk.PlanSummary{
-			Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}},
-		},
-	})
-	req := findApplyRequest(doneCmd)
-	if req == nil {
-		t.Fatal("ApplyRequestMsg not emitted after deferred auto-apply replan succeeded")
+	_, doneCmd := p.Update(PlanResultMsg{Summary: &sdk.PlanSummary{Changes: changes}})
+	if req := findApplyRequest(doneCmd); req != nil {
+		t.Fatalf("ApplyRequestMsg %+v emitted after the replan, want the new plan shown without applying", *req)
 	}
-	if !req.AutoApprove {
-		t.Error("ApplyRequestMsg.AutoApprove = false, want true (deferred auto-apply)")
+	if p.status != sdk.StatusDone {
+		t.Errorf("status = %v after replan, want Done", p.status)
+	}
+
+	planPath := p.planFile.Path()
+	req := findApplyRequest(p.requestAutoApply())
+	if req == nil {
+		t.Fatal("fresh requestAutoApply() on the replanned plan emitted no ApplyRequestMsg")
+	}
+	if !req.AutoApprove || req.PlanFile != planPath {
+		t.Errorf("ApplyRequestMsg = {AutoApprove: %v, PlanFile: %q}, want {true, %q}", req.AutoApprove, req.PlanFile, planPath)
 	}
 }
 
@@ -1926,7 +1927,6 @@ func TestPlugin_WhenApplyRequested_ShouldCarryInputLockOverrides(t *testing.T) {
 		{name: "fresh plan with overrides", input: overrides},
 		{name: "fresh plan auto-approve with overrides", input: overrides, autoApprove: true},
 		{name: "deferred replan with overrides", input: overrides, stale: true},
-		{name: "deferred replan auto-approve with overrides", input: overrides, stale: true, autoApprove: true},
 		{name: "fresh plan without overrides", input: Input{}},
 		{name: "deferred replan without overrides", input: Input{}, stale: true},
 	}
@@ -2012,13 +2012,11 @@ func TestPlugin_WhenCancelWhilePendingApply_ShouldDropIntent(t *testing.T) {
 	p := newTestPlugin(svc)
 	p.status = sdk.StatusLoading
 	p.pendingApply = true
-	p.pendingAutoApprove = true
 
 	p.Cancel()
 
-	if p.pendingApply || p.pendingAutoApprove {
-		t.Errorf("after Cancel pending flags = (%v, %v), want both cleared",
-			p.pendingApply, p.pendingAutoApprove)
+	if p.pendingApply {
+		t.Error("pendingApply still true after Cancel, want cleared")
 	}
 }
 

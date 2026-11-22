@@ -89,11 +89,10 @@ type Plugin struct {
 	lastStream   *frames.StreamFrame // retained for L key re-display after success
 	streamCh     <-chan string       // stored so callers can batch WaitForLine separately
 	planFile     sdk.PlanFile        // plan artifact produced by the most recent run
-	// pendingApply records that the user pressed `a`/`A` against a stale plan;
+	// pendingApply records that the user pressed `a` against a stale plan;
 	// the apply intent is held until the in-flight replan succeeds. Cleared on
 	// any cancel path so an aborted replan never silently fires apply later.
-	pendingApply       bool
-	pendingAutoApprove bool
+	pendingApply bool
 	// detail view state
 	detail        string
 	detailAddr    string
@@ -492,8 +491,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			// Fire the deferred apply only when the replan produced changes. If
 			// it ended up clean (zero changes), there is nothing to apply.
 			if e.pendingApply && changes > 0 && planFilePath != "" {
-				autoApprove := e.pendingAutoApprove
-				req := e.applyRequest(planFilePath, autoApprove)
+				req := e.applyRequest(planFilePath, false)
 				cmds = append(cmds, func() tea.Msg { return req })
 			}
 			e.clearPendingApply()
@@ -1129,7 +1127,8 @@ func plainActionSymbol(action sdk.Action) string {
 // If the plugin is stale (pins changed since last plan, or the plan was
 // invalidated by a state-mutating op), it instead replans first and defers
 // the apply until the replan succeeds — Plan owns all planning (CONTEXT.md,
-// ADR-0019).
+// ADR-0019). requestAutoApply replans the same way but drops the apply, so the
+// user reviews the new plan first.
 func (e *Plugin) requestApply() tea.Cmd {
 	return e.applyOrReplan(false)
 }
@@ -1144,9 +1143,14 @@ func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
 		req := e.applyRequest(path, autoApprove)
 		return func() tea.Msg { return req }
 	}
+	if autoApprove {
+		// The replan shows a plan the user has not reviewed: auto-approve ends
+		// here and a fresh A on the new plan applies it.
+		e.Log.Debug("plan.autoapply.replan")
+		return e.startReplan()
+	}
 	e.pendingApply = true
-	e.pendingAutoApprove = autoApprove
-	e.Log.Debug("plan.apply.deferred", "auto_approve", autoApprove)
+	e.Log.Debug("plan.apply.deferred")
 	return e.startReplan()
 }
 
@@ -1154,6 +1158,7 @@ func (e *Plugin) applyOrReplan(autoApprove bool) tea.Cmd {
 // behavior so the StreamFrame appears the same way as an explicit ctrl+r
 // replan. Used both by Refresh and by the implicit replan-before-apply path.
 func (e *Plugin) startReplan() tea.Cmd {
+	e.stale = false
 	e.status = sdk.StatusLoading
 	e.assessment = nil
 	e.rows = nil
@@ -1179,5 +1184,4 @@ func (e *Plugin) startReplan() tea.Cmd {
 // fire apply later.
 func (e *Plugin) clearPendingApply() {
 	e.pendingApply = false
-	e.pendingAutoApprove = false
 }
