@@ -49,7 +49,7 @@ US-004 only edits an issue and runs no gates.
 |----|--------|---------|---------------------------|
 | H | `fix/blastradius-cold-open-main` | US-013 | `Part of #76` |
 | U | `docs/regenerate-analysis-gifs` | US-027 | `Closes #76` |
-| T | `feat/root-target-pins` | US-026 | `Closes #32` |
+| T | `feat/root-target-pins-main` | US-026 | `Closes #32` |
 
 **Order and dependencies**
 
@@ -101,10 +101,10 @@ US-004 only edits an issue and runs no gates.
 
 **Description:** As a TUI user, I want `tfui -target <address>` to start with those resources pinned, so that I do not pin them by hand each session.
 
-**Evidence:** `-target` exists only on the plan and apply subcommands (`cmd/tfui/plan_command.go`, `apply_command.go`), not on root (`cmd/tfui/root.go` has no `target` flag). `startupContext` in `internal/ui/app.go` starts with no pins. `WithPins` and `TogglePins` exist.
+**Evidence:** On `main`, `-target` exists only on the plan and apply subcommands (`cmd/tfui/plan_command.go`, `apply_command.go`), not on root (`cmd/tfui/root.go` has no `target` flag). The feature was written and reviewed in PR #175, but #175 merged into `feat/dry-run-recording` after that branch had already merged, so it never reached `main`. Its 16 commits (`6d4b4ec7` to `8e1d8ae6`, merge `40309cf3`; 13 files, +584 −11) are only on `origin/feat/dry-run-recording`. #176 was found by the Codex review of #175 and is a separate issue.
 
 **Acceptance Criteria:**
-- [ ] The issue is moved to Todo before the work starts.
+- [ ] The 16 commits are cherry-picked onto a branch from `origin/main`, with conflicts resolved against the current code.
 - [ ] Tests fail before the change: the root command accepts repeated `-target`, and the startup Context carries those addresses as pins.
 - [ ] Pins stay pins. They are not sent as terraform targets unless the user acts on them, which follows the pins-versus-targets rule in `CONTEXT.md` and ADR-0019.
 - [ ] A macro tape starts with `-target` and asserts the pinned marker on that row.
