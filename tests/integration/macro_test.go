@@ -110,6 +110,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "one q after a plan run leaves Plan",
+			tapeFile: tape("plan_quit.tape"),
+			args:     []string{"-plan", planFixture},
+			wantExit: 0,
+		},
+		{
 			name:       "screenshot writes file",
 			tapeFile:   tape("screenshot.tape"),
 			args:       []string{"-plan", planFixture},

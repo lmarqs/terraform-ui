@@ -285,9 +285,15 @@ func (e *Plugin) Cancel() {
 		e.timer.Stop()
 		e.status = sdk.StatusError
 		e.errMsg = "cancelled"
-		e.stack.Clear()
-		e.stack.Push(&listFrame{plugin: e})
+		e.showList()
 	}
+}
+
+// showList leaves the list frame as the only frame. Stack.Clear keeps the root,
+// which is already a list frame, so pushing another would take two q presses to leave Plan.
+func (e *Plugin) showList() {
+	e.stack.Reset()
+	e.stack.Push(&listFrame{plugin: e})
 }
 
 // cancelInflight aborts the current terraform plan goroutine without
@@ -328,8 +334,7 @@ func (e *Plugin) runPlan() tea.Cmd {
 	opts.PlanFile = e.allocPlanFile()
 
 	if e.input.JSON {
-		e.stack.Clear()
-		e.stack.Push(&listFrame{plugin: e})
+		e.showList()
 		return func() tea.Msg {
 			data, err := svc.PlanJSON(ctx, opts)
 			return planJSONMsg{Data: data, Err: err, run: ctx}
@@ -410,13 +415,11 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.Log.Debug("plan.error", "error", msg.Err.Error())
-			e.stack.Clear()
-			e.stack.Push(&listFrame{plugin: e})
+			e.showList()
 			return e, nil
 		}
 		e.jsonBytes = msg.Data
-		e.stack.Clear()
-		e.stack.Push(&listFrame{plugin: e})
+		e.showList()
 		// The document still reaches stdout verbatim, but a count we cannot read
 		// is not a clean plan — reporting the failure beats exiting 0 on a guess.
 		changes, err := sdk.PlanJSONChangeCount(msg.Data)
@@ -443,8 +446,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.errMsg = msg.Err.Error()
 			e.lockInfo = sdk.ParseLockError(e.errMsg)
 			e.Log.Debug("plan.error", "error", msg.Err.Error())
-			e.stack.Clear()
-			e.stack.Push(&listFrame{plugin: e})
+			e.showList()
 			if e.lockInfo != nil {
 				return e, func() tea.Msg { return sdk.LockDetectedEvent{Lock: e.lockInfo} }
 			}
@@ -462,8 +464,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 				e.rebuildTree()
 			}
 			// Pop the StreamFrame and restore the list frame so the tree is shown.
-			e.stack.Clear()
-			e.stack.Push(&listFrame{plugin: e})
+			e.showList()
 
 			changes := 0
 			if msg.Summary != nil {

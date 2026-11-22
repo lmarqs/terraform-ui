@@ -3118,3 +3118,63 @@ func TestActivate_GivenAPriorPlanFile_WhenReplanning_ShouldRemoveOnlySupersededT
 		})
 	}
 }
+
+// TestPlugin_WhenRunSettles_ShouldKeepASingleListFrame guards the q-leaves-Plan
+// contract: the stack root is the list frame, so a second list frame on top
+// makes the first q a no-op that only drops the duplicate.
+func TestPlugin_WhenRunSettles_ShouldKeepASingleListFrame(t *testing.T) {
+	changes := []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}, Action: sdk.ActionCreate}}
+	tests := []struct {
+		name string
+		json bool
+		step func(p *Plugin)
+	}{
+		{
+			name: "plan completed",
+			step: func(p *Plugin) { p.Update(PlanResultMsg{Summary: &sdk.PlanSummary{Changes: changes}}) },
+		},
+		{
+			name: "plan failed",
+			step: func(p *Plugin) { p.Update(PlanResultMsg{Err: errors.New("boom")}) },
+		},
+		{
+			name: "plan cancelled",
+			step: func(p *Plugin) { p.Cancel() },
+		},
+		{
+			name: "json run started",
+			json: true,
+			step: func(*Plugin) {},
+		},
+		{
+			name: "json completed",
+			json: true,
+			step: func(p *Plugin) { p.Update(planJSONMsg{Data: []byte(`{"resource_changes":[]}`)}) },
+		},
+		{
+			name: "json failed",
+			json: true,
+			step: func(p *Plugin) { p.Update(planJSONMsg{Err: errors.New("boom")}) },
+		},
+		{
+			name: "json unreadable",
+			json: true,
+			step: func(p *Plugin) { p.Update(planJSONMsg{Data: []byte("not json")}) },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := newTestPlugin(&sdktest.MockService{})
+			p.Activate(Input{JSON: tt.json})
+			tt.step(p)
+
+			if got := p.Stack().Depth(); got != 1 {
+				t.Errorf("Stack().Depth() = %d, want 1", got)
+			}
+			if id := p.Stack().Peek().ID(); id != "list" {
+				t.Errorf("top frame = %q, want list", id)
+			}
+		})
+	}
+}
