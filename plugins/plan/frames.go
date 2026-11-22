@@ -1,8 +1,6 @@
 package plan
 
 import (
-	"slices"
-
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/frames"
@@ -151,24 +149,20 @@ func (f *listFrame) View(width, height int) string {
 }
 
 func (f *listFrame) Hints() []sdk.KeyHint {
-	hints := f.statusHints()
-	if f.plugin.refreshable() {
-		return hints
+	var withheld sdk.HintSet
+	if !f.plugin.refreshable() {
+		withheld = sdk.HintSetRefresh | sdk.HintSetRetry
 	}
-	return slices.DeleteFunc(hints, func(h sdk.KeyHint) bool { return h.Key == "^r" })
-}
-
-func (f *listFrame) statusHints() []sdk.KeyHint {
 	switch f.plugin.status {
 	case sdk.StatusIdle:
 		return (sdk.HintSetConfirm | sdk.HintSetQuit).Hints()
 	case sdk.StatusLoading:
 		return (sdk.HintSetQuit).Hints()
 	case sdk.StatusError:
-		return (sdk.HintSetRetry | sdk.HintSetQuit).Hints()
+		return ((sdk.HintSetRetry | sdk.HintSetQuit) &^ withheld).Hints()
 	case sdk.StatusDone:
 		if f.plugin.summary == nil || len(f.plugin.summary.Changes) == 0 {
-			hints := (sdk.HintSetRefresh | sdk.HintSetQuit).Hints()
+			hints := ((sdk.HintSetRefresh | sdk.HintSetQuit) &^ withheld).Hints()
 			if f.plugin.lastStream != nil {
 				hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
 			}
@@ -181,7 +175,7 @@ func (f *listFrame) statusHints() []sdk.KeyHint {
 		if f.plugin.PinnedCount() > 0 {
 			set |= sdk.HintSetClearPins
 		}
-		hints := set.Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listPanel.WrapMode(), PinnedFilter: f.plugin.pinnedOnly})
+		hints := (set &^ withheld).Hints(sdk.HintSetOpts{TreeMode: f.plugin.treeMode, WrapMode: f.plugin.listPanel.WrapMode(), PinnedFilter: f.plugin.pinnedOnly})
 		if f.plugin.lastStream != nil {
 			hints = append(hints, sdk.KeyHint{Key: "l", Description: "log"})
 		}

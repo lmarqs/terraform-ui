@@ -149,16 +149,20 @@ func (c *ServiceCache) ReloadPlan() (*sdk.PlanSummary, bool, error) {
 	if c.planSource.kind != sourceFile {
 		return c.plan, true, nil
 	}
-	raw, err := os.ReadFile(c.planSource.filePath)
-	if err != nil {
-		return c.plan, true, fmt.Errorf("reading plan file: %w", err)
-	}
-	plan, err := LoadPlan(raw)
+	plan, err := readPlanFile(c.planSource.filePath)
 	if err != nil {
 		return c.plan, true, err
 	}
 	c.plan = plan
 	return plan, true, nil
+}
+
+func readPlanFile(path string) (*sdk.PlanSummary, error) {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("reading plan file: %w", err)
+	}
+	return LoadPlan(raw)
 }
 
 // PlanSnapshot reports whether the plan was seeded from stdin and so cannot be read again.
@@ -301,13 +305,7 @@ func (c *ServiceCache) invalidatePlan() {
 		c.plan = nil
 		c.planSource = cacheSource{kind: sourceNone}
 	case sourceFile:
-		raw, err := os.ReadFile(c.planSource.filePath)
-		if err != nil {
-			c.plan = nil
-			c.planSource = cacheSource{kind: sourceNone}
-			return
-		}
-		plan, err := LoadPlan(raw)
+		plan, err := readPlanFile(c.planSource.filePath)
 		if err != nil {
 			c.plan = nil
 			c.planSource = cacheSource{kind: sourceNone}

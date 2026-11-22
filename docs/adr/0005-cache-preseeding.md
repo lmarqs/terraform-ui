@@ -14,7 +14,7 @@ audience: "Contributors changing input flags or the service cache"
 
 When the user provides `-plan` or `-state` at startup, the data is loaded into the global state (ServiceCache) before the service is created. The remaining lifecycle is identical -- plugins are unaware of whether data came from pre-seeding or a live terraform call.
 
-Pre-seeding is simply how initial state arrives. Plugins should never branch on "was this pre-seeded?" -- they read from the single source of truth and behave identically regardless of origin.
+Pre-seeding is simply how initial state arrives. Plugins should never branch on "was this pre-seeded?" -- they read from the single source of truth and behave identically regardless of origin. The one exception is in Consequences.
 
 Macro mode (MacroService) is a separate, orthogonal concept -- it records commands instead of executing them. It is not "read-only" either; it's a different runtime strategy (see ADR-0002).
 
