@@ -156,7 +156,8 @@ Plugins are:
 `ContextChangedHandler`. `WithPins` and `TogglePins` return a fresh snapshot.
 
 Pins are the UI selection; targets are terraform's `-target=` flags. The boundary is `Context.PlanOptions()`, which
-sets `Targets` from `Pins`. `Context.ApplyOptions()` carries no targets, because apply runs a saved plan file
+sets `Targets` from `Pins`; `PlanOptions.WithDefaultTargets` then falls back to Plan's configured `targets` when
+nothing is selected, the one rule every plan tfui runs for the user applies. `Context.ApplyOptions()` carries no targets, because apply runs a saved plan file
 ([ADR-0019](../adr/0019-unidirectional-data-flow.md)). Pins are always resource addresses: a tree row resolves to them
 through `Tree.PinAddresses(node)` in `pkg/sdk/ui/tree/` (a leaf gives its own address, a branch every descendant leaf), and the tree keeps no
 pin state of its own, so a row cannot disagree with the Context.

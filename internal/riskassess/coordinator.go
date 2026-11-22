@@ -164,7 +164,7 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 			event.Assessment = c.assess(ctx, policy, sdk.PolicyEvidence{})
 			return event
 		}
-		event.Summary, event.Err = planForAssessment(ctx, current)
+		event.Summary, event.Err = planForAssessment(ctx, current, sdk.ConfigStrings(c.cfg.Plugins["plan"].Options, "targets", nil))
 		if event.Err != nil {
 			return event
 		}
@@ -173,7 +173,7 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 	return event
 }
 
-func planForAssessment(ctx context.Context, current *sdk.Context) (*sdk.PlanSummary, error) {
+func planForAssessment(ctx context.Context, current *sdk.Context, defaultTargets []string) (*sdk.PlanSummary, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func planForAssessment(ctx context.Context, current *sdk.Context) (*sdk.PlanSumm
 		return nil, err
 	}
 	defer func() { _ = os.RemoveAll(dir) }()
-	opts := current.PlanOptions()
+	opts := current.PlanOptions().WithDefaultTargets(defaultTargets)
 	opts.PlanFile = filepath.Join(dir, "plan.tfplan")
 	summary, err := current.Service.Plan(ctx, opts)
 	if ctx.Err() != nil {

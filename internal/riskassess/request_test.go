@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/lmarqs/terraform-ui/internal/config"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 	"github.com/lmarqs/terraform-ui/pkg/sdk/sdktest"
 )
@@ -156,5 +157,35 @@ func TestRequestAssessment_GivenNilSummary_ShouldPlanWithActiveContextOptionsAnd
 	}
 	if _, err := os.Stat(artifact); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("temporary artifact remains: %v", err)
+	}
+}
+
+func TestRequestAssessment_GivenNilSummaryAndConfiguredPlanTargets_ShouldPlanWithThePlanPluginsEffectiveTargets(t *testing.T) {
+	configured := []string{"module.networking"}
+	tests := []struct {
+		name string
+		pins sdk.Pins
+		want []string
+	}{
+		{name: "no pins plans the configured targets", want: configured},
+		{name: "pins replace the configured targets", pins: sdk.Pins{"aws_instance.web"}, want: []string{"aws_instance.web"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := &sdktest.MockService{}
+			svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return reviewedRiskSummary(), nil }
+			h := newHarness(t, t.TempDir(), svc)
+			h.coord.cfg.Plugins = map[string]config.PluginConfig{"plan": {Options: map[string]interface{}{"targets": configured}}}
+			h.current = h.current.WithPins(tt.pins)
+
+			requestRisk(t, h, h.request(nil))
+
+			if len(svc.PlanCalls) != 1 {
+				t.Fatalf("Service.Plan called %d times, want 1", len(svc.PlanCalls))
+			}
+			if got := svc.PlanCalls[0].Targets; !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("plan targets = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }

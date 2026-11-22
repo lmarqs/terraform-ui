@@ -20,3 +20,15 @@ type PlanOptions struct {
 	// rather than served as it was when seeded. Set by an explicit refresh.
 	Reread bool
 }
+
+// WithDefaultTargets returns o with defaults as its targets when o selects
+// none. The defaults are the project's `plugin "plan" { targets }` list: an
+// explicit selection replaces them, because a default that cannot be narrowed
+// is the wrong shape for targeting. Every plan tfui runs for the user applies
+// this one rule, so each view plans the same resources.
+func (o PlanOptions) WithDefaultTargets(defaults []string) PlanOptions {
+	if len(o.Targets) == 0 {
+		o.Targets = defaults
+	}
+	return o
+}

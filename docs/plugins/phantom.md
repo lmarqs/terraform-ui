@@ -28,7 +28,7 @@ Press `P` (uppercase) to open the Phantom Changes view. Its screen fills as soon
 
 - After a plan ran in this session (`:plan`), the view lists that plan's phantom changes at once.
 - With no plan in this session, opening the view asks tfui to run `terraform plan` for the active chdir and
-  workspace, and shows `Loading plan...` with the elapsed time until it ends. With `-plan`, the plan is served from
+  workspace, with the targets `:plan` would use, and shows `Loading plan...` with the elapsed time until it ends. With `-plan`, the plan is served from
   the loaded file instead of running terraform.
 - If that plan cannot be produced, the view shows `plan unavailable` with the reason. `Ctrl+r` retries, and `Esc`
   goes back to Home.

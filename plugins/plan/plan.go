@@ -332,12 +332,7 @@ func (e *Plugin) runPlan(reread bool) tea.Cmd {
 	// --target flags. Both are terraform -target values and neither can speak
 	// for the other, so the plan covers the union.
 	opts.Targets = mergeTargets(opts.Targets, e.input.Targets)
-	// The config list is a project default, not a third source to union in: an
-	// explicit selection — CLI --target or a TUI pin — replaces it, because a
-	// default that cannot be narrowed is the wrong shape for targeting.
-	if len(opts.Targets) == 0 {
-		opts.Targets = e.cfgTargets
-	}
+	opts = opts.WithDefaultTargets(e.cfgTargets)
 	// Locking is a single decision, not a union: an explicit flag replaces the
 	// value resolved from config, and its absence leaves that value alone.
 	opts.Lock = e.input.Lock.Or(opts.Lock)
