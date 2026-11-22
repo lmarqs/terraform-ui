@@ -52,8 +52,9 @@ Reads come only from `-plan` and `-state`: without them the plan, the state, the
 empty, which does not mean there is nothing to change.
 
 Each printed command runs as written in a POSIX shell: arguments that need it are single-quoted
-(`terraform state rm 'aws_instance.web["a"]'`) and a command for a member directory carries
-`-chdir=<dir>` right after the binary (`terraform -chdir=/work/modules/vpc plan`). Review them before piping them to
+(`terraform state rm 'aws_instance.web["a"]'`) and every command carries the
+directory it runs in as `-chdir=<dir>` right after the binary (`terraform -chdir=/work/modules/vpc plan`): the
+`-chdir` member, else the `-project` directory. Review them before piping them to
 a shell.
 
 ```bash

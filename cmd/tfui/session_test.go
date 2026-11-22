@@ -75,8 +75,8 @@ func TestRunPlugin_WhenApplyMacroBackend_ShouldRecordTerraformApply(t *testing.T
 	if err != nil {
 		t.Fatalf("RunPlugin error = %v", err)
 	}
-	if !strings.Contains(stdoutBuf.String(), "terraform apply") {
-		t.Errorf("stdout missing recorded `terraform apply`, got: %q", stdoutBuf.String())
+	if want := "terraform -chdir=" + dir + " apply -auto-approve\n"; stdoutBuf.String() != want {
+		t.Errorf("stdout = %q, want %q", stdoutBuf.String(), want)
 	}
 }
 
@@ -203,8 +203,8 @@ func TestRunPluginFrom_WhenEntryIsTheVerb_ShouldRecordTerraformApply(t *testing.
 		t.Fatal("RunPluginFrom hung")
 	}
 
-	if !strings.Contains(stdoutBuf.String(), "terraform apply") {
-		t.Errorf("stdout missing recorded `terraform apply`, got: %q", stdoutBuf.String())
+	if want := "terraform -chdir=" + dir + " apply -auto-approve\n"; stdoutBuf.String() != want {
+		t.Errorf("stdout = %q, want %q", stdoutBuf.String(), want)
 	}
 }
 

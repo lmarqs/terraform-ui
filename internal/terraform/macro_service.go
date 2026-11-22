@@ -42,8 +42,9 @@ func (r *MacroService) SetApplyError(err error) {
 	r.applyErr = err
 }
 
-// NewMacroService creates a MacroService that records commands and reads from cache.
-func NewMacroService(binary string, cache *ServiceCache) *MacroService {
+// NewMacroService creates a MacroService that records commands and reads from
+// cache. A non-empty dir is recorded on every command as -chdir=<dir>.
+func NewMacroService(binary string, cache *ServiceCache, dir string) *MacroService {
 	if binary == "" {
 		binary = defaultBinary
 	}
@@ -52,6 +53,7 @@ func NewMacroService(binary string, cache *ServiceCache) *MacroService {
 	}
 	return &MacroService{
 		binary: binary,
+		dir:    dir,
 		cache:  cache,
 		store:  &commandStore{},
 	}

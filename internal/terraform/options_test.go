@@ -10,7 +10,7 @@ import (
 )
 
 func newRecorder() *MacroService {
-	return NewMacroService("terraform", nil)
+	return NewMacroService("terraform", nil, "")
 }
 
 func TestPlanOptions_WhenEmpty_ShouldProduceNoExtraFlags(t *testing.T) {
@@ -548,7 +548,7 @@ func TestApplyOptions_ShouldRecordCommand(t *testing.T) {
 }
 
 func TestPlanOptions_WhenCustomBinary_ShouldUseCorrectBinary(t *testing.T) {
-	svc := NewMacroService("tofu", nil)
+	svc := NewMacroService("tofu", nil, "")
 	opts := sdk.PlanOptions{Targets: []string{"aws_instance.web"}, Destroy: true}
 	_, _ = svc.Plan(context.Background(), opts)
 	cmds := svc.Commands()
@@ -587,7 +587,7 @@ func TestPlanOptions_WhenPreLoadedPlan_ShouldReturnPlanData(t *testing.T) {
 	}
 	cache := NewServiceCache()
 	cache.SetPlan(plan)
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	got, err := svc.Plan(context.Background(), sdk.PlanOptions{Destroy: true})
 	if err != nil {
 		t.Fatal(err)

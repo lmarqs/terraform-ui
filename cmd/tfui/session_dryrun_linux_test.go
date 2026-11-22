@@ -98,8 +98,9 @@ func TestRunApp_GivenDryRun_ShouldRunTheProgramOnStderrAndPrintRecordedCommandsO
 			screen := &lockedBuffer{}
 			go func() { _, _ = io.Copy(screen, controller) }()
 			var stdout bytes.Buffer
+			dir := t.TempDir()
 			session := &Session{
-				cfg:        config.Config{Dir: t.TempDir(), PreloadedData: true},
+				cfg:        config.Config{Dir: dir, PreloadedData: true},
 				sources:    PreseedSources{Plan: filepath.Join(fixtures, "plan.json"), State: filepath.Join(fixtures, "state.json")},
 				dryRun:     true,
 				jsonStdout: tc.json,
@@ -132,7 +133,7 @@ func TestRunApp_GivenDryRun_ShouldRunTheProgramOnStderrAndPrintRecordedCommandsO
 			}
 
 			commands := tc.commands(t, stdout.String())
-			if len(commands) != 1 || !strings.HasPrefix(commands[0], "terraform plan -out=") {
+			if len(commands) != 1 || !strings.HasPrefix(commands[0], "terraform -chdir="+dir+" plan -out=") {
 				t.Errorf("recorded commands = %q, want the one terraform plan the p key ran", commands)
 			}
 			if tc.record {

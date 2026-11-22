@@ -21,7 +21,7 @@ func TestMacroService_ReadsFromCache(t *testing.T) {
 	cache.SetPlan(&sdk.PlanSummary{ToCreate: 3, Changes: []sdk.PlanChange{{Resource: sdk.Resource{Address: "a"}}}})
 	cache.SetState([]sdk.Resource{{Address: "r1"}}, nil)
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	ctx := context.Background()
 
 	t.Run("Plan", func(t *testing.T) {
@@ -140,7 +140,7 @@ func TestMacroService_WhenOutputsCached_ShouldReturnFromCache(t *testing.T) {
 		"url": {Name: "url", Value: "http://localhost", Type: "string"},
 	})
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	got, err := svc.Output(context.Background())
 	if err != nil {
 		t.Fatalf("Output() error = %v", err)
@@ -159,7 +159,7 @@ func TestMacroService_WhenDiagnosticsCached_ShouldReturnFromCache(t *testing.T) 
 		{Severity: "warning", Summary: "Deprecated"},
 	})
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	got, err := svc.Validate(context.Background())
 	if err != nil {
 		t.Fatalf("Validate() error = %v", err)
@@ -176,7 +176,7 @@ func TestMacroService_WhenWorkspacesCached_ShouldReturnFromCache(t *testing.T) {
 	cache := NewServiceCache()
 	cache.SetWorkspaces([]string{"default", "staging", "production"})
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	got, err := svc.WorkspaceList(context.Background())
 	if err != nil {
 		t.Fatalf("WorkspaceList() error = %v", err)
@@ -190,7 +190,7 @@ func TestMacroService_WhenWorkspacesCached_ShouldReturnFromCache(t *testing.T) {
 }
 
 func TestMacroService_ReturnsEmptyWhenCacheEmpty(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	t.Run("Plan", func(t *testing.T) {
@@ -231,7 +231,7 @@ func TestMacroService_ReturnsEmptyWhenCacheEmpty(t *testing.T) {
 }
 
 func TestMacroService_RecordsOperationsOnly(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	svc.StateList(ctx)
@@ -280,7 +280,7 @@ func TestMacroService_RecordsOperationsOnly(t *testing.T) {
 }
 
 func TestMacroService_CommandsReturnsNilWhenEmpty(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	cmds := svc.Commands()
 	if cmds != nil {
 		t.Errorf("expected nil, got %v", cmds)
@@ -288,7 +288,7 @@ func TestMacroService_CommandsReturnsNilWhenEmpty(t *testing.T) {
 }
 
 func TestMacroService_WithDirSharesStore(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	child := svc.WithDir("/other/dir")
@@ -308,7 +308,7 @@ func TestMacroService_WithDirSharesStore(t *testing.T) {
 }
 
 func TestMacroService_WithDirRecordsTheDirOnItsCommands(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	svc.Taint(ctx, "aws_instance.a")
@@ -330,7 +330,7 @@ func TestMacroService_WithDirClearsCache(t *testing.T) {
 	cache := NewServiceCache()
 	cache.SetState([]sdk.Resource{{Address: "r1"}}, nil)
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	child := svc.WithDir("/other/dir")
 
 	resources, err := child.(*MacroService).StateList(context.Background())
@@ -343,7 +343,7 @@ func TestMacroService_WithDirClearsCache(t *testing.T) {
 }
 
 func TestMacroService_ConcurrentAccess(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	var wg sync.WaitGroup
@@ -363,7 +363,7 @@ func TestMacroService_ConcurrentAccess(t *testing.T) {
 }
 
 func TestMacroService_PlanFlagsRecorded(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	opts := sdk.PlanOptions{
@@ -386,7 +386,7 @@ func TestMacroService_PlanFlagsRecorded(t *testing.T) {
 }
 
 func TestMacroService_PlanFlagsAllBranches(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	opts := sdk.PlanOptions{
@@ -436,7 +436,7 @@ func TestMacroService_PlanFlagsRefreshModes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			svc := NewMacroService("terraform", nil)
+			svc := NewMacroService("terraform", nil, "")
 			svc.Plan(context.Background(), sdk.PlanOptions{Refresh: tt.refresh})
 			cmd := svc.Commands()[0].String()
 			if !strings.Contains(cmd, tt.want) {
@@ -447,7 +447,7 @@ func TestMacroService_PlanFlagsRefreshModes(t *testing.T) {
 }
 
 func TestMacroService_ApplyFlagsRecorded(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	opts := sdk.ApplyOptions{
@@ -467,7 +467,7 @@ func TestMacroService_ApplyFlagsRecorded(t *testing.T) {
 }
 
 func TestMacroService_ApplyFlagsAllBranches(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	opts := sdk.ApplyOptions{
@@ -500,7 +500,7 @@ func TestMacroService_ApplyFlagsAllBranches(t *testing.T) {
 }
 
 func TestMacroService_ApplyWithTargets_ShouldEmitTargetFlags(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	opts := sdk.ApplyOptions{
@@ -522,7 +522,7 @@ func TestMacroService_ApplyWithTargets_ShouldEmitTargetFlags(t *testing.T) {
 }
 
 func TestMacroService_CustomBinary(t *testing.T) {
-	svc := NewMacroService("tofu", nil)
+	svc := NewMacroService("tofu", nil, "")
 	ctx := context.Background()
 
 	svc.Apply(ctx, sdk.ApplyOptions{})
@@ -539,7 +539,7 @@ func TestMacroService_CustomBinary(t *testing.T) {
 }
 
 func TestMacroService_DefaultBinary(t *testing.T) {
-	svc := NewMacroService("", nil)
+	svc := NewMacroService("", nil, "")
 	ctx := context.Background()
 
 	svc.Refresh(ctx)
@@ -553,7 +553,7 @@ func TestMacroService_MutationsNeverExecute(t *testing.T) {
 	cache := NewServiceCache()
 	cache.SetState([]sdk.Resource{{Address: "before"}}, nil)
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	ctx := context.Background()
 
 	svc.Apply(ctx, sdk.ApplyOptions{})
@@ -584,7 +584,7 @@ func TestMacroService_MutationsNeverExecute(t *testing.T) {
 }
 
 func TestMacroService_WhenSetApplyError_ShouldReturnErrorOnApply(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	expectedErr := errors.New("apply failed")
 	svc.SetApplyError(expectedErr)
 
@@ -598,7 +598,7 @@ func TestMacroService_WhenSetApplyError_ShouldReturnErrorOnApply(t *testing.T) {
 }
 
 func TestMacroService_WhenSetApplyErrorNil_ShouldReturnNilOnApply(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	svc.SetApplyError(errors.New("initial error"))
 	svc.SetApplyError(nil)
 
@@ -629,7 +629,7 @@ func TestMacroService_WhenShowWithCachedState_ShouldReturnResourceJSON(t *testin
 	}
 	cache.SetState([]sdk.Resource{{Address: "aws_instance.web"}}, state)
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	result, err := svc.Show(context.Background(), "aws_instance.web")
 	if err != nil {
 		t.Fatalf("Show() error = %v", err)
@@ -668,7 +668,7 @@ func TestMacroService_WhenShowWithCachedStateAndMissingResource_ShouldReturnErro
 	}
 	cache.SetState([]sdk.Resource{{Address: "aws_instance.web"}}, state)
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	_, err := svc.Show(context.Background(), "aws_instance.nonexistent")
 	if err == nil {
 		t.Fatal("expected error for missing resource")
@@ -700,7 +700,7 @@ func TestMacroService_WhenShowWithTaintedResource_ShouldIncludeTaintedField(t *t
 	}
 	cache.SetState([]sdk.Resource{{Address: "aws_instance.web"}}, state)
 
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	result, err := svc.Show(context.Background(), "aws_instance.web")
 	if err != nil {
 		t.Fatalf("Show() error = %v", err)
@@ -798,7 +798,7 @@ func TestBuildInitFlags_WhenEmpty_ShouldReturnNil(t *testing.T) {
 }
 
 func TestMacroService_WhenInitWithFlags_ShouldRecordCommand(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	opts := sdk.InitOptions{
 		Upgrade:       true,
 		Reconfigure:   true,
@@ -818,7 +818,7 @@ func TestMacroService_WhenInitWithFlags_ShouldRecordCommand(t *testing.T) {
 }
 
 func TestMacroService_WhenVersion_ShouldReturnDefaultVersion(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	info, err := svc.Version(context.Background())
 	if err != nil {
 		t.Fatalf("Version() error = %v", err)
@@ -941,7 +941,7 @@ func TestShowResourceJSON_WhenResourceHasSensitiveValues_ShouldProduceValidJSON(
 }
 
 func TestMacroService_PlanJSON_RecordsCommand(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 	ctx := context.Background()
 
 	data, err := svc.PlanJSON(ctx, sdk.PlanOptions{Targets: []string{"aws_instance.web"}})
@@ -969,7 +969,7 @@ func TestMacroService_PlanJSON_RecordsCommand(t *testing.T) {
 }
 
 func TestMacroService_ValidateJSON_RecordsCommand(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 
 	data, err := svc.ValidateJSON(context.Background())
 	if err != nil {
@@ -989,7 +989,7 @@ func TestMacroService_ValidateJSON_RecordsCommand(t *testing.T) {
 }
 
 func TestMacroService_OutputJSON_RecordsCommand(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 
 	data, err := svc.OutputJSON(context.Background())
 	if err != nil {
@@ -1009,7 +1009,7 @@ func TestMacroService_OutputJSON_RecordsCommand(t *testing.T) {
 }
 
 func TestMacroService_VersionJSON_RecordsCommand(t *testing.T) {
-	svc := NewMacroService("terraform", nil)
+	svc := NewMacroService("terraform", nil, "")
 
 	data, err := svc.VersionJSON(context.Background())
 	if err != nil {
@@ -1037,7 +1037,7 @@ func TestMacroService_PlanReread_ShouldServeTheRewrittenPlanFile(t *testing.T) {
 	if err := cache.SeedPlan(path, nil); err != nil {
 		t.Fatal(err)
 	}
-	svc := NewMacroService("terraform", cache)
+	svc := NewMacroService("terraform", cache, "")
 	if err := os.WriteFile(path, planJSONOf("null_resource.a", "null_resource.b"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1064,10 +1064,10 @@ func TestMacroService_PlanSnapshot_ShouldBeTrueForAStdinPlan(t *testing.T) {
 	if err := cache.SeedPlan("", planJSONOf("null_resource.a")); err != nil {
 		t.Fatal(err)
 	}
-	if !NewMacroService("terraform", cache).PlanSnapshot() {
+	if !NewMacroService("terraform", cache, "").PlanSnapshot() {
 		t.Error("PlanSnapshot() = false, want true for a stdin plan")
 	}
-	if NewMacroService("terraform", nil).PlanSnapshot() {
+	if NewMacroService("terraform", nil, "").PlanSnapshot() {
 		t.Error("PlanSnapshot() = true, want false without a seeded plan")
 	}
 }

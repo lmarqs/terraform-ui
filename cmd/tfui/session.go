@@ -106,7 +106,7 @@ func (s *Session) buildService() (sdk.Service, *terraform.MacroService, error) {
 	}
 	if s.recordsCommands() {
 		logging.Logger().Debug("session.backend", "type", "recording", "macro", s.macro.Active(), "dry_run", s.dryRun)
-		svc := terraform.NewMacroService(s.cfg.TerraformBinary(), cache)
+		svc := terraform.NewMacroService(s.cfg.TerraformBinary(), cache, effectiveWorkDir(s.cfg))
 		return svc, svc, nil
 	}
 	logging.Logger().Debug("session.backend", "type", "exec")
