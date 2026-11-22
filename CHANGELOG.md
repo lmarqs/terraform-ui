@@ -1,3 +1,14 @@
+## [1.35.5](https://github.com/lmarqs/terraform-ui/compare/v1.35.4...v1.35.5) (2026-11-22)
+
+
+### Bug Fixes
+
+* **blastradius:** show the error code and hint on the unavailable banner ([359a4c2](https://github.com/lmarqs/terraform-ui/commit/359a4c28740de241346c833606950adbfa39f9d0)), closes [#173](https://github.com/lmarqs/terraform-ui/issues/173)
+* **risk:** plan cold-open Risk and Phantom with the configured default targets ([c89c92b](https://github.com/lmarqs/terraform-ui/commit/c89c92b09a26073af44e868d8fbbce179d591e49)), closes [#161](https://github.com/lmarqs/terraform-ui/issues/161)
+* **risk:** request the completed plan when PlanCompletedEvent lands during a cold request ([9cca789](https://github.com/lmarqs/terraform-ui/commit/9cca789ca5e530ea2f29b610784ac762ec2d00ad)), closes [#172](https://github.com/lmarqs/terraform-ui/issues/172)
+* **ui:** make g and G jump to the list's first and last line on a scrolled block ([e1e7f85](https://github.com/lmarqs/terraform-ui/commit/e1e7f85fa0d50c0657a2aadc17483ea9c93241cd)), closes [#170](https://github.com/lmarqs/terraform-ui/issues/170)
+* **ui:** scroll inside a selected block taller than the list ([a432254](https://github.com/lmarqs/terraform-ui/commit/a432254a9bc306fd990d9c43f4ee33f9cc366380)), closes [#170](https://github.com/lmarqs/terraform-ui/issues/170)
+
 ## [1.35.4](https://github.com/lmarqs/terraform-ui/compare/v1.35.3...v1.35.4) (2026-11-22)
 
 
