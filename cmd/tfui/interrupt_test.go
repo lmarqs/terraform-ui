@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"os"
+	"os/signal"
 	"reflect"
 	"strconv"
 	"sync"
@@ -477,7 +478,7 @@ func TestInterruptGuard_SignalPendingWhenStopRuns_ShouldExitBeforeStopReturns(t 
 			stopped := make(chan struct{})
 			go func() {
 				defer close(stopped)
-				h.guard.stop(func() { close(h.signals) })
+				h.guard.stop()
 				h.record("stopped")
 			}()
 			select {
@@ -504,11 +505,111 @@ func TestInterruptGuard_StopWithoutWatch_ShouldRunShutdownAndReturn(t *testing.T
 	stopped := make(chan struct{})
 	go func() {
 		defer close(stopped)
-		guard.stop(func() { close(signals) })
+		guard.stop()
 	}()
 
 	awaitInterrupt(t, stopped, "stop to return without a watcher")
 	if shutdowns != 1 {
 		t.Errorf("shutdown ran %d times, want 1", shutdowns)
+	}
+}
+
+func TestInterruptGuard_SignalAfterStop_ShouldBeReportedLateWithoutClosingTheChannel(t *testing.T) {
+	tests := []struct {
+		name  string
+		sig   os.Signal
+		watch bool
+	}{
+		{"SIGINT after a watched run", syscall.SIGINT, true},
+		{"SIGTERM after a watched run", syscall.SIGTERM, true},
+		{"SIGINT after an unwatched run", syscall.SIGINT, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			signals := make(chan os.Signal, 2)
+			guard := newInterruptGuard(noTerraformRuns{}, signals, false, func() bool { return false }, io.Discard,
+				func() {}, func(code int) { t.Errorf("exit(%d): a late signal is for exitCode, not the watcher", code) })
+			if tt.watch {
+				guard.Watch(func() {})
+			}
+			guard.Finish()
+			guard.stop()
+
+			if sig := guard.Late(); sig != nil {
+				t.Fatalf("Late() = %v before any signal, want nil", sig)
+			}
+			signals <- tt.sig // a closed channel panics here, as signal.Notify's send would
+			if sig := guard.Late(); sig != tt.sig {
+				t.Errorf("Late() = %v, want %v", sig, tt.sig)
+			}
+			if sig := guard.Late(); sig != nil {
+				t.Errorf("second Late() = %v, want nil: a signal is reported once", sig)
+			}
+		})
+	}
+}
+
+func TestSession_ExitCode_WhenASignalArrivesAfterTheRunReturned_ShouldBeTheSignalsCode(t *testing.T) {
+	tests := []struct {
+		name string
+		sig  os.Signal
+		code int
+		want int
+	}{
+		{"SIGINT over success", syscall.SIGINT, 0, 130},
+		{"SIGINT over a failed run", syscall.SIGINT, 1, 130},
+		{"SIGTERM over success", syscall.SIGTERM, 0, 143},
+		{"no signal keeps the run's code", nil, 3, 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			signals := make(chan os.Signal, 2)
+			guard := newInterruptGuard(noTerraformRuns{}, signals, false, func() bool { return false }, io.Discard,
+				func() {}, func(int) {})
+			guard.stop()
+			s := &Session{guard: guard}
+			if tt.sig != nil {
+				signals <- tt.sig
+			}
+
+			if got := s.exitCode(tt.code); got != tt.want {
+				t.Errorf("exitCode(%d) = %d, want %d", tt.code, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSession_ExitCode_WithoutARun_ShouldKeepTheCode(t *testing.T) {
+	if got := (&Session{}).exitCode(7); got != 7 {
+		t.Errorf("exitCode(7) = %d, want 7", got)
+	}
+}
+
+// TestStartInterruptGuard_AfterShutdown_ShouldStillCatchSIGINT: the guard must
+// not give the signal back before the process exits, or an inherited ignore
+// would drop it. The test holds SIGINT so a signal nobody takes cannot kill it.
+func TestStartInterruptGuard_AfterShutdown_ShouldStillCatchSIGINT(t *testing.T) {
+	keepAlive := make(chan os.Signal, 1)
+	signal.Notify(keepAlive, syscall.SIGINT)
+	defer signal.Stop(keepAlive)
+
+	guard, shutdown := startInterruptGuard(nil, io.Discard, func() {})
+	guard.Watch(func() {})
+	guard.Finish()
+	shutdown()
+
+	if err := syscall.Kill(os.Getpid(), syscall.SIGINT); err != nil {
+		t.Fatalf("kill: %v", err)
+	}
+	deadline := time.After(interruptWait)
+	for {
+		if sig := guard.Late(); sig == syscall.SIGINT {
+			return
+		}
+		select {
+		case <-deadline:
+			t.Fatal("the guard did not catch a SIGINT sent after shutdown")
+		case <-time.After(5 * time.Millisecond):
+		}
 	}
 }

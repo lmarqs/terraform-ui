@@ -29,6 +29,21 @@ type Session struct {
 	ciMode       bool
 	dryRun       bool
 	silentStderr bool // resolved at PersistentPreRunE: --ci || CI=1 || agent env || !isStderrTTY
+
+	guard *interruptGuard // the last run's; exitCode asks it for a late signal
+}
+
+// exitCode is the process exit code for a run that ended with code. The run's
+// guard keeps the signals until the process exits, so one that arrived after
+// the run returned still decides the code.
+func (s *Session) exitCode(code int) int {
+	if s.guard == nil {
+		return code
+	}
+	if sig := s.guard.Late(); sig != nil {
+		return interruptExitCode(sig)
+	}
+	return code
 }
 
 func (s *Session) Run() error {
@@ -50,6 +65,7 @@ func (s *Session) runApp() error {
 	}
 	registry := s.buildRegistry(svc)
 	guard, shutdown := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
+	s.guard = guard
 	defer shutdown()
 	app := s.buildApp(svc, registry)
 	_, err = s.present(app, tape, guard)
@@ -268,6 +284,7 @@ func (s *Session) RunPluginFrom(_ context.Context, pluginID, entryID string, act
 
 	registry := buildRegistry(svc, s.cfg, s.rootCfg)
 	guard, shutdown := startInterruptGuard(svc, s.effects.Stderr, registry.Shutdown)
+	s.guard = guard
 	defer shutdown()
 	standalone := &ui.StandaloneConfig{
 		PluginID: pluginID,

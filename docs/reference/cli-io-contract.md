@@ -201,7 +201,8 @@ tfui then runs plugin cleanup and exits 130 for SIGINT or 143 for SIGTERM, whate
 writes nothing to stdout after a signal. A second signal, or any signal while tfui waits, ends tfui at once: it writes
 `terraform was stopped without finishing` to stderr, runs plugin cleanup, and exits with the code of that signal. A
 signal after terraform has finished, while tfui writes output or runs plugin cleanup, ends tfui once cleanup has run,
-with the code of that signal and without the note. On a system where terraform does not run in its own process group
+with the code of that signal and without the note. tfui keeps both signals until the process exits, so one that arrives
+after the run returned, even one the parent process had set to ignore, still sets the exit code. On a system where terraform does not run in its own process group
 (anything but Linux), terraform already receives the terminal's Ctrl+C, and tfui does not forward the signal again
 ([ADR-0023](../adr/0023-interrupts-reach-terraform-once.md)).
 

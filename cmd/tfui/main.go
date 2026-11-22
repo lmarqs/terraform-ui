@@ -55,7 +55,7 @@ func main() {
 
 	code, stderr := exitStatus(rootCmd.Execute())
 	fmt.Fprint(os.Stderr, stderr)
-	os.Exit(code)
+	os.Exit(session.exitCode(code))
 }
 
 // exitError ends a verb run with a non-zero exit code. The run already wrote
