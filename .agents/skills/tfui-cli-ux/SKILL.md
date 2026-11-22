@@ -74,7 +74,7 @@ Flag scoping:
 - On subcommands: `-macro` drives the command's plugin headlessly, outputs recorded commands
 - `-record <dir>`: captures ANSI frames + manifest.json (orthogonal to `-macro`)
 - `-dry-run`: root only; the interactive full TUI on stderr against `MacroService`, without Console (it runs
-  terraform itself), recorded commands to stdout on exit for review (not shell-quoted, no member directory: #166)
+  terraform itself), recorded commands to stdout on exit for review (shell-quoted, `-chdir=<dir>` for a member)
 - Root flags (`-project`, `-terraform-bin`, `-config`, `-chdir`, `-ci`, `-json`): persistent (available everywhere)
 - Command-specific flags (`-target`, `-risk-threshold`, `-lock`, `-force`, `-backend`, …): local to their command
 - Every novel flag must combine validly with every other flag — no conditional validity (see ADR-0017)

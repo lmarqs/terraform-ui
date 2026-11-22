@@ -299,4 +299,4 @@ Recorded in [ADR-0022](../adr/0022-agent-environments-imply-headless.md). [Terra
 
 ### Why full TUI (`tfui` no args) uses stdout?
 
-The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split, and `tfui -dry-run`, whose result is the recorded commands for review; they are not shell-quoted and omit the member directory ([#166](https://github.com/lmarqs/terraform-ui/issues/166)).
+The full multi-plugin TUI has no single "result" to emit — it's a dashboard. Rendering on stdout (alt-screen) is standard for full-screen TUI apps. Only standalone mode (single plugin invocation) uses the stderr+stdout split, and `tfui -dry-run`, whose result is the recorded commands for review; they are shell-quoted and carry `-chdir=<dir>` for a member.

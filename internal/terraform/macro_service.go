@@ -31,6 +31,7 @@ func (s *commandStore) all() []sdk.Command {
 // Reads are served from a ServiceCache (pre-seeded or empty).
 type MacroService struct {
 	binary   string
+	dir      string
 	cache    *ServiceCache
 	store    *commandStore
 	applyErr error
@@ -65,6 +66,7 @@ func (r *MacroService) Commands() []sdk.Command {
 func (r *MacroService) record(verb string, args, flags []string) {
 	r.store.append(sdk.Command{
 		Binary: r.binary,
+		Dir:    r.dir,
 		Verb:   verb,
 		Args:   args,
 		Flags:  flags,
@@ -248,6 +250,7 @@ func (r *MacroService) ForceUnlock(_ context.Context, lockID string) error {
 func (r *MacroService) WithDir(dir string) sdk.Service {
 	return &MacroService{
 		binary: r.binary,
+		dir:    dir,
 		cache:  NewServiceCache(),
 		store:  r.store,
 	}

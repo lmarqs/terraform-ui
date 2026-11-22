@@ -128,15 +128,91 @@ func TestCommand_String_WhenFlagsAndArgs(t *testing.T) {
 }
 
 func TestCommand_String_WhenDirSet(t *testing.T) {
-	cmd := Command{
-		Binary: "terraform",
-		Verb:   "plan",
-		Dir:    "/some/path",
+	tests := []struct {
+		name string
+		cmd  Command
+		want string
+	}{
+		{
+			"ShouldPlaceChdirRightAfterBinary",
+			Command{Binary: "terraform", Verb: "plan", Dir: "/some/path"},
+			"terraform -chdir=/some/path plan",
+		},
+		{
+			"ShouldPlaceChdirBeforeFlagsAndArgs",
+			Command{Binary: "tofu", Verb: "state rm", Flags: []string{"-lock=false"}, Args: []string{"aws_instance.web"}, Dir: "/work/modules/vpc"},
+			"tofu -chdir=/work/modules/vpc state rm -lock=false aws_instance.web",
+		},
+		{
+			"ShouldQuoteTheWholeChdirTokenWhenTheDirNeedsIt",
+			Command{Binary: "terraform", Verb: "plan", Dir: "/my work/vpc"},
+			"terraform '-chdir=/my work/vpc' plan",
+		},
 	}
-	got := cmd.String()
-	want := "terraform plan"
-	if got != want {
-		t.Fatalf("expected Dir to be omitted from String(), got %q", got)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cmd.String(); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
+	}
+}
+
+func TestCommand_String_WhenTokensNeedShellQuoting(t *testing.T) {
+	tests := []struct {
+		name string
+		cmd  Command
+		want string
+	}{
+		{
+			"ShouldQuoteAnAddressWithAnIndexKey",
+			Command{Binary: "terraform", Verb: "state rm", Args: []string{`aws_instance.web["a"]`}},
+			`terraform state rm 'aws_instance.web["a"]'`,
+		},
+		{
+			"ShouldQuoteAWholeFlagWhenItsValueNeedsIt",
+			Command{Binary: "terraform", Verb: "plan", Flags: []string{`-target=aws_instance.web["a"]`}},
+			`terraform plan '-target=aws_instance.web["a"]'`,
+		},
+		{
+			"ShouldQuoteNumericIndexBrackets",
+			Command{Binary: "terraform", Verb: "taint", Args: []string{"aws_instance.web[0]"}},
+			"terraform taint 'aws_instance.web[0]'",
+		},
+		{
+			"ShouldEscapeEmbeddedSingleQuotes",
+			Command{Binary: "terraform", Verb: "import", Args: []string{"aws_instance.web", "it's"}},
+			`terraform import aws_instance.web 'it'\''s'`,
+		},
+		{
+			"ShouldQuoteAnEmptyArgument",
+			Command{Binary: "terraform", Verb: "import", Args: []string{"aws_instance.web", ""}},
+			"terraform import aws_instance.web ''",
+		},
+		{
+			"ShouldQuoteShellMetacharacters",
+			Command{Binary: "terraform", Verb: "apply", Flags: []string{"-var=a b", "-var=$HOME", "-var=a;b", "-var=~"}},
+			"terraform apply '-var=a b' '-var=$HOME' '-var=a;b' '-var=~'",
+		},
+		{
+			"ShouldQuoteABinaryPathWithASpace",
+			Command{Binary: "/opt/my tools/terraform", Verb: "plan"},
+			"'/opt/my tools/terraform' plan",
+		},
+		{
+			"ShouldLeaveSafeTokensBare",
+			Command{Binary: "terraform", Verb: "plan", Flags: []string{"-out=plan.bin", "-var-file=prod.tfvars", "-var=region=us-east-1"}, Args: []string{"module.vpc.aws_subnet.a", "i-1234567890", "a@b:c,d+e%f/g"}},
+			"terraform plan -out=plan.bin -var-file=prod.tfvars -var=region=us-east-1 module.vpc.aws_subnet.a i-1234567890 a@b:c,d+e%f/g",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cmd.String(); got != tt.want {
+				t.Fatalf("expected %q, got %q", tt.want, got)
+			}
+		})
 	}
 }
 

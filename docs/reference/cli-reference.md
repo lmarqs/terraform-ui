@@ -51,9 +51,10 @@ array with `-json`. A signal ends the run with no stdout, as it does for every c
 Reads come only from `-plan` and `-state`: without them the plan, the state, the outputs and the diagnostics are
 empty, which does not mean there is nothing to change.
 
-The printed commands are for review. They are not shell-quoted and omit the member directory, so piping them to a
-shell can run the wrong command or run it in the wrong directory
-([#166](https://github.com/lmarqs/terraform-ui/issues/166)).
+Each printed command runs as written in a POSIX shell: arguments that need it are single-quoted
+(`terraform state rm 'aws_instance.web["a"]'`) and a command for a member directory carries
+`-chdir=<dir>` right after the binary (`terraform -chdir=/work/modules/vpc plan`). Review them before piping them to
+a shell.
 
 ```bash
 tfui -dry-run -plan ./plan.json -state ./state.json   # review the commands on exit

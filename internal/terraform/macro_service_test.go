@@ -305,6 +305,25 @@ func TestMacroService_WithDirSharesStore(t *testing.T) {
 	}
 }
 
+func TestMacroService_WithDirRecordsTheDirOnItsCommands(t *testing.T) {
+	svc := NewMacroService("terraform", nil)
+	ctx := context.Background()
+
+	svc.Taint(ctx, "aws_instance.a")
+	svc.WithDir("/work/modules/vpc").(*MacroService).Taint(ctx, "aws_instance.b")
+
+	cmds := svc.Commands()
+	if len(cmds) != 2 {
+		t.Fatalf("expected 2 commands, got %d", len(cmds))
+	}
+	if got := cmds[0].String(); got != "terraform taint aws_instance.a" {
+		t.Errorf("root command = %q, want no -chdir", got)
+	}
+	if got := cmds[1].String(); got != "terraform -chdir=/work/modules/vpc taint aws_instance.b" {
+		t.Errorf("member command = %q, want -chdir=/work/modules/vpc after the binary", got)
+	}
+}
+
 func TestMacroService_WithDirClearsCache(t *testing.T) {
 	cache := NewServiceCache()
 	cache.SetState([]sdk.Resource{{Address: "r1"}}, nil)
