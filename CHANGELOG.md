@@ -1,3 +1,13 @@
+## [1.35.9](https://github.com/lmarqs/terraform-ui/compare/v1.35.8...v1.35.9) (2026-11-22)
+
+
+### Bug Fixes
+
+* **cli:** record the effective -chdir for standalone macro and dry-run commands ([def46da](https://github.com/lmarqs/terraform-ui/commit/def46da5df3c3eabbdd78fb4b9d6a5ef7e851b5c)), closes [#166](https://github.com/lmarqs/terraform-ui/issues/166)
+* **ui:** cut wrapped and panned rows on grapheme boundaries ([62bd338](https://github.com/lmarqs/terraform-ui/commit/62bd338c302cba0c58c00c5acb0dadf29e55d8a0)), closes [#165](https://github.com/lmarqs/terraform-ui/issues/165)
+* **ui:** drop a plan completion made stale by an invalidation or a newer plan ([7fd6843](https://github.com/lmarqs/terraform-ui/commit/7fd68437c0e8fb2540ecf2fa33334503a7713091)), closes [#185](https://github.com/lmarqs/terraform-ui/issues/185)
+* **ui:** start no Apply for a plan made stale after a or A ([e4cbbc7](https://github.com/lmarqs/terraform-ui/commit/e4cbbc76b200cb8c535dae1fec5929d069a9aac0)), closes [#193](https://github.com/lmarqs/terraform-ui/issues/193)
+
 ## [1.35.8](https://github.com/lmarqs/terraform-ui/compare/v1.35.7...v1.35.8) (2026-11-22)
 
 
