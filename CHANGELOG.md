@@ -1,3 +1,15 @@
+## [1.35.2](https://github.com/lmarqs/terraform-ui/compare/v1.35.1...v1.35.2) (2026-11-22)
+
+
+### Bug Fixes
+
+* **plan:** A on a stale plan replans and shows it instead of applying ([f745764](https://github.com/lmarqs/terraform-ui/commit/f745764f19bd19d4b2fc3aef23273d82e477d922)), closes [#176](https://github.com/lmarqs/terraform-ui/issues/176)
+* **plan:** leave Plan with one q after a run settles ([e1bd3a5](https://github.com/lmarqs/terraform-ui/commit/e1bd3a581bc99b535bcfd27069090a3c40f643d2)), closes [#148](https://github.com/lmarqs/terraform-ui/issues/148)
+* **plan:** replan again when a stale replan fails or is cancelled ([a5a054d](https://github.com/lmarqs/terraform-ui/commit/a5a054da1483cf517468564f3108b22b334517c2))
+* **ui:** clamp the pan offset per row so a short row shows its tail ([9373544](https://github.com/lmarqs/terraform-ui/commit/9373544ab99272c3a37c53775fca37e562012f12)), closes [#180](https://github.com/lmarqs/terraform-ui/issues/180)
+* **ui:** cut wrapped and scrolled rows at one width-aware boundary ([cb013dc](https://github.com/lmarqs/terraform-ui/commit/cb013dc77a3fc1d3b8936349f2d35a55bc43802e)), closes [#165](https://github.com/lmarqs/terraform-ui/issues/165)
+* **ui:** keep the scroll gutter thumb inside the track between the caps ([cff1855](https://github.com/lmarqs/terraform-ui/commit/cff1855b17abcb2975d8ce711299f5e2788e7d96)), closes [#155](https://github.com/lmarqs/terraform-ui/issues/155)
+
 ## [1.35.1](https://github.com/lmarqs/terraform-ui/compare/v1.35.0...v1.35.1) (2026-11-20)
 
 
