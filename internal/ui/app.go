@@ -71,8 +71,9 @@ type App struct {
 	height      int
 
 	// planFloor is the first request ID issued after the last plan invalidation
-	// or Context change; planShown is the request ID of the last plan
-	// completion dispatched. A plan whose ID is below either is stale.
+	// or Context change other than a plan's own unpin; planShown is the request
+	// ID of the last plan completion dispatched. A plan whose ID is below either
+	// is stale.
 	planFloor sdk.AssessmentID
 	planShown sdk.AssessmentID
 
@@ -477,6 +478,11 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, nil
 
 	case tfuiplan.ApplyRequestMsg:
+		if !a.planCurrent(msg.Assessment) {
+			// Plan marked the plan stale too, so the user's next A replans.
+			logging.Logger().Debug("apply.stale_plan", "plan", msg.PlanFile)
+			return a, nil
+		}
 		if p, ok := a.registry.ByID("apply"); ok {
 			a.navStack = append(a.navStack, a.activePlugin)
 			a.activePlugin = p
@@ -940,7 +946,12 @@ func (a *App) pruneStalePins(summary *sdk.PlanSummary) tea.Cmd {
 		return nil
 	}
 	logging.Logger().Debug("plan.pin.prune", "stale", len(stale), "remaining", current.Pins.Count()-len(stale))
-	return a.bus.Dispatch(a.replaceContext(current.TogglePins(stale...), sdk.ContextPinsChanged)())
+	floor := a.planFloor
+	unpin := a.replaceContext(current.TogglePins(stale...), sdk.ContextPinsChanged)
+	// The unpin is the plan's own, so the plan it completes stays current and
+	// its deferred apply still starts.
+	a.planFloor = floor
+	return a.bus.Dispatch(unpin())
 }
 
 // planCurrent reports whether the plan whose completion requested assessment

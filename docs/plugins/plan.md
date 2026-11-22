@@ -49,7 +49,7 @@ Press `p` from the home menu. The plugin immediately runs `terraform plan` again
 | `←` / `→` | Horizontal pan | List & detail |
 | `Ctrl+w` | Toggle line wrap | List & detail |
 | `a` | Apply. On a stale plan it replans first, then confirms | List |
-| `A` | Auto-approve (apply immediately, no confirmation). On a stale plan it replans and shows the new plan without applying; press `A` again on that plan. A plan is stale after a pin change (including the App's pruning of pins with no changes), an invalidation, or a cancelled or failed replan | List |
+| `A` | Auto-approve (apply immediately, no confirmation). On a stale plan it replans and shows the new plan without applying; press `A` again on that plan. If the plan goes stale after `a` or `A` but before Apply starts, Apply does not start and Plan shows the stale plan. A plan is stale after a pin change (including the App's pruning of pins with no changes), an invalidation, or a cancelled or failed replan | List |
 | `t` | Taint -- navigates to taint plugin | List |
 | `T` | Untaint -- navigates to untaint plugin | List |
 | `e` | Edit in $EDITOR | List & detail |
