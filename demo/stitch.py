@@ -174,21 +174,19 @@ def main() -> None:
         print("ERROR: no frames in manifest", file=sys.stderr)
         sys.exit(1)
 
+    missing = [meta["file"] for meta in frames_meta if not (frame_dir / meta["file"]).exists()]
+    if missing:
+        print(f"ERROR: manifest frames missing from {frame_dir}: {', '.join(missing)}", file=sys.stderr)
+        sys.exit(1)
+
     fonts = Fonts()
     cell_width = fonts.latin[False].getlength("X")
     images: list[Image.Image] = []
     durations: list[int] = []
 
     for meta in frames_meta:
-        frame_path = frame_dir / meta["file"]
-        if not frame_path.exists():
-            continue
-        images.append(render_frame(frame_path.read_text(), width, height, fonts, cell_width))
+        images.append(render_frame((frame_dir / meta["file"]).read_text(), width, height, fonts, cell_width))
         durations.append(max(meta["delay_ms"], 50))
-
-    if not images:
-        print("ERROR: no renderable frames", file=sys.stderr)
-        sys.exit(1)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     images[0].save(

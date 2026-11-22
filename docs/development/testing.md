@@ -81,6 +81,9 @@ mise run test:macro
 
 # Integration tests and the macro/ and compat/ tape runners (requires terraform on PATH)
 mise run test:integration
+
+# demo/stitch.py, the GIF stitcher (requires the Python packages from `mise run setup`)
+mise run test:demo
 ```
 
 The done check, everything that must pass before a change is done, is in

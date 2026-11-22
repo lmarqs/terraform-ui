@@ -169,7 +169,9 @@ func (s *Session) present(app ui.App, tape []macro.Command, guard *interruptGuar
 	if s.macro.RecordDir != "" {
 		rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
 		_, err := runGuarded(tea.NewProgram(rec, opts...), guard)
-		_ = rec.Finalize()
+		if finalErr := rec.Finalize(); err == nil {
+			err = finalErr
+		}
 		if err != nil {
 			return app, err
 		}
@@ -318,7 +320,9 @@ func (s *Session) runStandalone(app ui.App, registry *plugin.Registry, pluginID 
 		if s.macro.RecordDir != "" {
 			rec := macro.NewRecorder(app, s.macro.RecordDir, 80, 24)
 			_, err := runGuarded(tea.NewProgram(rec, opts...), guard)
-			_ = rec.Finalize()
+			if finalErr := rec.Finalize(); err == nil {
+				err = finalErr
+			}
 			return err
 		}
 		_, err := runGuarded(tea.NewProgram(app, opts...), guard)

@@ -67,13 +67,12 @@ func (r *Runner) Execute(ctx context.Context, commands []Command) error {
 	}
 
 	if r.recorder != nil {
-		_ = r.recorder.Finalize()
+		if err := r.recorder.Finalize(); err != nil && execErr == nil {
+			return err
+		}
 	}
 
-	if execErr != nil {
-		return execErr
-	}
-	return nil
+	return execErr
 }
 
 func (r *Runner) captureFrame() {

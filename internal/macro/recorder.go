@@ -1,6 +1,7 @@
 package macro
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ type Recorder struct {
 	tape     []string
 	frameNum int
 	lastTime time.Time
+	writeErr error
 }
 
 func NewRecorder(inner tea.Model, dir string, width, height int) *Recorder {
@@ -82,9 +84,11 @@ func (r *Recorder) View() string {
 	return r.inner.View()
 }
 
+// Finalize writes the manifest and the tape. It returns the first frame write error as well, so a
+// recording that lost a frame never looks complete.
 func (r *Recorder) Finalize() error {
 	if err := os.MkdirAll(r.dir, 0755); err != nil {
-		return err
+		return errors.Join(r.writeErr, err)
 	}
 
 	manifest := Manifest{
@@ -93,14 +97,14 @@ func (r *Recorder) Finalize() error {
 		Frames: r.frames,
 	}
 	if err := os.WriteFile(filepath.Join(r.dir, "manifest.json"), sdk.MarshalJSON(manifest), 0644); err != nil {
-		return err
+		return errors.Join(r.writeErr, err)
 	}
 
 	if len(r.tape) > 0 {
 		tapeContent := strings.Join(r.tape, "\n") + "\n"
-		return os.WriteFile(filepath.Join(r.dir, "recording.tape"), []byte(tapeContent), 0644)
+		return errors.Join(r.writeErr, os.WriteFile(filepath.Join(r.dir, "recording.tape"), []byte(tapeContent), 0644))
 	}
-	return nil
+	return r.writeErr
 }
 
 func (r *Recorder) CaptureView(view string) {
@@ -115,8 +119,13 @@ func (r *Recorder) CaptureView(view string) {
 	r.lastTime = now
 
 	path := filepath.Join(r.dir, filename)
-	_ = os.MkdirAll(r.dir, 0755)
-	_ = os.WriteFile(path, []byte(view), 0644)
+	err := os.MkdirAll(r.dir, 0755)
+	if err == nil {
+		err = os.WriteFile(path, []byte(view), 0644)
+	}
+	if err != nil && r.writeErr == nil {
+		r.writeErr = err
+	}
 
 	r.frames = append(r.frames, FrameMeta{
 		File:    filename,

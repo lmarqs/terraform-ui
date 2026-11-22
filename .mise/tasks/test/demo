@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+#MISE description="Test the demo GIF stitcher. Run when changing demo/stitch.py."
+
+exec python3 -B -m unittest discover -s demo -p 'test_*.py'

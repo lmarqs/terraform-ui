@@ -3,8 +3,10 @@ package macro
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -416,5 +418,78 @@ func TestRunner_WhenRecorderAttached_ShouldCaptureFrames(t *testing.T) {
 	// Initial frame + 2 command frames = 3
 	if len(manifest.Frames) != 3 {
 		t.Errorf("expected 3 frames, got %d", len(manifest.Frames))
+	}
+}
+
+func TestRecorder_Finalize_WhenAFrameWriteFailed_ShouldReturnTheWriteError(t *testing.T) {
+	tests := []struct {
+		name    string
+		capture func(rec *Recorder)
+	}{
+		{"CaptureView", func(rec *Recorder) { rec.CaptureView("frame") }},
+		{"key press through Update", func(rec *Recorder) {
+			rec.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			frames := filepath.Join(dir, "frames")
+			if err := os.Mkdir(frames, 0755); err != nil {
+				t.Fatal(err)
+			}
+			rec := NewRecorder(recorderTestModel{content: "x"}, frames, 80, 24)
+
+			// The frame directory turns unwritable mid-run; Finalize writes the manifest elsewhere.
+			if err := os.Chmod(frames, 0555); err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { os.Chmod(frames, 0755) })
+			tt.capture(rec)
+			if err := os.Chmod(frames, 0755); err != nil {
+				t.Fatal(err)
+			}
+
+			err := rec.Finalize()
+			if err == nil {
+				t.Fatal("Finalize returned nil after a frame write failed; the recording lost a frame")
+			}
+			if !strings.Contains(err.Error(), "frame_0001.txt") {
+				t.Errorf("Finalize error = %q, want it to name frame_0001.txt", err)
+			}
+		})
+	}
+}
+
+func TestRunner_WhenRecorderCannotWriteAFrame_ShouldReturnError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) })
+	runner := NewRunner(NewDriver(mockModel{content: "start"}, 80, 24))
+	runner.WithRecorder(NewRecorder(nil, dir, 80, 24))
+
+	err := runner.Execute(context.Background(), []Command{{Type: CmdKey, Args: []string{"p"}}})
+
+	if err == nil {
+		t.Fatal("Execute returned nil although no frame or manifest could be written")
+	}
+}
+
+func TestRunner_WhenTheTapeFailsAndRecordingFails_ShouldReturnTheTapeError(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0755) })
+	runner := NewRunner(NewDriver(mockModel{content: "start"}, 80, 24))
+	runner.WithRecorder(NewRecorder(nil, dir, 80, 24))
+
+	err := runner.Execute(context.Background(), []Command{{Type: CmdAssertView, Args: []string{"absent"}, Line: 3}})
+
+	var runErr *RunError
+	if !errors.As(err, &runErr) || runErr.Code != ExitAssertFail {
+		t.Errorf("Execute error = %v, want the assertion RunError", err)
 	}
 }
