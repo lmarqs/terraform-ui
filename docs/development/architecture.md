@@ -183,6 +183,10 @@ interface ([ADR-0003](../adr/0003-typed-event-bus.md)):
 `ContextChangedEvent` carries `Prev`, `Next` and a `Reason`; `OnlyPinsChanged()` lets plan tell a pin toggle (keep UI
 state, mark stale) from a chdir or workspace switch (full reset).
 
+`PlanCompletedEvent` carries the `Context` its plan ran against. The App drops one whose Context was replaced since,
+so a late completion cannot restore results for a Context the user left. Before dispatching a current one, the App
+unpins the addresses the plan no longer changes; that pin change lands first, so plugins that reset on it keep the plan.
+
 ### Risk assessment
 
 [Risk policy architecture](risk-policy-design.md) explains why the feature is shaped this way.

@@ -94,7 +94,11 @@ type ContextChangedHandler interface {
 	HandleContextChanged(ContextChangedEvent) tea.Cmd
 }
 
+// PlanCompletedEvent publishes the plan Plan reviewed. Context is the Context
+// the plan ran against: the App drops the event once that Context is replaced,
+// and before dispatching it unpins the addresses the plan no longer changes.
 type PlanCompletedEvent struct {
+	Context       *Context
 	Summary       *PlanSummary
 	ResourceCount int
 	PlanFile      string

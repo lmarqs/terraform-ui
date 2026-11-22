@@ -466,11 +466,9 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.summary = msg.Summary
 			e.assessment = nil
 			e.rows = nil
-			var pruneCmd tea.Cmd
 			if msg.Summary != nil {
 				e.filtered = e.summary.Changes
 				e.fuzzy.SetItems(e.summary.Changes)
-				pruneCmd = e.pruneStalePins(msg.Summary.Changes)
 				e.rebuildTree()
 			}
 			// Pop the StreamFrame and restore the list frame so the tree is shown.
@@ -482,14 +480,15 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			}
 			e.Log.Debug("plan.complete", "changes", changes)
 			cmds := []tea.Cmd{}
-			if pruneCmd != nil {
-				cmds = append(cmds, pruneCmd)
-			}
 			planFilePath := e.planFile.Path()
 			if msg.Summary != nil {
+				// Plan is busy for the whole run, so no Context change lands
+				// before its result: the active Context is the one it planned.
+				planned := e.GetCtx()
 				cmds = append(cmds,
 					func() tea.Msg {
 						return sdk.PlanCompletedEvent{
+							Context:       planned,
 							Summary:       msg.Summary,
 							ResourceCount: changes,
 							PlanFile:      planFilePath,
@@ -674,31 +673,6 @@ func (e *Plugin) CursorNode() *tree.Node {
 func (e *Plugin) togglePin(addresses ...string) tea.Cmd {
 	e.Log.Debug("plan.pin.toggle.request", "addresses", addresses)
 	return e.PinFn(addresses...)
-}
-
-// pruneStalePins drops pinned addresses no longer present in the latest plan
-// summary. Returns a Cmd that asks the App to clear-then-restore the
-// surviving subset (a single ContextChangedEvent), or nil if nothing to do.
-func (e *Plugin) pruneStalePins(changes []sdk.PlanChange) tea.Cmd {
-	if !e.HasPins() {
-		return nil
-	}
-	pinned := e.PinnedAddresses()
-	valid := make(map[string]bool, len(changes))
-	for _, c := range changes {
-		valid[c.Resource.Address] = true
-	}
-	var stale []string
-	for _, addr := range pinned {
-		if !valid[addr] {
-			stale = append(stale, addr)
-		}
-	}
-	if len(stale) == 0 {
-		return nil
-	}
-	e.Log.Debug("plan.pin.prune", "stale", len(stale), "remaining", e.PinnedCount()-len(stale))
-	return e.PinFn(stale...)
 }
 
 func (e *Plugin) clearAllPins() tea.Cmd {

@@ -28,10 +28,10 @@ func flatten(cmd tea.Cmd) []tea.Msg {
 	return msgs
 }
 
-// A plan that no longer contains a pinned address asks the App to unpin it
-// while the host still assesses that plan. The unpin must apply (#130: a
-// pending assessment holds no lock), and the Context change it causes marks
-// Plan stale and drops the assessment's late result.
+// A plan that no longer contains a pinned address makes the App unpin it when
+// the plan's completion arrives, while the host still assesses that plan. The
+// unpin must apply (#130: a pending assessment holds no lock), and the Context
+// change it causes marks Plan stale and drops the assessment's late result.
 func TestPinToggle_GivenPlanCompletedWithoutPinnedAddressWhileAssessmentPending_ShouldUnpinAndDropLateResult(t *testing.T) {
 	const stale = "aws_db_instance.database"
 	svc := newMockService("default", nil)
@@ -59,17 +59,17 @@ func TestPinToggle_GivenPlanCompletedWithoutPinnedAddressWhileAssessmentPending_
 	model, cmd := app.Update(tfuiplan.PlanResultMsg{Summary: reviewed})
 	app = model.(App)
 	var late *riskassess.Result
-	var prune *sdk.PinToggleRequestMsg
+	var completion *sdk.PlanCompletedEvent
 	for _, msg := range flatten(cmd) {
 		switch msg := msg.(type) {
 		case riskassess.Result:
 			late = &msg
-		case sdk.PinToggleRequestMsg:
-			prune = &msg
+		case sdk.PlanCompletedEvent:
+			completion = &msg
 		}
 	}
-	if late == nil || prune == nil {
-		t.Fatalf("plan completion produced result=%v unpin request=%v, want both", late, prune)
+	if late == nil || completion == nil {
+		t.Fatalf("plan completion produced result=%v completion=%v, want both", late, completion)
 	}
 	if plan.Ready() {
 		t.Fatal("setup: Plan is ready, want its assessment pending")
@@ -78,7 +78,7 @@ func TestPinToggle_GivenPlanCompletedWithoutPinnedAddressWhileAssessmentPending_
 		t.Fatal("setup: the assessment is already dropped")
 	}
 
-	model, next := app.Update(*prune)
+	model, next := app.Update(*completion)
 	app = model.(App)
 	drainPolicyAppCommand(&app, next)
 

@@ -1733,8 +1733,9 @@ func setupAppWithSourceIndex(t *testing.T) App {
 
 func TestApp_Update_WhenReceivingPlanCompletedEvent_ShouldDispatchToBus(t *testing.T) {
 	app := setupTestApp()
+	app.Init()
 
-	model, cmd := app.Update(sdk.PlanCompletedEvent{ResourceCount: 5})
+	model, cmd := app.Update(sdk.PlanCompletedEvent{Context: app.holder.current, ResourceCount: 5})
 	_ = model.(App)
 	// Bus dispatch with no handlers returns nil
 	if cmd != nil {

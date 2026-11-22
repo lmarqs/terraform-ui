@@ -30,7 +30,7 @@ func newFailedAssessmentApp(t *testing.T, pluginID string) (App, string) {
 	registry.Build(svc, nil)
 	app := NewApp(config.Config{Dir: root}, svc, registry, rootCfg)
 	app.Init()
-	model, cmd := app.Update(sdk.PlanCompletedEvent{Summary: reviewedRiskSummary()})
+	model, cmd := app.Update(sdk.PlanCompletedEvent{Context: app.holder.current, Summary: reviewedRiskSummary()})
 	app = model.(App)
 	drainPolicyAppCommand(&app, cmd)
 	model, cmd = app.Update(sdk.NavigateMsg{PluginID: pluginID})

@@ -37,7 +37,7 @@ func newPendingAssessmentAppWithRequest(t *testing.T, pluginID string, retained 
 	app := NewApp(config.Config{Dir: t.TempDir()}, svc, registry, nil)
 	app.Init()
 	if retained {
-		model, cmd := app.Update(sdk.PlanCompletedEvent{Summary: reviewedRiskSummary()})
+		model, cmd := app.Update(sdk.PlanCompletedEvent{Context: app.holder.current, Summary: reviewedRiskSummary()})
 		app = model.(App)
 		drainPolicyAppCommand(&app, cmd)
 	}

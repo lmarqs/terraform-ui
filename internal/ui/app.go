@@ -315,7 +315,13 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
-		return a, a.bus.Dispatch(msg)
+		if msg.Context != a.holder.current {
+			return a, nil
+		}
+		// The unpin is the plan's own Context change: it lands before the
+		// completion, so plugins that reset on it keep the plan.
+		prune := a.pruneStalePins(msg.Summary)
+		return a, tea.Batch(prune, a.bus.Dispatch(msg))
 
 	case riskassess.Result:
 		if !a.risk.Current(msg) {
@@ -903,6 +909,30 @@ func (a App) cancelPlugin(p sdk.Plugin) {
 		c.Cancel()
 	}
 	a.risk.Cancel(p.ID())
+}
+
+// pruneStalePins unpins the addresses summary no longer changes, so the pins
+// stay within the plan the user reviews.
+func (a *App) pruneStalePins(summary *sdk.PlanSummary) tea.Cmd {
+	current := a.holder.current
+	if !current.Pins.HasAny() {
+		return nil
+	}
+	planned := make(map[string]bool, len(summary.Changes))
+	for _, c := range summary.Changes {
+		planned[c.Resource.Address] = true
+	}
+	var stale []string
+	for _, addr := range current.Pins {
+		if !planned[addr] {
+			stale = append(stale, addr)
+		}
+	}
+	if len(stale) == 0 || !a.requireIdle("pin") {
+		return nil
+	}
+	logging.Logger().Debug("plan.pin.prune", "stale", len(stale), "remaining", current.Pins.Count()-len(stale))
+	return a.bus.Dispatch(a.replaceContext(current.TogglePins(stale...), sdk.ContextPinsChanged)())
 }
 
 // replaceContext atomically swaps the active Context and returns a Cmd that

@@ -821,59 +821,12 @@ func TestPlugin_WhenRebuildTreeInTreeModeWithFilter_ShouldExpandAll(t *testing.T
 	}
 }
 
-func TestPlugin_WhenPruneStalePinsWithNoPins_ShouldDoNothing(t *testing.T) {
-	p, h := newTestPluginWithHarness(&sdktest.MockService{})
-	cmd := p.pruneStalePins([]sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "a"}},
-	})
-	if cmd != nil {
-		t.Error("pruneStalePins with no pins should return nil cmd")
-	}
-	if len(h.PinRequests) != 0 {
-		t.Error("pruneStalePins with no pins should not request any toggles")
-	}
-}
-
-func TestPlugin_WhenPruneStalePinsWithValidPins_ShouldRetainAll(t *testing.T) {
-	p, h := newTestPluginWithHarness(&sdktest.MockService{})
-	h.Ctx.Pins = []string{"a", "b"}
-
-	cmd := p.pruneStalePins([]sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "a"}},
-		{Resource: sdk.Resource{Address: "b"}},
-		{Resource: sdk.Resource{Address: "c"}},
-	})
-	if cmd != nil {
-		t.Error("pruneStalePins with all valid pins should return nil cmd")
-	}
-}
-
-func TestPlugin_WhenPruneStalePinsWithStalePins_ShouldRequestRemoval(t *testing.T) {
-	p, h := newTestPluginWithHarness(&sdktest.MockService{})
-	h.Ctx.Pins = []string{"a", "removed_resource"}
-
-	cmd := p.pruneStalePins([]sdk.PlanChange{
-		{Resource: sdk.Resource{Address: "a"}},
-		{Resource: sdk.Resource{Address: "b"}},
-	})
-	if cmd == nil {
-		t.Fatal("pruneStalePins with stale pins should return a cmd")
-	}
-	cmd()
-	if len(h.PinRequests) != 1 {
-		t.Fatalf("pruneStalePins: pin requests = %d, want 1", len(h.PinRequests))
-	}
-	if h.PinRequests[0] != "removed_resource" {
-		t.Errorf("pruneStalePins: pin request = %q, want %q", h.PinRequests[0], "removed_resource")
-	}
-}
-
-// TestUpdatePlanResultSuccess_WhenStalePinsPresent_ShouldBatchPruneCmd verifies
-// that PlanResultMsg integration emits the prune cmd alongside the standard
-// plan-completed events. Covers the `if pruneCmd != nil` branch.
-func TestUpdatePlanResultSuccess_WhenStalePinsPresent_ShouldBatchPruneCmd(t *testing.T) {
+// Pins are the App's to prune: Plan publishes its completion with the Context
+// it planned and leaves a pin the plan no longer changes alone.
+func TestUpdatePlanResultSuccess_WhenStalePinsPresent_ShouldPublishThePlannedContext(t *testing.T) {
 	p, h := newTestPluginWithHarness(&sdktest.MockService{})
 	h.Ctx.Pins = []string{"alive", "stale_resource"}
+	planned := h.Ctx
 	p.status = sdk.StatusLoading
 
 	summary := &sdk.PlanSummary{
@@ -891,14 +844,20 @@ func TestUpdatePlanResultSuccess_WhenStalePinsPresent_ShouldBatchPruneCmd(t *tes
 	if !ok {
 		t.Fatalf("cmd() = %T, want tea.BatchMsg", cmd())
 	}
+	var completion *sdk.PlanCompletedEvent
 	for _, sub := range batch {
 		if sub == nil {
 			continue
 		}
-		_ = sub()
+		if ev, ok := sub().(sdk.PlanCompletedEvent); ok {
+			completion = &ev
+		}
 	}
-	if len(h.PinRequests) != 1 || h.PinRequests[0] != "stale_resource" {
-		t.Errorf("PinRequests = %v, want [stale_resource]", h.PinRequests)
+	if completion == nil || completion.Context != planned {
+		t.Fatalf("completion = %+v, want one carrying the planned Context", completion)
+	}
+	if len(h.PinRequests) != 0 {
+		t.Errorf("PinRequests = %v, want none", h.PinRequests)
 	}
 }
 
