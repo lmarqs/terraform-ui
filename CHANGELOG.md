@@ -1,3 +1,15 @@
+## [1.35.8](https://github.com/lmarqs/terraform-ui/compare/v1.35.7...v1.35.8) (2026-11-22)
+
+
+### Bug Fixes
+
+* **ui:** window the Plan, State and Workspace lists through RenderWindow ([64030de](https://github.com/lmarqs/terraform-ui/commit/64030de890f7fac835301d19d39d0252dc006e05)), closes [#159](https://github.com/lmarqs/terraform-ui/issues/159)
+
+
+### Performance Improvements
+
+* **tree:** store each row's connector columns when flattening ([2d47935](https://github.com/lmarqs/terraform-ui/commit/2d4793525975f874e8094f3cde3bab56d38a10a8)), closes [#159](https://github.com/lmarqs/terraform-ui/issues/159)
+
 ## [1.35.7](https://github.com/lmarqs/terraform-ui/compare/v1.35.6...v1.35.7) (2026-11-22)
 
 
