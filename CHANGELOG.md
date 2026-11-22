@@ -1,3 +1,13 @@
+## [1.35.3](https://github.com/lmarqs/terraform-ui/compare/v1.35.2...v1.35.3) (2026-11-22)
+
+
+### Bug Fixes
+
+* **cli:** keep owning SIGINT and SIGTERM until the process exits ([237929f](https://github.com/lmarqs/terraform-ui/commit/237929fb9876e1d5c010461b09d0a4df037a6311)), closes [#154](https://github.com/lmarqs/terraform-ui/issues/154)
+* **demo:** fail a recording that loses a frame instead of publishing a partial GIF ([3a4b7e1](https://github.com/lmarqs/terraform-ui/commit/3a4b7e107da3c86ad07cb297638ef258c65cda5d)), closes [#178](https://github.com/lmarqs/terraform-ui/issues/178)
+* **terraform:** print recorded commands a POSIX shell runs as written ([c279615](https://github.com/lmarqs/terraform-ui/commit/c279615b01f6ffdec0c20292433f1b378c75f0c9)), closes [#166](https://github.com/lmarqs/terraform-ui/issues/166)
+* **ui:** apply pasted and grouped text to the filter query ([6a64380](https://github.com/lmarqs/terraform-ui/commit/6a643807f129472fa4472d4dcf0d588d4c5d424b)), closes [#164](https://github.com/lmarqs/terraform-ui/issues/164)
+
 ## [1.35.2](https://github.com/lmarqs/terraform-ui/compare/v1.35.1...v1.35.2) (2026-11-22)
 
 
