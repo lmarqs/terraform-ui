@@ -30,11 +30,17 @@ type PluginDepsHarness struct {
 	// AssessmentRequests records the summary of every deps.RequestAssessment run.
 	AssessmentRequests []*sdk.PlanSummary
 	lastAssessment     sdk.AssessmentID
+	// PlanEvent is the canned result deps.RequestPlan emits, its Request set to
+	// the ID that call returned.
+	PlanEvent sdk.PlanFetchedEvent
+	// PlanRequests counts the deps.RequestPlan Cmds that ran.
+	PlanRequests int
+	lastPlan     sdk.PlanRequestID
 }
 
 // NewDeps returns a harness whose Context is seeded from the supplied
-// Service. Logger discards output; Pin, ClearPins and RequestAssessment record
-// into the harness.
+// Service. Logger discards output; Pin, ClearPins, RequestAssessment and
+// RequestPlan record into the harness.
 func NewDeps(svc sdk.Service) *PluginDepsHarness {
 	h := &PluginDepsHarness{
 		Ctx: &sdk.Context{
@@ -65,6 +71,16 @@ func NewDeps(svc sdk.Service) *PluginDepsHarness {
 			return id, func() tea.Msg {
 				h.AssessmentRequests = append(h.AssessmentRequests, summary)
 				ev := h.AssessmentEvent
+				ev.Request = id
+				return ev
+			}
+		},
+		RequestPlan: func() (sdk.PlanRequestID, tea.Cmd) {
+			h.lastPlan++
+			id := h.lastPlan
+			return id, func() tea.Msg {
+				h.PlanRequests++
+				ev := h.PlanEvent
 				ev.Request = id
 				return ev
 			}

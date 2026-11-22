@@ -41,6 +41,16 @@ func (p *planCompletedHandlerPlugin) HandlePlanCompleted(e PlanCompletedEvent) t
 	return nil
 }
 
+type planFetchedHandlerPlugin struct {
+	baseMockPlugin
+	event PlanFetchedEvent
+}
+
+func (p *planFetchedHandlerPlugin) HandlePlanFetched(e PlanFetchedEvent) tea.Cmd {
+	p.event = e
+	return nil
+}
+
 type planInvalidatedHandlerPlugin struct {
 	baseMockPlugin
 	called bool
@@ -149,6 +159,15 @@ func TestDispatch_WhenPlanCompletedEvent_ShouldRouteToHandler(t *testing.T) {
 	}
 	if p.event.ResourceCount != 3 {
 		t.Errorf("event.ResourceCount = %d, want 3", p.event.ResourceCount)
+	}
+}
+
+func TestDispatch_WhenPlanFetchedEvent_ShouldRouteToHandler(t *testing.T) {
+	p := &planFetchedHandlerPlugin{}
+	bus := NewEventBus([]Plugin{p})
+	bus.Dispatch(PlanFetchedEvent{Request: 7})
+	if p.event.Request != 7 {
+		t.Errorf("event.Request = %d, want 7", p.event.Request)
 	}
 }
 

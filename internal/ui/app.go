@@ -173,6 +173,9 @@ func (a App) Init() tea.Cmd {
 		pluginDeps.RequestAssessment = func(summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
 			return a.risk.Request(requester, holder.current, summary)
 		}
+		pluginDeps.RequestPlan = func() (sdk.PlanRequestID, tea.Cmd) {
+			return a.risk.RequestPlan(requester, holder.current)
+		}
 		if cmd := p.Init(&pluginDeps); cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -316,6 +319,12 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case riskassess.Result:
 		if !a.risk.Current(msg) {
+			return a, nil
+		}
+		return a, a.bus.Dispatch(msg.Event)
+
+	case riskassess.PlanResult:
+		if !a.risk.PlanCurrent(msg) {
 			return a, nil
 		}
 		return a, a.bus.Dispatch(msg.Event)
@@ -886,8 +895,9 @@ func (a *App) startupChdir() sdk.Chdir {
 	return sdk.Chdir(a.cfg.BaseDir)
 }
 
-// cancelPlugin cancels p's operation and p's pending risk assessment, whose
-// host-run plan would otherwise keep Terraform and its state lock busy.
+// cancelPlugin cancels p's operation and p's pending risk assessment or plan
+// request, whose host-run plan would otherwise keep Terraform and its state
+// lock busy.
 func (a App) cancelPlugin(p sdk.Plugin) {
 	if c, ok := p.(sdk.Cancellable); ok {
 		c.Cancel()

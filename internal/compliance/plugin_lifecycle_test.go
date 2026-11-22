@@ -86,6 +86,7 @@ func initPlugin(p sdk.Plugin) {
 		Pin:               func(_ ...string) tea.Cmd { return nil },
 		ClearPins:         func() tea.Cmd { return nil },
 		RequestAssessment: func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) { return 1, nil },
+		RequestPlan:       func() (sdk.PlanRequestID, tea.Cmd) { return 1, nil },
 	})
 }
 

@@ -148,6 +148,7 @@ Plugins are:
 | `Pin` | Toggles a group of pin addresses; triggers a Context replacement |
 | `ClearPins` | Removes every pin |
 | `RequestAssessment` | Asks the host to assess a plan summary against the risk policy; returns the request's `AssessmentID`, and the result arrives as a `RiskAssessedEvent` carrying it |
+| `RequestPlan` | Asks the host to plan the active Context with Plan's default targets, loading no risk policy; returns the request's `PlanRequestID`, and the result arrives as a `PlanFetchedEvent` carrying it |
 
 `sdk.Context` (`pkg/sdk/context.go`) is an immutable snapshot of everything that shapes a terraform command: `Chdir`,
 `WorkingDir`, `Workspace`, a `Service` scoped to the working directory, `Pins`, `VarFiles`, `Vars`, `ExtraArgs`,
@@ -173,6 +174,7 @@ interface ([ADR-0003](../adr/0003-typed-event-bus.md)):
 | `ContextChangedEvent` | `ContextChangedHandler` |
 | `PlanCompletedEvent` | `PlanCompletedHandler` |
 | `PlanInvalidatedEvent` | `PlanInvalidatedHandler` |
+| `PlanFetchedEvent` | `PlanFetchedHandler` |
 | `RiskAssessedEvent` | `RiskAssessedHandler` |
 | `LockDetectedEvent` | `LockDetectedHandler` |
 | `LockClearedEvent` | `LockClearedHandler` |
@@ -198,6 +200,11 @@ which also cancel every pending request. Each plugin holds at most one pending r
 previous one, and cancelling a plugin cancels its own request, both the plan the host runs for a nil summary and the
 policy evaluation, and no other plugin's. The App still dispatches a cancelled request's result; the requester ignores
 it by `AssessmentID`.
+
+A plugin that needs a plan and no risk, as Phantom does on a cold open, calls `PluginDeps.RequestPlan` instead. The
+same coordinator runs it with the same rules: one pending request per plugin, cancelled and made stale the same way,
+and the plan uses Plan's default targets when nothing is pinned. It loads no policy, so a broken risk policy cannot
+stop it, and its result is a `PlanFetchedEvent` that carries a `PlanRequestID`.
 
 ## Plugin Loading
 

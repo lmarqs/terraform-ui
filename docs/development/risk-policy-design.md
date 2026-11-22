@@ -127,15 +127,14 @@ flowchart LR
     PL["Plan"]
     RK["Risk and tfui risk"]
     BR["Blast Radius"]
-    PH["Phantom"]
   end
-  PL & RK & BR & PH -->|RequestAssessment| APP
+  PL & RK & BR -->|RequestAssessment| APP
   APP -->|starts request| CO
   CO -->|resolves| SEL
   SEL -->|selects| SNAP
   CO -->|plans if no summary| EV
   CO -->|evaluates| VAL
-  APP -->|RiskAssessedEvent| PL & RK & BR & PH
+  APP -->|RiskAssessedEvent| PL & RK & BR
 ```
 
 *Figure 1. Component view inside the tfui process. Answers R1–R5, R7.*
@@ -258,7 +257,6 @@ showed that the plan's display strings lose numbers, which is why the input is t
 | A policy explains with a secret it was not given masked, or authored text leaks one. | Trusted local authors; marked values redacted before evaluation; fixed diagnostics. | Correct the input marking; tfui does not certify confidentiality. |
 | A slow or non-terminating trusted policy. | Cooperative cancellation when the user leaves or the Context changes. | Hard isolation needs its own design. |
 | An OPA upgrade changes evaluation or the builtin profile. | The capability digest test compares the full profile. | Revise the pin and profile explicitly. |
-| Phantom gets its plan through the assessment request, so a policy that fails to load leaves Phantom without a plan. | Phantom shows `plan unavailable` with the reason. | [#156](https://github.com/lmarqs/terraform-ui/issues/156) tracks a plan-only request. |
 | A provider version changes which attributes a mutation touches. | Reasons name evidence, never inferred ownership. | Correct the rule and its fixture. |
 
 ## What the first fixes taught
@@ -285,3 +283,5 @@ The follow-ups after #121 all landed on identity and lifetime, not on evaluation
 - #130 to #167: the fixes above, plus symlinked sources ([#133](https://github.com/lmarqs/terraform-ui/pull/133)),
   partly unknown attributes ([#136](https://github.com/lmarqs/terraform-ui/pull/136)), and Phantom planning when
   opened ([#158](https://github.com/lmarqs/terraform-ui/pull/158)).
+- [#156](https://github.com/lmarqs/terraform-ui/issues/156): Phantom plans through `RequestPlan`, which loads no
+  policy, so a broken policy no longer leaves it without a plan.

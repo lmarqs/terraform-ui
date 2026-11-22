@@ -544,6 +544,8 @@ func newTestPlugin(svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {
 | `h.ClearPinsCount` | How many times `deps.ClearPins()` ran |
 | `h.AssessmentEvent` | The `RiskAssessedEvent` that the Cmd returned by `deps.RequestAssessment()` emits, with `Request` set to the ID that call returned |
 | `h.AssessmentRequests` | The summary of every `deps.RequestAssessment()` Cmd that ran |
+| `h.PlanEvent` | The `PlanFetchedEvent` that the Cmd returned by `deps.RequestPlan()` emits, with `Request` set to the ID that call returned |
+| `h.PlanRequests` | How many `deps.RequestPlan()` Cmds ran |
 
 The harness records pin requests without replaying them onto `h.Ctx`: a test that needs the next snapshot to show a
 pin sets `h.Ctx.Pins` itself. Execute a returned `tea.Cmd` before asserting its side effects.

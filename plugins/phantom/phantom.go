@@ -29,8 +29,8 @@ type Plugin struct {
 	panel    *ui.ContentPanel
 	offset   int
 
-	requestPlan func(*sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd)
-	pending     sdk.AssessmentID
+	requestPlan func() (sdk.PlanRequestID, tea.Cmd)
+	pending     sdk.PlanRequestID
 	timer       ui.Timer
 	failure     string
 }
@@ -82,7 +82,7 @@ func (e *Plugin) Configure(cfg map[string]interface{}) error {
 // Init wires the plugin to its shared dependencies.
 func (e *Plugin) Init(deps *sdk.PluginDeps) tea.Cmd {
 	e.InitBase(deps)
-	e.requestPlan = deps.RequestAssessment
+	e.requestPlan = deps.RequestPlan
 	return nil
 }
 

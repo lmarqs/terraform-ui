@@ -128,6 +128,23 @@ type RiskAssessedEvent struct {
 
 func (RiskAssessedEvent) event() {}
 
+// PlanRequestID identifies one PluginDeps.RequestPlan call. The host never
+// reuses one; zero identifies no request.
+type PlanRequestID uint64
+
+// PlanFetchedEvent carries the result of PluginDeps.RequestPlan: the plan the
+// host ran, or terraform's error in Err. Every plugin receives it, so a
+// requester accepts only the event whose Request is the ID its call returned.
+// The App dispatches it only while no Context change or plan invalidation
+// happened since the request.
+type PlanFetchedEvent struct {
+	Request PlanRequestID
+	Summary *PlanSummary
+	Err     error
+}
+
+func (PlanFetchedEvent) event() {}
+
 type LockDetectedEvent struct {
 	Lock *StateLock
 }
@@ -148,6 +165,10 @@ type PlanCompletedHandler interface {
 
 type PlanInvalidatedHandler interface {
 	HandlePlanInvalidated(PlanInvalidatedEvent) tea.Cmd
+}
+
+type PlanFetchedHandler interface {
+	HandlePlanFetched(PlanFetchedEvent) tea.Cmd
 }
 
 type RiskAssessedHandler interface {

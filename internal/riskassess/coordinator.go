@@ -1,7 +1,7 @@
-// Package riskassess runs the host's risk assessment requests: it loads and
-// compiles the selected policy, plans when the requester holds no summary,
-// evaluates, caches and re-verifies the source, and tells which finished
-// requests are still current.
+// Package riskassess runs the host's risk assessment and plan requests: it loads
+// and compiles the selected policy, plans when the requester holds no summary or
+// asks only for a plan, evaluates, caches and re-verifies the source, and tells
+// which finished requests are still current.
 package riskassess
 
 import (
@@ -28,9 +28,16 @@ type Result struct {
 	Event      sdk.RiskAssessedEvent
 }
 
-// Coordinator is shared by App copies. Request, Cancel, Advance and Current
-// run only on the Update loop; request Cmds run concurrently and share only the
-// cache.
+// PlanResult is the message a plan request's Cmd produces. Dispatch Event only
+// while PlanCurrent reports the request current.
+type PlanResult struct {
+	generation uint64
+	Event      sdk.PlanFetchedEvent
+}
+
+// Coordinator is shared by App copies. Request, RequestPlan, Cancel, Advance,
+// Current and PlanCurrent run only on the Update loop; request Cmds run
+// concurrently and share only the cache.
 //
 // Every request made since the last Advance shares one generation, and its
 // context derives from that generation's context. Each requester holds at most
@@ -123,9 +130,14 @@ func (c *Coordinator) Current(r Result) bool {
 	return r.generation == c.generation
 }
 
-// Request assesses summary for requester under the policy current selects; a
-// nil summary plans current first. It cancels requester's previous request.
-func (c *Coordinator) Request(requester string, current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+// PlanCurrent reports whether r belongs to a request issued since the last Advance.
+func (c *Coordinator) PlanCurrent(r PlanResult) bool {
+	return r.generation == c.generation
+}
+
+// start cancels requester's previous request and opens the context of its new
+// one, returning the request's number and generation.
+func (c *Coordinator) start(requester string) (context.Context, context.CancelFunc, uint64, uint64) {
 	if c.cancel == nil {
 		c.ctx, c.cancel = context.WithCancel(context.Background())
 	}
@@ -133,7 +145,26 @@ func (c *Coordinator) Request(requester string, current *sdk.Context, summary *s
 	ctx, cancel := context.WithCancel(c.ctx)
 	c.requests[requester] = cancel
 	c.issued++
-	id, generation := sdk.AssessmentID(c.issued), c.generation
+	return ctx, cancel, c.issued, c.generation
+}
+
+// RequestPlan plans current for requester with Plan's default targets and loads
+// no policy. It cancels requester's previous request.
+func (c *Coordinator) RequestPlan(requester string, current *sdk.Context) (sdk.PlanRequestID, tea.Cmd) {
+	ctx, cancel, issued, generation := c.start(requester)
+	id := sdk.PlanRequestID(issued)
+	return id, func() tea.Msg {
+		defer cancel()
+		summary, err := hostPlan(ctx, current, c.defaultTargets())
+		return PlanResult{generation: generation, Event: sdk.PlanFetchedEvent{Request: id, Summary: summary, Err: err}}
+	}
+}
+
+// Request assesses summary for requester under the policy current selects; a
+// nil summary plans current first. It cancels requester's previous request.
+func (c *Coordinator) Request(requester string, current *sdk.Context, summary *sdk.PlanSummary) (sdk.AssessmentID, tea.Cmd) {
+	ctx, cancel, issued, generation := c.start(requester)
+	id := sdk.AssessmentID(issued)
 	return id, func() tea.Msg {
 		defer cancel()
 		event := c.run(ctx, current, summary)
@@ -164,7 +195,7 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 			event.Assessment = c.assess(ctx, policy, sdk.PolicyEvidence{})
 			return event
 		}
-		event.Summary, event.Err = planForAssessment(ctx, current, sdk.ConfigStrings(c.cfg.Plugins["plan"].Options, "targets", nil))
+		event.Summary, event.Err = hostPlan(ctx, current, c.defaultTargets())
 		if event.Err != nil {
 			return event
 		}
@@ -173,11 +204,17 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 	return event
 }
 
-func planForAssessment(ctx context.Context, current *sdk.Context, defaultTargets []string) (*sdk.PlanSummary, error) {
+// defaultTargets is Plan's configured targets, which a host plan applies when
+// nothing is pinned.
+func (c *Coordinator) defaultTargets() []string {
+	return sdk.ConfigStrings(c.cfg.Plugins["plan"].Options, "targets", nil)
+}
+
+func hostPlan(ctx context.Context, current *sdk.Context, defaultTargets []string) (*sdk.PlanSummary, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	dir, err := os.MkdirTemp("", "tfui-risk-*")
+	dir, err := os.MkdirTemp("", "tfui-plan-*")
 	if err != nil {
 		return nil, err
 	}

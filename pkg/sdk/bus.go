@@ -6,6 +6,7 @@ type EventBus struct {
 	contextHandlers         []ContextChangedHandler
 	planCompletedHandlers   []PlanCompletedHandler
 	planInvalidatedHandlers []PlanInvalidatedHandler
+	planFetchedHandlers     []PlanFetchedHandler
 	riskAssessedHandlers    []RiskAssessedHandler
 	lockDetectedHandlers    []LockDetectedHandler
 	lockClearedHandlers     []LockClearedHandler
@@ -23,6 +24,9 @@ func NewEventBus(plugins []Plugin) *EventBus {
 		}
 		if h, ok := p.(PlanInvalidatedHandler); ok {
 			b.planInvalidatedHandlers = append(b.planInvalidatedHandlers, h)
+		}
+		if h, ok := p.(PlanFetchedHandler); ok {
+			b.planFetchedHandlers = append(b.planFetchedHandlers, h)
 		}
 		if h, ok := p.(RiskAssessedHandler); ok {
 			b.riskAssessedHandlers = append(b.riskAssessedHandlers, h)
@@ -55,6 +59,10 @@ func (b *EventBus) Dispatch(msg tea.Msg) tea.Cmd {
 	case PlanInvalidatedEvent:
 		for _, h := range b.planInvalidatedHandlers {
 			cmds = append(cmds, h.HandlePlanInvalidated(e))
+		}
+	case PlanFetchedEvent:
+		for _, h := range b.planFetchedHandlers {
+			cmds = append(cmds, h.HandlePlanFetched(e))
 		}
 	case RiskAssessedEvent:
 		for _, h := range b.riskAssessedHandlers {

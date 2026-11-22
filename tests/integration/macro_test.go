@@ -54,6 +54,12 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "phantom opened cold plans although the risk policy is unavailable",
+			tapeFile: tape("phantom_cold_broken_policy.tape"),
+			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "phantom-plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},
+			wantExit: 0,
+		},
+		{
 			name:     "risk selected policy unavailable",
 			tapeFile: tape("risk-policy-unavailable.tape"),
 			args:     []string{"-plan", filepath.Join(projectRoot, "tests", "fixtures", "plan.json"), "-project", filepath.Join(projectRoot, "tests", "fixtures", "risk-policy-unavailable")},

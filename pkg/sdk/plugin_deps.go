@@ -36,6 +36,11 @@ type PluginDeps struct {
 	// the Update loop (Init, Update, Activate or an event handler), never inside a
 	// Cmd: it captures the active Context and request generation.
 	RequestAssessment func(summary *PlanSummary) (AssessmentID, tea.Cmd)
+	// RequestPlan asks the host to plan the active Context with Plan's default
+	// targets, without loading a risk policy. It returns the request's ID at once;
+	// the result arrives as a PlanFetchedEvent carrying that ID. Every host
+	// provides it, and it follows RequestAssessment's calling rules.
+	RequestPlan func() (PlanRequestID, tea.Cmd)
 	// Pin toggles resource addresses into or out of the active Context's Pins
 	// as one group (see Pins.Toggle). Returns a tea.Cmd that emits the request
 	// to the App; the actual Pins change becomes visible to the plugin on the
