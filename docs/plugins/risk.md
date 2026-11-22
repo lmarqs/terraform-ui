@@ -61,6 +61,9 @@ Policy or input failure shows unavailable risk. A partial assessment retains cla
 rows for inspection, but supplies no overall classification. Plan review remains available on policy failure;
 Terraform planning failures still report the Terraform error.
 
+A plan that completes while Risk waits on a request made without it replaces that request with one for the
+completed plan, so the view shows that plan's result instead of going idle.
+
 Source and configuration are rechecked at assessment boundaries, including Risk activation and Context changes.
 Edits are detected at the next boundary; there is no background watcher. See the
 [source lifecycle](../reference/risk-policy-contract.md#reload-and-publication).

@@ -20,7 +20,8 @@ import (
 // a Context change or plan invalidation (FR-9), and results of requests issued
 // before a cancel once a later request follows it, so a cancelled request never
 // answers its successor. Risk leaves the pending state on Context change,
-// invalidation, Cancel and PlanCompletedEvent. A request for a retained summary
+// invalidation and Cancel. A PlanCompletedEvent replaces a pending request
+// with one for the completed plan. A request for a retained summary
 // accepts only the event whose Summary is that pointer.
 
 func newLifecyclePlugin(t *testing.T, svc sdk.Service) (*Plugin, *sdktest.PluginDepsHarness) {

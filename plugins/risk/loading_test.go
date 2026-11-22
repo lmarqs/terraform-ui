@@ -1,7 +1,9 @@
 package risk
 
 import (
+	"errors"
 	"slices"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -61,5 +63,40 @@ func TestUpdate_GivenTimerTick_ShouldKeepTickingOnlyWhilePending(t *testing.T) {
 
 	if _, cmd := p.Update(ui.TimerTickMsg{}); cmd != nil {
 		t.Fatal("tick after the answer returned a next tick, so the timer would never stop")
+	}
+}
+
+// Plan clears its busy state before it publishes PlanCompletedEvent, so Risk can
+// be opened cold in that gap and receive the event while its request runs.
+func TestPlanCompleted_GivenColdRequestPending_ShouldRequestCompletedPlanAndRenderIt(t *testing.T) {
+	summary := lifecycleSummary("aws_instance.reviewed")
+	p, h := newLifecyclePlugin(t, &sdktest.MockService{})
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Summary: summary, Assessment: classifiedAs("aws_instance.reviewed", sdk.RiskMedium, "Completed plan classification.")}
+	cold := p.Activate(Input{})
+
+	runLifecycleCmd(p, p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: summary}))
+
+	if len(h.AssessmentRequests) != 1 || h.AssessmentRequests[0] != summary {
+		t.Fatalf("assessment requests = %v; want one request for the completed plan %p", h.AssessmentRequests, summary)
+	}
+	if p.Status() != sdk.StatusDone || !strings.Contains(ansi.Strip(p.View(100, 30)), "Completed plan classification.") {
+		t.Fatalf("status %v, view %q; want the completed plan's result rendered", p.Status(), ansi.Strip(p.View(100, 30)))
+	}
+
+	h.AssessmentEvent = sdk.RiskAssessedEvent{Err: errors.New("late cold failure")}
+	runLifecycleCmd(p, cold)
+	if p.Status() != sdk.StatusDone || strings.Contains(ansi.Strip(p.View(100, 30)), "late cold failure") {
+		t.Fatalf("the replaced cold request's late result changed the view: %q", ansi.Strip(p.View(100, 30)))
+	}
+}
+
+func TestPlanCompleted_GivenColdRequestPending_ShouldStayLoadingUntilAnswered(t *testing.T) {
+	p, _ := newLifecyclePlugin(t, &sdktest.MockService{})
+	p.Activate(Input{})
+
+	cmd := p.HandlePlanCompleted(sdk.PlanCompletedEvent{Summary: lifecycleSummary("aws_instance.reviewed")})
+
+	if cmd == nil || p.Status() != sdk.StatusLoading || p.Busy() {
+		t.Fatalf("cmd nil=%v status %v busy=%v; want a request in flight, loading, and no host plan to wait for", cmd == nil, p.Status(), p.Busy())
 	}
 }

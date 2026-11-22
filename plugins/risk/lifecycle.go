@@ -68,9 +68,16 @@ func (e *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 	return nil
 }
 
+// HandlePlanCompleted retains the reviewed plan. Plan frees its directory before
+// it publishes the event, so a request already running when it lands was issued
+// without the plan: it is replaced by one for the completed plan.
 func (e *Plugin) HandlePlanCompleted(ev sdk.PlanCompletedEvent) tea.Cmd {
+	loading := e.outcome.kind == outcomeLoading
 	e.resetDerived()
 	e.summary = ev.Summary
+	if loading {
+		return e.requestAssessment()
+	}
 	return nil
 }
 
