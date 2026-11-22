@@ -1,3 +1,10 @@
+## [1.35.7](https://github.com/lmarqs/terraform-ui/compare/v1.35.6...v1.35.7) (2026-11-22)
+
+
+### Bug Fixes
+
+* **ui:** drop a plan completion whose Context was replaced ([fd1656a](https://github.com/lmarqs/terraform-ui/commit/fd1656a2f5b6dc8afd4a96e24c867b6e0c6df1e8)), closes [#160](https://github.com/lmarqs/terraform-ui/issues/160)
+
 ## [1.35.6](https://github.com/lmarqs/terraform-ui/compare/v1.35.5...v1.35.6) (2026-11-22)
 
 
