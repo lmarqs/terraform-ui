@@ -10,7 +10,7 @@ description: "tfui CI/CD: build, test and release workflow stages, semantic-rele
 ```
 PR / push to main → main.yaml
   ├── build.yaml    lint → unit tests (ubuntu+macos) → coverage → binaries
-  ├── test.yaml     macro tapes + integration tests (against built artifacts)
+  ├── test.yaml     macro tapes (built artifacts) + integration tests + demo stitcher tests
   └── release.yaml  semantic-release → goreleaser (if new version)
 ```
 
