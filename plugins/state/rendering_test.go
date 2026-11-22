@@ -251,7 +251,7 @@ func TestRenderResources_TreeMode_WithListWrap_ShouldNotTruncate(t *testing.T) {
 	}
 }
 
-func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T) {
+func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowTheLine(t *testing.T) {
 	svc := &sdktest.MockService{}
 	p := New(svc).(*Plugin)
 	p.Init(sdktest.NewDeps(svc).Deps)
@@ -264,8 +264,8 @@ func TestRenderDetail_WhenHScrollExceedsLineLength_ShouldShowEmpty(t *testing.T)
 	}
 
 	view := p.renderDetail(80, 20)
-	if view == "" {
-		t.Error("expected non-empty view even with excessive hscroll")
+	if !strings.Contains(view, "short") || !strings.Contains(view, "line") {
+		t.Errorf("expected lines shorter than the pan offset to stay visible, got %q", view)
 	}
 }
 
