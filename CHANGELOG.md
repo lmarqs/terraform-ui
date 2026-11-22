@@ -1,3 +1,10 @@
+## [1.35.6](https://github.com/lmarqs/terraform-ui/compare/v1.35.5...v1.35.6) (2026-11-22)
+
+
+### Bug Fixes
+
+* **phantom:** plan on cold open without loading the risk policy ([7ebe6b1](https://github.com/lmarqs/terraform-ui/commit/7ebe6b11a3ea40f409da179da0bbd39d9009ab6d)), closes [#156](https://github.com/lmarqs/terraform-ui/issues/156)
+
 ## [1.35.5](https://github.com/lmarqs/terraform-ui/compare/v1.35.4...v1.35.5) (2026-11-22)
 
 
