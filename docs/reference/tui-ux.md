@@ -472,8 +472,8 @@ pre-windowed rows.
 - wrapping and panning cut by display cells, so a wide character is kept whole or dropped whole
 - the scroll gutter when content overflows the viewport
 - cursor row highlighting with the caller's style
-- with wrap on, the cursor row's first line is drawn whenever the cursor is within the rows, until `ScrollBlock` moves
-  the window down a cursor block taller than it
+- the cursor row's first line is drawn whenever the cursor is within the rows, until `ScrollBlock` moves the window
+  down a cursor block taller than the view, with wrap on or off
 - content width = total width minus the gutter budget
 
 **The panel has two input paths**, both taking `ui.RenderParams`:
@@ -600,9 +600,10 @@ The modifier (`^`) is the visual signal. Users don't need to memorize categories
 
 - Virtual scrolling: the panel draws only the visible window, but a list builds every row's text each frame, since
   with wrap on only the panel knows which rows fit. A row's cost must not depend on the rows around it: the tree
-  stores each row's connector columns when it flattens, so rendering does not search for a row's ancestors. Measured
-  for the State list, `View(120, 40)` with every row built: 20,000 resources take about 4 ms in one expanded module,
-  6 ms in a balanced expanded tree and 2 ms flat (`BenchmarkRenderRows_*` in `pkg/sdk/ui/tree` covers the tree alone)
+  stores each row's connector columns when it flattens, so rendering does not search for a row's ancestors. The cost
+  of building every row grows linearly with the row count, in one expanded module and in a balanced expanded tree:
+  `BenchmarkRenderRows_OneModuleWithManyLeaves` and `BenchmarkRenderRows_Balanced` in `pkg/sdk/ui/tree` build every
+  row at 1,000, 5,000 and 20,000 rows, and reproduce with `go test -run x -bench RenderRows ./pkg/sdk/ui/tree/`
 - Tree flatten: O(visible nodes), not O(all nodes)
 - Filter: runs on every keystroke, with no debounce
 - State load: show elapsed time indicator after 2s

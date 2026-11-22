@@ -357,7 +357,8 @@ func (e *Plugin) renderWorkspaces(width, height int) string {
 	}
 
 	// Each frame windows from the top, so the window ends at the cursor once the cursor
-	// passes the height; the list has no wrap, so its offset is not kept.
+	// passes the height. Keeping the offset would make the window sticky when moving
+	// up, which changes how this list scrolled before it used the panel.
 	content, _ := panel.RenderWindow(ui.RenderParams{
 		Rows:   rows,
 		Width:  width,

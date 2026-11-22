@@ -1752,10 +1752,9 @@ func TestPinStateOf_WhenBranchHasOnlySubBranches_ShouldReadThroughThem(t *testin
 	}
 }
 
-func TestGetAncestorContinuations_WhenAncestorSearchHitsSmallerDepth(t *testing.T) {
-	// Build a tree that creates the n.Depth < d break condition in getAncestorContinuations.
-	// This happens when walking backwards we encounter a node with depth less than
-	// the ancestor depth we're searching for, meaning we've passed the ancestor.
+func TestRender_ConnectorPrefix_WhenSiblingBranchFollowsNestedBranch(t *testing.T) {
+	// A nested branch followed by a sibling top-level branch: the connector prefix built
+	// while flattening must stop at each branch's own ancestors.
 	items := []Item{
 		testItem{"module.a.module.b.aws_instance.one"},
 		testItem{"module.c.aws_instance.two"},
@@ -1845,7 +1844,7 @@ func TestRender_WhenEndIdxExceedsFlattenedLength_ShouldClamp(t *testing.T) {
 	}
 }
 
-func TestGetAncestorContinuations_WhenNodeHasDeepAncestry(t *testing.T) {
+func TestRender_ConnectorPrefix_WhenNodeHasDeepAncestry(t *testing.T) {
 	// Create a structure: module.a > module.b > module.c > leaf
 	// plus module.a > module.d > leaf (to ensure continuing ancestors)
 	items := []Item{
@@ -1939,23 +1938,10 @@ func TestViewOffset_WhenCursorBelowViewport_ShouldScrollDown(t *testing.T) {
 	}
 }
 
-func TestGetAncestorContinuations_WhenWalkingBackHitsSmallerDepth(t *testing.T) {
-	// To trigger the n.Depth < d break, we need a structure where
-	// walking backwards from a node we encounter a node whose depth
-	// is less than the ancestor depth we're looking for.
-	// This happens when a deeply nested node is preceded by a shallow node
-	// in the flattened list.
-	//
-	// Structure: module.a (depth 0) -> module.b (depth 1) -> leaf (depth 2)
-	//            module.x (depth 0) -> leaf (depth 1)
-	//
-	// When rendering the leaf at depth 2 under module.b, we look for ancestor
-	// at depth 1 (module.b). Walking backwards we find module.b.
-	// Then for depth 0, we look for module.a. But what if the flattened order
-	// puts module.x between them? Actually flattened is DFS so siblings come after.
-	//
-	// Better approach: Create structure where a depth-1 node under one branch
-	// is preceded by a depth-0 node from another branch.
+func TestRender_ConnectorPrefix_WhenDeepNodeFollowsShallowBranch(t *testing.T) {
+	// A deeply nested node preceded in the flattened list by a shallow branch from
+	// another top-level module: its connector prefix must not inherit the earlier
+	// branch's columns.
 	items := []Item{
 		testItem{"module.x.aws_instance.first"},
 		testItem{"module.y.module.z.aws_instance.deep"},
@@ -1967,15 +1953,8 @@ func TestGetAncestorContinuations_WhenWalkingBackHitsSmallerDepth(t *testing.T) 
 	// module.x (depth 0), aws_instance.first (depth 1),
 	// module.y (depth 0), module.z (depth 1), aws_instance.deep (depth 2)
 	//
-	// For aws_instance.deep at depth 2, getAncestorContinuations looks for:
-	// d=0: walks back, finds module.z(depth1), finds module.y(depth0) -> !IsLast
-	// d=1: walks back, finds module.z(depth1) -> !IsLast
-	//
-	// But to trigger depth < d break, we need the backwards walk to hit a node
-	// whose depth is LESS than d before finding the ancestor at depth d.
-	// This happens for d=1 if we walk back and hit a depth-0 node first.
-	//
-	// Let's build a case: sibling items at depth 0 followed by a nested node.
+	// Second case: a nested leaf under module.a followed by a sibling leaf directly
+	// under module.a.
 	items2 := []Item{
 		testItem{"module.a.module.b.aws_instance.one"},
 		testItem{"module.a.aws_instance.root_item"},
