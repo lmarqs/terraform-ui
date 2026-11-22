@@ -75,7 +75,8 @@ type RenderParams struct {
 type blockScroll struct {
 	cursor int // the cursor the scroll belongs to; another cursor starts at the block's top
 	into   int
-	max    int // the block's height minus the window's, or 0 when the block fits
+	max    int  // the block's height minus the window's, or 0 when the block fits
+	jumped bool // ScrollBlockTo set into for the next frame, whatever its cursor
 }
 
 // HScroll returns the current horizontal scroll offset.
@@ -121,6 +122,7 @@ func (p *ContentPanel) ResetScroll() {
 // ScrollBlock moves the next RenderWindow by delta lines inside the cursor's block when
 // the block drawn last frame is taller than the window. It returns false, moving nothing,
 // when that would pass the block's first or last line, so the caller moves the cursor.
+// It reads the block RenderWindow measured, so a caller that uses it must not call Render.
 func (p *ContentPanel) ScrollBlock(delta int) bool {
 	into := p.block.into + delta
 	if into < 0 || into > p.block.max {
@@ -128,6 +130,13 @@ func (p *ContentPanel) ScrollBlock(delta int) bool {
 	}
 	p.block.into = into
 	return true
+}
+
+// ScrollBlockTo makes the next RenderWindow show line of the cursor's block, or the block's
+// last page when line is past it, even when the cursor moves before that frame. A jump
+// uses it: 0 for the block's first line, math.MaxInt for its last.
+func (p *ContentPanel) ScrollBlockTo(line int) {
+	p.block.into, p.block.jumped = max(0, line), true
 }
 
 // Render produces the final output string with all layout applied.
@@ -193,9 +202,10 @@ func (p *ContentPanel) RenderWindow(params RenderParams) (string, int) {
 	if height <= 0 {
 		return "", params.ScrollOffset
 	}
-	if params.Cursor != p.block.cursor {
-		p.block = blockScroll{cursor: params.Cursor}
+	if params.Cursor != p.block.cursor && !p.block.jumped {
+		p.block.into = 0
 	}
+	p.block.cursor, p.block.jumped = params.Cursor, false
 	if !p.wrapMode {
 		start, end := blockRows(params.Cursor, params.CursorEnd, len(rows))
 		offset := p.scrollTo(params.ScrollOffset, start, end, height, len(rows))

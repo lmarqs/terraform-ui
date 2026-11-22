@@ -3,6 +3,7 @@ package validate
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -219,8 +220,10 @@ func (p *Plugin) handleKey(msg tea.KeyMsg) tea.Cmd {
 		}
 	case "G":
 		p.MoveToEnd()
+		p.panel.ScrollBlockTo(math.MaxInt)
 	case "g":
 		p.MoveToStart()
+		p.panel.ScrollBlockTo(0)
 	case "left", "right", "ctrl+w":
 		if len(p.diagnostics) > 0 {
 			p.panel.HandleKey(msg)

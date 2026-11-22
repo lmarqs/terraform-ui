@@ -495,7 +495,9 @@ pre-windowed rows.
 `delta` lines, rows with wrap off and wrapped lines with wrap on, inside the cursor's block as measured last frame. It
 returns false and moves nothing when the block fits or the move would pass its first or last line, so the plugin binds
 `j`/`k` to `ScrollBlock(±1)` and moves the cursor only when it returns false. A new cursor shows its block from the
-top, and `ResetScroll` clears the scroll; a block that fits renders as before. Validate and Output use it
+top, and `ResetScroll` clears the scroll; a block that fits renders as before. `ScrollBlockTo(line)` sets the scroll
+for the next frame even when the cursor moves: `g` passes 0 and `G` passes `math.MaxInt`, so `G` ends on the last
+item's last line. A caller that uses either method windows with `RenderWindow`, never `Render`. Validate and Output use it
 ([#170](https://github.com/lmarqs/terraform-ui/issues/170)).
 
 **The plugin owns:**

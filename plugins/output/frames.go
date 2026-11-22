@@ -1,6 +1,8 @@
 package output
 
 import (
+	"math"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
@@ -61,8 +63,10 @@ func (f *listFrame) Update(msg tea.Msg) (sdk.Frame, tea.Cmd) {
 		}
 	case "G":
 		f.plugin.MoveToEnd()
+		f.plugin.panel.ScrollBlockTo(math.MaxInt)
 	case "g":
 		f.plugin.MoveToStart()
+		f.plugin.panel.ScrollBlockTo(0)
 	case "left", "right", "ctrl+w":
 		if len(f.plugin.filtered) > 0 {
 			f.plugin.panel.HandleKey(keyMsg)

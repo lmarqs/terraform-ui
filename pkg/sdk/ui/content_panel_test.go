@@ -2,6 +2,7 @@ package ui_test
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"testing"
 	"unicode/utf8"
@@ -1115,6 +1116,40 @@ func TestContentPanel_ScrollBlock_GivenCursorMovedOrScrollReset_ShouldShowTheBlo
 
 			if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, tt.wantFirst) {
 				t.Fatalf("first line = %q, want prefix %q", first, tt.wantFirst)
+			}
+		})
+	}
+}
+
+func TestContentPanel_ScrollBlockTo_GivenAJump_ShouldShowTheLineEvenForANewCursor(t *testing.T) {
+	rows := []string{"a", "a1", "a2", "a3", "b", "b1", "b2", "b3"}
+	tests := []struct {
+		name      string
+		line      int
+		cursor    int
+		cursorEnd int
+		wantFirst string
+		wantLast  string
+	}{
+		{"first line of the same scrolled block", 0, 0, 4, "[SEL]a", "a1"},
+		{"last line of a block the cursor jumps to", math.MaxInt, 4, 8, "b2", "b3"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			panel.SelectedStyle = func(s string, w int) string { return "[SEL]" + s }
+			params := ui.RenderParams{Rows: rows, Width: 10, Height: 2, Cursor: 0, CursorEnd: 4}
+			_, params.ScrollOffset = panel.RenderWindow(params)
+			panel.ScrollBlock(1)
+			_, params.ScrollOffset = panel.RenderWindow(params)
+
+			panel.ScrollBlockTo(tt.line)
+			params.Cursor, params.CursorEnd = tt.cursor, tt.cursorEnd
+			output, _ := panel.RenderWindow(params)
+
+			lines := strings.Split(output, "\n")
+			if !strings.HasPrefix(lines[0], tt.wantFirst) || !strings.HasPrefix(lines[len(lines)-1], tt.wantLast) {
+				t.Fatalf("window = %q, want from %q to %q", lines, tt.wantFirst, tt.wantLast)
 			}
 		})
 	}

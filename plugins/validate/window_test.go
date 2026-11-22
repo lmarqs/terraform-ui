@@ -289,3 +289,35 @@ func TestUpdate_GivenOnlyOneDiagnosticTallerThanTheView_ShouldReachItsLastLineWi
 		t.Fatalf("j should reach the diagnostic's last line:\n%s", view)
 	}
 }
+
+func TestUpdate_GivenGOrShiftGOnAnOversizedDiagnostic_ShouldJumpToTheListsFirstOrLastLine(t *testing.T) {
+	keyJ := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	keyG := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
+	tall := sdk.Diagnostic{Severity: "error", Summary: "tall one", Detail: detailLines(30)}
+	short := sdk.Diagnostic{Severity: "error", Summary: "short one"}
+	for _, tc := range []struct {
+		name      string
+		diags     []sdk.Diagnostic
+		keys      []tea.KeyMsg
+		wantFirst string
+		wantLast  string
+	}{
+		{"g on a scrolled first diagnostic", []sdk.Diagnostic{tall, short}, []tea.KeyMsg{keyEnter, keyJ, keyJ, keyJ, keyG}, "tall one", ""},
+		{"G on an oversized last diagnostic", []sdk.Diagnostic{short, tall}, []tea.KeyMsg{keyShift, keyEnter, keyShift}, "", "detail line 29"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := doneWith(t, tc.diags)
+			p.View(60, 12)
+			for _, key := range tc.keys {
+				p.Update(key)
+				p.View(60, 12)
+			}
+
+			view := ansi.Strip(p.View(60, 12))
+			lines := strings.Split(view, "\n")
+			if !strings.Contains(lines[0], tc.wantFirst) || !strings.Contains(view, tc.wantLast) {
+				t.Fatalf("want first line %q and %q in view:\n%s", tc.wantFirst, tc.wantLast, view)
+			}
+		})
+	}
+}

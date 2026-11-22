@@ -346,3 +346,35 @@ func TestUpdate_GivenOnlyOneValueTallerThanTheView_ShouldReachItsLastLineWithJ(t
 		t.Fatalf("j should reach the value's last line:\n%s", view)
 	}
 }
+
+func TestUpdate_GivenGOrShiftGOnAnOversizedValue_ShouldJumpToTheListsFirstOrLastLine(t *testing.T) {
+	keyJ := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'j'}}
+	keyG := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'g'}}
+	tall := sdk.OutputValue{Name: "tall", Type: "string", Value: multiLineValue(30)}
+	short := sdk.OutputValue{Name: "short", Type: "string", Value: "v"}
+	for _, tc := range []struct {
+		name      string
+		outputs   []sdk.OutputValue
+		keys      []tea.KeyMsg
+		wantFirst string
+		wantLast  string
+	}{
+		{"g on a scrolled first value", []sdk.OutputValue{tall, short}, []tea.KeyMsg{keyJ, keyJ, keyJ, keyG}, " tall", ""},
+		{"G on an oversized last value", []sdk.OutputValue{short, tall}, []tea.KeyMsg{keyShift}, "", "value line 29"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := doneWith(t, tc.outputs)
+			p.View(60, 12)
+			for _, key := range tc.keys {
+				press(p, key)
+				p.View(60, 12)
+			}
+
+			view := ansi.Strip(p.View(60, 12))
+			lines := strings.Split(view, "\n")
+			if !strings.Contains(lines[0], tc.wantFirst) || !strings.Contains(view, tc.wantLast) {
+				t.Fatalf("want first line %q and %q in view:\n%s", tc.wantFirst, tc.wantLast, view)
+			}
+		})
+	}
+}
