@@ -482,14 +482,17 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 			e.Log.Debug("plan.complete", "changes", changes)
 			cmds := []tea.Cmd{}
 			planFilePath := e.planFile.Path()
+			assess := e.requestAssessment()
 			if msg.Summary != nil {
 				// Plan is busy for the whole run, so no Context change lands
 				// before its result: the active Context is the one it planned.
 				planned := e.GetCtx()
+				assessment := e.pending
 				cmds = append(cmds,
 					func() tea.Msg {
 						return sdk.PlanCompletedEvent{
 							Context:       planned,
+							Assessment:    assessment,
 							Summary:       msg.Summary,
 							ResourceCount: changes,
 							PlanFile:      planFilePath,
@@ -497,7 +500,7 @@ func (e *Plugin) Update(msg tea.Msg) (sdk.Plugin, tea.Cmd) {
 					},
 				)
 			}
-			cmds = append(cmds, e.requestAssessment(), func() tea.Msg { return sdk.StateRefreshedEvent{} })
+			cmds = append(cmds, assess, func() tea.Msg { return sdk.StateRefreshedEvent{} })
 
 			// Fire the deferred apply only when the replan produced changes. If
 			// it ended up clean (zero changes), there is nothing to apply.

@@ -125,6 +125,12 @@ func (c *Coordinator) Advance() {
 	c.generation++
 }
 
+// Next is the ID the next request receives; every later request's ID is at
+// least Next.
+func (c *Coordinator) Next() sdk.AssessmentID {
+	return sdk.AssessmentID(c.issued + 1)
+}
+
 // Current reports whether r belongs to a request issued since the last Advance.
 func (c *Coordinator) Current(r Result) bool {
 	return r.generation == c.generation

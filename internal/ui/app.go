@@ -70,6 +70,12 @@ type App struct {
 	width       int
 	height      int
 
+	// planFloor is the first request ID issued after the last plan invalidation
+	// or Context change; planShown is the request ID of the last plan
+	// completion dispatched. A plan whose ID is below either is stale.
+	planFloor sdk.AssessmentID
+	planShown sdk.AssessmentID
+
 	header        components.Header
 	contentBorder components.ContentBorder
 	commandBar    components.CommandBar
@@ -315,9 +321,10 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.popIfPushed(a.bus.Dispatch(ctxCmd()))
 
 	case sdk.PlanCompletedEvent:
-		if msg.Context != a.holder.current {
+		if msg.Context != a.holder.current || !a.planCurrent(msg.Assessment) {
 			return a, nil
 		}
+		a.planShown = msg.Assessment
 		// The unpin is the plan's own Context change: it lands before the
 		// completion, so plugins that reset on it keep the plan.
 		prune := a.pruneStalePins(msg.Summary)
@@ -336,6 +343,7 @@ func (a App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.bus.Dispatch(msg.Event)
 
 	case sdk.PlanInvalidatedEvent:
+		a.planFloor = a.risk.Next()
 		a.risk.Advance()
 		a.staleState = true
 		a.header = a.header.WithStale(true)
@@ -935,6 +943,12 @@ func (a *App) pruneStalePins(summary *sdk.PlanSummary) tea.Cmd {
 	return a.bus.Dispatch(a.replaceContext(current.TogglePins(stale...), sdk.ContextPinsChanged)())
 }
 
+// planCurrent reports whether the plan whose completion requested assessment
+// id is still the one under review.
+func (a *App) planCurrent(id sdk.AssessmentID) bool {
+	return id >= a.planFloor && id >= a.planShown
+}
+
 // replaceContext atomically swaps the active Context and returns a Cmd that
 // dispatches a single ContextChangedEvent carrying both snapshots and the
 // reason for the change. Callers must build `next` via rebuildContext (or
@@ -946,6 +960,7 @@ func (a *App) pruneStalePins(summary *sdk.PlanSummary) tea.Cmd {
 func (a *App) replaceContext(next *sdk.Context, reason sdk.ContextChangeReason) tea.Cmd {
 	prev := a.holder.current
 	a.holder.current = next
+	a.planFloor = a.risk.Next()
 	a.risk.Advance()
 	logging.Logger().Debug("context.replaced",
 		"prev_chdir", contextChdir(prev),

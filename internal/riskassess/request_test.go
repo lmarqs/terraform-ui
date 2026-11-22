@@ -189,3 +189,29 @@ func TestRequestAssessment_GivenNilSummaryAndConfiguredPlanTargets_ShouldPlanWit
 		})
 	}
 }
+
+func TestNext_GivenRequestsAndAdvance_ShouldBeTheIDTheNextRequestReceives(t *testing.T) {
+	tests := []struct {
+		name    string
+		prepare func(c *Coordinator, current *sdk.Context)
+	}{
+		{"no request yet", func(*Coordinator, *sdk.Context) {}},
+		{"after an assessment request", func(c *Coordinator, current *sdk.Context) { c.Request("risk", current, nil) }},
+		{"after a plan request", func(c *Coordinator, current *sdk.Context) { c.RequestPlan("phantom", current) }},
+		{"after an Advance", func(c *Coordinator, current *sdk.Context) { c.Request("risk", current, nil); c.Advance() }},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := New(config.Config{Dir: t.TempDir()})
+			current := &sdk.Context{Service: &sdktest.MockService{}}
+			tt.prepare(c, current)
+
+			next := c.Next()
+			id, _ := c.Request("plan", current, nil)
+
+			if id != next {
+				t.Fatalf("Next() = %d, the next request received %d", next, id)
+			}
+		})
+	}
+}
