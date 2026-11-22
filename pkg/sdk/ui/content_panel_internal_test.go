@@ -64,7 +64,7 @@ func TestScrollLeft_GivenNAtOrBeyondTheWidth_ShouldReturnEmpty(t *testing.T) {
 const (
 	flag       = "\U0001F1E7\U0001F1F7"
 	family     = "\U0001F468\u200D\U0001F469\u200D\U0001F467"
-	accentedA  = "á"
+	accentedA  = "a\u0301"
 	redOn      = "\x1b[31m"
 	styleReset = "\x1b[0m"
 )

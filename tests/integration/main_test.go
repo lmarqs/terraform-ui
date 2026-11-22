@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 var binaryPath string
@@ -63,8 +65,8 @@ func fixtureDir(name string) string {
 }
 
 // recorded is the recorded command tfui prints for terraform run in dir: every
-// recorded command carries -chdir=<dir> after the binary. An empty dir is the
-// test process's working directory, which runTfui's child inherits.
+// recorded command carries -chdir=<dir> after the binary, quoted as tfui quotes it.
+// An empty dir is the test process's working directory, which runTfui's child inherits.
 func recorded(t *testing.T, dir, command string) string {
 	t.Helper()
 	if dir == "" {
@@ -73,7 +75,7 @@ func recorded(t *testing.T, dir, command string) string {
 			t.Fatal(err)
 		}
 	}
-	return "terraform -chdir=" + dir + " " + command
+	return sdk.Command{Binary: "terraform", Dir: dir, Verb: command}.String()
 }
 
 func runTfui(args ...string) (string, string, error) {
