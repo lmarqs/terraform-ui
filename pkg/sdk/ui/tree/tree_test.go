@@ -946,6 +946,60 @@ func TestRender_WhenTreeHasContent_ShouldIncludeConnectors(t *testing.T) {
 	})
 }
 
+func TestRenderRows_WhenExpanded_ShouldDrawEachRowsConnectorColumns(t *testing.T) {
+	tests := []struct {
+		name  string
+		items []string
+		want  []string
+	}{
+		{
+			name: "a continuation line runs under a row with a later sibling, a blank under a last child",
+			items: []string{
+				"module.a.module.b.aws_x.one",
+				"module.a.module.b.aws_x.two",
+				"module.a.aws_y.three",
+				"module.c.aws_z.four",
+				"aws_s3_bucket.main",
+			},
+			want: []string{
+				"  ▼ module.a (3)",
+				"  ├─▼ module.b (2)",
+				"  │ ├─aws_x.one",
+				"  │ └─aws_x.two",
+				"  └─aws_y.three",
+				"  ▼ module.c (1)",
+				"  └─aws_z.four",
+				"  aws_s3_bucket.main",
+			},
+		},
+		{
+			name:  "a chain of last children leaves a blank column per level",
+			items: []string{"module.a.module.b.aws_x.one"},
+			want: []string{
+				"  ▼ module.a (1)",
+				"  └─▼ module.b (1)",
+				"    └─aws_x.one",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := make([]Item, len(tt.items))
+			for i, addr := range tt.items {
+				items[i] = testItem{addr}
+			}
+			tr := New(items)
+			tr.ExpandAll()
+
+			got := tr.RenderRows(RenderOpts{})
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("rows =\n%q\nwant\n%q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRender_WhenCollapsed_ShouldShowCollapsedIndicator(t *testing.T) {
 	items := []Item{
 		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
