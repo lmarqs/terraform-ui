@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -308,6 +309,29 @@ func TestParseOverride_WhenTableDriven_ShouldHandleAllCases(t *testing.T) {
 			}
 			if value != tt.wantValue {
 				t.Errorf("parseOverride(%q) value = %q, want %q", tt.input, value, tt.wantValue)
+			}
+		})
+	}
+}
+
+func TestPlanTargets(t *testing.T) {
+	off, on := false, true
+	targets := map[string]interface{}{"targets": []interface{}{"module.a", "module.b"}}
+	tests := []struct {
+		name string
+		cfg  Config
+		want []string
+	}{
+		{"ShouldBeEmptyWithoutPlanConfig", Config{}, nil},
+		{"ShouldReturnTargetsWhenEnabledByDefault", Config{Plugins: map[string]PluginConfig{"plan": {Options: targets}}}, []string{"module.a", "module.b"}},
+		{"ShouldReturnTargetsWhenExplicitlyEnabled", Config{Plugins: map[string]PluginConfig{"plan": {Enabled: &on, Options: targets}}}, []string{"module.a", "module.b"}},
+		{"ShouldBeEmptyWhenPlanIsDisabled", Config{Plugins: map[string]PluginConfig{"plan": {Enabled: &off, Options: targets}}}, nil},
+		{"ShouldIgnoreOtherPluginsTargets", Config{Plugins: map[string]PluginConfig{"apply": {Options: targets}}}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.cfg.PlanTargets(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("PlanTargets() = %q, want %q", got, tt.want)
 			}
 		})
 	}

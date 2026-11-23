@@ -58,7 +58,7 @@ func planInputForApply(input apply.Input) tfuiplan.Input {
 // configured `targets`. One list sets the default scope (ADR-0019).
 func applyInputForAutoApprove(input apply.Input, cfg config.Config) apply.Input {
 	if len(input.Targets) == 0 {
-		input.Targets = sdk.ConfigStrings(cfg.Plugins["plan"].Options, "targets", nil)
+		input.Targets = cfg.PlanTargets()
 	}
 	return input
 }

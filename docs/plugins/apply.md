@@ -118,7 +118,7 @@ Exit codes: see [CLI I/O contract](../reference/cli-io-contract.md#exit-codes).
 
 Apply has no options. Its default scope is the `targets` list of
 [`plugin "plan"`](plan.md#configuration), so a reviewed apply and a one-shot
-`-auto-approve` apply cover the same resources. To turn the plugin off, see
+`-auto-approve` apply cover the same resources, unless Plan is disabled, which ignores its `targets`. To turn the plugin off, see
 [Enabling/Disabling Plugins](index.md#enablingdisabling-plugins).
 
 ## Related

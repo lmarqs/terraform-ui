@@ -23,3 +23,9 @@ func ConfigStrings(cfg map[string]interface{}, key string, def []string) []strin
 	}
 	return def
 }
+
+// PlanTargets reads Plan's `targets` option, which the Plan plugin and the host
+// read through this one function.
+func PlanTargets(options map[string]interface{}) []string {
+	return ConfigStrings(options, "targets", nil)
+}

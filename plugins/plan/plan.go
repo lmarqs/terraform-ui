@@ -157,7 +157,7 @@ func (e *Plugin) Count() (int, int) {
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
-	e.cfgTargets = sdk.ConfigStrings(cfg, "targets", nil)
+	e.cfgTargets = sdk.PlanTargets(cfg)
 	return nil
 }
 

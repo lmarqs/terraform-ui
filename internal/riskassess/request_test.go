@@ -215,3 +215,23 @@ func TestNext_GivenRequestsAndAdvance_ShouldBeTheIDTheNextRequestReceives(t *tes
 		})
 	}
 }
+
+func TestRequestAssessment_GivenNilSummaryAndDisabledPlanPlugin_ShouldPlanWithoutTheConfiguredTargets(t *testing.T) {
+	disabled := false
+	svc := &sdktest.MockService{}
+	svc.PlanFn = func(context.Context, sdk.PlanOptions) (*sdk.PlanSummary, error) { return reviewedRiskSummary(), nil }
+	h := newHarness(t, t.TempDir(), svc)
+	h.coord.cfg.Plugins = map[string]config.PluginConfig{"plan": {
+		Enabled: &disabled,
+		Options: map[string]interface{}{"targets": []string{"module.networking"}},
+	}}
+
+	requestRisk(t, h, h.request(nil))
+
+	if len(svc.PlanCalls) != 1 {
+		t.Fatalf("Service.Plan called %d times, want 1", len(svc.PlanCalls))
+	}
+	if got := svc.PlanCalls[0].Targets; len(got) != 0 {
+		t.Fatalf("plan targets = %q, want none: a disabled Plan's targets do not apply", got)
+	}
+}

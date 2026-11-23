@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/lmarqs/terraform-ui/pkg/sdk"
 )
 
 // Config holds runtime configuration for the tfui application.
@@ -106,6 +108,17 @@ func (c PluginConfig) IsEnabled() bool {
 		return true
 	}
 	return *c.Enabled
+}
+
+// PlanTargets is the Plan plugin's configured `targets`, empty when Plan is
+// disabled: the registry skips Configure for a disabled plugin, so its options
+// never apply.
+func (c Config) PlanTargets() []string {
+	plan := c.Plugins["plan"]
+	if !plan.IsEnabled() {
+		return nil
+	}
+	return sdk.PlanTargets(plan.Options)
 }
 
 // DefaultConfig returns a Config with sensible defaults.
