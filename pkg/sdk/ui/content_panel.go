@@ -12,11 +12,6 @@ import (
 // GutterWidth is the number of columns reserved for the scroll gutter and its margin.
 const GutterWidth = 2
 
-// NeedsGutter returns true if the total item count exceeds the viewport height.
-func NeedsGutter(totalItems, height int) bool {
-	return totalItems > height
-}
-
 // ContentWidth returns the available width for row content given whether a gutter is present.
 func ContentWidth(width int, hasGutter bool) int {
 	if hasGutter {
@@ -145,16 +140,9 @@ func (p *ContentPanel) Render(params RenderParams) string {
 		return ""
 	}
 
-	if start, _ := blockRows(params.Cursor, params.CursorEnd, len(params.Rows)); p.wrapMode && start >= 0 {
-		// Rows outside the slice count as one line each: the panel never sees them wrapped.
-		above := max(0, params.ScrollOffset)
-		below := max(0, params.TotalItems-above-len(params.Rows))
-		output, _ := p.renderWrapped(params, 0, above, below)
-		return output
-	}
-
-	// Without a cursor the caller scrolls by rows, so the gutter counts rows: narrowing
-	// the content for wrapped lines would push lines past where the caller can scroll.
+	// With wrap on, Render takes no cursor: the caller scrolls by rows, so the gutter counts
+	// rows, and narrowing the content for wrapped lines would push lines past where the
+	// caller can scroll. RenderWindow draws the cursor with wrap on.
 	hasGutter := params.TotalItems > params.Height
 	contentWidth := ContentWidth(params.Width, hasGutter)
 
@@ -219,18 +207,17 @@ func (p *ContentPanel) RenderWindow(params RenderParams) (string, int) {
 		}), offset
 	}
 
-	return p.renderWrapped(params, params.ScrollOffset, 0, 0)
+	return p.renderWrapped(params, params.ScrollOffset)
 }
 
 // renderWrapped draws params.Rows wrapped, starting from the first line of row top and
-// scrolling just far enough to show the cursor's block. above and below are lines outside
-// Rows, which place the gutter thumb and decide whether the gutter is drawn. It returns
-// the row at the top of the window.
-func (p *ContentPanel) renderWrapped(params RenderParams, top, above, below int) (string, int) {
+// scrolling just far enough to show the cursor's block. It returns the row at the top of
+// the window.
+func (p *ContentPanel) renderWrapped(params RenderParams, top int) (string, int) {
 	rows, height := params.Rows, params.Height
 	width := params.Width
 	lines, starts := p.wrapRows(rows, params.Cursor, width)
-	hasGutter := above+len(lines)+below > height
+	hasGutter := len(lines) > height
 	if hasGutter {
 		width = ContentWidth(width, true)
 		lines, starts = p.wrapRows(rows, params.Cursor, width)
@@ -243,8 +230,8 @@ func (p *ContentPanel) renderWrapped(params RenderParams, top, above, below int)
 	visible := lines[offset:min(len(lines), offset+height)]
 	if hasGutter {
 		visible = RenderScrollGutter(visible, ScrollGutterOpts{
-			ViewOffset:     above + offset,
-			TotalItems:     above + len(lines) + below,
+			ViewOffset:     offset,
+			TotalItems:     len(lines),
 			ViewportHeight: height,
 			Width:          params.Width - 1,
 		})

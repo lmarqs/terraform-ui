@@ -481,10 +481,9 @@ pre-windowed rows.
 
 - `Render` takes pre-windowed rows: the visible rows, the total item count for the gutter thumb's proportion, the
   cursor index within the window or none, and the window's offset in the full list for the gutter's position. With
-  wrap on, it scrolls inside the slice until the cursor row shows and counts rows outside the slice as one line each
-  for the gutter. Without a cursor it wraps within the slice and counts rows for the gutter, as a view that scrolls by
+  wrap on it takes no cursor: it wraps within the slice and counts rows for the gutter, as a view that scrolls by
   rows needs. The Plan and State detail views, the inspect view and the stream view use it without a cursor; no list
-  passes it a cursor.
+  calls it directly.
 - `RenderWindow` takes every row: the rows, the cursor and `CursorEnd`, one past the cursor's block (such as a row and
   its detail rows), the size, and the offset it returned last frame. It picks the window, clips it and places the
   gutter thumb, in rows with wrap off and in wrapped lines with wrap on. The offset it returns is the window's top row

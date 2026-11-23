@@ -329,18 +329,6 @@ func TestContentPanel_RightIgnoredInWrapMode(t *testing.T) {
 	}
 }
 
-func TestNeedsGutter(t *testing.T) {
-	if !ui.NeedsGutter(100, 20) {
-		t.Error("should need gutter when items > height")
-	}
-	if ui.NeedsGutter(5, 20) {
-		t.Error("should not need gutter when items <= height")
-	}
-	if ui.NeedsGutter(20, 20) {
-		t.Error("should not need gutter when items == height")
-	}
-}
-
 func TestContentWidth(t *testing.T) {
 	if got := ui.ContentWidth(80, true); got != 78 {
 		t.Errorf("with gutter: expected 78, got %d", got)
@@ -456,19 +444,18 @@ func TestContentPanel_Render_GivenNegativeContentWidth_ShouldReturnEmptyTruncati
 	_ = output
 }
 
-func TestContentPanel_Render_GivenWrapModeCursorOnFirstWrappedLine_ShouldHighlightFirstLine(t *testing.T) {
+func TestContentPanel_RenderWindow_GivenWrapModeCursorOnFirstWrappedLine_ShouldHighlightFirstLine(t *testing.T) {
 	panel := ui.NewContentPanel()
 	panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // enable wrap
 	panel.SelectedStyle = func(s string, w int) string {
 		return "[SEL]" + s
 	}
 
-	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"this-is-a-long-row-for-wrapping"},
-		Width:      10,
-		Height:     10,
-		TotalItems: 1,
-		Cursor:     0,
+	output, _ := panel.RenderWindow(ui.RenderParams{
+		Rows:   []string{"this-is-a-long-row-for-wrapping"},
+		Width:  10,
+		Height: 10,
+		Cursor: 0,
 	})
 	lines := strings.Split(output, "\n")
 	if !strings.Contains(lines[0], "[SEL]") {
@@ -630,25 +617,6 @@ func threeLineRows(letters string) []string {
 	return rows
 }
 
-func TestContentPanel_Render_GivenWrapModeCursorBelowHeight_ShouldDrawCursorRowFirstLineSelected(t *testing.T) {
-	panel := wrapPanel()
-
-	output := panel.Render(ui.RenderParams{
-		Rows:       threeLineRows("abc"),
-		Width:      12,
-		Height:     5,
-		TotalItems: 3,
-		Cursor:     2,
-	})
-
-	if !strings.Contains(output, "[SEL]"+strings.Repeat("c", 10)) {
-		t.Fatalf("cursor row's first wrapped line should be drawn selected, got:\n%s", output)
-	}
-	if lines := strings.Split(output, "\n"); len(lines) != 5 {
-		t.Errorf("expected 5 lines, got %d:\n%s", len(lines), output)
-	}
-}
-
 func TestContentPanel_RenderWindow_GivenWrapModeCursorOnLastRow_ShouldPutThumbAtBottomOfTrack(t *testing.T) {
 	panel := wrapPanel()
 
@@ -791,23 +759,6 @@ func TestContentPanel_RenderWindow_GivenZeroHeight_ShouldRenderNothing(t *testin
 		if output, offset := panel.RenderWindow(ui.RenderParams{Rows: []string{"a"}, Width: 10, Cursor: 0}); output != "" || offset != 0 {
 			t.Errorf("wrap=%v: RenderWindow = %q, %d, want empty, 0", wrap, output, offset)
 		}
-	}
-}
-
-func TestContentPanel_Render_GivenWrapModeScrolledPastLinesAbove_ShouldDrawGutter(t *testing.T) {
-	panel := wrapPanel()
-
-	output := panel.Render(ui.RenderParams{
-		Rows:       threeLineRows("abc"),
-		Width:      12,
-		Height:     5,
-		TotalItems: 3,
-		Cursor:     2,
-	})
-
-	lines := strings.Split(output, "\n")
-	if len(lines) != 5 || !strings.HasSuffix(lines[0], "▲") || !strings.HasSuffix(lines[4], "▼") {
-		t.Fatalf("wrapped lines hidden above the cursor should draw the gutter, got:\n%s", output)
 	}
 }
 
