@@ -128,33 +128,40 @@ func (c *ServiceCache) GetPlan() (*sdk.PlanSummary, bool) {
 }
 
 // SeededPlan returns the cached plan, read from its file again when reread is
-// set; see ReloadPlan.
+// set; see ReloadPlan. A file source without a plan (a failed re-read) is read
+// again even when reread is not set, so a -plan session never falls through to
+// running terraform plan.
 func (c *ServiceCache) SeededPlan(reread bool) (*sdk.PlanSummary, bool, error) {
-	if reread {
+	if reread || c.fileSourceWithoutPlan() {
 		return c.ReloadPlan()
 	}
 	plan, ok := c.GetPlan()
 	return plan, ok, nil
 }
 
+func (c *ServiceCache) fileSourceWithoutPlan() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.planSource.kind == sourceFile && c.plan == nil
+}
+
 // ReloadPlan is GetPlan for an explicit refresh: a file-sourced plan is read
-// from its file again. A read or parse error comes back with ok true and leaves
-// the cached plan unchanged.
+// from its file again. A read or parse error comes back with ok true and no
+// plan: the cached plan is dropped so nothing keeps serving it, and the file
+// stays the source so a later call reads it again. Other sources keep their plan.
 func (c *ServiceCache) ReloadPlan() (*sdk.PlanSummary, bool, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.planSource.kind == sourceNone || c.plan == nil {
+	switch {
+	case c.planSource.kind == sourceFile:
+		plan, err := readPlanFile(c.planSource.filePath)
+		c.plan = plan
+		return plan, true, err
+	case c.planSource.kind == sourceNone || c.plan == nil:
 		return nil, false, nil
-	}
-	if c.planSource.kind != sourceFile {
+	default:
 		return c.plan, true, nil
 	}
-	plan, err := readPlanFile(c.planSource.filePath)
-	if err != nil {
-		return c.plan, true, err
-	}
-	c.plan = plan
-	return plan, true, nil
 }
 
 func readPlanFile(path string) (*sdk.PlanSummary, error) {

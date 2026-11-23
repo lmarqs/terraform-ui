@@ -110,6 +110,38 @@ func TestPlan_WhenRereadAndSeededPlanFileUnreadable_ShouldReturnTheError(t *test
 	}
 }
 
+func TestPlan_WhenRereadFailedAndFileFixed_ShouldNeverRunTerraformAndServeTheFixedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "plan.json")
+	writePlanFile(t, path, "null_resource.a")
+	cache := terraform.NewServiceCache()
+	if err := cache.SeedPlan(path, nil); err != nil {
+		t.Fatal(err)
+	}
+	// The binary does not exist: any terraform run would fail with an exec error.
+	svc := NewExecService(t.TempDir(), "/nonexistent/terraform", cache)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Plan(context.Background(), sdk.PlanOptions{Reread: true}); err == nil || !strings.Contains(err.Error(), "reading plan file") {
+		t.Fatalf("Plan(Reread) error = %v, want the plan file read error", err)
+	}
+
+	for _, reread := range []bool{false, true} {
+		got, err := svc.Plan(context.Background(), sdk.PlanOptions{Reread: reread})
+
+		if got != nil || err == nil || !strings.Contains(err.Error(), "reading plan file") {
+			t.Fatalf("Plan(Reread=%v) of the broken file = %v, %v; want the plan file read error, not the old plan or a terraform run", reread, got, err)
+		}
+	}
+
+	writePlanFile(t, path, "null_resource.a", "null_resource.b")
+	got, err := svc.Plan(context.Background(), sdk.PlanOptions{})
+
+	if err != nil || got == nil || len(got.Changes) != 2 {
+		t.Fatalf("Plan() after the fix = %v, %v; want the 2 changes of the fixed file without a terraform run", got, err)
+	}
+}
+
 func TestPlan_WhenNotRereadAndSeededPlanFileChanged_ShouldReturnTheCachedPlan(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "plan.json")
 	writePlanFile(t, path, "null_resource.a")
