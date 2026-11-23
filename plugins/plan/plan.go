@@ -960,7 +960,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 		Width:        width,
 		Height:       maxLines,
 		TotalItems:   len(lines),
-		Cursor:       -1,
 		ScrollOffset: e.detailScroll,
 	})
 

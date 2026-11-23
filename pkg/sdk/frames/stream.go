@@ -242,7 +242,6 @@ func (f *StreamFrame) View(width, height int) string {
 		Width:        width,
 		Height:       logHeight,
 		TotalItems:   len(f.lines),
-		Cursor:       -1,
 		ScrollOffset: f.scrollY,
 	})
 

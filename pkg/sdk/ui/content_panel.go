@@ -54,7 +54,7 @@ type RenderParams struct {
 	// TotalItems is the total number of items in the full list (for gutter thumb).
 	// RenderWindow ignores it and counts Rows.
 	TotalItems int
-	// Cursor is the index into Rows to highlight (-1 for none).
+	// Cursor is the index into Rows that RenderWindow highlights (-1 for none). Render ignores it.
 	Cursor int
 	// ScrollOffset is the position in the full list (for gutter thumb positioning).
 	// For RenderWindow it is the offset RenderWindow returned last frame: the index of the
@@ -134,15 +134,19 @@ func (p *ContentPanel) ScrollBlockTo(line int) {
 	p.block.into, p.block.jumped = max(0, line), true
 }
 
-// Render produces the final output string with all layout applied.
+// Render draws rows the caller windowed itself, with no row selected; it ignores Cursor.
 func (p *ContentPanel) Render(params RenderParams) string {
+	return p.renderSlice(params, -1)
+}
+
+// renderSlice draws a pre-windowed slice and selects the cursor row when wrap is off.
+// With wrap on the caller scrolls by rows, so the gutter counts rows: narrowing the
+// content for wrapped lines would push lines past where the caller can scroll.
+func (p *ContentPanel) renderSlice(params RenderParams, cursor int) string {
 	if len(params.Rows) == 0 || params.Height <= 0 {
 		return ""
 	}
 
-	// With wrap on, Render takes no cursor: the caller scrolls by rows, so the gutter counts
-	// rows, and narrowing the content for wrapped lines would push lines past where the
-	// caller can scroll. RenderWindow draws the cursor with wrap on.
 	hasGutter := params.TotalItems > params.Height
 	contentWidth := ContentWidth(params.Width, hasGutter)
 
@@ -156,7 +160,7 @@ func (p *ContentPanel) Render(params RenderParams) string {
 			offset := min(p.hScroll, ansi.StringWidth(row)-contentWidth)
 			line := truncateStyled(scrollLeft(row, offset), contentWidth)
 
-			if i == params.Cursor {
+			if i == cursor {
 				line = p.applySelected(line, contentWidth)
 			}
 
@@ -197,14 +201,13 @@ func (p *ContentPanel) RenderWindow(params RenderParams) (string, int) {
 	if !p.wrapMode {
 		start, end := blockRows(params.Cursor, params.CursorEnd, len(rows))
 		offset := p.scrollTo(params.ScrollOffset, start, end, height, len(rows))
-		return p.Render(RenderParams{
+		return p.renderSlice(RenderParams{
 			Rows:         rows[offset:min(len(rows), offset+height)],
 			Width:        params.Width,
 			Height:       height,
 			TotalItems:   len(rows),
-			Cursor:       params.Cursor - offset,
 			ScrollOffset: offset,
-		}), offset
+		}, params.Cursor-offset), offset
 	}
 
 	return p.renderWrapped(params, params.ScrollOffset)
