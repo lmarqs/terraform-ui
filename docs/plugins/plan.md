@@ -147,9 +147,10 @@ defaults {
 
 `targets` is a project default, used only when the run carries no explicit
 selection. An explicit `-target` flag or a TUI pin **replaces** it. A one-shot
-apply has no plan to review, so it takes the same list, unless `plugin "plan"` is
-disabled: the default scope is set in one place. The plan tfui runs when Risk or Phantom Changes opens with no plan
-in this session takes the same targets as `:plan`. To turn the plugin off, see
+apply has no plan to review, so it takes the same list: the default scope is set
+in one place. The plan tfui runs when Risk or Phantom Changes opens with no plan
+in this session takes the same targets as `:plan`. With the plugin disabled,
+neither uses its `targets`. To turn the plugin off, see
 [Enabling/Disabling Plugins](index.md#enablingdisabling-plugins).
 
 ## Related

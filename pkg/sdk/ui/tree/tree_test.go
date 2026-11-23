@@ -1618,7 +1618,7 @@ func TestRenderRows_ShouldReturnAllRows(t *testing.T) {
 
 	rows := tr.RenderRows(RenderOpts{})
 	if len(rows) != 4 {
-		t.Fatalf("expected 4 rows when height is 0 (show all), got %d", len(rows))
+		t.Fatalf("expected all 4 rows, got %d", len(rows))
 	}
 	for i, row := range rows {
 		expected := fmt.Sprintf("aws_s3_bucket.%s", []string{"four", "one", "three", "two"}[i])
@@ -1629,8 +1629,8 @@ func TestRenderRows_ShouldReturnAllRows(t *testing.T) {
 }
 
 // renderText joins the rows into one string for assertions on the whole output.
-func renderText(t *Tree, opts RenderOpts) string {
-	return strings.Join(t.RenderRows(opts), "\n")
+func renderText(tr *Tree, opts RenderOpts) string {
+	return strings.Join(tr.RenderRows(opts), "\n")
 }
 
 // --- Benchmarks ---
