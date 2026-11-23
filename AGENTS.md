@@ -20,7 +20,7 @@ Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12
   create one ready to run and remove it.
 <!-- cook:end io.github.lmarqs.cookbook:git#worktrees/worktrees -->
 - Quick check, seconds on what changed: `mise run check:build && mise run test:unit ./<package>/...`
-- Done check, all that must pass before a change is done: `mise run check:lint && mise run test:unit && mise run check:build`,
+- Done check, which must pass before a change is done: `mise run check:lint && mise run test:unit && mise run check:build && mise run test:demo`,
   about 50 seconds, no services; for UI changes also `mise run test:macro`.
 - Other tasks: `mise tasks`.
 
@@ -28,12 +28,12 @@ Stack: Go 1.25 with BubbleTea, Lipgloss and Cobra (`go.mod`); golangci-lint 2.12
 
 **Always**
 
-- Run the Quick check before moving on. A change is done when the Done check passes.
+- Run the Quick check before moving on; a change is done when the Done check passes.
 - Report each check's result, or that it did not run.
 - Update this file in the change that alters a command, path or rule it names.
 - Keep this file under 800 words; past 1,200, move a section into a skill or memory file before adding. All
   `AGENTS.md` files together stay under 16 KiB.
-- Write the failing test first: the `test-writer` agent produces it before any implementation code.
+- Write the failing test first, via the `test-writer` agent, before implementation code.
 - Coordinating agents own delivery review and routine follow-up fixes. Before delegating, running Ralph, or accepting
   a worker's result, follow [Agentic development](docs/development/agentic.md). Proceed within existing authorization.
 
