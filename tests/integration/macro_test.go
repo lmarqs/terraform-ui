@@ -123,6 +123,26 @@ func TestMacro(t *testing.T) {
 			wantExit: 0,
 		},
 		{
+			name:     "one q after the chdir picker leaves Context",
+			tapeFile: tape("context_quit.tape"),
+			args:     []string{"-plan", planFixture},
+			setup: func(t *testing.T) []string {
+				t.Helper()
+				dir := t.TempDir()
+				for _, m := range []string{"modules/vpc", "modules/ecs"} {
+					if err := os.MkdirAll(filepath.Join(dir, m), 0755); err != nil {
+						t.Fatalf("mkdir: %v", err)
+					}
+				}
+				hcl := "member \"modules/vpc\" {}\nmember \"modules/ecs\" {}\n"
+				if err := os.WriteFile(filepath.Join(dir, "tfui.hcl"), []byte(hcl), 0644); err != nil {
+					t.Fatalf("write tfui.hcl: %v", err)
+				}
+				return []string{"-project", dir}
+			},
+			wantExit: 0,
+		},
+		{
 			name:       "screenshot writes file",
 			tapeFile:   tape("screenshot.tape"),
 			args:       []string{"-plan", planFixture},

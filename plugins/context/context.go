@@ -68,7 +68,7 @@ func (p *Plugin) HandleContextChanged(ev sdk.ContextChangedEvent) tea.Cmd {
 
 // Activate builds the form frame and pushes it onto the stack.
 func (p *Plugin) Activate() tea.Cmd {
-	p.stack.Clear()
+	p.stack.Reset()
 	p.stack.Push(p.buildForm())
 	return nil
 }

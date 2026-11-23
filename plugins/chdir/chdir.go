@@ -53,7 +53,7 @@ func (p *Plugin) Activate() tea.Cmd {
 	if len(p.members) == 1 {
 		return p.selectAt(0)
 	}
-	p.stack.Clear()
+	p.stack.Reset()
 	p.stack.Push(&listFrame{plugin: p})
 	return nil
 }
