@@ -1,6 +1,7 @@
 package context
 
 import (
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -127,7 +128,7 @@ func TestPlugin_WhenActivated_ShouldPushFormFrame(t *testing.T) {
 	}
 }
 
-func TestPlugin_WhenActivatedWithSubFrames_ShouldClearAndPush(t *testing.T) {
+func TestPlugin_WhenActivatedWithSubFrames_ShouldResetToASingleFormFrame(t *testing.T) {
 	p := New(nil).(*Plugin)
 
 	p.Activate()
@@ -137,10 +138,31 @@ func TestPlugin_WhenActivatedWithSubFrames_ShouldClearAndPush(t *testing.T) {
 		t.Fatalf("stack depth = %d, want 2 before re-activate", p.stack.Depth())
 	}
 
-	// Activate clears sub-frames (keeping root) then pushes a new form
 	p.Activate()
-	if p.stack.Depth() != 2 {
-		t.Errorf("stack depth = %d, want 2 (root kept by Clear + new push)", p.stack.Depth())
+	if p.stack.Depth() != 1 {
+		t.Errorf("stack depth = %d, want 1 (re-activate resets the stack)", p.stack.Depth())
+	}
+}
+
+// TestPlugin_WhenActivatedAgain_ShouldLeaveWithOneEsc guards the one-key-leaves
+// contract: a leftover root frame under the new form makes the first esc a
+// no-op that only drops the duplicate.
+func TestPlugin_WhenActivatedAgain_ShouldLeaveWithOneEsc(t *testing.T) {
+	for _, activations := range []int{1, 2, 3} {
+		t.Run(fmt.Sprintf("%d activations", activations), func(t *testing.T) {
+			p := New(nil).(*Plugin)
+			for i := 0; i < activations; i++ {
+				p.Activate()
+			}
+
+			if got := p.stack.Depth(); got != 1 {
+				t.Errorf("stack depth = %d, want 1", got)
+			}
+			p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+			if !p.stack.IsEmpty() {
+				t.Errorf("stack depth = %d after one esc, want 0", p.stack.Depth())
+			}
+		})
 	}
 }
 

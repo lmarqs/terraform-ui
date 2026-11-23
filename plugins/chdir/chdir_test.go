@@ -1,6 +1,7 @@
 package chdir
 
 import (
+	"fmt"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -182,6 +183,29 @@ func TestPlugin_EscPopsFrame(t *testing.T) {
 
 	if p.stack.Depth() != 0 {
 		t.Errorf("stack depth = %d, want 0 after esc", p.stack.Depth())
+	}
+}
+
+// TestPlugin_WhenActivatedAgain_ShouldLeaveWithOneEsc guards the one-key-leaves
+// contract: a leftover root frame under the new list makes the first esc a
+// no-op that only drops the duplicate.
+func TestPlugin_WhenActivatedAgain_ShouldLeaveWithOneEsc(t *testing.T) {
+	for _, activations := range []int{1, 2, 3} {
+		t.Run(fmt.Sprintf("%d activations", activations), func(t *testing.T) {
+			p := New(nil).(*Plugin)
+			p.SetMembers([]string{"modules/vpc", "modules/ecs"})
+			for i := 0; i < activations; i++ {
+				p.Activate()
+			}
+
+			if got := p.stack.Depth(); got != 1 {
+				t.Errorf("stack depth = %d, want 1", got)
+			}
+			p.stack.Update(tea.KeyMsg{Type: tea.KeyEsc})
+			if !p.stack.IsEmpty() {
+				t.Errorf("stack depth = %d after one esc, want 0", p.stack.Depth())
+			}
+		})
 	}
 }
 
