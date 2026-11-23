@@ -1308,7 +1308,6 @@ func TestServiceCache_ReloadPlan(t *testing.T) {
 		name        string
 		seed        func(t *testing.T, c *ServiceCache) (rewrite func(data []byte))
 		rewrite     []byte
-		remove      bool
 		wantOK      bool
 		wantErr     bool
 		wantChanges int
@@ -1321,26 +1320,6 @@ func TestServiceCache_ReloadPlan(t *testing.T) {
 			rewrite:     planJSONOf("null_resource.a", "null_resource.b"),
 			wantOK:      true,
 			wantChanges: 2,
-		},
-		{
-			name: "FileRemoved_ShouldReturnErrorAndKeepCachedPlan",
-			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
-				return seedPlanFile(t, c, planJSONOf("null_resource.a"))
-			},
-			remove:      true,
-			wantOK:      true,
-			wantErr:     true,
-			wantChanges: 1,
-		},
-		{
-			name: "FileUnparsable_ShouldReturnErrorAndKeepCachedPlan",
-			seed: func(t *testing.T, c *ServiceCache) func([]byte) {
-				return seedPlanFile(t, c, planJSONOf("null_resource.a"))
-			},
-			rewrite:     []byte("not json"),
-			wantOK:      true,
-			wantErr:     true,
-			wantChanges: 1,
 		},
 		{
 			name: "Stdin_ShouldReturnSnapshot",
@@ -1371,9 +1350,7 @@ func TestServiceCache_ReloadPlan(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			c := NewServiceCache()
 			rewrite := tc.seed(t, c)
-			if tc.remove {
-				rewrite(nil)
-			} else if tc.rewrite != nil {
+			if tc.rewrite != nil {
 				rewrite(tc.rewrite)
 			}
 
@@ -1393,6 +1370,118 @@ func TestServiceCache_ReloadPlan(t *testing.T) {
 				if len(cached.Changes) != tc.wantChanges {
 					t.Errorf("cache holds %d changes after ReloadPlan(), want %d", len(cached.Changes), tc.wantChanges)
 				}
+			}
+		})
+	}
+}
+
+// A plan file that cannot be read again leaves no plan: Risk and Phantom must
+// not keep assessing the plan the file held before. The file stays the plan's
+// source, so a later re-read restores the plan and never runs terraform.
+func TestServiceCache_ReloadPlan_WhenFileFails_ShouldDropThePlanAndRestoreItOnceFixed(t *testing.T) {
+	tests := []struct {
+		name   string
+		break_ func(rewrite func([]byte))
+	}{
+		{"FileRemoved", func(rewrite func([]byte)) { rewrite(nil) }},
+		{"FileUnparsable", func(rewrite func([]byte)) { rewrite([]byte("not json")) }},
+		{"FileEmpty", func(rewrite func([]byte)) { rewrite([]byte{}) }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewServiceCache()
+			rewrite := seedPlanFile(t, c, planJSONOf("null_resource.a"))
+			tc.break_(rewrite)
+
+			plan, ok, err := c.ReloadPlan()
+
+			if err == nil {
+				t.Fatal("ReloadPlan() error = nil, want the read error")
+			}
+			if !ok || plan != nil {
+				t.Fatalf("ReloadPlan() = %v, ok %v; want a nil plan with ok true, so the caller shows the error and runs no terraform", plan, ok)
+			}
+			if cached, ok := c.GetPlan(); ok || cached != nil {
+				t.Errorf("GetPlan() = %v, %v after the failed re-read; want no plan", cached, ok)
+			}
+			if again, ok, err := c.ReloadPlan(); !ok || again != nil || err == nil {
+				t.Errorf("second ReloadPlan() of the same broken file = %v, ok %v, err %v; want the error again, ok true", again, ok, err)
+			}
+			if plain, ok, err := c.SeededPlan(false); !ok || plain != nil || err == nil {
+				t.Errorf("SeededPlan(false) of the same broken file = %v, ok %v, err %v; want the read error with ok true, so no terraform runs", plain, ok, err)
+			}
+			if c.PlanSnapshot() {
+				t.Error("PlanSnapshot() = true, want false for a file plan")
+			}
+
+			rewrite(planJSONOf("null_resource.a", "null_resource.b"))
+			if plain, ok, err := c.SeededPlan(false); err != nil || !ok || plain == nil || len(plain.Changes) != 2 {
+				t.Fatalf("SeededPlan(false) after the fix = %v, ok %v, err %v; want the 2 changes of the fixed file", plain, ok, err)
+			}
+			rewrite(planJSONOf("null_resource.a", "null_resource.b", "null_resource.c"))
+			restored, ok, err := c.ReloadPlan()
+
+			if err != nil || !ok || restored == nil || len(restored.Changes) != 3 {
+				t.Fatalf("ReloadPlan() after the fix = %v, ok %v, err %v; want the 3 changes of the rewritten file", restored, ok, err)
+			}
+			if cached, ok := c.GetPlan(); !ok || len(cached.Changes) != 3 {
+				t.Errorf("GetPlan() after the fix = %v, %v; want the restored plan", cached, ok)
+			}
+		})
+	}
+}
+
+// A -plan session never runs terraform: after a failed re-read a plain request
+// reports the read error (ok true) until the file is fixed, then serves it.
+func TestServiceCache_SeededPlan_WhenRereadFailed_ShouldReportTheReadErrorUntilTheFileIsFixed(t *testing.T) {
+	c := NewServiceCache()
+	rewrite := seedPlanFile(t, c, planJSONOf("null_resource.a"))
+	rewrite(nil)
+	if _, _, err := c.SeededPlan(true); err == nil {
+		t.Fatal("SeededPlan(true) of a removed file: error = nil, want the read error")
+	}
+
+	plan, ok, err := c.SeededPlan(false)
+
+	if !ok || plan != nil || err == nil || !strings.Contains(err.Error(), "reading plan file") {
+		t.Fatalf("SeededPlan(false) = %v, ok %v, err %v; want the read error with ok true and no plan", plan, ok, err)
+	}
+
+	rewrite(planJSONOf("null_resource.a", "null_resource.b"))
+	plan, ok, err = c.SeededPlan(false)
+
+	if err != nil || !ok || plan == nil || len(plan.Changes) != 2 {
+		t.Fatalf("SeededPlan(false) after the fix = %v, ok %v, err %v; want the 2 changes of the fixed file", plan, ok, err)
+	}
+}
+
+// Only a file-sourced plan is dropped by a failed re-read; a stdin snapshot and
+// an exec-run plan have no file to fail.
+func TestServiceCache_ReloadPlan_WhenSourceIsNotAFile_ShouldKeepThePlan(t *testing.T) {
+	tests := []struct {
+		name string
+		seed func(t *testing.T, c *ServiceCache)
+	}{
+		{"Stdin", func(t *testing.T, c *ServiceCache) {
+			if err := c.SeedPlan("", planJSONOf("null_resource.a")); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{"Exec", func(_ *testing.T, c *ServiceCache) { c.SetPlan(&sdk.PlanSummary{Changes: []sdk.PlanChange{{}}}) }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			c := NewServiceCache()
+			tc.seed(t, c)
+
+			for range 2 {
+				plan, ok, err := c.ReloadPlan()
+				if err != nil || !ok || plan == nil || len(plan.Changes) != 1 {
+					t.Fatalf("ReloadPlan() = %v, ok %v, err %v; want the 1 cached change", plan, ok, err)
+				}
+			}
+			if cached, ok := c.GetPlan(); !ok || len(cached.Changes) != 1 {
+				t.Errorf("GetPlan() = %v, %v; want the cached plan", cached, ok)
 			}
 		})
 	}
