@@ -1,16 +1,9 @@
 package tree
 
-import (
-	"fmt"
-	"strings"
-)
+import "fmt"
 
 // RenderOpts controls visual rendering.
 type RenderOpts struct {
-	// Width is the available content width.
-	Width int
-	// Height is the maximum number of visible rows.
-	Height int
 	// RenderLeaf formats a leaf node line. If nil, uses Label.
 	RenderLeaf func(node *Node, pinned bool) string
 	// RenderBranch formats a branch node line. If nil, uses "Label (count)".
@@ -25,11 +18,6 @@ type RenderOpts struct {
 	// from the caller's Context, which owns Pins (ADR-0018). If nil, no row is
 	// pinned.
 	Pinned func(address string) bool
-	// SelectedStyle wraps the selected row. If nil, no highlight.
-	SelectedStyle func(s string, width int) string
-	// TruncateRow truncates a non-selected row to fit the available width.
-	// If nil, rows are not truncated.
-	TruncateRow func(s string, width int) string
 }
 
 // PinIndicators defines the visual indicators for each pin state.
@@ -39,86 +27,18 @@ type PinIndicators struct {
 	Partial string // shown when partially pinned — branches only (e.g. "[-] ")
 }
 
-// Render returns the visible lines of the tree within the viewport.
-func (t *Tree) Render(opts RenderOpts) string {
-	if len(t.flattened) == 0 {
-		return ""
-	}
-
-	height := opts.Height
-	if height <= 0 {
-		height = len(t.flattened)
-	}
-
-	t.adjustViewport(height)
-	startIdx := t.viewOffset
-	endIdx := startIdx + height
-	if endIdx > len(t.flattened) {
-		endIdx = len(t.flattened)
-	}
-
-	var lines []string
-	for i := startIdx; i < endIdx; i++ {
-		node := t.flattened[i]
-		line := t.renderNode(node, opts)
-		if opts.TruncateRow != nil {
-			line = opts.TruncateRow(line, opts.Width)
-		}
-		if i == t.cursor && opts.SelectedStyle != nil {
-			line = opts.SelectedStyle(line, opts.Width)
-		}
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
-}
-
-// RenderRows returns the visible rows of the tree as a slice without applying
-// truncation or cursor highlighting. Those concerns are owned by the caller
+// RenderRows returns every row of the tree as a slice, without truncation,
+// windowing or cursor highlighting. Those concerns are owned by the caller
 // (typically a ContentPanel).
 func (t *Tree) RenderRows(opts RenderOpts) []string {
 	if len(t.flattened) == 0 {
 		return nil
 	}
-
-	height := opts.Height
-	if height <= 0 {
-		height = len(t.flattened)
-	}
-
-	t.adjustViewport(height)
-	startIdx := t.viewOffset
-	endIdx := startIdx + height
-	if endIdx > len(t.flattened) {
-		endIdx = len(t.flattened)
-	}
-
-	rows := make([]string, 0, endIdx-startIdx)
-	for i := startIdx; i < endIdx; i++ {
-		node := t.flattened[i]
+	rows := make([]string, 0, len(t.flattened))
+	for _, node := range t.flattened {
 		rows = append(rows, t.renderNode(node, opts))
 	}
 	return rows
-}
-
-// adjustViewport ensures the cursor is visible within the viewport window,
-// only scrolling when the cursor reaches the viewport edge.
-func (t *Tree) adjustViewport(height int) {
-	if t.cursor < t.viewOffset {
-		t.viewOffset = t.cursor
-	}
-	if t.cursor >= t.viewOffset+height {
-		t.viewOffset = t.cursor - height + 1
-	}
-	maxOffset := len(t.flattened) - height
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
-	if t.viewOffset > maxOffset {
-		t.viewOffset = maxOffset
-	}
-	if t.viewOffset < 0 {
-		t.viewOffset = 0
-	}
 }
 
 func (t *Tree) renderNode(node *Node, opts RenderOpts) string {

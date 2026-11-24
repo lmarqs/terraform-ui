@@ -161,7 +161,7 @@ func (c *Coordinator) RequestPlan(requester string, current *sdk.Context) (sdk.P
 	id := sdk.PlanRequestID(issued)
 	return id, func() tea.Msg {
 		defer cancel()
-		summary, err := hostPlan(ctx, current, c.defaultTargets())
+		summary, err := hostPlan(ctx, current, c.cfg.PlanTargets())
 		return PlanResult{generation: generation, Event: sdk.PlanFetchedEvent{Request: id, Summary: summary, Err: err}}
 	}
 }
@@ -201,19 +201,13 @@ func (c *Coordinator) run(ctx context.Context, current *sdk.Context, summary *sd
 			event.Assessment = c.assess(ctx, policy, sdk.PolicyEvidence{})
 			return event
 		}
-		event.Summary, event.Err = hostPlan(ctx, current, c.defaultTargets())
+		event.Summary, event.Err = hostPlan(ctx, current, c.cfg.PlanTargets())
 		if event.Err != nil {
 			return event
 		}
 	}
 	event.Assessment = c.evaluate(ctx, current, event.Summary, selection, policy)
 	return event
-}
-
-// defaultTargets is Plan's configured targets, which a host plan applies when
-// nothing is pinned.
-func (c *Coordinator) defaultTargets() []string {
-	return sdk.ConfigStrings(c.cfg.Plugins["plan"].Options, "targets", nil)
 }
 
 func hostPlan(ctx context.Context, current *sdk.Context, defaultTargets []string) (*sdk.PlanSummary, error) {

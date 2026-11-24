@@ -216,6 +216,10 @@ func TestApplyInputForAutoApprove(t *testing.T) {
 	applyConfigured := config.Config{Plugins: map[string]config.PluginConfig{
 		"apply": {Options: map[string]interface{}{"targets": []interface{}{"module.apply_cfg"}}},
 	}}
+	planDisabled := false
+	planDisabledConfigured := config.Config{Plugins: map[string]config.PluginConfig{
+		"plan": {Enabled: &planDisabled, Options: map[string]interface{}{"targets": []interface{}{"module.plan_cfg"}}},
+	}}
 	tests := []struct {
 		name        string
 		input       apply.Input
@@ -224,6 +228,7 @@ func TestApplyInputForAutoApprove(t *testing.T) {
 	}{
 		{name: "no --target uses plan's configured targets", input: apply.Input{AutoApprove: true}, cfg: planConfigured, wantTargets: []string{"module.plan_cfg"}},
 		{name: "--target replaces plan's configured targets", input: apply.Input{AutoApprove: true, Targets: []string{"aws_instance.web"}}, cfg: planConfigured, wantTargets: []string{"aws_instance.web"}},
+		{name: "a disabled plan's configured targets are not applied", input: apply.Input{AutoApprove: true}, cfg: planDisabledConfigured, wantTargets: nil},
 		{name: "apply's configured targets are ignored", input: apply.Input{AutoApprove: true}, cfg: applyConfigured, wantTargets: nil},
 		{name: "no --target and no config applies everything", input: apply.Input{AutoApprove: true}, cfg: config.Config{}, wantTargets: nil},
 	}

@@ -36,3 +36,23 @@ func TestConfigStrings_GivenPluginOptions_ShouldReadTheList(t *testing.T) {
 		})
 	}
 }
+
+func TestPlanTargets_GivenPlanOptions_ShouldReadTheTargetsList(t *testing.T) {
+	tests := []struct {
+		name    string
+		options map[string]interface{}
+		want    []string
+	}{
+		{name: "nil options have no targets", options: nil, want: nil},
+		{name: "other options have no targets", options: map[string]interface{}{"other": []string{"x"}}, want: nil},
+		{name: "targets list is read", options: map[string]interface{}{"targets": []interface{}{"module.a", "module.b"}}, want: []string{"module.a", "module.b"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := PlanTargets(tt.options); !slices.Equal(got, tt.want) {
+				t.Errorf("PlanTargets() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}

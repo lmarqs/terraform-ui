@@ -133,18 +133,17 @@ func TestContentPanel_HorizontalScrollWithStyledContent(t *testing.T) {
 	}
 }
 
-func TestContentPanel_CursorHighlightsRow(t *testing.T) {
+func TestContentPanel_RenderWindow_GivenCursor_ShouldHighlightCursorRow(t *testing.T) {
 	panel := ui.NewContentPanel()
 	panel.SelectedStyle = func(s string, w int) string {
 		return "[SEL]" + s
 	}
 
-	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"first", "second", "third"},
-		Width:      20,
-		Height:     5,
-		TotalItems: 3,
-		Cursor:     1,
+	output, _ := panel.RenderWindow(ui.RenderParams{
+		Rows:   []string{"first", "second", "third"},
+		Width:  20,
+		Height: 5,
+		Cursor: 1,
 	})
 	lines := strings.Split(output, "\n")
 
@@ -153,6 +152,37 @@ func TestContentPanel_CursorHighlightsRow(t *testing.T) {
 	}
 	if strings.Contains(lines[0], "[SEL]") {
 		t.Error("non-cursor row should not have selected style")
+	}
+}
+
+func TestContentPanel_Render_GivenACursor_ShouldDrawNoSelectedRow(t *testing.T) {
+	tests := []struct {
+		name string
+		wrap bool
+	}{
+		{"wrap off", false},
+		{"wrap on", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			panel := ui.NewContentPanel()
+			panel.SelectedStyle = func(s string, w int) string { return "[SEL]" + s }
+			if tt.wrap {
+				panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW})
+			}
+
+			output := panel.Render(ui.RenderParams{
+				Rows:       []string{"first", "second", "third"},
+				Width:      20,
+				Height:     5,
+				TotalItems: 3,
+				Cursor:     1,
+			})
+
+			if want := "first\nsecond\nthird"; output != want {
+				t.Errorf("Render = %q, want %q with no row selected", output, want)
+			}
+		})
 	}
 }
 
@@ -226,18 +256,17 @@ func TestContentPanel_WrapModeRespectsHeight(t *testing.T) {
 	}
 }
 
-func TestContentPanel_CursorWithNoOverflow(t *testing.T) {
+func TestContentPanel_RenderWindow_GivenCursorWithNoOverflow_ShouldHighlightWithoutGutter(t *testing.T) {
 	panel := ui.NewContentPanel()
 	panel.SelectedStyle = func(s string, w int) string {
 		return ">" + s
 	}
 
-	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"alpha", "bravo", "charlie"},
-		Width:      20,
-		Height:     5,
-		TotalItems: 3,
-		Cursor:     1,
+	output, _ := panel.RenderWindow(ui.RenderParams{
+		Rows:   []string{"alpha", "bravo", "charlie"},
+		Width:  20,
+		Height: 5,
+		Cursor: 1,
 	})
 	lines := strings.Split(output, "\n")
 
@@ -329,18 +358,6 @@ func TestContentPanel_RightIgnoredInWrapMode(t *testing.T) {
 	}
 }
 
-func TestNeedsGutter(t *testing.T) {
-	if !ui.NeedsGutter(100, 20) {
-		t.Error("should need gutter when items > height")
-	}
-	if ui.NeedsGutter(5, 20) {
-		t.Error("should not need gutter when items <= height")
-	}
-	if ui.NeedsGutter(20, 20) {
-		t.Error("should not need gutter when items == height")
-	}
-}
-
 func TestContentWidth(t *testing.T) {
 	if got := ui.ContentWidth(80, true); got != 78 {
 		t.Errorf("with gutter: expected 78, got %d", got)
@@ -422,16 +439,15 @@ func TestContentPanel_Render_GivenWrapModeWithZeroContentWidth_ShouldNotPanic(t 
 	_ = output
 }
 
-func TestContentPanel_Render_GivenNilSelectedStyle_ShouldApplyDefaultHighlight(t *testing.T) {
+func TestContentPanel_RenderWindow_GivenNilSelectedStyle_ShouldApplyDefaultHighlight(t *testing.T) {
 	panel := ui.NewContentPanel()
 	// Do NOT set SelectedStyle — leave it nil
 
-	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"alpha", "bravo"},
-		Width:      20,
-		Height:     5,
-		TotalItems: 2,
-		Cursor:     0,
+	output, _ := panel.RenderWindow(ui.RenderParams{
+		Rows:   []string{"alpha", "bravo"},
+		Width:  20,
+		Height: 5,
+		Cursor: 0,
 	})
 	lines := strings.Split(output, "\n")
 	// Default style applies lipgloss width — the first line should be padded to contentWidth
@@ -456,19 +472,18 @@ func TestContentPanel_Render_GivenNegativeContentWidth_ShouldReturnEmptyTruncati
 	_ = output
 }
 
-func TestContentPanel_Render_GivenWrapModeCursorOnFirstWrappedLine_ShouldHighlightFirstLine(t *testing.T) {
+func TestContentPanel_RenderWindow_GivenWrapModeCursorOnFirstWrappedLine_ShouldHighlightFirstLine(t *testing.T) {
 	panel := ui.NewContentPanel()
 	panel.HandleKey(tea.KeyMsg{Type: tea.KeyCtrlW}) // enable wrap
 	panel.SelectedStyle = func(s string, w int) string {
 		return "[SEL]" + s
 	}
 
-	output := panel.Render(ui.RenderParams{
-		Rows:       []string{"this-is-a-long-row-for-wrapping"},
-		Width:      10,
-		Height:     10,
-		TotalItems: 1,
-		Cursor:     0,
+	output, _ := panel.RenderWindow(ui.RenderParams{
+		Rows:   []string{"this-is-a-long-row-for-wrapping"},
+		Width:  10,
+		Height: 10,
+		Cursor: 0,
 	})
 	lines := strings.Split(output, "\n")
 	if !strings.Contains(lines[0], "[SEL]") {
@@ -537,32 +552,30 @@ func TestContentPanel_Render_GivenStyledContentWithHScroll_ShouldPreserveTrailin
 
 // --- Benchmarks ---
 
-func BenchmarkContentPanel_RenderFlat(b *testing.B) {
+func BenchmarkContentPanel_RenderWindowFlat(b *testing.B) {
 	panel := ui.NewContentPanel()
 	panel.SelectedStyle = func(s string, w int) string {
 		return lipgloss.NewStyle().Width(w).Render(s)
 	}
 
-	rows := make([]string, 20)
+	rows := make([]string, 100)
 	for i := range rows {
 		rows[i] = fmt.Sprintf("[ ] + module.vpc.aws_route53_record.api_gateway_%d [medium]", i)
 	}
 
 	params := ui.RenderParams{
-		Rows:         rows,
-		Width:        120,
-		Height:       20,
-		TotalItems:   100,
-		Cursor:       5,
-		ScrollOffset: 0,
+		Rows:   rows,
+		Width:  120,
+		Height: 20,
+		Cursor: 5,
 	}
 
 	for b.Loop() {
-		panel.Render(params)
+		panel.RenderWindow(params)
 	}
 }
 
-func BenchmarkContentPanel_RenderWithStyledContent(b *testing.B) {
+func BenchmarkContentPanel_RenderWindowWithStyledContent(b *testing.B) {
 	panel := ui.NewContentPanel()
 	panel.SelectedStyle = func(s string, w int) string {
 		return lipgloss.NewStyle().Width(w).Render(s)
@@ -570,7 +583,7 @@ func BenchmarkContentPanel_RenderWithStyledContent(b *testing.B) {
 
 	green := lipgloss.NewStyle().Foreground(lipgloss.Color("#50fa7b"))
 	yellow := lipgloss.NewStyle().Foreground(lipgloss.Color("#f1fa8c"))
-	rows := make([]string, 20)
+	rows := make([]string, 100)
 	for i := range rows {
 		sym := green.Render("+")
 		risk := yellow.Render("[medium]")
@@ -578,16 +591,14 @@ func BenchmarkContentPanel_RenderWithStyledContent(b *testing.B) {
 	}
 
 	params := ui.RenderParams{
-		Rows:         rows,
-		Width:        120,
-		Height:       20,
-		TotalItems:   100,
-		Cursor:       10,
-		ScrollOffset: 0,
+		Rows:   rows,
+		Width:  120,
+		Height: 20,
+		Cursor: 10,
 	}
 
 	for b.Loop() {
-		panel.Render(params)
+		panel.RenderWindow(params)
 	}
 }
 
@@ -628,25 +639,6 @@ func threeLineRows(letters string) []string {
 		rows[i] = strings.Repeat(string(r), 30)
 	}
 	return rows
-}
-
-func TestContentPanel_Render_GivenWrapModeCursorBelowHeight_ShouldDrawCursorRowFirstLineSelected(t *testing.T) {
-	panel := wrapPanel()
-
-	output := panel.Render(ui.RenderParams{
-		Rows:       threeLineRows("abc"),
-		Width:      12,
-		Height:     5,
-		TotalItems: 3,
-		Cursor:     2,
-	})
-
-	if !strings.Contains(output, "[SEL]"+strings.Repeat("c", 10)) {
-		t.Fatalf("cursor row's first wrapped line should be drawn selected, got:\n%s", output)
-	}
-	if lines := strings.Split(output, "\n"); len(lines) != 5 {
-		t.Errorf("expected 5 lines, got %d:\n%s", len(lines), output)
-	}
 }
 
 func TestContentPanel_RenderWindow_GivenWrapModeCursorOnLastRow_ShouldPutThumbAtBottomOfTrack(t *testing.T) {
@@ -750,12 +742,12 @@ func TestContentPanel_RenderWindow_GivenWrapOff_ShouldWindowRowsAroundCursorBloc
 		name       string
 		params     ui.RenderParams
 		wantOffset int
-		wantFirst  string
+		want       string
 	}{
-		{"cursor below window scrolls down to block end", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 3, CursorEnd: 5}, 2, "r2"},
-		{"cursor above window scrolls up to cursor", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 1, ScrollOffset: 3}, 1, "[SEL]r1"},
-		{"block taller than height shows its start", ui.RenderParams{Rows: rows, Width: 10, Height: 2, Cursor: 1, CursorEnd: 5}, 1, "[SEL]r1"},
-		{"offset past end clamps to last page", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: -1, ScrollOffset: 9}, 3, "r3"},
+		{"cursor below window scrolls down to block end", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 3, CursorEnd: 5}, 2, "r2       ▲\n[SEL]r3  ┃\nr4       ▼"},
+		{"cursor above window scrolls up to cursor", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: 1, ScrollOffset: 3}, 1, "[SEL]r1  ▲\nr2       ┃\nr3       ▼"},
+		{"block taller than height shows its start", ui.RenderParams{Rows: rows, Width: 10, Height: 2, Cursor: 1, CursorEnd: 5}, 1, "[SEL]r1  ▲\nr2       ▼"},
+		{"offset past end clamps to last page", ui.RenderParams{Rows: rows, Width: 10, Height: 3, Cursor: -1, ScrollOffset: 9}, 3, "r3       ▲\nr4       ┃\nr5       ▼"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -764,19 +756,8 @@ func TestContentPanel_RenderWindow_GivenWrapOff_ShouldWindowRowsAroundCursorBloc
 
 			output, offset := panel.RenderWindow(tt.params)
 
-			want := panel.Render(ui.RenderParams{
-				Rows:         rows[offset:min(len(rows), offset+tt.params.Height)],
-				Width:        tt.params.Width,
-				Height:       tt.params.Height,
-				TotalItems:   len(rows),
-				Cursor:       tt.params.Cursor - offset,
-				ScrollOffset: offset,
-			})
-			if offset != tt.wantOffset || output != want {
-				t.Fatalf("RenderWindow = %q, %d, want %q, %d", output, offset, want, tt.wantOffset)
-			}
-			if first := strings.Split(output, "\n")[0]; !strings.HasPrefix(first, tt.wantFirst) {
-				t.Errorf("first line = %q, want prefix %q", first, tt.wantFirst)
+			if offset != tt.wantOffset || output != tt.want {
+				t.Fatalf("RenderWindow = %q, %d, want %q, %d", output, offset, tt.want, tt.wantOffset)
 			}
 		})
 	}
@@ -791,23 +772,6 @@ func TestContentPanel_RenderWindow_GivenZeroHeight_ShouldRenderNothing(t *testin
 		if output, offset := panel.RenderWindow(ui.RenderParams{Rows: []string{"a"}, Width: 10, Cursor: 0}); output != "" || offset != 0 {
 			t.Errorf("wrap=%v: RenderWindow = %q, %d, want empty, 0", wrap, output, offset)
 		}
-	}
-}
-
-func TestContentPanel_Render_GivenWrapModeScrolledPastLinesAbove_ShouldDrawGutter(t *testing.T) {
-	panel := wrapPanel()
-
-	output := panel.Render(ui.RenderParams{
-		Rows:       threeLineRows("abc"),
-		Width:      12,
-		Height:     5,
-		TotalItems: 3,
-		Cursor:     2,
-	})
-
-	lines := strings.Split(output, "\n")
-	if len(lines) != 5 || !strings.HasSuffix(lines[0], "▲") || !strings.HasSuffix(lines[4], "▼") {
-		t.Fatalf("wrapped lines hidden above the cursor should draw the gutter, got:\n%s", output)
 	}
 }
 
@@ -960,22 +924,21 @@ func TestContentPanel_Render_GivenWideCharacters_ShouldKeepEveryCharacterAsValid
 	}
 }
 
-func TestContentPanel_Render_GivenPanOffsetPastARow_ShouldShowTheRowsTailOrWholeText(t *testing.T) {
+func TestContentPanel_RenderWindow_GivenPanOffsetPastARow_ShouldShowTheRowsTailOrWholeText(t *testing.T) {
 	long := "0123456789abcdefghijklmnop" // 26 cells
 	tests := []struct {
-		name       string
-		pans       int
-		rows       []string
-		width      int
-		totalItems int
-		want       []string
+		name  string
+		pans  int
+		rows  []string
+		width int
+		want  []string
 	}{
-		{"ShortRowShowsWholeText", 1, []string{long, "short"}, 10, 2, []string{"abcdefghij", "short"}},
-		{"RowWiderThanViewShowsItsTail", 1, []string{long, "abcdefghijklm"}, 10, 2, []string{"abcdefghij", "defghijklm"}},
-		{"RowEndingAtTheOffsetShowsItsTail", 1, []string{long, "0123456789"}, 10, 2, []string{"abcdefghij", "0123456789"}},
-		{"PanBeyondEveryRowStopsAtEachRowsEnd", 5, []string{long, "abcdefghijklm"}, 10, 2, []string{"ghijklmnop", "defghijklm"}},
-		{"WideCharactersKeepTheirCells", 1, []string{long, "界界界界界界"}, 10, 2, []string{"abcdefghij", "界界界界界"}},
-		{"GutterNarrowsTheView", 1, []string{long, "abcdefghijklm"}, 10, 5, []string{"abcdefgh", "fghijklm"}},
+		{"ShortRowShowsWholeText", 1, []string{long, "short"}, 10, []string{"abcdefghij", "short"}},
+		{"RowWiderThanViewShowsItsTail", 1, []string{long, "abcdefghijklm"}, 10, []string{"abcdefghij", "defghijklm"}},
+		{"RowEndingAtTheOffsetShowsItsTail", 1, []string{long, "0123456789"}, 10, []string{"abcdefghij", "0123456789"}},
+		{"PanBeyondEveryRowStopsAtEachRowsEnd", 5, []string{long, "abcdefghijklm"}, 10, []string{"ghijklmnop", "defghijklm"}},
+		{"WideCharactersKeepTheirCells", 1, []string{long, "界界界界界界"}, 10, []string{"abcdefghij", "界界界界界"}},
+		{"GutterNarrowsTheView", 1, []string{long, "abcdefghijklm", "x", "x", "x"}, 10, []string{"abcdefgh", "fghijklm"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -984,12 +947,11 @@ func TestContentPanel_Render_GivenPanOffsetPastARow_ShouldShowTheRowsTailOrWhole
 				panel.HandleKey(tea.KeyMsg{Type: tea.KeyRight})
 			}
 
-			output := panel.Render(ui.RenderParams{
-				Rows:       tt.rows,
-				Width:      tt.width,
-				Height:     2,
-				TotalItems: tt.totalItems,
-				Cursor:     1,
+			output, _ := panel.RenderWindow(ui.RenderParams{
+				Rows:   tt.rows,
+				Width:  tt.width,
+				Height: 2,
+				Cursor: 1,
 			})
 
 			lines := strings.Split(output, "\n")

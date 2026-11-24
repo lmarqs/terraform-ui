@@ -893,7 +893,7 @@ func TestCursorNode_WhenTreeIsEmpty_ShouldReturnNil(t *testing.T) {
 	}
 }
 
-func TestRender_WhenTreeHasContent_ShouldIncludeConnectors(t *testing.T) {
+func TestRenderRows_WhenTreeHasContent_ShouldIncludeConnectors(t *testing.T) {
 	items := []Item{
 		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
 		testItem{"module.medprev_online_prd.module.medprev_api.aws_lambda_function.api"},
@@ -903,11 +903,8 @@ func TestRender_WhenTreeHasContent_ShouldIncludeConnectors(t *testing.T) {
 	tree := New(items)
 	tree.ExpandAll()
 
-	opts := RenderOpts{
-		Width:  80,
-		Height: 30,
-	}
-	output := tree.Render(opts)
+	opts := RenderOpts{}
+	output := renderText(tree, opts)
 
 	t.Run("ShouldContainBranchConnector", func(t *testing.T) {
 		if !strings.Contains(output, "├─") {
@@ -1000,21 +997,21 @@ func TestRenderRows_WhenExpanded_ShouldDrawEachRowsConnectorColumns(t *testing.T
 	}
 }
 
-func TestRender_WhenCollapsed_ShouldShowCollapsedIndicator(t *testing.T) {
+func TestRenderRows_WhenCollapsed_ShouldShowCollapsedIndicator(t *testing.T) {
 	items := []Item{
 		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
 		testItem{"aws_s3_bucket.main"},
 	}
 	tree := New(items)
-	opts := RenderOpts{Width: 80, Height: 30}
-	output := tree.Render(opts)
+	opts := RenderOpts{}
+	output := renderText(tree, opts)
 
 	if !strings.Contains(output, "▶") {
 		t.Fatal("expected output to contain collapsed indicator")
 	}
 }
 
-func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
+func TestRenderRows_WithPins_ShouldShowPinIndicator(t *testing.T) {
 	items := []Item{
 		testItem{"module.medprev_online_prd.module.postgresql_proxy.aws_db_proxy.this[0]"},
 		testItem{"aws_s3_bucket.main"},
@@ -1025,8 +1022,8 @@ func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
 	pinned := pinnedSet("aws_s3_bucket.main")
 
 	t.Run("ShouldShowDefaultPinIndicator", func(t *testing.T) {
-		opts := RenderOpts{Width: 80, Height: 30, Pinned: pinned}
-		output := tree.Render(opts)
+		opts := RenderOpts{Pinned: pinned}
+		output := renderText(tree, opts)
 		if !strings.Contains(output, "* ") {
 			t.Fatal("expected output to contain default pin indicator '* '")
 		}
@@ -1034,20 +1031,18 @@ func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
 
 	t.Run("ShouldShowCustomPinIndicator", func(t *testing.T) {
 		opts := RenderOpts{
-			Width:        80,
-			Height:       30,
 			PinIndicator: "[P] ",
 			Pinned:       pinned,
 		}
-		output := tree.Render(opts)
+		output := renderText(tree, opts)
 		if !strings.Contains(output, "[P] ") {
 			t.Fatal("expected output to contain custom pin indicator '[P] '")
 		}
 	})
 
 	t.Run("ShouldNotShowPinForUnpinnedItems", func(t *testing.T) {
-		opts := RenderOpts{Width: 80, Height: 30, Pinned: pinned}
-		output := tree.Render(opts)
+		opts := RenderOpts{Pinned: pinned}
+		output := renderText(tree, opts)
 		lines := strings.Split(output, "\n")
 		for _, line := range lines {
 			if strings.Contains(line, "aws_s3_bucket.logs") {
@@ -1060,60 +1055,7 @@ func TestRender_WithPins_ShouldShowPinIndicator(t *testing.T) {
 	})
 }
 
-func TestRender_WhenEmpty_ShouldReturnEmptyString(t *testing.T) {
-	tree := New([]Item{})
-	opts := RenderOpts{Width: 80, Height: 30}
-	output := tree.Render(opts)
-	if output != "" {
-		t.Fatalf("expected empty string for empty tree, got %q", output)
-	}
-}
-
-func TestRender_WithHeight_ShouldLimitVisibleRows(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-		testItem{"aws_s3_bucket.three"},
-		testItem{"aws_s3_bucket.four"},
-		testItem{"aws_s3_bucket.five"},
-	}
-	tree := New(items)
-
-	opts := RenderOpts{Width: 80, Height: 3}
-	output := tree.Render(opts)
-	lines := strings.Split(output, "\n")
-	if len(lines) > 3 {
-		t.Fatalf("expected at most 3 lines, got %d", len(lines))
-	}
-}
-
-func TestRender_WithSelectedStyle_ShouldHighlightCursor(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.main"},
-		testItem{"aws_s3_bucket.logs"},
-	}
-	tree := New(items)
-
-	called := false
-	opts := RenderOpts{
-		Width:  80,
-		Height: 30,
-		SelectedStyle: func(s string, width int) string {
-			called = true
-			return ">>>" + s + "<<<"
-		},
-	}
-	output := tree.Render(opts)
-
-	if !called {
-		t.Fatal("expected SelectedStyle to be called")
-	}
-	if !strings.Contains(output, ">>>") {
-		t.Fatal("expected output to contain selected style wrapper")
-	}
-}
-
-func TestRender_WithCustomRenderers(t *testing.T) {
+func TestRenderRows_WithCustomRenderers(t *testing.T) {
 	items := []Item{
 		testItem{"module.vpc.aws_subnet.main"},
 		testItem{"aws_s3_bucket.main"},
@@ -1123,13 +1065,11 @@ func TestRender_WithCustomRenderers(t *testing.T) {
 
 	t.Run("ShouldUseCustomRenderLeaf", func(t *testing.T) {
 		opts := RenderOpts{
-			Width:  80,
-			Height: 30,
 			RenderLeaf: func(node *Node, pinned bool) string {
 				return "[LEAF:" + node.Label + "]"
 			},
 		}
-		output := tree.Render(opts)
+		output := renderText(tree, opts)
 		if !strings.Contains(output, "[LEAF:") {
 			t.Fatal("expected output to use custom leaf renderer")
 		}
@@ -1137,36 +1077,15 @@ func TestRender_WithCustomRenderers(t *testing.T) {
 
 	t.Run("ShouldUseCustomRenderBranch", func(t *testing.T) {
 		opts := RenderOpts{
-			Width:  80,
-			Height: 30,
 			RenderBranch: func(node *Node, pinned bool) string {
 				return "[BRANCH:" + node.Label + "]"
 			},
 		}
-		output := tree.Render(opts)
+		output := renderText(tree, opts)
 		if !strings.Contains(output, "[BRANCH:") {
 			t.Fatal("expected output to use custom branch renderer")
 		}
 	})
-}
-
-func TestRender_WithScrolling_ShouldFollowCursor(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.a"},
-		testItem{"aws_s3_bucket.b"},
-		testItem{"aws_s3_bucket.c"},
-		testItem{"aws_s3_bucket.d"},
-		testItem{"aws_s3_bucket.e"},
-	}
-	tree := New(items)
-
-	tree.MoveToEnd()
-	opts := RenderOpts{Width: 80, Height: 3}
-	output := tree.Render(opts)
-
-	if !strings.Contains(output, "aws_s3_bucket.e") {
-		t.Fatal("expected last item to be visible when cursor is at end")
-	}
 }
 
 func TestNew_WithCustomSplitFunc_ShouldUseIt(t *testing.T) {
@@ -1396,208 +1315,7 @@ func TestBranchNodeCount_ShouldReflectDescendants(t *testing.T) {
 	}
 }
 
-func TestViewport_WhenCursorMovesWithinViewport_ShouldNotScroll(t *testing.T) {
-	items := make([]Item, 20)
-	for i := range items {
-		items[i] = testItem{addr: fmt.Sprintf("aws_s3_bucket.item_%02d", i)}
-	}
-	tr := New(items)
-	viewportHeight := 10
-
-	t.Run("ShouldNotScrollWhenMovingDownWithinViewport", func(t *testing.T) {
-		tr.MoveToStart()
-		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		for i := 0; i < viewportHeight-1; i++ {
-			tr.MoveDown()
-		}
-		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		if !strings.Contains(output, "item_00") {
-			t.Fatal("expected first item to remain visible while cursor is within viewport")
-		}
-		if !strings.Contains(output, "item_09") {
-			t.Fatal("expected item at cursor position to be visible")
-		}
-	})
-
-	t.Run("ShouldScrollWhenCursorExceedsViewportBottom", func(t *testing.T) {
-		tr.MoveToStart()
-		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		for i := 0; i < viewportHeight; i++ {
-			tr.MoveDown()
-		}
-		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		if strings.Contains(output, "item_00") {
-			t.Fatal("expected first item to be scrolled out of view")
-		}
-		if !strings.Contains(output, "item_10") {
-			t.Fatal("expected cursor item to be visible after scroll")
-		}
-	})
-
-	t.Run("ShouldNotScrollWhenMovingUpWithinViewport", func(t *testing.T) {
-		tr.MoveToEnd()
-		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		for i := 0; i < viewportHeight-1; i++ {
-			tr.MoveUp()
-		}
-		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		if !strings.Contains(output, "item_19") {
-			t.Fatal("expected last item to remain visible while cursor is within viewport")
-		}
-	})
-
-	t.Run("ShouldScrollWhenCursorExceedsViewportTop", func(t *testing.T) {
-		tr.MoveToEnd()
-		tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		for i := 0; i < viewportHeight; i++ {
-			tr.MoveUp()
-		}
-		output := tr.Render(RenderOpts{Width: 80, Height: viewportHeight})
-		if !strings.Contains(output, "item_09") {
-			t.Fatal("expected cursor item to be visible after scrolling up")
-		}
-		if strings.Contains(output, "item_19") {
-			t.Fatal("expected last item to be scrolled out of view")
-		}
-	})
-}
-
-func TestViewport_WhenAllItemsFitInView_ShouldShowAll(t *testing.T) {
-	items := make([]Item, 5)
-	for i := range items {
-		items[i] = testItem{addr: fmt.Sprintf("aws_s3_bucket.item_%02d", i)}
-	}
-	tr := New(items)
-
-	output := tr.Render(RenderOpts{Width: 80, Height: 10})
-	lines := strings.Split(output, "\n")
-	if len(lines) != 5 {
-		t.Fatalf("expected 5 lines when all items fit, got %d", len(lines))
-	}
-	for i := 0; i < 5; i++ {
-		expected := fmt.Sprintf("item_%02d", i)
-		if !strings.Contains(output, expected) {
-			t.Fatalf("expected %q to be visible", expected)
-		}
-	}
-}
-
-func TestViewOffset_WhenCursorAtStart_ShouldReturnZero(t *testing.T) {
-	items := make([]Item, 20)
-	for i := range items {
-		items[i] = testItem{addr: fmt.Sprintf("item_%02d", i)}
-	}
-	tr := New(items)
-	tr.MoveToStart()
-
-	offset := tr.ViewOffset(10)
-	if offset != 0 {
-		t.Fatalf("expected offset 0 when cursor is at start, got %d", offset)
-	}
-}
-
-func TestViewOffset_WhenCursorAtEnd_ShouldReturnMaxOffset(t *testing.T) {
-	items := make([]Item, 20)
-	for i := range items {
-		items[i] = testItem{addr: fmt.Sprintf("item_%02d", i)}
-	}
-	tr := New(items)
-	tr.MoveToEnd()
-
-	offset := tr.ViewOffset(10)
-	expected := 10 // 20 items - 10 viewport height
-	if offset != expected {
-		t.Fatalf("expected offset %d when cursor is at end, got %d", expected, offset)
-	}
-}
-
-func TestViewOffset_WhenMovingBackFromEnd_ShouldNotScrollUntilTopEdge(t *testing.T) {
-	items := make([]Item, 20)
-	for i := range items {
-		items[i] = testItem{addr: fmt.Sprintf("item_%02d", i)}
-	}
-	tr := New(items)
-	tr.MoveToEnd()
-	tr.ViewOffset(10) // establish viewport at bottom
-
-	// Move up 5 positions (still within the viewport)
-	for i := 0; i < 5; i++ {
-		tr.MoveUp()
-	}
-	offset := tr.ViewOffset(10)
-	if offset != 10 {
-		t.Fatalf("expected offset to remain at 10 while cursor is within viewport, got %d", offset)
-	}
-
-	// Move up 5 more (now cursor is at pos 9, hits top edge of viewport at offset 10)
-	for i := 0; i < 5; i++ {
-		tr.MoveUp()
-	}
-	offset = tr.ViewOffset(10)
-	if offset != 9 {
-		t.Fatalf("expected offset to decrease to 9 when cursor hits top edge, got %d", offset)
-	}
-}
-
-func TestRender_WhenHeightIsZero_ShouldShowAllItems(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-		testItem{"aws_s3_bucket.three"},
-	}
-	tr := New(items)
-
-	opts := RenderOpts{Width: 80, Height: 0}
-	output := tr.Render(opts)
-	lines := strings.Split(output, "\n")
-	if len(lines) != 3 {
-		t.Fatalf("expected 3 lines when height is 0 (show all), got %d", len(lines))
-	}
-}
-
-func TestRender_WhenHeightIsNegative_ShouldShowAllItems(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-	}
-	tr := New(items)
-
-	opts := RenderOpts{Width: 80, Height: -1}
-	output := tr.Render(opts)
-	lines := strings.Split(output, "\n")
-	if len(lines) != 2 {
-		t.Fatalf("expected 2 lines when height is negative (show all), got %d", len(lines))
-	}
-}
-
-func TestRender_WithTruncateRow_ShouldTruncateNonSelectedRows(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.very_long_name_that_should_be_truncated"},
-		testItem{"aws_s3_bucket.second"},
-	}
-	tr := New(items)
-
-	opts := RenderOpts{
-		Width:  20,
-		Height: 10,
-		TruncateRow: func(s string, width int) string {
-			if len(s) > width {
-				return s[:width-3] + "..."
-			}
-			return s
-		},
-	}
-	output := tr.Render(opts)
-	lines := strings.Split(output, "\n")
-	for _, line := range lines {
-		if strings.Contains(line, "very_long_name_that_should_be_truncated") {
-			t.Fatal("expected long row to be truncated")
-		}
-	}
-	_ = output
-}
-
-func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T) {
+func TestRenderRows_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T) {
 	items := []Item{
 		testItem{"module.vpc.aws_subnet.a"},
 		testItem{"module.vpc.aws_subnet.b"},
@@ -1613,12 +1331,10 @@ func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T
 	}
 
 	opts := RenderOpts{
-		Width:         80,
-		Height:        30,
 		PinIndicators: indicators,
 		Pinned:        pinnedSet("module.vpc.aws_subnet.a"),
 	}
-	output := tr.Render(opts)
+	output := renderText(tr, opts)
 
 	t.Run("ShouldShowFullIndicatorForPinnedLeaf", func(t *testing.T) {
 		lines := strings.Split(output, "\n")
@@ -1660,12 +1376,10 @@ func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T
 		tr3 := New(items)
 		tr3.ExpandAll()
 		opts3 := RenderOpts{
-			Width:         80,
-			Height:        30,
 			PinIndicators: indicators,
 			Pinned:        pinnedSet("module.vpc.aws_subnet.a", "module.vpc.aws_subnet.b"),
 		}
-		output3 := tr3.Render(opts3)
+		output3 := renderText(tr3, opts3)
 		lines := strings.Split(output3, "\n")
 		for _, line := range lines {
 			if strings.Contains(line, "module.vpc") && strings.Contains(line, "(") {
@@ -1676,64 +1390,6 @@ func TestRender_WithPinIndicators_ShouldShowStateSpecificIndicators(t *testing.T
 			}
 		}
 	})
-}
-
-func TestViewOffset_WhenHeightIsZero_ShouldReturnZero(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-	}
-	tr := New(items)
-
-	offset := tr.ViewOffset(0)
-	if offset != 0 {
-		t.Fatalf("expected ViewOffset to return 0 for height 0, got %d", offset)
-	}
-}
-
-func TestViewOffset_WhenHeightIsNegative_ShouldReturnZero(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-	}
-	tr := New(items)
-
-	offset := tr.ViewOffset(-5)
-	if offset != 0 {
-		t.Fatalf("expected ViewOffset to return 0 for negative height, got %d", offset)
-	}
-}
-
-func TestViewOffset_WhenHeightExceedsFlattenedCount_ShouldClampToZero(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-	}
-	tr := New(items)
-	tr.MoveToEnd()
-
-	offset := tr.ViewOffset(100)
-	if offset != 0 {
-		t.Fatalf("expected ViewOffset to clamp to 0 when height exceeds items, got %d", offset)
-	}
-}
-
-func TestViewOffset_WhenCursorAboveViewport_ShouldScrollUp(t *testing.T) {
-	items := make([]Item, 20)
-	for i := range items {
-		items[i] = testItem{addr: "item_" + string(rune('a'+i))}
-	}
-	tr := New(items)
-
-	// Move to end first to set viewport offset high
-	tr.MoveToEnd()
-	tr.ViewOffset(10)
-
-	// Now move to start without calling ViewOffset in between
-	tr.MoveToStart()
-	offset := tr.ViewOffset(10)
-	if offset != 0 {
-		t.Fatalf("expected offset 0 when cursor is at start, got %d", offset)
-	}
 }
 
 func TestLeafLabel_WhenSplitReturnsEmpty_ShouldReturnOriginalAddress(t *testing.T) {
@@ -1806,7 +1462,7 @@ func TestPinStateOf_WhenBranchHasOnlySubBranches_ShouldReadThroughThem(t *testin
 	}
 }
 
-func TestRender_ConnectorPrefix_WhenSiblingBranchFollowsNestedBranch(t *testing.T) {
+func TestRenderRows_ConnectorPrefix_WhenSiblingBranchFollowsNestedBranch(t *testing.T) {
 	// A nested branch followed by a sibling top-level branch: the connector prefix built
 	// while flattening must stop at each branch's own ancestors.
 	items := []Item{
@@ -1818,8 +1474,8 @@ func TestRender_ConnectorPrefix_WhenSiblingBranchFollowsNestedBranch(t *testing.
 
 	// After expanding all, we should have a deeply nested structure.
 	// The rendering should still produce valid connectors.
-	opts := RenderOpts{Width: 80, Height: 30}
-	output := tr.Render(opts)
+	opts := RenderOpts{}
+	output := renderText(tr, opts)
 	if output == "" {
 		t.Fatal("expected non-empty render output")
 	}
@@ -1853,52 +1509,7 @@ func TestMoveToEnd_WhenTreeIsEmpty_ShouldNotPanic(t *testing.T) {
 	}
 }
 
-func TestAdjustViewport_WhenViewOffsetExceedsMax_ShouldClamp(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-		testItem{"aws_s3_bucket.three"},
-	}
-	tr := New(items)
-
-	// Manually set viewOffset beyond max to test clamping
-	tr.viewOffset = 100
-	tr.adjustViewport(5)
-	if tr.viewOffset != 0 {
-		t.Fatalf("expected viewOffset to be clamped to 0, got %d", tr.viewOffset)
-	}
-}
-
-func TestAdjustViewport_WhenViewOffsetIsNegative_ShouldClampToZero(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-	}
-	tr := New(items)
-
-	tr.viewOffset = -5
-	tr.adjustViewport(10)
-	if tr.viewOffset != 0 {
-		t.Fatalf("expected viewOffset to be clamped to 0, got %d", tr.viewOffset)
-	}
-}
-
-func TestRender_WhenEndIdxExceedsFlattenedLength_ShouldClamp(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-	}
-	tr := New(items)
-
-	// Height larger than item count; endIdx would exceed flattened length
-	opts := RenderOpts{Width: 80, Height: 100}
-	output := tr.Render(opts)
-	lines := strings.Split(output, "\n")
-	if len(lines) != 2 {
-		t.Fatalf("expected 2 lines, got %d", len(lines))
-	}
-}
-
-func TestRender_ConnectorPrefix_WhenNodeHasDeepAncestry(t *testing.T) {
+func TestRenderRows_ConnectorPrefix_WhenNodeHasDeepAncestry(t *testing.T) {
 	// Create a structure: module.a > module.b > module.c > leaf
 	// plus module.a > module.d > leaf (to ensure continuing ancestors)
 	items := []Item{
@@ -1908,8 +1519,8 @@ func TestRender_ConnectorPrefix_WhenNodeHasDeepAncestry(t *testing.T) {
 	tr := New(items)
 	tr.ExpandAll()
 
-	opts := RenderOpts{Width: 80, Height: 30}
-	output := tr.Render(opts)
+	opts := RenderOpts{}
+	output := renderText(tr, opts)
 
 	// The deep item should have proper vertical line connectors for continuing ancestors
 	if !strings.Contains(output, "│") {
@@ -1952,47 +1563,7 @@ func TestCollapseFocused_WhenOnCollapsedBranch_ShouldCollapseParent(t *testing.T
 	}
 }
 
-func TestViewOffset_WhenViewOffsetManuallySetNegative_ShouldClamp(t *testing.T) {
-	items := make([]Item, 5)
-	for i := range items {
-		items[i] = testItem{addr: "item_" + string(rune('a'+i))}
-	}
-	tr := New(items)
-
-	// Manually corrupt viewOffset to negative
-	tr.viewOffset = -10
-	offset := tr.ViewOffset(3)
-	if offset < 0 {
-		t.Fatalf("expected ViewOffset to never return negative, got %d", offset)
-	}
-}
-
-func TestViewOffset_WhenCursorBelowViewport_ShouldScrollDown(t *testing.T) {
-	items := make([]Item, 20)
-	for i := range items {
-		items[i] = testItem{addr: "item_" + string(rune('a'+i))}
-	}
-	tr := New(items)
-
-	// Set cursor to item beyond the viewport height without calling ViewOffset before
-	tr.MoveToStart()
-	for i := 0; i < 15; i++ {
-		tr.MoveDown()
-	}
-
-	// viewOffset is still 0, cursor is at 15, height is 5
-	// This should trigger: cursor >= viewOffset+height
-	offset := tr.ViewOffset(5)
-	if offset == 0 {
-		t.Fatal("expected ViewOffset to scroll down when cursor exceeds viewport")
-	}
-	// cursor(15) - height(5) + 1 = 11
-	if offset != 11 {
-		t.Fatalf("expected offset 11, got %d", offset)
-	}
-}
-
-func TestRender_ConnectorPrefix_WhenDeepNodeFollowsShallowBranch(t *testing.T) {
+func TestRenderRows_ConnectorPrefix_WhenDeepNodeFollowsShallowBranch(t *testing.T) {
 	// A deeply nested node preceded in the flattened list by a shallow branch from
 	// another top-level module: its connector prefix must not inherit the earlier
 	// branch's columns.
@@ -2016,8 +1587,8 @@ func TestRender_ConnectorPrefix_WhenDeepNodeFollowsShallowBranch(t *testing.T) {
 	tr2 := New(items2)
 	tr2.ExpandAll()
 
-	opts := RenderOpts{Width: 80, Height: 30}
-	output := tr2.Render(opts)
+	opts := RenderOpts{}
+	output := renderText(tr2, opts)
 	if output == "" {
 		t.Fatal("expected non-empty output")
 	}
@@ -2028,80 +1599,15 @@ func TestRender_ConnectorPrefix_WhenDeepNodeFollowsShallowBranch(t *testing.T) {
 	}
 }
 
-func TestAdjustViewport_WhenCursorBelowViewport_ShouldScrollDown(t *testing.T) {
-	items := make([]Item, 10)
-	for i := range items {
-		items[i] = testItem{addr: "item_" + string(rune('a'+i))}
-	}
-	tr := New(items)
-
-	// Move cursor to position 8, keep viewOffset at 0, height 5
-	tr.MoveToStart()
-	for i := 0; i < 8; i++ {
-		tr.MoveDown()
-	}
-	// viewOffset is still 0, cursor at 8, height 5
-	// cursor(8) >= viewOffset(0) + height(5) should trigger scroll
-	tr.adjustViewport(5)
-	// Expected: viewOffset = cursor - height + 1 = 8 - 5 + 1 = 4
-	if tr.viewOffset != 4 {
-		t.Fatalf("expected viewOffset 4, got %d", tr.viewOffset)
-	}
-}
-
-func TestAdjustViewport_WhenViewOffsetExceedsMaxAfterTreeShrinks_ShouldClampToMax(t *testing.T) {
-	items := make([]Item, 10)
-	for i := range items {
-		items[i] = testItem{addr: "item_" + string(rune('a'+i))}
-	}
-	tr := New(items)
-
-	// Simulate: viewOffset was high (e.g., from scrolling), then tree shrinks
-	// but cursor is still within bounds.
-	// cursor=4, viewOffset=3, height=5 → cursor NOT below viewport (4 < 3+5=8)
-	// But if flattened shrinks to 5 items: maxOffset = 5-5 = 0
-	// viewOffset(3) > maxOffset(0) → TRUE → clamp!
-	tr.cursor = 4
-	tr.viewOffset = 3
-	// Shrink flattened to 5 items
-	tr.flattened = tr.flattened[:5]
-
-	tr.adjustViewport(5)
-	if tr.viewOffset != 0 {
-		t.Fatalf("expected viewOffset clamped to 0 (maxOffset), got %d", tr.viewOffset)
-	}
-}
-
-func TestViewOffset_WhenViewOffsetExceedsMaxAfterShrink_ShouldClamp(t *testing.T) {
-	items := make([]Item, 10)
-	for i := range items {
-		items[i] = testItem{addr: "item_" + string(rune('a'+i))}
-	}
-	tr := New(items)
-
-	// Set up: cursor at 4, viewOffset at 3
-	// height = 5, so cursor(4) < viewOffset(3)+height(5)=8 → no scroll down
-	// cursor(4) >= viewOffset(3) → no scroll up
-	// Then shrink: maxOffset = 5 - 5 = 0; viewOffset(3) > 0 → clamp
-	tr.cursor = 4
-	tr.viewOffset = 3
-	tr.flattened = tr.flattened[:5]
-
-	offset := tr.ViewOffset(5)
-	if offset != 0 {
-		t.Fatalf("expected ViewOffset to clamp to 0 after shrink, got %d", offset)
-	}
-}
-
 func TestRenderRows_WhenTreeIsEmpty_ShouldReturnNil(t *testing.T) {
 	tr := New([]Item{})
-	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 5})
+	rows := tr.RenderRows(RenderOpts{})
 	if rows != nil {
 		t.Fatalf("expected nil for empty tree, got %v", rows)
 	}
 }
 
-func TestRenderRows_WhenHeightIsZero_ShouldReturnAllRows(t *testing.T) {
+func TestRenderRows_ShouldReturnAllRows(t *testing.T) {
 	items := []Item{
 		testItem{"aws_s3_bucket.one"},
 		testItem{"aws_s3_bucket.two"},
@@ -2110,9 +1616,9 @@ func TestRenderRows_WhenHeightIsZero_ShouldReturnAllRows(t *testing.T) {
 	}
 	tr := New(items)
 
-	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 0})
+	rows := tr.RenderRows(RenderOpts{})
 	if len(rows) != 4 {
-		t.Fatalf("expected 4 rows when height is 0 (show all), got %d", len(rows))
+		t.Fatalf("expected all 4 rows, got %d", len(rows))
 	}
 	for i, row := range rows {
 		expected := fmt.Sprintf("aws_s3_bucket.%s", []string{"four", "one", "three", "two"}[i])
@@ -2122,94 +1628,9 @@ func TestRenderRows_WhenHeightIsZero_ShouldReturnAllRows(t *testing.T) {
 	}
 }
 
-func TestRenderRows_WhenHeightIsLimited_ShouldReturnWindowedSlice(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.a"},
-		testItem{"aws_s3_bucket.b"},
-		testItem{"aws_s3_bucket.c"},
-		testItem{"aws_s3_bucket.d"},
-		testItem{"aws_s3_bucket.e"},
-	}
-	tr := New(items)
-
-	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 3})
-	if len(rows) != 3 {
-		t.Fatalf("expected 3 rows with limited height, got %d", len(rows))
-	}
-	if !strings.Contains(rows[0], "aws_s3_bucket.a") {
-		t.Fatalf("expected first row to contain aws_s3_bucket.a, got %q", rows[0])
-	}
-	if !strings.Contains(rows[2], "aws_s3_bucket.c") {
-		t.Fatalf("expected third row to contain aws_s3_bucket.c, got %q", rows[2])
-	}
-}
-
-func TestRenderRows_WhenCursorAtEnd_ShouldReturnScrolledWindow(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.a"},
-		testItem{"aws_s3_bucket.b"},
-		testItem{"aws_s3_bucket.c"},
-		testItem{"aws_s3_bucket.d"},
-		testItem{"aws_s3_bucket.e"},
-	}
-	tr := New(items)
-	tr.MoveToEnd()
-
-	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 3})
-	if len(rows) != 3 {
-		t.Fatalf("expected 3 rows, got %d", len(rows))
-	}
-	if !strings.Contains(rows[2], "aws_s3_bucket.e") {
-		t.Fatalf("expected last row to contain aws_s3_bucket.e, got %q", rows[2])
-	}
-	if strings.Contains(rows[0], "aws_s3_bucket.a") {
-		t.Fatal("expected first item to be scrolled out of view")
-	}
-}
-
-func TestRenderRows_ShouldNotApplyTruncationOrSelectedStyle(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.very_long_name_that_exceeds_width"},
-	}
-	tr := New(items)
-
-	truncateCalled := false
-	selectedCalled := false
-	rows := tr.RenderRows(RenderOpts{
-		Width:  10,
-		Height: 5,
-		TruncateRow: func(s string, width int) string {
-			truncateCalled = true
-			return s[:5]
-		},
-		SelectedStyle: func(s string, width int) string {
-			selectedCalled = true
-			return ">>>" + s
-		},
-	})
-
-	if truncateCalled {
-		t.Fatal("expected TruncateRow to NOT be called by RenderRows")
-	}
-	if selectedCalled {
-		t.Fatal("expected SelectedStyle to NOT be called by RenderRows")
-	}
-	if !strings.Contains(rows[0], "very_long_name_that_exceeds_width") {
-		t.Fatalf("expected full untruncated content, got %q", rows[0])
-	}
-}
-
-func TestRenderRows_WhenHeightExceedsItems_ShouldReturnAllRows(t *testing.T) {
-	items := []Item{
-		testItem{"aws_s3_bucket.one"},
-		testItem{"aws_s3_bucket.two"},
-	}
-	tr := New(items)
-
-	rows := tr.RenderRows(RenderOpts{Width: 80, Height: 100})
-	if len(rows) != 2 {
-		t.Fatalf("expected 2 rows when height exceeds item count, got %d", len(rows))
-	}
+// renderText joins the rows into one string for assertions on the whole output.
+func renderText(tr *Tree, opts RenderOpts) string {
+	return strings.Join(tr.RenderRows(opts), "\n")
 }
 
 // --- Benchmarks ---

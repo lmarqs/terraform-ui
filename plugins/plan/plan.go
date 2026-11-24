@@ -157,7 +157,7 @@ func (e *Plugin) Count() (int, int) {
 
 // Configure applies plugin-specific options from config.
 func (e *Plugin) Configure(cfg map[string]interface{}) error {
-	e.cfgTargets = sdk.ConfigStrings(cfg, "targets", nil)
+	e.cfgTargets = sdk.PlanTargets(cfg)
 	return nil
 }
 
@@ -960,7 +960,6 @@ func (e *Plugin) renderDetail(width, height int) string {
 		Width:        width,
 		Height:       maxLines,
 		TotalItems:   len(lines),
-		Cursor:       -1,
 		ScrollOffset: e.detailScroll,
 	})
 

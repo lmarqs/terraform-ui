@@ -115,7 +115,6 @@ func (f *InspectFrame) View(width, height int) string {
 		Width:        width,
 		Height:       height,
 		TotalItems:   len(f.lines),
-		Cursor:       -1,
 		ScrollOffset: f.scrollY,
 	})
 }
