@@ -1,3 +1,12 @@
+## [1.35.10](https://github.com/lmarqs/terraform-ui/compare/v1.35.9...v1.35.10) (2026-11-24)
+
+
+### Bug Fixes
+
+* **context:** leave Context with one q after the chdir or workspace picker ([2290c80](https://github.com/lmarqs/terraform-ui/commit/2290c8083a5f12d49244ca202e17f5f68589dd60)), closes [#188](https://github.com/lmarqs/terraform-ui/issues/188)
+* ignore a disabled Plan's targets in risk assessment and auto-approve apply ([63c5d84](https://github.com/lmarqs/terraform-ui/commit/63c5d84ef8c644a2c074be85bd3fe25b28983f6d)), closes [#190](https://github.com/lmarqs/terraform-ui/issues/190)
+* **plan:** drop a -plan file's cached plan when ^r fails to re-read it ([973ae0c](https://github.com/lmarqs/terraform-ui/commit/973ae0c1caa7b848d2054eefb02d27acaf2bac88)), closes [#189](https://github.com/lmarqs/terraform-ui/issues/189)
+
 ## [1.35.9](https://github.com/lmarqs/terraform-ui/compare/v1.35.8...v1.35.9) (2026-11-22)
 
 
